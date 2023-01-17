@@ -1,7 +1,7 @@
 FROM debian:bullseye as builder
 
-ARG NODE_VERSION=latest
-ARG YARN_VERSION=latest
+ARG NODE_VERSION=19.4.0
+ARG YARN_VERSION=1.22.19
 
 RUN apt-get update; apt install -y curl python-is-python3 pkg-config build-essential
 RUN curl https://get.volta.sh | bash
@@ -22,7 +22,7 @@ ENV NODE_ENV production
 
 COPY . .
 
-RUN yarn install && yarn run build
+RUN yarn install --production=false && yarn run build
 FROM debian:bullseye
 
 LABEL fly_launch_runtime="nodejs"

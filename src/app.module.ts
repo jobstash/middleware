@@ -1,10 +1,33 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import * as Sentry from '@sentry/node';
+import "@sentry/tracing";
 
 @Module({
-  imports: [],
+  imports: [ConfigModule.forRoot({ isGlobal: true })],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements OnModuleInit {
+
+  constructor(private readonly configService: ConfigService) { }
+
+  onModuleInit() {
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      tracesSampleRate: parseInt(process.env.SENTRY_TRACES_SAMPLE_RATE),
+      environment: process.env.NODE_ENV,
+      release: "middleware@" + process.env.npm_package_version,
+      integrations: [
+        new Sentry.Integrations.Console(),
+        new Sentry.Integrations.Modules(),
+        new Sentry.Integrations.RequestData(),
+        new Sentry.Integrations.Http(),
+        new Sentry.Integrations.ContextLines(),
+        new Sentry.Integrations.LocalVariables(),
+      ],
+    });
+  }
+}
