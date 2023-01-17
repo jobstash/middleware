@@ -6,6 +6,6 @@ import "@sentry/tracing";
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use(Sentry.Handlers.requestHandler());
-  await app.listen(3000);
+  await app.listen(process.env.APP_PORT);
 }
 bootstrap();
