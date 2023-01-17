@@ -1,7 +1,7 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import * as Sentry from '@sentry/node';
 import "@sentry/tracing";
 
@@ -12,7 +12,7 @@ import "@sentry/tracing";
 })
 export class AppModule implements OnModuleInit {
 
-  constructor(private readonly configService: ConfigService) { }
+  constructor() { }
 
   onModuleInit() {
     Sentry.init({
