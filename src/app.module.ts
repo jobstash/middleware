@@ -3,7 +3,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import * as Sentry from '@sentry/node';
-import "@sentry/tracing";
+import * as Tracing from "@sentry/tracing";
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true })],
@@ -24,9 +24,10 @@ export class AppModule implements OnModuleInit {
         new Sentry.Integrations.Console(),
         new Sentry.Integrations.Modules(),
         new Sentry.Integrations.RequestData(),
-        new Sentry.Integrations.Http(),
+        new Sentry.Integrations.Http({ tracing: true, }),
         new Sentry.Integrations.ContextLines(),
         new Sentry.Integrations.LocalVariables(),
+        new Tracing.Integrations.Apollo(),
       ],
     });
   }
