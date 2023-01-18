@@ -1,0 +1,17 @@
+name: Sentry Release
+on:
+  push:
+    branches: [prod]
+  pull_request:
+    branches: [main, dev]
+jobs:
+  sentry-release:
+    name: Publish release to Sentry
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sentry Release
+        uses: getsentry/action-release@v1.2.1
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
