@@ -11,7 +11,7 @@ name: Lint Code Base
 #############################
 on:
   push:
-    branches: ['dev', 'feature/rip-**', 'fix/rip-**']
+    branches: ["dev", "feature/rip-**", "fix/rip-**"]
     paths:
       - "src/**.js"
       - "src/**.ts"
@@ -51,8 +51,8 @@ jobs:
           VALIDATE_ALL_CODEBASE: false
           DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          JAVASCRIPT_ES_CONFIG_FILE: .eslintrc.json
-          TYPESCRIPT_ES_CONFIG_FILE: .eslintrc.json
+          JAVASCRIPT_ES_CONFIG_FILE: .eslintrc.js
+          TYPESCRIPT_ES_CONFIG_FILE: .eslintrc.js
           TYPESCRIPT_DEFAULT_STYLE: prettier
           JAVASCRIPT_DEFAULT_STYLE: prettier
           VALIDATE_JAVASCRIPT_ES: true
