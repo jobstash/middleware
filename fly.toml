@@ -1,6 +1,6 @@
-# fly.toml file generated for twilight-paper-9824 on 2023-01-17T12:41:24+01:00
+# fly.toml file generated for middleware on 2023-01-18T08:59:03+01:00
 
-app = "twilight-paper-9824"
+app = "middleware"
 kill_signal = "SIGINT"
 kill_timeout = 5
 processes = []
