@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { ExceptionsHandler } from '@nestjs/core/exceptions/exceptions-handler';
 import * as Sentry from '@sentry/node';
 
 @Injectable()
@@ -10,19 +9,19 @@ export class AppService {
 
   testSentry(): string {
     const transaction = Sentry.startTransaction({
-      op: "test",
-      name: "My First Test Transaction",
+      op: 'test',
+      name: 'My First Test Transaction',
     });
 
     setTimeout(() => {
       try {
-        throw new Error("Sentry Test");
+        throw new Error('Sentry Test');
       } catch (e) {
         Sentry.captureException(e);
       } finally {
         transaction.finish();
       }
     }, 99);
-    return "Test Complete!"
+    return 'Test Complete!';
   }
 }
