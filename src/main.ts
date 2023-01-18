@@ -1,9 +1,9 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import * as Sentry from '@sentry/node';
-import '@sentry/tracing';
+import { NestFactory } from "@nestjs/core";
+import { AppModule } from "./app.module";
+import * as Sentry from "@sentry/node";
+import "@sentry/tracing";
 
-async function bootstrap() {
+async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   app.use(Sentry.Handlers.requestHandler());
   app.use(Sentry.Handlers.tracingHandler());

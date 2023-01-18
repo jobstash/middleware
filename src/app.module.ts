@@ -1,9 +1,9 @@
-import { Module, OnModuleInit } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { ConfigModule } from '@nestjs/config';
-import * as Sentry from '@sentry/node';
-import * as Tracing from '@sentry/tracing';
+import { Module, OnModuleInit } from "@nestjs/common";
+import { AppController } from "./app.controller";
+import { AppService } from "./app.service";
+import { ConfigModule } from "@nestjs/config";
+import * as Sentry from "@sentry/node";
+import * as Tracing from "@sentry/tracing";
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true })],
@@ -11,14 +11,14 @@ import * as Tracing from '@sentry/tracing';
   providers: [AppService],
 })
 export class AppModule implements OnModuleInit {
-  onModuleInit() {
+  onModuleInit(): void {
     Sentry.init({
       dsn: process.env.SENTRY_DSN,
       tracesSampleRate: parseInt(
-        process.env.SENTRY_TRACES_SAMPLE_RATE ?? '0.2',
+        process.env.SENTRY_TRACES_SAMPLE_RATE ?? "0.2",
       ),
       environment: process.env.NODE_ENV,
-      release: 'middleware@' + process.env.npm_package_version,
+      release: "middleware@" + process.env.npm_package_version,
       integrations: [
         new Sentry.Integrations.Console(),
         new Sentry.Integrations.Modules(),
