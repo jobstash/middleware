@@ -5,6 +5,7 @@ import { ConfigModule } from '@nestjs/config';
 import * as Sentry from '@sentry/node';
 import * as Tracing from "@sentry/tracing";
 
+
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true })],
   controllers: [AppController],
