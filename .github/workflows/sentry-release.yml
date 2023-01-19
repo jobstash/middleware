@@ -7,6 +7,10 @@ jobs:
     name: Publish release to Sentry
     runs-on: ubuntu-latest
     steps:
+      - uses: rickstaa/action-get-semver@v1
+        id: get_semver
+        with:
+          verbose: true
       - name: Sentry Release
         uses: getsentry/action-release@v1.2.1
         env:
@@ -14,5 +18,6 @@ jobs:
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
         with:
-          environment: github.ref_name
+          environment: ${{ github.ref_name }}
           sourcemaps: "./dist"
+          version: ${{ steps.get_semver.outputs.current_version  }}
