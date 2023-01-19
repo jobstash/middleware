@@ -1,10 +1,10 @@
-name: Release
+name: Update Semver
 on:
   push:
     branches: [prod, main, dev]
 jobs:
   release:
-    name: Release
+    name: Update Semver and Release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
