@@ -36,6 +36,10 @@ jobs:
           # list of changed files within `super-linter`
           fetch-depth: 0
 
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18.13.0
+          cache: "yarn"
       ##################################################
       # Build the code base to check for syntax errors #
       ##################################################
