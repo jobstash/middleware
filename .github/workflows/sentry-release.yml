@@ -1,9 +1,7 @@
 name: Sentry Release
 on:
   push:
-    branches: [prod]
-  pull_request:
-    branches: [main, dev]
+    branches: [prod, main, dev]
 jobs:
   sentry-release:
     name: Publish release to Sentry
@@ -15,3 +13,5 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        with:
+          environment: github.ref_name
