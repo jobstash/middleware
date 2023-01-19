@@ -1,14 +1,8 @@
----
-#################################
-#################################
-## Super Linter GitHub Actions ##
-#################################
-#################################
-name: Lint Code Base
+name: Validate Code Base
 
-#############################
-# Start the job on all push #
-#############################
+################################
+# Start the job on some events #
+################################
 on:
   push:
     branches: ["dev", "feature/rip-**", "fix/rip-**"]
@@ -24,7 +18,7 @@ on:
 jobs:
   build:
     # Name the Job
-    name: Lint Code Base
+    name: Validate Code Base
     # Set the agent to run on
     runs-on: ubuntu-latest
 
@@ -41,6 +35,12 @@ jobs:
           # Full git history is needed to get a proper
           # list of changed files within `super-linter`
           fetch-depth: 0
+
+      ##################################################
+      # Build the code base to check for syntax errors #
+      ##################################################
+      - name: Build Code
+        run: yarn build && rm -rf dist
 
       ################################
       # Run Linter against code base #
