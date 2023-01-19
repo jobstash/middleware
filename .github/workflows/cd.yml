@@ -1,4 +1,4 @@
-name: Update Semver and Create Sentry Release
+name: Continous Deployment
 on:
   push:
     branches: [prod, main, dev]
@@ -21,6 +21,16 @@ jobs:
             @semantic-release/release-notes-generator
             @semantic-release/github
             semantic-release-slack-bot
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Dev Deployment
+        if: ${{ github.ref_name == 'dev' && steps.semver.outputs.new_release_published == 'true' }}
+        run: flyctl deploy --remote-only --region sin --app middleware-dev --env NODE_ENV=development --env SENTRY_TRACES_SAMPLE_RATE=1.0 --env SENTRY_DSN=$SENTRY_DSN
+      - name: Staging Deployment
+        if: ${{ github.ref_name == 'main && steps.semver.outputs.new_release_published == 'true'' }}
+        run: flyctl deploy --remote-only --region sin --app middleware-staging --env NODE_ENV=staging --env SENTRY_DSN=$SENTRY_DSN
+      - name: Prod Deployment
+        if: ${{ github.ref_name == 'prod && steps.semver.outputs.new_release_published == 'true'' }}
+        run: flyctl deploy --remote-only --region sin --app middleware-prod --env NODE_ENV=production --env SENTRY_DSN=$SENTRY_DSN
       - name: Sentry Release
         if: steps.semver.outputs.new_release_published == 'true'
         uses: getsentry/action-release@v1.2.1
@@ -35,3 +45,5 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}

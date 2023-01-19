@@ -1,4 +1,4 @@
-name: Validate Code Base
+name: Continous Integration
 
 ################################
 # Start the job on some events #
