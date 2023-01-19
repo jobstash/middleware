@@ -39,9 +39,12 @@ jobs:
       ##################################################
       # Build the code base to check for syntax errors #
       ##################################################
+      - name: Install Dependencies
+        run: yarn install
       - name: Build Code
-        run: yarn build && rm -rf dist
-
+        run: yarn build
+      - name: Cleanup
+        run: rm -rf dist
       ################################
       # Run Linter against code base #
       ################################
