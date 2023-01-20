@@ -27,6 +27,7 @@ export class AppController {
         transaction.finish();
       }
     }, 99);
+
     return "Test Complete!";
   }
 }
