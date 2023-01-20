@@ -17,6 +17,7 @@ jobs:
           extra_plugins: |
             @semantic-release/changelog
             @semantic-release/git
+            @semantic-release/npm
             @semantic-release/commit-analyzer
             @semantic-release/release-notes-generator
             @semantic-release/github
@@ -31,6 +32,8 @@ jobs:
       - name: Prod Deployment
         if: ${{ github.ref_name == 'prod' && steps.semver.outputs.new_release_published == 'true' }}
         run: flyctl deploy --remote-only --region sin --app middleware-prod --env NODE_ENV=production --env SENTRY_DSN=$SENTRY_DSN
+      - name: Build Sourcemaps
+        run: yarn build
       - name: Sentry Release
         if: steps.semver.outputs.new_release_published == 'true'
         uses: getsentry/action-release@v1.2.1
@@ -42,6 +45,8 @@ jobs:
           environment: ${{ github.ref_name }}
           sourcemaps: "./dist"
           version: ${{ steps.semantic.outputs.new_release_version }}
+      - name: Cleanup build artefacts
+        run: rm -rf dist
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
