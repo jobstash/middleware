@@ -18,11 +18,14 @@ WORKDIR /app
 # to install all modules: "yarn install --production=false"
 # Ref: https://classic.yarnpkg.com/lang/en/docs/cli/install/#toc-yarn-install-production-true-false
 
-ENV NODE_ENV production
-
 COPY . .
 
-RUN yarn install --production=false && yarn run build
+RUN yarn install
+
+ENV NODE_ENV production
+
+RUN yarn run build
+
 FROM debian:bullseye
 
 LABEL fly_launch_runtime="nodejs"
@@ -31,7 +34,6 @@ COPY --from=builder /root/.volta /root/.volta
 COPY --from=builder /app /app
 
 WORKDIR /app
-# ENV NODE_ENV production
 ENV PATH /root/.volta/bin:$PATH
 
 CMD [ "yarn", "run", "start:prod" ]

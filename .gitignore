@@ -33,3 +33,5 @@ lerna-debug.log*
 
 # Sentry
 .sentryclirc
+
+/.vscode
