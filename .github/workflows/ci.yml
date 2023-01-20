@@ -5,7 +5,7 @@ name: Continous Integration
 ################################
 on:
   push:
-    branches: ["feature/rip-**", "fix/rip-**"]
+    branches: [dev, "feature/rip-**", "fix/rip-**"]
     paths:
       - "src/**.js"
       - "src/**.ts"
