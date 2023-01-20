@@ -10,24 +10,4 @@ export class AppController {
   getHello(): string {
     return this.appService.getHello();
   }
-
-  @Get("test/sentry")
-  testSentry(): string {
-    const transaction = Sentry.startTransaction({
-      op: "test",
-      name: "My First Test Transaction",
-    });
-
-    setTimeout(() => {
-      try {
-        throw new Error("Sentry Test");
-      } catch (e) {
-        Sentry.captureException(e);
-      } finally {
-        transaction.finish();
-      }
-    }, 99);
-
-    return "Test Complete!";
-  }
 }
