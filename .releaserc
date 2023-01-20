@@ -1,0 +1,9 @@
+{
+  "branches": [
+    "prod",
+    "main",
+    "dev",
+    "feature/**",
+    "fix/**"
+  ]
+}
