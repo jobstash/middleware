@@ -18,7 +18,7 @@ WORKDIR /app
 # to install all modules: "yarn install --production=false"
 # Ref: https://classic.yarnpkg.com/lang/en/docs/cli/install/#toc-yarn-install-production-true-false
 
-# ENV NODE_ENV production
+ENV NODE_ENV production
 
 COPY . .
 
@@ -34,4 +34,4 @@ WORKDIR /app
 # ENV NODE_ENV production
 ENV PATH /root/.volta/bin:$PATH
 
-CMD [ "yarn", "run", "start" ]
+CMD [ "yarn", "run", "start:prod" ]
