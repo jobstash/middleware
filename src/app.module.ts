@@ -4,7 +4,7 @@ import { AppService } from "./app.service";
 import { GraphQLModule } from "@nestjs/graphql";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { ApolloDriver, ApolloDriverConfig } from "@nestjs/apollo";
-import { Neo4jModule, Neo4jService } from "nest-neo4j/dist";
+import { Neo4jModule } from "nest-neo4j/dist";
 import { PassportModule } from "@nestjs/passport";
 import { JwtModule } from "@nestjs/jwt";
 import * as Sentry from "@sentry/node";
