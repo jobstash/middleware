@@ -22,14 +22,17 @@ export class User {
   accessToken: string;
 
   getId(): string {
+    // eslint-disable-next-line
     return (<Record<string, any>>this.node.properties).id;
   }
 
   getPassword(): string {
+    // eslint-disable-next-line
     return (<Record<string, any>>this.node.properties).password;
   }
 
   getClaims(): UserClaims {
+    // eslint-disable-next-line
     const { password, ...properties } = <Record<string, any>>(
       this.node.properties
     );
@@ -38,6 +41,7 @@ export class User {
   }
 
   toJson(): UserProperties {
+    // eslint-disable-next-line
     const { password, ...properties } = <Record<string, any>>(
       this.node.properties
     );

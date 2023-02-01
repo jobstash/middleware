@@ -4,6 +4,7 @@ import { ConfigService } from "@nestjs/config";
 import { UserService } from "../user/user.service";
 import { Strategy } from "passport-github2";
 import { GithubProfile } from "src/shared/github-profile.entity";
+import { User } from "../user/user.entity";
 @Injectable()
 export class GithubOauthStrategy extends PassportStrategy(Strategy, "github") {
   constructor(
@@ -17,7 +18,11 @@ export class GithubOauthStrategy extends PassportStrategy(Strategy, "github") {
       scope: ["read:user", "read:org", "read:project"],
     });
   }
-  async validate(accessToken: string, refreshToken: string, profile: object) {
+  async validate(
+    accessToken: string,
+    refreshToken: string,
+    profile: object,
+  ): Promise<User> {
     const profileData = profile["_json"] as GithubProfile;
     return this.userService.findOrCreate({
       accessToken,
