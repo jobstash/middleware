@@ -1,14 +1,13 @@
 import { Module, OnModuleInit } from "@nestjs/common";
-import { AppController } from "./app.controller";
+import { AppResolver } from "./app.resolver";
 import { AppService } from "./app.service";
 import { GraphQLModule } from "@nestjs/graphql";
-import { ConfigModule, ConfigService } from "@nestjs/config";
+import { ConfigModule } from "@nestjs/config";
 import { ApolloDriver, ApolloDriverConfig } from "@nestjs/apollo";
-import { Neo4jModule } from "nest-neo4j/dist";
-import { PassportModule } from "@nestjs/passport";
-import { JwtModule } from "@nestjs/jwt";
+import { AuthModule } from "./auth/auth.module";
 import * as Sentry from "@sentry/node";
 import * as Tracing from "@sentry/tracing";
+import { Neo4jModule } from "nest-neo4j/dist";
 
 @Module({
   imports: [
@@ -25,20 +24,9 @@ import * as Tracing from "@sentry/tracing";
       },
     }),
     Neo4jModule.fromEnv(),
-    PassportModule.register({ defaultStrategy: "jwt" }),
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>("JWT_SECRET"),
-        signOptions: {
-          expiresIn: configService.get<string>("JWT_EXPIRES_IN"),
-        },
-      }),
-    }),
+    AuthModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  providers: [AppResolver, AppService],
 })
 export class AppModule implements OnModuleInit {
   onModuleInit(): void {
