@@ -26,6 +26,7 @@ lerna-debug.log*
 *.launch
 .settings/
 *.sublime-workspace
+/.vscode
 
 # Environment
 .env
@@ -34,4 +35,5 @@ lerna-debug.log*
 # Sentry
 .sentryclirc
 
-/.vscode
+# Scripts
+tunnel.sh
