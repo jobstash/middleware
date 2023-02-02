@@ -6,10 +6,17 @@ import { AuthModule } from "./auth/auth.module";
 import * as Sentry from "@sentry/node";
 import * as Tracing from "@sentry/tracing";
 import { Neo4jModule } from "nest-neo4j/dist";
+import envSchema from "./env-schema";
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validationSchema: envSchema,
+      validationOptions: {
+        abortEarly: false,
+      },
+    }),
     Neo4jModule.fromEnv(),
     AuthModule,
   ],
