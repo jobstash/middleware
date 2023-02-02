@@ -27,6 +27,7 @@
     "@nestjs/mapped-types": "^1.2.0",
     "@nestjs/passport": "^9.0.0",
     "@nestjs/platform-express": "^9.0.0",
+    "@nestjs/swagger": "^6.1.4",
     "@sentry/node": "^7.31.0",
     "@sentry/tracing": "^7.31.0",
     "bcrypt": "^5.1.0",
