@@ -16,19 +16,18 @@ Here are the steps you need to take to get the project setup on your local devel
 - Run `cp .env.example .env` to setup the local env file for the project, don't worry the `.gitignore` file is already configured to ignore it. Fill it up with the appropriate info.
 - Run `yarn start:dev` to start the dev server and head over to `http://localhost:8080` to access the app.
 
-**P.S** you can change the port the server listens on by setting the `APP_PORT` env variable.
+**P.S** you can change the port the server listens on by setting the `APP_PORT` env variable. By default it's set to `8080`
 
 ## Tech Stack
 
-- NestJS for the main server
-- Apollo GraphQL
+- NestJS for the main server (REST style)
 - Neo4J DB
-- PassportJS for auth
+- PassportJS for auth/oauth
 - Prettier for code formatting
 
 ## Versioning & Deployment
 
-Automatic deploy workflows are setup to deploy the code to the server under specific conditions. We use [Semver](https://semver.org) for our versioning and the versions are automatically determined by the `semantic-release` plugin which counts the number of commits that have certain keywords see the semver spec for more info. For available versions see [repo tags](https://github.com/recruitersrip/middleware/tags)
+Automatic deploy workflows are setup to deploy the code to the server under specific conditions. We use [Semver](https://semver.org) for our versioning and the versions are automatically determined by the `semantic-release` plugin which counts the number of commits that have certain keywords. see the [Semver Spec](https://semver.org) for more info. For available versions see [repo tags](https://github.com/recruitersrip/middleware/tags)
 
 ## IMPORTANT
 
