@@ -1,9 +1,7 @@
 import { Module, OnModuleInit } from "@nestjs/common";
-import { AppResolver } from "./app.resolver";
+import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
-import { GraphQLModule } from "@nestjs/graphql";
 import { ConfigModule } from "@nestjs/config";
-import { ApolloDriver, ApolloDriverConfig } from "@nestjs/apollo";
 import { AuthModule } from "./auth/auth.module";
 import * as Sentry from "@sentry/node";
 import * as Tracing from "@sentry/tracing";
@@ -12,21 +10,11 @@ import { Neo4jModule } from "nest-neo4j/dist";
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    GraphQLModule.forRoot<ApolloDriverConfig>({
-      driver: ApolloDriver,
-      debug: process.env.NODE_ENV === "development",
-      playground: process.env.NODE_ENV === "development",
-      autoSchemaFile: true,
-      cors: {
-        credentials: true,
-        methods: ["GET", "OPTIONS", "POST"],
-        origin: process.env.ALLOWED_ORIGINS?.split(",") ?? [],
-      },
-    }),
     Neo4jModule.fromEnv(),
     AuthModule,
   ],
-  providers: [AppResolver, AppService],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule implements OnModuleInit {
   onModuleInit(): void {

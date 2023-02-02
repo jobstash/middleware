@@ -1,7 +1,7 @@
-import { Resolver } from "@nestjs/graphql";
+import { Controller } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 
-@Resolver()
-export class AuthResolver {
+@Controller("auth")
+export class AuthController {
   constructor(private readonly authService: AuthService) {}
 }
