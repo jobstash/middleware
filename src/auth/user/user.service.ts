@@ -3,8 +3,8 @@ import { Neo4jService } from "nest-neo4j/dist";
 import { CreateUserInput } from "../dto/create-user.input";
 import { FindOrCreateUserInput } from "../dto/find-or-create-user.input";
 import { UpdateUserInput } from "../dto/update-user.input";
-import { EncryptionService } from "./encryption/encryption.service";
-import { User } from "./user.entity";
+import { EncryptionService } from "../encryption/encryption.service";
+import { UserEntity } from "src/shared/types";
 
 @Injectable()
 export class UserService {
@@ -13,7 +13,7 @@ export class UserService {
     private readonly encryptionService: EncryptionService,
   ) {}
 
-  async find(email: string): Promise<User | undefined> {
+  async find(email: string): Promise<UserEntity | undefined> {
     return this.neo4jService
       .read(
         `
@@ -23,11 +23,13 @@ export class UserService {
         { email },
       )
       .then(res =>
-        res.records.length ? new User(res.records[0].get("u")) : undefined,
+        res.records.length
+          ? new UserEntity(res.records[0].get("u"))
+          : undefined,
       );
   }
 
-  async create(user: CreateUserInput): Promise<User> {
+  async create(user: CreateUserInput): Promise<UserEntity> {
     // Encrypt Password
     const password = await this.encryptionService.hash(user.password);
 
@@ -45,10 +47,10 @@ export class UserService {
           },
         },
       )
-      .then(res => new User(res.records[0].get("u")));
+      .then(res => new UserEntity(res.records[0].get("u")));
   }
 
-  async findOrCreate(details: FindOrCreateUserInput): Promise<User> {
+  async findOrCreate(details: FindOrCreateUserInput): Promise<UserEntity> {
     const { accessToken, refreshToken, profile } = details;
     const result = await this.find(profile.email);
     if (result === undefined) {
@@ -67,13 +69,13 @@ export class UserService {
             },
           },
         )
-        .then(res => new User(res.records[0].get("u")));
+        .then(res => new UserEntity(res.records[0].get("u")));
     } else {
       return Promise.resolve(result);
     }
   }
 
-  async update(id: string, properties: UpdateUserInput): Promise<User> {
+  async update(id: string, properties: UpdateUserInput): Promise<UserEntity> {
     return this.neo4jService
       .write(
         `
@@ -83,6 +85,6 @@ export class UserService {
         `,
         { id, properties },
       )
-      .then(res => new User(res.records[0].get("u")));
+      .then(res => new UserEntity(res.records[0].get("u")));
   }
 }

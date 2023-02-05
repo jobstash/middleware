@@ -3,8 +3,8 @@ import { PassportStrategy } from "@nestjs/passport";
 import { ConfigService } from "@nestjs/config";
 import { UserService } from "../user/user.service";
 import { Strategy } from "passport-github2";
-import { GithubProfile } from "src/shared/github-profile.entity";
-import { User } from "../user/user.entity";
+import { GithubProfile, UserEntity } from "src/shared/types";
+
 @Injectable()
 export class GithubOauthStrategy extends PassportStrategy(Strategy, "github") {
   constructor(
@@ -22,7 +22,7 @@ export class GithubOauthStrategy extends PassportStrategy(Strategy, "github") {
     accessToken: string,
     refreshToken: string,
     profile: object,
-  ): Promise<User> {
+  ): Promise<UserEntity> {
     const profileData = profile["_json"] as GithubProfile;
     return this.userService.findOrCreate({
       accessToken,

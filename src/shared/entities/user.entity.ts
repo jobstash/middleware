@@ -1,14 +1,8 @@
 import { Node } from "neo4j-driver";
-import { UserClaims } from "../../interfaces/user/user-claims.interface";
-import { UserProperties } from "../../interfaces/user/user-properties.interface";
+import { UserClaims, User } from "src/shared/types";
 
-export class User {
+export class UserEntity {
   constructor(private readonly node: Node) {}
-
-  id: string;
-  email: string;
-  password: string;
-  accessToken?: string;
 
   getId(): string {
     // eslint-disable-next-line
@@ -26,15 +20,17 @@ export class User {
       this.node.properties
     );
 
-    return properties as UserClaims;
+    const claims: UserClaims = { email: properties.email };
+
+    return claims;
   }
 
-  toJson(): UserProperties {
+  getProperties(): User {
     // eslint-disable-next-line
-    const { password, ...properties } = <Record<string, any>>(
+    const { password, accessToken, ...properties } = <Record<string, any>>(
       this.node.properties
     );
 
-    return properties as UserProperties;
+    return properties as User;
   }
 }

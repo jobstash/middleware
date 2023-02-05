@@ -2,9 +2,9 @@ import { Module } from "@nestjs/common";
 import { PassportModule } from "@nestjs/passport";
 import { JwtModule, JwtService } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { JwtAuthStrategy } from "./jwt-auth.strategy";
 import { UserService } from "../user/user.service";
-import { EncryptionService } from "../user/encryption/encryption.service";
+import { EncryptionService } from "../encryption/encryption.service";
+import { JwtAuthStrategy } from "./jwt-auth.strategy";
 
 @Module({
   imports: [

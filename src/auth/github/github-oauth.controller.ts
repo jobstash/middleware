@@ -1,11 +1,13 @@
 import { Controller, Get, UseGuards } from "@nestjs/common";
-import { AuthUser } from "src/decorators/auth-user.decorator";
-import { User } from "src/auth/user/user.entity";
+import { AuthUser } from "src/shared/decorators/auth-user.decorator";
+import { AuthenticatedUser, UserEntity } from "src/shared/types";
+import { AuthService } from "../auth.service";
 import { GithubOauthGuard } from "./github-oauth.guard";
-import { UserProperties } from "src/interfaces/user/user-properties.interface";
 
 @Controller("oauth")
 export class GithubOauthController {
+  constructor(private readonly authService: AuthService) {}
+
   @UseGuards(GithubOauthGuard)
   @Get("github")
   // eslint-disable-next-line
@@ -13,7 +15,9 @@ export class GithubOauthController {
 
   @UseGuards(GithubOauthGuard)
   @Get("callback")
-  callback(@AuthUser() user: User): UserProperties {
-    return user.toJson();
+  callback(@AuthUser() user: UserEntity): AuthenticatedUser {
+    const accessToken = this.authService.createToken(user);
+    const properties = user.getProperties();
+    return { ...properties, accessToken: accessToken };
   }
 }

@@ -1,9 +1,9 @@
 import { Injectable } from "@nestjs/common";
-import { Response } from "./shared/response.entity";
+import { ResponseEntity } from "./shared/entities/response.entity";
 
 @Injectable()
 export class AppService {
-  healthCheck(): Response {
+  healthCheck(): ResponseEntity {
     return { success: true, message: "Server is healthy and up!" };
   }
 }
