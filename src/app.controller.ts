@@ -1,6 +1,6 @@
 import { Controller, Get } from "@nestjs/common";
 import { AppService } from "./app.service";
-import { ResponseEntity } from "./shared/entities/response.entity";
+import { ResponseEntity } from "src/shared/types";
 
 @Controller("app")
 export class AppController {

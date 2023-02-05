@@ -1,4 +1,4 @@
-import { GithubProfile } from "src/shared/interfaces/github-profile.interface";
+import { GithubProfile } from "src/shared/types";
 
 export class FindOrCreateUserInput {
   accessToken: string;

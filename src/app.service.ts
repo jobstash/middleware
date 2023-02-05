@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { ResponseEntity } from "./shared/entities/response.entity";
+import { ResponseEntity } from "src/shared/types";
 
 @Injectable()
 export class AppService {
