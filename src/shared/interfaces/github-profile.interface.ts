@@ -5,9 +5,6 @@ export interface GithubProfile {
   gravatar_id: string;
   avatar_url: string;
   company: string;
-  bio: string;
-  location: string;
   public_repos: number;
-  email: string;
   hireable: boolean;
 }

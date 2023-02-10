@@ -13,15 +13,15 @@ export class AuthService {
   ) {}
 
   createToken(user: UserEntity): string {
-    const token = this.jwtService.sign(user.getClaims(), {
+    const token = this.jwtService.sign(user.getId(), {
       secret: this.configService.get<string>("JWT_SECRET"),
     });
 
     return token;
   }
 
-  async validateUser(email: string): Promise<UserEntity | undefined> {
-    const user = await this.userService.find(email);
+  async validateUser(id: number): Promise<UserEntity | undefined> {
+    const user = await this.userService.find(id);
 
     if (user) {
       return user;
