@@ -2,14 +2,12 @@ import { Injectable } from "@nestjs/common";
 import { UserEntity } from "src/shared/types";
 import { JwtService } from "@nestjs/jwt";
 import { UserService } from "./user/user.service";
-import { EncryptionService } from "./encryption/encryption.service";
 import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly userService: UserService,
-    private readonly encryptionService: EncryptionService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {}
@@ -22,16 +20,10 @@ export class AuthService {
     return token;
   }
 
-  async validateUser(
-    email: string,
-    password: string,
-  ): Promise<UserEntity | undefined> {
+  async validateUser(email: string): Promise<UserEntity | undefined> {
     const user = await this.userService.find(email);
 
-    if (
-      user &&
-      (await this.encryptionService.compare(password, user.getPassword()))
-    ) {
+    if (user) {
       return user;
     }
 

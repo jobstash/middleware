@@ -4,7 +4,6 @@ import { AuthController } from "./auth.controller";
 import { GithubOauthModule } from "./github/github-oauth.module";
 import { JwtAuthModule } from "./jwt/jwt-auth.module";
 import { UserService } from "./user/user.service";
-import { EncryptionService } from "./encryption/encryption.service";
 import { JwtModule, JwtService } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 
@@ -25,6 +24,6 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
     ConfigModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, UserService, EncryptionService, JwtService],
+  providers: [AuthService, UserService, JwtService],
 })
 export class AuthModule {}
