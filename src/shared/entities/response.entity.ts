@@ -1,4 +1,4 @@
-export class Response {
+export class ResponseEntity {
   success: boolean;
   message: string;
 }

@@ -4,9 +4,11 @@ import * as Sentry from "@sentry/node";
 import "@sentry/tracing";
 import helmet from "helmet";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
+import { ValidationPipe } from "@nestjs/common";
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
+  app.useGlobalPipes(new ValidationPipe());
   app.use(Sentry.Handlers.requestHandler());
   app.use(Sentry.Handlers.tracingHandler());
   app.use(Sentry.Handlers.errorHandler());

@@ -1,19 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
 import { CreateUserInput } from "../dto/create-user.input";
-import { FindOrCreateUserInput } from "../dto/find-or-create-user.input";
-import { UpdateUserInput } from "../dto/update-user.input";
-import { EncryptionService } from "./encryption/encryption.service";
-import { User } from "./user.entity";
+import { UserEntity } from "src/shared/types";
 
 @Injectable()
 export class UserService {
-  constructor(
-    private readonly neo4jService: Neo4jService,
-    private readonly encryptionService: EncryptionService,
-  ) {}
+  constructor(private readonly neo4jService: Neo4jService) {}
 
-  async find(email: string): Promise<User | undefined> {
+  async find(email: string): Promise<UserEntity | undefined> {
     return this.neo4jService
       .read(
         `
@@ -23,14 +17,15 @@ export class UserService {
         { email },
       )
       .then(res =>
-        res.records.length ? new User(res.records[0].get("u")) : undefined,
+        res.records.length
+          ? new UserEntity(res.records[0].get("u"))
+          : undefined,
       );
   }
 
-  async create(user: CreateUserInput): Promise<User> {
-    // Encrypt Password
-    const password = await this.encryptionService.hash(user.password);
-
+  async create(details: CreateUserInput): Promise<UserEntity> {
+    const { accessToken, refreshToken, profile } = details;
+    // TODO: Switch this to an integration with the backend!
     return this.neo4jService
       .write(
         `
@@ -40,49 +35,12 @@ export class UserService {
         `,
         {
           properties: {
-            ...user,
-            password,
+            ...profile,
+            accessToken,
+            refreshToken,
           },
         },
       )
-      .then(res => new User(res.records[0].get("u")));
-  }
-
-  async findOrCreate(details: FindOrCreateUserInput): Promise<User> {
-    const { accessToken, refreshToken, profile } = details;
-    const result = await this.find(profile.email);
-    if (result === undefined) {
-      return this.neo4jService
-        .write(
-          `
-            CREATE (u:User { id: randomUUID() })
-            SET u += $properties
-            RETURN u
-        `,
-          {
-            properties: {
-              ...profile,
-              accessToken,
-              refreshToken,
-            },
-          },
-        )
-        .then(res => new User(res.records[0].get("u")));
-    } else {
-      return Promise.resolve(result);
-    }
-  }
-
-  async update(id: string, properties: UpdateUserInput): Promise<User> {
-    return this.neo4jService
-      .write(
-        `
-            MATCH (u:User { id: $id })
-            SET u += $properties
-            RETURN u
-        `,
-        { id, properties },
-      )
-      .then(res => new User(res.records[0].get("u")));
+      .then(res => new UserEntity(res.records[0].get("u")));
   }
 }
