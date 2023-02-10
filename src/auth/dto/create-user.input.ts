@@ -1,6 +1,7 @@
+import { GithubProfile } from "src/shared/types";
+
 export class CreateUserInput {
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
+  accessToken: string;
+  refreshToken: string;
+  profile: GithubProfile;
 }

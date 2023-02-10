@@ -9,11 +9,6 @@ export class UserEntity {
     return (<Record<string, any>>this.node.properties).id;
   }
 
-  getPassword(): string {
-    // eslint-disable-next-line
-    return (<Record<string, any>>this.node.properties).password;
-  }
-
   getClaims(): UserClaims {
     // eslint-disable-next-line
     const { password, ...properties } = <Record<string, any>>(
