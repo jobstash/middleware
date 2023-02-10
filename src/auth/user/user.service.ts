@@ -7,14 +7,14 @@ import { UserEntity } from "src/shared/types";
 export class UserService {
   constructor(private readonly neo4jService: Neo4jService) {}
 
-  async find(email: string): Promise<UserEntity | undefined> {
+  async find(id: number): Promise<UserEntity | undefined> {
     return this.neo4jService
       .read(
         `
-            MATCH (u:User {email: $email})
+            MATCH (u:User {id: $id})
             RETURN u
         `,
-        { email },
+        { id },
       )
       .then(res =>
         res.records.length

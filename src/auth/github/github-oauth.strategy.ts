@@ -15,7 +15,7 @@ export class GithubOauthStrategy extends PassportStrategy(Strategy, "github") {
       clientID: configService.get<string>("GITHUB_OAUTH_CLIENT_ID"),
       clientSecret: configService.get<string>("GITHUB_OAUTH_CLIENT_SECRET"),
       callbackURL: configService.get<string>("GITHUB_OAUTH_CALLBACK_URL"),
-      scope: ["read:user", "read:org", "read:project"],
+      scope: ["read:user", "read:org"],
     });
   }
   async validate(
@@ -24,7 +24,7 @@ export class GithubOauthStrategy extends PassportStrategy(Strategy, "github") {
     profile: object,
   ): Promise<UserEntity> {
     const profileData = profile["_json"] as GithubProfile;
-    const result = this.userService.find(profileData.email);
+    const result = this.userService.find(profileData.id);
     if (result === undefined) {
       return this.userService.create({
         accessToken,
@@ -36,10 +36,7 @@ export class GithubOauthStrategy extends PassportStrategy(Strategy, "github") {
           gravatar_id: profileData.gravatar_id,
           avatar_url: profileData.avatar_url,
           company: profileData.company,
-          bio: profileData.bio,
-          location: profileData.location,
           public_repos: profileData.public_repos,
-          email: profileData.email,
           hireable: profileData.hireable,
         },
       });
