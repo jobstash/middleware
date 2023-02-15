@@ -176,6 +176,11 @@ export class JobListParams {
   level?: number;
 
   @IsOptional()
+  @IsString()
+  @Type(() => String)
+  location?: string;
+
+  @IsOptional()
   @IsIn(["asc", "desc"])
   @IsString()
   order?: JobListOrder;

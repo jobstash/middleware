@@ -81,6 +81,7 @@ export class JobsService {
                 : ""
             }
             ${params.level ? "j.level = $level AND " : ""}
+            ${params.location ? "j.jobLocation CONTAINS $location AND " : ""}
             ${params.tech ? "any(x IN tech WHERE x.name IN $tech) AND " : ""}
             ${
               params.categories
