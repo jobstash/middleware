@@ -1,6 +1,7 @@
 export interface StructuredJobpost {
   id: string;
-  salary: string;
+  minSalary: number;
+  maxSalary: number;
   role: string;
   team: string;
   benefits: string;
