@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { JwtAuthGuard } from "src/auth/jwt/jwt-auth.guard";
 import { JobsService } from "./jobs.service";
-import { JobListResult } from "src/shared/types";
+import { JobListResult, ValidationError } from "src/shared/types";
 import { JobListParams } from "./dto/job-list.dto";
 import { ApiBadRequestResponse, ApiOkResponse } from "@nestjs/swagger";
 import { PaginatedData } from "src/shared/interfaces/paginated-data.interface";
@@ -23,7 +23,11 @@ export class JobsController {
       "Returns a paginated sorted list of jobs that satisfy the filter predicate",
     type: PaginatedData<JobListResult>,
   })
-  @ApiBadRequestResponse()
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
   async findAll(
     @Query(new ValidationPipe({ transform: true })) params: JobListParams,
   ): Promise<PaginatedData<JobListResult>> {
