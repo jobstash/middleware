@@ -1,13 +1,14 @@
 import { Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
 import { optionalMinMaxFilter, orderBySelector } from "src/shared/helpers";
-import { JobListResultEntity } from "src/shared/types";
+import { PaginatedData } from "src/shared/interfaces/paginated-data.interface";
+import { JobListResult, JobListResultEntity } from "src/shared/types";
 import { JobListParams } from "./dto/job-list.dto";
 
 @Injectable()
 export class JobsService {
   constructor(private readonly neo4jService: Neo4jService) {}
-  async findAll(params: JobListParams): Promise<JobListResultEntity[]> {
+  async findAll(params: JobListParams): Promise<PaginatedData<JobListResult>> {
     console.log(params);
     const generatedQuery = `
             MATCH (o:Organization)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(c:ProjectCategory)
@@ -100,7 +101,7 @@ export class JobsService {
                   })}`
                 : ""
             } ${params.order ? params.order.toUpperCase() : ""}
-            ${params.skip ? "SKIP $skip" : ""}
+            ${params.page ? "SKIP $page * $limit" : ""}
             ${params.limit ? "LIMIT $limit" : ""}
         `.replace(/^\s*$(?:\r\n?|\n)/gm, "");
     console.log(generatedQuery);
@@ -108,8 +109,14 @@ export class JobsService {
       .read(generatedQuery, {
         ...params,
       })
-      .then(res =>
-        res.records.map(record => new JobListResultEntity(record.get("res"))),
+      .then(
+        res =>
+          new PaginatedData(
+            params.page,
+            res.records.map(record =>
+              new JobListResultEntity(record.get("res")).getProperties(),
+            ),
+          ),
       );
   }
 }

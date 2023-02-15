@@ -9,6 +9,8 @@ import { JwtAuthGuard } from "src/auth/jwt/jwt-auth.guard";
 import { JobsService } from "./jobs.service";
 import { JobListResult } from "src/shared/types";
 import { JobListParams } from "./dto/job-list.dto";
+import { ApiBadRequestResponse, ApiOkResponse } from "@nestjs/swagger";
+import { PaginatedData } from "src/shared/interfaces/paginated-data.interface";
 
 @Controller("jobs")
 export class JobsController {
@@ -16,11 +18,15 @@ export class JobsController {
 
   @Get("/list")
   @UseGuards(JwtAuthGuard)
+  @ApiOkResponse({
+    description:
+      "Returns a paginated sorted list of jobs that satisfy the filter predicate",
+    type: PaginatedData<JobListResult>,
+  })
+  @ApiBadRequestResponse()
   async findAll(
     @Query(new ValidationPipe({ transform: true })) params: JobListParams,
-  ): Promise<JobListResult[]> {
-    return this.jobsService
-      .findAll(params)
-      .then(jobs => jobs.map(job => job.getProperties()));
+  ): Promise<PaginatedData<JobListResult>> {
+    return this.jobsService.findAll(params);
   }
 }
