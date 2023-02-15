@@ -100,8 +100,8 @@ export class JobsService {
                   })}`
                 : ""
             } ${params.order ? params.order.toUpperCase() : ""}
-            ${params.page ? "SKIP $page * $limit" : ""}
-            ${params.limit ? "LIMIT $limit" : ""}
+            ${params.page ? "SKIP toInteger(($page - 1) * $limit)" : ""}
+            ${params.limit ? "LIMIT toInteger($limit)" : ""}
         `.replace(/^\s*$(?:\r\n?|\n)/gm, "");
     return this.neo4jService
       .read(generatedQuery, {
