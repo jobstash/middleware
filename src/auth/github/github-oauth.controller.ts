@@ -1,6 +1,6 @@
 import { Controller, Get, UseGuards } from "@nestjs/common";
 import { AuthUser } from "src/shared/decorators/auth-user.decorator";
-import { AuthenticatedUser, UserEntity } from "src/shared/types";
+import { AuthenticatedUser, User } from "src/shared/types";
 import { AuthService } from "../auth.service";
 import { GithubOauthGuard } from "./github-oauth.guard";
 
@@ -15,9 +15,8 @@ export class GithubOauthController {
 
   @UseGuards(GithubOauthGuard)
   @Get("callback")
-  callback(@AuthUser() user: UserEntity): AuthenticatedUser {
+  callback(@AuthUser() user: User): AuthenticatedUser {
     const accessToken = this.authService.createToken(user);
-    const properties = user.getProperties();
-    return { ...properties, accessToken: accessToken };
+    return { ...user, accessToken: accessToken };
   }
 }
