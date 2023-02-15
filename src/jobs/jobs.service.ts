@@ -9,7 +9,6 @@ import { JobListParams } from "./dto/job-list.dto";
 export class JobsService {
   constructor(private readonly neo4jService: Neo4jService) {}
   async findAll(params: JobListParams): Promise<PaginatedData<JobListResult>> {
-    console.log(params);
     const generatedQuery = `
             MATCH (o:Organization)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(c:ProjectCategory)
             MATCH (o)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
@@ -104,7 +103,6 @@ export class JobsService {
             ${params.page ? "SKIP $page * $limit" : ""}
             ${params.limit ? "LIMIT $limit" : ""}
         `.replace(/^\s*$(?:\r\n?|\n)/gm, "");
-    console.log(generatedQuery);
     return this.neo4jService
       .read(generatedQuery, {
         ...params,
