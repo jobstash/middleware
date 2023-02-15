@@ -112,7 +112,7 @@ export class JobsService {
       .then(
         res =>
           new PaginatedData(
-            params.page,
+            params.page ?? 1,
             res.records.map(record =>
               new JobListResultEntity(record.get("res")).getProperties(),
             ),
