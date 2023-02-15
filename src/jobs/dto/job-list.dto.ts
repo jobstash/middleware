@@ -305,6 +305,7 @@ export class JobListParams {
   })
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   page?: number;
 
   @ApiPropertyOptional({
@@ -312,5 +313,6 @@ export class JobListParams {
   })
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   limit?: number;
 }
