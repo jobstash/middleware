@@ -1,8 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
 import { optionalMinMaxFilter, orderBySelector } from "src/shared/helpers";
-import { PaginatedData } from "src/shared/interfaces/paginated-data.interface";
-import { JobListResult, JobListResultEntity } from "src/shared/types";
+import {
+  JobFilterConfigs,
+  JobFilterConfigsEntity,
+  JobListResult,
+  JobListResultEntity,
+  PaginatedData,
+} from "src/shared/types";
 import { JobListParams } from "./dto/job-list.dto";
 
 @Injectable()
@@ -88,7 +93,7 @@ export class JobsService {
                 ? "any(y IN cats WHERE y.name IN $categories) AND "
                 : ""
             }
-            o.name <> ""
+            WHERE o.name IS NOT NULL AND o.name <> ""
             RETURN { organization: PROPERTIES(o), project: PROPERTIES(p), jobpost: PROPERTIES(j), technologies: tech, categories: cats } as res
             ${
               params.order_by
@@ -115,6 +120,29 @@ export class JobsService {
               new JobListResultEntity(record.get("res")).getProperties(),
             ),
           ),
+      );
+  }
+
+  async getFilterConfigs(): Promise<JobFilterConfigs> {
+    return this.neo4jService
+      .read(
+        `
+        MATCH (o:Organization)
+        MATCH (p:Project)
+        MATCH (j:StructuredJobPost)
+        MATCH (t:Technology)
+        MATCH (c:Chain)
+        MATCH (pc:ProjectCategory)
+        WITH COLLECT(DISTINCT o) as orgs, COLLECT(DISTINCT p) as projects, COLLECT(DISTINCT c) as chains, COLLECT(DISTINCT pc) as categories, COLLECT(DISTINCT t) as tech
+        
+      `,
+      )
+      .then(res =>
+        res.records.length
+          ? new JobFilterConfigsEntity(
+              res.records[0].get("res"),
+            ).getProperties()
+          : undefined,
       );
   }
 }
