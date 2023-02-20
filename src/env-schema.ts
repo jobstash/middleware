@@ -3,6 +3,10 @@ import * as Joi from "joi";
 const envSchema = Joi.object({
   ALLOWED_ORIGINS: Joi.string(),
   APP_PORT: Joi.number().default(8080),
+  AUTH0_CLIENT_ID: Joi.string(),
+  AUTH0_CLIENT_SECRET: Joi.string(),
+  AUTH0_DOMAIN: Joi.string(),
+  BACKEND_API_URL: Joi.string(),
   GITHUB_OAUTH_CALLBACK_URL: Joi.string(),
   GITHUB_OAUTH_CLIENT_ID: Joi.string(),
   GITHUB_OAUTH_CLIENT_SECRET: Joi.string(),

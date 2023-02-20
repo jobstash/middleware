@@ -10,7 +10,7 @@ export class CreateUserInput {
 
   @IsString()
   @IsOptional()
-  refreshToken: string;
+  refreshToken?: string | undefined;
 
   @Type(() => GithubProfile)
   profile: GithubProfile;

@@ -3,7 +3,7 @@ import { PassportStrategy } from "@nestjs/passport";
 import { ConfigService } from "@nestjs/config";
 import { ExtractJwt, Strategy } from "passport-jwt";
 import { UserService } from "../user/user.service";
-import { UserEntity } from "src/shared/types";
+import { User } from "src/shared/types";
 
 @Injectable()
 export class JwtAuthStrategy extends PassportStrategy(Strategy) {
@@ -18,7 +18,7 @@ export class JwtAuthStrategy extends PassportStrategy(Strategy) {
       secretOrKey: configService.get<string>("JWT_SECRET"),
     });
   }
-  async validate(payload: string): Promise<UserEntity> {
-    return this.userService.find(payload);
+  async validate(payload: string): Promise<User> {
+    return this.userService.find(payload).then(user => user.getProperties());
   }
 }
