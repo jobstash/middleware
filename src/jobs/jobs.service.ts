@@ -21,9 +21,9 @@ export class JobsService {
                 min: params.min_publication_date,
                 max: params.max_publication_date,
               },
-              "$min_publication_date < p.publicationDate <= $max_publication_date",
-              "$max_publication_date < p.publicationDate",
-              "p.publicationDate <= $max_publication_date",
+              "$min_publication_date < j.jobCreatedTimestamp <= $max_publication_date",
+              "$max_publication_date < j.jobCreatedTimestamp",
+              "j.publicationDate <= $max_publication_date",
             )}
             ${optionalMinMaxFilter(
               { min: params.min_salary, max: params.max_salary },

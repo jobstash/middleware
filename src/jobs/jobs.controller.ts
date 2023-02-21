@@ -12,11 +12,17 @@ import { JobListParams } from "./dto/job-list.dto";
 import {
   ApiBadRequestResponse,
   ApiExtraModels,
+  ApiHeader,
   ApiOkResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
 import { PaginatedData } from "src/shared/interfaces/paginated-data.interface";
 
+@ApiHeader({
+  name: "Authorization",
+  example: "Bearer <token>",
+  description: "Bearer token obtained from login",
+})
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobListResult, ValidationError)
 export class JobsController {
