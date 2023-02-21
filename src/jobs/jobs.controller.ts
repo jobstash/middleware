@@ -7,7 +7,12 @@ import {
 } from "@nestjs/common";
 import { JwtAuthGuard } from "src/auth/jwt/jwt-auth.guard";
 import { JobsService } from "./jobs.service";
-import { JobListResult, ValidationError } from "src/shared/types";
+import {
+  JobFilterConfigs,
+  JobListResult,
+  PaginatedData,
+  ValidationError,
+} from "src/shared/types";
 import { JobListParams } from "./dto/job-list.dto";
 import {
   ApiBadRequestResponse,
@@ -69,5 +74,20 @@ export class JobsController {
     @Query(new ValidationPipe({ transform: true })) params: JobListParams,
   ): Promise<PaginatedData<JobListResult>> {
     return this.jobsService.findAll(params);
+  }
+
+  @Get("/filters")
+  @UseGuards(JwtAuthGuard)
+  @ApiOkResponse({
+    description: "Returns the configuration data for the ui filters",
+    type: "",
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  async getFilterConfigs(): Promise<JobFilterConfigs> {
+    return this.jobsService.getFilterConfigs();
   }
 }
