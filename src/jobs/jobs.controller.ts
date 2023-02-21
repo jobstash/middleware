@@ -21,7 +21,6 @@ import {
   ApiOkResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
-import { PaginatedData } from "src/shared/interfaces/paginated-data.interface";
 
 @ApiHeader({
   name: "Authorization",
