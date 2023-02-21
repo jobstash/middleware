@@ -11,12 +11,14 @@ import { JobListResult, ValidationError } from "src/shared/types";
 import { JobListParams } from "./dto/job-list.dto";
 import {
   ApiBadRequestResponse,
+  ApiExtraModels,
   ApiOkResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
 import { PaginatedData } from "src/shared/interfaces/paginated-data.interface";
 
 @Controller("jobs")
+@ApiExtraModels(PaginatedData, JobListResult, ValidationError)
 export class JobsController {
   constructor(private readonly jobsService: JobsService) {}
 
@@ -28,10 +30,16 @@ export class JobsController {
     type: PaginatedData<JobListResult>,
     schema: {
       allOf: [
-        { $ref: getSchemaPath(PaginatedData) },
         {
+          $ref: getSchemaPath(PaginatedData),
           properties: {
-            results: {
+            page: {
+              type: "number",
+            },
+            count: {
+              type: "number",
+            },
+            data: {
               type: "array",
               items: { $ref: getSchemaPath(JobListResult) },
             },
@@ -43,7 +51,13 @@ export class JobsController {
   @ApiBadRequestResponse({
     description:
       "Returns an error message with a list of values that failed validation",
-    type: ValidationError,
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ValidationError),
+        },
+      ],
+    },
   })
   async findAll(
     @Query(new ValidationPipe({ transform: true })) params: JobListParams,

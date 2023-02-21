@@ -1,4 +1,4 @@
-import { ApiResponseProperty } from "@nestjs/swagger";
+import { ApiProperty } from "@nestjs/swagger";
 import { Organization } from "./organization.interface";
 import { ProjectCategory } from "./project-category.interface";
 import { Project } from "./project.interface";
@@ -6,14 +6,14 @@ import { StructuredJobpost } from "./structured-jobpost.interface";
 import { Technology } from "./technology.interface";
 
 export class JobListResult {
-  @ApiResponseProperty()
+  @ApiProperty()
   organization?: Organization | null;
-  @ApiResponseProperty()
+  @ApiProperty()
   project?: Project | null;
-  @ApiResponseProperty()
+  @ApiProperty()
   jobpost?: StructuredJobpost | null;
-  @ApiResponseProperty()
+  @ApiProperty()
   technologies?: Technology[] | null;
-  @ApiResponseProperty()
+  @ApiProperty()
   categories?: ProjectCategory[] | null;
 }

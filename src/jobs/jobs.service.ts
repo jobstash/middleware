@@ -107,14 +107,12 @@ export class JobsService {
       .read(generatedQuery, {
         ...params,
       })
-      .then(
-        res =>
-          new PaginatedData(
-            params.page ?? 1,
-            res.records.map(record =>
-              new JobListResultEntity(record.get("res")).getProperties(),
-            ),
-          ),
-      );
+      .then(res => ({
+        page: params.page ?? 1,
+        count: res.records.length,
+        data: res.records.map(record =>
+          new JobListResultEntity(record.get("res")).getProperties(),
+        ),
+      }));
   }
 }
