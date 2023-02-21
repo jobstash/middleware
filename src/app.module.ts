@@ -1,4 +1,4 @@
-import { Module, OnModuleInit } from "@nestjs/common";
+import { CacheModule, Module, OnModuleInit } from "@nestjs/common";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { ConfigModule } from "@nestjs/config";
@@ -7,6 +7,7 @@ import * as Sentry from "@sentry/node";
 import * as Tracing from "@sentry/tracing";
 import { Neo4jModule } from "nest-neo4j/dist";
 import { JobsModule } from "./jobs/jobs.module";
+import { BackendModule } from "./backend/backend.module";
 import envSchema from "./env-schema";
 
 @Module({
@@ -19,8 +20,10 @@ import envSchema from "./env-schema";
       },
     }),
     Neo4jModule.fromEnv(),
+    CacheModule.register(),
     AuthModule,
     JobsModule,
+    BackendModule,
   ],
   controllers: [AppController],
   providers: [AppService],

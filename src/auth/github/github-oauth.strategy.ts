@@ -3,13 +3,15 @@ import { PassportStrategy } from "@nestjs/passport";
 import { ConfigService } from "@nestjs/config";
 import { UserService } from "../user/user.service";
 import { Strategy } from "passport-github2";
-import { GithubProfile, User } from "src/shared/types";
+import { User } from "src/shared/types";
+import { BackendService } from "src/backend/backend.service";
 
 @Injectable()
 export class GithubOauthStrategy extends PassportStrategy(Strategy, "github") {
   constructor(
     private readonly configService: ConfigService,
     private readonly userService: UserService,
+    private readonly backendService: BackendService,
   ) {
     super({
       clientID: configService.get<string>("GITHUB_OAUTH_CLIENT_ID"),
@@ -23,27 +25,21 @@ export class GithubOauthStrategy extends PassportStrategy(Strategy, "github") {
     refreshToken: string,
     profile: object,
   ): Promise<User> {
-    const profileData = profile["_json"] as GithubProfile;
-    const result = await this.userService.find(profileData.node_id);
+    const profileData = profile["_json"];
+    const result = await this.userService.findByNodeId(profileData.node_id);
     if (result === undefined) {
-      return this.userService
-        .create({
-          accessToken,
-          refreshToken,
-          profile: {
-            login: profileData.login,
-            id: profileData.id,
-            node_id: profileData.node_id,
-            gravatar_id: profileData.gravatar_id,
-            avatar_url: profileData.avatar_url,
-            company: profileData.company,
-            public_repos: profileData.public_repos,
-            hireable: profileData.hireable,
-          },
-        })
-        .then(user => user.getProperties());
+      return this.backendService.createUser({
+        github_access_token: accessToken,
+        github_refresh_token: refreshToken,
+        github_login: profileData.login,
+        github_id: profileData.id,
+        github_node_id: profileData.node_id,
+        github_gravatar_id:
+          profileData.gravatar_id === "" ? undefined : profileData.gravatar_id,
+        github_avatar_url: profileData.avatar_url,
+      });
     } else {
-      return (await result).getProperties();
+      return result.getProperties();
     }
   }
 }

@@ -1,30 +1,20 @@
-import { IsBoolean, IsNotEmpty, IsNumber, IsString } from "class-validator";
+import { IsNotEmpty, IsNumber, IsString } from "class-validator";
 
 export class GithubProfile {
   @IsString()
   @IsNotEmpty()
-  login: string;
+  github_login: string;
 
   @IsNumber()
-  id: number;
+  github_id: number;
 
   @IsString()
   @IsNotEmpty()
-  node_id: string;
+  github_node_id: string;
 
   @IsString()
-  @IsNotEmpty()
-  gravatar_id: string;
+  github_gravatar_id?: string;
 
   @IsString()
-  avatar_url: string;
-
-  @IsString()
-  company: string;
-
-  @IsNumber()
-  public_repos: number;
-
-  @IsBoolean()
-  hireable: boolean;
+  github_avatar_url: string;
 }

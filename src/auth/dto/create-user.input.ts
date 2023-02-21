@@ -1,17 +1,14 @@
 import { GithubProfile } from "src/shared/types";
 import { IsDefined, IsNotEmpty, IsOptional, IsString } from "class-validator";
-import { Type } from "class-transformer";
+import { PartialType } from "@nestjs/mapped-types";
 
-export class CreateUserInput {
+export class CreateUserInput extends PartialType(GithubProfile) {
   @IsString()
   @IsDefined()
   @IsNotEmpty()
-  accessToken: string;
+  github_access_token: string;
 
   @IsString()
   @IsOptional()
-  refreshToken: string;
-
-  @Type(() => GithubProfile)
-  profile: GithubProfile;
+  github_refresh_token?: string | undefined;
 }
