@@ -16,11 +16,27 @@ export class UserService {
     return undefined;
   }
 
-  async find(node_id: string): Promise<UserEntity | undefined> {
+  async find(id: string): Promise<UserEntity | undefined> {
     return this.neo4jService
       .read(
         `
-            MATCH (u:User {node_id: $node_id})
+            MATCH (u:User {id: $id})
+            RETURN u
+        `,
+        { id },
+      )
+      .then(res =>
+        res.records.length
+          ? new UserEntity(res.records[0].get("u"))
+          : undefined,
+      );
+  }
+
+  async findByNodeId(node_id: string): Promise<UserEntity | undefined> {
+    return this.neo4jService
+      .read(
+        `
+            MATCH (u:User {github_node_id: $node_id})
             RETURN u
         `,
         { node_id },

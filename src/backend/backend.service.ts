@@ -29,11 +29,12 @@ export class BackendService {
 
   async createUser(details: CreateUserInput): Promise<User | undefined> {
     const client = await this.authenticatedClient;
-    return client.post("/users/createUser", details).then(res => {
+    console.log(details);
+    return client.post("/user/createUser", details).then(res => {
       const data = res.data;
-      console.log(data);
+      console.log(data as User);
       if (data.status === "success") {
-        return data.data as User;
+        return data as User;
       } else {
         return undefined;
       }

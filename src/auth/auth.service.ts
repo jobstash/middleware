@@ -18,7 +18,7 @@ export class AuthService {
   ) {}
 
   createToken(user: User): string {
-    const token = this.jwtService.sign(user.node_id, {
+    const token = this.jwtService.sign(user.github_node_id, {
       secret: this.configService.get<string>("JWT_SECRET"),
     });
 
@@ -26,9 +26,15 @@ export class AuthService {
   }
 
   async getBackendCredentialsGrantToken(): Promise<string> {
-    const cacheValue = await this.cacheManager.get("client-credentials-token");
-    if (cacheValue !== null) {
-      return cacheValue?.toString();
+    const cacheValue = await this.cacheManager.get<string>(
+      "client-credentials-token",
+    );
+    if (
+      cacheValue !== null &&
+      cacheValue !== undefined &&
+      cacheValue !== "<unset>"
+    ) {
+      return cacheValue;
     } else {
       const newToken = await this.authClient.clientCredentialsGrant({
         audience: this.configService.get<string>("BACKEND_API_URL"),
