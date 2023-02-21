@@ -1,3 +1,7 @@
 import { GithubProfile } from "src/shared/types";
 
-export type User = GithubProfile;
+export interface User extends GithubProfile {
+  wallet?: string;
+  id: string;
+  available?: boolean;
+}

@@ -1,18 +1,10 @@
-import { ApiResponseProperty } from "@nestjs/swagger";
+import { ApiProperty } from "@nestjs/swagger";
 
-export class PaginatedData<T extends object> {
-  @ApiResponseProperty()
+export class PaginatedData<T> {
+  @ApiProperty()
   page: number;
-  @ApiResponseProperty()
+  @ApiProperty()
   count: number;
-  @ApiResponseProperty()
+  @ApiProperty()
   data: T[];
-
-  constructor(page: number, data: T[]) {
-    return {
-      page: page,
-      count: data.length,
-      data: data,
-    };
-  }
 }
