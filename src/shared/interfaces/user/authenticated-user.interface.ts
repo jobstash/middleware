@@ -1,6 +1,7 @@
+import { OmitType } from "@nestjs/swagger";
 import { User } from "./user.interface";
 
-export interface AuthenticatedUser extends User {
-  accessToken: string;
-  refreshToken?: string;
+export class AuthenticatedUser extends OmitType(User, ["id"] as const) {
+  access_token: string;
+  refresh_token?: string;
 }
