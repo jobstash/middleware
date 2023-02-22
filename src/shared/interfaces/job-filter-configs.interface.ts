@@ -2,12 +2,12 @@ import { OmitType } from "@nestjs/mapped-types";
 import { ApiExtraModels, ApiProperty, getSchemaPath } from "@nestjs/swagger";
 
 export enum FilterKind {
-  DATE = 0,
-  RANGE = 1,
-  BOOLEAN = 2,
-  SINGLESELECT = 3,
-  MULTISELECT = 4,
-  MULTISELECT_WITH_SEARCH = 5,
+  DATE = "DATE",
+  RANGE = "RANGE",
+  BOOLEAN = "BOOLEAN",
+  SINGLESELECT = "SINGLESELECT",
+  MULTISELECT = "MULTISELECT",
+  MULTISELECT_WITH_SEARCH = "MULTI_SELECT_WITH_SEARCH",
 }
 
 class FilterConfigField {
@@ -61,13 +61,13 @@ class FilterConfigLabeledValues extends OmitType(FilterConfigField, [
 }
 
 class BooleanFilter extends FilterConfigField {
-  @ApiProperty({ enum: FilterKind, enumName: "FilterKind", type: FilterKind })
-  kind: FilterKind;
+  @ApiProperty({ type: "BOOLEAN" })
+  kind: "BOOLEAN";
 }
 
 class DateFilter extends FilterConfigField {
-  @ApiProperty({ enum: FilterKind, enumName: "FilterKind", type: FilterKind })
-  kind: FilterKind;
+  @ApiProperty({ type: "DATE" })
+  kind: "DATE";
   @ApiProperty()
   stepSize: number;
   @ApiProperty()
@@ -75,18 +75,18 @@ class DateFilter extends FilterConfigField {
 }
 
 class MultiSelectFilter extends FilterConfigLabeledValues {
-  @ApiProperty({ enum: FilterKind, enumName: "FilterKind", type: FilterKind })
-  kind: FilterKind;
+  @ApiProperty({ type: "MULTI_SELECT" })
+  kind: "MULTI_SELECT";
 }
 
 class MultiSelectSearchFilter extends FilterConfigLabeledValues {
-  @ApiProperty({ enum: FilterKind, enumName: "FilterKind", type: FilterKind })
-  kind: FilterKind;
+  @ApiProperty({ type: "MULTI_SELECT_WITH_SEARCH" })
+  kind: "MULTI_SELECT_WITH_SEARCH";
 }
 
 class RangeFilter extends FilterConfigField {
-  @ApiProperty({ enum: FilterKind, enumName: "FilterKind", type: FilterKind })
-  kind: FilterKind;
+  @ApiProperty({ type: "RANGE" })
+  kind: "RANGE";
   @ApiProperty()
   stepSize: number;
   @ApiProperty()
