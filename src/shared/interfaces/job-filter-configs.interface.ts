@@ -1,6 +1,7 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { OmitType } from "@nestjs/mapped-types";
+import { ApiExtraModels, ApiProperty, getSchemaPath } from "@nestjs/swagger";
 
-export const enum FilterKind {
+export enum FilterKind {
   DATE = 0,
   RANGE = 1,
   BOOLEAN = 2,
@@ -9,52 +10,90 @@ export const enum FilterKind {
   MULTISELECT_WITH_SEARCH = 5,
 }
 
-interface FilterConfigField {
+class FilterConfigField {
+  @ApiProperty()
   position: number;
+  @ApiProperty()
   label: string;
+  @ApiProperty()
   show: boolean;
 }
 
-interface FilterConfigLabeledValues<T> {
-  value: {
-    label: string;
-    value: T;
-  }[];
+class FilterConfigLabel {
+  @ApiProperty()
+  label: string;
+  @ApiProperty()
+  value: string;
 }
 
-interface BooleanFilter
-  extends FilterConfigField,
-    FilterConfigLabeledValues<boolean> {
-  kind: FilterKind.BOOLEAN;
+class NumberWithParamKey {
+  @ApiProperty()
+  param_key: string;
+  @ApiProperty()
+  value: number;
 }
 
-interface DateFilter
-  extends FilterConfigField,
-    FilterConfigLabeledValues<number> {
-  kind: FilterKind.DATE;
+class Range {
+  @ApiProperty()
+  lowest: NumberWithParamKey;
+  @ApiProperty()
+  highest: NumberWithParamKey;
 }
 
-interface MultiSelectFilter
-  extends FilterConfigField,
-    FilterConfigLabeledValues<string> {
-  kind: FilterKind.MULTISELECT;
+class FilterConfigLabeledValues extends OmitType(FilterConfigField, [
+  "label",
+] as const) {
+  @ApiProperty({
+    type: "array",
+    items: {
+      $ref: getSchemaPath(FilterConfigLabel),
+      properties: {
+        label: {
+          type: "string",
+        },
+        value: {
+          type: "string",
+        },
+      },
+    },
+  })
+  options: FilterConfigLabel[];
 }
 
-interface MultiSelectSearchFilter
-  extends FilterConfigField,
-    FilterConfigLabeledValues<string> {
-  kind: FilterKind.MULTISELECT_WITH_SEARCH;
+class BooleanFilter extends FilterConfigField {
+  @ApiProperty({ enum: FilterKind, enumName: "FilterKind", type: FilterKind })
+  kind: FilterKind;
 }
 
-interface RangeFilter extends FilterConfigField {
-  kind: FilterKind.RANGE;
+class DateFilter extends FilterConfigField {
+  @ApiProperty({ enum: FilterKind, enumName: "FilterKind", type: FilterKind })
+  kind: FilterKind;
+  @ApiProperty()
   stepSize: number;
-  value: {
-    lowest: { param_key: string; value: number };
-    highest: { param_key: string; value: number };
-  };
+  @ApiProperty()
+  value: Range;
 }
 
+class MultiSelectFilter extends FilterConfigLabeledValues {
+  @ApiProperty({ enum: FilterKind, enumName: "FilterKind", type: FilterKind })
+  kind: FilterKind;
+}
+
+class MultiSelectSearchFilter extends FilterConfigLabeledValues {
+  @ApiProperty({ enum: FilterKind, enumName: "FilterKind", type: FilterKind })
+  kind: FilterKind;
+}
+
+class RangeFilter extends FilterConfigField {
+  @ApiProperty({ enum: FilterKind, enumName: "FilterKind", type: FilterKind })
+  kind: FilterKind;
+  @ApiProperty()
+  stepSize: number;
+  @ApiProperty()
+  value: Range;
+}
+
+@ApiExtraModels(FilterConfigLabel, FilterConfigField, FilterConfigLabeledValues)
 export class JobFilterConfigs {
   @ApiProperty()
   publication_date: DateFilter;
