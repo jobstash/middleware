@@ -93,7 +93,7 @@ export class JobsService {
                 ? "any(y IN cats WHERE y.name IN $categories) AND "
                 : ""
             }
-            WHERE o.name IS NOT NULL AND o.name <> ""
+            o.name IS NOT NULL AND o.name <> ""
             RETURN { organization: PROPERTIES(o), project: PROPERTIES(p), jobpost: PROPERTIES(j), technologies: tech, categories: cats } as res
             ${
               params.order_by
