@@ -1,18 +1,33 @@
-export interface Organization {
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+
+export class Organization {
+  @ApiProperty()
   id: string;
-  orgId: string;
+  @ApiProperty()
+  org_id: string;
+  @ApiProperty()
   name: string;
+  @ApiProperty()
   description: string;
+  @ApiProperty()
   location: string;
+  @ApiProperty()
   url: string;
 
-  githubOrganization: string;
-  teamSize?: string;
+  @ApiProperty()
+  github_organization: string;
+  @ApiPropertyOptional()
+  team_size?: string;
+  @ApiPropertyOptional()
   twitter?: string;
+  @ApiPropertyOptional()
   discord?: string;
+  @ApiPropertyOptional()
   linkedin?: string;
+  @ApiPropertyOptional()
   telegram?: string;
-
-  createdTimestamp: number;
-  updatedTimestamp?: number;
+  @ApiProperty()
+  created_timestamp: number;
+  @ApiPropertyOptional()
+  updated_timestamp?: number;
 }

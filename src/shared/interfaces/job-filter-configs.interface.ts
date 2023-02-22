@@ -1,3 +1,5 @@
+import { ApiProperty } from "@nestjs/swagger";
+
 export const enum FilterKind {
   DATE = 0,
   RANGE = 1,
@@ -53,23 +55,41 @@ interface RangeFilter extends FilterConfigField {
   };
 }
 
-export interface JobFilterConfigs {
+export class JobFilterConfigs {
+  @ApiProperty()
   publication_date: DateFilter;
+  @ApiProperty()
   salary: RangeFilter;
+  @ApiProperty()
   location: MultiSelectFilter;
+  @ApiProperty()
   team_size: RangeFilter;
+  @ApiProperty()
   employee_count: RangeFilter;
+  @ApiProperty()
   tech: MultiSelectSearchFilter;
+  @ApiProperty()
   organizations: MultiSelectSearchFilter;
+  @ApiProperty()
   chains: MultiSelectSearchFilter;
+  @ApiProperty()
   projects: MultiSelectSearchFilter;
+  @ApiProperty()
   categories: MultiSelectSearchFilter;
+  @ApiProperty()
   tvl: RangeFilter;
+  @ApiProperty()
   monthly_volume: RangeFilter;
+  @ApiProperty()
   monthly_active_users: RangeFilter;
+  @ApiProperty()
   monthly_revenue: RangeFilter;
+  @ApiProperty()
   audits: RangeFilter;
+  @ApiProperty()
   hacks: RangeFilter;
+  @ApiProperty()
   mainnet: BooleanFilter;
+  @ApiProperty()
   token: BooleanFilter;
 }
