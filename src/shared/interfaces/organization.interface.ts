@@ -10,6 +10,8 @@ export class Organization {
   @ApiProperty()
   description: string;
   @ApiProperty()
+  summary: string;
+  @ApiProperty()
   location: string;
   @ApiProperty()
   url: string;

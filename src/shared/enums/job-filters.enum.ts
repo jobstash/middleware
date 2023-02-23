@@ -10,4 +10,5 @@ export type JobListOrderBy =
   | "audits"
   | "hacks"
   | "chains"
+  | "teamSize"
   | "headCount";

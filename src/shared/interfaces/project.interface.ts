@@ -26,7 +26,7 @@ export class Project {
   @ApiPropertyOptional()
   monthlyVolume?: number;
   @ApiPropertyOptional()
-  monthlyActiveUsers?: number;
+  monthlyFees?: number;
   @ApiPropertyOptional()
   monthlyRevenue?: number;
   @ApiProperty()

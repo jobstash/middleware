@@ -36,7 +36,7 @@ export class UserService {
     return this.neo4jService
       .read(
         `
-            MATCH (u:User {github_node_id: $node_id})
+            MATCH (u:User {githubNodeId: $nodeId})
             RETURN u
         `,
         { nodeId },

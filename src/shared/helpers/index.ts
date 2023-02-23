@@ -61,6 +61,9 @@ export const orderBySelector = (args: {
       return ``;
 
     case "headCount":
+      return `${projectVar}.headCount`;
+
+    case "teamSize":
       return `${orgVar}.teamSize`;
 
     default:

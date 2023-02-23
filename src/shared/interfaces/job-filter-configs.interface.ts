@@ -1,5 +1,10 @@
-import { OmitType } from "@nestjs/mapped-types";
-import { ApiExtraModels, ApiProperty, getSchemaPath } from "@nestjs/swagger";
+import {
+  ApiExtraModels,
+  ApiProperty,
+  ApiPropertyOptional,
+  getSchemaPath,
+  OmitType,
+} from "@nestjs/swagger";
 
 class FilterConfigField {
   @ApiProperty()
@@ -8,10 +13,10 @@ class FilterConfigField {
   label: string;
   @ApiProperty()
   show: boolean;
-  @ApiProperty()
-  googleAnalyticsEventName: string;
-  @ApiProperty()
-  googleAnalyticsEventId: string;
+  @ApiPropertyOptional()
+  googleAnalyticsEventName?: string;
+  @ApiPropertyOptional()
+  googleAnalyticsEventId?: string;
 }
 
 class FilterConfigLabel {
@@ -24,8 +29,8 @@ class FilterConfigLabel {
 class NumberWithParamKey {
   @ApiProperty()
   paramKey: string;
-  @ApiProperty()
-  value: number;
+  @ApiPropertyOptional()
+  value?: number;
 }
 
 class Range {
@@ -38,7 +43,7 @@ class Range {
 class FilterConfigLabeledValues extends OmitType(FilterConfigField, [
   "label",
 ] as const) {
-  @ApiProperty({
+  @ApiPropertyOptional({
     type: "array",
     items: {
       $ref: getSchemaPath(FilterConfigLabel),
@@ -52,36 +57,31 @@ class FilterConfigLabeledValues extends OmitType(FilterConfigField, [
       },
     },
   })
-  options: FilterConfigLabel[];
+  options?: FilterConfigLabel[];
+  @ApiProperty()
+  paramKey: string;
 }
 
 class BooleanFilter extends FilterConfigField {
   @ApiProperty()
-  kind: "BOOLEAN";
-}
-
-class DateFilter extends FilterConfigField {
+  kind: string;
   @ApiProperty()
-  kind: "DATE";
-  @ApiProperty()
-  stepSize: number;
-  @ApiProperty()
-  value: Range;
+  paramKey: string;
 }
 
 class MultiSelectFilter extends FilterConfigLabeledValues {
   @ApiProperty()
-  kind: "MULTI_SELECT";
+  kind: string;
 }
 
 class MultiSelectSearchFilter extends FilterConfigLabeledValues {
   @ApiProperty()
-  kind: "MULTI_SELECT_WITH_SEARCH";
+  kind: string;
 }
 
 class RangeFilter extends FilterConfigField {
   @ApiProperty()
-  kind: "RANGE";
+  kind: string;
   @ApiProperty()
   stepSize: number;
   @ApiProperty()
@@ -91,17 +91,17 @@ class RangeFilter extends FilterConfigField {
 @ApiExtraModels(FilterConfigLabel, FilterConfigField, FilterConfigLabeledValues)
 export class JobFilterConfigs {
   @ApiProperty()
-  publicationDate: DateFilter;
+  publicationDate: RangeFilter;
   @ApiProperty()
   salary: RangeFilter;
   @ApiProperty()
-  level: RangeFilter;
+  seniority: MultiSelectFilter;
   @ApiProperty()
-  location: MultiSelectFilter;
+  locations: MultiSelectFilter;
   @ApiProperty()
   teamSize: RangeFilter;
   @ApiProperty()
-  employeeCount: RangeFilter;
+  headCount: RangeFilter;
   @ApiProperty()
   tech: MultiSelectSearchFilter;
   @ApiProperty()
@@ -117,7 +117,7 @@ export class JobFilterConfigs {
   @ApiProperty()
   monthlyVolume: RangeFilter;
   @ApiProperty()
-  monthlyActiveUsers: RangeFilter;
+  monthlyFees: RangeFilter;
   @ApiProperty()
   monthlyRevenue: RangeFilter;
   @ApiProperty()
@@ -125,7 +125,7 @@ export class JobFilterConfigs {
   @ApiProperty()
   hacks: RangeFilter;
   @ApiProperty()
-  mainnet: BooleanFilter;
+  mainNet: BooleanFilter;
   @ApiProperty()
   token: BooleanFilter;
 }

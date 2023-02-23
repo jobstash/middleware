@@ -26,67 +26,83 @@ export class JobsService {
                 min: params.minPublicationDate,
                 max: params.maxPublicationDate,
               },
-              "$min_publication_date < j.jobCreatedTimestamp <= $max_publication_date",
-              "$max_publication_date < j.jobCreatedTimestamp",
-              "j.jobCreatedTimestamp <= $max_publication_date",
+              "$minPublicationDate < j.jobCreatedTimestamp <= $maxPublicationDate",
+              "$maxPublicationDate < j.jobCreatedTimestamp",
+              "j.jobCreatedTimestamp <= $maxPublicationDate",
             )}
             ${optionalMinMaxFilter(
               { min: params.minSalary, max: params.maxSalary },
-              "$min_salary >= j.minSalary AND $max_salary <= j.maxSalary",
-              "$min_salary >= j.minSalary",
-              "$max_salary <= j.maxSalary",
+              "$minSalary >= j.minSalary AND $max_salary <= j.maxSalary",
+              "$minSalary >= j.minSalary",
+              "$maxSalary <= j.maxSalary",
             )}
             ${optionalMinMaxFilter(
               {
                 min: params.minHeadCount,
                 max: params.maxHeadCount,
               },
-              "$min_head_count < o.teamSize <= $max_head_count",
-              "$min_head_count < p.tvl",
-              "p.tvl <= $max_head_count",
+              "$minHeadCount < o.headCount <= $maxHeadCount",
+              "$minHeadCount < o.headCount",
+              "o.headCount <= $maxHeadCount",
+            )}
+            ${optionalMinMaxFilter(
+              {
+                min: params.minTeamSize,
+                max: params.maxTeamSize,
+              },
+              "$minTeamSize < p.teamSize <= $maxTeamSize",
+              "$minTeamSize < p.teamSize",
+              "p.teamSize <= $maxTeamSize",
             )}
             ${optionalMinMaxFilter(
               { min: params.minTvl, max: params.maxTvl },
-              "$min_tvl < p.tvl <= $max_tvl",
-              "$min_tvl < p.tvl",
-              "p.tvl <= $max_tvl",
+              "$minTvl < p.tvl <= $maxTvl",
+              "$minTvl < p.tvl",
+              "p.tvl <= $maxTvl",
             )}
             ${optionalMinMaxFilter(
               {
                 min: params.minMonthlyVolume,
                 max: params.maxMonthlyVolume,
               },
-              "$min_monthly_volume < p.monthlyVolume <= $max_monthly_volume",
-              "$min_monthly_volume < p.monthlyVolume",
-              "p.monthlyVolume <= $max_monthly_volume",
+              "$minMonthlyVolume < p.monthlyVolume <= $maxMonthlyVolume",
+              "$minMonthlyVolume < p.monthlyVolume",
+              "p.monthlyVolume <= $maxMonthlyVolume",
             )}
             ${optionalMinMaxFilter(
               {
                 min: params.minMonthlyFees,
                 max: params.maxMonthlyFees,
               },
-              "$min_monthly_fees < p.monthlyFees <= $max_monthly_fees",
-              "$min_monthly_fees < p.monthlyFees",
-              "p.monthlyFees <= $max_monthly_fees",
+              "$minMonthlyFees < p.monthlyFees <= $maxMonthlyFees",
+              "$minMonthlyFees < p.monthlyFees",
+              "p.monthlyFees <= $maxMonthlyFees",
             )}
             ${optionalMinMaxFilter(
               {
                 min: params.minMonthlyRevenue,
                 max: params.maxMonthlyRevenue,
               },
-              "$min_monthly_revenue < p.monthlyRevenue <= $max_monthly_revenue",
-              "$min_monthly_revenue < p.monthlyRevenue",
-              "p.monthlyRevenue <= $max_monthly_revenue",
+              "$minMonthlyRevenue < p.monthlyRevenue <= $maxMonthlyRevenue",
+              "$minMonthlyRevenue < p.monthlyRevenue",
+              "p.monthlyRevenue <= $maxMonthlyRevenue",
             )}
             ${
               params.token !== undefined
                 ? params.token
-                  ? "p.tokenAddress != null AND "
+                  ? "p.tokenAddress IS NOT NULL AND "
                   : "p.tokenAddress = null AND "
                 : ""
             }
-            ${params.level ? "j.level = $level AND " : ""}
-            ${params.location ? "j.jobLocation CONTAINS $location AND " : ""}
+            ${
+              params.mainNet !== undefined
+                ? params.mainNet
+                  ? "p.isMainnet IS NOT NULL AND "
+                  : "p.isMainnet = true AND "
+                : ""
+            }
+            ${params.seniority ? "j.seniority = $seniority AND " : ""}
+            ${params.locations ? "j.jobLocation IN $locations AND " : ""}
             ${params.tech ? "any(x IN tech WHERE x.name IN $tech) AND " : ""}
             ${
               params.categories
@@ -125,14 +141,34 @@ export class JobsService {
     return this.neo4jService
       .read(
         `
-        MATCH (o:Organization)
-        MATCH (p:Project)
-        MATCH (j:StructuredJobPost)
-        MATCH (t:Technology)
-        MATCH (c:Chain)
-        MATCH (pc:ProjectCategory)
-        WITH COLLECT(DISTINCT o) as orgs, COLLECT(DISTINCT p) as projects, COLLECT(DISTINCT c) as chains, COLLECT(DISTINCT pc) as categories, COLLECT(DISTINCT t) as tech
-        
+        MATCH (o:Organization)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(c:ProjectCategory)
+        MATCH (o)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
+        OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
+        WITH o, p, j, t, c
+        RETURN {
+            minPublicationDate: MIN(j.jobCreatedTimestamp),
+            maxPublicationDate: MAX(j.jobCreatedTimestamp),
+            minSalary: MIN(j.medianSalary),
+            maxSalary: MAX(j.medianSalary),
+            minTvl: MIN(p.tvl),
+            maxTvl: MAX(p.tvl),
+            minMonthlyVolume: MIN(p.monthlyVolume),
+            maxMonthlyVolume: MAX(p.monthlyVolume),
+            minMonthlyFees: MIN(p.monthlyFees),
+            maxMonthlyFees: MAX(p.monthlyFees),
+            minMonthlyRevenue: MIN(p.monthlyRevenue),
+            maxMonthlyRevenue: MAX(p.monthlyRevenue),
+            minHeadCount: MIN(o.headCount),
+            maxHeadCount: MAX(o.headCount),
+            minTeamSize: MIN(p.teamSize),
+            maxTeamSize: MAX(p.teamSize),
+            tech: COLLECT(DISTINCT t.name),
+            projects: COLLECT(DISTINCT p.name),
+            categories: COLLECT(DISTINCT c.name),
+            locations: COLLECT(DISTINCT j.jobLocation),
+            organizations: COLLECT(DISTINCT o.name),
+            seniority: COLLECT(DISTINCT j.seniority)
+        } as res
       `,
       )
       .then(res =>
