@@ -3,7 +3,7 @@ import { User } from "./user.interface";
 
 export class AuthenticatedUser extends OmitType(User, ["id"] as const) {
   @ApiProperty()
-  access_token: string;
+  accessToken: string;
   @ApiProperty()
-  refresh_token?: string;
+  refreshToken?: string;
 }

@@ -1,14 +1,18 @@
-import { JobListResult, StructuredJobpost } from "src/shared/types";
-import { Organization } from "../interfaces/organization.interface";
-import { Project } from "../interfaces/project.interface";
-import { Technology } from "../interfaces/technology.interface";
+import {
+  JobListResult,
+  Organization,
+  Project,
+  ProjectCategory,
+  StructuredJobpost,
+  Technology,
+} from "src/shared/types";
 
 type RawJobPost = {
   organization?: Organization | null;
   project?: Project | null;
   jobpost?: StructuredJobpost | null;
   technologies?: [object & { properties: Technology }] | null;
-  categories?: [object & { properties: Organization }] | null;
+  categories?: [object & { properties: ProjectCategory }] | null;
 };
 
 export class JobListResultEntity {

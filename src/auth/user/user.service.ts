@@ -32,14 +32,14 @@ export class UserService {
       );
   }
 
-  async findByNodeId(node_id: string): Promise<UserEntity | undefined> {
+  async findByNodeId(nodeId: string): Promise<UserEntity | undefined> {
     return this.neo4jService
       .read(
         `
-            MATCH (u:User {github_node_id: $node_id})
+            MATCH (u:User {githubNodeId: $nodeId})
             RETURN u
         `,
-        { node_id },
+        { nodeId },
       )
       .then(res =>
         res.records.length

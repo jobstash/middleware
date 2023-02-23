@@ -6,9 +6,9 @@ export class CreateUserInput extends PartialType(GithubProfile) {
   @IsString()
   @IsDefined()
   @IsNotEmpty()
-  github_access_token: string;
+  githubAccessToken: string;
 
   @IsString()
   @IsOptional()
-  github_refresh_token?: string | undefined;
+  githubRefreshToken?: string | undefined;
 }

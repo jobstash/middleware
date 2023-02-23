@@ -28,7 +28,7 @@ import {
   description: "Bearer token obtained from login",
 })
 @Controller("jobs")
-@ApiExtraModels(PaginatedData, JobListResult, ValidationError)
+@ApiExtraModels(PaginatedData, JobListResult, JobFilterConfigs, ValidationError)
 export class JobsController {
   constructor(private readonly jobsService: JobsService) {}
 
@@ -79,7 +79,13 @@ export class JobsController {
   @UseGuards(JwtAuthGuard)
   @ApiOkResponse({
     description: "Returns the configuration data for the ui filters",
-    type: "",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(JobFilterConfigs),
+        },
+      ],
+    },
   })
   @ApiBadRequestResponse({
     description:

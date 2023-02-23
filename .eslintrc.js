@@ -21,5 +21,12 @@ module.exports = {
     "@typescript-eslint/explicit-module-boundary-types": "warn",
     "@typescript-eslint/no-explicit-any": "warn",
     "@typescript-eslint/no-empty-function": "warn",
+    "@typescript-eslint/naming-convention": [
+      "error",
+      {
+        selector: "variable",
+        format: ["camelCase", "UPPER_CASE", "PascalCase"],
+      },
+    ],
   },
 };

@@ -20,7 +20,7 @@ export class JobListParams {
   @IsNumber()
   @IsPositive()
   @Type(() => Number)
-  min_publication_date?: number;
+  minPublicationDate?: number;
 
   @ApiPropertyOptional({
     example: 1676450275,
@@ -28,9 +28,9 @@ export class JobListParams {
   @IsOptional()
   @IsNumber()
   @IsPositive()
-  @Compare("min_publication_date", ">=")
+  @Compare("minPublicationDate", ">=")
   @Type(() => Number)
-  max_publication_date?: number;
+  maxPublicationDate?: number;
 
   @ApiPropertyOptional({
     example: 90000,
@@ -39,7 +39,7 @@ export class JobListParams {
   @IsNumber()
   @IsPositive()
   @Type(() => Number)
-  min_salary?: number;
+  minSalary?: number;
 
   @ApiPropertyOptional({
     example: 150000,
@@ -47,9 +47,9 @@ export class JobListParams {
   @IsOptional()
   @IsNumber()
   @IsPositive()
-  @Compare("min_salary", ">=")
+  @Compare("minSalary", ">=")
   @Type(() => Number)
-  max_salary?: number;
+  maxSalary?: number;
 
   @ApiPropertyOptional({
     example: 10,
@@ -58,7 +58,7 @@ export class JobListParams {
   @IsNumber()
   @IsPositive()
   @Type(() => Number)
-  min_head_count?: number;
+  minHeadCount?: number;
 
   @ApiPropertyOptional({
     example: 100,
@@ -66,9 +66,28 @@ export class JobListParams {
   @IsOptional()
   @IsNumber()
   @IsPositive()
-  @Compare("min_head_count", ">=")
+  @Compare("minHeadCount", ">=")
   @Type(() => Number)
-  max_head_count?: number;
+  maxHeadCount?: number;
+
+  @ApiPropertyOptional({
+    example: 10,
+  })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  @Type(() => Number)
+  minTeamSize?: number;
+
+  @ApiPropertyOptional({
+    example: 100,
+  })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  @Compare("minTeamSize", ">=")
+  @Type(() => Number)
+  maxTeamSize?: number;
 
   @ApiPropertyOptional({
     example: 1890503.6980031824,
@@ -77,7 +96,7 @@ export class JobListParams {
   @IsNumber()
   @IsPositive()
   @Type(() => Number)
-  min_tvl?: number;
+  minTvl?: number;
 
   @ApiPropertyOptional({
     example: 5000503.698003182,
@@ -85,9 +104,9 @@ export class JobListParams {
   @IsOptional()
   @IsNumber()
   @IsPositive()
-  @Compare("min_tvl", ">=")
+  @Compare("minTvl", ">=")
   @Type(() => Number)
-  max_tvl?: number;
+  maxTvl?: number;
 
   @ApiPropertyOptional({
     example: 1000000,
@@ -96,7 +115,7 @@ export class JobListParams {
   @IsNumber()
   @IsPositive()
   @Type(() => Number)
-  min_monthly_volume?: number;
+  minMonthlyVolume?: number;
 
   @ApiPropertyOptional({
     example: 1000000000,
@@ -104,9 +123,9 @@ export class JobListParams {
   @IsOptional()
   @IsNumber()
   @IsPositive()
-  @Compare("min_monthly_volume", ">=")
+  @Compare("minMonthlyVolume", ">=")
   @Type(() => Number)
-  max_monthly_volume?: number;
+  maxMonthlyVolume?: number;
 
   @ApiPropertyOptional({
     example: 50000,
@@ -115,7 +134,7 @@ export class JobListParams {
   @IsNumber()
   @IsPositive()
   @Type(() => Number)
-  min_monthly_active_users?: number;
+  minMonthlyFees?: number;
 
   @ApiPropertyOptional({
     example: 3000000,
@@ -123,9 +142,9 @@ export class JobListParams {
   @IsOptional()
   @IsNumber()
   @IsPositive()
-  @Compare("min_monthly_active_users", ">=")
+  @Compare("minMonthlyFees", ">=")
   @Type(() => Number)
-  max_monthly_active_users?: number;
+  maxMonthlyFees?: number;
 
   @ApiPropertyOptional({
     example: 1000000,
@@ -134,7 +153,7 @@ export class JobListParams {
   @IsNumber()
   @IsPositive()
   @Type(() => Number)
-  min_monthly_revenue?: number;
+  minMonthlyRevenue?: number;
 
   @ApiPropertyOptional({
     example: 5000000,
@@ -142,9 +161,9 @@ export class JobListParams {
   @IsOptional()
   @IsNumber()
   @IsPositive()
-  @Compare("min_monthly_revenue", ">=")
+  @Compare("minMonthlyRevenue", ">=")
   @Type(() => Number)
-  max_monthly_revenue?: number;
+  maxMonthlyRevenue?: number;
 
   @ApiPropertyOptional({
     example: 2,
@@ -153,7 +172,7 @@ export class JobListParams {
   @IsNumber()
   @IsPositive()
   @Type(() => Number)
-  min_audits?: number;
+  minAudits?: number;
 
   @ApiPropertyOptional({
     example: 100,
@@ -161,9 +180,9 @@ export class JobListParams {
   @IsOptional()
   @IsNumber()
   @IsPositive()
-  @Compare("min_audits", ">=")
+  @Compare("minAudits", ">=")
   @Type(() => Number)
-  max_audits?: number;
+  maxAudits?: number;
 
   @ApiPropertyOptional({
     example: 1,
@@ -172,7 +191,7 @@ export class JobListParams {
   @IsNumber()
   @IsPositive()
   @Type(() => Number)
-  min_hacks?: number;
+  minHacks?: number;
 
   @ApiPropertyOptional({
     example: 40,
@@ -180,9 +199,9 @@ export class JobListParams {
   @IsOptional()
   @IsNumber()
   @IsPositive()
-  @Compare("min_hacks", ">=")
+  @Compare("minHacks", ">=")
   @Type(() => Number)
-  max_hacks?: number;
+  maxHacks?: number;
 
   @ApiPropertyOptional({
     example: "String,C++",
@@ -244,13 +263,21 @@ export class JobListParams {
   token?: boolean;
 
   @ApiPropertyOptional({
-    enum: [1, 2, 3, 4, 5],
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  mainNet?: boolean;
+
+  @ApiPropertyOptional({
+    example: "1",
   })
   @IsOptional()
   @IsNumber()
   @IsPositive()
-  @Type(() => Number)
-  level?: number;
+  @Type(() => String)
+  seniority?: string;
 
   @ApiPropertyOptional({
     example: "Remote,Onsite",
@@ -258,7 +285,7 @@ export class JobListParams {
   @IsOptional()
   @IsString()
   @Type(() => String)
-  location?: string;
+  locations?: string;
 
   @ApiPropertyOptional({
     enum: ["asc", "desc"],
@@ -270,35 +297,37 @@ export class JobListParams {
 
   @ApiPropertyOptional({
     enum: [
-      "publication_date",
+      "publicationDate",
       "tvl",
       "salary",
-      "funding_date",
-      "monthly_volume",
-      "monthly_active_users",
-      "monthly_revenue",
+      "fundingDate",
+      "monthlyVolume",
+      "monthlyFees",
+      "monthlyRevenue",
       "audits",
       "hacks",
       "chains",
-      "head_count",
+      "headCount",
+      "teamSize",
     ],
   })
   @IsOptional()
   @IsIn([
-    "publication_date",
+    "publicationDate",
     "tvl",
     "salary",
-    "funding_date",
-    "monthly_volume",
-    "monthly_active_users",
-    "monthly_revenue",
+    "fundingDate",
+    "monthlyVolume",
+    "monthlyFees",
+    "monthlyRevenue",
     "audits",
     "hacks",
     "chains",
-    "head_count",
+    "headCount",
+    "teamSize",
   ])
   @IsString()
-  order_by?: JobListOrderBy;
+  orderBy?: JobListOrderBy;
 
   @ApiPropertyOptional({
     example: 500,

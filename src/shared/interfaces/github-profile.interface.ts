@@ -5,22 +5,22 @@ export class GithubProfile {
   @IsString()
   @IsNotEmpty()
   @ApiProperty()
-  github_login: string;
+  githubLogin: string;
 
   @IsNumber()
   @ApiProperty()
-  github_id: number;
+  githubId: number;
 
   @IsString()
   @IsNotEmpty()
   @ApiProperty()
-  github_node_id: string;
+  githubNodeId: string;
 
   @IsString()
   @ApiPropertyOptional()
-  github_gravatar_id?: string;
+  githubGravatarId?: string;
 
   @IsString()
   @ApiProperty()
-  github_avatar_url: string;
+  githubAvatarUrl: string;
 }

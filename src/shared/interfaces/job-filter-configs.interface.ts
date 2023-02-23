@@ -1,75 +1,131 @@
-export const enum FilterKind {
-  DATE = 0,
-  RANGE = 1,
-  BOOLEAN = 2,
-  SINGLESELECT = 3,
-  MULTISELECT = 4,
-  MULTISELECT_WITH_SEARCH = 5,
-}
+import {
+  ApiExtraModels,
+  ApiProperty,
+  ApiPropertyOptional,
+  getSchemaPath,
+  OmitType,
+} from "@nestjs/swagger";
 
-interface FilterConfigField {
+class FilterConfigField {
+  @ApiProperty()
   position: number;
+  @ApiProperty()
   label: string;
+  @ApiProperty()
   show: boolean;
+  @ApiPropertyOptional()
+  googleAnalyticsEventName?: string;
+  @ApiPropertyOptional()
+  googleAnalyticsEventId?: string;
 }
 
-interface FilterConfigLabeledValues<T> {
-  value: {
-    label: string;
-    value: T;
-  }[];
+class FilterConfigLabel {
+  @ApiProperty()
+  label: string;
+  @ApiProperty()
+  value: string;
 }
 
-interface BooleanFilter
-  extends FilterConfigField,
-    FilterConfigLabeledValues<boolean> {
-  kind: FilterKind.BOOLEAN;
+class NumberWithParamKey {
+  @ApiProperty()
+  paramKey: string;
+  @ApiPropertyOptional()
+  value?: number;
 }
 
-interface DateFilter
-  extends FilterConfigField,
-    FilterConfigLabeledValues<number> {
-  kind: FilterKind.DATE;
+class Range {
+  @ApiProperty()
+  lowest: NumberWithParamKey;
+  @ApiProperty()
+  highest: NumberWithParamKey;
 }
 
-interface MultiSelectFilter
-  extends FilterConfigField,
-    FilterConfigLabeledValues<string> {
-  kind: FilterKind.MULTISELECT;
+class FilterConfigLabeledValues extends OmitType(FilterConfigField, [
+  "label",
+] as const) {
+  @ApiPropertyOptional({
+    type: "array",
+    items: {
+      $ref: getSchemaPath(FilterConfigLabel),
+      properties: {
+        label: {
+          type: "string",
+        },
+        value: {
+          type: "string",
+        },
+      },
+    },
+  })
+  options?: FilterConfigLabel[];
+  @ApiProperty()
+  paramKey: string;
 }
 
-interface MultiSelectSearchFilter
-  extends FilterConfigField,
-    FilterConfigLabeledValues<string> {
-  kind: FilterKind.MULTISELECT_WITH_SEARCH;
+class BooleanFilter extends FilterConfigField {
+  @ApiProperty()
+  kind: string;
+  @ApiProperty()
+  paramKey: string;
 }
 
-interface RangeFilter extends FilterConfigField {
-  kind: FilterKind.RANGE;
+class MultiSelectFilter extends FilterConfigLabeledValues {
+  @ApiProperty()
+  kind: string;
+}
+
+class MultiSelectSearchFilter extends FilterConfigLabeledValues {
+  @ApiProperty()
+  kind: string;
+}
+
+class RangeFilter extends FilterConfigField {
+  @ApiProperty()
+  kind: string;
+  @ApiProperty()
   stepSize: number;
-  value: {
-    lowest: { param_key: string; value: number };
-    highest: { param_key: string; value: number };
-  };
+  @ApiProperty()
+  value: Range;
 }
 
-export interface JobFilterConfigs {
-  publication_date: DateFilter;
+@ApiExtraModels(FilterConfigLabel, FilterConfigField, FilterConfigLabeledValues)
+export class JobFilterConfigs {
+  @ApiProperty()
+  publicationDate: RangeFilter;
+  @ApiProperty()
   salary: RangeFilter;
-  location: MultiSelectFilter;
-  team_size: RangeFilter;
-  employee_count: RangeFilter;
+  @ApiProperty()
+  seniority: MultiSelectFilter;
+  @ApiProperty()
+  locations: MultiSelectFilter;
+  @ApiProperty()
+  teamSize: RangeFilter;
+  @ApiProperty()
+  headCount: RangeFilter;
+  @ApiProperty()
   tech: MultiSelectSearchFilter;
+  @ApiProperty()
   organizations: MultiSelectSearchFilter;
+  @ApiProperty()
   chains: MultiSelectSearchFilter;
+  @ApiProperty()
   projects: MultiSelectSearchFilter;
+  @ApiProperty()
   categories: MultiSelectSearchFilter;
+  @ApiProperty()
   tvl: RangeFilter;
-  monthly_volume: RangeFilter;
-  monthly_active_users: RangeFilter;
-  monthly_revenue: RangeFilter;
+  @ApiProperty()
+  monthlyVolume: RangeFilter;
+  @ApiProperty()
+  monthlyFees: RangeFilter;
+  @ApiProperty()
+  monthlyRevenue: RangeFilter;
+  @ApiProperty()
   audits: RangeFilter;
+  @ApiProperty()
   hacks: RangeFilter;
-  mainnet: BooleanFilter;
+  @ApiProperty()
+  mainNet: BooleanFilter;
+  @ApiProperty()
   token: BooleanFilter;
 }

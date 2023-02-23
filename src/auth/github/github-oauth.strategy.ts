@@ -29,14 +29,14 @@ export class GithubOauthStrategy extends PassportStrategy(Strategy, "github") {
     const result = await this.userService.findByNodeId(profileData.node_id);
     if (result === undefined) {
       return this.backendService.createUser({
-        github_access_token: accessToken,
-        github_refresh_token: refreshToken,
-        github_login: profileData.login,
-        github_id: profileData.id,
-        github_node_id: profileData.node_id,
-        github_gravatar_id:
+        githubAccessToken: accessToken,
+        githubRefreshToken: refreshToken,
+        githubLogin: profileData.login,
+        githubId: profileData.id,
+        githubNodeId: profileData.node_id,
+        githubGravatarId:
           profileData.gravatar_id === "" ? undefined : profileData.gravatar_id,
-        github_avatar_url: profileData.avatar_url,
+        githubAvatarUrl: profileData.avatar_url,
       });
     } else {
       return result.getProperties();

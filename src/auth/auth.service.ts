@@ -18,7 +18,7 @@ export class AuthService {
   ) {}
 
   createToken(user: User): string {
-    const token = this.jwtService.sign(user.github_node_id, {
+    const token = this.jwtService.sign(user.githubNodeId, {
       secret: this.configService.get<string>("JWT_SECRET"),
     });
 
