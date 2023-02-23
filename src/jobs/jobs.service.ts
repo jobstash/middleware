@@ -141,10 +141,11 @@ export class JobsService {
     return this.neo4jService
       .read(
         `
-        MATCH (o:Organization)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(c:ProjectCategory)
+        MATCH (o:Organization)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(cat:ProjectCategory)
         MATCH (o)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
         OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
-        WITH o, p, j, t, c
+        OPTIONAL MATCH (p)-[:IS_CHAIN]->(c:Chain)
+        WITH o, p, j, t, c, cat
         RETURN {
             minPublicationDate: MIN(j.jobCreatedTimestamp),
             maxPublicationDate: MAX(j.jobCreatedTimestamp),
@@ -164,7 +165,8 @@ export class JobsService {
             maxTeamSize: MAX(p.teamSize),
             tech: COLLECT(DISTINCT t.name),
             projects: COLLECT(DISTINCT p.name),
-            categories: COLLECT(DISTINCT c.name),
+            categories: COLLECT(DISTINCT cat.name),
+            chains: COLLECT(DISTINCT c.name),
             locations: COLLECT(DISTINCT j.jobLocation),
             organizations: COLLECT(DISTINCT o.name),
             seniority: COLLECT(DISTINCT j.seniority)
