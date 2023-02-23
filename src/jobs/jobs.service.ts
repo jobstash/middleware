@@ -62,12 +62,12 @@ export class JobsService {
             )}
             ${optionalMinMaxFilter(
               {
-                min: params.min_monthly_active_users,
-                max: params.max_monthly_active_users,
+                min: params.min_monthly_fees,
+                max: params.max_monthly_fees,
               },
-              "$min_monthly_active_users < p.monthlyActiveUsers <= $max_monthly_active_users",
-              "$min_monthly_active_users < p.monthlyActiveUsers",
-              "p.monthlyActiveUsers <= $max_monthly_active_users",
+              "$min_monthly_fees < p.monthlyFees <= $max_monthly_fees",
+              "$min_monthly_fees < p.monthlyFees",
+              "p.monthlyFees <= $max_monthly_fees",
             )}
             ${optionalMinMaxFilter(
               {

@@ -115,7 +115,7 @@ export class JobListParams {
   @IsNumber()
   @IsPositive()
   @Type(() => Number)
-  min_monthly_active_users?: number;
+  min_monthly_fees?: number;
 
   @ApiPropertyOptional({
     example: 3000000,
@@ -123,9 +123,9 @@ export class JobListParams {
   @IsOptional()
   @IsNumber()
   @IsPositive()
-  @Compare("min_monthly_active_users", ">=")
+  @Compare("min_monthly_fees", ">=")
   @Type(() => Number)
-  max_monthly_active_users?: number;
+  max_monthly_fees?: number;
 
   @ApiPropertyOptional({
     example: 1000000,
@@ -275,7 +275,7 @@ export class JobListParams {
       "salary",
       "funding_date",
       "monthly_volume",
-      "monthly_active_users",
+      "monthly_fees",
       "monthly_revenue",
       "audits",
       "hacks",
@@ -290,7 +290,7 @@ export class JobListParams {
     "salary",
     "funding_date",
     "monthly_volume",
-    "monthly_active_users",
+    "monthly_fees",
     "monthly_revenue",
     "audits",
     "hacks",

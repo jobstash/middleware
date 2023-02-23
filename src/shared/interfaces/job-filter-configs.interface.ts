@@ -16,6 +16,10 @@ class FilterConfigField {
   label: string;
   @ApiProperty()
   show: boolean;
+  @ApiProperty()
+  google_analytics_event_name: string;
+  @ApiProperty()
+  google_analytics_event_id: string;
 }
 
 class FilterConfigLabel {
@@ -60,12 +64,12 @@ class FilterConfigLabeledValues extends OmitType(FilterConfigField, [
 }
 
 class BooleanFilter extends FilterConfigField {
-  @ApiProperty({ type: "BOOLEAN" })
+  @ApiProperty()
   kind: "BOOLEAN";
 }
 
 class DateFilter extends FilterConfigField {
-  @ApiProperty({ type: "DATE" })
+  @ApiProperty()
   kind: "DATE";
   @ApiProperty()
   stepSize: number;
@@ -74,17 +78,17 @@ class DateFilter extends FilterConfigField {
 }
 
 class MultiSelectFilter extends FilterConfigLabeledValues {
-  @ApiProperty({ type: "MULTI_SELECT" })
+  @ApiProperty()
   kind: "MULTI_SELECT";
 }
 
 class MultiSelectSearchFilter extends FilterConfigLabeledValues {
-  @ApiProperty({ type: "MULTI_SELECT_WITH_SEARCH" })
+  @ApiProperty()
   kind: "MULTI_SELECT_WITH_SEARCH";
 }
 
 class RangeFilter extends FilterConfigField {
-  @ApiProperty({ type: "RANGE" })
+  @ApiProperty()
   kind: "RANGE";
   @ApiProperty()
   stepSize: number;
