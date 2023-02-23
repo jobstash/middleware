@@ -7,49 +7,49 @@ import { JobListOrderBy } from "../enums";
 export const optionalMinMaxFilter = (
   vals: { min?: number | undefined; max?: number | undefined },
   both: string,
-  min_only: string,
-  max_only: string,
+  minOnly: string,
+  maxOnly: string,
 ): string => {
   const { min, max } = vals;
   if (min !== undefined && max !== undefined) {
     return both + " AND ";
   } else if (min !== undefined && max === undefined) {
-    return min_only + " AND ";
+    return minOnly + " AND ";
   } else if (min === undefined && max !== undefined) {
-    return max_only + " AND ";
+    return maxOnly + " AND ";
   } else {
     return "";
   }
 };
 
 export const orderBySelector = (args: {
-  job_var: string;
-  project_var: string;
-  org_var: string;
-  order_by: JobListOrderBy;
+  jobVar: string;
+  projectVar: string;
+  orgVar: string;
+  orderBy: JobListOrderBy;
 }): string | null => {
-  const { job_var, project_var, org_var, order_by } = args;
-  switch (order_by) {
-    case "publication_date":
-      return `${project_var}.publicationDate`;
+  const { jobVar, projectVar, orgVar, orderBy } = args;
+  switch (orderBy) {
+    case "publicationDate":
+      return `${projectVar}.publicationDate`;
 
     case "tvl":
-      return `${project_var}.tvl`;
+      return `${projectVar}.tvl`;
 
     case "salary":
-      return `${job_var}.medianSalary`;
+      return `${jobVar}.medianSalary`;
 
-    case "funding_date":
-      return `${project_var}.fundingDate`;
+    case "fundingDate":
+      return `${projectVar}.fundingDate`;
 
-    case "monthly_volume":
-      return `${project_var}.monthlyVolume`;
+    case "monthlyVolume":
+      return `${projectVar}.monthlyVolume`;
 
-    case "monthly_active_users":
-      return `${project_var}.monthlyActiveUsers`;
+    case "monthlyFees":
+      return `${projectVar}.monthlyFees`;
 
-    case "monthly_revenue":
-      return `${project_var}.monthlyRevenue`;
+    case "monthlyRevenue":
+      return `${projectVar}.monthlyRevenue`;
 
     case "audits":
       return ``;
@@ -60,8 +60,8 @@ export const orderBySelector = (args: {
     case "chains":
       return ``;
 
-    case "head_count":
-      return `${org_var}.teamSize`;
+    case "headCount":
+      return `${orgVar}.teamSize`;
 
     default:
       return null;

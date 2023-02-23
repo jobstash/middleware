@@ -23,38 +23,38 @@ export class JobsService {
             ${params.projects ? "p.name IN $projects AND " : ""}
             ${optionalMinMaxFilter(
               {
-                min: params.min_publication_date,
-                max: params.max_publication_date,
+                min: params.minPublicationDate,
+                max: params.maxPublicationDate,
               },
               "$min_publication_date < j.jobCreatedTimestamp <= $max_publication_date",
               "$max_publication_date < j.jobCreatedTimestamp",
               "j.jobCreatedTimestamp <= $max_publication_date",
             )}
             ${optionalMinMaxFilter(
-              { min: params.min_salary, max: params.max_salary },
+              { min: params.minSalary, max: params.maxSalary },
               "$min_salary >= j.minSalary AND $max_salary <= j.maxSalary",
               "$min_salary >= j.minSalary",
               "$max_salary <= j.maxSalary",
             )}
             ${optionalMinMaxFilter(
               {
-                min: params.min_head_count,
-                max: params.max_head_count,
+                min: params.minHeadCount,
+                max: params.maxHeadCount,
               },
               "$min_head_count < o.teamSize <= $max_head_count",
               "$min_head_count < p.tvl",
               "p.tvl <= $max_head_count",
             )}
             ${optionalMinMaxFilter(
-              { min: params.min_tvl, max: params.max_tvl },
+              { min: params.minTvl, max: params.maxTvl },
               "$min_tvl < p.tvl <= $max_tvl",
               "$min_tvl < p.tvl",
               "p.tvl <= $max_tvl",
             )}
             ${optionalMinMaxFilter(
               {
-                min: params.min_monthly_volume,
-                max: params.max_monthly_volume,
+                min: params.minMonthlyVolume,
+                max: params.maxMonthlyVolume,
               },
               "$min_monthly_volume < p.monthlyVolume <= $max_monthly_volume",
               "$min_monthly_volume < p.monthlyVolume",
@@ -62,8 +62,8 @@ export class JobsService {
             )}
             ${optionalMinMaxFilter(
               {
-                min: params.min_monthly_fees,
-                max: params.max_monthly_fees,
+                min: params.minMonthlyFees,
+                max: params.maxMonthlyFees,
               },
               "$min_monthly_fees < p.monthlyFees <= $max_monthly_fees",
               "$min_monthly_fees < p.monthlyFees",
@@ -71,8 +71,8 @@ export class JobsService {
             )}
             ${optionalMinMaxFilter(
               {
-                min: params.min_monthly_revenue,
-                max: params.max_monthly_revenue,
+                min: params.minMonthlyRevenue,
+                max: params.maxMonthlyRevenue,
               },
               "$min_monthly_revenue < p.monthlyRevenue <= $max_monthly_revenue",
               "$min_monthly_revenue < p.monthlyRevenue",
@@ -96,12 +96,12 @@ export class JobsService {
             o.name IS NOT NULL AND o.name <> ""
             RETURN { organization: PROPERTIES(o), project: PROPERTIES(p), jobpost: PROPERTIES(j), technologies: tech, categories: cats } as res
             ${
-              params.order_by
+              params.orderBy
                 ? `ORDER BY ${orderBySelector({
-                    order_by: params.order_by,
-                    job_var: "j",
-                    org_var: "o",
-                    project_var: "p",
+                    orderBy: params.orderBy,
+                    jobVar: "j",
+                    orgVar: "o",
+                    projectVar: "p",
                   })}`
                 : ""
             } ${params.order ? params.order.toUpperCase() : ""}

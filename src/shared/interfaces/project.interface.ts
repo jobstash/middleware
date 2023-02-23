@@ -4,9 +4,9 @@ export class Project {
   @ApiProperty()
   id: string;
   @ApiPropertyOptional()
-  defillama_id?: string;
+  defillamaId?: string;
   @ApiPropertyOptional()
-  defillama_slug?: string;
+  defillamaSlug?: string;
   @ApiProperty()
   name: string;
   @ApiProperty()
@@ -16,21 +16,21 @@ export class Project {
   @ApiProperty()
   logo: string;
   @ApiPropertyOptional()
-  token_address?: string;
+  tokenAddress?: string;
   @ApiPropertyOptional()
-  token_symbol?: string;
+  tokenSymbol?: string;
   @ApiProperty()
-  is_in_construction: boolean;
+  isInConstruction: boolean;
   @ApiPropertyOptional()
   tvl?: number;
   @ApiPropertyOptional()
-  monthly_volume?: number;
+  monthlyVolume?: number;
   @ApiPropertyOptional()
-  monthly_active_users?: number;
+  monthlyActiveUsers?: number;
   @ApiPropertyOptional()
-  monthly_revenue?: number;
+  monthlyRevenue?: number;
   @ApiProperty()
-  created_timestamp: number;
+  createdTimestamp: number;
   @ApiPropertyOptional()
-  updated_timestamp?: number;
+  updatedTimestamp?: number;
 }

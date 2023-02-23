@@ -1,13 +1,13 @@
 export type JobListOrder = "asc" | "desc";
 export type JobListOrderBy =
-  | "publication_date"
+  | "publicationDate"
   | "tvl"
   | "salary"
-  | "funding_date"
-  | "monthly_volume"
-  | "monthly_active_users"
-  | "monthly_revenue"
+  | "fundingDate"
+  | "monthlyVolume"
+  | "monthlyFees"
+  | "monthlyRevenue"
   | "audits"
   | "hacks"
   | "chains"
-  | "head_count";
+  | "headCount";

@@ -4,9 +4,9 @@ export class StructuredJobpost {
   @ApiProperty()
   id: string;
   @ApiProperty()
-  min_salary: number;
+  minSalary: number;
   @ApiProperty()
-  max_salary: number;
+  maxSalary: number;
   @ApiProperty()
   role: string;
   @ApiProperty()
@@ -16,29 +16,29 @@ export class StructuredJobpost {
   @ApiProperty()
   interview: string;
   @ApiProperty()
-  ai_generated_grammar_corrected_summary: string;
+  aiGeneratedGrammarCorrectedSummary: string;
   @ApiProperty()
-  ai_generated_team_description: string;
+  aiGeneratedTeamDescription: string;
   @ApiProperty()
-  ai_generated_education_free_skills: string;
+  aiGeneratedEducationFreeSkills: string;
   @ApiProperty()
-  ai_generated_split_technologies_skills: string;
+  aiGeneratedSplitTechnologiesSkills: string;
   @ApiProperty()
-  ai_generated_hard_skills_string: string;
+  aiGeneratedHardSkillsString: string;
   @ApiProperty()
-  job_apply_page_url: string;
+  jobApplyPageUrl: string;
   @ApiProperty()
-  job_commitment: string;
+  jobCommitment: string;
   @ApiProperty()
-  job_created_timestamp: string;
+  jobCreatedTimestamp: string;
   @ApiProperty()
-  job_found_timestamp: string;
+  jobFoundTimestamp: string;
   @ApiProperty()
-  job_page_url: string;
+  jobPageUrl: string;
   @ApiProperty()
-  job_location: string;
+  jobLocation: string;
   @ApiProperty()
-  job_title: string;
+  jobTitle: string;
   @ApiProperty()
-  extracted_timestamp: string;
+  extractedTimestamp: string;
 }

@@ -1,14 +1,6 @@
 import { OmitType } from "@nestjs/mapped-types";
 import { ApiExtraModels, ApiProperty, getSchemaPath } from "@nestjs/swagger";
 
-export enum FilterKind {
-  DATE = "DATE",
-  RANGE = "RANGE",
-  BOOLEAN = "BOOLEAN",
-  MULTISELECT = "MULTI_SELECT",
-  MULTISELECT_WITH_SEARCH = "MULTI_SELECT_WITH_SEARCH",
-}
-
 class FilterConfigField {
   @ApiProperty()
   position: number;
@@ -17,9 +9,9 @@ class FilterConfigField {
   @ApiProperty()
   show: boolean;
   @ApiProperty()
-  google_analytics_event_name: string;
+  googleAnalyticsEventName: string;
   @ApiProperty()
-  google_analytics_event_id: string;
+  googleAnalyticsEventId: string;
 }
 
 class FilterConfigLabel {
@@ -31,7 +23,7 @@ class FilterConfigLabel {
 
 class NumberWithParamKey {
   @ApiProperty()
-  param_key: string;
+  paramKey: string;
   @ApiProperty()
   value: number;
 }
@@ -99,15 +91,17 @@ class RangeFilter extends FilterConfigField {
 @ApiExtraModels(FilterConfigLabel, FilterConfigField, FilterConfigLabeledValues)
 export class JobFilterConfigs {
   @ApiProperty()
-  publication_date: DateFilter;
+  publicationDate: DateFilter;
   @ApiProperty()
   salary: RangeFilter;
   @ApiProperty()
+  level: RangeFilter;
+  @ApiProperty()
   location: MultiSelectFilter;
   @ApiProperty()
-  team_size: RangeFilter;
+  teamSize: RangeFilter;
   @ApiProperty()
-  employee_count: RangeFilter;
+  employeeCount: RangeFilter;
   @ApiProperty()
   tech: MultiSelectSearchFilter;
   @ApiProperty()
@@ -121,11 +115,11 @@ export class JobFilterConfigs {
   @ApiProperty()
   tvl: RangeFilter;
   @ApiProperty()
-  monthly_volume: RangeFilter;
+  monthlyVolume: RangeFilter;
   @ApiProperty()
-  monthly_active_users: RangeFilter;
+  monthlyActiveUsers: RangeFilter;
   @ApiProperty()
-  monthly_revenue: RangeFilter;
+  monthlyRevenue: RangeFilter;
   @ApiProperty()
   audits: RangeFilter;
   @ApiProperty()
