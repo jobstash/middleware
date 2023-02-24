@@ -18,7 +18,10 @@ export class JobsService {
             MATCH (o:Organization)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(c:ProjectCategory)
             MATCH (o)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
             OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
-            WITH o, p, j, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats
+            OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
+            OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
+            OPTIONAL MATCH (p)-[:IS_CHAIN]->(ch:Chain)
+            WITH o, p, j, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(p) as pProps
             WHERE ${params.organizations ? "o.name IN $organizations AND " : ""}
             ${params.projects ? "p.name IN $projects AND " : ""}
             ${optionalMinMaxFilter(
@@ -87,6 +90,24 @@ export class JobsService {
               "$minMonthlyRevenue < p.monthlyRevenue",
               "p.monthlyRevenue <= $maxMonthlyRevenue",
             )}
+            ${optionalMinMaxFilter(
+              {
+                min: params.minAudits,
+                max: params.maxAudits,
+              },
+              "$minAudits < auditCount <= $maxAudits",
+              "$minAudits < auditCount",
+              "auditCount <= $maxAudits",
+            )}
+            ${optionalMinMaxFilter(
+              {
+                min: params.minHacks,
+                max: params.maxHacks,
+              },
+              "$minHacks < hackCount <= $maxHacks",
+              "$minHacks < hackCount",
+              "hackCount <= $maxHacks",
+            )}
             ${
               params.token !== undefined
                 ? params.token
@@ -109,8 +130,13 @@ export class JobsService {
                 ? "any(y IN cats WHERE y.name IN $categories) AND "
                 : ""
             }
+            ${
+              params.chains
+                ? "any(y IN cats WHERE y.name IN $categories) AND "
+                : ""
+            }
             o.name IS NOT NULL AND o.name <> ""
-            RETURN { organization: PROPERTIES(o), project: PROPERTIES(p), jobpost: PROPERTIES(j), technologies: tech, categories: cats } as res
+            RETURN { organization: PROPERTIES(o), project: pProps{.*, chains: chains, hacks: hacks, audits: audits}, jobpost: PROPERTIES(j), technologies: tech, categories: cats } as res
             ${
               params.orderBy
                 ? `ORDER BY ${orderBySelector({
@@ -145,7 +171,9 @@ export class JobsService {
         MATCH (o)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
         OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
         OPTIONAL MATCH (p)-[:IS_CHAIN]->(c:Chain)
-        WITH o, p, j, t, c, cat
+        OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
+        OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
+        WITH o, p, j, t, c, cat, COUNT(DISTINCT h) as hacks, COUNT(DISTINCT a) as audits
         RETURN {
             minPublicationDate: MIN(j.jobCreatedTimestamp),
             maxPublicationDate: MAX(j.jobCreatedTimestamp),
@@ -163,6 +191,10 @@ export class JobsService {
             maxHeadCount: MAX(o.headCount),
             minTeamSize: MIN(p.teamSize),
             maxTeamSize: MAX(p.teamSize),
+            minAudits: MIN(audits),
+            maxAudits: MAX(audits),
+            minHacks: MIN(hacks),
+            maxHacks: MAX(hacks),
             tech: COLLECT(DISTINCT t.name),
             projects: COLLECT(DISTINCT p.name),
             categories: COLLECT(DISTINCT cat.name),
