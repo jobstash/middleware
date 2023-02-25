@@ -22,9 +22,20 @@ export class JobListResultEntity {
     // eslint-disable-next-line
     const { organization, project, jobpost, technologies, categories } =
       this.raw;
+
     return {
       organization: organization,
-      project: project,
+      project:
+        project !== null
+          ? {
+              ...project,
+              hacks: project.hacks?.map(h => h["properties"]) ?? project.hacks,
+              chains:
+                project.chains?.map(c => c["properties"]) ?? project.chains,
+              audits:
+                project.audits?.map(a => a["properties"]) ?? project.audits,
+            }
+          : project,
       jobpost: jobpost,
       technologies: technologies?.map(technology => technology.properties),
       categories: categories?.map(category => category.properties),

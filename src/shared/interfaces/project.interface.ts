@@ -1,4 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Audit } from "./audit.interface";
+import { Chain } from "./chain.interface";
+import { Hack } from "./hack.interface";
 
 export class Project {
   @ApiProperty()
@@ -33,4 +36,13 @@ export class Project {
   createdTimestamp: number;
   @ApiPropertyOptional()
   updatedTimestamp?: number;
+
+  @ApiPropertyOptional()
+  hacks?: Hack[];
+
+  @ApiPropertyOptional()
+  audits?: Audit[];
+
+  @ApiPropertyOptional()
+  chains?: Chain[];
 }

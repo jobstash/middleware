@@ -8,3 +8,6 @@ export * from "./paginated-data.interface";
 export * from "./technology.interface";
 export * from "./project.interface";
 export * from "./organization.interface";
+export * from "./chain.interface";
+export * from "./audit.interface";
+export * from "./hack.interface";
