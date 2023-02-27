@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Param,
   Query,
   UseGuards,
   ValidationPipe,
@@ -8,6 +9,7 @@ import {
 import { JwtAuthGuard } from "src/auth/jwt/jwt-auth.guard";
 import { JobsService } from "./jobs.service";
 import {
+  JobDetailsResult,
   JobFilterConfigs,
   JobListResult,
   PaginatedData,
@@ -17,16 +19,10 @@ import { JobListParams } from "./dto/job-list.dto";
 import {
   ApiBadRequestResponse,
   ApiExtraModels,
-  ApiHeader,
   ApiOkResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
 
-@ApiHeader({
-  name: "Authorization",
-  example: "Bearer <token>",
-  description: "Bearer token obtained from login",
-})
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobListResult, JobFilterConfigs, ValidationError)
 export class JobsController {
@@ -68,10 +64,10 @@ export class JobsController {
       ],
     },
   })
-  async findAll(
+  async getJobsList(
     @Query(new ValidationPipe({ transform: true })) params: JobListParams,
   ): Promise<PaginatedData<JobListResult>> {
-    return this.jobsService.findAll(params);
+    return this.jobsService.getJobsList(params);
   }
 
   @Get("/filters")
@@ -93,5 +89,28 @@ export class JobsController {
   })
   async getFilterConfigs(): Promise<JobFilterConfigs> {
     return this.jobsService.getFilterConfigs();
+  }
+
+  @Get("/:uuid")
+  @UseGuards(JwtAuthGuard)
+  @ApiOkResponse({
+    description: "Returns the job details for the provided slug",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(JobDetailsResult),
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  async getJobDetailsByUuid(
+    @Param("uuid") uuid: string,
+  ): Promise<JobDetailsResult> {
+    return this.jobsService.getJobDetailsByUuid(uuid);
   }
 }

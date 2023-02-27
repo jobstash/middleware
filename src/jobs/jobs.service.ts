@@ -1,7 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
+import { JobDetailsResultEntity } from "src/shared/entities/job-details-result.entity";
 import { optionalMinMaxFilter, orderBySelector } from "src/shared/helpers";
 import {
+  JobDetailsResult,
   JobFilterConfigs,
   JobFilterConfigsEntity,
   JobListResult,
@@ -13,7 +15,9 @@ import { JobListParams } from "./dto/job-list.dto";
 @Injectable()
 export class JobsService {
   constructor(private readonly neo4jService: Neo4jService) {}
-  async findAll(params: JobListParams): Promise<PaginatedData<JobListResult>> {
+  async getJobsList(
+    params: JobListParams,
+  ): Promise<PaginatedData<JobListResult>> {
     const generatedQuery = `
             MATCH (o:Organization)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(c:ProjectCategory)
             MATCH (o)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
@@ -155,7 +159,7 @@ export class JobsService {
         ...params,
       })
       .then(res => ({
-        page: params.page ?? 1,
+        page: res.records.length > 0 ? params.page ?? 1 : -1,
         count: res.records.length,
         data: res.records.map(record =>
           new JobListResultEntity(record.get("res")).getProperties(),
@@ -208,6 +212,27 @@ export class JobsService {
       .then(res =>
         res.records.length
           ? new JobFilterConfigsEntity(
+              res.records[0].get("res"),
+            ).getProperties()
+          : undefined,
+      );
+  }
+
+  async getJobDetailsByUuid(
+    uuid: string,
+  ): Promise<JobDetailsResult | undefined> {
+    return this.neo4jService
+      .read(
+        `
+        MATCH (j:StructuredJobpost)<-[:HAS_STRUCTURED_JOBPOST]-(:Jobpost)<-[:HAS_JOBPOST]-(:Jobsite)<-[:HAS_JOBSITE]-(o:Organization)
+        OPTIONAL MATCH (o)-[:HAS_PROJECT]-(p:Project)
+        WHERE j.id = $uuid
+        RETURN { organization: PROPERTIES(o), project: PROPERTIES(p), jobpost: PROPERTIES(j) } as res`,
+        { uuid },
+      )
+      .then(res =>
+        res.records.length
+          ? new JobDetailsResultEntity(
               res.records[0].get("res"),
             ).getProperties()
           : undefined,
