@@ -18,9 +18,13 @@ export class JwtAuthStrategy extends PassportStrategy(Strategy) {
       secretOrKey: configService.get<string>("JWT_SECRET"),
     });
   }
-  async validate(payload: string): Promise<User> {
-    return this.userService
-      .findByNodeId(payload)
-      .then(user => user.getProperties());
+  async validate(payload: string): Promise<User | null> {
+    return this.userService.findByNodeId(payload).then(user => {
+      if (user !== undefined) {
+        return user.getProperties();
+      } else {
+        return null;
+      }
+    });
   }
 }

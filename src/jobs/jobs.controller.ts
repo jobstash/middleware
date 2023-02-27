@@ -33,7 +33,6 @@ export class JobsController {
   constructor(private readonly jobsService: JobsService) {}
 
   @Get("/list")
-  @UseGuards(JwtAuthGuard)
   @ApiOkResponse({
     description:
       "Returns a paginated sorted list of jobs that satisfy the filter predicate",
