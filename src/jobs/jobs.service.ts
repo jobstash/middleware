@@ -159,7 +159,7 @@ export class JobsService {
         ...params,
       })
       .then(res => ({
-        page: params.page ?? 1,
+        page: res.records.length > 0 ? params.page ?? 1 : -1,
         count: res.records.length,
         data: res.records.map(record =>
           new JobListResultEntity(record.get("res")).getProperties(),
