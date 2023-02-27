@@ -35,7 +35,7 @@ export class JobsService {
             )}
             ${optionalMinMaxFilter(
               { min: params.minSalary, max: params.maxSalary },
-              "$minSalary >= j.minSalary AND $max_salary <= j.maxSalary",
+              "$minSalary >= j.minSalary AND $maxSalary <= j.maxSalary",
               "$minSalary >= j.minSalary",
               "$maxSalary <= j.maxSalary",
             )}
