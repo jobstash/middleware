@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Get,
-  Param,
-  Query,
-  UseGuards,
-  ValidationPipe,
-} from "@nestjs/common";
-import { JwtAuthGuard } from "src/auth/jwt/jwt-auth.guard";
+import { Controller, Get, Param, Query, ValidationPipe } from "@nestjs/common";
 import { JobsService } from "./jobs.service";
 import {
   JobDetailsResult,
@@ -71,7 +63,6 @@ export class JobsController {
   }
 
   @Get("/filters")
-  @UseGuards(JwtAuthGuard)
   @ApiOkResponse({
     description: "Returns the configuration data for the ui filters",
     schema: {
@@ -92,7 +83,6 @@ export class JobsController {
   }
 
   @Get("/:uuid")
-  @UseGuards(JwtAuthGuard)
   @ApiOkResponse({
     description: "Returns the job details for the provided slug",
     schema: {
