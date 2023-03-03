@@ -1,4 +1,4 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class StructuredJobpost {
   @ApiProperty()
@@ -14,21 +14,13 @@ export class StructuredJobpost {
   @ApiProperty()
   benefits: string;
   @ApiProperty()
-  interview: string;
+  culture: string;
   @ApiProperty()
-  aiGeneratedGrammarCorrectedSummary: string;
-  @ApiProperty()
-  aiGeneratedTeamDescription: string;
-  @ApiProperty()
-  aiGeneratedEducationFreeSkills: string;
-  @ApiProperty()
-  aiGeneratedSplitTechnologiesSkills: string;
-  @ApiProperty()
-  aiGeneratedHardSkillsString: string;
+  hardSkills: string[];
   @ApiProperty()
   jobApplyPageUrl: string;
-  @ApiProperty()
-  jobCommitment: string;
+  @ApiPropertyOptional()
+  jobCommitment?: string;
   @ApiProperty()
   jobCreatedTimestamp: string;
   @ApiProperty()

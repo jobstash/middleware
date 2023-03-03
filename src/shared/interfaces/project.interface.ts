@@ -1,4 +1,8 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  getSchemaPath,
+} from "@nestjs/swagger";
 import { Audit } from "./audit.interface";
 import { Chain } from "./chain.interface";
 import { Hack } from "./hack.interface";
@@ -22,8 +26,8 @@ export class Project {
   tokenAddress?: string;
   @ApiPropertyOptional()
   tokenSymbol?: string;
-  @ApiProperty()
-  isInConstruction: boolean;
+  @ApiPropertyOptional()
+  isInConstruction?: boolean;
   @ApiPropertyOptional()
   tvl?: number;
   @ApiPropertyOptional()
@@ -37,12 +41,21 @@ export class Project {
   @ApiPropertyOptional()
   updatedTimestamp?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    type: "array",
+    items: { $ref: getSchemaPath(Hack) },
+  })
   hacks?: Hack[];
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    type: "array",
+    items: { $ref: getSchemaPath(Audit) },
+  })
   audits?: Audit[];
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    type: "array",
+    items: { $ref: getSchemaPath(Chain) },
+  })
   chains?: Chain[];
 }

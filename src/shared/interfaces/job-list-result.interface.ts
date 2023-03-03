@@ -1,4 +1,8 @@
-import { ApiProperty } from "@nestjs/swagger";
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  getSchemaPath,
+} from "@nestjs/swagger";
 import { Organization } from "./organization.interface";
 import { ProjectCategory } from "./project-category.interface";
 import { Project } from "./project.interface";
@@ -8,12 +12,18 @@ import { Technology } from "./technology.interface";
 export class JobListResult {
   @ApiProperty()
   organization?: Organization | null;
-  @ApiProperty()
+  @ApiPropertyOptional()
   project?: Project | null;
   @ApiProperty()
   jobpost?: StructuredJobpost | null;
-  @ApiProperty()
+  @ApiProperty({
+    type: "array",
+    items: { $ref: getSchemaPath(Technology) },
+  })
   technologies?: Technology[] | null;
-  @ApiProperty()
+  @ApiProperty({
+    type: "array",
+    items: { $ref: getSchemaPath(ProjectCategory) },
+  })
   categories?: ProjectCategory[] | null;
 }

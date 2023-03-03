@@ -16,8 +16,8 @@ export class Organization {
   @ApiProperty()
   url: string;
 
-  @ApiProperty()
-  githubOrganization: string;
+  @ApiPropertyOptional()
+  githubOrganization?: string;
   @ApiPropertyOptional()
   teamSize?: string;
   @ApiPropertyOptional()
@@ -28,8 +28,8 @@ export class Organization {
   linkedin?: string;
   @ApiPropertyOptional()
   telegram?: string;
-  @ApiProperty()
-  createdTimestamp: number;
+  @ApiPropertyOptional()
+  createdTimestamp?: number;
   @ApiPropertyOptional()
   updatedTimestamp?: number;
 }
