@@ -14,23 +14,12 @@ import { Compare } from "src/shared/validators";
 
 export class JobListParams {
   @ApiPropertyOptional({
-    example: 1644914275,
+    example: "This Week",
   })
   @IsOptional()
-  @IsNumber()
-  @IsPositive()
-  @Type(() => Number)
-  minPublicationDate?: number;
-
-  @ApiPropertyOptional({
-    example: 1676450275,
-  })
-  @IsOptional()
-  @IsNumber()
-  @IsPositive()
-  @Compare("minPublicationDate", ">=")
-  @Type(() => Number)
-  maxPublicationDate?: number;
+  @IsString()
+  @Type(() => String)
+  publicationDate?: string;
 
   @ApiPropertyOptional({
     example: 90000,
