@@ -16,7 +16,13 @@ import {
 } from "@nestjs/swagger";
 
 @Controller("jobs")
-@ApiExtraModels(PaginatedData, JobListResult, JobFilterConfigs, ValidationError)
+@ApiExtraModels(
+  PaginatedData,
+  JobListResult,
+  JobFilterConfigs,
+  ValidationError,
+  JobDetailsResult,
+)
 export class JobsController {
   constructor(private readonly jobsService: JobsService) {}
 

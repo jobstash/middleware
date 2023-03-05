@@ -14,8 +14,14 @@ export const SINGLE_SELECT_OPTIONS = {
     { label: "Past 3 Months", value: "past-3-months" },
     { label: "Past 6 Months", value: "past-6-months" },
   ],
-  mainNet: [{ label: "Is Main Net", value: true }],
-  token: [],
+  mainNet: [
+    { label: "Is Main Net", value: true },
+    { label: "Is Not Main Net", value: false },
+  ],
+  token: [
+    { label: "Has Token", value: true },
+    { label: "Has No Token", value: false },
+  ],
 };
 
 export const JOB_FILTER_CONFIG_PRESETS = {
