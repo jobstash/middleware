@@ -22,14 +22,14 @@ export class JobDetailsResultEntity {
       .split(" ")
       .map(part => part.toLowerCase())
       .join("_");
-    const parsedProjectName = project.name
+    const parsedProjectName = project?.name
       .split(" ")
       .map(part => part.toLowerCase())
       .join("_");
 
     return {
       organization: parsedOrgName,
-      project: `${parsedOrgName}-${parsedProjectName}`,
+      project: project ? `${parsedOrgName}-${parsedProjectName}` : null,
       repository: null,
       jobpost: jobpost,
     } as JobDetailsResult;

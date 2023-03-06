@@ -19,9 +19,9 @@ export class JobsService {
     params: JobListParams,
   ): Promise<PaginatedData<JobListResult>> {
     const generatedQuery = `
-            MATCH (o:Organization)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(c:ProjectCategory)
-            MATCH (o)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-> (:JobpostCategory {name: "technical"})
+            MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-> (:JobpostCategory {name: "technical"})
             MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
+            OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(c:ProjectCategory)
             OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
             OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
             OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
