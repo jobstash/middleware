@@ -141,7 +141,12 @@ export class JobsService {
                     orgVar: "o",
                     projectVar: "p",
                   })}`
-                : ""
+                : `ORDER BY ${orderBySelector({
+                    orderBy: "publicationDate",
+                    jobVar: "j",
+                    orgVar: "o",
+                    projectVar: "p",
+                  })}`
             } ${params.order ? params.order.toUpperCase() : ""}
             ${
               params.page && params.page > 0

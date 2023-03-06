@@ -31,7 +31,7 @@ export const orderBySelector = (args: {
   const { jobVar, projectVar, orgVar, orderBy } = args;
   switch (orderBy) {
     case "publicationDate":
-      return `${projectVar}.publicationDate`;
+      return `${jobVar}.jobCreatedTimestamp`;
 
     case "tvl":
       return `${projectVar}.tvl`;
