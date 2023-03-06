@@ -38,6 +38,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
     "cookie-session": "^2.0.0",
+    "ethers": "^6.0.8",
     "helmet": "^6.0.1",
     "joi": "^17.7.0",
     "neo4j-driver": "^5.4.0",
@@ -47,6 +48,7 @@
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.2.0",
+    "siwe": "^1.1.6",
     "ts-morph": "^17.0.1"
   },
   "devDependencies": {
