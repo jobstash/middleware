@@ -62,11 +62,9 @@ class FilterConfigLabeledValues extends OmitType(FilterConfigField, [
   paramKey: string;
 }
 
-class BooleanFilter extends FilterConfigField {
+class SingleSelectFilter extends FilterConfigLabeledValues {
   @ApiProperty()
   kind: string;
-  @ApiProperty()
-  paramKey: string;
 }
 
 class MultiSelectFilter extends FilterConfigLabeledValues {
@@ -91,7 +89,7 @@ class RangeFilter extends FilterConfigField {
 @ApiExtraModels(FilterConfigLabel, FilterConfigField, FilterConfigLabeledValues)
 export class JobFilterConfigs {
   @ApiProperty()
-  publicationDate: RangeFilter;
+  publicationDate: SingleSelectFilter;
   @ApiProperty()
   salary: RangeFilter;
   @ApiProperty()
@@ -125,7 +123,7 @@ export class JobFilterConfigs {
   @ApiProperty()
   hacks: RangeFilter;
   @ApiProperty()
-  mainNet: BooleanFilter;
+  mainNet: SingleSelectFilter;
   @ApiProperty()
-  token: BooleanFilter;
+  token: SingleSelectFilter;
 }

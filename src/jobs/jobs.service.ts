@@ -30,15 +30,6 @@ export class JobsService {
             WHERE ${params.organizations ? "o.name IN $organizations AND " : ""}
             ${params.projects ? "p.name IN $projects AND " : ""}
             ${optionalMinMaxFilter(
-              {
-                min: params.minPublicationDate,
-                max: params.maxPublicationDate,
-              },
-              "$minPublicationDate < j.jobCreatedTimestamp <= $maxPublicationDate",
-              "$maxPublicationDate < j.jobCreatedTimestamp",
-              "j.jobCreatedTimestamp <= $maxPublicationDate",
-            )}
-            ${optionalMinMaxFilter(
               { min: params.minSalary, max: params.maxSalary },
               "$minSalary >= j.minSalary AND $maxSalary <= j.maxSalary",
               "$minSalary >= j.minSalary",
@@ -190,8 +181,6 @@ export class JobsService {
         OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
         WITH o, p, j, t, c, cat, COUNT(DISTINCT h) as hacks, COUNT(DISTINCT a) as audits
         RETURN {
-            minPublicationDate: MIN(j.jobCreatedTimestamp),
-            maxPublicationDate: MAX(j.jobCreatedTimestamp),
             minSalary: MIN(j.medianSalary),
             maxSalary: MAX(j.medianSalary),
             minTvl: MIN(p.tvl),

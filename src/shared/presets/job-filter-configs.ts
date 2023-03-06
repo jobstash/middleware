@@ -1,10 +1,28 @@
 export enum FilterKind {
-  DATE = "DATE",
+  SINGLE_SELECT = "SINGLE_SELECT",
   RANGE = "RANGE",
   MULTI_SELECT = "MULTI_SELECT",
   MULTI_SELECT_WITH_SEARCH = "MULTI_SELECT_WITH_SEARCH",
-  BOOLEAN = "BOOLEAN",
 }
+
+export const SINGLE_SELECT_OPTIONS = {
+  publicationDate: [
+    { label: "Today", value: "today" },
+    { label: "This Week", value: "this-week" },
+    { label: "This Month", value: "this-month" },
+    { label: "Past 2 Weeks", value: "past-2-weeks" },
+    { label: "Past 3 Months", value: "past-3-months" },
+    { label: "Past 6 Months", value: "past-6-months" },
+  ],
+  mainNet: [
+    { label: "Is Main Net", value: true },
+    { label: "Is Not Main Net", value: false },
+  ],
+  token: [
+    { label: "Has Token", value: true },
+    { label: "Has No Token", value: false },
+  ],
+};
 
 export const JOB_FILTER_CONFIG_PRESETS = {
   publicationDate: {
@@ -13,8 +31,8 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
-    kind: FilterKind.DATE,
-    stepSize: 2628288,
+    kind: FilterKind.SINGLE_SELECT,
+    options: SINGLE_SELECT_OPTIONS.publicationDate,
   },
   salary: {
     position: 1,
@@ -23,10 +41,11 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 0,
+    stepSize: 1000,
   },
   seniority: {
     position: 2,
+    label: "Seniority Level",
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
@@ -35,6 +54,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
   },
   locations: {
     position: 3,
+    label: "Locations",
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
@@ -61,6 +81,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
   },
   tech: {
     position: 6,
+    label: "Technologies",
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
@@ -69,6 +90,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
   },
   organizations: {
     position: 7,
+    label: "Organizations",
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
@@ -77,6 +99,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
   },
   chains: {
     position: 8,
+    label: "Chains",
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
@@ -85,6 +108,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
   },
   projects: {
     position: 9,
+    label: "Projects",
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
@@ -93,6 +117,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
   },
   categories: {
     position: 10,
+    label: "Categories",
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
@@ -159,7 +184,8 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
-    kind: FilterKind.BOOLEAN,
+    kind: FilterKind.SINGLE_SELECT,
+    options: SINGLE_SELECT_OPTIONS.mainNet,
   },
   token: {
     position: 18,
@@ -167,15 +193,13 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
-    kind: FilterKind.BOOLEAN,
+    kind: FilterKind.SINGLE_SELECT,
+    options: SINGLE_SELECT_OPTIONS.token,
   },
 };
 
 export const FILTER_PARAM_KEY_PRESETS = {
-  publicationDate: {
-    lowest: "minPublicationDate",
-    highest: "maxPublicationDate",
-  },
+  publicationDate: "publicationDate",
   salary: {
     lowest: "minSalary",
     highest: "maxSalary",

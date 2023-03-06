@@ -1,4 +1,5 @@
 import {
+  ApiExtraModels,
   ApiProperty,
   ApiPropertyOptional,
   getSchemaPath,
@@ -7,6 +8,7 @@ import { Audit } from "./audit.interface";
 import { Chain } from "./chain.interface";
 import { Hack } from "./hack.interface";
 
+@ApiExtraModels(Audit, Hack, Chain)
 export class Project {
   @ApiProperty()
   id: string;

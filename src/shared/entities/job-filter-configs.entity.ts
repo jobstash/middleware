@@ -3,10 +3,9 @@ import {
   FILTER_PARAM_KEY_PRESETS,
   JOB_FILTER_CONFIG_PRESETS,
 } from "../presets/job-filter-configs";
+import { Integer } from "neo4j-driver";
 
 type RawJobFilters = {
-  minPublicationDate?: number | null;
-  maxPublicationDate?: number | null;
   minSalary?: number | null;
   maxSalary?: number | null;
   minTvl?: number | null;
@@ -34,16 +33,28 @@ export class JobFilterConfigsEntity {
 
   constructor(private readonly raw: RawJobFilters) {}
 
+  intConverter(value: { low: number; high: number } | number): number {
+    if (typeof value === "number") {
+      return value;
+    } else {
+      return new Integer(value.low, value.high).toNumber();
+    }
+  }
+
   getRangePresets(key: string): object {
     return {
       ...this.configPresets[key],
       value: {
         lowest: {
-          value: this.raw[this.paramKeyPresets[key].lowest] ?? null,
+          value: this.raw[this.paramKeyPresets[key].lowest]
+            ? this.intConverter(this.raw[this.paramKeyPresets[key].lowest])
+            : 0,
           paramKey: this.paramKeyPresets[key].lowest,
         },
         highest: {
-          value: this.raw[this.paramKeyPresets[key].highest] ?? null,
+          value: this.raw[this.paramKeyPresets[key].highest]
+            ? this.intConverter(this.raw[this.paramKeyPresets[key].highest])
+            : 0,
           paramKey: this.paramKeyPresets[key].highest,
         },
       },
@@ -58,7 +69,7 @@ export class JobFilterConfigsEntity {
     };
   }
 
-  getBooleanPresets(key: string): object {
+  getSingleSelectPresets(key: string): object {
     return {
       ...this.configPresets[key],
       paramKey: this.paramKeyPresets[key],
@@ -66,10 +77,8 @@ export class JobFilterConfigsEntity {
   }
 
   getProperties(): JobFilterConfigs {
-    // const configPresets = JOB_FILTER_CONFIG_PRESETS;
-    // const paramKeyPresets = FILTER_PARAM_KEY_PRESETS;
     return {
-      publicationDate: this.getRangePresets("publicationDate"),
+      publicationDate: this.getSingleSelectPresets("publicationDate"),
       salary: this.getRangePresets("salary"),
       teamSize: this.getRangePresets("teamSize"),
       headCount: this.getRangePresets("headCount"),
@@ -86,8 +95,8 @@ export class JobFilterConfigsEntity {
       categories: this.getMultiValuePresets("categories"),
       seniority: this.getMultiValuePresets("seniority"),
       locations: this.getMultiValuePresets("locations"),
-      mainNet: this.getBooleanPresets("mainNet"),
-      token: this.getBooleanPresets("token"),
+      mainNet: this.getSingleSelectPresets("mainNet"),
+      token: this.getSingleSelectPresets("token"),
     } as JobFilterConfigs;
   }
 }
