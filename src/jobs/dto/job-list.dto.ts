@@ -14,23 +14,28 @@ import { Compare } from "src/shared/validators";
 
 export class JobListParams {
   @ApiPropertyOptional({
-    example: 1644914275,
+    example: "This Week",
+    enum: [
+      "today",
+      "this-week",
+      "this-month",
+      "past-2-weeks",
+      "past-3-months",
+      "past-6-months",
+    ],
   })
   @IsOptional()
-  @IsNumber()
-  @IsPositive()
-  @Type(() => Number)
-  minPublicationDate?: number;
-
-  @ApiPropertyOptional({
-    example: 1676450275,
-  })
-  @IsOptional()
-  @IsNumber()
-  @IsPositive()
-  @Compare("minPublicationDate", ">=")
-  @Type(() => Number)
-  maxPublicationDate?: number;
+  @IsString()
+  @IsIn([
+    "today",
+    "this-week",
+    "this-month",
+    "past-2-weeks",
+    "past-3-months",
+    "past-6-months",
+  ])
+  @Type(() => String)
+  publicationDate?: string;
 
   @ApiPropertyOptional({
     example: 90000,
@@ -223,7 +228,6 @@ export class JobListParams {
   @Transform(({ value }) => value.split(","))
   organizations?: string[];
 
-  //TODO: Include example chain filter
   @ApiPropertyOptional({
     example: "N/A",
   })

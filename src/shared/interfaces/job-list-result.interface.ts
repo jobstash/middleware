@@ -1,4 +1,5 @@
 import {
+  ApiExtraModels,
   ApiProperty,
   ApiPropertyOptional,
   getSchemaPath,
@@ -9,6 +10,13 @@ import { Project } from "./project.interface";
 import { StructuredJobpost } from "./structured-jobpost.interface";
 import { Technology } from "./technology.interface";
 
+@ApiExtraModels(
+  Organization,
+  Project,
+  StructuredJobpost,
+  Technology,
+  ProjectCategory,
+)
 export class JobListResult {
   @ApiProperty()
   organization?: Organization | null;
