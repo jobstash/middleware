@@ -147,7 +147,7 @@ export class JobsService {
                     orgVar: "o",
                     projectVar: "p",
                   })}`
-            } ${params.order ? params.order.toUpperCase() : "DESC"}
+            } ${params.order ? params.order.toUpperCase() : "ASC"}
             ${
               params.page && params.page > 0
                 ? params.limit && params.limit > 0
