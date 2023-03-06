@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import axios, { AxiosInstance } from "axios";
 import { AuthService } from "src/auth/auth.service";
+import { CreateSIWEUserInput } from "src/auth/dto/create-siwe-user.input";
 import { CreateUserInput } from "src/auth/dto/create-user.input";
 import { User } from "src/shared/interfaces";
 
@@ -28,6 +29,22 @@ export class BackendService {
   }
 
   async createUser(details: CreateUserInput): Promise<User | undefined> {
+    const client = await this.authenticatedClient;
+    console.log(details);
+    return client.post("/user/createUser", details).then(res => {
+      const data = res.data;
+      console.log(data as User);
+      if (data.status === "success") {
+        return data as User;
+      } else {
+        return undefined;
+      }
+    });
+  }
+
+  async createSIWEUser(
+    details: CreateSIWEUserInput,
+  ): Promise<User | undefined> {
     const client = await this.authenticatedClient;
     console.log(details);
     return client.post("/user/createUser", details).then(res => {

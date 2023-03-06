@@ -1,14 +1,19 @@
 import { Injectable } from "@nestjs/common";
 import { generateNonce, SiweMessage } from "siwe";
-import { VerifyMessageDto } from "../dto/verify-message.input";
+import { BackendService } from "src/backend/backend.service";
+import { User } from "src/shared/types";
+import { CreateSIWEUserInput } from "../dto/create-siwe-user.input";
+import { VerifyMessageInput } from "../dto/verify-message.input";
 
 @Injectable()
 export class SiweService {
+  constructor(private readonly backendService: BackendService) {}
+
   async getNonce(): Promise<string> {
     return Promise.resolve(generateNonce());
   }
 
-  async verifyMessage(input: VerifyMessageDto): Promise<boolean> {
+  async verifyMessage(input: VerifyMessageInput): Promise<boolean> {
     const { message, signature } = input;
     const siweMessage = new SiweMessage(message);
     try {
@@ -17,5 +22,9 @@ export class SiweService {
     } catch {
       return false;
     }
+  }
+
+  async createSIWEUser(input: CreateSIWEUserInput): Promise<User | undefined> {
+    return this.backendService.createSIWEUser(input);
   }
 }
