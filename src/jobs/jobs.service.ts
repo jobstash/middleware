@@ -1,7 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
 import { JobDetailsResultEntity } from "src/shared/entities/job-details-result.entity";
-import { optionalMinMaxFilter, orderBySelector } from "src/shared/helpers";
+import {
+  intConverter,
+  optionalMinMaxFilter,
+  orderBySelector,
+} from "src/shared/helpers";
 import {
   JobDetailsResult,
   JobFilterConfigs,
@@ -132,7 +136,9 @@ export class JobsService {
                 : ""
             }
             o.name IS NOT NULL AND o.name <> ""
-            RETURN { organization: PROPERTIES(o), project: pProps{.*, chains: chains, hacks: hacks, audits: audits}, jobpost: PROPERTIES(j), technologies: tech, categories: cats } as res
+            WITH o, p, j, tech, cats, chains, auditCount, hackCount, audits, hacks, pProps
+            WITH { organization: PROPERTIES(o), project: pProps{.*, chains: chains, hacks: hacks, audits: audits}, jobpost: PROPERTIES(j), technologies: tech, categories: cats } as results, o, p, j
+            WITH COUNT(results) as count, results, o, p, j
             ${
               params.orderBy
                 ? `ORDER BY ${orderBySelector({
@@ -160,18 +166,25 @@ export class JobsService {
                 ? "LIMIT toInteger($limit)"
                 : "LIMIT 10"
             }
+            WITH count, COLLECT(results) as data
+            RETURN { total: count, data: data } as res
         `.replace(/^\s*$(?:\r\n?|\n)/gm, "");
     return this.neo4jService
       .read(generatedQuery, {
         ...params,
       })
-      .then(res => ({
-        page: res.records.length > 0 ? params.page ?? 1 : -1,
-        count: res.records.length,
-        data: res.records.map(record =>
-          new JobListResultEntity(record.get("res")).getProperties(),
-        ),
-      }));
+      .then(res => {
+        const result = res.records[0].get("res");
+        return {
+          page: result?.data?.length > 0 ? params.page ?? 1 : -1 ?? -1,
+          count: result?.data?.length ?? 0,
+          total: result?.total ? intConverter(result?.total) : 0,
+          data:
+            result?.data?.map(record =>
+              new JobListResultEntity(record).getProperties(),
+            ) ?? [],
+        };
+      });
   }
 
   async getFilterConfigs(): Promise<JobFilterConfigs> {
