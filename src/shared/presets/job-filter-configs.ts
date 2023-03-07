@@ -22,6 +22,24 @@ export const SINGLE_SELECT_OPTIONS = {
     { label: "Has Token", value: true },
     { label: "Has No Token", value: false },
   ],
+  order: [
+    { label: "Ascending", value: "asc" },
+    { label: "Descending", value: "desc" },
+  ],
+  orderBy: [
+    { label: "Publication Date", value: "publicationDate" },
+    { label: "TVL", value: "tvl" },
+    { label: "Salary", value: "salary" },
+    { label: "Funding Date", value: "fundingDate" },
+    { label: "Monthly Volume", value: "monthlyVolume" },
+    { label: "Monthly Fees", value: "monthlyFees" },
+    { label: "Monthly Revenue", value: "monthlyRevenue" },
+    { label: "Number of Audits", value: "audits" },
+    { label: "Number of Hacks", value: "hacks" },
+    { label: "Number of Chains", value: "chains" },
+    { label: "Head Count", value: "headCount" },
+    { label: "Team Size", value: "teamSize" },
+  ],
 };
 
 export const JOB_FILTER_CONFIG_PRESETS = {
@@ -196,6 +214,24 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     kind: FilterKind.SINGLE_SELECT,
     options: SINGLE_SELECT_OPTIONS.token,
   },
+  order: {
+    position: 19,
+    label: "Order",
+    show: true,
+    googleAnalyticsEventName: null,
+    googleAnalyticsEventId: null,
+    kind: FilterKind.SINGLE_SELECT,
+    options: SINGLE_SELECT_OPTIONS.order,
+  },
+  orderBy: {
+    position: 20,
+    label: "Order By",
+    show: true,
+    googleAnalyticsEventName: null,
+    googleAnalyticsEventId: null,
+    kind: FilterKind.SINGLE_SELECT,
+    options: SINGLE_SELECT_OPTIONS.orderBy,
+  },
 };
 
 export const FILTER_PARAM_KEY_PRESETS = {
@@ -245,4 +281,6 @@ export const FILTER_PARAM_KEY_PRESETS = {
   },
   mainNet: "mainNet",
   token: "token",
+  order: "order",
+  orderBy: "orderBy",
 };

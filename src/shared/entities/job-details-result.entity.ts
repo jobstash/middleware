@@ -3,12 +3,14 @@ import {
   Organization,
   Project,
   StructuredJobpost,
+  Technology,
 } from "src/shared/types";
 
 type RawJobPost = {
   organization?: Organization | null;
   project?: Project | null;
   jobpost?: StructuredJobpost | null;
+  technologies?: [object & { properties: Technology }] | null;
 };
 
 export class JobDetailsResultEntity {
@@ -16,7 +18,7 @@ export class JobDetailsResultEntity {
 
   getProperties(): JobDetailsResult {
     // eslint-disable-next-line
-    const { organization, project, jobpost } = this.raw;
+    const { organization, project, jobpost, technologies } = this.raw;
 
     const parsedOrgName = organization.name
       .split(" ")
@@ -32,6 +34,7 @@ export class JobDetailsResultEntity {
       project: project ? `${parsedOrgName}-${parsedProjectName}` : null,
       repository: null,
       jobpost: jobpost,
+      technologies: technologies.map(tech => tech.properties),
     } as JobDetailsResult;
   }
 }

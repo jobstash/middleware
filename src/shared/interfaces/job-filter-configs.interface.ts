@@ -126,4 +126,8 @@ export class JobFilterConfigs {
   mainNet: SingleSelectFilter;
   @ApiProperty()
   token: SingleSelectFilter;
+  @ApiProperty()
+  order: SingleSelectFilter;
+  @ApiProperty()
+  orderBy: SingleSelectFilter;
 }
