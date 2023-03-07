@@ -179,7 +179,8 @@ export class JobsService {
       .read(
         `
         MATCH (o:Organization)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(cat:ProjectCategory)
-        MATCH (o)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
+        MATCH (o)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
+        MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
         OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
         OPTIONAL MATCH (p)-[:IS_CHAIN]->(c:Chain)
         OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
@@ -229,10 +230,12 @@ export class JobsService {
     return this.neo4jService
       .read(
         `
-        MATCH (j:StructuredJobpost)<-[:HAS_STRUCTURED_JOBPOST]-(:Jobpost)<-[:HAS_JOBPOST]-(:Jobsite)<-[:HAS_JOBSITE]-(o:Organization)
+        MATCH (:JobpostCategory {name: "technical"})-[:IS_CATEGORIZED_AS]-(jp:Jobpost)<-[:HAS_JOBPOST]-(:Jobsite)<-[:HAS_JOBSITE]-(o:Organization)
+        MATCH (j:StructuredJobpost)<-[:HAS_STRUCTURED_JOBPOST]-(jp)
         OPTIONAL MATCH (o)-[:HAS_PROJECT]-(p:Project)
+        OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
         WHERE j.id = $uuid
-        RETURN { organization: PROPERTIES(o), project: PROPERTIES(p), jobpost: PROPERTIES(j) } as res`,
+        RETURN { organization: PROPERTIES(o), project: PROPERTIES(p), jobpost: PROPERTIES(j), technologies: COLLECT(t) } as res`,
         { uuid },
       )
       .then(res =>
