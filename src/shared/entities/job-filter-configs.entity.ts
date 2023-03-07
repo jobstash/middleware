@@ -89,6 +89,8 @@ export class JobFilterConfigsEntity {
       locations: this.getMultiValuePresets("locations"),
       mainNet: this.getSingleSelectPresets("mainNet"),
       token: this.getSingleSelectPresets("token"),
+      order: this.getSingleSelectPresets("order"),
+      orderBy: this.getSingleSelectPresets("orderBy"),
     } as JobFilterConfigs;
   }
 }
