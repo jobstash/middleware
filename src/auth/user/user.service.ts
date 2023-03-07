@@ -32,6 +32,22 @@ export class UserService {
       );
   }
 
+  async findByWallet(wallet: string): Promise<UserEntity | undefined> {
+    return this.neo4jService
+      .read(
+        `
+            MATCH (u:User {wallet: $wallet})
+            RETURN u
+        `,
+        { wallet },
+      )
+      .then(res =>
+        res.records.length
+          ? new UserEntity(res.records[0].get("u"))
+          : undefined,
+      );
+  }
+
   async findByNodeId(nodeId: string): Promise<UserEntity | undefined> {
     return this.neo4jService
       .read(
