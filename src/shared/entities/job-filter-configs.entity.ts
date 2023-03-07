@@ -3,7 +3,7 @@ import {
   FILTER_PARAM_KEY_PRESETS,
   JOB_FILTER_CONFIG_PRESETS,
 } from "../presets/job-filter-configs";
-import { Integer } from "neo4j-driver";
+import { intConverter } from "../helpers";
 
 type RawJobFilters = {
   minSalary?: number | null;
@@ -33,27 +33,19 @@ export class JobFilterConfigsEntity {
 
   constructor(private readonly raw: RawJobFilters) {}
 
-  intConverter(value: { low: number; high: number } | number): number {
-    if (typeof value === "number") {
-      return value;
-    } else {
-      return new Integer(value.low, value.high).toNumber();
-    }
-  }
-
   getRangePresets(key: string): object {
     return {
       ...this.configPresets[key],
       value: {
         lowest: {
           value: this.raw[this.paramKeyPresets[key].lowest]
-            ? this.intConverter(this.raw[this.paramKeyPresets[key].lowest])
+            ? intConverter(this.raw[this.paramKeyPresets[key].lowest])
             : 0,
           paramKey: this.paramKeyPresets[key].lowest,
         },
         highest: {
           value: this.raw[this.paramKeyPresets[key].highest]
-            ? this.intConverter(this.raw[this.paramKeyPresets[key].highest])
+            ? intConverter(this.raw[this.paramKeyPresets[key].highest])
             : 0,
           paramKey: this.paramKeyPresets[key].highest,
         },

@@ -1,3 +1,4 @@
+import { Integer } from "neo4j-driver";
 import { JobListOrderBy } from "../enums";
 
 /* 
@@ -68,5 +69,15 @@ export const orderBySelector = (args: {
 
     default:
       return null;
+  }
+};
+
+export const intConverter = (
+  value: { low: number; high: number } | number,
+): number => {
+  if (typeof value === "number") {
+    return value;
+  } else {
+    return new Integer(value.low, value.high).toNumber();
   }
 };

@@ -6,5 +6,7 @@ export class PaginatedData<T> {
   @ApiProperty()
   count: number;
   @ApiProperty()
+  total: number;
+  @ApiProperty()
   data: T[];
 }
