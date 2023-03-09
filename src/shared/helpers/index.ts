@@ -81,3 +81,19 @@ export const intConverter = (
     return new Integer(value.low, value.high).toNumber();
   }
 };
+
+export const notStringOrNull = (
+  value: string | null | undefined,
+  space: string[],
+): string | null => {
+  if (
+    space.includes(value) ||
+    value === "" ||
+    typeof value === "undefined" ||
+    value === null
+  ) {
+    return null;
+  } else {
+    return value;
+  }
+};
