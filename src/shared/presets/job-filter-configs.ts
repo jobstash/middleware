@@ -237,8 +237,8 @@ export const JOB_FILTER_CONFIG_PRESETS = {
 export const FILTER_PARAM_KEY_PRESETS = {
   publicationDate: "publicationDate",
   salary: {
-    lowest: "minSalary",
-    highest: "maxSalary",
+    lowest: "minSalaryRange",
+    highest: "maxSalaryRange",
   },
   seniority: "seniority",
   location: "location",
