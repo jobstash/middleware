@@ -5,6 +5,7 @@ import {
   StructuredJobpost,
   Technology,
 } from "src/shared/types";
+import { notStringOrNull } from "../helpers";
 
 type RawJobPost = {
   organization?: Organization | null;
@@ -33,7 +34,16 @@ export class JobDetailsResultEntity {
       organization: parsedOrgName,
       project: project ? `${parsedOrgName}-${parsedProjectName}` : null,
       repository: null,
-      jobpost: jobpost,
+      jobpost: {
+        ...jobpost,
+        seniority: notStringOrNull(jobpost.seniority, [""]),
+        jobLocation: notStringOrNull(jobpost.jobLocation, ["", "unspecified"]),
+        jobCommitment: notStringOrNull(jobpost.jobCommitment, [""]),
+        role: notStringOrNull(jobpost.role, [""]),
+        team: notStringOrNull(jobpost.team, [""]),
+        benefits: notStringOrNull(jobpost.benefits, [""]),
+        culture: notStringOrNull(jobpost.culture, [""]),
+      },
       technologies: technologies.map(tech => tech.properties),
     } as JobDetailsResult;
   }

@@ -53,19 +53,19 @@ export const orderBySelector = (args: {
       return `${projectVar}.monthlyRevenue`;
 
     case "audits":
-      return ``;
+      return `auditCount`;
 
     case "hacks":
-      return ``;
+      return `hackCount`;
 
     case "chains":
-      return ``;
+      return `chainCount`;
 
     case "headCount":
-      return `${projectVar}.headCount`;
+      return `${orgVar}.headCount`;
 
     case "teamSize":
-      return `${orgVar}.teamSize`;
+      return `${projectVar}.teamSize`;
 
     default:
       return null;
@@ -79,5 +79,21 @@ export const intConverter = (
     return value;
   } else {
     return new Integer(value.low, value.high).toNumber();
+  }
+};
+
+export const notStringOrNull = (
+  value: string | null | undefined,
+  space: string[],
+): string | null => {
+  if (
+    space.includes(value) ||
+    value === "" ||
+    typeof value === "undefined" ||
+    value === null
+  ) {
+    return null;
+  } else {
+    return value;
   }
 };

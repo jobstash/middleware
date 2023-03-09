@@ -13,32 +13,40 @@ export class CompareConstraint implements ValidatorConstraintInterface {
     const [targetProperty, operator, comparatorFunction] = args.constraints;
     const targetPropertyValue = args.object[targetProperty];
 
-    if (operator !== null) {
-      switch (operator) {
-        case "==":
-          return value == targetPropertyValue;
-        case "===":
-          return value === targetPropertyValue;
-        case ">":
-          return value > targetPropertyValue;
-        case "<":
-          return value < targetPropertyValue;
-        case "!=":
-          return value != targetPropertyValue;
-        case "!==":
-          return value !== targetPropertyValue;
-        case ">=":
-          return value >= targetPropertyValue;
-        case "<=":
-          return value <= targetPropertyValue;
-        default:
-          return false;
-      }
+    if (
+      value === null ||
+      targetPropertyValue === undefined ||
+      targetPropertyValue === null
+    ) {
+      return true;
     } else {
-      if (comparatorFunction !== null) {
-        return comparatorFunction(value, targetPropertyValue);
+      if (operator !== null) {
+        switch (operator) {
+          case "==":
+            return value == targetPropertyValue;
+          case "===":
+            return value === targetPropertyValue;
+          case ">":
+            return value > targetPropertyValue;
+          case "<":
+            return value < targetPropertyValue;
+          case "!=":
+            return value != targetPropertyValue;
+          case "!==":
+            return value !== targetPropertyValue;
+          case ">=":
+            return value >= targetPropertyValue;
+          case "<=":
+            return value <= targetPropertyValue;
+          default:
+            return false;
+        }
       } else {
-        return false;
+        if (comparatorFunction !== null) {
+          return comparatorFunction(value, targetPropertyValue);
+        } else {
+          return false;
+        }
       }
     }
   }

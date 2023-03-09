@@ -6,6 +6,7 @@ import {
   StructuredJobpost,
   Technology,
 } from "src/shared/types";
+import { notStringOrNull } from "../helpers";
 
 type RawJobPost = {
   organization?: Organization | null;
@@ -24,11 +25,15 @@ export class JobListResultEntity {
       this.raw;
 
     return {
-      organization: organization,
+      organization: {
+        ...organization,
+        teamSize: notStringOrNull(organization.teamSize, ["", "undefined"]),
+      },
       project:
         project !== null
           ? {
               ...project,
+              tokenSymbol: notStringOrNull(project.tokenSymbol, ["-"]),
               hacks: project.hacks?.map(h => h["properties"]) ?? project.hacks,
               chains:
                 project.chains?.map(c => c["properties"]) ?? project.chains,
@@ -36,7 +41,23 @@ export class JobListResultEntity {
                 project.audits?.map(a => a["properties"]) ?? project.audits,
             }
           : project,
-      jobpost: jobpost,
+      jobpost: {
+        ...jobpost,
+        seniority: notStringOrNull(jobpost.seniority, ["", "undefined"]),
+        jobLocation: notStringOrNull(jobpost.jobLocation, [
+          "",
+          "undefined",
+          "unspecified",
+        ]),
+        jobCommitment: notStringOrNull(jobpost.jobCommitment, [
+          "",
+          "undefined",
+        ]),
+        role: notStringOrNull(jobpost.role, ["", "undefined"]),
+        team: notStringOrNull(jobpost.team, ["", "undefined"]),
+        benefits: notStringOrNull(jobpost.benefits, ["", "undefined"]),
+        culture: notStringOrNull(jobpost.culture, ["", "undefined"]),
+      },
       technologies: technologies?.map(technology => technology.properties),
       categories: categories?.map(category => category.properties),
     } as JobListResult;
