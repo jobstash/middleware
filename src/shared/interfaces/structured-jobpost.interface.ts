@@ -10,6 +10,8 @@ export class StructuredJobpost {
   @ApiProperty()
   role: string;
   @ApiProperty()
+  seniority: string;
+  @ApiProperty()
   team: string;
   @ApiProperty()
   benefits: string;
