@@ -30,7 +30,7 @@ export class JobsService {
             OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
             OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
             OPTIONAL MATCH (p)-[:IS_CHAIN]->(ch:Chain)
-            WITH o, p, j, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(p) as pProps
+            WITH o, p, j, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(p) as pProps
             WHERE ${params.organizations ? "o.name IN $organizations AND " : ""}
             ${params.projects ? "p.name IN $projects AND " : ""}
             ${optionalMinMaxFilter(
@@ -136,18 +136,17 @@ export class JobsService {
                 : ""
             }
             o.name IS NOT NULL AND o.name <> ""
-            WITH o, p, j, tech, cats, chains, auditCount, hackCount, audits, hacks, pProps
-            WITH { organization: PROPERTIES(o), project: pProps{.*, chains: chains, hacks: hacks, audits: audits}, jobpost: PROPERTIES(j), technologies: tech, categories: cats } as results, o, p, j
-            WITH COUNT(results) as count, results, o, p, j
+            WITH o, p, j, tech, cats, auditCount, hackCount, chainCount, audits, hacks, chains, pProps
+            WITH { organization: PROPERTIES(o), project: pProps{.*, chains: chains, hacks: hacks, audits: audits}, jobpost: PROPERTIES(j), technologies: tech, categories: cats } as results, o, p, j, auditCount, hackCount, chainCount
             ${
               params.orderBy
-                ? `ORDER BY ${orderBySelector({
+                ? `${orderBySelector({
                     orderBy: params.orderBy,
                     jobVar: "j",
                     orgVar: "o",
                     projectVar: "p",
                   })}`
-                : `ORDER BY ${orderBySelector({
+                : `${orderBySelector({
                     orderBy: "publicationDate",
                     jobVar: "j",
                     orgVar: "o",
@@ -166,8 +165,8 @@ export class JobsService {
                 ? "LIMIT toInteger($limit)"
                 : "LIMIT 10"
             }
-            WITH count, COLLECT(results) as data
-            RETURN { total: count, data: data } as res
+            WITH COLLECT(results) as data
+            RETURN { total: 1, data: data } as res
         `.replace(/^\s*$(?:\r\n?|\n)/gm, "");
     return this.neo4jService
       .read(generatedQuery, {
