@@ -32,40 +32,40 @@ export const orderBySelector = (args: {
   const { jobVar, projectVar, orgVar, orderBy } = args;
   switch (orderBy) {
     case "publicationDate":
-      return `WHERE ${jobVar}.jobCreatedTimestamp IS NOT NULL ORDER BY ${jobVar}.jobCreatedTimestamp`;
+      return `${jobVar}.jobCreatedTimestamp`;
 
     case "tvl":
-      return `WHERE ${projectVar}.tvl IS NOT NULL ORDER BY ${projectVar}.tvl`;
+      return `${projectVar}.tvl`;
 
     case "salary":
-      return `WHERE ${jobVar}.medianSalary IS NOT NULL ORDER BY ${jobVar}.medianSalary`;
+      return `${jobVar}.medianSalary`;
 
     case "fundingDate":
-      return `WHERE ${projectVar}.fundingDate IS NOT NULL ORDER BY ${projectVar}.fundingDate`;
+      return `${projectVar}.fundingDate`;
 
     case "monthlyVolume":
-      return `WHERE ${projectVar}.monthlyRevenue IS NOT NULL ORDER BY ${projectVar}.monthlyVolume`;
+      return `${projectVar}.monthlyVolume`;
 
     case "monthlyFees":
-      return `WHERE ${projectVar}.monthlyFees IS NOT NULL ORDER BY ${projectVar}.monthlyFees`;
+      return `${projectVar}.monthlyFees`;
 
     case "monthlyRevenue":
-      return `WHERE ${projectVar}.monthlyRevenue IS NOT NULL ORDER BY ${projectVar}.monthlyRevenue`;
+      return `${projectVar}.monthlyRevenue`;
 
     case "audits":
-      return `WHERE auditCount IS NOT NULL ORDER BY auditCount`;
+      return `auditCount`;
 
     case "hacks":
-      return `WHERE hackCount IS NOT NULL ORDER BY hackCount`;
+      return `hackCount`;
 
     case "chains":
-      return `WHERE chainCount IS NOT NULL ORDER BY chainCount`;
+      return `chainCount`;
 
     case "headCount":
-      return `WHERE ${orgVar}.headCount IS NOT NULL ORDER BY ${orgVar}.headCount`;
+      return `${orgVar}.headCount`;
 
     case "teamSize":
-      return `WHERE ${projectVar}.teamSize IS NOT NULL ORDER BY ${projectVar}.teamSize`;
+      return `${projectVar}.teamSize`;
 
     default:
       return null;
