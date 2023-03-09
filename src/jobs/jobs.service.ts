@@ -317,7 +317,6 @@ export class JobsService {
             WITH count, COLLECT(results) as data
             RETURN { total: count, data: data } as res
         `.replace(/^\s*$(?:\r\n?|\n)/gm, "");
-    console.log(generatedQuery);
     return this.neo4jService
       .read(generatedQuery, {
         ...params,
