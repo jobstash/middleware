@@ -35,78 +35,78 @@ export class JobsService {
             ${params.projects ? "p.name IN $projects AND " : ""}
             ${optionalMinMaxFilter(
               { min: params.minSalary, max: params.maxSalary },
-              "$minSalary >= j.minSalary AND $maxSalary <= j.maxSalary",
-              "$minSalary >= j.minSalary",
-              "$maxSalary <= j.maxSalary",
+              "j.minSalary >= $minSalary AND j.maxSalary <= $maxSalary AND j.minSalary IS NOT NULL AND j.maxSalary IS NOT NULL",
+              "j.minSalary >= $minSalary AND j.minSalary IS NOT NULL",
+              "j.maxSalary <= $maxSalary AND j.maxSalary IS NOT NULL",
             )}
             ${optionalMinMaxFilter(
               {
                 min: params.minHeadCount,
                 max: params.maxHeadCount,
               },
-              "$minHeadCount < o.headCount <= $maxHeadCount",
-              "$minHeadCount < o.headCount",
-              "o.headCount <= $maxHeadCount",
+              "$minHeadCount >= o.headCount <= $maxHeadCount AND o.headCount IS NOT NULL",
+              "$minHeadCount >= o.headCount AND o.headCount IS NOT NULL",
+              "o.headCount <= $maxHeadCount AND o.headCount IS NOT NULL",
             )}
             ${optionalMinMaxFilter(
               {
                 min: params.minTeamSize,
                 max: params.maxTeamSize,
               },
-              "$minTeamSize < p.teamSize <= $maxTeamSize",
-              "$minTeamSize < p.teamSize",
-              "p.teamSize <= $maxTeamSize",
+              "$minTeamSize >= p.teamSize <= $maxTeamSize AND p.teamSize IS NOT NULL",
+              "$minTeamSize >= p.teamSize AND p.teamSize IS NOT NULL",
+              "p.teamSize <= $maxTeamSize AND p.teamSize IS NOT NULL",
             )}
             ${optionalMinMaxFilter(
               { min: params.minTvl, max: params.maxTvl },
-              "$minTvl < p.tvl <= $maxTvl",
-              "$minTvl < p.tvl",
-              "p.tvl <= $maxTvl",
+              "$minTvl >= p.tvl <= $maxTvl AND p.tvl IS NOT NULL",
+              "$minTvl >= p.tvl AND p.tvl IS NOT NULL",
+              "p.tvl <= $maxTvl AND p.tvl IS NOT NULL",
             )}
             ${optionalMinMaxFilter(
               {
                 min: params.minMonthlyVolume,
                 max: params.maxMonthlyVolume,
               },
-              "$minMonthlyVolume < p.monthlyVolume <= $maxMonthlyVolume",
-              "$minMonthlyVolume < p.monthlyVolume",
-              "p.monthlyVolume <= $maxMonthlyVolume",
+              "$minMonthlyVolume >= p.monthlyVolume <= $maxMonthlyVolume AND p.monthlyVolume IS NOT NULL",
+              "$minMonthlyVolume >= p.monthlyVolume AND p.monthlyVolume IS NOT NULL",
+              "p.monthlyVolume <= $maxMonthlyVolume AND p.monthlyVolume IS NOT NULL",
             )}
             ${optionalMinMaxFilter(
               {
                 min: params.minMonthlyFees,
                 max: params.maxMonthlyFees,
               },
-              "$minMonthlyFees < p.monthlyFees <= $maxMonthlyFees",
-              "$minMonthlyFees < p.monthlyFees",
-              "p.monthlyFees <= $maxMonthlyFees",
+              "$minMonthlyFees >= p.monthlyFees <= $maxMonthlyFees AND p.monthlyFees IS NOT NULL",
+              "$minMonthlyFees >= p.monthlyFees AND p.monthlyFees IS NOT NULL",
+              "p.monthlyFees <= $maxMonthlyFees AND p.monthlyFees IS NOT NULL",
             )}
             ${optionalMinMaxFilter(
               {
                 min: params.minMonthlyRevenue,
                 max: params.maxMonthlyRevenue,
               },
-              "$minMonthlyRevenue < p.monthlyRevenue <= $maxMonthlyRevenue",
-              "$minMonthlyRevenue < p.monthlyRevenue",
-              "p.monthlyRevenue <= $maxMonthlyRevenue",
+              "$minMonthlyRevenue >= p.monthlyRevenue <= $maxMonthlyRevenue AND p.monthlyRevenue IS NOT NULL",
+              "$minMonthlyRevenue >= p.monthlyRevenue AND p.monthlyRevenue IS NOT NULL",
+              "p.monthlyRevenue <= $maxMonthlyRevenue AND p.monthlyRevenue IS NOT NULL",
             )}
             ${optionalMinMaxFilter(
               {
                 min: params.minAudits,
                 max: params.maxAudits,
               },
-              "$minAudits < auditCount <= $maxAudits",
-              "$minAudits < auditCount",
-              "auditCount <= $maxAudits",
+              "$minAudits >= auditCount <= $maxAudits AND auditCount IS NOT NULL",
+              "$minAudits >= auditCount AND auditCount IS NOT NULL",
+              "auditCount <= $maxAudits AND auditCount IS NOT NULL",
             )}
             ${optionalMinMaxFilter(
               {
                 min: params.minHacks,
                 max: params.maxHacks,
               },
-              "$minHacks < hackCount <= $maxHacks",
-              "$minHacks < hackCount",
-              "hackCount <= $maxHacks",
+              "$minHacks >= hackCount <= $maxHacks AND hackCount IS NOT NULL",
+              "$minHacks >= hackCount AND hackCount IS NOT NULL",
+              "hackCount <= $maxHacks AND hackCount IS NOT NULL",
             )}
             ${
               params.token !== undefined
@@ -174,7 +174,7 @@ export class JobsService {
         ...params,
       })
       .then(res => {
-        const result = res.records[0].get("res");
+        const result = res.records[0]?.get("res");
         return {
           page: result?.data?.length > 0 ? params.page ?? 1 : -1 ?? -1,
           count: result?.data?.length ?? 0,
