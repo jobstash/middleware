@@ -414,7 +414,7 @@ export class JobsService {
         OPTIONAL MATCH (o)-[:HAS_PROJECT]-(p:Project)
         OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
         WHERE j.shortUUID = $uuid
-        RETURN { organization: PROPERTIES(o), project: PROPERTIES(p), jobpost: PROPERTIES(j), technologies: COLLECT(t) } as res`,
+        RETURN { organization: PROPERTIES(o), project: PROPERTIES(p), jobpost: PROPERTIES(j), technologies: COLLECT(DISTINCT t) } as res`,
         { uuid },
       )
       .then(res =>
