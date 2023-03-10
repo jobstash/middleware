@@ -46,7 +46,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
   publicationDate: {
     position: 0,
     label: "Publication Date",
-    show: false,
+    show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.SINGLE_SELECT,

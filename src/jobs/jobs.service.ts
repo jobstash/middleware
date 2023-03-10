@@ -5,8 +5,10 @@ import {
   intConverter,
   optionalMinMaxFilter,
   orderBySelector,
+  publicationDateRangeParser,
 } from "src/shared/helpers";
 import {
+  DateRange,
   JobDetailsResult,
   JobFilterConfigs,
   JobFilterConfigsEntity,
@@ -33,6 +35,14 @@ export class JobsService {
             WITH o, p, j, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(p) as pProps
             WHERE ${params.organizations ? "o.name IN $organizations AND " : ""}
             ${params.projects ? "p.name IN $projects AND " : ""}
+            ${
+              params.publicationDate
+                ? publicationDateRangeParser(
+                    params.publicationDate as DateRange,
+                    "j",
+                  )
+                : ""
+            }
             ${optionalMinMaxFilter(
               { min: params.minSalaryRange, max: params.maxSalaryRange },
               "j.minSalaryRange >= $minSalaryRange AND j.maxSalaryRange <= $maxSalaryRange AND j.minSalaryRange IS NOT NULL AND j.maxSalaryRange IS NOT NULL",
@@ -165,6 +175,14 @@ export class JobsService {
                 params.organizations ? "o.name IN $organizations AND " : ""
               }
               ${params.projects ? "p.name IN $projects AND " : ""}
+              ${
+                params.publicationDate
+                  ? publicationDateRangeParser(
+                      params.publicationDate as DateRange,
+                      "j",
+                    )
+                  : ""
+              }
               ${optionalMinMaxFilter(
                 { min: params.minSalaryRange, max: params.maxSalaryRange },
                 "j.minSalaryRange >= $minSalaryRange AND j.maxSalaryRange <= $maxSalaryRange AND j.minSalaryRange IS NOT NULL AND j.maxSalaryRange IS NOT NULL",
