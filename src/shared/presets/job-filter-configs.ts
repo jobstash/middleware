@@ -46,7 +46,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
   publicationDate: {
     position: 0,
     label: "Publication Date",
-    show: true,
+    show: false,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.SINGLE_SELECT,
@@ -82,20 +82,20 @@ export const JOB_FILTER_CONFIG_PRESETS = {
   teamSize: {
     position: 4,
     label: "Team Size",
-    show: true,
+    show: false,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 10,
+    stepSize: 1,
   },
   headCount: {
     position: 5,
     label: "Head Count",
-    show: true,
+    show: false,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 10,
+    stepSize: 1,
   },
   tech: {
     position: 6,
@@ -158,7 +158,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 10000,
+    stepSize: 100000,
   },
   monthlyFees: {
     position: 13,
@@ -237,8 +237,8 @@ export const JOB_FILTER_CONFIG_PRESETS = {
 export const FILTER_PARAM_KEY_PRESETS = {
   publicationDate: "publicationDate",
   salary: {
-    lowest: "minSalary",
-    highest: "maxSalary",
+    lowest: "minSalaryRange",
+    highest: "maxSalaryRange",
   },
   seniority: "seniority",
   location: "location",

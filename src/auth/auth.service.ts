@@ -1,5 +1,4 @@
 import { CACHE_MANAGER, Inject, Injectable } from "@nestjs/common";
-import { User } from "src/shared/types";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { InjectAuthentication } from "@twirelab/nestjs-auth0";
@@ -17,8 +16,8 @@ export class AuthService {
     private cacheManager: Cache,
   ) {}
 
-  createToken(user: User): string {
-    const token = this.jwtService.sign(user.githubNodeId, {
+  createToken(claim: string): string {
+    const token = this.jwtService.sign(claim, {
       secret: this.configService.get<string>("JWT_SECRET"),
     });
 

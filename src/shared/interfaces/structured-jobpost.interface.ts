@@ -4,9 +4,11 @@ export class StructuredJobpost {
   @ApiProperty()
   id: string;
   @ApiProperty()
-  minSalary: number;
+  shortUUID: string;
   @ApiProperty()
-  maxSalary: number;
+  minSalaryRange: number;
+  @ApiProperty()
+  maxSalaryRange: number;
   @ApiProperty()
   role: string;
   @ApiProperty()

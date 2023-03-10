@@ -44,7 +44,7 @@ export class JobListParams {
   @IsNumber()
   @IsPositive()
   @Type(() => Number)
-  minSalary?: number;
+  minSalaryRange?: number;
 
   @ApiPropertyOptional({
     example: 150000,
@@ -52,9 +52,9 @@ export class JobListParams {
   @IsOptional()
   @IsNumber()
   @IsPositive()
-  @Compare("minSalary", ">=")
+  @Compare("minSalaryRange", ">=")
   @Type(() => Number)
-  maxSalary?: number;
+  maxSalaryRange?: number;
 
   @ApiPropertyOptional({
     example: 10,
@@ -278,8 +278,7 @@ export class JobListParams {
     example: "1",
   })
   @IsOptional()
-  @IsNumber()
-  @IsPositive()
+  @IsString()
   @Type(() => String)
   seniority?: string;
 
