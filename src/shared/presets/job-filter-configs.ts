@@ -46,7 +46,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
   publicationDate: {
     position: 0,
     label: "Publication Date",
-    show: false,
+    show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.SINGLE_SELECT,
@@ -67,7 +67,6 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
-    paramKey: "seniority",
     kind: FilterKind.MULTI_SELECT,
   },
   locations: {
@@ -76,7 +75,6 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
-    paramKey: "locations",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   teamSize: {
@@ -103,7 +101,6 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
-    paramKey: "tech",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   organizations: {
@@ -112,7 +109,6 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
-    paramKey: "organizations",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   chains: {
@@ -121,7 +117,6 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
-    paramKey: "chains",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   projects: {
@@ -130,7 +125,6 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
-    paramKey: "projects",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   categories: {
@@ -139,7 +133,6 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
-    paramKey: "categories",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   tvl: {
@@ -241,7 +234,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
     highest: "maxSalaryRange",
   },
   seniority: "seniority",
-  location: "location",
+  locations: "locations",
   teamSize: {
     lowest: "minTeamSize",
     highest: "maxTeamSize",
