@@ -5,9 +5,12 @@ import {
   Get,
   Post,
 } from "@nestjs/common";
-import { ApiInternalServerErrorResponse, ApiOkResponse } from "@nestjs/swagger";
-import { User } from "src/shared/types";
-import { CreateSIWEUserInput } from "../dto/create-siwe-user.input";
+import {
+  ApiBadRequestResponse,
+  ApiInternalServerErrorResponse,
+  ApiOkResponse,
+} from "@nestjs/swagger";
+import { ResponseEntity } from "src/shared/entities";
 import { VerifyMessageInput } from "../dto/verify-message.input";
 import { SiweService } from "./siwe.service";
 
@@ -28,34 +31,19 @@ export class SiweController {
 
   @Post("verify")
   @ApiOkResponse({
-    description:
-      "True or false depending on the validity of the message passed",
+    description: "An object containing the auth token for the created user",
   })
-  @ApiInternalServerErrorResponse({
+  @ApiBadRequestResponse({
     description: "Something went wrong verifying the message",
   })
-  async verifyMessage(@Body() body: VerifyMessageInput): Promise<boolean> {
-    return this.siweService.verifyMessage(body);
-  }
-
-  @Post("create/user")
-  @ApiOkResponse({
-    description: "The user has been created successfully",
-  })
-  @ApiInternalServerErrorResponse({
-    description: "Something went wrong creating the new user",
-  })
-  async createUser(
-    @Body() body: CreateSIWEUserInput,
-  ): Promise<User | undefined> {
-    if (body.chainId !== 1) {
-      throw new BadRequestException({
-        statusCode: 400,
-        message: ["You must sign in on an Ethereum Wallet!"],
-        error: "Chain ID must be equal to 1",
-      });
+  async verifyMessage(
+    @Body() body: VerifyMessageInput,
+  ): Promise<ResponseEntity> {
+    const res = await this.siweService.verifyMessage(body);
+    if (res.success) {
+      return res;
     } else {
-      return this.siweService.createSIWEUser(body);
+      throw new BadRequestException(res);
     }
   }
 }

@@ -12,3 +12,10 @@ export type JobListOrderBy =
   | "chains"
   | "teamSize"
   | "headCount";
+export type DateRange =
+  | "today"
+  | "this-week"
+  | "this-month"
+  | "past-2-weeks"
+  | "past-3-months"
+  | "past-6-months";

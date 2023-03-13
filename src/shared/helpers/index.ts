@@ -1,5 +1,15 @@
 import { Integer } from "neo4j-driver";
-import { JobListOrderBy } from "../enums";
+import { DateRange, JobListOrderBy } from "../enums";
+import {
+  startOfDay,
+  endOfDay,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  subWeeks,
+  subMonths,
+} from "date-fns";
 
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
@@ -95,5 +105,43 @@ export const notStringOrNull = (
     return null;
   } else {
     return value;
+  }
+};
+
+export const publicationDateRangeParser = (
+  dateRange: DateRange,
+  jobVar: string,
+): string => {
+  const now = Date.now();
+  switch (dateRange) {
+    case "today":
+      return `WHERE ${jobVar}.jobCreatedTimestamp >= ${startOfDay(
+        now,
+      )} AND ${jobVar}.jobCreatedTimestamp <= ${endOfDay(now)} AND `;
+    case "this-week":
+      return `WHERE ${jobVar}.jobCreatedTimestamp >= ${startOfWeek(
+        now,
+      )} AND ${jobVar}.jobCreatedTimestamp <= ${endOfWeek(now)} AND `;
+    case "this-month":
+      return `WHERE ${jobVar}.jobCreatedTimestamp >= ${startOfMonth(
+        now,
+      )} AND ${jobVar}.jobCreatedTimestamp <= ${endOfMonth(now)} AND `;
+    case "past-2-weeks":
+      const twoWeeksAgo = subWeeks(now, 2);
+      return `WHERE ${jobVar}.jobCreatedTimestamp >= ${startOfDay(
+        twoWeeksAgo,
+      )} AND ${jobVar}.jobCreatedTimestamp <= ${endOfDay(now)} AND `;
+    case "past-3-months":
+      const threeMonthsAgo = subMonths(now, 3);
+      return `WHERE ${jobVar}.jobCreatedTimestamp >= ${startOfDay(
+        threeMonthsAgo,
+      )} AND ${jobVar}.jobCreatedTimestamp <= ${endOfDay(now)} AND `;
+    case "past-6-months":
+      const sixMonthsAgo = subMonths(now, 6);
+      return `WHERE ${jobVar}.jobCreatedTimestamp >= ${startOfDay(
+        sixMonthsAgo,
+      )} AND ${jobVar}.jobCreatedTimestamp <= ${endOfDay(now)} AND `;
+    default:
+      throw new Error(`Invalid date range: ${dateRange}`);
   }
 };

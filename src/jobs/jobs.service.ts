@@ -5,8 +5,10 @@ import {
   intConverter,
   optionalMinMaxFilter,
   orderBySelector,
+  publicationDateRangeParser,
 } from "src/shared/helpers";
 import {
+  DateRange,
   JobDetailsResult,
   JobFilterConfigs,
   JobFilterConfigsEntity,
@@ -33,11 +35,19 @@ export class JobsService {
             WITH o, p, j, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(p) as pProps
             WHERE ${params.organizations ? "o.name IN $organizations AND " : ""}
             ${params.projects ? "p.name IN $projects AND " : ""}
+            ${
+              params.publicationDate
+                ? publicationDateRangeParser(
+                    params.publicationDate as DateRange,
+                    "j",
+                  )
+                : ""
+            }
             ${optionalMinMaxFilter(
-              { min: params.minSalary, max: params.maxSalary },
-              "j.minSalary >= $minSalary AND j.maxSalary <= $maxSalary AND j.minSalary IS NOT NULL AND j.maxSalary IS NOT NULL",
-              "j.minSalary >= $minSalary AND j.minSalary IS NOT NULL",
-              "j.maxSalary <= $maxSalary AND j.maxSalary IS NOT NULL",
+              { min: params.minSalaryRange, max: params.maxSalaryRange },
+              "j.minSalaryRange >= $minSalaryRange AND j.maxSalaryRange <= $maxSalaryRange AND j.minSalaryRange IS NOT NULL AND j.maxSalaryRange IS NOT NULL",
+              "j.minSalaryRange >= $minSalaryRange AND j.minSalaryRange IS NOT NULL",
+              "j.maxSalaryRange <= $maxSalaryRange AND j.maxSalaryRange IS NOT NULL",
             )}
             ${optionalMinMaxFilter(
               {
@@ -165,11 +175,19 @@ export class JobsService {
                 params.organizations ? "o.name IN $organizations AND " : ""
               }
               ${params.projects ? "p.name IN $projects AND " : ""}
+              ${
+                params.publicationDate
+                  ? publicationDateRangeParser(
+                      params.publicationDate as DateRange,
+                      "j",
+                    )
+                  : ""
+              }
               ${optionalMinMaxFilter(
-                { min: params.minSalary, max: params.maxSalary },
-                "j.minSalary >= $minSalary AND j.maxSalary <= $maxSalary AND j.minSalary IS NOT NULL AND j.maxSalary IS NOT NULL",
-                "j.minSalary >= $minSalary AND j.minSalary IS NOT NULL",
-                "j.maxSalary <= $maxSalary AND j.maxSalary IS NOT NULL",
+                { min: params.minSalaryRange, max: params.maxSalaryRange },
+                "j.minSalaryRange >= $minSalaryRange AND j.maxSalaryRange <= $maxSalaryRange AND j.minSalaryRange IS NOT NULL AND j.maxSalaryRange IS NOT NULL",
+                "j.minSalaryRange >= $minSalaryRange AND j.minSalaryRange IS NOT NULL",
+                "j.maxSalaryRange <= $maxSalaryRange AND j.maxSalaryRange IS NOT NULL",
               )}
               ${optionalMinMaxFilter(
                 {
@@ -301,7 +319,7 @@ export class JobsService {
                     orgVar: "o",
                     projectVar: "p",
                   })}`
-            } ${params.order ? params.order.toUpperCase() : "ASC"}
+            } ${params.order ? params.order.toUpperCase() : "DESC"}
             ${
               params.page && params.page > 0
                 ? params.limit && params.limit > 0
@@ -348,8 +366,8 @@ export class JobsService {
         OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
         WITH o, p, j, t, c, cat, COUNT(DISTINCT h) as hacks, COUNT(DISTINCT a) as audits
         RETURN {
-            minSalary: MIN(j.medianSalary),
-            maxSalary: MAX(j.medianSalary),
+            minSalaryRange: MIN(j.minSalaryRange),
+            maxSalaryRange: MAX(j.maxSalaryRange),
             minTvl: MIN(p.tvl),
             maxTvl: MAX(p.tvl),
             minMonthlyVolume: MIN(p.monthlyVolume),
@@ -392,11 +410,11 @@ export class JobsService {
       .read(
         `
         MATCH (:JobpostCategory {name: "technical"})-[:IS_CATEGORIZED_AS]-(jp:Jobpost)<-[:HAS_JOBPOST]-(:Jobsite)<-[:HAS_JOBSITE]-(o:Organization)
-        MATCH (j:StructuredJobpost)<-[:HAS_STRUCTURED_JOBPOST]-(jp)
+        MATCH (j:StructuredJobpost {shortUUID: $uuid})<-[:HAS_STRUCTURED_JOBPOST]-(jp)
         OPTIONAL MATCH (o)-[:HAS_PROJECT]-(p:Project)
         OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
-        WHERE j.id = $uuid
-        RETURN { organization: PROPERTIES(o), project: PROPERTIES(p), jobpost: PROPERTIES(j), technologies: COLLECT(t) } as res`,
+        WITH o, p, j, COLLECT(DISTINCT t) as tech
+        RETURN { organization: PROPERTIES(o), project: PROPERTIES(p), jobpost: PROPERTIES(j), technologies: tech } as res`,
         { uuid },
       )
       .then(res =>

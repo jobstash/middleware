@@ -6,8 +6,8 @@ import {
 import { intConverter } from "../helpers";
 
 type RawJobFilters = {
-  minSalary?: number | null;
-  maxSalary?: number | null;
+  minSalaryRange?: number | null;
+  maxSalaryRange?: number | null;
   minTvl?: number | null;
   maxTvl?: number | null;
   minMonthlyVolume?: number | null;
@@ -56,7 +56,10 @@ export class JobFilterConfigsEntity {
   getMultiValuePresets(key: string): object {
     return {
       ...this.configPresets[key],
-      options: this.raw[key] ?? null,
+      options:
+        this.raw[key]?.filter(
+          value => value !== "unspecified" && value !== "undefined",
+        ) ?? null,
       paramKey: this.paramKeyPresets[key],
     };
   }

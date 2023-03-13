@@ -36,7 +36,7 @@ export class GithubOauthController {
     @AuthUser()
     user: User,
   ): AuthenticatedUser {
-    const accessToken = this.authService.createToken(user);
+    const accessToken = this.authService.createToken(user.githubNodeId);
     return {
       githubLogin: user.githubLogin,
       githubId: user.githubId,
