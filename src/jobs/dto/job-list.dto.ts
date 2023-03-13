@@ -190,23 +190,12 @@ export class JobListParams {
   maxAudits?: number;
 
   @ApiPropertyOptional({
-    example: 1,
+    example: true,
   })
   @IsOptional()
-  @IsNumber()
-  @IsPositive()
-  @Type(() => Number)
-  minHacks?: number;
-
-  @ApiPropertyOptional({
-    example: 40,
-  })
-  @IsOptional()
-  @IsNumber()
-  @IsPositive()
-  @Compare("minHacks", ">=")
-  @Type(() => Number)
-  maxHacks?: number;
+  @IsBoolean()
+  @Type(() => Boolean)
+  hacks?: boolean;
 
   @ApiPropertyOptional({
     example: "String,C++",

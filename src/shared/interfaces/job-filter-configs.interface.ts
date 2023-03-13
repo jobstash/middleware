@@ -123,7 +123,7 @@ export class JobFilterConfigs {
   @ApiProperty()
   audits: RangeFilter;
   @ApiProperty()
-  hacks: RangeFilter;
+  hacks: SingleSelectFilter;
   @ApiProperty()
   mainNet: SingleSelectFilter;
   @ApiProperty()

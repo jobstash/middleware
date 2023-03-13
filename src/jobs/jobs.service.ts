@@ -108,15 +108,13 @@ export class JobsService {
               "$minAudits >= auditCount AND auditCount IS NOT NULL",
               "auditCount <= $maxAudits AND auditCount IS NOT NULL",
             )}
-            ${optionalMinMaxFilter(
-              {
-                min: params.minHacks,
-                max: params.maxHacks,
-              },
-              "$minHacks >= hackCount <= $maxHacks AND hackCount IS NOT NULL",
-              "$minHacks >= hackCount AND hackCount IS NOT NULL",
-              "hackCount <= $maxHacks AND hackCount IS NOT NULL",
-            )}
+            ${
+              params.hacks !== undefined
+                ? params.hacks
+                  ? "hackCount IS NOT NULL AND hackCount >= 1"
+                  : "hackCount IS NOT NULL AND hackCount = 0"
+                : ""
+            }
             ${
               params.token !== undefined
                 ? params.token
@@ -256,15 +254,13 @@ export class JobsService {
                 "$minAudits >= auditCount AND auditCount IS NOT NULL",
                 "auditCount <= $maxAudits AND auditCount IS NOT NULL",
               )}
-              ${optionalMinMaxFilter(
-                {
-                  min: params.minHacks,
-                  max: params.maxHacks,
-                },
-                "$minHacks >= hackCount <= $maxHacks AND hackCount IS NOT NULL",
-                "$minHacks >= hackCount AND hackCount IS NOT NULL",
-                "hackCount <= $maxHacks AND hackCount IS NOT NULL",
-              )}
+              ${
+                params.hacks !== undefined
+                  ? params.hacks
+                    ? "hackCount IS NOT NULL AND hackCount >= 1"
+                    : "hackCount IS NOT NULL AND hackCount = 0"
+                  : ""
+              }
               ${
                 params.token !== undefined
                   ? params.token
@@ -380,8 +376,7 @@ export class JobsService {
         OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)
         OPTIONAL MATCH (p)-[:IS_CHAIN]->(c:Chain)
         OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
-        OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
-        WITH o, p, j, t, f, c, cat, COUNT(DISTINCT h) as hacks, COUNT(DISTINCT a) as audits
+        WITH o, p, j, t, f, c, cat, COUNT(DISTINCT a) as audits
         RETURN {
             minSalaryRange: MIN(j.minSalaryRange),
             maxSalaryRange: MAX(j.maxSalaryRange),
@@ -399,8 +394,6 @@ export class JobsService {
             maxTeamSize: MAX(p.teamSize),
             minAudits: MIN(audits),
             maxAudits: MAX(audits),
-            minHacks: MIN(hacks),
-            maxHacks: MAX(hacks),
             tech: COLLECT(DISTINCT t.name),
             fundingRounds: COLLECT(DISTINCT f.roundName),
             projects: COLLECT(DISTINCT p.name),
