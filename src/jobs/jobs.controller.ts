@@ -1,4 +1,11 @@
-import { Controller, Get, Param, Query, ValidationPipe } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Query,
+  ValidationPipe,
+} from "@nestjs/common";
 import { JobsService } from "./jobs.service";
 import {
   JobDetailsResult,
@@ -107,6 +114,15 @@ export class JobsController {
   async getJobDetailsByUuid(
     @Param("uuid") uuid: string,
   ): Promise<JobDetailsResult> {
-    return this.jobsService.getJobDetailsByUuid(uuid);
+    // return a 404 if the job details could not be found, otherwise return the job details
+
+    const jobDetails = await this.jobsService.getJobDetailsByUuid(uuid);
+
+    if (jobDetails) {
+      return jobDetails;
+    }
+
+    // If not found, return a 404
+    throw new NotFoundException(`Job with uuid ${uuid} not found`);
   }
 }
