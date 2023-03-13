@@ -4,6 +4,8 @@ import {
   ApiPropertyOptional,
   getSchemaPath,
 } from "@nestjs/swagger";
+import { FundingRound } from "./funding-round.interface";
+import { Investor } from "./investor.interface";
 import { Organization } from "./organization.interface";
 import { ProjectCategory } from "./project-category.interface";
 import { Project } from "./project.interface";
@@ -16,6 +18,8 @@ import { Technology } from "./technology.interface";
   StructuredJobpost,
   Technology,
   ProjectCategory,
+  FundingRound,
+  Investor,
 )
 export class JobListResult {
   @ApiProperty()
@@ -24,6 +28,10 @@ export class JobListResult {
   project?: Project | null;
   @ApiProperty()
   jobpost?: StructuredJobpost | null;
+  @ApiProperty()
+  fundingRounds: FundingRound[] | null;
+  @ApiProperty()
+  investors: Investor[] | null;
   @ApiProperty({
     type: "array",
     items: { $ref: getSchemaPath(Technology) },

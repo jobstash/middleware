@@ -1,6 +1,5 @@
 import { Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
-import { JobDetailsResultEntity } from "src/shared/entities/job-details-result.entity";
 import {
   intConverter,
   optionalMinMaxFilter,
@@ -9,7 +8,6 @@ import {
 } from "src/shared/helpers";
 import {
   DateRange,
-  JobDetailsResult,
   JobFilterConfigs,
   JobFilterConfigsEntity,
   JobListResult,
@@ -27,12 +25,13 @@ export class JobsService {
     const generatedQuery = `
             MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
             MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
+            OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)-[:INVESTED_BY]->(i:Investor)
             OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(c:ProjectCategory)
             OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
             OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
             OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
             OPTIONAL MATCH (p)-[:IS_CHAIN]->(ch:Chain)
-            WITH o, p, j, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(p) as pProps
+            WITH o, p, j, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(p) as pProps
             WHERE ${params.organizations ? "o.name IN $organizations AND " : ""}
             ${params.projects ? "p.name IN $projects AND " : ""}
             ${
@@ -136,6 +135,11 @@ export class JobsService {
             ${params.locations ? "j.jobLocation IN $locations AND " : ""}
             ${params.tech ? "any(x IN tech WHERE x.name IN $tech) AND " : ""}
             ${
+              params.fundingRounds
+                ? "any(x IN rounds WHERE x.roundName IN $fundingRounds) AND "
+                : ""
+            }
+            ${
               params.categories
                 ? "any(y IN cats WHERE y.name IN $categories) AND "
                 : ""
@@ -152,25 +156,28 @@ export class JobsService {
                     jobVar: "j",
                     orgVar: "o",
                     projectVar: "p",
+                    roundVar: "mrfr",
                   })} IS NOT NULL AND`
                 : `${orderBySelector({
                     orderBy: "publicationDate",
                     jobVar: "j",
                     orgVar: "o",
                     projectVar: "p",
+                    roundVar: "mrfr",
                   })} IS NOT NULL AND`
             }
             o.name IS NOT NULL AND o.name <> ""
-            WITH o, p, j, tech, cats, auditCount, hackCount, chainCount, audits, hacks, chains, pProps
+            WITH o, p, j, tech, cats, auditCount, hackCount, chainCount, audits, hacks, chains, pProps, rounds, investors, mrfr
             CALL {
               MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
               MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
+              OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)-[:INVESTED_BY]->(i:Investor)
               OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(c:ProjectCategory)
               OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
               OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
               OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
               OPTIONAL MATCH (p)-[:IS_CHAIN]->(ch:Chain)
-              WITH o, p, j, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(p) as pProps
+              WITH o, p, j, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(p) as pProps
               WHERE ${
                 params.organizations ? "o.name IN $organizations AND " : ""
               }
@@ -276,6 +283,11 @@ export class JobsService {
               ${params.locations ? "j.jobLocation IN $locations AND " : ""}
               ${params.tech ? "any(x IN tech WHERE x.name IN $tech) AND " : ""}
               ${
+                params.fundingRounds
+                  ? "any(x IN rounds WHERE x.roundName IN $fundingRounds) AND "
+                  : ""
+              }
+              ${
                 params.categories
                   ? "any(y IN cats WHERE y.name IN $categories) AND "
                   : ""
@@ -292,19 +304,21 @@ export class JobsService {
                       jobVar: "j",
                       orgVar: "o",
                       projectVar: "p",
+                      roundVar: "mrfr",
                     })} IS NOT NULL AND`
                   : `${orderBySelector({
                       orderBy: "publicationDate",
                       jobVar: "j",
                       orgVar: "o",
                       projectVar: "p",
+                      roundVar: "mrfr",
                     })} IS NOT NULL AND`
               }
               o.name IS NOT NULL AND o.name <> ""
-              RETURN { organization: PROPERTIES(o), project: pProps{.*, chains: chains, hacks: hacks, audits: audits}, jobpost: PROPERTIES(j), technologies: tech, categories: cats } as results
+              RETURN { organization: PROPERTIES(o), project: pProps{.*, chains: chains, hacks: hacks, audits: audits}, jobpost: PROPERTIES(j), fundingRounds: rounds, investors: investors, technologies: tech, categories: cats } as results
             } 
-            WITH COUNT(results) as count, o, p, j, tech, cats, auditCount, hackCount, chainCount, audits, hacks, chains, pProps
-            WITH { organization: PROPERTIES(o), project: pProps{.*, chains: chains, hacks: hacks, audits: audits}, jobpost: PROPERTIES(j), technologies: tech, categories: cats } as results, o, p, j, auditCount, hackCount, chainCount, count
+            WITH COUNT(results) as count, o, p, j, tech, cats, auditCount, hackCount, chainCount, audits, hacks, chains, pProps, rounds, investors, mrfr
+            WITH { organization: PROPERTIES(o), project: pProps{.*, chains: chains, hacks: hacks, audits: audits}, jobpost: PROPERTIES(j), fundingRounds: rounds, investors: investors, technologies: tech, categories: cats } as results, o, p, j, auditCount, hackCount, chainCount, count, mrfr
             ${
               params.orderBy
                 ? `ORDER BY ${orderBySelector({
@@ -312,12 +326,14 @@ export class JobsService {
                     jobVar: "j",
                     orgVar: "o",
                     projectVar: "p",
+                    roundVar: "mrfr",
                   })}`
                 : `ORDER BY ${orderBySelector({
                     orderBy: "publicationDate",
                     jobVar: "j",
                     orgVar: "o",
                     projectVar: "p",
+                    roundVar: "mrfr",
                   })}`
             } ${params.order ? params.order.toUpperCase() : "DESC"}
             ${
@@ -361,10 +377,11 @@ export class JobsService {
         MATCH (o)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
         MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
         OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
+        OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)
         OPTIONAL MATCH (p)-[:IS_CHAIN]->(c:Chain)
         OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
         OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
-        WITH o, p, j, t, c, cat, COUNT(DISTINCT h) as hacks, COUNT(DISTINCT a) as audits
+        WITH o, p, j, t, f, c, cat, COUNT(DISTINCT h) as hacks, COUNT(DISTINCT a) as audits
         RETURN {
             minSalaryRange: MIN(j.minSalaryRange),
             maxSalaryRange: MAX(j.maxSalaryRange),
@@ -385,6 +402,7 @@ export class JobsService {
             minHacks: MIN(hacks),
             maxHacks: MAX(hacks),
             tech: COLLECT(DISTINCT t.name),
+            fundingRounds: COLLECT(DISTINCT f.roundName),
             projects: COLLECT(DISTINCT p.name),
             categories: COLLECT(DISTINCT cat.name),
             chains: COLLECT(DISTINCT c.name),
@@ -403,25 +421,25 @@ export class JobsService {
       );
   }
 
-  async getJobDetailsByUuid(
-    uuid: string,
-  ): Promise<JobDetailsResult | undefined> {
+  async getJobDetailsByUuid(uuid: string): Promise<JobListResult | undefined> {
     return this.neo4jService
       .read(
         `
-        MATCH (:JobpostCategory {name: "technical"})-[:IS_CATEGORIZED_AS]-(jp:Jobpost)<-[:HAS_JOBPOST]-(:Jobsite)<-[:HAS_JOBSITE]-(o:Organization)
-        MATCH (j:StructuredJobpost {shortUUID: $uuid})<-[:HAS_STRUCTURED_JOBPOST]-(jp)
-        OPTIONAL MATCH (o)-[:HAS_PROJECT]-(p:Project)
+        MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
+        MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost {shortUUID: $uuid})
+        OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)-[:INVESTED_BY]->(i:Investor)
+        OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(c:ProjectCategory)
         OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
-        WITH o, p, j, COLLECT(DISTINCT t) as tech
-        RETURN { organization: PROPERTIES(o), project: PROPERTIES(p), jobpost: PROPERTIES(j), technologies: tech } as res`,
+        OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
+        OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
+        OPTIONAL MATCH (p)-[:IS_CHAIN]->(ch:Chain)
+        WITH o, p, j, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(p) as pProps
+        RETURN { organization: PROPERTIES(o), project: pProps{.*, chains: chains, hacks: hacks, audits: audits}, jobpost: PROPERTIES(j), fundingRounds: rounds, investors: investors, technologies: tech, categories: cats } as res`,
         { uuid },
       )
       .then(res =>
         res.records.length
-          ? new JobDetailsResultEntity(
-              res.records[0].get("res"),
-            ).getProperties()
+          ? new JobListResultEntity(res.records[0].get("res")).getProperties()
           : undefined,
       );
   }

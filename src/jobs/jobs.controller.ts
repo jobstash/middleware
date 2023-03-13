@@ -8,7 +8,6 @@ import {
 } from "@nestjs/common";
 import { JobsService } from "./jobs.service";
 import {
-  JobDetailsResult,
   JobFilterConfigs,
   JobListResult,
   PaginatedData,
@@ -23,13 +22,7 @@ import {
 } from "@nestjs/swagger";
 
 @Controller("jobs")
-@ApiExtraModels(
-  PaginatedData,
-  JobListResult,
-  JobFilterConfigs,
-  ValidationError,
-  JobDetailsResult,
-)
+@ApiExtraModels(PaginatedData, JobListResult, JobFilterConfigs, ValidationError)
 export class JobsController {
   constructor(private readonly jobsService: JobsService) {}
 
@@ -101,7 +94,7 @@ export class JobsController {
     schema: {
       allOf: [
         {
-          $ref: getSchemaPath(JobDetailsResult),
+          $ref: getSchemaPath(JobListResult),
         },
       ],
     },
@@ -113,7 +106,7 @@ export class JobsController {
   })
   async getJobDetailsByUuid(
     @Param("uuid") uuid: string,
-  ): Promise<JobDetailsResult> {
+  ): Promise<JobListResult> {
     // return a 404 if the job details could not be found, otherwise return the job details
 
     const jobDetails = await this.jobsService.getJobDetailsByUuid(uuid);

@@ -259,6 +259,16 @@ export class JobListParams {
   categories?: string[];
 
   @ApiPropertyOptional({
+    example: "Seed,Series A",
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @Type(() => String)
+  @Transform(({ value }) => value.split(","))
+  fundingRounds?: string[];
+
+  @ApiPropertyOptional({
     example: true,
   })
   @IsOptional()

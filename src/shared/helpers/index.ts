@@ -37,9 +37,10 @@ export const orderBySelector = (args: {
   jobVar: string;
   projectVar: string;
   orgVar: string;
+  roundVar: string;
   orderBy: JobListOrderBy;
 }): string | null => {
-  const { jobVar, projectVar, orgVar, orderBy } = args;
+  const { jobVar, projectVar, orgVar, roundVar, orderBy } = args;
   switch (orderBy) {
     case "publicationDate":
       return `${jobVar}.jobCreatedTimestamp`;
@@ -51,7 +52,7 @@ export const orderBySelector = (args: {
       return `${jobVar}.medianSalary`;
 
     case "fundingDate":
-      return `${projectVar}.fundingDate`;
+      return `${roundVar}`;
 
     case "monthlyVolume":
       return `${projectVar}.monthlyVolume`;
