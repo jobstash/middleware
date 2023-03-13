@@ -410,10 +410,9 @@ export class JobsService {
       .read(
         `
         MATCH (:JobpostCategory {name: "technical"})-[:IS_CATEGORIZED_AS]-(jp:Jobpost)<-[:HAS_JOBPOST]-(:Jobsite)<-[:HAS_JOBSITE]-(o:Organization)
-        MATCH (j:StructuredJobpost)<-[:HAS_STRUCTURED_JOBPOST]-(jp)
+        MATCH (j:StructuredJobpost {shortUUID: $uuid})<-[:HAS_STRUCTURED_JOBPOST]-(jp)
         OPTIONAL MATCH (o)-[:HAS_PROJECT]-(p:Project)
         OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
-        WHERE j.shortUUID = $uuid
         WITH o, p, j, COLLECT(DISTINCT t) as tech
         RETURN { organization: PROPERTIES(o), project: PROPERTIES(p), jobpost: PROPERTIES(j), technologies: tech } as res`,
         { uuid },
