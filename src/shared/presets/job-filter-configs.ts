@@ -186,7 +186,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
   audits: {
     position: 16,
     label: "Audits",
-    show: true,
+    show: false,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
