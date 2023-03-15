@@ -16,19 +16,22 @@ import { AuthService } from "../auth.service";
 import { VerifyMessageInput } from "../dto/verify-message.input";
 
 import { generateNonce, SiweMessage } from "siwe";
+import { ConfigService } from "@nestjs/config";
 
 @Controller("siwe")
 export class SiweController {
   private readonly sessionConfig: IronSessionOptions;
   constructor(
+    private readonly configService: ConfigService,
     private readonly backendService: BackendService,
     private readonly authService: AuthService,
   ) {
     this.sessionConfig = {
-      cookieName: process.env.COOKIE_NAME || "connectkit-next-siwe",
-      password: process.env.SESSION_SECRET,
+      cookieName:
+        configService.get<string>("COOKIE_NAME") || "connectkit-next-siwe",
+      password: configService.get<string>("SESSION_SECRET"),
       cookieOptions: {
-        secure: process.env.NODE_ENV === "production",
+        secure: configService.get<string>("NODE_ENV") === "production",
       },
     };
   }
