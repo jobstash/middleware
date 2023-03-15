@@ -7,7 +7,7 @@ import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { ValidationPipe } from "@nestjs/common";
 import { ironSession } from "iron-session/express";
 import { IronSessionOptions } from "iron-session";
-import dotenv from "dotenv";
+import * as dotenv from "dotenv";
 dotenv.config();
 
 if (!process.env.SESSION_SECRET) throw new Error("SESSION_SECRET must be set");
