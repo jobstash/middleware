@@ -28,7 +28,7 @@ async function bootstrap(): Promise<void> {
       resave: false,
       cookie: {
         httpOnly: false,
-        secure: process.env.NODE_ENV === "production",
+        secure: false,
       },
       saveUninitialized: false,
     }),
