@@ -101,6 +101,7 @@ export class SiweController {
       const session = await this.getSession(req, res, this.sessionConfig);
       const { message, signature } = body;
       const siweMessage = new SiweMessage(message);
+      console.log(siweMessage);
       const fields = await siweMessage.validate(signature, provider);
 
       if (fields.nonce !== session.nonce) {
