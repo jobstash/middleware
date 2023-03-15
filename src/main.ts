@@ -28,7 +28,7 @@ async function bootstrap(): Promise<void> {
       resave: false,
       cookie: {
         httpOnly: false,
-        secure: false,
+        secure: true,
         sameSite: "none",
       },
       saveUninitialized: false,
