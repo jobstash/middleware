@@ -31,7 +31,7 @@ export class SiweController {
         configService.get<string>("COOKIE_NAME") || "connectkit-next-siwe",
       password: configService.get<string>("SESSION_SECRET"),
       cookieOptions: {
-        secure: configService.get<string>("NODE_ENV") === "production",
+        secure: false, //configService.get<string>("NODE_ENV") === "production",
       },
     };
   }
