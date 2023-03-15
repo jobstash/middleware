@@ -19,11 +19,11 @@ import { generateNonce, SiweMessage } from "siwe";
 
 @Controller("siwe")
 export class SiweController {
-  private sessionConfig: IronSessionOptions;
-  private backendService: BackendService;
-  private authService: AuthService;
-
-  constructor() {
+  private readonly sessionConfig: IronSessionOptions;
+  constructor(
+    private readonly backendService: BackendService,
+    private readonly authService: AuthService,
+  ) {
     this.sessionConfig = {
       cookieName: process.env.COOKIE_NAME || "connectkit-next-siwe",
       password: process.env.SESSION_SECRET,
