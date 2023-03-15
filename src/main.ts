@@ -13,11 +13,13 @@ async function bootstrap(): Promise<void> {
   app.use(Sentry.Handlers.tracingHandler());
   app.use(Sentry.Handlers.errorHandler());
   app.use(helmet());
-  // app.enableCors({
-  //   credentials: true,
-  //   methods: ["GET", "OPTIONS", "POST"],
-  //   origin: process.env.ALLOWED_ORIGINS?.split(",") ?? [],
-  // });
+  // Enable CORS with wildcard origin and the specified allowed headers
+  app.enableCors({
+    origin: "*",
+    allowedHeaders: ["content-type"],
+    methods: ["GET", "OPTIONS", "POST"],
+  });
+
   const config = new DocumentBuilder()
     .setTitle("Recruiters.RIP Middleware")
     .setDescription(
