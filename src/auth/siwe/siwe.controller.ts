@@ -103,7 +103,7 @@ export class SiweController {
       const siweMessage = new SiweMessage(message);
       console.log(siweMessage);
       const fields = await siweMessage.validate(signature, provider);
-
+      console.log(fields);
       if (fields.nonce !== session.nonce) {
         throw new HttpException(
           "Invalid nonce.",
