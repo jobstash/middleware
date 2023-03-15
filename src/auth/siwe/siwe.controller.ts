@@ -31,7 +31,7 @@ export class SiweController {
         configService.get<string>("COOKIE_NAME") || "connectkit-next-siwe",
       password: configService.get<string>("SESSION_SECRET"),
       cookieOptions: {
-        secure: true, //configService.get<string>("NODE_ENV") === "production",
+        secure: configService.get<string>("NODE_ENV") === "production",
       },
     };
   }
@@ -99,15 +99,15 @@ export class SiweController {
       );
 
       const session = await this.getSession(req, res, this.sessionConfig);
-      console.log("session:");
-      console.log(session);
+      // console.log("session:");
+      // console.log(session);
       const { message, signature } = body;
       const siweMessage = new SiweMessage(message);
-      console.log("siweMessage:");
-      console.log(siweMessage);
+      // console.log("siweMessage:");
+      // console.log(siweMessage);
       const fields = await siweMessage.validate(signature, provider);
-      console.log("fields:");
-      console.log(fields);
+      // console.log("fields:");
+      // console.log(fields);
       if (fields.nonce !== session.nonce) {
         throw new HttpException(
           "Invalid nonce.",
