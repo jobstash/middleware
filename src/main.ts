@@ -5,6 +5,7 @@ import "@sentry/tracing";
 import helmet from "helmet";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { ValidationPipe } from "@nestjs/common";
+import * as session from "express-session";
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
@@ -20,7 +21,18 @@ async function bootstrap(): Promise<void> {
     allowedHeaders: ["content-type"],
     methods: ["GET", "OPTIONS", "POST"],
   });
-
+  app.use(
+    session({
+      name: process.env.COOKIE_NAME || "connectkit-next-siwe",
+      secret: process.env.SESSION_SECRET,
+      resave: false,
+      cookie: {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === "production",
+      },
+      saveUninitialized: false,
+    }),
+  );
   const config = new DocumentBuilder()
     .setTitle("Recruiters.RIP Middleware")
     .setDescription(

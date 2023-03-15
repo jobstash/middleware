@@ -3,11 +3,11 @@ import {
   Controller,
   Get,
   Post,
-  Req,
   Res,
   HttpStatus,
   HttpException,
   Body,
+  Session,
 } from "@nestjs/common";
 import { Request, Response } from "express";
 import { getIronSession, IronSession, IronSessionOptions } from "iron-session";
@@ -20,21 +20,11 @@ import { AlchemyProvider } from "@ethersproject/providers";
 
 @Controller("siwe")
 export class SiweController {
-  private readonly sessionConfig: IronSessionOptions;
   constructor(
-    private readonly configService: ConfigService,
     private readonly backendService: BackendService,
     private readonly authService: AuthService,
-  ) {
-    this.sessionConfig = {
-      cookieName:
-        configService.get<string>("COOKIE_NAME") || "connectkit-next-siwe",
-      password: configService.get<string>("SESSION_SECRET"),
-      cookieOptions: {
-        secure: configService.get<string>("NODE_ENV") === "production",
-      },
-    };
-  }
+    private readonly configService: ConfigService,
+  ) {}
 
   private async getSession<
     TSessionData extends Record<string, unknown> = Record<string, unknown>,
@@ -57,38 +47,35 @@ export class SiweController {
   }
 
   @Get("nonce")
-  async getNonce(@Req() req: Request, @Res() res: Response): Promise<void> {
-    const session = await this.getSession(req, res, this.sessionConfig);
+  async getNonce(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    @Session() session: Record<string, any>,
+  ): Promise<void> {
+    // const session = await this.getSession(req, res, this.sessionConfig);
     if (!session.nonce) {
       session.nonce = generateNonce();
       await session.save();
     }
-    res.send(session.nonce);
+    return session.nonce;
   }
 
   @Get("session")
   async getSessionData(
-    @Req() req: Request,
-    @Res() res: Response,
-  ): Promise<void> {
-    const { address, chainId } = await this.getSession(
-      req,
-      res,
-      this.sessionConfig,
-    );
-    res.send({ address, chainId });
+    @Session() session: Record<string, never>,
+  ): Promise<object> {
+    return { address: session.address, chainId: session.chainId };
   }
 
   @Get("logout")
-  async logout(@Req() req: Request, @Res() res: Response): Promise<void> {
-    const session = await this.getSession(req, res, this.sessionConfig);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async logout(@Session() session: Record<string, any>): Promise<void> {
     session.destroy();
-    res.status(HttpStatus.OK).end();
   }
 
   @Post("verify")
   async verify(
-    @Req() req: Request,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    @Session() session: Record<string, any>,
     @Res() res: Response,
     @Body() body: VerifyMessageInput,
   ): Promise<void> {
@@ -98,7 +85,6 @@ export class SiweController {
         this.configService.get<string>("ALCHEMY_API_KEY"),
       );
 
-      const session = await this.getSession(req, res, this.sessionConfig);
       console.log("session:");
       console.log(session);
       const { message, signature } = body;
