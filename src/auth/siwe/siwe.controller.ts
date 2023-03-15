@@ -99,6 +99,8 @@ export class SiweController {
       );
 
       const session = await this.getSession(req, res, this.sessionConfig);
+      console.log("session:");
+      console.log(session);
       const { message, signature } = body;
       const siweMessage = new SiweMessage(message);
       console.log("siweMessage:");
