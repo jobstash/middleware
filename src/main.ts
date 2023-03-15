@@ -5,7 +5,21 @@ import "@sentry/tracing";
 import helmet from "helmet";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { ValidationPipe } from "@nestjs/common";
-import * as session from "express-session";
+import { ironSession } from "iron-session/express";
+import { IronSessionOptions } from "iron-session";
+import dotenv from "dotenv";
+dotenv.config();
+
+if (!process.env.SESSION_SECRET) throw new Error("SESSION_SECRET must be set");
+
+const ironOptions: IronSessionOptions = {
+  password: process.env.SESSION_SECRET,
+  cookieName: "session",
+  cookieOptions: {
+    secure: false,
+    sameSite: "none",
+  },
+};
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
@@ -13,6 +27,7 @@ async function bootstrap(): Promise<void> {
   app.use(Sentry.Handlers.requestHandler());
   app.use(Sentry.Handlers.tracingHandler());
   app.use(Sentry.Handlers.errorHandler());
+  app.use(ironSession(ironOptions));
   app.use(helmet());
   // Enable CORS with wildcard origin and the specified allowed headers
   app.enableCors({
@@ -21,19 +36,7 @@ async function bootstrap(): Promise<void> {
     allowedHeaders: ["content-type"],
     methods: ["GET", "OPTIONS", "POST"],
   });
-  app.use(
-    session({
-      name: process.env.COOKIE_NAME || "connectkit-next-siwe",
-      secret: process.env.SESSION_SECRET,
-      resave: false,
-      cookie: {
-        httpOnly: false,
-        secure: true,
-        sameSite: "none",
-      },
-      saveUninitialized: false,
-    }),
-  );
+
   const config = new DocumentBuilder()
     .setTitle("Recruiters.RIP Middleware")
     .setDescription(

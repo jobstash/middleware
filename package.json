@@ -39,6 +39,7 @@
     "class-validator": "^0.14.0",
     "cookie-session": "^2.0.0",
     "date-fns": "^2.29.3",
+    "dotenv": "^16.0.3",
     "ethers": "5.5.1",
     "express-session": "^1.17.3",
     "helmet": "^6.0.1",
