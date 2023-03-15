@@ -25,12 +25,13 @@ async function bootstrap(): Promise<void> {
     session({
       name: process.env.COOKIE_NAME || "connectkit-next-siwe",
       secret: process.env.SESSION_SECRET,
-      resave: true,
+      resave: false,
       cookie: {
         httpOnly: false,
         secure: false,
+        sameSite: "none",
       },
-      saveUninitialized: true,
+      saveUninitialized: false,
     }),
   );
   const config = new DocumentBuilder()
