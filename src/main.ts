@@ -15,7 +15,10 @@ async function bootstrap(): Promise<void> {
   app.use(helmet());
   // Enable CORS with wildcard origin and the specified allowed headers
   app.enableCors({
-    origin: "*",
+    origin: (origin, callback) => {
+      // Allow any origin by echoing back the request's origin
+      callback(null, origin);
+    },
     credentials: true,
     allowedHeaders: ["content-type"],
     methods: ["GET", "OPTIONS", "POST"],
