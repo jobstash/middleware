@@ -29,7 +29,7 @@ async function bootstrap(): Promise<void> {
       cookie: {
         httpOnly: false,
         secure: false,
-        sameSite: "lax",
+        sameSite: "none",
       },
       saveUninitialized: false,
     }),
