@@ -14,9 +14,9 @@ import { getIronSession, IronSession, IronSessionOptions } from "iron-session";
 import { BackendService } from "../../backend/backend.service";
 import { AuthService } from "../auth.service";
 import { VerifyMessageInput } from "../dto/verify-message.input";
-
 import { generateNonce, SiweMessage } from "siwe";
 import { ConfigService } from "@nestjs/config";
+import { AlchemyProvider } from "@ethersproject/providers";
 
 @Controller("siwe")
 export class SiweController {
@@ -93,10 +93,15 @@ export class SiweController {
     @Body() body: VerifyMessageInput,
   ): Promise<void> {
     try {
+      const provider = new AlchemyProvider(
+        1,
+        this.configService.get<string>("ALCHEMY_API_KEY"),
+      );
+
       const session = await this.getSession(req, res, this.sessionConfig);
       const { message, signature } = body;
       const siweMessage = new SiweMessage(message);
-      const fields = await siweMessage.validate(signature);
+      const fields = await siweMessage.validate(signature, provider);
 
       if (fields.nonce !== session.nonce) {
         throw new HttpException(
@@ -114,6 +119,7 @@ export class SiweController {
 
       res.status(HttpStatus.OK).end();
     } catch (error) {
+      console.log(error);
       throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     }
   }
