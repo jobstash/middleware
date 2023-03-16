@@ -2,6 +2,7 @@ import * as Joi from "joi";
 
 const envSchema = Joi.object({
   ALLOWED_ORIGINS: Joi.string(),
+  ALCHEMY_API_KEY: Joi.string(),
   APP_PORT: Joi.number().default(8080),
   AUTH0_CLIENT_ID: Joi.string(),
   AUTH0_CLIENT_SECRET: Joi.string(),
@@ -30,6 +31,7 @@ const envSchema = Joi.object({
     .default("development"),
   SENTRY_DSN: Joi.string(),
   SENTRY_TRACES_SAMPLE_RATE: Joi.number(),
+  SESSION_SECRET: Joi.string(),
 });
 
 export default envSchema;

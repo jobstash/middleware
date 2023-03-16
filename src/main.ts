@@ -32,7 +32,7 @@ async function bootstrap(): Promise<void> {
   // Enable CORS with wildcard origin and the specified allowed headers
   app.enableCors({
     credentials: true,
-    origin: ["https://localhost:3000", "http://localhost:3000"],
+    origin: process.env.ALLOWED_ORIGINS?.split(","),
     allowedHeaders: ["content-type"],
     methods: ["GET", "OPTIONS", "POST"],
   });
