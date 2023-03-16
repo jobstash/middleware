@@ -10,6 +10,7 @@ import { IronSessionOptions } from "iron-session";
 import * as dotenv from "dotenv";
 dotenv.config();
 
+console.log("neo4j password: " + process.env.NEO4J_PASSWORD);
 if (!process.env.SESSION_SECRET) throw new Error("SESSION_SECRET must be set");
 
 const ironOptions: IronSessionOptions = {
