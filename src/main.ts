@@ -16,7 +16,7 @@ const ironOptions: IronSessionOptions = {
   password: process.env.SESSION_SECRET,
   cookieName: "session",
   cookieOptions: {
-    secure: false,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "none",
   },
 };
