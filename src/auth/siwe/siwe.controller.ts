@@ -61,8 +61,8 @@ export class SiweController {
     const session = await this.getSession(req, res, this.sessionConfig);
     if (!session.nonce) {
       session.nonce = generateNonce();
-      await session.save();
     }
+    await session.save();
     res.send(session.nonce);
   }
 
