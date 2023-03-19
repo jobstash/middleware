@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { generateNonce, SiweMessage } from "siwe";
 import { BackendService } from "src/backend/backend.service";
-import { ResponseEntity } from "src/shared/types";
+import { ResponseWithNoData } from "src/shared/types";
 import { AuthService } from "../auth.service";
 import { VerifyMessageInput } from "../dto/verify-message.input";
 
@@ -16,7 +16,7 @@ export class SiweService {
     return Promise.resolve(generateNonce());
   }
 
-  async verifyMessage(input: VerifyMessageInput): Promise<ResponseEntity> {
+  async verifyMessage(input: VerifyMessageInput): Promise<ResponseWithNoData> {
     const { message, signature } = input;
     const siweMessage = new SiweMessage(message);
     try {

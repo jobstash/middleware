@@ -1,9 +1,9 @@
 import { Injectable } from "@nestjs/common";
-import { ResponseEntity } from "src/shared/types";
+import { ResponseWithNoData } from "src/shared/types";
 
 @Injectable()
 export class AppService {
-  healthCheck(): ResponseEntity {
+  healthCheck(): ResponseWithNoData {
     return { success: true, message: "Server is healthy and up!" };
   }
 }

@@ -7,6 +7,7 @@ import { Cache } from "cache-manager";
 
 @Injectable()
 export class AuthService {
+  private readonly jwtConfig: object;
   constructor(
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
@@ -14,14 +15,34 @@ export class AuthService {
     private readonly authClient: AuthenticationClient,
     @Inject(CACHE_MANAGER)
     private cacheManager: Cache,
-  ) {}
-
-  createToken(claim: string): string {
-    const token = this.jwtService.sign(claim, {
+  ) {
+    this.jwtConfig = {
       secret: this.configService.get<string>("JWT_SECRET"),
-    });
+      mutatePayload: false,
+    };
+  }
+
+  createToken(claim: string | object): string {
+    const token = this.jwtService.sign(claim, this.jwtConfig);
 
     return token;
+  }
+
+  validateToken(token: string): boolean {
+    try {
+      this.jwtService.verify(token, this.jwtConfig);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  decodeToken(token: string): object | string | null {
+    try {
+      return this.jwtService.decode(token, this.jwtConfig);
+    } catch (error) {
+      return null;
+    }
   }
 
   async getBackendCredentialsGrantToken(): Promise<string> {

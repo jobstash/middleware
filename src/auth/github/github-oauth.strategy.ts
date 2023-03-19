@@ -37,6 +37,8 @@ export class GithubOauthStrategy extends PassportStrategy(Strategy, "github") {
         githubGravatarId:
           profileData.gravatar_id === "" ? undefined : profileData.gravatar_id,
         githubAvatarUrl: profileData.avatar_url,
+        wallet: "",
+        chainId: 1,
       });
     } else {
       return result.getProperties();
