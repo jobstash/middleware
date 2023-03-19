@@ -2,7 +2,7 @@ import { CACHE_MANAGER, Inject, Injectable } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { InjectAuthentication } from "@twirelab/nestjs-auth0";
-import { AuthenticationClient } from "auth0";
+import { AuthenticationClient, TokenResponse } from "auth0";
 import { Cache } from "cache-manager";
 
 @Injectable()
@@ -45,15 +45,11 @@ export class AuthService {
     }
   }
 
-  async getBackendCredentialsGrantToken(): Promise<string> {
-    const cacheValue = await this.cacheManager.get<string>(
+  async getBackendCredentialsGrantToken(): Promise<TokenResponse> {
+    const cacheValue = await this.cacheManager.get<TokenResponse>(
       "client-credentials-token",
     );
-    if (
-      cacheValue !== null &&
-      cacheValue !== undefined &&
-      cacheValue !== "<unset>"
-    ) {
+    if (cacheValue !== null && cacheValue !== undefined) {
       return cacheValue;
     } else {
       const newToken = await this.authClient.clientCredentialsGrant({
@@ -62,10 +58,10 @@ export class AuthService {
       });
       await this.cacheManager.set(
         "client-credentials-token",
-        newToken.access_token,
+        newToken,
         newToken.expires_in * 1000,
       );
-      return newToken.access_token;
+      return newToken;
     }
   }
 }

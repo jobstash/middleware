@@ -21,7 +21,7 @@ import envSchema from "./env-schema";
       },
     }),
     Neo4jModule.fromEnv(),
-    CacheModule.register(),
+    CacheModule.register({ isGlobal: true }),
     AuthModule,
     JobsModule,
     BackendModule,
