@@ -1,3 +1,10 @@
+## [1.17.5](https://github.com/RecruitersRip/middleware/compare/v1.17.4...v1.17.5) (2023-03-20)
+
+
+### Bug Fixes
+
+* **siwe:** fix checkwallet endpint ([dafbd41](https://github.com/RecruitersRip/middleware/commit/dafbd41db411cd099914bcecee7af3ced7d07af3))
+
 ## [1.17.4](https://github.com/RecruitersRip/middleware/compare/v1.17.3...v1.17.4) (2023-03-20)
 
 
