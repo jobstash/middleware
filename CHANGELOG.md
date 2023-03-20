@@ -1,3 +1,10 @@
+# [1.18.0](https://github.com/RecruitersRip/middleware/compare/v1.17.6...v1.18.0) (2023-03-20)
+
+
+### Features
+
+* **admin:** implemented get all technologies endpoint ([#49](https://github.com/RecruitersRip/middleware/issues/49)) ([5f1e7b7](https://github.com/RecruitersRip/middleware/commit/5f1e7b7f677a5fe84e302c3d43d30d0bb92c655e))
+
 ## [1.17.6](https://github.com/RecruitersRip/middleware/compare/v1.17.5...v1.17.6) (2023-03-20)
 
 
