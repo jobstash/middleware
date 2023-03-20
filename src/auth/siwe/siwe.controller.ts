@@ -192,7 +192,7 @@ export class SiweController {
     }
   }
 
-  @Post("check/wallet")
+  @Get("check-wallet")
   @ApiOkResponse({
     description:
       "Returns the role of the user with the wallet embedded in the session cookie",
