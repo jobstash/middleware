@@ -108,7 +108,7 @@ export class SiweController {
     @Req() req: Request,
     @Res() res: ExpressResponse,
   ): Promise<void> {
-    const { address, chainId } = await this.getSession(
+    const { address, chainId, role } = await this.getSession(
       req,
       res,
       this.sessionConfig,
@@ -116,7 +116,11 @@ export class SiweController {
     res.send({
       success: true,
       message: "Session retrieved successfully",
-      data: { address: address as string, chainId: chainId as number },
+      data: {
+        address: address as string,
+        chainId: chainId as number,
+        role: role as string,
+      },
     });
   }
 
