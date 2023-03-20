@@ -9,6 +9,7 @@ import { Neo4jModule } from "nest-neo4j/dist";
 import { JobsModule } from "./jobs/jobs.module";
 import { BackendModule } from "./backend/backend.module";
 import { SiweModule } from "./auth/siwe/siwe.module";
+import { TechnologiesModule } from "./technologies/technologies.module";
 import envSchema from "./env-schema";
 
 @Module({
@@ -26,6 +27,7 @@ import envSchema from "./env-schema";
     JobsModule,
     BackendModule,
     SiweModule,
+    TechnologiesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
