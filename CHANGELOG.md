@@ -1,3 +1,10 @@
+## [1.17.3](https://github.com/RecruitersRip/middleware/compare/v1.17.2...v1.17.3) (2023-03-20)
+
+
+### Bug Fixes
+
+* **siwe:** switch from post to get and change url ([c527ac0](https://github.com/RecruitersRip/middleware/commit/c527ac0ef2ec5d2888ab896305b7711585022a2e))
+
 ## [1.17.2](https://github.com/RecruitersRip/middleware/compare/v1.17.1...v1.17.2) (2023-03-20)
 
 
