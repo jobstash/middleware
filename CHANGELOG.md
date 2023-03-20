@@ -1,3 +1,10 @@
+## [1.17.4](https://github.com/RecruitersRip/middleware/compare/v1.17.3...v1.17.4) (2023-03-20)
+
+
+### Bug Fixes
+
+* **siwe:** add role to session and return from session endpoint ([84616e7](https://github.com/RecruitersRip/middleware/commit/84616e719c2283eea6ca7e1527540b08676c7e94))
+
 ## [1.17.3](https://github.com/RecruitersRip/middleware/compare/v1.17.2...v1.17.3) (2023-03-20)
 
 
