@@ -82,17 +82,19 @@ export class SiweController {
   async getNonce(
     @Req() req: Request,
     @Res() res: ExpressResponse,
-  ): Promise<Response<string>> {
+  ): Promise<void> {
     const session = await this.getSession(req, res, this.sessionConfig);
     if (!session.nonce) {
       session.nonce = generateNonce();
     }
+
     await session.save();
-    return {
+
+    res.send({
       success: true,
       message: "Nonce generated successfully",
       data: session.nonce as string,
-    };
+    });
   }
 
   @Get("session")
@@ -105,17 +107,17 @@ export class SiweController {
   async getSessionData(
     @Req() req: Request,
     @Res() res: ExpressResponse,
-  ): Promise<Response<{ address: string; chainId: number }>> {
+  ): Promise<void> {
     const { address, chainId } = await this.getSession(
       req,
       res,
       this.sessionConfig,
     );
-    return {
+    res.send({
       success: true,
       message: "Session retrieved successfully",
       data: { address: address as string, chainId: chainId as number },
-    };
+    });
   }
 
   @Get("logout")
