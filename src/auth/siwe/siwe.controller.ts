@@ -18,7 +18,6 @@ import { ConfigService } from "@nestjs/config";
 import { AlchemyProvider } from "@ethersproject/providers";
 import {
   CheckWalletResult,
-  Response,
   ResponseWithNoData,
   SessionObject,
 } from "src/shared/types";

@@ -5,4 +5,6 @@ export class SessionObject {
   address: string;
   @ApiProperty()
   chainId: number;
+  @ApiProperty()
+  role: string | null;
 }
