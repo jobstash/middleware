@@ -1,3 +1,10 @@
+## [1.17.2](https://github.com/RecruitersRip/middleware/compare/v1.17.1...v1.17.2) (2023-03-20)
+
+
+### Bug Fixes
+
+* **git:** unignore vscode folder and add debug launch configuration ([54f2586](https://github.com/RecruitersRip/middleware/commit/54f258643c7e4185e3490431fb27cde834285c0e))
+
 ## [1.17.1](https://github.com/RecruitersRip/middleware/compare/v1.17.0...v1.17.1) (2023-03-20)
 
 
