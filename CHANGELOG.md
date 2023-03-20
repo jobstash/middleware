@@ -1,3 +1,10 @@
+## [1.17.6](https://github.com/RecruitersRip/middleware/compare/v1.17.5...v1.17.6) (2023-03-20)
+
+
+### Bug Fixes
+
+* **siwe:** add admin wallets ([ce78d97](https://github.com/RecruitersRip/middleware/commit/ce78d97dc3c8ea258c94a517a1d16510828e1723))
+
 ## [1.17.5](https://github.com/RecruitersRip/middleware/compare/v1.17.4...v1.17.5) (2023-03-20)
 
 
