@@ -10,6 +10,12 @@ import {
   subWeeks,
   subMonths,
 } from "date-fns";
+import {
+  ReferenceObject,
+  SchemaObject,
+} from "@nestjs/swagger/dist/interfaces/open-api-spec.interface";
+import { getSchemaPath } from "@nestjs/swagger";
+import { Response } from "../entities";
 
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
@@ -145,4 +151,21 @@ export const publicationDateRangeParser = (
     default:
       throw new Error(`Invalid date range: ${dateRange}`);
   }
+};
+
+export const responseSchemaWrapper = (
+  child: SchemaObject | ReferenceObject,
+): SchemaObject | ReferenceObject => {
+  return {
+    $ref: getSchemaPath(Response),
+    properties: {
+      success: {
+        type: "boolean",
+      },
+      message: {
+        type: "string",
+      },
+      data: child,
+    },
+  };
 };

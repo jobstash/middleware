@@ -7,28 +7,26 @@ import { User } from "src/shared/interfaces";
 
 @Injectable()
 export class BackendService {
-  private authenticatedClient: Promise<AxiosInstance>;
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
-  ) {
-    this.authenticatedClient = authService
-      .getBackendCredentialsGrantToken()
-      .then(token => {
-        return axios.create({
-          baseURL: configService.get<string>("BACKEND_API_URL"),
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          withCredentials: true,
-        });
-      });
+  ) {}
+
+  private async getOrRefreshClient(): Promise<AxiosInstance> {
+    const token = await this.authService.getBackendCredentialsGrantToken();
+    return axios.create({
+      baseURL: this.configService.get<string>("BACKEND_API_URL"),
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Bearer ${token.access_token}`,
+      },
+      withCredentials: true,
+    });
   }
 
   async createUser(details: CreateUserInput): Promise<User | undefined> {
-    const client = await this.authenticatedClient;
+    const client = await this.getOrRefreshClient();
     console.log(details);
     return client.post("/user/createUser", details).then(res => {
       const data = res.data;
@@ -42,7 +40,7 @@ export class BackendService {
   }
 
   async createSIWEUser(address: string): Promise<User | undefined> {
-    const client = await this.authenticatedClient;
+    const client = await this.getOrRefreshClient();
     return client.post("/user/createUser", { wallet: address }).then(res => {
       const data = res.data;
       console.log(data as User);

@@ -11,6 +11,7 @@ import {
   JobFilterConfigs,
   JobListResult,
   PaginatedData,
+  Response,
   ValidationError,
 } from "src/shared/types";
 import { JobListParams } from "./dto/job-list.dto";
@@ -20,6 +21,7 @@ import {
   ApiOkResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
+import { responseSchemaWrapper } from "src/shared/helpers";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobListResult, JobFilterConfigs, ValidationError)
@@ -30,10 +32,10 @@ export class JobsController {
   @ApiOkResponse({
     description:
       "Returns a paginated sorted list of jobs that satisfy the filter predicate",
-    type: PaginatedData<JobListResult>,
+    type: Response<PaginatedData<JobListResult>>,
     schema: {
       allOf: [
-        {
+        responseSchemaWrapper({
           $ref: getSchemaPath(PaginatedData),
           properties: {
             page: {
@@ -47,7 +49,7 @@ export class JobsController {
               items: { $ref: getSchemaPath(JobListResult) },
             },
           },
-        },
+        }),
       ],
     },
   })
@@ -73,9 +75,9 @@ export class JobsController {
     description: "Returns the configuration data for the ui filters",
     schema: {
       allOf: [
-        {
+        responseSchemaWrapper({
           $ref: getSchemaPath(JobFilterConfigs),
-        },
+        }),
       ],
     },
   })
@@ -93,9 +95,9 @@ export class JobsController {
     description: "Returns the job details for the provided slug",
     schema: {
       allOf: [
-        {
+        responseSchemaWrapper({
           $ref: getSchemaPath(JobListResult),
-        },
+        }),
       ],
     },
   })
