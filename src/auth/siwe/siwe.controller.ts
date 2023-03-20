@@ -217,13 +217,13 @@ export class SiweController {
   async checkWallet(
     @Req() req: Request,
     @Res() res: ExpressResponse,
-  ): Promise<ResponseWithNoData | Response<string>> {
+  ): Promise<void> {
     try {
       const session = await this.getSession(req, res, this.sessionConfig);
 
       if (session.address === undefined || session.address === null) {
         res.status(HttpStatus.FORBIDDEN);
-        return { success: false, message: "Invalid or empty session!" };
+        res.send({ success: false, message: "Invalid or empty session!" });
       } else {
         const role = ADMIN_WALLETS.includes(session.address as string)
           ? CheckWalletResult.ADMIN
@@ -234,16 +234,16 @@ export class SiweController {
         });
         session.role = role;
         await session.save();
-        return {
+        res.send({
           success: true,
           message: "Wallet checked successfully",
           data: role,
-        };
+        });
       }
     } catch (error) {
       Sentry.captureException(error);
       res.status(HttpStatus.BAD_REQUEST);
-      return { success: false, message: error.message };
+      res.send({ success: false, message: error.message });
     }
   }
 }
