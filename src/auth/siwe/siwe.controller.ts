@@ -17,7 +17,8 @@ import { generateNonce, SiweMessage } from "siwe";
 import { ConfigService } from "@nestjs/config";
 import { AlchemyProvider } from "@ethersproject/providers";
 import {
-  CheckWalletResult,
+  CheckWalletFlows,
+  CheckWalletRoles,
   ResponseWithNoData,
   SessionObject,
 } from "src/shared/types";
@@ -221,22 +222,31 @@ export class SiweController {
       const session = await this.getSession(req, res, this.sessionConfig);
 
       if (session.address === undefined || session.address === null) {
-        res.status(HttpStatus.FORBIDDEN);
-        res.send({ success: false, message: "Invalid or empty session!" });
+        res.status(HttpStatus.OK);
+        res.send({
+          success: true,
+          message: "Invalid or empty session!",
+          data: {
+            role: CheckWalletRoles.ANON,
+            flow: CheckWalletFlows.LOGIN,
+          },
+        });
       } else {
-        const role = ADMIN_WALLETS.includes(session.address as string)
-          ? CheckWalletResult.ADMIN
-          : CheckWalletResult.PICK_ROLE;
+        const isAdmin = ADMIN_WALLETS.includes(session.address as string);
+        const role = isAdmin ? CheckWalletRoles.ADMIN : CheckWalletRoles.DEV;
+        const flow = isAdmin ? null : CheckWalletFlows.PICK_ROLE;
         session.token = this.authService.createToken({
           wallet: session.address,
           role: role,
+          flow: flow,
         });
         session.role = role;
+        session.flow = flow;
         await session.save();
         res.send({
           success: true,
           message: "Wallet checked successfully",
-          data: role,
+          data: { role, flow },
         });
       }
     } catch (error) {
