@@ -233,7 +233,7 @@ export class SiweController {
         });
       } else {
         const isAdmin = ADMIN_WALLETS.includes(session.address as string);
-        const role = isAdmin ? CheckWalletRoles.ADMIN : CheckWalletRoles.DEV;
+        const role = isAdmin ? CheckWalletRoles.ADMIN : CheckWalletRoles.ANON;
         const flow = isAdmin
           ? CheckWalletFlows.ADMIN_SYNONYMS
           : CheckWalletFlows.PICK_ROLE;
