@@ -225,7 +225,7 @@ export class SiweController {
         res.status(HttpStatus.OK);
         res.send({
           success: true,
-          message: "Invalid or empty session!",
+          message: "Wallet checked successfully",
           data: {
             role: CheckWalletRoles.ANON,
             flow: CheckWalletFlows.LOGIN,
@@ -234,7 +234,9 @@ export class SiweController {
       } else {
         const isAdmin = ADMIN_WALLETS.includes(session.address as string);
         const role = isAdmin ? CheckWalletRoles.ADMIN : CheckWalletRoles.DEV;
-        const flow = isAdmin ? null : CheckWalletFlows.PICK_ROLE;
+        const flow = isAdmin
+          ? CheckWalletFlows.ADMIN_SYNONYMS
+          : CheckWalletFlows.PICK_ROLE;
         session.token = this.authService.createToken({
           wallet: session.address,
           role: role,

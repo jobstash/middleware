@@ -19,4 +19,5 @@ export const CheckWalletFlows = {
   SIGNUP_COMPLETE: "signup-complete",
   ONBOARD_REPO: "onboard-repo",
   ONBOARD_PROFILE: "onboard-profile",
+  ADMIN_SYNONYMS: "synonyms",
 };
