@@ -1,6 +1,5 @@
 import { Module } from "@nestjs/common";
 import { AuthController } from "./auth.controller";
-import { GithubOauthModule } from "./github/github-oauth.module";
 import { JwtAuthModule } from "./jwt/jwt-auth.module";
 import { JwtModule, JwtService } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
@@ -8,7 +7,6 @@ import { AuthenticationModule } from "@twirelab/nestjs-auth0";
 
 @Module({
   imports: [
-    GithubOauthModule,
     JwtAuthModule,
     ConfigModule,
     AuthenticationModule.forRootAsync({

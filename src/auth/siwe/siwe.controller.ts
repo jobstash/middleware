@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Body,
   Req,
+  Redirect,
 } from "@nestjs/common";
 import { Request, Response as ExpressResponse } from "express";
 import { getIronSession, IronSession, IronSessionOptions } from "iron-session";
@@ -19,8 +20,10 @@ import { AlchemyProvider } from "@ethersproject/providers";
 import {
   CheckWalletFlows,
   CheckWalletRoles,
+  GithubConfig,
   ResponseWithNoData,
   SessionObject,
+  User,
 } from "src/shared/types";
 import {
   ApiBadRequestResponse,
@@ -33,15 +36,20 @@ import {
 import { responseSchemaWrapper } from "src/shared/helpers";
 import * as Sentry from "@sentry/node";
 import { ADMIN_WALLETS } from "src/shared/presets/admin-wallets";
+import { GithubLoginInput } from "./dto/github-login.input";
+import axios from "axios";
+import { UserService } from "../user/user.service";
 
 @Controller("siwe")
-@ApiExtraModels(SessionObject)
+@ApiExtraModels(SessionObject, User)
 export class SiweController {
   private readonly sessionConfig: IronSessionOptions;
+  private readonly ghConfig: GithubConfig;
   constructor(
     private readonly backendService: BackendService,
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
+    private readonly userService: UserService,
   ) {
     this.sessionConfig = {
       cookieName:
@@ -51,6 +59,13 @@ export class SiweController {
         secure: configService.get<string>("NODE_ENV") === "production",
         sameSite: "none",
       },
+    };
+    this.ghConfig = {
+      clientID: this.configService.get<string>("GITHUB_OAUTH_CLIENT_ID"),
+      clientSecret: this.configService.get<string>(
+        "GITHUB_OAUTH_CLIENT_SECRET",
+      ),
+      scope: ["read:user", "read:org"],
     };
   }
 
@@ -255,6 +270,56 @@ export class SiweController {
       Sentry.captureException(error);
       res.status(HttpStatus.BAD_REQUEST);
       res.send({ success: false, message: error.message });
+    }
+  }
+
+  @Get("trigger-github-oauth")
+  @Redirect("https://github.com/login/oauth/authorize", 301)
+  triggerGithubOauth(): { url: string } {
+    return {
+      url: `https://github.com/login/oauth/authorize?scope=${this.ghConfig.scope.join(
+        ",",
+      )}&client_id=${this.ghConfig.clientID}`,
+    };
+  }
+
+  @Post("github-login")
+  @ApiOkResponse({
+    description: "User has been authenticated successfully!",
+    schema: { $ref: getSchemaPath(User) },
+  })
+  async githubLogin(@Body() body: GithubLoginInput): Promise<User | undefined> {
+    const { wallet, code } = body;
+    const result = (
+      await this.userService.findByWallet(wallet)
+    ).getProperties();
+
+    if (result.githubId === undefined) {
+      const { data: tokenData } = await axios.get(
+        `https://github.com/login/oauth/access_token?client_id=${this.ghConfig.clientID}&client_secret=${this.ghConfig.clientSecret}&code=${code}`,
+      );
+      const { data: profileData } = await axios.get(
+        "https://api.github.com/user",
+        {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+          },
+        },
+      );
+      return this.backendService.createUser({
+        githubAccessToken: tokenData.access_token,
+        githubRefreshToken: tokenData.refresh_token,
+        githubLogin: profileData.login,
+        githubId: profileData.id,
+        githubNodeId: profileData.node_id,
+        githubGravatarId:
+          profileData.gravatar_id === "" ? undefined : profileData.gravatar_id,
+        githubAvatarUrl: profileData.avatar_url,
+        wallet: wallet,
+        chainId: 1,
+      });
+    } else {
+      return result;
     }
   }
 }

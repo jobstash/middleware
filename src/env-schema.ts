@@ -8,7 +8,6 @@ const envSchema = Joi.object({
   AUTH0_CLIENT_SECRET: Joi.string(),
   AUTH0_DOMAIN: Joi.string(),
   BACKEND_API_URL: Joi.string(),
-  GITHUB_OAUTH_CALLBACK_URL: Joi.string(),
   GITHUB_OAUTH_CLIENT_ID: Joi.string(),
   GITHUB_OAUTH_CLIENT_SECRET: Joi.string(),
   HASH_ROUNDS: Joi.number().default(10),
