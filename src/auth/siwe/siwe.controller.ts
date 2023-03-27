@@ -290,10 +290,16 @@ export class SiweController {
   })
   async githubLogin(@Body() body: GithubLoginInput): Promise<User | undefined> {
     const { wallet, code } = body;
-    const result = (
-      await this.userService.findByWallet(wallet)
-    ).getProperties();
+    const userByWallet = await this.userService.findByWallet(wallet);
 
+    console.log(userByWallet);
+    if (!userByWallet) {
+      return null;
+    }
+
+    const result = userByWallet.getProperties();
+    // Todo: is this ok? How would we update the user github token/data?
+    // Todo: handle the case where the user has already logged in but now some data is different
     if (result.githubId === undefined) {
       const { data: tokenData } = await axios.get(
         `https://github.com/login/oauth/access_token?client_id=${this.ghConfig.clientID}&client_secret=${this.ghConfig.clientSecret}&code=${code}`,
@@ -306,7 +312,7 @@ export class SiweController {
           },
         },
       );
-      return this.backendService.createUser({
+      return this.backendService.addGithubInfoToUser({
         githubAccessToken: tokenData.access_token,
         githubRefreshToken: tokenData.refresh_token,
         githubLogin: profileData.login,
@@ -316,7 +322,6 @@ export class SiweController {
           profileData.gravatar_id === "" ? undefined : profileData.gravatar_id,
         githubAvatarUrl: profileData.avatar_url,
         wallet: wallet,
-        chainId: 1,
       });
     } else {
       return result;
