@@ -1,23 +1,16 @@
-export const CheckWalletResult = {
-  ADMIN: "admin",
-  SIGNUP_COMPLETE: "signup-complete",
-  PICK_ROLE: "pick-role",
-  FINISH_DEV_SIGNUP_STEP_X: "finish-dev-signup-step-x",
-  FINISH_ORG_SIGNUP_STEP_X: "finish-org-signup-step-x",
-};
-
 export const CheckWalletRoles = {
-  ANON: "anon",
-  ADMIN: "admin",
-  DEV: "dev",
-  ORG: "org",
+  ANON: "ANON",
+  ADMIN: "ADMIN",
+  DEV: "DEV",
+  ORG: "ORG",
 };
 
 export const CheckWalletFlows = {
-  LOGIN: "login",
-  PICK_ROLE: "pick-role",
-  SIGNUP_COMPLETE: "signup-complete",
-  ONBOARD_REPO: "onboard-repo",
-  ONBOARD_PROFILE: "onboard-profile",
-  ADMIN_SYNONYMS: "synonyms",
+  LOGIN: "LOGIN",
+  PICK_ROLE: "PICK-ROLE",
+  SIGNUP_COMPLETE: "SIGNUP-COMPLETE",
+  ADD_GITHUB_REPO: "ADD-GITHUB-REPO",
+  ONBOARD_REPO: "ONBOARD-REPO",
+  ONBOARD_PROFILE: "ONBOARD-PROFILE",
+  ADMIN_SYNONYMS: "SYNONYMS",
 };
