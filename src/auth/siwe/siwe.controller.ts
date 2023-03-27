@@ -292,7 +292,6 @@ export class SiweController {
     const { wallet, code } = body;
     const userByWallet = await this.userService.findByWallet(wallet);
 
-    console.log(userByWallet);
     if (!userByWallet) {
       return null;
     }

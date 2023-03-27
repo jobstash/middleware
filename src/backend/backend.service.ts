@@ -37,10 +37,8 @@ export class BackendService {
 
   async createUser(details: CreateUserInput): Promise<User | undefined> {
     const client = await this.getOrRefreshClient();
-    console.log(details);
     return client.post("/user/createUser", details).then(res => {
       const data = res.data;
-      console.log(data as User);
       if (data.status === "success") {
         return data as User;
       } else {
@@ -53,7 +51,6 @@ export class BackendService {
     const client = await this.getOrRefreshClient();
     return client.post("/user/addGithubToUser", args).then(res => {
       const data = res.data;
-      console.log(data as User);
       if (data.status === "success") {
         return data as User;
       } else {
@@ -66,7 +63,6 @@ export class BackendService {
     const client = await this.getOrRefreshClient();
     return client.post("/user/createUser", { wallet: address }).then(res => {
       const data = res.data;
-      console.log(data as User);
       if (data.status === "success") {
         return data as User;
       } else {
