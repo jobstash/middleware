@@ -369,9 +369,9 @@ export class JobsService {
     return this.neo4jService
       .read(
         `
-        MATCH (o:Organization)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(cat:ProjectCategory)
         MATCH (o)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
         MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
+        OPTIONAL MATCH (o:Organization)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(cat:ProjectCategory)
         OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
         OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)
         OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(c:Chain)
