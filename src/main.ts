@@ -24,10 +24,13 @@ const ironOptions: IronSessionOptions = {
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
-    httpsOptions: {
-      key: fs.readFileSync("./certs/localhost-key.pem"),
-      cert: fs.readFileSync("./certs/localhost.pem"),
-    },
+    httpsOptions:
+      process.env.LOCAL_HTTPS === "yes"
+        ? {
+            key: fs.readFileSync("./certs/localhost-key.pem"),
+            cert: fs.readFileSync("./certs/localhost.pem"),
+          }
+        : undefined,
   });
   app.useGlobalPipes(new ValidationPipe());
   app.use(Sentry.Handlers.requestHandler());
