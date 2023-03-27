@@ -8,6 +8,7 @@ import { ValidationPipe } from "@nestjs/common";
 import { ironSession } from "iron-session/express";
 import { IronSessionOptions } from "iron-session";
 import * as dotenv from "dotenv";
+import * as fs from "fs";
 dotenv.config();
 
 if (!process.env.SESSION_SECRET) throw new Error("SESSION_SECRET must be set");
@@ -22,7 +23,12 @@ const ironOptions: IronSessionOptions = {
 };
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    httpsOptions: {
+      key: fs.readFileSync("./certs/localhost-key.pem"),
+      cert: fs.readFileSync("./certs/localhost.pem"),
+    },
+  });
   app.useGlobalPipes(new ValidationPipe());
   app.use(Sentry.Handlers.requestHandler());
   app.use(Sentry.Handlers.tracingHandler());
