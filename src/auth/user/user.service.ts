@@ -85,7 +85,7 @@ export class UserService {
     return this.neo4jService
       .read(
         `
-          MATCH (u:User {wallet: $wallet})-[:HAS_FLOW]->(uf:UserFlow)
+          MATCH (u:User {wallet: $wallet})-[:HAS_USER_FLOW_STAGE]->(uf:UserFlow)
           RETURN uf
         `,
         { wallet },
