@@ -21,16 +21,16 @@ export class GithubController {
   ) {
     this.ghConfig = {
       dev: {
-        clientID: this.configService.get<string>("GITHUB_OAUTH_CLIENT_ID"),
+        clientID: this.configService.get<string>("GITHUB_DEV_OAUTH_CLIENT_ID"),
         clientSecret: this.configService.get<string>(
-          "GITHUB_OAUTH_CLIENT_SECRET",
+          "GITHUB_DEV_OAUTH_CLIENT_SECRET",
         ),
         scope: ["read:user", "read:org"],
       },
       org: {
-        clientID: this.configService.get<string>("GITHUB_OAUTH_CLIENT_ID"),
+        clientID: this.configService.get<string>("GITHUB_ORG_OAUTH_CLIENT_ID"),
         clientSecret: this.configService.get<string>(
-          "GITHUB_OAUTH_CLIENT_SECRET",
+          "GITHUB_ORG_OAUTH_CLIENT_SECRET",
         ),
         scope: ["read:user", "read:org"],
       },
