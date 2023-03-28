@@ -1,6 +1,7 @@
+import { UserRoleEntity } from "./../../shared/entities/user-role.entity";
 import { Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
-import { User, UserEntity } from "src/shared/types";
+import { User, UserEntity, UserFlowEntity } from "src/shared/types";
 
 @Injectable()
 export class UserService {
@@ -60,6 +61,38 @@ export class UserService {
       .then(res =>
         res.records.length
           ? new UserEntity(res.records[0].get("u"))
+          : undefined,
+      );
+  }
+
+  async getRoleForWallet(wallet: string): Promise<UserRoleEntity | undefined> {
+    return this.neo4jService
+      .read(
+        `
+          MATCH (u:User {wallet: $wallet})-[:HAS_ROLE]->(ur:UserRole)
+          RETURN ur
+        `,
+        { wallet },
+      )
+      .then(res =>
+        res.records.length
+          ? new UserRoleEntity(res.records[0].get("ur"))
+          : undefined,
+      );
+  }
+
+  async getFlowForWallet(wallet: string): Promise<UserFlowEntity | undefined> {
+    return this.neo4jService
+      .read(
+        `
+          MATCH (u:User {wallet: $wallet})-[:HAS_FLOW]->(uf:UserFlow)
+          RETURN uf
+        `,
+        { wallet },
+      )
+      .then(res =>
+        res.records.length
+          ? new UserFlowEntity(res.records[0].get("uf"))
           : undefined,
       );
   }

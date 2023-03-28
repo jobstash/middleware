@@ -93,6 +93,7 @@ export class GithubController {
           },
         },
       );
+
       return this.backendService.addGithubInfoToUser({
         githubAccessToken: tokenData.access_token,
         githubRefreshToken: tokenData.refresh_token,
@@ -103,8 +104,10 @@ export class GithubController {
           profileData.gravatar_id === "" ? undefined : profileData.gravatar_id,
         githubAvatarUrl: profileData.avatar_url,
         wallet: wallet,
+        role: role,
       });
     } else {
+      //TODO: Why does this feel like it leaks/doxxes users?
       return result;
     }
   }

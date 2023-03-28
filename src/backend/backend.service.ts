@@ -13,7 +13,9 @@ export interface GithubLoginInput {
   githubGravatarId?: string | undefined;
   githubAvatarUrl: string;
   wallet: string;
+  role: string;
 }
+
 @Injectable()
 export class BackendService {
   constructor(
@@ -36,7 +38,7 @@ export class BackendService {
 
   async addGithubInfoToUser(args: GithubLoginInput): Promise<User | undefined> {
     const client = await this.getOrRefreshClient();
-    return client.post("/user/addGithubToDeveloperUser", args).then(res => {
+    return client.post("/user/addGithubInfoToUser", args).then(res => {
       const data = res.data;
       if (data.status === "success") {
         return data as User;

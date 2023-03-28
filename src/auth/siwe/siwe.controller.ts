@@ -34,7 +34,6 @@ import {
 } from "@nestjs/swagger";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import * as Sentry from "@sentry/node";
-import { ADMIN_WALLETS } from "src/shared/presets/admin-wallets";
 import { UserService } from "../user/user.service";
 
 @Controller("siwe")
@@ -233,15 +232,31 @@ export class SiweController {
           message: "Wallet checked successfully",
           data: {
             role: CheckWalletRoles.ANON,
-            flow: null,
+            flow: CheckWalletFlows.LOGIN,
           },
         });
       } else {
-        const isAdmin = ADMIN_WALLETS.includes(session.address as string);
-        const role = isAdmin ? CheckWalletRoles.ADMIN : CheckWalletRoles.ANON;
-        const flow = isAdmin
-          ? CheckWalletFlows.ADMIN_SYNONYMS
-          : CheckWalletFlows.PICK_ROLE;
+        const userRole = await this.userService.getRoleForWallet(
+          session.address as string,
+        );
+        const userFlow = await this.userService.getFlowForWallet(
+          session.address as string,
+        );
+
+        let role;
+        let flow;
+        if (userRole !== undefined) {
+          role = userRole.getName();
+        } else {
+          role = CheckWalletRoles.ANON;
+        }
+
+        if (userFlow !== undefined) {
+          flow = userFlow.getName();
+        } else {
+          flow = CheckWalletFlows.LOGIN;
+        }
+
         session.token = this.authService.createToken({
           wallet: session.address,
           role: role,
