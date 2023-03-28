@@ -6,7 +6,6 @@ export const CheckWalletRoles = {
 };
 
 export const CheckWalletFlows = {
-  LOGIN: "LOGIN",
   PICK_ROLE: "PICK-ROLE",
   SIGNUP_COMPLETE: "SIGNUP-COMPLETE",
   ADD_GITHUB_REPO: "ADD-GITHUB-REPO",

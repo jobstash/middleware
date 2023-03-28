@@ -2,7 +2,6 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import axios, { AxiosInstance } from "axios";
 import { AuthService } from "src/auth/auth.service";
-import { CreateUserInput } from "src/auth/dto/create-user.input";
 import { User } from "src/shared/interfaces";
 
 export interface GithubLoginInput {
@@ -35,21 +34,9 @@ export class BackendService {
     });
   }
 
-  async createUser(details: CreateUserInput): Promise<User | undefined> {
-    const client = await this.getOrRefreshClient();
-    return client.post("/user/createUser", details).then(res => {
-      const data = res.data;
-      if (data.status === "success") {
-        return data as User;
-      } else {
-        return undefined;
-      }
-    });
-  }
-
   async addGithubInfoToUser(args: GithubLoginInput): Promise<User | undefined> {
     const client = await this.getOrRefreshClient();
-    return client.post("/user/addGithubToUser", args).then(res => {
+    return client.post("/user/addGithubToDeveloperUser", args).then(res => {
       const data = res.data;
       if (data.status === "success") {
         return data as User;

@@ -10,7 +10,6 @@ const envSchema = Joi.object({
   BACKEND_API_URL: Joi.string(),
   GITHUB_OAUTH_CLIENT_ID: Joi.string(),
   GITHUB_OAUTH_CLIENT_SECRET: Joi.string(),
-  HASH_ROUNDS: Joi.number().default(10),
   JWT_EXPIRES_IN: Joi.string().alphanum(),
   JWT_SECRET: Joi.string().alphanum(),
   NEO4J_HOST: Joi.string(),

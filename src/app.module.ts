@@ -10,6 +10,7 @@ import { JobsModule } from "./jobs/jobs.module";
 import { BackendModule } from "./backend/backend.module";
 import { SiweModule } from "./auth/siwe/siwe.module";
 import { TechnologiesModule } from "./technologies/technologies.module";
+import { GithubModule } from "./auth/github/github.module";
 import envSchema from "./env-schema";
 
 @Module({
@@ -28,6 +29,7 @@ import envSchema from "./env-schema";
     BackendModule,
     SiweModule,
     TechnologiesModule,
+    GithubModule,
   ],
   controllers: [AppController],
   providers: [AppService],
