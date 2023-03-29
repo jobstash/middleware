@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   HttpStatus,
@@ -12,18 +13,33 @@ import {
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { ApiExtraModels, ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
+import {
+  ApiExtraModels,
+  ApiOkResponse,
+  ApiUnprocessableEntityResponse,
+  getSchemaPath,
+} from "@nestjs/swagger";
 import { Response as ExpressResponse } from "express";
 import { RBACGuard } from "src/auth/rbac.guard";
+import { BackendService } from "src/backend/backend.service";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
-import { Response, ResponseWithNoData, ShortOrg } from "src/shared/types";
+import {
+  Organization,
+  Response,
+  ResponseWithNoData,
+  ShortOrg,
+} from "src/shared/types";
+import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { OrganizationsService } from "./organizations.service";
 
 @Controller("organizations")
-@ApiExtraModels(ShortOrg)
+@ApiExtraModels(ShortOrg, Organization)
 export class OrganizationsController {
-  constructor(private readonly organizationsService: OrganizationsService) {}
+  constructor(
+    private readonly organizationsService: OrganizationsService,
+    private readonly backendService: BackendService,
+  ) {}
 
   @Get("/")
   @UseGuards(RBACGuard)
@@ -117,5 +133,37 @@ export class OrganizationsController {
       message: "Logo uploaded successfully!",
       data: "https://example.com/" + file.filename,
     };
+  }
+
+  @Post("/create")
+  @UseGuards(RBACGuard)
+  @Roles("admin")
+  @ApiOkResponse({
+    description: "Creates a new organization",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Organization) }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong creating the organization on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async createOrganization(
+    @Body() body: CreateOrganizationInput,
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ): Promise<Response<Organization> | ResponseWithNoData> {
+    const result = await this.backendService.createOrganization(body);
+    if (result === undefined) {
+      res.status(HttpStatus.UNPROCESSABLE_ENTITY);
+      return {
+        success: false,
+        message: "Something went wrong creating the organization",
+      };
+    } else {
+      return {
+        success: true,
+        message: "Organization created successfully",
+        data: result,
+      };
+    }
   }
 }

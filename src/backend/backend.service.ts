@@ -2,7 +2,8 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import axios, { AxiosInstance } from "axios";
 import { AuthService } from "src/auth/auth.service";
-import { User } from "src/shared/interfaces";
+import { CreateOrganizationInput } from "src/organizations/dto/create-organization.input";
+import { Organization, User } from "src/shared/interfaces";
 
 export interface GithubLoginInput {
   githubAccessToken: string;
@@ -54,6 +55,20 @@ export class BackendService {
       const data = res.data;
       if (data.status === "success") {
         return data as User;
+      } else {
+        return undefined;
+      }
+    });
+  }
+
+  async createOrganization(
+    input: CreateOrganizationInput,
+  ): Promise<Organization | undefined> {
+    const client = await this.getOrRefreshClient();
+    return client.post("/organization/create", input).then(res => {
+      const data = res.data;
+      if (data.status === "success") {
+        return data as Organization;
       } else {
         return undefined;
       }
