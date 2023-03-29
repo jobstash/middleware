@@ -1,13 +1,32 @@
 import { GithubLoginInput } from "./dto/github-login.input";
-import { Controller, Get, Post, Body, Redirect } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Redirect,
+  NotFoundException,
+} from "@nestjs/common";
 import { BackendService } from "../../backend/backend.service";
 import { AuthService } from "../auth.service";
 import { ConfigService } from "@nestjs/config";
-import { CheckWalletRoles, GithubConfig, User } from "src/shared/types";
-import { ApiExtraModels, ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
+import {
+  CheckWalletRoles,
+  GithubConfig,
+  Response,
+  ResponseWithNoData,
+  User,
+} from "src/shared/types";
+import {
+  ApiExtraModels,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  getSchemaPath,
+} from "@nestjs/swagger";
 import { UserService } from "../user/user.service";
 
 import axios from "axios";
+import { responseSchemaWrapper } from "src/shared/helpers";
 
 @Controller("github")
 @ApiExtraModels(User)
@@ -60,14 +79,23 @@ export class GithubController {
   @Post("github-login")
   @ApiOkResponse({
     description: "User has been authenticated successfully!",
-    schema: { $ref: getSchemaPath(User) },
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(User) }),
   })
-  async githubLogin(@Body() body: GithubLoginInput): Promise<User | undefined> {
+  @ApiNotFoundResponse({
+    description: "User wallet not found",
+    schema: { $ref: getSchemaPath(ResponseWithNoData) },
+  })
+  async githubLogin(
+    @Body() body: GithubLoginInput,
+  ): Promise<Response<User> | undefined> {
     const { wallet, code, role } = body;
     const userByWallet = await this.userService.findByWallet(wallet);
 
     if (!userByWallet) {
-      return null;
+      throw new NotFoundException({
+        success: false,
+        message: "User wallet not found",
+      });
     }
 
     const result = userByWallet.getProperties();
@@ -98,21 +126,33 @@ export class GithubController {
         },
       );
 
-      return this.backendService.addGithubInfoToUser({
-        githubAccessToken: accessToken,
-        githubRefreshToken: "", // TODO: where do we get this? tokenData does not return this
-        githubLogin: profileData.login,
-        githubId: profileData.id,
-        githubNodeId: profileData.node_id,
-        githubGravatarId:
-          profileData.gravatar_id === "" ? undefined : profileData.gravatar_id,
-        githubAvatarUrl: profileData.avatar_url,
-        wallet: wallet,
-        role: role,
-      });
+      return this.backendService
+        .addGithubInfoToUser({
+          githubAccessToken: accessToken,
+          githubRefreshToken: "", // TODO: where do we get this? tokenData does not return this
+          githubLogin: profileData.login,
+          githubId: profileData.id,
+          githubNodeId: profileData.node_id,
+          githubGravatarId:
+            profileData.gravatar_id === ""
+              ? undefined
+              : profileData.gravatar_id,
+          githubAvatarUrl: profileData.avatar_url,
+          wallet: wallet,
+          role: role,
+        })
+        .then(res => ({
+          success: true,
+          message: "Github profile added to user account successfully",
+          data: res,
+        }));
     } else {
       //TODO: Why does this feel like it leaks/doxxes users?
-      return result;
+      return {
+        success: true,
+        message: "User logged in successfully",
+        data: result,
+      };
     }
   }
 }
