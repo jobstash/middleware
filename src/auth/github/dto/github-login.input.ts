@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsEthereumAddress, IsIn, IsString } from "class-validator";
-
+import { CheckWalletRoles } from "src/shared/enums";
 export class GithubLoginInput {
   @ApiProperty()
   @IsString()
@@ -13,6 +13,6 @@ export class GithubLoginInput {
 
   @ApiProperty()
   @IsString()
-  @IsIn(["dev", "org"])
+  @IsIn([CheckWalletRoles.DEV, CheckWalletRoles.ORG])
   role: string;
 }
