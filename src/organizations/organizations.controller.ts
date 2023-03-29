@@ -3,10 +3,15 @@ import {
   Get,
   HttpStatus,
   Param,
+  ParseFilePipeBuilder,
+  Post,
   Query,
   Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiExtraModels, ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import { Response as ExpressResponse } from "express";
 import { RBACGuard } from "src/auth/rbac.guard";
@@ -75,5 +80,42 @@ export class OrganizationsController {
         data: result,
       };
     }
+  }
+
+  @Post("/upload-logo")
+  @UseInterceptors(FileInterceptor("file"))
+  @UseGuards(RBACGuard)
+  @Roles("admin")
+  @ApiOkResponse({
+    description:
+      "Uploads an organizations logo and returns the url to the cloud file",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async uploadLogo(
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType: "jpeg",
+        })
+        .addFileTypeValidator({
+          fileType: "png",
+        })
+        .addFileTypeValidator({
+          fileType: "svg",
+        })
+        .addMaxSizeValidator({
+          maxSize: 10000,
+        })
+        .build({
+          errorHttpStatusCode: HttpStatus.BAD_REQUEST,
+        }),
+    )
+    file: Express.Multer.File,
+  ): Promise<Response<string>> {
+    return {
+      success: true,
+      message: "Logo uploaded successfully!",
+      data: "https://example.com/" + file.filename,
+    };
   }
 }
