@@ -11,7 +11,7 @@ export class ShortOrgEntity {
   getProperties(): ShortOrg {
     return {
       ...this.raw,
-      logo: null,
+      logo: this.raw.logo,
       jobCount: intConverter(this.raw.jobCount),
       projectCount: intConverter(this.raw.projectCount),
       headCount: intConverter(this.raw.headCount),
