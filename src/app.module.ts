@@ -11,6 +11,7 @@ import { BackendModule } from "./backend/backend.module";
 import { SiweModule } from "./auth/siwe/siwe.module";
 import { TechnologiesModule } from "./technologies/technologies.module";
 import { GithubModule } from "./auth/github/github.module";
+import { OrganizationsModule } from "./organizations/organizations.module";
 import envSchema from "./env-schema";
 
 @Module({
@@ -30,6 +31,7 @@ import envSchema from "./env-schema";
     SiweModule,
     TechnologiesModule,
     GithubModule,
+    OrganizationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

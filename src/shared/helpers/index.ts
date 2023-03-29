@@ -90,12 +90,16 @@ export const orderBySelector = (args: {
 };
 
 export const intConverter = (
-  value: { low: number; high: number } | number,
+  value: { low: number; high: number } | number | undefined | null,
 ): number => {
-  if (typeof value === "number") {
-    return value;
+  if (typeof value === "undefined" || value === null) {
+    return 0;
   } else {
-    return new Integer(value.low, value.high).toNumber();
+    if (typeof value === "number") {
+      return value;
+    } else {
+      return new Integer(value.low, value.high).toNumber();
+    }
   }
 };
 
