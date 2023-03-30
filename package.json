@@ -46,6 +46,7 @@
     "express-session": "^1.17.3",
     "helmet": "^6.0.1",
     "ipfs-core": "^0.18.0",
+    "ipfs-mini": "^1.1.5",
     "iron-session": "^6.3.1",
     "joi": "^17.7.0",
     "neo4j-driver": "^5.4.0",

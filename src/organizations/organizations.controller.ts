@@ -33,9 +33,16 @@ import {
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
 import { OrganizationsService } from "./organizations.service";
-import IPFS from "ipfs-core";
+import { promisify } from "util";
 
-const ipfsClient = IPFS.create();
+import * as IPFSMini from "ipfs-mini";
+const ipfsClient = new IPFSMini({
+  host: "ipfs.infura.io",
+  port: 5001,
+  protocol: "https",
+});
+
+const addFile = promisify(ipfsClient.add.bind(ipfsClient));
 
 @Controller("organizations")
 @ApiExtraModels(ShortOrg, Organization)
@@ -118,13 +125,19 @@ export class OrganizationsController {
           fileType: "jpeg",
         })
         .addFileTypeValidator({
+          fileType: "jpg",
+        })
+        .addFileTypeValidator({
+          fileType: "gif",
+        })
+        .addFileTypeValidator({
           fileType: "png",
         })
         .addFileTypeValidator({
           fileType: "svg",
         })
         .addMaxSizeValidator({
-          maxSize: 10000,
+          maxSize: 1000,
         })
         .build({
           errorHttpStatusCode: HttpStatus.BAD_REQUEST,
@@ -133,27 +146,18 @@ export class OrganizationsController {
     file: Express.Multer.File,
   ): Promise<Response<string>> {
     try {
-      const ipfs = await ipfsClient;
-      const ipfsFile = await ipfs.add({
-        path: file.originalname,
-        content: file.buffer,
-      });
-
+      const cid = await addFile(file.buffer);
       const gateway = "https://ipfs.io"; // Replace with your preferred gateway
-      const url = `${gateway}/ipfs/${ipfsFile.cid.toString()}`;
+      const url = `${gateway}/ipfs/${cid}`;
 
       return {
         success: true,
-        message: "Logo uploaded successfully",
+        message: "Logo uploaded successfully!",
         data: url,
       };
-    } catch (error) {
-      console.error(error);
-      return {
-        success: false,
-        message: "Failed to upload logo",
-        data: error.message,
-      };
+    } catch (err) {
+      // Handle the error as needed
+      throw new Error("Failed to upload the file");
     }
   }
 
