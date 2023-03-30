@@ -33,6 +33,13 @@ import {
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
 import { OrganizationsService } from "./organizations.service";
+import { create } from "ipfs-http-client";
+
+const ipfsClient = create({
+  host: "ipfs.infura.io",
+  port: 5001,
+  protocol: "https",
+});
 
 @Controller("organizations")
 @ApiExtraModels(ShortOrg, Organization)
@@ -129,11 +136,28 @@ export class OrganizationsController {
     )
     file: Express.Multer.File,
   ): Promise<Response<string>> {
-    return {
-      success: true,
-      message: "Logo uploaded successfully!",
-      data: "https://example.com/" + file.filename,
-    };
+    try {
+      const ipfsFile = await ipfsClient.add({
+        path: file.originalname,
+        content: file.buffer,
+      });
+
+      const gateway = "https://ipfs.io"; // TODO: Replace with faster gateway eventually
+      const url = `${gateway}/ipfs/${ipfsFile.cid.toString()}`;
+
+      return {
+        success: true,
+        message: "Logo uploaded successfully",
+        data: url,
+      };
+    } catch (error) {
+      console.error(error);
+      return {
+        success: false,
+        message: "Failed to upload logo",
+        data: error.message,
+      };
+    }
   }
 
   @Post("/create")
