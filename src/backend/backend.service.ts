@@ -4,7 +4,9 @@ import axios, { AxiosInstance } from "axios";
 import { AuthService } from "src/auth/auth.service";
 import { CreateOrganizationInput } from "src/organizations/dto/create-organization.input";
 import { UpdateOrganizationInput } from "src/organizations/dto/update-organization.input";
-import { Organization, User } from "src/shared/interfaces";
+import { CreateProjectInput } from "src/projects/dto/create-project.input";
+import { UpdateProjectInput } from "src/projects/dto/update-project.input";
+import { Organization, Project, User } from "src/shared/types";
 
 export interface GithubLoginInput {
   githubAccessToken: string;
@@ -84,6 +86,30 @@ export class BackendService {
       const data = res.data;
       if (data.status === "success") {
         return data as Organization;
+      } else {
+        return undefined;
+      }
+    });
+  }
+
+  async createProject(input: CreateProjectInput): Promise<Project | undefined> {
+    const client = await this.getOrRefreshClient();
+    return client.post("/project/create", input).then(res => {
+      const data = res.data;
+      if (data.status === "success") {
+        return data as Project;
+      } else {
+        return undefined;
+      }
+    });
+  }
+
+  async updateProject(input: UpdateProjectInput): Promise<Project | undefined> {
+    const client = await this.getOrRefreshClient();
+    return client.post("/project/update", input).then(res => {
+      const data = res.data;
+      if (data.status === "success") {
+        return data as Project;
       } else {
         return undefined;
       }

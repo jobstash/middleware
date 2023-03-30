@@ -13,6 +13,7 @@ import { TechnologiesModule } from "./technologies/technologies.module";
 import { GithubModule } from "./auth/github/github.module";
 import { OrganizationsModule } from "./organizations/organizations.module";
 import envSchema from "./env-schema";
+import { ProjectsModule } from "./projects/projects.module";
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import envSchema from "./env-schema";
     TechnologiesModule,
     GithubModule,
     OrganizationsModule,
+    ProjectsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

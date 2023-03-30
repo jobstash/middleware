@@ -1,7 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
-import { ShortOrgEntity } from "src/shared/entities/organization.entity";
-import { ShortOrg } from "src/shared/interfaces";
+import { ShortOrgEntity, ShortOrg } from "src/shared/types";
 
 @Injectable()
 export class OrganizationsService {
