@@ -33,13 +33,9 @@ import {
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
 import { OrganizationsService } from "./organizations.service";
-import { create } from "ipfs-http-client";
+import IPFS from "ipfs-core";
 
-const ipfsClient = create({
-  host: "ipfs.infura.io",
-  port: 5001,
-  protocol: "https",
-});
+const ipfsClient = IPFS.create();
 
 @Controller("organizations")
 @ApiExtraModels(ShortOrg, Organization)
@@ -137,12 +133,13 @@ export class OrganizationsController {
     file: Express.Multer.File,
   ): Promise<Response<string>> {
     try {
-      const ipfsFile = await ipfsClient.add({
+      const ipfs = await ipfsClient;
+      const ipfsFile = await ipfs.add({
         path: file.originalname,
         content: file.buffer,
       });
 
-      const gateway = "https://ipfs.io"; // TODO: Replace with faster gateway eventually
+      const gateway = "https://ipfs.io"; // Replace with your preferred gateway
       const url = `${gateway}/ipfs/${ipfsFile.cid.toString()}`;
 
       return {
