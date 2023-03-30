@@ -31,6 +31,7 @@ import {
   ShortOrg,
 } from "src/shared/types";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
+import { UpdateOrganizationInput } from "./dto/update-organization.input";
 import { OrganizationsService } from "./organizations.service";
 
 @Controller("organizations")
@@ -162,6 +163,38 @@ export class OrganizationsController {
       return {
         success: true,
         message: "Organization created successfully",
+        data: result,
+      };
+    }
+  }
+
+  @Post("/update")
+  @UseGuards(RBACGuard)
+  @Roles("admin")
+  @ApiOkResponse({
+    description: "Updates an existing organization",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Organization) }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong updating the organization on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async updateOrganization(
+    @Body() body: UpdateOrganizationInput,
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ): Promise<Response<Organization> | ResponseWithNoData> {
+    const result = await this.backendService.updateOrganization(body);
+    if (result === undefined) {
+      res.status(HttpStatus.UNPROCESSABLE_ENTITY);
+      return {
+        success: false,
+        message: "Something went wrong updating the organization",
+      };
+    } else {
+      return {
+        success: true,
+        message: "Organization updated successfully",
         data: result,
       };
     }

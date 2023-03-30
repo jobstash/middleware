@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import axios, { AxiosInstance } from "axios";
 import { AuthService } from "src/auth/auth.service";
 import { CreateOrganizationInput } from "src/organizations/dto/create-organization.input";
+import { UpdateOrganizationInput } from "src/organizations/dto/update-organization.input";
 import { Organization, User } from "src/shared/interfaces";
 
 export interface GithubLoginInput {
@@ -66,6 +67,20 @@ export class BackendService {
   ): Promise<Organization | undefined> {
     const client = await this.getOrRefreshClient();
     return client.post("/organization/create", input).then(res => {
+      const data = res.data;
+      if (data.status === "success") {
+        return data as Organization;
+      } else {
+        return undefined;
+      }
+    });
+  }
+
+  async updateOrganization(
+    input: UpdateOrganizationInput,
+  ): Promise<Organization | undefined> {
+    const client = await this.getOrRefreshClient();
+    return client.post("/organization/update", input).then(res => {
       const data = res.data;
       if (data.status === "success") {
         return data as Organization;
