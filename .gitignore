@@ -39,3 +39,5 @@ lerna-debug.log*
 tunnel.sh
 
 certs
+certs/localhost-key.pem
+certs/localhost-key.pem
