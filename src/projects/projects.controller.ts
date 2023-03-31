@@ -28,25 +28,30 @@ import { Project, Response, ResponseWithNoData } from "src/shared/types";
 import { CreateProjectInput } from "./dto/create-project.input";
 import { UpdateProjectInput } from "./dto/update-project.input";
 import { ProjectsService } from "./projects.service";
-import { promisify } from "util";
 import { CheckWalletRoles } from "src/shared/types";
-
-import * as IPFSMini from "ipfs-mini";
-const ipfsClient = new IPFSMini({
-  host: "ipfs.infura.io",
-  port: 5001,
-  protocol: "https",
-});
-
-const addFile = promisify(ipfsClient.add.bind(ipfsClient));
+import { NFTStorage, File } from "nft.storage";
+import { ConfigService } from "@nestjs/config";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const mime = require("mime");
 
 @Controller("projects")
 @ApiExtraModels(Project)
 export class ProjectsController {
+  private readonly NFT_STORAGE_API_KEY;
+  private readonly nftStorageClient: NFTStorage;
+
   constructor(
     private readonly projectsService: ProjectsService,
     private readonly backendService: BackendService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    (this.NFT_STORAGE_API_KEY = this.configService.get<string>(
+      "NFT_STORAGE_API_KEY",
+    )),
+      (this.nftStorageClient = new NFTStorage({
+        token: this.NFT_STORAGE_API_KEY,
+      }));
+  }
 
   @Get("/all/:id")
   @UseGuards(RBACGuard)
@@ -117,43 +122,49 @@ export class ProjectsController {
   })
   async uploadLogo(
     @UploadedFile(
-      new ParseFilePipeBuilder()
-        .addFileTypeValidator({
-          fileType: "jpeg",
-        })
-        .addFileTypeValidator({
-          fileType: "jpg",
-        })
-        .addFileTypeValidator({
-          fileType: "gif",
-        })
-        .addFileTypeValidator({
-          fileType: "png",
-        })
-        .addFileTypeValidator({
-          fileType: "svg",
-        })
-        .addMaxSizeValidator({
-          maxSize: 1000,
-        })
-        .build({
-          errorHttpStatusCode: HttpStatus.BAD_REQUEST,
-        }),
+      new ParseFilePipeBuilder().build({
+        errorHttpStatusCode: HttpStatus.BAD_REQUEST,
+      }),
     )
     file: Express.Multer.File,
   ): Promise<Response<string>> {
     try {
-      const cid = await addFile(file.buffer);
-      const gateway = "https://ipfs.io"; // Replace with your preferred gateway
-      const url = `${gateway}/ipfs/${cid}`;
+      console.log("Uploading logo to IPFS: ", file.originalname);
+      const type = mime.getType(file.originalname);
+      const fileForUpload = new File([file.buffer], file.originalname, {
+        type,
+      });
 
+      const storageResult = await this.nftStorageClient.store({
+        image: fileForUpload,
+        name: file.originalname,
+        description: file.originalname,
+      });
+
+      // convert the url returned from an ipfs protocol one to a https one using the ipfs.io gateway
+      const httpsUrl = storageResult.url.replace(
+        "ipfs://",
+        "https://ipfs.io/ipfs/",
+      );
+
+      const jsonMetadata = await fetch(httpsUrl);
+      const parsedMetadata = await jsonMetadata.json();
+      const imageUrl = parsedMetadata.image;
+
+      const httpsImageUrl = imageUrl.replace(
+        "ipfs://",
+        "https://ipfs.io/ipfs/",
+      );
+
+      console.log(`Logo uploaded to ${httpsImageUrl}`);
       return {
         success: true,
-        message: "Logo uploaded successfully!",
-        data: url,
+        message: `Logo uploaded successfully!`,
+        data: httpsImageUrl,
       };
     } catch (err) {
       // Handle the error as needed
+      console.error(err);
       throw new Error("Failed to upload the file");
     }
   }
