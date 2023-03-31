@@ -162,8 +162,8 @@ export class OrganizationsController {
   }
 
   @Post("/create")
-  // @UseGuards(RBACGuard)
-  // @Roles("admin")
+  @UseGuards(RBACGuard)
+  @Roles("admin")
   @ApiOkResponse({
     description: "Creates a new organization",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Organization) }),
