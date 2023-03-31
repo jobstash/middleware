@@ -71,7 +71,8 @@ export class BackendService {
     return client.post("/organization/create", input).then(res => {
       const data = res.data;
       if (data.success === true && data.data) {
-        return data.data as Organization;
+        const parsedData = JSON.parse(data.data);
+        return parsedData as Organization;
       } else {
         return undefined;
       }
