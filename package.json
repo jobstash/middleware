@@ -45,8 +45,6 @@
     "express-jwt": "^8.4.1",
     "express-session": "^1.17.3",
     "helmet": "^6.0.1",
-    "ipfs-core": "^0.18.0",
-    "ipfs-mini": "^1.1.5",
     "iron-session": "^6.3.1",
     "joi": "^17.7.0",
     "mime": "^3.0.0",
