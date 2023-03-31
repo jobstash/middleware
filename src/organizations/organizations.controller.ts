@@ -34,6 +34,7 @@ import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
 import { OrganizationsService } from "./organizations.service";
 import { promisify } from "util";
+import { CheckWalletRoles } from "src/shared/types";
 
 import * as IPFSMini from "ipfs-mini";
 const ipfsClient = new IPFSMini({
@@ -54,7 +55,7 @@ export class OrganizationsController {
 
   @Get("/")
   @UseGuards(RBACGuard)
-  @Roles("admin")
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all organizations",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(ShortOrg) }),
@@ -69,7 +70,7 @@ export class OrganizationsController {
 
   @Get("/search")
   @UseGuards(RBACGuard)
-  @Roles("admin")
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description:
       "Returns a list of all organizations with names matching the query",
@@ -87,7 +88,7 @@ export class OrganizationsController {
 
   @Get("/:id")
   @UseGuards(RBACGuard)
-  @Roles("admin")
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns the details of the org with the provided id",
   })
@@ -112,7 +113,7 @@ export class OrganizationsController {
   @Post("/upload-logo")
   @UseInterceptors(FileInterceptor("file"))
   @UseGuards(RBACGuard)
-  @Roles("admin")
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description:
       "Uploads an organizations logo and returns the url to the cloud file",
@@ -163,7 +164,7 @@ export class OrganizationsController {
 
   @Post("/create")
   @UseGuards(RBACGuard)
-  @Roles("admin")
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Creates a new organization",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Organization) }),
@@ -196,7 +197,7 @@ export class OrganizationsController {
 
   @Post("/update")
   @UseGuards(RBACGuard)
-  @Roles("admin")
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Updates an existing organization",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Organization) }),

@@ -29,6 +29,7 @@ import { CreateProjectInput } from "./dto/create-project.input";
 import { UpdateProjectInput } from "./dto/update-project.input";
 import { ProjectsService } from "./projects.service";
 import { promisify } from "util";
+import { CheckWalletRoles } from "src/shared/types";
 
 import * as IPFSMini from "ipfs-mini";
 const ipfsClient = new IPFSMini({
@@ -49,7 +50,7 @@ export class ProjectsController {
 
   @Get("/all/:id")
   @UseGuards(RBACGuard)
-  @Roles("admin")
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
@@ -66,7 +67,7 @@ export class ProjectsController {
 
   @Get("/search")
   @UseGuards(RBACGuard)
-  @Roles("admin")
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects with names matching the query",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
@@ -83,7 +84,7 @@ export class ProjectsController {
 
   @Get("/:id")
   @UseGuards(RBACGuard)
-  @Roles("admin")
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns the details of the org with the provided id",
   })
@@ -108,7 +109,7 @@ export class ProjectsController {
   @Post("/upload-logo")
   @UseInterceptors(FileInterceptor("file"))
   @UseGuards(RBACGuard)
-  @Roles("admin")
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description:
       "Uploads an projects logo and returns the url to the cloud file",
@@ -159,7 +160,7 @@ export class ProjectsController {
 
   @Post("/create")
   @UseGuards(RBACGuard)
-  @Roles("admin")
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Creates a new project",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
@@ -191,7 +192,7 @@ export class ProjectsController {
 
   @Post("/update")
   @UseGuards(RBACGuard)
-  @Roles("admin")
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Updates an existing project",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),

@@ -5,14 +5,14 @@ import { Roles } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import { Response, Technology } from "src/shared/types";
 import { TechnologiesService } from "./technologies.service";
-
+import { CheckWalletRoles } from "src/shared/types";
 @Controller("technologies")
 export class TechnologiesController {
   constructor(private readonly technologiesService: TechnologiesService) {}
 
   @Get("/")
   @UseGuards(RBACGuard)
-  @Roles("admin")
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all technologies",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Technology) }),
