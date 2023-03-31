@@ -1,16 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import {
-  IsNotEmpty,
-  IsOptional,
-  IsNumber,
-  IsString,
-  IsUrl,
-} from "class-validator";
+import { IsNotEmpty, IsOptional, IsString, IsUrl } from "class-validator";
 
 export class CreateOrganizationInput {
   @ApiProperty()
   @IsNotEmpty()
-  @IsNumber()
+  @IsString()
   orgId: string;
 
   @ApiPropertyOptional()

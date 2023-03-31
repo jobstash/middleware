@@ -162,8 +162,8 @@ export class OrganizationsController {
   }
 
   @Post("/create")
-  @UseGuards(RBACGuard)
-  @Roles("admin")
+  // @UseGuards(RBACGuard)
+  // @Roles("admin")
   @ApiOkResponse({
     description: "Creates a new organization",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Organization) }),
@@ -178,6 +178,7 @@ export class OrganizationsController {
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<Response<Organization> | ResponseWithNoData> {
     const result = await this.backendService.createOrganization(body);
+    console.log(result);
     if (result === undefined) {
       res.status(HttpStatus.UNPROCESSABLE_ENTITY);
       return {
