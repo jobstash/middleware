@@ -70,8 +70,8 @@ export class BackendService {
     const client = await this.getOrRefreshClient();
     return client.post("/organization/create", input).then(res => {
       const data = res.data;
-      if (data.success === true) {
-        return data as Organization;
+      if (data.success === true && data.data) {
+        return data.data as Organization;
       } else {
         return undefined;
       }
