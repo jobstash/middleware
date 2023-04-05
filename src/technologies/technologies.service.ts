@@ -8,7 +8,15 @@ export class TechnologiesService {
 
   async getAll(): Promise<Technology[]> {
     return this.neo4jService
-      .read("MATCH (t: Technology) RETURN t")
+      .read(
+        `
+      MATCH (t:Technology)
+      WHERE NOT (t)<-[:IS_BLOCKED_TERM]-()
+      AND (t)<-[:IS_PREFERRED_TERM_OF]-(:PreferredTerm)
+      AND (t)<-[:IS_PAIRED_WITH]-(:TechnologyPairing)-[:IS_PAIRED_WITH]->(:Technology)
+      RETURN t
+      `,
+      )
       .then(res =>
         res.records.map(record => record.get("t").properties as Technology),
       );

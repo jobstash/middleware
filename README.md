@@ -2,7 +2,7 @@
 
 This project is a NestJS middleware that feeds read-only info to a frontend from a Neo4J DB. [Click me to learn more](https://www.notion.so/recruitersrip/Middleware-48bec9431b894af29e5198ac77e2d711)
 
-## SSL JOY:
+## SSL JOY
 
 make sure to have in .env
 `LOCAL_HTTPS=yes`
@@ -49,4 +49,3 @@ Automatic deploy workflows are setup to deploy the code to the server under spec
 ## Support
 
 To discuss problems, shoot a message to the `#discuss-problems` channel on Slack
-

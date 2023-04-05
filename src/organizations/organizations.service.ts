@@ -16,6 +16,9 @@ export class OrganizationsService {
         OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)
         OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)
         OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
+        WHERE NOT (t)<-[:IS_BLOCKED_TERM]-()
+        AND (t)<-[:IS_PREFERRED_TERM_OF]-(:PreferredTerm)
+        AND (t)<-[:IS_PAIRED_WITH]-(:TechnologyPairing)-[:IS_PAIRED_WITH]->(:Technology)
         WITH o.orgId as id, o.logoUrl as logo, o.name as name, o.location as location, o.headCount as headCount, COUNT(DISTINCT p) as projectCount, COUNT(DISTINCT j) as jobCount, COLLECT(DISTINCT t) as technologies, fr
         ORDER BY fr.date DESC
         WITH id, name, logo, location, headCount, projectCount, jobCount, technologies, collect(fr)[0] as mrfr
@@ -40,6 +43,9 @@ export class OrganizationsService {
         OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)
         OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)
         OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
+        WHERE NOT (t)<-[:IS_BLOCKED_TERM]-()
+        AND (t)<-[:IS_PREFERRED_TERM_OF]-(:PreferredTerm)
+        AND (t)<-[:IS_PAIRED_WITH]-(:TechnologyPairing)-[:IS_PAIRED_WITH]->(:Technology)
         WITH o.orgId as id, o.logoUrl as logo, o.name as name, o.location as location, o.headCount as headCount, COUNT(DISTINCT p) as projectCount, COUNT(DISTINCT j) as jobCount, COLLECT(DISTINCT t) as technologies, fr
         ORDER BY fr.date DESC
         WITH id, name, logo, location, headCount, projectCount, jobCount, technologies, collect(fr)[0] as mrfr
@@ -65,6 +71,9 @@ export class OrganizationsService {
         OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)
         OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)
         OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
+        WHERE NOT (t)<-[:IS_BLOCKED_TERM]-()
+        AND (t)<-[:IS_PREFERRED_TERM_OF]-(:PreferredTerm)
+        AND (t)<-[:IS_PAIRED_WITH]-(:TechnologyPairing)-[:IS_PAIRED_WITH]->(:Technology)
         WITH o.orgId as id, o.logoUrl as logo, o.name as name, o.location as location, o.headCount as headCount, COUNT(DISTINCT p) as projectCount, COUNT(DISTINCT j) as jobCount, COLLECT(DISTINCT t) as technologies, fr
         ORDER BY fr.date DESC
         WITH id, name, logo, location, headCount, projectCount, jobCount, technologies, collect(fr)[0] as mrfr
