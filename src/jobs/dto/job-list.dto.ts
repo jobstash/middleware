@@ -285,8 +285,10 @@ export class JobListParams {
     example: "Remote,Onsite",
   })
   @IsOptional()
-  @IsString()
+  @IsArray()
+  @IsString({ each: true })
   @Type(() => String)
+  @Transform(({ value }) => value.split(","))
   locations?: string;
 
   @ApiPropertyOptional({

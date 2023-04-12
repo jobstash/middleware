@@ -126,32 +126,44 @@ export const publicationDateRangeParser = (
   const now = Date.now();
   switch (dateRange) {
     case "today":
-      return `WHERE ${jobVar}.jobCreatedTimestamp >= ${startOfDay(
+      return `${jobVar}.jobCreatedTimestamp >= ${startOfDay(
         now,
-      )} AND ${jobVar}.jobCreatedTimestamp <= ${endOfDay(now)} AND `;
+      ).getTime()} AND ${jobVar}.jobCreatedTimestamp <= ${endOfDay(
+        now,
+      ).getTime()} AND `;
     case "this-week":
-      return `WHERE ${jobVar}.jobCreatedTimestamp >= ${startOfWeek(
+      return `${jobVar}.jobCreatedTimestamp >= ${startOfWeek(
         now,
-      )} AND ${jobVar}.jobCreatedTimestamp <= ${endOfWeek(now)} AND `;
+      ).getTime()} AND ${jobVar}.jobCreatedTimestamp <= ${endOfWeek(
+        now,
+      ).getTime()} AND `;
     case "this-month":
-      return `WHERE ${jobVar}.jobCreatedTimestamp >= ${startOfMonth(
+      return `${jobVar}.jobCreatedTimestamp >= ${startOfMonth(
         now,
-      )} AND ${jobVar}.jobCreatedTimestamp <= ${endOfMonth(now)} AND `;
+      ).getTime()} AND ${jobVar}.jobCreatedTimestamp <= ${endOfMonth(
+        now,
+      ).getTime()} AND `;
     case "past-2-weeks":
       const twoWeeksAgo = subWeeks(now, 2);
-      return `WHERE ${jobVar}.jobCreatedTimestamp >= ${startOfDay(
+      return `${jobVar}.jobCreatedTimestamp >= ${startOfDay(
         twoWeeksAgo,
-      )} AND ${jobVar}.jobCreatedTimestamp <= ${endOfDay(now)} AND `;
+      ).getTime()} AND ${jobVar}.jobCreatedTimestamp <= ${endOfDay(
+        now,
+      ).getTime()} AND `;
     case "past-3-months":
       const threeMonthsAgo = subMonths(now, 3);
-      return `WHERE ${jobVar}.jobCreatedTimestamp >= ${startOfDay(
+      return `${jobVar}.jobCreatedTimestamp >= ${startOfDay(
         threeMonthsAgo,
-      )} AND ${jobVar}.jobCreatedTimestamp <= ${endOfDay(now)} AND `;
+      ).getTime()} AND ${jobVar}.jobCreatedTimestamp <= ${endOfDay(
+        now,
+      ).getTime()} AND `;
     case "past-6-months":
       const sixMonthsAgo = subMonths(now, 6);
-      return `WHERE ${jobVar}.jobCreatedTimestamp >= ${startOfDay(
+      return `${jobVar}.jobCreatedTimestamp >= ${startOfDay(
         sixMonthsAgo,
-      )} AND ${jobVar}.jobCreatedTimestamp <= ${endOfDay(now)} AND `;
+      ).getTime()} AND ${jobVar}.jobCreatedTimestamp <= ${endOfDay(
+        now,
+      ).getTime()} AND `;
     default:
       throw new Error(`Invalid date range: ${dateRange}`);
   }
