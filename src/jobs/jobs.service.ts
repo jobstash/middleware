@@ -114,8 +114,8 @@ export class JobsService {
             ${
               params.hacks !== undefined
                 ? params.hacks
-                  ? "hackCount IS NOT NULL AND hackCount >= 1"
-                  : "hackCount IS NOT NULL AND hackCount = 0"
+                  ? "hackCount IS NOT NULL AND hackCount >= 1 AND "
+                  : "hackCount IS NOT NULL AND hackCount = 0 AND "
                 : ""
             }
             ${
@@ -263,8 +263,8 @@ export class JobsService {
               ${
                 params.hacks !== undefined
                   ? params.hacks
-                    ? "hackCount IS NOT NULL AND hackCount >= 1"
-                    : "hackCount IS NOT NULL AND hackCount = 0"
+                    ? "hackCount IS NOT NULL AND hackCount >= 1 AND "
+                    : "hackCount IS NOT NULL AND hackCount = 0 AND "
                   : ""
               }
               ${
