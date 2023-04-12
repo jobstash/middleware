@@ -1,3 +1,10 @@
+## [1.19.1](https://github.com/RecruitersRip/middleware/compare/v1.19.0...v1.19.1) (2023-04-12)
+
+
+### Bug Fixes
+
+* **gitignore:** ignore certs ([b507194](https://github.com/RecruitersRip/middleware/commit/b507194e61e3c23b440936f570f5d46b42d6b831))
+
 # [1.19.0](https://github.com/RecruitersRip/middleware/compare/v1.18.0...v1.19.0) (2023-04-12)
 
 
