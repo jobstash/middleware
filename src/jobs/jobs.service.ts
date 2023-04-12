@@ -387,8 +387,8 @@ export class JobsService {
         OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
         WITH o, p, j, t, f, c, cat, COUNT(DISTINCT a) as audits
         RETURN {
-            minSalaryRange: MIN(j.minSalaryRange),
-            maxSalaryRange: MAX(j.maxSalaryRange),
+            minSalaryRange: MIN(j.medianSalary),
+            maxSalaryRange: MAX(j.medianSalary),
             minTvl: MIN(p.tvl),
             maxTvl: MAX(p.tvl),
             minMonthlyVolume: MIN(p.monthlyVolume),
