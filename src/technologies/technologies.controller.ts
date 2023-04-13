@@ -24,4 +24,19 @@ export class TechnologiesController {
       data: res,
     }));
   }
+
+  @Get("/blocked")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Returns a list of all blocked terms",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Technology) }),
+  })
+  async getBlockedTerms(): Promise<Response<Technology[]>> {
+    return this.technologiesService.getBlockedTerms().then(res => ({
+      success: true,
+      message: "Retrieved all blocked terms",
+      data: res,
+    }));
+  }
 }

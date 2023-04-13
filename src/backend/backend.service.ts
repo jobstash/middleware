@@ -6,7 +6,8 @@ import { CreateOrganizationInput } from "src/organizations/dto/create-organizati
 import { UpdateOrganizationInput } from "src/organizations/dto/update-organization.input";
 import { CreateProjectInput } from "src/projects/dto/create-project.input";
 import { UpdateProjectInput } from "src/projects/dto/update-project.input";
-import { Organization, Project, User } from "src/shared/types";
+import { Organization, Project, Technology, User } from "src/shared/types";
+import { SetBlockedTermInput } from "src/technologies/dto/set-blocked-term.input";
 
 export interface GithubLoginInput {
   githubAccessToken: string;
@@ -114,5 +115,21 @@ export class BackendService {
         return undefined;
       }
     });
+  }
+
+  async setBlockedTerm(
+    input: SetBlockedTermInput,
+  ): Promise<Technology | undefined> {
+    const client = await this.getOrRefreshClient();
+    return client
+      .post("/technology/createBlockedTechnologyTerm", input)
+      .then(res => {
+        const data = res.data;
+        if (data.status === "success") {
+          return data as Technology;
+        } else {
+          return undefined;
+        }
+      });
   }
 }
