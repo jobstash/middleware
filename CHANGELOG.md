@@ -1,3 +1,10 @@
+# [1.20.0](https://github.com/jobstash/middleware/compare/v1.19.2...v1.20.0) (2023-04-13)
+
+
+### Features
+
+* **jobs:** add search by job title ([#57](https://github.com/jobstash/middleware/issues/57)) ([0a09c62](https://github.com/jobstash/middleware/commit/0a09c62840d4bbe680331293e27521cbd0c19c94))
+
 ## [1.19.2](https://github.com/RecruitersRip/middleware/compare/v1.19.1...v1.19.2) (2023-04-12)
 
 
