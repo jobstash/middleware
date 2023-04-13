@@ -14,7 +14,7 @@ import {
   Response,
   ValidationError,
 } from "src/shared/types";
-import { JobListParams } from "./dto/job-list.dto";
+import { JobListParams } from "./dto/job-list.input";
 import {
   ApiBadRequestResponse,
   ApiExtraModels,
@@ -22,11 +22,55 @@ import {
   getSchemaPath,
 } from "@nestjs/swagger";
 import { responseSchemaWrapper } from "src/shared/helpers";
+import { SearchJobsListParams } from "./dto/search-jobs.input";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobListResult, JobFilterConfigs, ValidationError)
 export class JobsController {
   constructor(private readonly jobsService: JobsService) {}
+
+  @Get("/search")
+  @ApiOkResponse({
+    description:
+      "Returns a paginated sorted list of jobs that satisfy the search and filter predicate",
+    type: Response<PaginatedData<JobListResult>>,
+    schema: {
+      allOf: [
+        responseSchemaWrapper({
+          $ref: getSchemaPath(PaginatedData),
+          properties: {
+            page: {
+              type: "number",
+            },
+            count: {
+              type: "number",
+            },
+            data: {
+              type: "array",
+              items: { $ref: getSchemaPath(JobListResult) },
+            },
+          },
+        }),
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ValidationError),
+        },
+      ],
+    },
+  })
+  async searchJobsList(
+    @Query(new ValidationPipe({ transform: true }))
+    params: SearchJobsListParams,
+  ): Promise<PaginatedData<JobListResult>> {
+    return this.jobsService.searchJobsList(params);
+  }
 
   @Get("/list")
   @ApiOkResponse({
@@ -90,7 +134,7 @@ export class JobsController {
     return this.jobsService.getFilterConfigs();
   }
 
-  @Get("/:uuid")
+  @Get("details/:uuid")
   @ApiOkResponse({
     description: "Returns the job details for the provided slug",
     schema: {
