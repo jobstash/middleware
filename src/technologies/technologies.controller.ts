@@ -31,8 +31,8 @@ export class TechnologiesController {
   }
 
   @Get("/blocked")
-  // @UseGuards(RBACGuard)
-  // @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all blocked terms",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Technology) }),
@@ -46,8 +46,8 @@ export class TechnologiesController {
   }
 
   @Post("/set-blocked-term")
-  // @UseGuards(RBACGuard)
-  // @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Flag a technology as a blocked term",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Boolean) }),
