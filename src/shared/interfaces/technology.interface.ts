@@ -5,4 +5,6 @@ export class Technology {
   id: string;
   @ApiProperty()
   name: string;
+  @ApiProperty()
+  normalizedName: string;
 }
