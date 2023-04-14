@@ -6,7 +6,7 @@ import { CreateOrganizationInput } from "src/organizations/dto/create-organizati
 import { UpdateOrganizationInput } from "src/organizations/dto/update-organization.input";
 import { CreateProjectInput } from "src/projects/dto/create-project.input";
 import { UpdateProjectInput } from "src/projects/dto/update-project.input";
-import { Organization, Project, Technology, User } from "src/shared/types";
+import { Organization, Project, User } from "src/shared/types";
 import { SetBlockedTermInput } from "src/technologies/dto/set-blocked-term.input";
 
 export interface GithubLoginInput {
@@ -98,7 +98,7 @@ export class BackendService {
     return client.post("/project/create", input).then(res => {
       const data = res.data;
       if (data.status === "success") {
-        return data as Project;
+        return data.data as Project;
       } else {
         return undefined;
       }
@@ -110,7 +110,7 @@ export class BackendService {
     return client.post("/project/update", input).then(res => {
       const data = res.data;
       if (data.status === "success") {
-        return data as Project;
+        return data.data as Project;
       } else {
         return undefined;
       }
@@ -119,14 +119,14 @@ export class BackendService {
 
   async setBlockedTerm(
     input: SetBlockedTermInput,
-  ): Promise<Technology | undefined> {
+  ): Promise<boolean | undefined> {
     const client = await this.getOrRefreshClient();
     return client
       .post("/technology/createBlockedTechnologyTerm", input)
       .then(res => {
         const data = res.data;
         if (data.status === "success") {
-          return data as Technology;
+          return data.data.status as boolean;
         } else {
           return undefined;
         }
