@@ -3,12 +3,13 @@ import { ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
-import { Response, Technology } from "src/shared/types";
+import { PreferredTerm, Response, Technology } from "src/shared/types";
 import { TechnologiesService } from "./technologies.service";
 import { CheckWalletRoles } from "src/shared/types";
 import { SetBlockedTermInput } from "./dto/set-blocked-term.input";
 import { BackendService } from "src/backend/backend.service";
 import { TechnologyPreferredTerm } from "src/shared/interfaces/technology-preferred-term.interface";
+import { CreatePreferredTermInput } from "./dto/create-preferred-term.input";
 @Controller("technologies")
 export class TechnologiesController {
   constructor(
@@ -76,6 +77,23 @@ export class TechnologiesController {
     return this.technologiesService.getPreferredTerms().then(res => ({
       success: true,
       message: "Retrieved all preferred terms",
+      data: res,
+    }));
+  }
+
+  @Post("/create-preferred-term")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Create a new preferred term",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Boolean) }),
+  })
+  async createPreferredTerm(
+    @Body() input: CreatePreferredTermInput,
+  ): Promise<Response<PreferredTerm>> {
+    return this.backendService.createPreferredTerm(input).then(res => ({
+      success: true,
+      message: "Blocked term set",
       data: res,
     }));
   }

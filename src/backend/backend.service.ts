@@ -6,7 +6,8 @@ import { CreateOrganizationInput } from "src/organizations/dto/create-organizati
 import { UpdateOrganizationInput } from "src/organizations/dto/update-organization.input";
 import { CreateProjectInput } from "src/projects/dto/create-project.input";
 import { UpdateProjectInput } from "src/projects/dto/update-project.input";
-import { Organization, Project, User } from "src/shared/types";
+import { Organization, Project, User, PreferredTerm } from "src/shared/types";
+import { CreatePreferredTermInput } from "src/technologies/dto/create-preferred-term.input";
 import { SetBlockedTermInput } from "src/technologies/dto/set-blocked-term.input";
 
 export interface GithubLoginInput {
@@ -127,6 +128,22 @@ export class BackendService {
         const data = res.data;
         if (data.status === "success") {
           return data.data.status as boolean;
+        } else {
+          return undefined;
+        }
+      });
+  }
+
+  async createPreferredTerm(
+    input: CreatePreferredTermInput,
+  ): Promise<PreferredTerm | undefined> {
+    const client = await this.getOrRefreshClient();
+    return client
+      .post("/technology/createPreferredTechnologyTerm", input)
+      .then(res => {
+        const data = res.data;
+        if (data.success) {
+          return data.data as PreferredTerm;
         } else {
           return undefined;
         }
