@@ -164,4 +164,43 @@ export class JobsController {
     // If not found, return a 404
     throw new NotFoundException(`Job with uuid ${uuid} not found`);
   }
+
+  @Get("/get-by-org/:uuid")
+  @ApiOkResponse({
+    description: "Returns a list of jobs posted by an org",
+    type: Response<PaginatedData<JobListResult>>,
+    schema: {
+      allOf: [
+        responseSchemaWrapper({
+          $ref: getSchemaPath(PaginatedData),
+          properties: {
+            page: {
+              type: "number",
+            },
+            count: {
+              type: "number",
+            },
+            data: {
+              type: "array",
+              items: { $ref: getSchemaPath(JobListResult) },
+            },
+          },
+        }),
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ValidationError),
+        },
+      ],
+    },
+  })
+  async getOrgJobsList(@Param("uuid") uuid: string): Promise<JobListResult[]> {
+    return this.jobsService.getJobsByOrgUuid(uuid);
+  }
 }
