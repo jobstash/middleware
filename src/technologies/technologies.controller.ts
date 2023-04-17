@@ -8,6 +8,7 @@ import { TechnologiesService } from "./technologies.service";
 import { CheckWalletRoles } from "src/shared/types";
 import { SetBlockedTermInput } from "./dto/set-blocked-term.input";
 import { BackendService } from "src/backend/backend.service";
+import { TechnologyPreferredTerm } from "src/shared/interfaces/technology-preferred-term.interface";
 @Controller("technologies")
 export class TechnologiesController {
   constructor(
@@ -30,7 +31,7 @@ export class TechnologiesController {
     }));
   }
 
-  @Get("/blocked")
+  @Get("/blocked-terms")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
@@ -58,6 +59,23 @@ export class TechnologiesController {
     return this.backendService.setBlockedTerm(input).then(res => ({
       success: true,
       message: "Blocked term set",
+      data: res,
+    }));
+  }
+
+  @Get("preferred-terms")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Retrieve a list of preferred terms and their synonym chains",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(TechnologyPreferredTerm),
+    }),
+  })
+  async getPreferredTerms(): Promise<Response<TechnologyPreferredTerm[]>> {
+    return this.technologiesService.getPreferredTerms().then(res => ({
+      success: true,
+      message: "Retrieved all preferred terms",
       data: res,
     }));
   }

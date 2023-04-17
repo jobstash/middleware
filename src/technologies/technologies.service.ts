@@ -1,5 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j";
+import { TechnologyPreferredTermEntity } from "src/shared/entities/technology-preferred-term.entity";
+import { TechnologyPreferredTerm } from "src/shared/interfaces/technology-preferred-term.interface";
 import { Technology } from "src/shared/types";
 
 @Injectable()
@@ -33,6 +35,30 @@ export class TechnologiesService {
       )
       .then(res =>
         res.records.map(record => record.get("t").properties as Technology),
+      );
+  }
+
+  async getPreferredTerms(): Promise<TechnologyPreferredTerm[]> {
+    return this.neo4jService
+      .read(
+        `
+      MATCH (pt:PreferredTerm)
+      WHERE (pt)-[:IS_PREFERRED_TERM_OF]-(t:Technology)
+      MATCH (t)<-[:IS_SYNONYM_OF*]-(syn: Technology)
+      WITH pt, COLLECT(syn) as synonyms, t
+      RETURN pt {
+        .*,
+        technology: t,
+        synonyms: synonyms
+      } as res
+      `,
+      )
+      .then(res =>
+        res.records.map(record =>
+          new TechnologyPreferredTermEntity(
+            record.get("res").properties,
+          ).getProperties(),
+        ),
       );
   }
 }
