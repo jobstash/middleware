@@ -53,11 +53,26 @@ export class ProjectsController {
       }));
   }
 
-  @Get("/all/:id")
+  @Get("/")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
+  })
+  async getProjects(): Promise<Response<Project[]>> {
+    return this.projectsService.getProjects().then(res => ({
+      success: true,
+      message: "Retrieved all projects successfully",
+      data: res,
+    }));
+  }
+
+  @Get("/all/:id")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Returns a list of all projects for an organization",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
   })
   async getProjectsByOrgId(
@@ -65,7 +80,7 @@ export class ProjectsController {
   ): Promise<Response<Project[]>> {
     return this.projectsService.getProjectsByOrgId(id).then(res => ({
       success: true,
-      message: "Retrieved all projects successfully",
+      message: "Retrieved all organization projects successfully",
       data: res,
     }));
   }
