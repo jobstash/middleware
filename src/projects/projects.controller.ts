@@ -106,7 +106,7 @@ export class ProjectsController {
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
-    description: "Returns the details of the org with the provided id",
+    description: "Returns the details of the project with the provided id",
   })
   async getProjectDetails(
     @Param("id") id: string,
