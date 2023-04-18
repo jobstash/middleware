@@ -20,6 +20,17 @@ export class ProjectsService {
       .then(res => res.records.map(record => record.get("res") as Project));
   }
 
+  async getProjects(): Promise<Project[]> {
+    return this.neo4jService
+      .read(
+        `
+        MATCH (p:Project)
+        RETURN PROPERTIES(p) as res
+        `,
+      )
+      .then(res => res.records.map(record => record.get("res") as Project));
+  }
+
   async searchProjects(query: string): Promise<Project[]> {
     return this.neo4jService
       .read(
