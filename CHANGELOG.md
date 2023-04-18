@@ -1,3 +1,10 @@
+## [1.22.1](https://github.com/jobstash/middleware/compare/v1.22.0...v1.22.1) (2023-04-18)
+
+
+### Bug Fixes
+
+* **technlogies:** fixed a doc bug ([64b1869](https://github.com/jobstash/middleware/commit/64b1869c448c0691211381255a1c8cd453abf2c1))
+
 # [1.22.0](https://github.com/jobstash/middleware/compare/v1.21.0...v1.22.0) (2023-04-18)
 
 
