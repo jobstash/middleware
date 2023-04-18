@@ -102,7 +102,7 @@ export class TechnologiesController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Create a new preferred term",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(Boolean) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(PreferredTerm) }),
   })
   async deletePreferredTerm(
     @Body() input: DeletePreferredTermInput,
