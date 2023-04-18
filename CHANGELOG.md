@@ -1,3 +1,10 @@
+# [1.21.0](https://github.com/jobstash/middleware/compare/v1.20.0...v1.21.0) (2023-04-18)
+
+
+### Features
+
+* **technologies:** implemented get all preferred terms endpoint ([#59](https://github.com/jobstash/middleware/issues/59)) ([4fa1d57](https://github.com/jobstash/middleware/commit/4fa1d572019870ac0112a57ab50fc2f12b4b67bb))
+
 # [1.20.0](https://github.com/jobstash/middleware/compare/v1.19.2...v1.20.0) (2023-04-13)
 
 
