@@ -31,6 +31,18 @@ export class ProjectsService {
       .then(res => res.records.map(record => record.get("res") as Project));
   }
 
+  async getProjectsByCategory(category: string): Promise<Project[]> {
+    return this.neo4jService
+      .read(
+        `
+        MATCH (p:Project)-[:HAS_CATEGORY]->(:ProjectCategory { name: $category })
+        RETURN PROPERTIES(p) as res
+        `,
+        { category },
+      )
+      .then(res => res.records.map(record => record.get("res") as Project));
+  }
+
   async searchProjects(query: string): Promise<Project[]> {
     return this.neo4jService
       .read(
