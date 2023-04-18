@@ -101,7 +101,7 @@ export class TechnologiesController {
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
-    description: "Create a new preferred term",
+    description: "Delete a preferred term",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(PreferredTerm) }),
   })
   async deletePreferredTerm(
