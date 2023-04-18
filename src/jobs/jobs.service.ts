@@ -804,4 +804,32 @@ export class JobsService {
           : undefined,
       );
   }
+
+  async getJobsByOrgUuid(uuid: string): Promise<JobListResult[] | undefined> {
+    return this.neo4jService
+      .read(
+        `
+        MATCH (o:Organization {id: $uuid})-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
+        MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
+        OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)-[:INVESTED_BY]->(i:Investor)
+        OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(c:ProjectCategory)
+        OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
+        WHERE NOT (t)<-[:IS_BLOCKED_TERM]-()
+        OPTIONAL MATCH (t)<-[:IS_PREFERRED_TERM_OF]-(:PreferredTerm)
+        OPTIONAL MATCH (t)<-[:IS_PAIRED_WITH]-(:TechnologyPairing)-[:IS_PAIRED_WITH]->(:Technology)
+        OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
+        OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
+        OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(ch:Chain)
+        WITH o, p, j, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(p) as pProps
+        RETURN { organization: PROPERTIES(o), project: pProps{.*, chains: chains, hacks: hacks, audits: audits}, jobpost: PROPERTIES(j), fundingRounds: rounds, investors: investors, technologies: tech, categories: cats } as res`,
+        { uuid },
+      )
+      .then(res =>
+        res.records.length
+          ? res.records.map(record =>
+              new JobListResultEntity(record.get("res")).getProperties(),
+            )
+          : undefined,
+      );
+  }
 }
