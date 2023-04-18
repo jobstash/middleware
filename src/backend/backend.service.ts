@@ -6,8 +6,16 @@ import { CreateOrganizationInput } from "src/organizations/dto/create-organizati
 import { UpdateOrganizationInput } from "src/organizations/dto/update-organization.input";
 import { CreateProjectInput } from "src/projects/dto/create-project.input";
 import { UpdateProjectInput } from "src/projects/dto/update-project.input";
-import { Organization, Project, User, PreferredTerm } from "src/shared/types";
+import {
+  Organization,
+  Project,
+  User,
+  PreferredTerm,
+  Response,
+  ResponseWithNoData,
+} from "src/shared/types";
 import { CreatePreferredTermInput } from "src/technologies/dto/create-preferred-term.input";
+import { DeletePreferredTermInput } from "src/technologies/dto/delete-preferred-term.input";
 import { SetBlockedTermInput } from "src/technologies/dto/set-blocked-term.input";
 
 export interface GithubLoginInput {
@@ -120,32 +128,48 @@ export class BackendService {
 
   async setBlockedTerm(
     input: SetBlockedTermInput,
-  ): Promise<boolean | undefined> {
+  ): Promise<Response<boolean> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
     return client
       .post("/technology/createBlockedTechnologyTerm", input)
       .then(res => {
         const data = res.data;
         if (data.status === "success") {
-          return data.data.status as boolean;
+          return data.data as Response<boolean>;
         } else {
-          return undefined;
+          return data.data as ResponseWithNoData;
         }
       });
   }
 
   async createPreferredTerm(
     input: CreatePreferredTermInput,
-  ): Promise<PreferredTerm | undefined> {
+  ): Promise<Response<PreferredTerm> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
     return client
       .post("/technology/createPreferredTechnologyTerm", input)
       .then(res => {
         const data = res.data;
         if (data.success) {
-          return data.data as PreferredTerm;
+          return data.data as Response<PreferredTerm>;
         } else {
-          return undefined;
+          return data.data as ResponseWithNoData;
+        }
+      });
+  }
+
+  async deletePreferredTerm(
+    input: DeletePreferredTermInput,
+  ): Promise<Response<PreferredTerm> | ResponseWithNoData> {
+    const client = await this.getOrRefreshClient();
+    return client
+      .post("/technology/deletePreferredTechnologyTerm", input)
+      .then(res => {
+        const data = res.data;
+        if (data.success) {
+          return data.data as Response<PreferredTerm>;
+        } else {
+          return data.data as ResponseWithNoData;
         }
       });
   }

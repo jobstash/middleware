@@ -1,14 +1,20 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsString } from "class-validator";
+import { IsEthereumAddress, IsNotEmpty, IsString } from "class-validator";
 
 export class CreatePreferredTermInput {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
-  name: string;
+  preferredName: string;
 
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
-  normalizedName: string;
+  technologyName: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  @IsEthereumAddress()
+  creatorWallet: string;
 }
