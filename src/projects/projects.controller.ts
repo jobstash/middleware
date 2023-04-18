@@ -68,6 +68,23 @@ export class ProjectsController {
     }));
   }
 
+  @Get("/category/:category")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Returns a list of all projects under the speccified category",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
+  })
+  async getProjectsByCategory(
+    @Param("category") category: string,
+  ): Promise<Response<Project[]>> {
+    return this.projectsService.getProjectsByCategory(category).then(res => ({
+      success: true,
+      message: "Retrieved all projects in category successfully",
+      data: res,
+    }));
+  }
+
   @Get("/all/:id")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
