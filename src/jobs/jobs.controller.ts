@@ -165,7 +165,7 @@ export class JobsController {
     throw new NotFoundException(`Job with uuid ${uuid} not found`);
   }
 
-  @Get("/get-by-org/:uuid")
+  @Get("/org/:uuid")
   @ApiOkResponse({
     description: "Returns a list of jobs posted by an org",
     type: Response<PaginatedData<JobListResult>>,
