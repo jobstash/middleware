@@ -1,3 +1,10 @@
+# [1.22.0](https://github.com/jobstash/middleware/compare/v1.21.0...v1.22.0) (2023-04-18)
+
+
+### Features
+
+* **projects:** implemented get projects by category ([#63](https://github.com/jobstash/middleware/issues/63)) ([028529f](https://github.com/jobstash/middleware/commit/028529f5267d1b0ddcabc1437e764911c7f24b3d))
+
 # [1.21.0](https://github.com/jobstash/middleware/compare/v1.20.0...v1.21.0) (2023-04-18)
 
 
