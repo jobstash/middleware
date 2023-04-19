@@ -13,3 +13,4 @@ export * from "./audit.interface";
 export * from "./hack.interface";
 export * from "./blocked-term.interface";
 export * from "./preferred-term.interface";
+export * from "./paired-term.interface";
