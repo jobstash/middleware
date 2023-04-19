@@ -14,6 +14,7 @@ import {
   Response,
   ResponseWithNoData,
 } from "src/shared/types";
+import { CreatePairedTermsInput } from "src/technologies/dto/create-paired-terms.input";
 import { CreatePreferredTermInput } from "src/technologies/dto/create-preferred-term.input";
 import { DeletePreferredTermInput } from "src/technologies/dto/delete-preferred-term.input";
 import { SetBlockedTermInput } from "src/technologies/dto/set-blocked-term.input";
@@ -156,6 +157,20 @@ export class BackendService {
           return data.data as ResponseWithNoData;
         }
       });
+  }
+
+  async createPairedTerms(
+    input: CreatePairedTermsInput,
+  ): Promise<Response<boolean> | ResponseWithNoData> {
+    const client = await this.getOrRefreshClient();
+    return client.post("/technology/pairTerms", input).then(res => {
+      const data = res.data;
+      if (data.success) {
+        return data.data as Response<boolean>;
+      } else {
+        return data.data as ResponseWithNoData;
+      }
+    });
   }
 
   async deletePreferredTerm(
