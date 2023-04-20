@@ -14,7 +14,6 @@ import {
   Response,
   ValidationError,
 } from "src/shared/types";
-import { JobListParams } from "./dto/job-list.input";
 import {
   ApiBadRequestResponse,
   ApiExtraModels,
@@ -29,7 +28,7 @@ import { SearchJobsListParams } from "./dto/search-jobs.input";
 export class JobsController {
   constructor(private readonly jobsService: JobsService) {}
 
-  @Get("/search")
+  @Get("/list")
   @ApiOkResponse({
     description:
       "Returns a paginated sorted list of jobs that satisfy the search and filter predicate",
@@ -65,53 +64,11 @@ export class JobsController {
       ],
     },
   })
-  async searchJobsList(
+  async getJobsListWithSearch(
     @Query(new ValidationPipe({ transform: true }))
     params: SearchJobsListParams,
   ): Promise<PaginatedData<JobListResult>> {
-    return this.jobsService.searchJobsList(params);
-  }
-
-  @Get("/list")
-  @ApiOkResponse({
-    description:
-      "Returns a paginated sorted list of jobs that satisfy the filter predicate",
-    type: Response<PaginatedData<JobListResult>>,
-    schema: {
-      allOf: [
-        responseSchemaWrapper({
-          $ref: getSchemaPath(PaginatedData),
-          properties: {
-            page: {
-              type: "number",
-            },
-            count: {
-              type: "number",
-            },
-            data: {
-              type: "array",
-              items: { $ref: getSchemaPath(JobListResult) },
-            },
-          },
-        }),
-      ],
-    },
-  })
-  @ApiBadRequestResponse({
-    description:
-      "Returns an error message with a list of values that failed validation",
-    schema: {
-      allOf: [
-        {
-          $ref: getSchemaPath(ValidationError),
-        },
-      ],
-    },
-  })
-  async getJobsList(
-    @Query(new ValidationPipe({ transform: true })) params: JobListParams,
-  ): Promise<PaginatedData<JobListResult>> {
-    return this.jobsService.getJobsList(params);
+    return this.jobsService.getJobsListWithSearch(params);
   }
 
   @Get("/filters")
