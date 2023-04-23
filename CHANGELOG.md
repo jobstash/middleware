@@ -1,3 +1,17 @@
+## [1.23.1](https://github.com/jobstash/middleware/compare/v1.23.0...v1.23.1) (2023-04-19)
+
+
+### Bug Fixes
+
+* **jobs:** fixed 0 values not allowed for jobs list filters ([359f9d1](https://github.com/jobstash/middleware/commit/359f9d1e4986219af93e8b2659c0fd5c044596ba))
+
+# [1.23.0](https://github.com/jobstash/middleware/compare/v1.22.1...v1.23.0) (2023-04-19)
+
+
+### Features
+
+* **technologies:** implemented create and get paired terms endpoints ([#64](https://github.com/jobstash/middleware/issues/64)) ([7852d1c](https://github.com/jobstash/middleware/commit/7852d1cf798107c9778b290e92bb68c6ff1e1361))
+
 ## [1.22.1](https://github.com/jobstash/middleware/compare/v1.22.0...v1.22.1) (2023-04-18)
 
 

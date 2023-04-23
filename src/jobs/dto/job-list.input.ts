@@ -6,8 +6,8 @@ import {
   IsIn,
   IsNumber,
   IsOptional,
-  IsPositive,
   IsString,
+  Min,
 } from "class-validator";
 import { JobListOrder, JobListOrderBy } from "src/shared/types";
 import { Compare } from "src/shared/validators";
@@ -42,7 +42,7 @@ export class JobListParams {
   })
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @Type(() => Number)
   minSalaryRange?: number;
 
@@ -51,7 +51,7 @@ export class JobListParams {
   })
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @Compare("minSalaryRange", ">=")
   @Type(() => Number)
   maxSalaryRange?: number;
@@ -61,7 +61,7 @@ export class JobListParams {
   })
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @Type(() => Number)
   minHeadCount?: number;
 
@@ -70,7 +70,7 @@ export class JobListParams {
   })
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @Compare("minHeadCount", ">=")
   @Type(() => Number)
   maxHeadCount?: number;
@@ -80,7 +80,7 @@ export class JobListParams {
   })
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @Type(() => Number)
   minTeamSize?: number;
 
@@ -89,7 +89,7 @@ export class JobListParams {
   })
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @Compare("minTeamSize", ">=")
   @Type(() => Number)
   maxTeamSize?: number;
@@ -99,7 +99,7 @@ export class JobListParams {
   })
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @Type(() => Number)
   minTvl?: number;
 
@@ -108,7 +108,7 @@ export class JobListParams {
   })
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @Compare("minTvl", ">=")
   @Type(() => Number)
   maxTvl?: number;
@@ -118,7 +118,7 @@ export class JobListParams {
   })
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @Type(() => Number)
   minMonthlyVolume?: number;
 
@@ -127,7 +127,7 @@ export class JobListParams {
   })
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @Compare("minMonthlyVolume", ">=")
   @Type(() => Number)
   maxMonthlyVolume?: number;
@@ -137,7 +137,7 @@ export class JobListParams {
   })
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @Type(() => Number)
   minMonthlyFees?: number;
 
@@ -146,7 +146,7 @@ export class JobListParams {
   })
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @Compare("minMonthlyFees", ">=")
   @Type(() => Number)
   maxMonthlyFees?: number;
@@ -156,7 +156,7 @@ export class JobListParams {
   })
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @Type(() => Number)
   minMonthlyRevenue?: number;
 
@@ -165,7 +165,7 @@ export class JobListParams {
   })
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @Compare("minMonthlyRevenue", ">=")
   @Type(() => Number)
   maxMonthlyRevenue?: number;
@@ -175,7 +175,7 @@ export class JobListParams {
   })
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @Type(() => Number)
   minAudits?: number;
 
@@ -184,7 +184,7 @@ export class JobListParams {
   })
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @Compare("minAudits", ">=")
   @Type(() => Number)
   maxAudits?: number;

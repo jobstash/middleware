@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j";
 import { TechnologyPreferredTermEntity } from "src/shared/entities/technology-preferred-term.entity";
 import { TechnologyPreferredTerm } from "src/shared/interfaces/technology-preferred-term.interface";
-import { Technology } from "src/shared/types";
+import { PairedTerm, Technology } from "src/shared/types";
 
 @Injectable()
 export class TechnologiesService {
@@ -59,6 +59,23 @@ export class TechnologiesService {
             record.get("res").properties,
           ).getProperties(),
         ),
+      );
+  }
+
+  async getPairedTerms(): Promise<PairedTerm[]> {
+    return this.neo4jService
+      .read(
+        `
+      MATCH (t1: Technology)-[:IS_PAIRED_WITH]->(:TechnologyPairing)-[:IS_PAIRED_WITH]->(t2: Technology)
+      WITH t1, COLLECT(t2) as pairings
+      RETURN {
+        technology: t1,
+        pairings: pairings
+      } as res
+      `,
+      )
+      .then(res =>
+        res.records.map(record => record.get("res").properties as PairedTerm),
       );
   }
 }

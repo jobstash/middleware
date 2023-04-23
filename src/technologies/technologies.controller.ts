@@ -4,6 +4,7 @@ import { RBACGuard } from "src/auth/rbac.guard";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
+  PairedTerm,
   PreferredTerm,
   Response,
   ResponseWithNoData,
@@ -16,6 +17,7 @@ import { BackendService } from "src/backend/backend.service";
 import { TechnologyPreferredTerm } from "src/shared/interfaces/technology-preferred-term.interface";
 import { CreatePreferredTermInput } from "./dto/create-preferred-term.input";
 import { DeletePreferredTermInput } from "./dto/delete-preferred-term.input";
+import { CreatePairedTermsInput } from "./dto/create-paired-terms.input";
 @Controller("technologies")
 @ApiExtraModels(TechnologyPreferredTerm, PreferredTerm)
 export class TechnologiesController {
@@ -82,6 +84,36 @@ export class TechnologiesController {
       message: "Retrieved all preferred terms",
       data: res,
     }));
+  }
+
+  @Get("paired-terms")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Retrieve a list of paired terms and their pairings",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(PairedTerm),
+    }),
+  })
+  async getPairedTerms(): Promise<Response<PairedTerm[]>> {
+    return this.technologiesService.getPairedTerms().then(res => ({
+      success: true,
+      message: "Retrieved all paired terms",
+      data: res,
+    }));
+  }
+
+  @Post("/create-paired-terms")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Create a new preferred term",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(PreferredTerm) }),
+  })
+  async createPairedTerms(
+    @Body() input: CreatePairedTermsInput,
+  ): Promise<Response<boolean> | ResponseWithNoData> {
+    return this.backendService.createPairedTerms(input);
   }
 
   @Post("/create-preferred-term")
