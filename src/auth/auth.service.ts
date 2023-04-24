@@ -53,7 +53,7 @@ export class AuthService {
       return cacheValue;
     } else {
       const newToken = await this.authClient.clientCredentialsGrant({
-        audience: this.configService.get<string>("BACKEND_API_URL"),
+        audience: this.configService.get<string>("AUTH0_AUDIENCE"),
         scope: "middleware:admin",
       });
       await this.cacheManager.set(
