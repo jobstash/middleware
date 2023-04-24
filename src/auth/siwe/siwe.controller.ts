@@ -19,7 +19,6 @@ import { AlchemyProvider } from "@ethersproject/providers";
 import {
   CheckWalletFlows,
   CheckWalletRoles,
-  GithubConfig,
   ResponseWithNoData,
   SessionObject,
   User,
@@ -35,12 +34,13 @@ import {
 import { responseSchemaWrapper } from "src/shared/helpers";
 import * as Sentry from "@sentry/node";
 import { UserService } from "../user/user.service";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Controller("siwe")
 @ApiExtraModels(SessionObject, User)
 export class SiweController {
+  logger = new CustomLogger(BackendService.name);
   private readonly sessionConfig: IronSessionOptions;
-  private readonly ghConfig: GithubConfig;
   constructor(
     private readonly backendService: BackendService,
     private readonly authService: AuthService,
@@ -88,6 +88,8 @@ export class SiweController {
     @Res() res: ExpressResponse,
   ): Promise<void> {
     const session = await this.getSession(req, res, this.sessionConfig);
+    this.logger.log(`/siwe/nonce: ${JSON.stringify(session)}`);
+
     if (!session.nonce) {
       session.nonce = generateNonce();
     }
@@ -117,6 +119,7 @@ export class SiweController {
       res,
       this.sessionConfig,
     );
+    this.logger.log(`/siwe/nonce: ${address}, ${chainId}, ${role})}`);
     res.send({
       success: true,
       message: "Session retrieved successfully",
@@ -137,6 +140,7 @@ export class SiweController {
     @Res() res: ExpressResponse,
   ): Promise<void> {
     const session = await this.getSession(req, res, this.sessionConfig);
+    this.logger.log(`/siwe/logout: ${JSON.stringify(session)})}`);
     session.destroy();
     res.status(HttpStatus.OK).end();
   }
@@ -164,12 +168,14 @@ export class SiweController {
     @Body() body: VerifyMessageInput,
   ): Promise<ResponseWithNoData> {
     try {
+      this.logger.log(`/siwe/verify`);
       const provider = new AlchemyProvider(
         1,
         this.configService.get<string>("ALCHEMY_API_KEY"),
       );
 
       const session = await this.getSession(req, res, this.sessionConfig);
+      this.logger.log(`/siwe/verify, ${JSON.stringify(session)})}}`);
       const { message, signature } = body;
       const siweMessage = new SiweMessage(message);
       const fields = await siweMessage.validate(signature, provider);
@@ -224,6 +230,7 @@ export class SiweController {
   ): Promise<void> {
     try {
       const session = await this.getSession(req, res, this.sessionConfig);
+      this.logger.log(`/siwe/verify, ${JSON.stringify(session)})}}`);
 
       if (session.address === undefined || session.address === null) {
         res.status(HttpStatus.OK);
