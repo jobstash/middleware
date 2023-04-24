@@ -15,6 +15,7 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import {
   ApiExtraModels,
+  ApiInternalServerErrorResponse,
   ApiOkResponse,
   ApiUnprocessableEntityResponse,
   getSchemaPath,
@@ -36,6 +37,7 @@ import { OrganizationsService } from "./organizations.service";
 import { CheckWalletRoles } from "src/shared/types";
 import { NFTStorage, File } from "nft.storage";
 import { ConfigService } from "@nestjs/config";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 // import mime from "mime";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
@@ -45,6 +47,7 @@ const mime = require("mime");
 export class OrganizationsController {
   private readonly NFT_STORAGE_API_KEY;
   private readonly nftStorageClient: NFTStorage;
+  logger = new CustomLogger(OrganizationsController.name);
 
   constructor(
     private readonly organizationsService: OrganizationsService,
@@ -67,6 +70,7 @@ export class OrganizationsController {
     schema: responseSchemaWrapper({ $ref: getSchemaPath(ShortOrg) }),
   })
   async getOrganizations(): Promise<Response<ShortOrg[]>> {
+    this.logger.log(`/organizations`);
     return this.organizationsService.getAll().then(res => ({
       success: true,
       message: "Retrieved all organizations successfully",
@@ -85,6 +89,7 @@ export class OrganizationsController {
   async searchOrganizations(
     @Query("query") query: string,
   ): Promise<Response<ShortOrg[]>> {
+    this.logger.log(`/organizations/search?query=${query}`);
     return this.organizationsService.searchOrganizations(query).then(res => ({
       success: true,
       message: "Retrieved matching organizations successfully",
@@ -102,6 +107,7 @@ export class OrganizationsController {
     @Param("id") id: string,
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<Response<ShortOrg> | ResponseWithNoData> {
+    this.logger.log(`/organizations/${id}`);
     const result = await this.organizationsService.getOrgById(id);
 
     if (result === undefined) {
@@ -125,6 +131,9 @@ export class OrganizationsController {
       "Uploads an organizations logo and returns the url to the cloud file",
     schema: responseSchemaWrapper({ type: "string" }),
   })
+  @ApiInternalServerErrorResponse({
+    description: "There was an error uploading the logo",
+  })
   async uploadLogo(
     @UploadedFile(
       new ParseFilePipeBuilder().build({
@@ -132,9 +141,14 @@ export class OrganizationsController {
       }),
     )
     file: Express.Multer.File,
-  ): Promise<Response<string>> {
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ): Promise<Response<string> | ResponseWithNoData> {
+    this.logger.log(`/organizations/upload-logo`);
     try {
-      console.log("Uploading logo to IPFS: ", file.originalname);
+      this.logger.log(
+        "/organizations/upload-logo Uploading logo to IPFS: ",
+        file.originalname,
+      );
       const type = mime.getType(file.originalname);
       const fileForUpload = new File([file.buffer], file.originalname, {
         type,
@@ -161,16 +175,21 @@ export class OrganizationsController {
         "https://ipfs.io/ipfs/",
       );
 
-      console.log(`Logo uploaded to ${httpsImageUrl}`);
+      this.logger.log(
+        `/organizations/upload-logo Logo uploaded to ${httpsImageUrl}`,
+      );
       return {
         success: true,
         message: `Logo uploaded successfully!`,
         data: httpsImageUrl,
       };
     } catch (err) {
-      // Handle the error as needed
-      console.error(err);
-      throw new Error("Failed to upload the file");
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR);
+      this.logger.error(`/organizations/upload-logo ${err.message}`);
+      return {
+        success: false,
+        message: `Logo upload failed!`,
+      };
     }
   }
 
@@ -190,6 +209,7 @@ export class OrganizationsController {
     @Body() body: CreateOrganizationInput,
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<Response<Organization> | ResponseWithNoData> {
+    this.logger.log(`/organizations/create ${JSON.stringify(body)}`);
     const result = await this.backendService.createOrganization(body);
     console.log(result);
     if (result === undefined) {
@@ -223,6 +243,7 @@ export class OrganizationsController {
     @Body() body: UpdateOrganizationInput,
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<Response<Organization> | ResponseWithNoData> {
+    this.logger.log(`/organizations/update ${JSON.stringify(body)}`);
     const result = await this.backendService.updateOrganization(body);
     if (result === undefined) {
       res.status(HttpStatus.UNPROCESSABLE_ENTITY);

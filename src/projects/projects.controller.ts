@@ -15,6 +15,7 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import {
   ApiExtraModels,
+  ApiInternalServerErrorResponse,
   ApiOkResponse,
   ApiUnprocessableEntityResponse,
   getSchemaPath,
@@ -31,6 +32,7 @@ import { ProjectsService } from "./projects.service";
 import { CheckWalletRoles } from "src/shared/types";
 import { NFTStorage, File } from "nft.storage";
 import { ConfigService } from "@nestjs/config";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -39,6 +41,7 @@ const mime = require("mime");
 export class ProjectsController {
   private readonly NFT_STORAGE_API_KEY;
   private readonly nftStorageClient: NFTStorage;
+  logger = new CustomLogger(ProjectsController.name);
 
   constructor(
     private readonly projectsService: ProjectsService,
@@ -61,6 +64,7 @@ export class ProjectsController {
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
   })
   async getProjects(): Promise<Response<Project[]>> {
+    this.logger.log(`/projects`);
     return this.projectsService.getProjects().then(res => ({
       success: true,
       message: "Retrieved all projects successfully",
@@ -78,6 +82,7 @@ export class ProjectsController {
   async getProjectsByCategory(
     @Param("category") category: string,
   ): Promise<Response<Project[]>> {
+    this.logger.log(`/projects/category/${category}`);
     return this.projectsService.getProjectsByCategory(category).then(res => ({
       success: true,
       message: "Retrieved all projects in category successfully",
@@ -95,6 +100,7 @@ export class ProjectsController {
   async getProjectsByOrgId(
     @Param("id") id: string,
   ): Promise<Response<Project[]>> {
+    this.logger.log(`/projects/all/${id}`);
     return this.projectsService.getProjectsByOrgId(id).then(res => ({
       success: true,
       message: "Retrieved all organization projects successfully",
@@ -112,6 +118,7 @@ export class ProjectsController {
   async searchProjects(
     @Query("query") query: string,
   ): Promise<Response<Project[]>> {
+    this.logger.log(`/projects/search?query=${query}`);
     return this.projectsService.searchProjects(query).then(res => ({
       success: true,
       message: "Retrieved matching projects successfully",
@@ -129,6 +136,7 @@ export class ProjectsController {
     @Param("id") id: string,
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<Response<Project> | ResponseWithNoData> {
+    this.logger.log(`/projects/${id}`);
     const result = await this.projectsService.getProjectById(id);
 
     if (result === undefined) {
@@ -152,6 +160,9 @@ export class ProjectsController {
       "Uploads an projects logo and returns the url to the cloud file",
     schema: responseSchemaWrapper({ type: "string" }),
   })
+  @ApiInternalServerErrorResponse({
+    description: "There was an error uploading the logo",
+  })
   async uploadLogo(
     @UploadedFile(
       new ParseFilePipeBuilder().build({
@@ -159,9 +170,13 @@ export class ProjectsController {
       }),
     )
     file: Express.Multer.File,
-  ): Promise<Response<string>> {
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ): Promise<Response<string> | ResponseWithNoData> {
     try {
-      console.log("Uploading logo to IPFS: ", file.originalname);
+      this.logger.log(
+        "/projects/upload-logo Uploading logo to IPFS: ",
+        file.originalname,
+      );
       const type = mime.getType(file.originalname);
       const fileForUpload = new File([file.buffer], file.originalname, {
         type,
@@ -188,16 +203,18 @@ export class ProjectsController {
         "https://ipfs.io/ipfs/",
       );
 
-      console.log(`Logo uploaded to ${httpsImageUrl}`);
+      this.logger.log(
+        `/projects/upload-logo Logo uploaded to ${httpsImageUrl}`,
+      );
       return {
         success: true,
         message: `Logo uploaded successfully!`,
         data: httpsImageUrl,
       };
     } catch (err) {
-      // Handle the error as needed
-      console.error(err);
-      throw new Error("Failed to upload the file");
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR);
+      this.logger.error(`/projects/upload-logo ${err.message}`);
+      return { success: false, message: "Failed to upload the file" };
     }
   }
 
@@ -217,6 +234,7 @@ export class ProjectsController {
     @Body() body: CreateProjectInput,
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<Response<Project> | ResponseWithNoData> {
+    this.logger.log(`/projects/create ${JSON.stringify(body)}`);
     const result = await this.backendService.createProject(body);
     if (result === undefined) {
       res.status(HttpStatus.UNPROCESSABLE_ENTITY);
@@ -249,6 +267,7 @@ export class ProjectsController {
     @Body() body: UpdateProjectInput,
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<Response<Project> | ResponseWithNoData> {
+    this.logger.log(`/projects/update ${JSON.stringify(body)}`);
     const result = await this.backendService.updateProject(body);
     if (result === undefined) {
       res.status(HttpStatus.UNPROCESSABLE_ENTITY);

@@ -27,10 +27,12 @@ import { UserService } from "../user/user.service";
 
 import axios from "axios";
 import { responseSchemaWrapper } from "src/shared/helpers";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Controller("github")
 @ApiExtraModels(User)
 export class GithubController {
+  logger = new CustomLogger(GithubController.name);
   private readonly ghConfig: GithubConfig;
   constructor(
     private readonly backendService: BackendService,
@@ -59,6 +61,7 @@ export class GithubController {
   @Get("trigger-dev-github-oauth")
   @Redirect("https://github.com/login/oauth/authorize", 301)
   triggerGithubDevOauth(): { url: string } {
+    this.logger.log("/github/trigger-dev-github-oauth");
     return {
       url: `https://github.com/login/oauth/authorize?scope=${this.ghConfig.dev.scope.join(
         ",",
@@ -69,6 +72,7 @@ export class GithubController {
   @Get("trigger-org-github-oauth")
   @Redirect("https://github.com/login/oauth/authorize", 301)
   triggerOrgGithubOauth(): { url: string } {
+    this.logger.log("/github/trigger-org-github-oauth");
     return {
       url: `https://github.com/login/oauth/authorize?scope=${this.ghConfig.org.scope.join(
         ",",
@@ -88,6 +92,7 @@ export class GithubController {
   async githubLogin(
     @Body() body: GithubLoginInput,
   ): Promise<Response<User> | undefined> {
+    this.logger.log("/github/github-login");
     const { wallet, code, role } = body;
     const userByWallet = await this.userService.findByWallet(wallet);
 
