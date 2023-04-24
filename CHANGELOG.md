@@ -1,3 +1,10 @@
+## [1.23.2](https://github.com/jobstash/middleware/compare/v1.23.1...v1.23.2) (2023-04-24)
+
+
+### Bug Fixes
+
+* **logging:** log the shit out of stuff ([3203719](https://github.com/jobstash/middleware/commit/3203719694bf7e69079b437534436200a50d1bdd))
+
 ## [1.23.1](https://github.com/jobstash/middleware/compare/v1.23.0...v1.23.1) (2023-04-19)
 
 
