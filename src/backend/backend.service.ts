@@ -18,6 +18,7 @@ import { CreatePairedTermsInput } from "src/technologies/dto/create-paired-terms
 import { CreatePreferredTermInput } from "src/technologies/dto/create-preferred-term.input";
 import { DeletePreferredTermInput } from "src/technologies/dto/delete-preferred-term.input";
 import { SetBlockedTermInput } from "src/technologies/dto/set-blocked-term.input";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 
 export interface GithubLoginInput {
   githubAccessToken: string;
@@ -33,6 +34,8 @@ export interface GithubLoginInput {
 
 @Injectable()
 export class BackendService {
+  logger = new CustomLogger(BackendService.name);
+
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
@@ -40,6 +43,8 @@ export class BackendService {
 
   private async getOrRefreshClient(): Promise<AxiosInstance> {
     const token = await this.authService.getBackendCredentialsGrantToken();
+    this.logger.log(`Token for request: ${token}`);
+
     return axios.create({
       baseURL: this.configService.get<string>("BACKEND_API_URL"),
       headers: {
@@ -53,6 +58,8 @@ export class BackendService {
 
   async addGithubInfoToUser(args: GithubLoginInput): Promise<User | undefined> {
     const client = await this.getOrRefreshClient();
+    this.logger.log(`/user/addGithubInfoToUser: ${args}`);
+
     return client.post("/user/addGithubInfoToUser", args).then(res => {
       const data = res.data;
       if (data.status === "success") {
@@ -65,6 +72,7 @@ export class BackendService {
 
   async createSIWEUser(address: string): Promise<User | undefined> {
     const client = await this.getOrRefreshClient();
+    this.logger.log(`/user/createUser: ${address}`);
     return client.post("/user/createUser", { wallet: address }).then(res => {
       const data = res.data;
       if (data.status === "success") {
@@ -79,6 +87,8 @@ export class BackendService {
     input: CreateOrganizationInput,
   ): Promise<Organization | undefined> {
     const client = await this.getOrRefreshClient();
+    this.logger.log(`/organization/create: ${input}`);
+
     return client.post("/organization/create", input).then(res => {
       const data = res.data;
       if (data.success === true && data.data) {
@@ -93,6 +103,8 @@ export class BackendService {
     input: UpdateOrganizationInput,
   ): Promise<Organization | undefined> {
     const client = await this.getOrRefreshClient();
+    this.logger.log(`/organization/update: ${input}`);
+
     return client.post("/organization/update", input).then(res => {
       const data = res.data;
       if (data.success === true && data.data) {
@@ -105,6 +117,8 @@ export class BackendService {
 
   async createProject(input: CreateProjectInput): Promise<Project | undefined> {
     const client = await this.getOrRefreshClient();
+    this.logger.log(`/project/create: ${input}`);
+
     return client.post("/project/create", input).then(res => {
       const data = res.data;
       if (data.status === "success") {
@@ -117,6 +131,8 @@ export class BackendService {
 
   async updateProject(input: UpdateProjectInput): Promise<Project | undefined> {
     const client = await this.getOrRefreshClient();
+    this.logger.log(`/project/update: ${input}`);
+
     return client.post("/project/update", input).then(res => {
       const data = res.data;
       if (data.status === "success") {
@@ -131,6 +147,8 @@ export class BackendService {
     input: SetBlockedTermInput,
   ): Promise<Response<boolean> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
+    this.logger.log(`/technology/createBlockedTechnologyTerm: ${input}`);
+
     return client
       .post("/technology/createBlockedTechnologyTerm", input)
       .then(res => {
@@ -147,6 +165,8 @@ export class BackendService {
     input: CreatePreferredTermInput,
   ): Promise<Response<PreferredTerm> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
+    this.logger.log(`/technology/createPreferredTechnologyTerm: ${input}`);
+
     return client
       .post("/technology/createPreferredTechnologyTerm", input)
       .then(res => {
@@ -163,6 +183,8 @@ export class BackendService {
     input: CreatePairedTermsInput,
   ): Promise<Response<boolean> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
+    this.logger.log(`/technology/pairTerms: ${input}`);
+
     return client.post("/technology/pairTerms", input).then(res => {
       const data = res.data;
       if (data.success) {
@@ -177,6 +199,8 @@ export class BackendService {
     input: DeletePreferredTermInput,
   ): Promise<Response<PreferredTerm> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
+    this.logger.log(`/technology/deletePreferredTechnologyTerm: ${input}`);
+
     return client
       .post("/technology/deletePreferredTechnologyTerm", input)
       .then(res => {
