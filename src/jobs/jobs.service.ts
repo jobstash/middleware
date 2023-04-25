@@ -171,7 +171,11 @@ export class JobsService {
                     roundVar: "mrfr",
                   })} IS NOT NULL AND`
             }
-            ${params.query ? "j.jobTitle =~ $query AND " : ""}
+            ${
+              params.query
+                ? "j.jobTitle =~ $query OR any(x IN tech WHERE x.name =~ $query) OR o.name =~ $query AND "
+                : ""
+            }
             o.name IS NOT NULL AND o.name <> ""
             WITH o, p, j, tech, cats, auditCount, hackCount, chainCount, audits, hacks, chains, pProps, rounds, investors, mrfr
             CALL {
@@ -321,7 +325,11 @@ export class JobsService {
                       roundVar: "mrfr",
                     })} IS NOT NULL AND`
               }
-              ${params.query ? "j.jobTitle =~ $query AND " : ""}
+              ${
+                params.query
+                  ? "j.jobTitle =~ $query OR any(x IN tech WHERE x.name =~ $query) OR o.name =~ $query AND "
+                  : ""
+              }
               o.name IS NOT NULL AND o.name <> ""
               RETURN { organization: PROPERTIES(o), project: pProps{.*, chains: chains, hacks: hacks, audits: audits}, jobpost: PROPERTIES(j), fundingRounds: rounds, investors: investors, technologies: tech, categories: cats } as results
             } 

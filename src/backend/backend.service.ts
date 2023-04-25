@@ -44,7 +44,7 @@ export class BackendService {
 
   private async getOrRefreshClient(): Promise<AxiosInstance> {
     const token = await this.authService.getBackendCredentialsGrantToken();
-    this.logger.log(`Token for request: ${token}`);
+    this.logger.log(`Token for request: ${token.access_token}`);
 
     return axios.create({
       baseURL: this.configService.get<string>("BACKEND_API_URL"),
@@ -273,18 +273,22 @@ export class BackendService {
               this.logger.error(
                 `BackendService::setBlockedTerm ${err.message}`,
               );
-              return undefined;
+              return err;
             });
 
           const data = res.data;
-          if (data.status === "success") {
+          if (data.success) {
             return {
-              ...data.data,
+              ...data,
               term: technologyName,
             } as Response<boolean> & { term: string };
           } else {
+            this.logger.error(
+              `Error blocking term: ${technologyName}`,
+              data?.message,
+            );
             return {
-              ...data.data,
+              ...data,
               term: technologyName,
             } as ResponseWithNoData & { term: string };
           }
@@ -343,14 +347,14 @@ export class BackendService {
           );
 
           const data = res.data;
-          if (data.status === "success") {
+          if (data.success) {
             return {
-              ...data.data,
+              ...data,
               term: technologyName,
             } as Response<boolean> & { term: string };
           } else {
             return {
-              ...data.data,
+              ...data,
               term: technologyName,
             } as ResponseWithNoData & { term: string };
           }
@@ -403,9 +407,9 @@ export class BackendService {
       .then(res => {
         const data = res.data;
         if (data.success) {
-          return data.data as Response<PreferredTerm>;
+          return data as Response<PreferredTerm>;
         } else {
-          return data.data as ResponseWithNoData;
+          return data as ResponseWithNoData;
         }
       })
       .catch(err => {
@@ -429,16 +433,16 @@ export class BackendService {
     input: CreatePairedTermsInput,
   ): Promise<Response<boolean> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
-    this.logger.log(`/technology/pairTerms: ${input}`);
+    this.logger.log(`/technology/pairTerms: ${JSON.stringify(input)}`);
 
     return client
       .post("/technology/pairTerms", input)
       .then(res => {
         const data = res.data;
         if (data.success) {
-          return data.data as Response<boolean>;
+          return data as Response<boolean>;
         } else {
-          return data.data as ResponseWithNoData;
+          return data as ResponseWithNoData;
         }
       })
       .catch(err => {
@@ -469,9 +473,9 @@ export class BackendService {
       .then(res => {
         const data = res.data;
         if (data.success) {
-          return data.data as Response<PreferredTerm>;
+          return data as Response<PreferredTerm>;
         } else {
-          return data.data as ResponseWithNoData;
+          return data as ResponseWithNoData;
         }
       })
       .catch(err => {
