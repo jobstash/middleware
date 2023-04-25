@@ -57,10 +57,17 @@ export class AuthService {
         return cacheValue;
       } else {
         this.logger.log("Requesting new backend token");
-        const newToken = await this.authClient.clientCredentialsGrant({
-          audience: this.configService.get<string>("AUTH0_AUDIENCE"),
-          scope: "middleware:admin",
-        });
+        const newToken = await this.authClient
+          .clientCredentialsGrant({
+            audience: this.configService.get<string>("AUTH0_AUDIENCE"),
+            scope: "middleware:admin",
+          })
+          .catch(err => {
+            this.logger.error(
+              `Error retrieving backend token from Auth0: ${err.message}`,
+            );
+            return null;
+          });
         await this.cacheManager.set(
           "client-credentials-token",
           newToken,

@@ -41,43 +41,29 @@ export class BackendService {
     private readonly configService: ConfigService,
   ) {}
 
-  private async getOrRefreshClient(retries = 0): Promise<AxiosInstance> {
+  private async getOrRefreshClient(): Promise<AxiosInstance> {
     const token = await this.authService.getBackendCredentialsGrantToken();
-    if (token === undefined && retries < 5) {
-      this.logger.error("Unable to retrieve a backend token. Retrying...");
-      return this.getOrRefreshClient(retries + 1);
-    } else if (token === undefined && retries === 5) {
-      this.logger.error("Unable to retrieve a backend token after 5 tries.");
-      this.logger.error("Proceeding with unauthenticated client.");
-      return axios.create({
-        baseURL: this.configService.get<string>("BACKEND_API_URL"),
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        withCredentials: true,
-      });
-    } else {
-      return axios.create({
-        baseURL: this.configService.get<string>("BACKEND_API_URL"),
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `Bearer ${token?.access_token}`,
-        },
-        withCredentials: true,
-      });
-    }
+    this.logger.log(`Token for request: ${token}`);
+
+    return axios.create({
+      baseURL: this.configService.get<string>("BACKEND_API_URL"),
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Bearer ${token.access_token}`,
+      },
+      withCredentials: true,
+    });
   }
 
   async addGithubInfoToUser(args: GithubLoginInput): Promise<User | undefined> {
     const client = await this.getOrRefreshClient();
-    const info = {
+    const logInfo = {
       ...args,
       githubAccessToken: "[REDACTED]",
       githubRefreshToken: "[REDACTED]",
     };
-    this.logger.log(`/user/addGithubInfoToUser: ${info}`);
+    this.logger.log(`/user/addGithubInfoToUser: ${logInfo}`);
 
     return client.post("/user/addGithubInfoToUser", args).then(res => {
       const data = res.data;
