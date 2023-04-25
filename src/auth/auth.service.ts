@@ -5,6 +5,7 @@ import { InjectAuthentication } from "@twirelab/nestjs-auth0";
 import { AuthenticationClient, TokenResponse } from "auth0";
 import { Cache } from "cache-manager";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import * as Sentry from "@sentry/node";
 
 @Injectable()
 export class AuthService {
@@ -76,7 +77,16 @@ export class AuthService {
         return newToken;
       }
     } catch (err) {
-      this.logger.error(err.message);
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "token-retrieval",
+          source: "auth.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `AuthService::getBackendCredentialsGrantToken ${err.message}`,
+      );
       return undefined;
     }
   }

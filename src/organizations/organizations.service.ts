@@ -1,9 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
 import { ShortOrgEntity, ShortOrg } from "src/shared/types";
+import { CustomLogger } from "src/shared/utils/custom-logger";
+import * as Sentry from "@sentry/node";
 
 @Injectable()
 export class OrganizationsService {
+  logger = new CustomLogger(OrganizationsService.name);
   constructor(private readonly neo4jService: Neo4jService) {}
 
   async getAll(): Promise<ShortOrg[]> {
@@ -30,7 +33,18 @@ export class OrganizationsService {
           const ent = new ShortOrgEntity(record.get("res")).getProperties();
           return ent;
         }),
-      );
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "organizations.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`OrganizationsService::getAll ${err.message}`);
+        return undefined;
+      });
   }
 
   async searchOrganizations(query: string): Promise<ShortOrg[]> {
@@ -58,7 +72,21 @@ export class OrganizationsService {
         res.records.map(record =>
           new ShortOrgEntity(record.get("res")).getProperties(),
         ),
-      );
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "organizations.service",
+          });
+          scope.setExtra("input", query);
+          Sentry.captureException(err);
+        });
+        this.logger.error(
+          `OrganizationsService::searchOrganizations ${err.message}`,
+        );
+        return undefined;
+      });
   }
 
   async getOrgById(id: string): Promise<ShortOrg | undefined> {
@@ -86,6 +114,18 @@ export class OrganizationsService {
         res.records[0]
           ? new ShortOrgEntity(res.records[0].get("res")).getProperties()
           : undefined,
-      );
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "organizations.service",
+          });
+          scope.setExtra("input", id);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`OrganizationsService::getOrgById ${err.message}`);
+        return undefined;
+      });
   }
 }

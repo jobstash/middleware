@@ -33,6 +33,7 @@ import { CheckWalletRoles } from "src/shared/types";
 import { NFTStorage, File } from "nft.storage";
 import { ConfigService } from "@nestjs/config";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import * as Sentry from "@sentry/node";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -213,6 +214,13 @@ export class ProjectsController {
       };
     } catch (err) {
       res.status(HttpStatus.INTERNAL_SERVER_ERROR);
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "image-upload",
+          source: "projects.controller",
+        });
+        Sentry.captureException(err);
+      });
       this.logger.error(`/projects/upload-logo ${err.message}`);
       return { success: false, message: "Failed to upload the file" };
     }

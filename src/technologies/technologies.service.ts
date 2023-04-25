@@ -3,9 +3,12 @@ import { Neo4jService } from "nest-neo4j";
 import { TechnologyPreferredTermEntity } from "src/shared/entities/technology-preferred-term.entity";
 import { TechnologyPreferredTerm } from "src/shared/interfaces/technology-preferred-term.interface";
 import { PairedTerm, Technology } from "src/shared/types";
+import { CustomLogger } from "src/shared/utils/custom-logger";
+import * as Sentry from "@sentry/node";
 
 @Injectable()
 export class TechnologiesService {
+  logger = new CustomLogger(TechnologiesService.name);
   constructor(private readonly neo4jService: Neo4jService) {}
 
   async getAll(): Promise<Technology[]> {
@@ -21,7 +24,18 @@ export class TechnologiesService {
       )
       .then(res =>
         res.records.map(record => record.get("t").properties as Technology),
-      );
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "technologies.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`TechnologiesService::getAll ${err.message}`);
+        return undefined;
+      });
   }
 
   async getBlockedTerms(): Promise<Technology[]> {
@@ -35,7 +49,20 @@ export class TechnologiesService {
       )
       .then(res =>
         res.records.map(record => record.get("t").properties as Technology),
-      );
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "technologies.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(
+          `TechnologiesService::getBlockedTerms ${err.message}`,
+        );
+        return undefined;
+      });
   }
 
   async getPreferredTerms(): Promise<TechnologyPreferredTerm[]> {
@@ -59,7 +86,20 @@ export class TechnologiesService {
             record.get("res").properties,
           ).getProperties(),
         ),
-      );
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "technologies.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(
+          `TechnologiesService::getPreferredTerms ${err.message}`,
+        );
+        return undefined;
+      });
   }
 
   async getPairedTerms(): Promise<PairedTerm[]> {
@@ -76,6 +116,17 @@ export class TechnologiesService {
       )
       .then(res =>
         res.records.map(record => record.get("res").properties as PairedTerm),
-      );
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "technologies.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`TechnologiesService::getPairedTerms ${err.message}`);
+        return undefined;
+      });
   }
 }
