@@ -15,9 +15,12 @@ import {
   PaginatedData,
 } from "src/shared/types";
 import { SearchJobsListParams } from "./dto/search-jobs.input";
+import * as Sentry from "@sentry/node";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Injectable()
 export class JobsService {
+  logger = new CustomLogger(JobsService.name);
   constructor(private readonly neo4jService: Neo4jService) {}
 
   async getJobsListWithSearch(
@@ -372,6 +375,18 @@ export class JobsService {
               new JobListResultEntity(record).getProperties(),
             ) ?? [],
         };
+      })
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "jobs.service",
+          });
+          scope.setExtra("input", params);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`JobsService::getAll ${err.message}`);
+        return undefined;
       });
   }
 
@@ -424,7 +439,18 @@ export class JobsService {
               res.records[0].get("res"),
             ).getProperties()
           : undefined,
-      );
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "jobs.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`JobsService::getFilterConfigs ${err.message}`);
+        return undefined;
+      });
   }
 
   async getJobDetailsByUuid(uuid: string): Promise<JobListResult | undefined> {
@@ -450,7 +476,19 @@ export class JobsService {
         res.records.length
           ? new JobListResultEntity(res.records[0].get("res")).getProperties()
           : undefined,
-      );
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "jobs.service",
+          });
+          scope.setExtra("input", uuid);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`JobsService::getJobDetailsByUuid ${err.message}`);
+        return undefined;
+      });
   }
 
   async getJobsByOrgUuid(uuid: string): Promise<JobListResult[] | undefined> {
@@ -478,6 +516,18 @@ export class JobsService {
               new JobListResultEntity(record.get("res")).getProperties(),
             )
           : undefined,
-      );
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "jobs.service",
+          });
+          scope.setExtra("input", uuid);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`JobsService::getJobsByOrgUuid ${err.message}`);
+        return undefined;
+      });
   }
 }

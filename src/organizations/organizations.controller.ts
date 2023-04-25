@@ -38,6 +38,7 @@ import { CheckWalletRoles } from "src/shared/types";
 import { NFTStorage, File } from "nft.storage";
 import { ConfigService } from "@nestjs/config";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import * as Sentry from "@sentry/node";
 // import mime from "mime";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
@@ -185,6 +186,13 @@ export class OrganizationsController {
       };
     } catch (err) {
       res.status(HttpStatus.INTERNAL_SERVER_ERROR);
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "image-upload",
+          source: "organizations.controller",
+        });
+        Sentry.captureException(err);
+      });
       this.logger.error(`/organizations/upload-logo ${err.message}`);
       return {
         success: false,

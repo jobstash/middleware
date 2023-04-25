@@ -1,9 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
 import { Project } from "src/shared/types";
+import { CustomLogger } from "src/shared/utils/custom-logger";
+import * as Sentry from "@sentry/node";
 
 @Injectable()
 export class ProjectsService {
+  logger = new CustomLogger(ProjectsService.name);
   constructor(private readonly neo4jService: Neo4jService) {}
 
   async getProjectsByOrgId(id: string): Promise<Project[] | undefined> {
@@ -17,7 +20,19 @@ export class ProjectsService {
         `,
         { id },
       )
-      .then(res => res.records.map(record => record.get("res") as Project));
+      .then(res => res.records.map(record => record.get("res") as Project))
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "projects.service",
+          });
+          scope.setExtra("input", id);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`ProjectsService::getProjectByOrgId ${err.message}`);
+        return undefined;
+      });
   }
 
   async getProjects(): Promise<Project[]> {
@@ -28,7 +43,18 @@ export class ProjectsService {
         RETURN PROPERTIES(p) as res
         `,
       )
-      .then(res => res.records.map(record => record.get("res") as Project));
+      .then(res => res.records.map(record => record.get("res") as Project))
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "projects.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`ProjectsService::getProjects ${err.message}`);
+        return undefined;
+      });
   }
 
   async getProjectsByCategory(category: string): Promise<Project[]> {
@@ -40,7 +66,21 @@ export class ProjectsService {
         `,
         { category },
       )
-      .then(res => res.records.map(record => record.get("res") as Project));
+      .then(res => res.records.map(record => record.get("res") as Project))
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "projects.service",
+          });
+          scope.setExtra("input", category);
+          Sentry.captureException(err);
+        });
+        this.logger.error(
+          `ProjectsService::getProjectsByCategory ${err.message}`,
+        );
+        return undefined;
+      });
   }
 
   async searchProjects(query: string): Promise<Project[]> {
@@ -53,7 +93,19 @@ export class ProjectsService {
         `,
         { query },
       )
-      .then(res => res.records.map(record => record.get("res") as Project));
+      .then(res => res.records.map(record => record.get("res") as Project))
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "projects.service",
+          });
+          scope.setExtra("input", query);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`ProjectsService::searchProjects ${err.message}`);
+        return undefined;
+      });
   }
 
   async getProjectById(id: string): Promise<Project | undefined> {
@@ -68,6 +120,18 @@ export class ProjectsService {
       )
       .then(res =>
         res.records[0] ? (res.records[0].get("res") as Project) : undefined,
-      );
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "projects.service",
+          });
+          scope.setExtra("input", id);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`ProjectsService::getProjectById ${err.message}`);
+        return undefined;
+      });
   }
 }
