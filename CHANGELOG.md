@@ -1,3 +1,10 @@
+## [1.23.5](https://github.com/jobstash/middleware/compare/v1.23.4...v1.23.5) (2023-04-25)
+
+
+### Bug Fixes
+
+* **backend.service:** beefed up error handling a bit more ([#67](https://github.com/jobstash/middleware/issues/67)) ([50840e1](https://github.com/jobstash/middleware/commit/50840e1564ee713cc4f79d846e3c49e7d6c9f4c9))
+
 ## [1.23.4](https://github.com/jobstash/middleware/compare/v1.23.3...v1.23.4) (2023-04-25)
 
 
