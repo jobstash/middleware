@@ -4,10 +4,12 @@ import { ConfigService } from "@nestjs/config";
 import { InjectAuthentication } from "@twirelab/nestjs-auth0";
 import { AuthenticationClient, TokenResponse } from "auth0";
 import { Cache } from "cache-manager";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Injectable()
 export class AuthService {
   private readonly jwtConfig: object;
+  logger = new CustomLogger(AuthService.name);
   constructor(
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
@@ -45,23 +47,37 @@ export class AuthService {
     }
   }
 
-  async getBackendCredentialsGrantToken(): Promise<TokenResponse> {
-    const cacheValue = await this.cacheManager.get<TokenResponse>(
-      "client-credentials-token",
-    );
-    if (cacheValue !== null && cacheValue !== undefined) {
-      return cacheValue;
-    } else {
-      const newToken = await this.authClient.clientCredentialsGrant({
-        audience: this.configService.get<string>("AUTH0_AUDIENCE"),
-        scope: "middleware:admin",
-      });
-      await this.cacheManager.set(
+  async getBackendCredentialsGrantToken(): Promise<TokenResponse | undefined> {
+    try {
+      const cacheValue = await this.cacheManager.get<TokenResponse>(
         "client-credentials-token",
-        newToken,
-        newToken.expires_in * 1000,
       );
-      return newToken;
+      if (cacheValue !== null && cacheValue !== undefined) {
+        this.logger.log("Found cached backend token");
+        return cacheValue;
+      } else {
+        this.logger.log("Requesting new backend token");
+        const newToken = await this.authClient
+          .clientCredentialsGrant({
+            audience: this.configService.get<string>("AUTH0_AUDIENCE"),
+            scope: "middleware:admin",
+          })
+          .catch(err => {
+            this.logger.error(
+              `Error retrieving backend token from Auth0: ${err.message}`,
+            );
+            return null;
+          });
+        await this.cacheManager.set(
+          "client-credentials-token",
+          newToken,
+          newToken.expires_in * 1000,
+        );
+        return newToken;
+      }
+    } catch (err) {
+      this.logger.error(err.message);
+      return undefined;
     }
   }
 }

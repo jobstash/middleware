@@ -39,7 +39,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 @Controller("siwe")
 @ApiExtraModels(SessionObject, User)
 export class SiweController {
-  logger = new CustomLogger(BackendService.name);
+  logger = new CustomLogger(SiweController.name);
   private readonly sessionConfig: IronSessionOptions;
   constructor(
     private readonly backendService: BackendService,
@@ -73,9 +73,32 @@ export class SiweController {
       TSessionData & {
         nonce?: string;
         address?: string;
+        token?: string;
+        role?: string;
+        flow?: string;
         chainId?: number;
       };
     return session;
+  }
+
+  private getLoggableSession<
+    TSessionData extends Record<string, unknown> = Record<string, unknown>,
+  >(
+    session: IronSession &
+      TSessionData & {
+        nonce?: string;
+        address?: string;
+        token?: string;
+        role?: string;
+        flow?: string;
+        chainId?: number;
+      },
+  ): IronSession & TSessionData {
+    return {
+      ...session,
+      nonce: "[REDACTED]",
+      token: "[REDACTED]",
+    };
   }
 
   @Get("nonce")
@@ -88,7 +111,9 @@ export class SiweController {
     @Res() res: ExpressResponse,
   ): Promise<void> {
     const session = await this.getSession(req, res, this.sessionConfig);
-    this.logger.log(`/siwe/nonce: ${JSON.stringify(session)}`);
+    this.logger.log(
+      `/siwe/nonce: ${JSON.stringify(this.getLoggableSession(session))}`,
+    );
 
     if (!session.nonce) {
       session.nonce = generateNonce();
@@ -119,7 +144,7 @@ export class SiweController {
       res,
       this.sessionConfig,
     );
-    this.logger.log(`/siwe/nonce: ${address}, ${chainId}, ${role})}`);
+    this.logger.log(`/siwe/nonce: ${address}, ${chainId}, ${role}`);
     res.send({
       success: true,
       message: "Session retrieved successfully",
@@ -140,7 +165,9 @@ export class SiweController {
     @Res() res: ExpressResponse,
   ): Promise<void> {
     const session = await this.getSession(req, res, this.sessionConfig);
-    this.logger.log(`/siwe/logout: ${JSON.stringify(session)})}`);
+    this.logger.log(
+      `/siwe/logout: ${JSON.stringify(this.getLoggableSession(session))}`,
+    );
     session.destroy();
     res.status(HttpStatus.OK).end();
   }
@@ -168,14 +195,15 @@ export class SiweController {
     @Body() body: VerifyMessageInput,
   ): Promise<ResponseWithNoData> {
     try {
-      this.logger.log(`/siwe/verify`);
       const provider = new AlchemyProvider(
         1,
         this.configService.get<string>("ALCHEMY_API_KEY"),
       );
 
       const session = await this.getSession(req, res, this.sessionConfig);
-      this.logger.log(`/siwe/verify, ${JSON.stringify(session)})}}`);
+      this.logger.log(
+        `/siwe/verify ${JSON.stringify(this.getLoggableSession(session))}`,
+      );
       const { message, signature } = body;
       const siweMessage = new SiweMessage(message);
       const fields = await siweMessage.validate(signature, provider);
@@ -196,6 +224,7 @@ export class SiweController {
 
       res.status(HttpStatus.OK).end();
     } catch (error) {
+      this.logger.error(`/siwe/verify`);
       Sentry.withScope(scope => {
         scope.setTag("message", body.message);
         scope.setTag("signature", body.signature);
@@ -230,7 +259,11 @@ export class SiweController {
   ): Promise<void> {
     try {
       const session = await this.getSession(req, res, this.sessionConfig);
-      this.logger.log(`/siwe/verify, ${JSON.stringify(session)})}}`);
+      this.logger.log(
+        `/siwe/check-wallet ${JSON.stringify(
+          this.getLoggableSession(session),
+        )}`,
+      );
 
       if (session.address === undefined || session.address === null) {
         res.status(HttpStatus.OK);
@@ -279,6 +312,7 @@ export class SiweController {
         });
       }
     } catch (error) {
+      this.logger.error(`/siwe/check-wallet`);
       Sentry.captureException(error);
       res.status(HttpStatus.BAD_REQUEST);
       res.send({ success: false, message: error.message });

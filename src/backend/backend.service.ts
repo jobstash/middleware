@@ -58,7 +58,12 @@ export class BackendService {
 
   async addGithubInfoToUser(args: GithubLoginInput): Promise<User | undefined> {
     const client = await this.getOrRefreshClient();
-    this.logger.log(`/user/addGithubInfoToUser: ${args}`);
+    const logInfo = {
+      ...args,
+      githubAccessToken: "[REDACTED]",
+      githubRefreshToken: "[REDACTED]",
+    };
+    this.logger.log(`/user/addGithubInfoToUser: ${logInfo}`);
 
     return client.post("/user/addGithubInfoToUser", args).then(res => {
       const data = res.data;
@@ -73,7 +78,6 @@ export class BackendService {
   async createSIWEUser(address: string): Promise<User | undefined> {
     const client = await this.getOrRefreshClient();
     this.logger.log(`/user/createUser: ${address}`);
-    this.logger.log(`/user/createUser: ${JSON.stringify(client)}`);
     return client.post("/user/createUser", { wallet: address }).then(res => {
       const data = res.data;
       if (data.status === "success") {

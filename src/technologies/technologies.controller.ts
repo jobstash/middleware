@@ -18,9 +18,11 @@ import { TechnologyPreferredTerm } from "src/shared/interfaces/technology-prefer
 import { CreatePreferredTermInput } from "./dto/create-preferred-term.input";
 import { DeletePreferredTermInput } from "./dto/delete-preferred-term.input";
 import { CreatePairedTermsInput } from "./dto/create-paired-terms.input";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 @Controller("technologies")
 @ApiExtraModels(TechnologyPreferredTerm, PreferredTerm)
 export class TechnologiesController {
+  logger = new CustomLogger(TechnologiesController.name);
   constructor(
     private readonly technologiesService: TechnologiesService,
     private readonly backendService: BackendService,
@@ -34,6 +36,7 @@ export class TechnologiesController {
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Technology) }),
   })
   async getTechnologies(): Promise<Response<Technology[]>> {
+    this.logger.log(`/technologies`);
     return this.technologiesService.getAll().then(res => ({
       success: true,
       message: "Retrieved all technologies",
@@ -49,6 +52,7 @@ export class TechnologiesController {
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Technology) }),
   })
   async getBlockedTerms(): Promise<Response<Technology[]>> {
+    this.logger.log(`/technologies/blocked-terms`);
     return this.technologiesService.getBlockedTerms().then(res => ({
       success: true,
       message: "Retrieved all blocked terms",
@@ -66,6 +70,7 @@ export class TechnologiesController {
   async setBlockedTerm(
     @Body() input: SetBlockedTermInput,
   ): Promise<Response<boolean> | ResponseWithNoData> {
+    this.logger.log(`/technologies/set-blocked-term ${JSON.stringify(input)}`);
     return this.backendService.setBlockedTerm(input);
   }
 
@@ -79,6 +84,7 @@ export class TechnologiesController {
     }),
   })
   async getPreferredTerms(): Promise<Response<TechnologyPreferredTerm[]>> {
+    this.logger.log(`/technologies/preferred-terms`);
     return this.technologiesService.getPreferredTerms().then(res => ({
       success: true,
       message: "Retrieved all preferred terms",
@@ -96,6 +102,7 @@ export class TechnologiesController {
     }),
   })
   async getPairedTerms(): Promise<Response<PairedTerm[]>> {
+    this.logger.log(`/technologies/paired-terms`);
     return this.technologiesService.getPairedTerms().then(res => ({
       success: true,
       message: "Retrieved all paired terms",
@@ -113,6 +120,9 @@ export class TechnologiesController {
   async createPairedTerms(
     @Body() input: CreatePairedTermsInput,
   ): Promise<Response<boolean> | ResponseWithNoData> {
+    this.logger.log(
+      `/technologies/create-paired-terms ${JSON.stringify(input)}`,
+    );
     return this.backendService.createPairedTerms(input);
   }
 
@@ -126,6 +136,9 @@ export class TechnologiesController {
   async createPreferredTerm(
     @Body() input: CreatePreferredTermInput,
   ): Promise<Response<PreferredTerm> | ResponseWithNoData> {
+    this.logger.log(
+      `/technologies/create-preferred-term ${JSON.stringify(input)}`,
+    );
     return this.backendService.createPreferredTerm(input);
   }
 
@@ -139,6 +152,9 @@ export class TechnologiesController {
   async deletePreferredTerm(
     @Body() input: DeletePreferredTermInput,
   ): Promise<Response<PreferredTerm> | ResponseWithNoData> {
+    this.logger.log(
+      `/technologies/delete-preferred-term ${JSON.stringify(input)}`,
+    );
     return this.backendService.deletePreferredTerm(input);
   }
 }
