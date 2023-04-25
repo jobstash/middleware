@@ -38,10 +38,10 @@ export class JobsController {
   @ApiOkResponse({
     description:
       "Returns a paginated sorted list of jobs that satisfy the search and filter predicate",
-    type: Response<PaginatedData<JobListResult>>,
+    type: PaginatedData<JobListResult>,
     schema: {
       allOf: [
-        responseSchemaWrapper({
+        {
           $ref: getSchemaPath(PaginatedData),
           properties: {
             page: {
@@ -55,7 +55,7 @@ export class JobsController {
               items: { $ref: getSchemaPath(JobListResult) },
             },
           },
-        }),
+        },
       ],
     },
   })
@@ -73,13 +73,9 @@ export class JobsController {
   async getJobsListWithSearch(
     @Query(new ValidationPipe({ transform: true }))
     params: SearchJobsListParams,
-  ): Promise<Response<PaginatedData<JobListResult>>> {
+  ): Promise<PaginatedData<JobListResult>> {
     this.logger.log(`/jobs/list ${JSON.stringify(params)}`);
-    return {
-      success: true,
-      message: "Retrieved jobs list successfully",
-      data: await this.jobsService.getJobsListWithSearch(params),
-    };
+    return this.jobsService.getJobsListWithSearch(params);
   }
 
   @Get("/filters")
