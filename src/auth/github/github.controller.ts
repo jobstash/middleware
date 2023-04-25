@@ -91,7 +91,7 @@ export class GithubController {
   })
   async githubLogin(
     @Body() body: GithubLoginInput,
-  ): Promise<Response<User> | undefined> {
+  ): Promise<Response<User> | ResponseWithNoData> {
     this.logger.log("/github/github-login");
     const { wallet, code, role } = body;
     const userByWallet = await this.userService.findByWallet(wallet);
@@ -131,26 +131,18 @@ export class GithubController {
         },
       );
 
-      return this.backendService
-        .addGithubInfoToUser({
-          githubAccessToken: accessToken,
-          githubRefreshToken: "", // TODO: where do we get this? tokenData does not return this
-          githubLogin: profileData.login,
-          githubId: profileData.id,
-          githubNodeId: profileData.node_id,
-          githubGravatarId:
-            profileData.gravatar_id === ""
-              ? undefined
-              : profileData.gravatar_id,
-          githubAvatarUrl: profileData.avatar_url,
-          wallet: wallet,
-          role: role,
-        })
-        .then(res => ({
-          success: true,
-          message: "Github profile added to user account successfully",
-          data: res,
-        }));
+      return await this.backendService.addGithubInfoToUser({
+        githubAccessToken: accessToken,
+        githubRefreshToken: "", // TODO: where do we get this? tokenData does not return this
+        githubLogin: profileData.login,
+        githubId: profileData.id,
+        githubNodeId: profileData.node_id,
+        githubGravatarId:
+          profileData.gravatar_id === "" ? undefined : profileData.gravatar_id,
+        githubAvatarUrl: profileData.avatar_url,
+        wallet: wallet,
+        role: role,
+      });
     } else {
       //TODO: Why does this feel like it leaks/doxxes users?
       return {
