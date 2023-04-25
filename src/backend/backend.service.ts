@@ -243,13 +243,25 @@ export class BackendService {
         this.logger.log(`Attempting to block term: ${technologyName}`);
 
         try {
-          const res = await client.post(
-            "/technology/createBlockedTechnologyTerm",
-            {
+          const res = await client
+            .post("/technology/createBlockedTechnologyTerm", {
               technologyName: technologyName,
               creatorWallet: input.creatorWallet,
-            },
-          );
+            })
+            .catch(err => {
+              Sentry.withScope(scope => {
+                scope.setTags({
+                  action: "service-request-pipeline",
+                  source: "backend.service",
+                });
+                scope.setExtra("input", input);
+                Sentry.captureException(err);
+              });
+              this.logger.error(
+                `BackendService::setBlockedTerm ${err.message}`,
+              );
+              return undefined;
+            });
 
           const data = res.data;
           if (data.status === "success") {
@@ -271,18 +283,6 @@ export class BackendService {
             term: technologyName,
           } as ResponseWithNoData & { term: string };
         }
-      })
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "service-request-pipeline",
-            source: "backend.service",
-          });
-          scope.setExtra("input", input);
-          Sentry.captureException(err);
-        });
-        this.logger.error(`BackendService::setBlockedTerm ${err.message}`);
-        return undefined;
       });
 
       const results = await Promise.all(promises);
