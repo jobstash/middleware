@@ -19,6 +19,7 @@ import { CreatePreferredTermInput } from "src/technologies/dto/create-preferred-
 import { DeletePreferredTermInput } from "src/technologies/dto/delete-preferred-term.input";
 import { SetBlockedTermInput } from "src/technologies/dto/set-blocked-term.input";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import * as Sentry from "@sentry/node";
 
 export interface GithubLoginInput {
   githubAccessToken: string;
@@ -65,27 +66,55 @@ export class BackendService {
     };
     this.logger.log(`/user/addGithubInfoToUser: ${logInfo}`);
 
-    return client.post("/user/addGithubInfoToUser", args).then(res => {
-      const data = res.data;
-      if (data.status === "success") {
-        return data as User;
-      } else {
+    return client
+      .post("/user/addGithubInfoToUser", args)
+      .then(res => {
+        const data = res.data;
+        if (data.status === "success") {
+          return data as User;
+        } else {
+          return undefined;
+        }
+      })
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-request-pipeline",
+            source: "backend.service",
+          });
+          scope.setExtra("input", logInfo);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`BackendService::addGithubInfoToUser ${err.message}`);
         return undefined;
-      }
-    });
+      });
   }
 
   async createSIWEUser(address: string): Promise<User | undefined> {
     const client = await this.getOrRefreshClient();
     this.logger.log(`/user/createUser: ${address}`);
-    return client.post("/user/createUser", { wallet: address }).then(res => {
-      const data = res.data;
-      if (data.status === "success") {
-        return data as User;
-      } else {
+    return client
+      .post("/user/createUser", { wallet: address })
+      .then(res => {
+        const data = res.data;
+        if (data.status === "success") {
+          return data as User;
+        } else {
+          return undefined;
+        }
+      })
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-request-pipeline",
+            source: "backend.service",
+          });
+          scope.setExtra("input", address);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`BackendService::createSIWEUser ${err.message}`);
         return undefined;
-      }
-    });
+      });
   }
 
   async createOrganization(
@@ -94,14 +123,28 @@ export class BackendService {
     const client = await this.getOrRefreshClient();
     this.logger.log(`/organization/create: ${input}`);
 
-    return client.post("/organization/create", input).then(res => {
-      const data = res.data;
-      if (data.success === true && data.data) {
-        return data.data as Organization;
-      } else {
+    return client
+      .post("/organization/create", input)
+      .then(res => {
+        const data = res.data;
+        if (data.success === true && data.data) {
+          return data.data as Organization;
+        } else {
+          return undefined;
+        }
+      })
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-request-pipeline",
+            source: "backend.service",
+          });
+          scope.setExtra("input", input);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`BackendService::createOrganization ${err.message}`);
         return undefined;
-      }
-    });
+      });
   }
 
   async updateOrganization(
@@ -110,42 +153,84 @@ export class BackendService {
     const client = await this.getOrRefreshClient();
     this.logger.log(`/organization/update: ${input}`);
 
-    return client.post("/organization/update", input).then(res => {
-      const data = res.data;
-      if (data.success === true && data.data) {
-        return data.data as Organization;
-      } else {
+    return client
+      .post("/organization/update", input)
+      .then(res => {
+        const data = res.data;
+        if (data.success === true && data.data) {
+          return data.data as Organization;
+        } else {
+          return undefined;
+        }
+      })
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-request-pipeline",
+            source: "backend.service",
+          });
+          scope.setExtra("input", input);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`BackendService::updateOrganization ${err.message}`);
         return undefined;
-      }
-    });
+      });
   }
 
   async createProject(input: CreateProjectInput): Promise<Project | undefined> {
     const client = await this.getOrRefreshClient();
     this.logger.log(`/project/create: ${input}`);
 
-    return client.post("/project/create", input).then(res => {
-      const data = res.data;
-      if (data.status === "success") {
-        return data.data as Project;
-      } else {
+    return client
+      .post("/project/create", input)
+      .then(res => {
+        const data = res.data;
+        if (data.status === "success") {
+          return data.data as Project;
+        } else {
+          return undefined;
+        }
+      })
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-request-pipeline",
+            source: "backend.service",
+          });
+          scope.setExtra("input", input);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`BackendService::createProject ${err.message}`);
         return undefined;
-      }
-    });
+      });
   }
 
   async updateProject(input: UpdateProjectInput): Promise<Project | undefined> {
     const client = await this.getOrRefreshClient();
     this.logger.log(`/project/update: ${input}`);
 
-    return client.post("/project/update", input).then(res => {
-      const data = res.data;
-      if (data.status === "success") {
-        return data.data as Project;
-      } else {
+    return client
+      .post("/project/update", input)
+      .then(res => {
+        const data = res.data;
+        if (data.status === "success") {
+          return data.data as Project;
+        } else {
+          return undefined;
+        }
+      })
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-request-pipeline",
+            source: "backend.service",
+          });
+          scope.setExtra("input", input);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`BackendService::updateProject ${err.message}`);
         return undefined;
-      }
-    });
+      });
   }
 
   async setBlockedTerm(
@@ -163,6 +248,18 @@ export class BackendService {
         } else {
           return data.data as ResponseWithNoData;
         }
+      })
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-request-pipeline",
+            source: "backend.service",
+          });
+          scope.setExtra("input", input);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`BackendService::setBlockedTerm ${err.message}`);
+        return undefined;
       });
   }
 
@@ -181,6 +278,18 @@ export class BackendService {
         } else {
           return data.data as ResponseWithNoData;
         }
+      })
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-request-pipeline",
+            source: "backend.service",
+          });
+          scope.setExtra("input", input);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`BackendService::createPreferredTerm ${err.message}`);
+        return undefined;
       });
   }
 
@@ -190,14 +299,28 @@ export class BackendService {
     const client = await this.getOrRefreshClient();
     this.logger.log(`/technology/pairTerms: ${input}`);
 
-    return client.post("/technology/pairTerms", input).then(res => {
-      const data = res.data;
-      if (data.success) {
-        return data.data as Response<boolean>;
-      } else {
-        return data.data as ResponseWithNoData;
-      }
-    });
+    return client
+      .post("/technology/pairTerms", input)
+      .then(res => {
+        const data = res.data;
+        if (data.success) {
+          return data.data as Response<boolean>;
+        } else {
+          return data.data as ResponseWithNoData;
+        }
+      })
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-request-pipeline",
+            source: "backend.service",
+          });
+          scope.setExtra("input", input);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`BackendService::createPairedTerms ${err.message}`);
+        return undefined;
+      });
   }
 
   async deletePreferredTerm(
@@ -215,6 +338,18 @@ export class BackendService {
         } else {
           return data.data as ResponseWithNoData;
         }
+      })
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-request-pipeline",
+            source: "backend.service",
+          });
+          scope.setExtra("input", input);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`BackendService::deletePreferredTerm ${err.message}`);
+        return undefined;
       });
   }
 }

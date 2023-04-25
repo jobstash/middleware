@@ -226,8 +226,12 @@ export class SiweController {
     } catch (error) {
       this.logger.error(`/siwe/verify`);
       Sentry.withScope(scope => {
-        scope.setTag("message", body.message);
-        scope.setTag("signature", body.signature);
+        scope.setTags({
+          action: "service-action",
+          source: "siwe.controller",
+          message: body.message,
+          signature: body.signature,
+        });
         Sentry.captureException(error);
       });
       res.status(HttpStatus.BAD_REQUEST);
@@ -313,7 +317,13 @@ export class SiweController {
       }
     } catch (error) {
       this.logger.error(`/siwe/check-wallet`);
-      Sentry.captureException(error);
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-action",
+          source: "siwe.controller",
+        });
+        Sentry.captureException(error);
+      });
       res.status(HttpStatus.BAD_REQUEST);
       res.send({ success: false, message: error.message });
     }
