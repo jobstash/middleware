@@ -1,10 +1,10 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsNotEmpty, IsString, IsEthereumAddress } from "class-validator";
-export class SetBlockedTermInput {
+export class BlockedTermsInput {
   @ApiProperty()
   @IsNotEmpty()
   @IsString()
-  technologyName: string;
+  technologyNameList: string[];
 
   @ApiProperty()
   @IsNotEmpty()
