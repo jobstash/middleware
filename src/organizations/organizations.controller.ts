@@ -221,7 +221,7 @@ export class OrganizationsController {
     const result = await this.backendService.createOrganization(body);
     console.log(result);
     if (result === undefined) {
-      res.status(HttpStatus.UNPROCESSABLE_ENTITY);
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR);
       return {
         success: false,
         message: "Something went wrong creating the organization",
@@ -254,7 +254,7 @@ export class OrganizationsController {
     this.logger.log(`/organizations/update ${JSON.stringify(body)}`);
     const result = await this.backendService.updateOrganization(body);
     if (result === undefined) {
-      res.status(HttpStatus.UNPROCESSABLE_ENTITY);
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR);
       return {
         success: false,
         message: "Something went wrong updating the organization",

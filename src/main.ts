@@ -32,7 +32,7 @@ async function bootstrap(): Promise<void> {
           }
         : undefined,
   });
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(new ValidationPipe({ enableDebugMessages: true }));
   app.use(Sentry.Handlers.requestHandler());
   app.use(Sentry.Handlers.tracingHandler());
   app.use(Sentry.Handlers.errorHandler());

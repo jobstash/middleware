@@ -57,7 +57,9 @@ export class BackendService {
     });
   }
 
-  async addGithubInfoToUser(args: GithubLoginInput): Promise<User | undefined> {
+  async addGithubInfoToUser(
+    args: GithubLoginInput,
+  ): Promise<Response<User> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
     const logInfo = {
       ...args,
@@ -71,9 +73,16 @@ export class BackendService {
       .then(res => {
         const data = res.data;
         if (data.status === "success") {
-          return data as User;
+          return {
+            success: true,
+            message: "Github profile added to user account successfully",
+            data: data as User,
+          };
         } else {
-          return undefined;
+          return {
+            success: false,
+            message: "Error adding github info to user",
+          };
         }
       })
       .catch(err => {
@@ -86,7 +95,10 @@ export class BackendService {
           Sentry.captureException(err);
         });
         this.logger.error(`BackendService::addGithubInfoToUser ${err.message}`);
-        return undefined;
+        return {
+          success: false,
+          message: "Error adding github info to user",
+        };
       });
   }
 
@@ -406,7 +418,10 @@ export class BackendService {
           Sentry.captureException(err);
         });
         this.logger.error(`BackendService::createPreferredTerm ${err.message}`);
-        return undefined;
+        return {
+          success: false,
+          message: "Error creating preferred term",
+        };
       });
   }
 
@@ -436,7 +451,10 @@ export class BackendService {
           Sentry.captureException(err);
         });
         this.logger.error(`BackendService::createPairedTerms ${err.message}`);
-        return undefined;
+        return {
+          success: false,
+          message: "Error creating paired terms",
+        };
       });
   }
 
@@ -466,7 +484,10 @@ export class BackendService {
           Sentry.captureException(err);
         });
         this.logger.error(`BackendService::deletePreferredTerm ${err.message}`);
-        return undefined;
+        return {
+          success: false,
+          message: "Error deleting preferred term",
+        };
       });
   }
 }
