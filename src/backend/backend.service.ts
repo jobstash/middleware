@@ -147,6 +147,7 @@ export class BackendService {
       }
     });
   }
+
   async setBlockedTerms(
     input: BlockedTermsInput,
   ): Promise<Response<boolean> | ResponseWithNoData> {
@@ -209,6 +210,75 @@ export class BackendService {
       return {
         success: false,
         message: "Error in setBlockedTerms",
+      } as ResponseWithNoData;
+    }
+  }
+
+  async unsetBlockedTerms(
+    input: BlockedTermsInput,
+  ): Promise<Response<boolean> | ResponseWithNoData> {
+    try {
+      const client = await this.getOrRefreshClient();
+      this.logger.log(`unsetBlockedTerms: ${JSON.stringify(input)}`);
+
+      const promises = input.technologyNameList.map(async technologyName => {
+        this.logger.log(`Attempting to unblock term: ${technologyName}`);
+
+        try {
+          const res = await client.post(
+            "/technology/deleteBlockedTechnologyTerm",
+            {
+              technologyName: technologyName,
+              creatorWallet: input.creatorWallet,
+            },
+          );
+
+          const data = res.data;
+          if (data.status === "success") {
+            return {
+              ...data.data,
+              term: technologyName,
+            } as Response<boolean> & { term: string };
+          } else {
+            return {
+              ...data.data,
+              term: technologyName,
+            } as ResponseWithNoData & { term: string };
+          }
+        } catch (error) {
+          this.logger.error(
+            `Error unsetting blocked term: ${technologyName}`,
+            error,
+          );
+          return {
+            success: false,
+            message: `Error unsetting blocked term: ${technologyName}`,
+            term: technologyName,
+          } as ResponseWithNoData & { term: string };
+        }
+      });
+
+      const results = await Promise.all(promises);
+      const failedResults = results.filter(result => !result.success);
+
+      if (failedResults.length === 0) {
+        return {
+          success: true,
+          data: true,
+        } as Response<boolean>;
+      } else {
+        return {
+          success: false,
+          message: `Error unsetting blocked terms: ${failedResults
+            .map(result => `${result.term} (${result.message})`)
+            .join(", ")}`,
+        } as ResponseWithNoData;
+      }
+    } catch (error) {
+      this.logger.error("Error in unsetBlockedTerms", error);
+      return {
+        success: false,
+        message: "Error in unsetBlockedTerms",
       } as ResponseWithNoData;
     }
   }
