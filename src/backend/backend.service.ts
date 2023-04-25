@@ -17,7 +17,7 @@ import {
 import { CreatePairedTermsInput } from "src/technologies/dto/create-paired-terms.input";
 import { CreatePreferredTermInput } from "src/technologies/dto/create-preferred-term.input";
 import { DeletePreferredTermInput } from "src/technologies/dto/delete-preferred-term.input";
-import { SetBlockedTermInput } from "src/technologies/dto/set-blocked-term.input";
+import { BlockedTermsInput } from "src/technologies/dto/set-blocked-term.input";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 
 export interface GithubLoginInput {
@@ -147,23 +147,70 @@ export class BackendService {
       }
     });
   }
-
-  async setBlockedTerm(
-    input: SetBlockedTermInput,
+  async setBlockedTerms(
+    input: BlockedTermsInput,
   ): Promise<Response<boolean> | ResponseWithNoData> {
-    const client = await this.getOrRefreshClient();
-    this.logger.log(`/technology/createBlockedTechnologyTerm: ${input}`);
+    try {
+      const client = await this.getOrRefreshClient();
+      this.logger.log(`setBlockedTerms: ${JSON.stringify(input)}`);
 
-    return client
-      .post("/technology/createBlockedTechnologyTerm", input)
-      .then(res => {
-        const data = res.data;
-        if (data.status === "success") {
-          return data.data as Response<boolean>;
-        } else {
-          return data.data as ResponseWithNoData;
+      const promises = input.technologyNameList.map(async technologyName => {
+        this.logger.log(`Attempting to block term: ${technologyName}`);
+
+        try {
+          const res = await client.post(
+            "/technology/createBlockedTechnologyTerm",
+            {
+              technologyName: technologyName,
+              creatorWallet: input.creatorWallet,
+            },
+          );
+
+          const data = res.data;
+          if (data.status === "success") {
+            return {
+              ...data.data,
+              term: technologyName,
+            } as Response<boolean> & { term: string };
+          } else {
+            return {
+              ...data.data,
+              term: technologyName,
+            } as ResponseWithNoData & { term: string };
+          }
+        } catch (error) {
+          this.logger.error(`Error blocking term: ${technologyName}`, error);
+          return {
+            success: false,
+            message: `Error blocking term: ${technologyName}`,
+            term: technologyName,
+          } as ResponseWithNoData & { term: string };
         }
       });
+
+      const results = await Promise.all(promises);
+      const failedResults = results.filter(result => !result.success);
+
+      if (failedResults.length === 0) {
+        return {
+          success: true,
+          data: true,
+        } as Response<boolean>;
+      } else {
+        return {
+          success: false,
+          message: `Error blocking terms: ${failedResults
+            .map(result => `${result.term} (${result.message})`)
+            .join(", ")}`,
+        } as ResponseWithNoData;
+      }
+    } catch (error) {
+      this.logger.error("Error in setBlockedTerms", error);
+      return {
+        success: false,
+        message: "Error in setBlockedTerms",
+      } as ResponseWithNoData;
+    }
   }
 
   async createPreferredTerm(

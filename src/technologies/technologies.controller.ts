@@ -12,7 +12,7 @@ import {
 } from "src/shared/types";
 import { TechnologiesService } from "./technologies.service";
 import { CheckWalletRoles } from "src/shared/types";
-import { SetBlockedTermInput } from "./dto/set-blocked-term.input";
+import { BlockedTermsInput } from "./dto/set-blocked-term.input";
 import { BackendService } from "src/backend/backend.service";
 import { TechnologyPreferredTerm } from "src/shared/interfaces/technology-preferred-term.interface";
 import { CreatePreferredTermInput } from "./dto/create-preferred-term.input";
@@ -60,18 +60,32 @@ export class TechnologiesController {
     }));
   }
 
-  @Post("/set-blocked-term")
+  @Post("/set-blocked-terms")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Flag a technology as a blocked term",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Boolean) }),
   })
-  async setBlockedTerm(
-    @Body() input: SetBlockedTermInput,
+  async setBlockedTerms(
+    @Body() input: BlockedTermsInput,
   ): Promise<Response<boolean> | ResponseWithNoData> {
     this.logger.log(`/technologies/set-blocked-term ${JSON.stringify(input)}`);
-    return this.backendService.setBlockedTerm(input);
+    return this.backendService.setBlockedTerms(input);
+  }
+
+  @Post("/unset-blocked-terms")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Unflag a technology as a blocked term",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Boolean) }),
+  })
+  async unsetBlockedTerms(
+    @Body() input: BlockedTermsInput,
+  ): Promise<Response<boolean> | ResponseWithNoData> {
+    this.logger.log(`/technologies/set-blocked-term ${JSON.stringify(input)}`);
+    return this.backendService.setBlockedTerms(input);
   }
 
   @Get("preferred-terms")
