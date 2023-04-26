@@ -70,8 +70,8 @@ export class TechnologiesService {
       .read(
         `
       MATCH (pt:PreferredTerm)
-      WHERE (pt)-[:IS_PREFERRED_TERM_OF]-(t:Technology)
-      MATCH (t)<-[:IS_SYNONYM_OF*]-(syn: Technology)
+      OPTIONAL MATCH (pt)-[:IS_PREFERRED_TERM_OF]-(t:Technology)
+      OPTIONAL MATCH (t)<-[:IS_SYNONYM_OF*]-(syn: Technology)
       WITH pt, COLLECT(syn) as synonyms, t
       RETURN pt {
         .*,
@@ -82,9 +82,7 @@ export class TechnologiesService {
       )
       .then(res =>
         res.records.map(record =>
-          new TechnologyPreferredTermEntity(
-            record.get("res").properties,
-          ).getProperties(),
+          new TechnologyPreferredTermEntity(record.get("res")).getProperties(),
         ),
       )
       .catch(err => {
