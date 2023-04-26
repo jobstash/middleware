@@ -215,24 +215,9 @@ export class OrganizationsController {
   })
   async createOrganization(
     @Body() body: CreateOrganizationInput,
-    @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<Response<Organization> | ResponseWithNoData> {
     this.logger.log(`/organizations/create ${JSON.stringify(body)}`);
-    const result = await this.backendService.createOrganization(body);
-    console.log(result);
-    if (result === undefined) {
-      res.status(HttpStatus.INTERNAL_SERVER_ERROR);
-      return {
-        success: false,
-        message: "Something went wrong creating the organization",
-      };
-    } else {
-      return {
-        success: true,
-        message: "Organization created successfully",
-        data: result,
-      };
-    }
+    return this.backendService.createOrganization(body);
   }
 
   @Post("/update")
@@ -249,22 +234,8 @@ export class OrganizationsController {
   })
   async updateOrganization(
     @Body() body: UpdateOrganizationInput,
-    @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<Response<Organization> | ResponseWithNoData> {
     this.logger.log(`/organizations/update ${JSON.stringify(body)}`);
-    const result = await this.backendService.updateOrganization(body);
-    if (result === undefined) {
-      res.status(HttpStatus.INTERNAL_SERVER_ERROR);
-      return {
-        success: false,
-        message: "Something went wrong updating the organization",
-      };
-    } else {
-      return {
-        success: true,
-        message: "Organization updated successfully",
-        data: result,
-      };
-    }
+    return this.backendService.updateOrganization(body);
   }
 }
