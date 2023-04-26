@@ -1,13 +1,4 @@
-import {
-  Controller,
-  Get,
-  HttpStatus,
-  Param,
-  Query,
-  Res,
-  ValidationPipe,
-} from "@nestjs/common";
-import { Response as ExpressResponse } from "express";
+import { Controller, Get, Param, Query, ValidationPipe } from "@nestjs/common";
 import { JobsService } from "./jobs.service";
 import {
   JobFilterConfigs,
@@ -24,7 +15,6 @@ import {
   ApiOkResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
-import { responseSchemaWrapper } from "src/shared/helpers";
 import { SearchJobsListParams } from "./dto/search-jobs.input";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 
@@ -38,10 +28,10 @@ export class JobsController {
   @ApiOkResponse({
     description:
       "Returns a paginated sorted list of jobs that satisfy the search and filter predicate",
-    type: Response<PaginatedData<JobListResult>>,
+    type: PaginatedData<JobListResult>,
     schema: {
       allOf: [
-        responseSchemaWrapper({
+        {
           $ref: getSchemaPath(PaginatedData),
           properties: {
             page: {
@@ -55,7 +45,7 @@ export class JobsController {
               items: { $ref: getSchemaPath(JobListResult) },
             },
           },
-        }),
+        },
       ],
     },
   })
@@ -73,13 +63,9 @@ export class JobsController {
   async getJobsListWithSearch(
     @Query(new ValidationPipe({ transform: true }))
     params: SearchJobsListParams,
-  ): Promise<Response<PaginatedData<JobListResult>>> {
+  ): Promise<PaginatedData<JobListResult>> {
     this.logger.log(`/jobs/list ${JSON.stringify(params)}`);
-    return {
-      success: true,
-      message: "Retrieved jobs list successfully",
-      data: await this.jobsService.getJobsListWithSearch(params),
-    };
+    return this.jobsService.getJobsListWithSearch(params);
   }
 
   @Get("/filters")
@@ -87,9 +73,9 @@ export class JobsController {
     description: "Returns the configuration data for the ui filters",
     schema: {
       allOf: [
-        responseSchemaWrapper({
+        {
           $ref: getSchemaPath(JobFilterConfigs),
-        }),
+        },
       ],
     },
   })
@@ -98,13 +84,9 @@ export class JobsController {
       "Returns an error message with a list of values that failed validation",
     type: ValidationError,
   })
-  async getFilterConfigs(): Promise<Response<JobFilterConfigs>> {
+  async getFilterConfigs(): Promise<JobFilterConfigs> {
     this.logger.log(`/jobs/filters`);
-    return {
-      success: true,
-      message: "Retrieved job filter configs successfully",
-      data: await this.jobsService.getFilterConfigs(),
-    };
+    return this.jobsService.getFilterConfigs();
   }
 
   @Get("details/:uuid")
@@ -112,9 +94,9 @@ export class JobsController {
     description: "Returns the job details for the provided slug",
     schema: {
       allOf: [
-        responseSchemaWrapper({
+        {
           $ref: getSchemaPath(JobListResult),
-        }),
+        },
       ],
     },
   })
@@ -130,24 +112,9 @@ export class JobsController {
   })
   async getJobDetailsByUuid(
     @Param("uuid") uuid: string,
-    @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<Response<JobListResult> | ResponseWithNoData> {
+  ): Promise<JobListResult | undefined> {
     this.logger.log(`/jobs/details/${uuid}`);
-    const jobDetails = await this.jobsService.getJobDetailsByUuid(uuid);
-
-    if (jobDetails) {
-      return {
-        success: true,
-        message: "Retrieved job details successfully",
-        data: jobDetails,
-      };
-    } else {
-      res.status(HttpStatus.NOT_FOUND);
-      return {
-        success: false,
-        message: "Could not find job with uuid " + uuid,
-      };
-    }
+    return this.jobsService.getJobDetailsByUuid(uuid);
   }
 
   @Get("/org/:uuid")
@@ -156,10 +123,10 @@ export class JobsController {
     type: Response<JobListResult[]>,
     schema: {
       allOf: [
-        responseSchemaWrapper({
+        {
           type: "array",
           items: { $ref: getSchemaPath(JobListResult) },
-        }),
+        },
       ],
     },
   })
@@ -174,14 +141,8 @@ export class JobsController {
       ],
     },
   })
-  async getOrgJobsList(
-    @Param("uuid") uuid: string,
-  ): Promise<Response<JobListResult[]>> {
+  async getOrgJobsList(@Param("uuid") uuid: string): Promise<JobListResult[]> {
     this.logger.log(`/jobs/org/${uuid}`);
-    return {
-      success: true,
-      message: "Retrieved all jobs for org successfully",
-      data: await this.jobsService.getJobsByOrgUuid(uuid),
-    };
+    return this.jobsService.getJobsByOrgUuid(uuid);
   }
 }

@@ -245,7 +245,7 @@ export class ProjectsController {
     this.logger.log(`/projects/create ${JSON.stringify(body)}`);
     const result = await this.backendService.createProject(body);
     if (result === undefined) {
-      res.status(HttpStatus.UNPROCESSABLE_ENTITY);
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR);
       return {
         success: false,
         message: "Something went wrong creating the project",
@@ -278,7 +278,7 @@ export class ProjectsController {
     this.logger.log(`/projects/update ${JSON.stringify(body)}`);
     const result = await this.backendService.updateProject(body);
     if (result === undefined) {
-      res.status(HttpStatus.UNPROCESSABLE_ENTITY);
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR);
       return {
         success: false,
         message: "Something went wrong updating the project",
