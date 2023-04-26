@@ -1,3 +1,10 @@
+## [1.23.7](https://github.com/jobstash/middleware/compare/v1.23.6...v1.23.7) (2023-04-26)
+
+
+### Bug Fixes
+
+* **interfaces:** change interfaces to handle api success correctly ([4218218](https://github.com/jobstash/middleware/commit/42182185266e2ffa516add92a44f4c90621196be))
+
 ## [1.23.6](https://github.com/jobstash/middleware/compare/v1.23.5...v1.23.6) (2023-04-26)
 
 
