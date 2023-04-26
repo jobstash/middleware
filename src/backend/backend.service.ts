@@ -284,13 +284,18 @@ export class BackendService {
           this.logger.log(`res.data: ${JSON.stringify(res.data)}`);
           const data = res.data;
           if (data.success === true && data.data) {
+            this.logger.log(`Successfully blocked term: ${technologyName}`);
             return {
               ...data.data,
+              success: true,
               term: technologyName,
             } as Response<boolean> & { term: string };
           } else {
+            this.logger.log(`Failed to block term: ${technologyName}`);
             return {
               ...data.data,
+              success: false,
+              message: data.message,
               term: technologyName,
             } as ResponseWithNoData & { term: string };
           }
@@ -298,7 +303,6 @@ export class BackendService {
           this.logger.error(`Error blocking term: ${technologyName}`, error);
           return {
             success: false,
-            message: `Error blocking term: ${technologyName}`,
             term: technologyName,
           } as ResponseWithNoData & { term: string };
         }
@@ -306,13 +310,16 @@ export class BackendService {
 
       const results = await Promise.all(promises);
       const failedResults = results.filter(result => !result.success);
+      this.logger.log(`Failed results: ${JSON.stringify(failedResults)}`);
 
       if (failedResults.length === 0) {
+        this.logger.log("Successfully blocked all terms");
         return {
           success: true,
           data: true,
         } as Response<boolean>;
       } else {
+        this.logger.log("Failed to block all terms");
         return {
           success: false,
           message: `Error blocking terms: ${failedResults
