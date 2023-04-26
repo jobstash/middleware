@@ -3,7 +3,7 @@ import * as Joi from "joi";
 const envSchema = Joi.object({
   ALLOWED_ORIGINS: Joi.string(),
   ALCHEMY_API_KEY: Joi.string(),
-  APP_PORT: Joi.number().default(8080),
+  PORT: Joi.number().default(8080),
   AUTH0_CLIENT_ID: Joi.string(),
   AUTH0_CLIENT_SECRET: Joi.string(),
   AUTH0_DOMAIN: Joi.string(),
