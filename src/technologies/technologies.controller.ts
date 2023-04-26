@@ -84,8 +84,10 @@ export class TechnologiesController {
   async unsetBlockedTerms(
     @Body() input: BlockedTermsInput,
   ): Promise<Response<boolean> | ResponseWithNoData> {
-    this.logger.log(`/technologies/set-blocked-term ${JSON.stringify(input)}`);
-    return this.backendService.setBlockedTerms(input);
+    this.logger.log(
+      `/technologies/unset-blocked-term ${JSON.stringify(input)}`,
+    );
+    return this.backendService.unsetBlockedTerms(input);
   }
 
   @Get("preferred-terms")

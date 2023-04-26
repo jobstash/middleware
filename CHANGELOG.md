@@ -1,3 +1,45 @@
+## [1.23.10](https://github.com/jobstash/middleware/compare/v1.23.9...v1.23.10) (2023-04-26)
+
+
+### Bug Fixes
+
+* **blocked:** calling correct method ([73c15b0](https://github.com/jobstash/middleware/commit/73c15b042e9b79079601543fec3d915a154b12e2))
+
+## [1.23.9](https://github.com/jobstash/middleware/compare/v1.23.8...v1.23.9) (2023-04-26)
+
+
+### Bug Fixes
+
+* **blockedterms:** fix unsetting terms ([6dd0efa](https://github.com/jobstash/middleware/commit/6dd0efa5807df301fa8a54cd17a81761c7e98b07))
+
+## [1.23.8](https://github.com/jobstash/middleware/compare/v1.23.7...v1.23.8) (2023-04-26)
+
+
+### Bug Fixes
+
+* **term blocking:** fix returned status ([bae500a](https://github.com/jobstash/middleware/commit/bae500a1bcc446ac6aa5a21e0d1be8d742243775))
+
+## [1.23.7](https://github.com/jobstash/middleware/compare/v1.23.6...v1.23.7) (2023-04-26)
+
+
+### Bug Fixes
+
+* **interfaces:** change interfaces to handle api success correctly ([4218218](https://github.com/jobstash/middleware/commit/42182185266e2ffa516add92a44f4c90621196be))
+
+## [1.23.6](https://github.com/jobstash/middleware/compare/v1.23.5...v1.23.6) (2023-04-26)
+
+
+### Bug Fixes
+
+* **logs:** add more logging ([6f66526](https://github.com/jobstash/middleware/commit/6f66526e6cf9ed73523b210bef2dbe48c109e9ce))
+
+## [1.23.5](https://github.com/jobstash/middleware/compare/v1.23.4...v1.23.5) (2023-04-25)
+
+
+### Bug Fixes
+
+* **backend.service:** beefed up error handling a bit more ([#67](https://github.com/jobstash/middleware/issues/67)) ([50840e1](https://github.com/jobstash/middleware/commit/50840e1564ee713cc4f79d846e3c49e7d6c9f4c9))
+
 ## [1.23.4](https://github.com/jobstash/middleware/compare/v1.23.3...v1.23.4) (2023-04-25)
 
 

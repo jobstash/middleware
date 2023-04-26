@@ -72,7 +72,7 @@ export class BackendService {
       .post("/user/addGithubInfoToUser", args)
       .then(res => {
         const data = res.data;
-        if (data.status === "success") {
+        if (data.success) {
           return {
             success: true,
             message: "Github profile added to user account successfully",
@@ -109,7 +109,7 @@ export class BackendService {
       .post("/user/createUser", { wallet: address })
       .then(res => {
         const data = res.data;
-        if (data.status === "success") {
+        if (data.success === true) {
           return data as User;
         } else {
           return undefined;
@@ -260,14 +260,19 @@ export class BackendService {
   async setBlockedTerms(
     input: BlockedTermsInput,
   ): Promise<Response<boolean> | ResponseWithNoData> {
+    this.logger.log("setBlockedTerms");
     try {
       const client = await this.getOrRefreshClient();
       this.logger.log(`setBlockedTerms: ${JSON.stringify(input)}`);
 
       const promises = input.technologyNameList.map(async technologyName => {
         this.logger.log(`Attempting to block term: ${technologyName}`);
+        this.logger.log(
+          `Attempting to block for wallet: ${input.creatorWallet}`,
+        );
 
         try {
+          this.logger.log(`About to call backend`);
           const res = await client
             .post("/technology/createBlockedTechnologyTerm", {
               technologyName: technologyName,
@@ -287,20 +292,22 @@ export class BackendService {
               );
               return err;
             });
-
+          this.logger.log(`Backend call complete`);
+          this.logger.log(`res.data: ${JSON.stringify(res.data)}`);
           const data = res.data;
-          if (data.success) {
+          if (data.success === true && data.data) {
+            this.logger.log(`Successfully blocked term: ${technologyName}`);
             return {
-              ...data,
+              ...data.data,
+              success: true,
               term: technologyName,
             } as Response<boolean> & { term: string };
           } else {
-            this.logger.error(
-              `Error blocking term: ${technologyName}`,
-              data?.message,
-            );
+            this.logger.log(`Failed to block term: ${technologyName}`);
             return {
-              ...data,
+              ...data.data,
+              success: false,
+              message: data.message,
               term: technologyName,
             } as ResponseWithNoData & { term: string };
           }
@@ -308,7 +315,6 @@ export class BackendService {
           this.logger.error(`Error blocking term: ${technologyName}`, error);
           return {
             success: false,
-            message: `Error blocking term: ${technologyName}`,
             term: technologyName,
           } as ResponseWithNoData & { term: string };
         }
@@ -316,13 +322,16 @@ export class BackendService {
 
       const results = await Promise.all(promises);
       const failedResults = results.filter(result => !result.success);
+      this.logger.log(`Failed results: ${JSON.stringify(failedResults)}`);
 
       if (failedResults.length === 0) {
+        this.logger.log("Successfully blocked all terms");
         return {
           success: true,
           data: true,
         } as Response<boolean>;
       } else {
+        this.logger.log("Failed to block all terms");
         return {
           success: false,
           message: `Error blocking terms: ${failedResults
@@ -342,6 +351,7 @@ export class BackendService {
   async unsetBlockedTerms(
     input: BlockedTermsInput,
   ): Promise<Response<boolean> | ResponseWithNoData> {
+    this.logger.log("***unsetBlockedTerms***");
     try {
       const client = await this.getOrRefreshClient();
       this.logger.log(`unsetBlockedTerms: ${JSON.stringify(input)}`);
@@ -377,7 +387,7 @@ export class BackendService {
           );
           return {
             success: false,
-            message: `Error unsetting blocked term: ${technologyName}`,
+            message: `Error unsetting blocked term: ${technologyName}, ${error.message}`,
             term: technologyName,
           } as ResponseWithNoData & { term: string };
         }
