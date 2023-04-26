@@ -1,3 +1,10 @@
+## [1.23.9](https://github.com/jobstash/middleware/compare/v1.23.8...v1.23.9) (2023-04-26)
+
+
+### Bug Fixes
+
+* **blockedterms:** fix unsetting terms ([6dd0efa](https://github.com/jobstash/middleware/commit/6dd0efa5807df301fa8a54cd17a81761c7e98b07))
+
 ## [1.23.8](https://github.com/jobstash/middleware/compare/v1.23.7...v1.23.8) (2023-04-26)
 
 
