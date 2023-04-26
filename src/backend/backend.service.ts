@@ -72,7 +72,7 @@ export class BackendService {
       .post("/user/addGithubInfoToUser", args)
       .then(res => {
         const data = res.data;
-        if (data.status === "success") {
+        if (data.success === true) {
           return {
             success: true,
             message: "Github profile added to user account successfully",
@@ -109,7 +109,7 @@ export class BackendService {
       .post("/user/createUser", { wallet: address })
       .then(res => {
         const data = res.data;
-        if (data.status === "success") {
+        if (data.success === true) {
           return data as User;
         } else {
           return undefined;
@@ -197,7 +197,7 @@ export class BackendService {
       .post("/project/create", input)
       .then(res => {
         const data = res.data;
-        if (data.status === "success") {
+        if (data.success === true && data.data) {
           return data.data as Project;
         } else {
           return undefined;
@@ -225,7 +225,7 @@ export class BackendService {
       .post("/project/update", input)
       .then(res => {
         const data = res.data;
-        if (data.status === "success") {
+        if (data.success === true && data.data) {
           return data.data as Project;
         } else {
           return undefined;
@@ -248,6 +248,7 @@ export class BackendService {
   async setBlockedTerms(
     input: BlockedTermsInput,
   ): Promise<Response<boolean> | ResponseWithNoData> {
+    this.logger.log("setBlockedTerms");
     try {
       const client = await this.getOrRefreshClient();
       this.logger.log(`setBlockedTerms: ${JSON.stringify(input)}`);
@@ -259,6 +260,7 @@ export class BackendService {
         );
 
         try {
+          this.logger.log(`About to call backend`);
           const res = await client
             .post("/technology/createBlockedTechnologyTerm", {
               technologyName: technologyName,
@@ -278,9 +280,10 @@ export class BackendService {
               );
               return err.message;
             });
-
+          this.logger.log(`Backend call complete`);
+          this.logger.log(`res.data: ${JSON.stringify(res.data)}`);
           const data = res.data;
-          if (data.status === "success") {
+          if (data.success === true && data.data) {
             return {
               ...data.data,
               term: technologyName,
@@ -346,7 +349,7 @@ export class BackendService {
           );
 
           const data = res.data;
-          if (data.status === "success") {
+          if (data.success === true && data.data) {
             return {
               ...data.data,
               term: technologyName,
@@ -405,7 +408,7 @@ export class BackendService {
       .post("/technology/createPreferredTechnologyTerm", input)
       .then(res => {
         const data = res.data;
-        if (data.success) {
+        if (data.success === true && data.data) {
           return data.data as Response<PreferredTerm>;
         } else {
           return data.data as ResponseWithNoData;
@@ -438,7 +441,7 @@ export class BackendService {
       .post("/technology/pairTerms", input)
       .then(res => {
         const data = res.data;
-        if (data.success) {
+        if (data.success === true && data.data) {
           return data.data as Response<boolean>;
         } else {
           return data.data as ResponseWithNoData;
@@ -471,7 +474,7 @@ export class BackendService {
       .post("/technology/deletePreferredTechnologyTerm", input)
       .then(res => {
         const data = res.data;
-        if (data.success) {
+        if (data.success === true && data.data) {
           return data.data as Response<PreferredTerm>;
         } else {
           return data.data as ResponseWithNoData;
