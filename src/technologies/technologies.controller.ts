@@ -87,7 +87,7 @@ export class TechnologiesController {
     this.logger.log(
       `/technologies/unset-blocked-term ${JSON.stringify(input)}`,
     );
-    return this.backendService.setBlockedTerms(input);
+    return this.backendService.unsetBlockedTerms(input);
   }
 
   @Get("preferred-terms")
