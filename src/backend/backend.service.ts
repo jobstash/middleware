@@ -242,6 +242,9 @@ export class BackendService {
 
       const promises = input.technologyNameList.map(async technologyName => {
         this.logger.log(`Attempting to block term: ${technologyName}`);
+        this.logger.log(
+          `Attempting to block for wallet: ${input.creatorWallet}`,
+        );
 
         try {
           const res = await client
@@ -261,7 +264,7 @@ export class BackendService {
               this.logger.error(
                 `BackendService::setBlockedTerm ${err.message}`,
               );
-              return undefined;
+              return err.message;
             });
 
           const data = res.data;
@@ -349,7 +352,7 @@ export class BackendService {
           );
           return {
             success: false,
-            message: `Error unsetting blocked term: ${technologyName}`,
+            message: `Error unsetting blocked term: ${technologyName}, ${error.message}`,
             term: technologyName,
           } as ResponseWithNoData & { term: string };
         }
