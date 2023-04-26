@@ -1,3 +1,10 @@
+## [1.23.10](https://github.com/jobstash/middleware/compare/v1.23.9...v1.23.10) (2023-04-26)
+
+
+### Bug Fixes
+
+* **blocked:** calling correct method ([73c15b0](https://github.com/jobstash/middleware/commit/73c15b042e9b79079601543fec3d915a154b12e2))
+
 ## [1.23.9](https://github.com/jobstash/middleware/compare/v1.23.8...v1.23.9) (2023-04-26)
 
 

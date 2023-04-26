@@ -13,9 +13,7 @@ export class ProjectsService {
     return this.neo4jService
       .read(
         `
-        MATCH (o:Organization)
-        OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)
-        WHERE o.orgId = $id
+        MATCH (:Organization {orgId: $id})-[:HAS_PROJECT]->(p:Project)
         RETURN PROPERTIES(p) as res
         `,
         { id },
@@ -88,10 +86,10 @@ export class ProjectsService {
       .read(
         `
         MATCH (p:Project)
-        WHERE p.name CONTAINS $query
+        WHERE p.name =~ $query
         RETURN PROPERTIES(p) as res
         `,
-        { query },
+        { query: `(?i).*${query}.*` },
       )
       .then(res => res.records.map(record => record.get("res") as Project))
       .catch(err => {

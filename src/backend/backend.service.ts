@@ -44,7 +44,7 @@ export class BackendService {
 
   private async getOrRefreshClient(): Promise<AxiosInstance> {
     const token = await this.authService.getBackendCredentialsGrantToken();
-    this.logger.log(`Token for request: ${token}`);
+    this.logger.log(`Token for request: ${token.access_token}`);
 
     return axios.create({
       baseURL: this.configService.get<string>("BACKEND_API_URL"),
@@ -72,7 +72,7 @@ export class BackendService {
       .post("/user/addGithubInfoToUser", args)
       .then(res => {
         const data = res.data;
-        if (data.success === true) {
+        if (data.success) {
           return {
             success: true,
             message: "Github profile added to user account successfully",
@@ -131,7 +131,7 @@ export class BackendService {
 
   async createOrganization(
     input: CreateOrganizationInput,
-  ): Promise<Organization | undefined> {
+  ): Promise<Response<Organization> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
     this.logger.log(`/organization/create: ${input}`);
 
@@ -139,10 +139,13 @@ export class BackendService {
       .post("/organization/create", input)
       .then(res => {
         const data = res.data;
-        if (data.success === true && data.data) {
-          return data.data as Organization;
+        if (data.success) {
+          return data as Response<Organization>;
         } else {
-          return undefined;
+          this.logger.error(
+            `Error creating organization ${JSON.stringify(data)}`,
+          );
+          return data as ResponseWithNoData;
         }
       })
       .catch(err => {
@@ -161,7 +164,7 @@ export class BackendService {
 
   async updateOrganization(
     input: UpdateOrganizationInput,
-  ): Promise<Organization | undefined> {
+  ): Promise<Response<Organization> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
     this.logger.log(`/organization/update: ${input}`);
 
@@ -169,10 +172,13 @@ export class BackendService {
       .post("/organization/update", input)
       .then(res => {
         const data = res.data;
-        if (data.success === true && data.data) {
-          return data.data as Organization;
+        if (data.success) {
+          return data as Response<Organization>;
         } else {
-          return undefined;
+          this.logger.error(
+            `Error updating organization ${JSON.stringify(data)}`,
+          );
+          return data as ResponseWithNoData;
         }
       })
       .catch(err => {
@@ -189,7 +195,9 @@ export class BackendService {
       });
   }
 
-  async createProject(input: CreateProjectInput): Promise<Project | undefined> {
+  async createProject(
+    input: CreateProjectInput,
+  ): Promise<Response<Project> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
     this.logger.log(`/project/create: ${input}`);
 
@@ -197,10 +205,11 @@ export class BackendService {
       .post("/project/create", input)
       .then(res => {
         const data = res.data;
-        if (data.success === true && data.data) {
-          return data.data as Project;
+        if (data.success) {
+          return data as Response<Project>;
         } else {
-          return undefined;
+          this.logger.error(`Error creating project ${JSON.stringify(data)}`);
+          return data as ResponseWithNoData;
         }
       })
       .catch(err => {
@@ -217,7 +226,9 @@ export class BackendService {
       });
   }
 
-  async updateProject(input: UpdateProjectInput): Promise<Project | undefined> {
+  async updateProject(
+    input: UpdateProjectInput,
+  ): Promise<Response<Project> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
     this.logger.log(`/project/update: ${input}`);
 
@@ -225,10 +236,11 @@ export class BackendService {
       .post("/project/update", input)
       .then(res => {
         const data = res.data;
-        if (data.success === true && data.data) {
-          return data.data as Project;
+        if (data.success) {
+          return data as Response<Project>;
         } else {
-          return undefined;
+          this.logger.error(`Error updating project ${JSON.stringify(data)}`);
+          return data as ResponseWithNoData;
         }
       })
       .catch(err => {
@@ -278,7 +290,7 @@ export class BackendService {
               this.logger.error(
                 `BackendService::setBlockedTerm ${err.message}`,
               );
-              return err.message;
+              return err;
             });
           this.logger.log(`Backend call complete`);
           this.logger.log(`res.data: ${JSON.stringify(res.data)}`);
@@ -421,10 +433,10 @@ export class BackendService {
       .post("/technology/createPreferredTechnologyTerm", input)
       .then(res => {
         const data = res.data;
-        if (data.success === true && data.data) {
-          return data.data as Response<PreferredTerm>;
+        if (data.success) {
+          return data as Response<PreferredTerm>;
         } else {
-          return data.data as ResponseWithNoData;
+          return data as ResponseWithNoData;
         }
       })
       .catch(err => {
@@ -448,16 +460,16 @@ export class BackendService {
     input: CreatePairedTermsInput,
   ): Promise<Response<boolean> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
-    this.logger.log(`/technology/pairTerms: ${input}`);
+    this.logger.log(`/technology/pairTerms: ${JSON.stringify(input)}`);
 
     return client
       .post("/technology/pairTerms", input)
       .then(res => {
         const data = res.data;
-        if (data.success === true && data.data) {
-          return data.data as Response<boolean>;
+        if (data.success) {
+          return data as Response<boolean>;
         } else {
-          return data.data as ResponseWithNoData;
+          return data as ResponseWithNoData;
         }
       })
       .catch(err => {
@@ -487,10 +499,10 @@ export class BackendService {
       .post("/technology/deletePreferredTechnologyTerm", input)
       .then(res => {
         const data = res.data;
-        if (data.success === true && data.data) {
-          return data.data as Response<PreferredTerm>;
+        if (data.success) {
+          return data as Response<PreferredTerm>;
         } else {
-          return data.data as ResponseWithNoData;
+          return data as ResponseWithNoData;
         }
       })
       .catch(err => {

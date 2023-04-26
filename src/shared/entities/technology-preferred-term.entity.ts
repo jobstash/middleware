@@ -15,8 +15,8 @@ export class TechnologyPreferredTermEntity {
   getProperties(): TechnologyPreferredTerm {
     return {
       ...this.raw,
-      technology: this.raw.technology.properties,
-      synonyms: this.raw.synonyms.map(syn => syn.properties),
+      technology: this.raw?.technology.properties,
+      synonyms: this.raw?.synonyms.map(syn => syn.properties),
     };
   }
 }

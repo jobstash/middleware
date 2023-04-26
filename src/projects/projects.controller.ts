@@ -227,8 +227,8 @@ export class ProjectsController {
   }
 
   @Post("/create")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  // @UseGuards(RBACGuard)
+  // @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Creates a new project",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
@@ -240,23 +240,9 @@ export class ProjectsController {
   })
   async createProject(
     @Body() body: CreateProjectInput,
-    @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<Response<Project> | ResponseWithNoData> {
     this.logger.log(`/projects/create ${JSON.stringify(body)}`);
-    const result = await this.backendService.createProject(body);
-    if (result === undefined) {
-      res.status(HttpStatus.INTERNAL_SERVER_ERROR);
-      return {
-        success: false,
-        message: "Something went wrong creating the project",
-      };
-    } else {
-      return {
-        success: true,
-        message: "Project created successfully",
-        data: result,
-      };
-    }
+    return this.backendService.createProject(body);
   }
 
   @Post("/update")
@@ -273,22 +259,8 @@ export class ProjectsController {
   })
   async updateProject(
     @Body() body: UpdateProjectInput,
-    @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<Response<Project> | ResponseWithNoData> {
     this.logger.log(`/projects/update ${JSON.stringify(body)}`);
-    const result = await this.backendService.updateProject(body);
-    if (result === undefined) {
-      res.status(HttpStatus.INTERNAL_SERVER_ERROR);
-      return {
-        success: false,
-        message: "Something went wrong updating the project",
-      };
-    } else {
-      return {
-        success: true,
-        message: "Project updated successfully",
-        data: result,
-      };
-    }
+    return this.backendService.updateProject(body);
   }
 }
