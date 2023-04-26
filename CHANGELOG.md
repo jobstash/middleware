@@ -1,3 +1,10 @@
+## [1.23.8](https://github.com/jobstash/middleware/compare/v1.23.7...v1.23.8) (2023-04-26)
+
+
+### Bug Fixes
+
+* **term blocking:** fix returned status ([bae500a](https://github.com/jobstash/middleware/commit/bae500a1bcc446ac6aa5a21e0d1be8d742243775))
+
 ## [1.23.7](https://github.com/jobstash/middleware/compare/v1.23.6...v1.23.7) (2023-04-26)
 
 
