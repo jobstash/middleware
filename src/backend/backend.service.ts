@@ -339,6 +339,7 @@ export class BackendService {
   async unsetBlockedTerms(
     input: BlockedTermsInput,
   ): Promise<Response<boolean> | ResponseWithNoData> {
+    this.logger.log("***unsetBlockedTerms***");
     try {
       const client = await this.getOrRefreshClient();
       this.logger.log(`unsetBlockedTerms: ${JSON.stringify(input)}`);
