@@ -357,14 +357,19 @@ export class BackendService {
           );
 
           const data = res.data;
+          this.logger.log(`data: ${JSON.stringify(data)}`);
           if (data.success === true && data.data) {
+            this.logger.log(`Successfully unblocked term: ${technologyName}`);
             return {
               ...data.data,
+              success: true,
               term: technologyName,
             } as Response<boolean> & { term: string };
           } else {
+            this.logger.log(`Failed to unblock term: ${technologyName}`);
             return {
               ...data.data,
+              success: false,
               term: technologyName,
             } as ResponseWithNoData & { term: string };
           }
