@@ -15,8 +15,8 @@ import {
   ApiOkResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
-import { SearchJobsListParams } from "./dto/search-jobs.input";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import { JobListParams } from "./dto/job-list.input";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobListResult, JobFilterConfigs, ValidationError)
@@ -62,7 +62,7 @@ export class JobsController {
   })
   async getJobsListWithSearch(
     @Query(new ValidationPipe({ transform: true }))
-    params: SearchJobsListParams,
+    params: JobListParams,
   ): Promise<PaginatedData<JobListResult>> {
     this.logger.log(`/jobs/list ${JSON.stringify(params)}`);
     return this.jobsService.getJobsListWithSearch(params);

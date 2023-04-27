@@ -14,9 +14,9 @@ import {
   JobListResultEntity,
   PaginatedData,
 } from "src/shared/types";
-import { SearchJobsListParams } from "./dto/search-jobs.input";
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import { JobListParams } from "./dto/job-list.input";
 
 @Injectable()
 export class JobsService {
@@ -24,7 +24,7 @@ export class JobsService {
   constructor(private readonly neo4jService: Neo4jService) {}
 
   async getJobsListWithSearch(
-    params: SearchJobsListParams,
+    params: JobListParams,
   ): Promise<PaginatedData<JobListResult>> {
     const generatedQuery = `
             MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
@@ -173,7 +173,7 @@ export class JobsService {
             }
             ${
               params.query
-                ? "j.jobTitle =~ $query OR any(x IN tech WHERE x.name =~ $query) OR o.name =~ $query AND "
+                ? "(j.jobTitle =~ $query OR any(x IN tech WHERE x.name =~ $query) OR o.name =~ $query) AND "
                 : ""
             }
             o.name IS NOT NULL AND o.name <> ""
@@ -327,7 +327,7 @@ export class JobsService {
               }
               ${
                 params.query
-                  ? "j.jobTitle =~ $query OR any(x IN tech WHERE x.name =~ $query) OR o.name =~ $query AND "
+                  ? "(j.jobTitle =~ $query OR any(x IN tech WHERE x.name =~ $query) OR o.name =~ $query) AND "
                   : ""
               }
               o.name IS NOT NULL AND o.name <> ""

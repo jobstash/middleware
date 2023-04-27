@@ -1,7 +1,6 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform, Type } from "class-transformer";
 import {
-  IsArray,
   IsBoolean,
   IsIn,
   IsNumber,
@@ -201,60 +200,48 @@ export class JobListParams {
     example: "String,C++",
   })
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
   @Type(() => String)
-  @Transform(({ value }) => value.split(","))
+  @Transform(({ value }) => value?.toString().split(","))
   tech?: string[];
 
   @ApiPropertyOptional({
     example: "OpenSea,Jet",
   })
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
   @Type(() => String)
-  @Transform(({ value }) => value.split(","))
+  @Transform(({ value }) => value?.toString().split(","))
   organizations?: string[];
 
   @ApiPropertyOptional({
     example: "N/A",
   })
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
   @Type(() => String)
-  @Transform(({ value }) => value.split(","))
+  @Transform(({ value }) => value?.toString().split(","))
   chains?: string[];
 
   @ApiPropertyOptional({
     example: "Opensea,Across",
   })
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
   @Type(() => String)
-  @Transform(({ value }) => value.split(","))
+  @Transform(({ value }) => value?.toString().split(","))
   projects?: string[];
 
   @ApiPropertyOptional({
     example: "Options,Yield",
   })
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
   @Type(() => String)
-  @Transform(({ value }) => value.split(","))
+  @Transform(({ value }) => value?.toString().split(","))
   categories?: string[];
 
   @ApiPropertyOptional({
     example: "Seed,Series A",
   })
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
   @Type(() => String)
-  @Transform(({ value }) => value.split(","))
+  @Transform(({ value }) => value?.toString().split(","))
   fundingRounds?: string[];
 
   @ApiPropertyOptional({
@@ -274,21 +261,19 @@ export class JobListParams {
   mainNet?: boolean;
 
   @ApiPropertyOptional({
-    example: "1",
+    example: "1,2",
   })
   @IsOptional()
-  @IsString()
   @Type(() => String)
+  @Transform(({ value }) => value?.toString().split(","))
   seniority?: string;
 
   @ApiPropertyOptional({
     example: "Remote,Onsite",
   })
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
   @Type(() => String)
-  @Transform(({ value }) => value.split(","))
+  @Transform(({ value }) => value?.toString().split(","))
   locations?: string;
 
   @ApiPropertyOptional({
@@ -350,4 +335,12 @@ export class JobListParams {
   @Type(() => Number)
   @Transform(({ value }) => Number(value))
   limit?: number;
+
+  @ApiPropertyOptional({
+    example: "C++",
+  })
+  @IsOptional()
+  @IsString()
+  @Type(() => String)
+  query: string;
 }
