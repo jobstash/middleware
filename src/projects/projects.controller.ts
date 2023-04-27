@@ -91,6 +91,23 @@ export class ProjectsController {
     }));
   }
 
+  @Get("/competitors/:id")
+  @ApiOkResponse({
+    description:
+      "Returns a list of competing projects for the specified project",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
+  })
+  async getProjectCompetitors(
+    @Param("id") id: string,
+  ): Promise<Response<Project[]>> {
+    this.logger.log(`/projects/competitors/${id}`);
+    return this.projectsService.getProjectCompetitors(id).then(res => ({
+      success: true,
+      message: "Retrieved all competing projects successfully",
+      data: res,
+    }));
+  }
+
   @Get("/all/:id")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
