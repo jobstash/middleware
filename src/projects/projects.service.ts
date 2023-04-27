@@ -81,6 +81,34 @@ export class ProjectsService {
       });
   }
 
+  async getProjectCompetitors(id: string): Promise<Project[]> {
+    return this.neo4jService
+      .read(
+        `
+        MATCH (c:ProjectCategory)<-[:HAS_CATEGORY]-(:Project {id: $id})
+        MATCH (c)<-[:HAS_CATEGORY]-(p:Project)
+        WHERE p.id <> $id
+        RETURN PROPERTIES(p) as res
+        `,
+        { id },
+      )
+      .then(res => res.records.map(record => record.get("res") as Project))
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "projects.service",
+          });
+          scope.setExtra("input", id);
+          Sentry.captureException(err);
+        });
+        this.logger.error(
+          `ProjectsService::getProjectCompetitors ${err.message}`,
+        );
+        return undefined;
+      });
+  }
+
   async searchProjects(query: string): Promise<Project[]> {
     return this.neo4jService
       .read(
