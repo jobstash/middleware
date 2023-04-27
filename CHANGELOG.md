@@ -1,3 +1,10 @@
+# [1.24.0](https://github.com/jobstash/middleware/compare/v1.23.12...v1.24.0) (2023-04-27)
+
+
+### Features
+
+* **projects:** added impl for getting project competitors ([#71](https://github.com/jobstash/middleware/issues/71)) ([fc0dab6](https://github.com/jobstash/middleware/commit/fc0dab6c0990fc7870c45f3353b744169c485c5b))
+
 ## [1.23.12](https://github.com/jobstash/middleware/compare/v1.23.11...v1.23.12) (2023-04-27)
 
 
