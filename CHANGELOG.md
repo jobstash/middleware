@@ -1,3 +1,10 @@
+## [1.23.11](https://github.com/jobstash/middleware/compare/v1.23.10...v1.23.11) (2023-04-27)
+
+
+### Bug Fixes
+
+* **jobs:** fixed borkage on jobs list ([2462f6f](https://github.com/jobstash/middleware/commit/2462f6f55ddb7d8e46b70066e01fbeefef99dc5c))
+
 ## [1.23.10](https://github.com/jobstash/middleware/compare/v1.23.9...v1.23.10) (2023-04-26)
 
 
