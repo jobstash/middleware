@@ -1,3 +1,10 @@
+## [1.24.1](https://github.com/jobstash/middleware/compare/v1.24.0...v1.24.1) (2023-04-28)
+
+
+### Bug Fixes
+
+* **githubsignup:** change role of user on successful github auth + validate inputs correctly ([d02d6c6](https://github.com/jobstash/middleware/commit/d02d6c631f665e845d61c37fc67155c1fb52d9e9))
+
 # [1.24.0](https://github.com/jobstash/middleware/compare/v1.23.12...v1.24.0) (2023-04-27)
 
 
