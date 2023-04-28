@@ -1,3 +1,10 @@
+## [1.24.2](https://github.com/jobstash/middleware/compare/v1.24.1...v1.24.2) (2023-04-28)
+
+
+### Bug Fixes
+
+* **returndata:** return some data for github auth so FE doesnt break ([a67886e](https://github.com/jobstash/middleware/commit/a67886e6611c6bb66eee5e93f436b4d18dfbd621))
+
 ## [1.24.1](https://github.com/jobstash/middleware/compare/v1.24.0...v1.24.1) (2023-04-28)
 
 
