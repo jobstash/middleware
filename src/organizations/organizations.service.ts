@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
-import { ShortOrgEntity, ShortOrg, OrgProjectStats } from "src/shared/types";
+import { ShortOrgEntity, ShortOrg, Repository } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 
@@ -129,34 +129,27 @@ export class OrganizationsService {
       });
   }
 
-  async getProjectsStats(id: string): Promise<OrgProjectStats | undefined> {
+  async getRepositories(id: string): Promise<Repository[]> {
     return this.neo4jService
       .read(
         `
-        MATCH (:Organization {orgId: $id})-[:HAS_PROJECT]->(p:Project)
-        RETURN {
-          tvlSum: SUM(p.tvl),
-          monthlyFeesSum: SUM(p.monthlyFees),
-          monthlyVolumeSum: SUM(p.monthlyVolume),
-          monthlyRevenueSum: SUM(p.monthlyRevenue)
-        } as res
+        MATCH (:Organization {orgId: $id})-[:HAS_REPOSITORY]->(r:Repository)
+        RETURN r as res
         `,
         { id },
       )
-      .then(res =>
-        res.records.map(record => record.get("res") as OrgProjectStats),
-      )
+      .then(res => res.records.map(record => record.get("res") as Repository[]))
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
             action: "db-call",
-            source: "projects.service",
+            source: "organizations.service",
           });
           scope.setExtra("input", id);
           Sentry.captureException(err);
         });
         this.logger.error(
-          `ProjectsService::getOrgProjectsStats ${err.message}`,
+          `OrganizationsService::getRepositories ${err.message}`,
         );
         return undefined;
       });

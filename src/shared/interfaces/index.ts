@@ -16,4 +16,4 @@ export * from "./preferred-term.interface";
 export * from "./paired-term.interface";
 export * from "./technology-primary-term.interface";
 export * from "./technology-preferred-term.interface";
-export * from "./org-project-stats.interface";
+export * from "./org-repos.interface";

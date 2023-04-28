@@ -26,7 +26,7 @@ import { BackendService } from "src/backend/backend.service";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
-  OrgProjectStats,
+  Repository,
   Organization,
   Response,
   ResponseWithNoData,
@@ -240,19 +240,19 @@ export class OrganizationsController {
     return this.backendService.updateOrganization(body);
   }
 
-  @Get("/project-stats/:id")
+  @Get("/repositories/:id")
   @ApiOkResponse({
     description:
-      "Returns an aggregate of project statistics for the specified organization",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(OrgProjectStats) }),
+      "Returns an aggregate of project repositories for the specified organization",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Repository) }),
   })
-  async getOrgProjectsStats(
+  async getRepositoriesForOrganization(
     @Param("id") id: string,
-  ): Promise<Response<OrgProjectStats>> {
-    this.logger.log(`/organizations/project-stats/${id}`);
-    return this.organizationsService.getProjectsStats(id).then(res => ({
+  ): Promise<Response<Repository[]>> {
+    this.logger.log(`/organizations/repositories/${id}`);
+    return this.organizationsService.getRepositories(id).then(res => ({
       success: true,
-      message: "Retrieved organization projects stats successfully",
+      message: "Retrieved organization repositories successfully",
       data: res,
     }));
   }
