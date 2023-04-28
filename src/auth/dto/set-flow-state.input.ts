@@ -1,12 +1,19 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsEthereumAddress, IsString } from "class-validator";
+import { IsEthereumAddress, IsIn, IsString } from "class-validator";
+
+import { CheckWalletFlows } from "src/shared/enums/check-wallet-result.enum";
 
 export class SetFlowStateInput {
   @ApiProperty()
   @IsEthereumAddress()
   wallet: string;
 
-  @IsString()
   @ApiProperty()
+  @IsString()
+  @IsIn([
+    CheckWalletFlows.ADD_GITHUB_REPO,
+    CheckWalletFlows.ONBOARD_PROFILE,
+    CheckWalletFlows.SIGNUP_COMPLETE,
+  ])
   flow: string;
 }

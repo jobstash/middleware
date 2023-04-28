@@ -21,6 +21,7 @@ import { BlockedTermsInput } from "src/technologies/dto/set-blocked-term.input";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { SetFlowStateInput } from "src/auth/dto/set-flow-state.input";
+import { SetRoleInput } from "src/auth/dto/set-role.input";
 
 export interface GithubLoginInput {
   githubAccessToken: string;
@@ -159,6 +160,37 @@ export class BackendService {
           Sentry.captureException(err);
         });
         this.logger.error(`BackendService::setFlowState ${err.message}`);
+        return undefined;
+      });
+  }
+
+  async setRole(
+    input: SetRoleInput,
+  ): Promise<Response<string> | ResponseWithNoData> {
+    const client = await this.getOrRefreshClient();
+    this.logger.log(`/user/setRole: ${input}`);
+
+    return client
+      .post("/user/setRole", input)
+      .then(res => {
+        const data = res.data;
+        if (data.success) {
+          return data as Response<string>;
+        } else {
+          this.logger.error(`Error setting user role ${JSON.stringify(data)}`);
+          return data as ResponseWithNoData;
+        }
+      })
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-request-pipeline",
+            source: "backend.service",
+          });
+          scope.setExtra("input", input);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`BackendService::setRole ${err.message}`);
         return undefined;
       });
   }

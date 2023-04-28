@@ -163,6 +163,11 @@ export class GithubController {
         flow: CheckWalletFlows.ADD_GITHUB_REPO,
         wallet: wallet,
       });
+
+      await this.backendService.setRole({
+        flow: CheckWalletRoles.DEV,
+        wallet: wallet,
+      });
     } else {
       return {
         success: true,
