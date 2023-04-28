@@ -26,6 +26,7 @@ import { BackendService } from "src/backend/backend.service";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
+  OrgProjectStats,
   Organization,
   Response,
   ResponseWithNoData,
@@ -237,5 +238,22 @@ export class OrganizationsController {
   ): Promise<Response<Organization> | ResponseWithNoData> {
     this.logger.log(`/organizations/update ${JSON.stringify(body)}`);
     return this.backendService.updateOrganization(body);
+  }
+
+  @Get("/project-stats/:id")
+  @ApiOkResponse({
+    description:
+      "Returns an aggregate of project statistics for the specified organization",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(OrgProjectStats) }),
+  })
+  async getOrgProjectsStats(
+    @Param("id") id: string,
+  ): Promise<Response<OrgProjectStats>> {
+    this.logger.log(`/organizations/project-stats/${id}`);
+    return this.organizationsService.getProjectsStats(id).then(res => ({
+      success: true,
+      message: "Retrieved organization projects stats successfully",
+      data: res,
+    }));
   }
 }
