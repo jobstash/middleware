@@ -135,7 +135,7 @@ export class BackendService {
     input: SetFlowStateInput,
   ): Promise<Response<string> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
-    this.logger.log(`/user/setFlowState: ${input}`);
+    this.logger.log(`/user/setFlowState: ${JSON.stringify(input)}`);
 
     return client
       .post("/user/setFlow", input)
@@ -168,7 +168,7 @@ export class BackendService {
     input: SetRoleInput,
   ): Promise<Response<string> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
-    this.logger.log(`/user/setRole: ${input}`);
+    this.logger.log(`/user/setRole: ${JSON.stringify(input)}`);
 
     return client
       .post("/user/setRole", input)
@@ -199,7 +199,7 @@ export class BackendService {
     input: CreateOrganizationInput,
   ): Promise<Response<Organization> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
-    this.logger.log(`/organization/create: ${input}`);
+    this.logger.log(`/organization/create: ${JSON.stringify(input)}`);
 
     return client
       .post("/organization/create", input)
@@ -232,7 +232,7 @@ export class BackendService {
     input: UpdateOrganizationInput,
   ): Promise<Response<Organization> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
-    this.logger.log(`/organization/update: ${input}`);
+    this.logger.log(`/organization/update: ${JSON.stringify(input)}`);
 
     return client
       .post("/organization/update", input)
@@ -265,7 +265,7 @@ export class BackendService {
     input: CreateProjectInput,
   ): Promise<Response<Project> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
-    this.logger.log(`/project/create: ${input}`);
+    this.logger.log(`/project/create: ${JSON.stringify(input)}`);
 
     return client
       .post("/project/create", input)
@@ -296,7 +296,7 @@ export class BackendService {
     input: UpdateProjectInput,
   ): Promise<Response<Project> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
-    this.logger.log(`/project/update: ${input}`);
+    this.logger.log(`/project/update: ${JSON.stringify(input)}`);
 
     return client
       .post("/project/update", input)

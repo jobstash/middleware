@@ -11,5 +11,5 @@ export class SetRoleInput {
   @ApiProperty()
   @IsString()
   @IsIn([CheckWalletRoles.DEV, CheckWalletRoles.ORG])
-  flow: string;
+  role: string;
 }

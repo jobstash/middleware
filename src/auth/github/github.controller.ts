@@ -165,7 +165,7 @@ export class GithubController {
       });
 
       await this.backendService.setRole({
-        flow: CheckWalletRoles.DEV,
+        role: CheckWalletRoles.DEV,
         wallet: wallet,
       });
     } else {
