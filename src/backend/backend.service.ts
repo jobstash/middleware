@@ -20,12 +20,13 @@ import { DeletePreferredTermInput } from "src/technologies/dto/delete-preferred-
 import { BlockedTermsInput } from "src/technologies/dto/set-blocked-term.input";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
+import { SetFlowStateInput } from "src/auth/dto/set-flow-state.input";
 
 export interface GithubLoginInput {
   githubAccessToken: string;
   githubRefreshToken: string;
   githubLogin: string;
-  githubId: string;
+  githubId: number;
   githubNodeId: string;
   githubGravatarId?: string | undefined;
   githubAvatarUrl: string;
@@ -125,6 +126,39 @@ export class BackendService {
           Sentry.captureException(err);
         });
         this.logger.error(`BackendService::createSIWEUser ${err.message}`);
+        return undefined;
+      });
+  }
+
+  async setFlowState(
+    input: SetFlowStateInput,
+  ): Promise<Response<string> | ResponseWithNoData> {
+    const client = await this.getOrRefreshClient();
+    this.logger.log(`/user/setFlowState: ${input}`);
+
+    return client
+      .post("/user/setFlow", input)
+      .then(res => {
+        const data = res.data;
+        if (data.success) {
+          return data as Response<string>;
+        } else {
+          this.logger.error(
+            `Error setting user signup flow state ${JSON.stringify(data)}`,
+          );
+          return data as ResponseWithNoData;
+        }
+      })
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-request-pipeline",
+            source: "backend.service",
+          });
+          scope.setExtra("input", input);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`BackendService::setFlowState ${err.message}`);
         return undefined;
       });
   }

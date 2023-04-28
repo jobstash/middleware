@@ -1,4 +1,5 @@
 import { GithubLoginInput } from "./dto/github-login.input";
+import { GithubAuthenticatedUserResponse } from "./dto/github-authenticated-user.response";
 import {
   Controller,
   Get,
@@ -12,8 +13,8 @@ import { AuthService } from "../auth.service";
 import { ConfigService } from "@nestjs/config";
 import {
   CheckWalletRoles,
+  CheckWalletFlows,
   GithubConfig,
-  Response,
   ResponseWithNoData,
   User,
 } from "src/shared/types";
@@ -91,7 +92,7 @@ export class GithubController {
   })
   async githubLogin(
     @Body() body: GithubLoginInput,
-  ): Promise<Response<User> | ResponseWithNoData> {
+  ): Promise<ResponseWithNoData> {
     this.logger.log("/github/github-login");
     const { wallet, code, role } = body;
     const userByWallet = await this.userService.findByWallet(wallet);
@@ -119,19 +120,33 @@ export class GithubController {
         }&code=${code}`,
       );
       // Note: tokenParamsString returns just a string like
-      // access_token=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&scope=read%3Aorg%2Cread%3Auser&token_type=bearer
+      // access_token=gho_6YqtJ2nrwDKM2d5EwegweOVIpETwegu34Vp6Iq&scope=read%3Aorg%2Cread%3Auser&token_type=bearer
       const params = new URLSearchParams(tokenParamsString);
       const accessToken = params.get("access_token");
-      const { data: profileData } = await axios.get(
-        "https://api.github.com/user",
-        {
+
+      const data = await axios
+        .get<GithubAuthenticatedUserResponse>("https://api.github.com/user", {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
-        },
-      );
+        })
+        .catch(err => {
+          this.logger.error(
+            `Github token request failed with error: ${err.response.data.message}`,
+          );
+        });
 
-      return await this.backendService.addGithubInfoToUser({
+      if (!data) {
+        return {
+          success: false,
+          message:
+            "Github was unable to authenticate the user given the supplied challenge code",
+        };
+      }
+
+      const profileData = data.data;
+
+      await this.backendService.addGithubInfoToUser({
         githubAccessToken: accessToken,
         githubRefreshToken: "", // TODO: where do we get this? tokenData does not return this
         githubLogin: profileData.login,
@@ -143,12 +158,15 @@ export class GithubController {
         wallet: wallet,
         role: role,
       });
+
+      await this.backendService.setFlowState({
+        flow: CheckWalletFlows.ADD_GITHUB_REPO,
+        wallet: wallet,
+      });
     } else {
-      //TODO: Why does this feel like it leaks/doxxes users?
       return {
         success: true,
-        message: "User logged in successfully",
-        data: result,
+        message: "Github connected successfully",
       };
     }
   }
