@@ -1,3 +1,10 @@
+# [1.25.0](https://github.com/jobstash/middleware/compare/v1.24.2...v1.25.0) (2023-04-28)
+
+
+### Features
+
+* **orgs:** added org projects stats endpoint ([#72](https://github.com/jobstash/middleware/issues/72)) ([4d4bf55](https://github.com/jobstash/middleware/commit/4d4bf55649b4b18b585858c64620f6ba62e64b43))
+
 ## [1.24.2](https://github.com/jobstash/middleware/compare/v1.24.1...v1.24.2) (2023-04-28)
 
 
