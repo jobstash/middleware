@@ -104,75 +104,70 @@ export class GithubController {
       });
     }
 
-    const result = userByWallet.getProperties();
-    // Todo: is this ok? How would we update the user github token/data?
-    // Todo: handle the case where the user has already logged in but now some data is different
-    if (result.githubId === undefined) {
-      const { data: tokenParamsString } = await axios.get(
-        `https://github.com/login/oauth/access_token?client_id=${
-          role === CheckWalletRoles.ORG
-            ? this.ghConfig.org.clientID
-            : this.ghConfig.dev.clientID
-        }&client_secret=${
-          role === CheckWalletRoles.ORG
-            ? this.ghConfig.org.clientSecret
-            : this.ghConfig.dev.clientSecret
-        }&code=${code}`,
-      );
-      // Note: tokenParamsString returns just a string like
-      // access_token=gho_6YqtJ2nrwDKM2d5EwegweOVIpETwegu34Vp6Iq&scope=read%3Aorg%2Cread%3Auser&token_type=bearer
-      const params = new URLSearchParams(tokenParamsString);
-      const accessToken = params.get("access_token");
+    const { data: tokenParamsString } = await axios.get(
+      `https://github.com/login/oauth/access_token?client_id=${
+        role === CheckWalletRoles.ORG
+          ? this.ghConfig.org.clientID
+          : this.ghConfig.dev.clientID
+      }&client_secret=${
+        role === CheckWalletRoles.ORG
+          ? this.ghConfig.org.clientSecret
+          : this.ghConfig.dev.clientSecret
+      }&code=${code}`,
+    );
+    // Note: tokenParamsString returns just a string like
+    // access_token=gho_6YqtJ2nrwDKM2d5EwegweOVIpETwegu34Vp6Iq&scope=read%3Aorg%2Cread%3Auser&token_type=bearer
+    const params = new URLSearchParams(tokenParamsString);
+    const accessToken = params.get("access_token");
 
-      const data = await axios
-        .get<GithubAuthenticatedUserResponse>("https://api.github.com/user", {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        })
-        .catch(err => {
-          this.logger.error(
-            `Github token request failed with error: ${err.response.data.message}`,
-          );
-        });
-
-      if (!data) {
-        return {
-          success: false,
-          message:
-            "Github was unable to authenticate the user given the supplied challenge code",
-        };
-      }
-
-      const profileData = data.data;
-
-      await this.backendService.addGithubInfoToUser({
-        githubAccessToken: accessToken,
-        githubRefreshToken: "", // TODO: where do we get this? tokenData does not return this
-        githubLogin: profileData.login,
-        githubId: profileData.id,
-        githubNodeId: profileData.node_id,
-        githubGravatarId:
-          profileData.gravatar_id === "" ? undefined : profileData.gravatar_id,
-        githubAvatarUrl: profileData.avatar_url,
-        wallet: wallet,
-        role: role,
+    const data = await axios
+      .get<GithubAuthenticatedUserResponse>("https://api.github.com/user", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+      .catch(err => {
+        this.logger.error(
+          `Github token request failed with error: ${err.response.data.message}`,
+        );
       });
 
-      await this.backendService.setFlowState({
-        flow: CheckWalletFlows.ADD_GITHUB_REPO,
-        wallet: wallet,
-      });
-
-      await this.backendService.setRole({
-        role: CheckWalletRoles.DEV,
-        wallet: wallet,
-      });
-    } else {
+    if (!data) {
       return {
-        success: true,
-        message: "Github connected successfully",
+        success: false,
+        message:
+          "Github was unable to authenticate the user given the supplied challenge code",
       };
     }
+
+    const profileData = data.data;
+
+    await this.backendService.addGithubInfoToUser({
+      githubAccessToken: accessToken,
+      githubRefreshToken: "", // TODO: where do we get this? tokenData does not return this
+      githubLogin: profileData.login,
+      githubId: profileData.id,
+      githubNodeId: profileData.node_id,
+      githubGravatarId:
+        profileData.gravatar_id === "" ? undefined : profileData.gravatar_id,
+      githubAvatarUrl: profileData.avatar_url,
+      wallet: wallet,
+      role: role,
+    });
+
+    await this.backendService.setFlowState({
+      flow: CheckWalletFlows.ADD_GITHUB_REPO,
+      wallet: wallet,
+    });
+
+    await this.backendService.setRole({
+      role: CheckWalletRoles.DEV,
+      wallet: wallet,
+    });
+
+    return {
+      success: true,
+      message: "Github connected successfully",
+    };
   }
 }
