@@ -1,3 +1,10 @@
+## [1.25.1](https://github.com/jobstash/middleware/compare/v1.25.0...v1.25.1) (2023-04-30)
+
+
+### Bug Fixes
+
+* **repository:** return props instead of raw entity ([c5a3c8c](https://github.com/jobstash/middleware/commit/c5a3c8cf231219f8283b9a617a6f2dd71eecaf36))
+
 # [1.25.0](https://github.com/jobstash/middleware/compare/v1.24.2...v1.25.0) (2023-04-28)
 
 
