@@ -1,6 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
-import { ShortOrgEntity, ShortOrg } from "src/shared/types";
+import {
+  ShortOrgEntity,
+  ShortOrg,
+  Repository as RepositoryProperties,
+} from "src/shared/types";
 import { Repository } from "src/shared/entities/repository.entity";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -130,7 +134,7 @@ export class OrganizationsService {
       });
   }
 
-  async getRepositories(id: string): Promise<Repository[]> {
+  async getRepositories(id: string): Promise<RepositoryProperties[]> {
     return this.neo4jService
       .read(
         `

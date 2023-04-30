@@ -244,7 +244,9 @@ export class OrganizationsController {
   @ApiOkResponse({
     description:
       "Returns an aggregate of project repositories for the specified organization",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(Repository) }),
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Repository),
+    }),
   })
   async getRepositoriesForOrganization(
     @Param("id") id: string,
