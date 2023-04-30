@@ -1,3 +1,10 @@
+## [1.25.2](https://github.com/jobstash/middleware/compare/v1.25.1...v1.25.2) (2023-04-30)
+
+
+### Bug Fixes
+
+* **types:** fix types of repository entity ([47654f7](https://github.com/jobstash/middleware/commit/47654f7e34cc095c61d1df41cfce965addf32de5))
+
 ## [1.25.1](https://github.com/jobstash/middleware/compare/v1.25.0...v1.25.1) (2023-04-30)
 
 
