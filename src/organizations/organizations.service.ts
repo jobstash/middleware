@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
-import { ShortOrgEntity, ShortOrg, Repository } from "src/shared/types";
+import { ShortOrgEntity, ShortOrg } from "src/shared/types";
+import { Repository } from "src/shared/entities/repository.entity";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 
@@ -138,7 +139,12 @@ export class OrganizationsService {
         `,
         { id },
       )
-      .then(res => res.records.map(record => record.get("res") as Repository[]))
+      .then(res =>
+        res.records.map(record => {
+          const ent = new Repository(record.get("res")).getProperties();
+          return ent;
+        }),
+      )
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
