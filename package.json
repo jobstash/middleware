@@ -44,6 +44,7 @@
     "ethers": "5.5.1",
     "express-jwt": "^8.4.1",
     "express-session": "^1.17.3",
+    "fast-sort": "^3.4.0",
     "helmet": "^6.0.1",
     "iron-session": "^6.3.1",
     "joi": "^17.7.0",
