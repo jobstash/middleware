@@ -51,7 +51,7 @@ async function bootstrap(): Promise<void> {
   });
 
   const config = new DocumentBuilder()
-    .setTitle("Recruiters.RIP Middleware")
+    .setTitle("JobStash Middleware")
     .setDescription(
       "This application provides all the data needed by the various frontends in a unified, latency-optimised way",
     )
