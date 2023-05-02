@@ -67,7 +67,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
   },
   seniority: {
     position: 2,
-    label: "Seniority Level",
+    label: "Seniority",
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
@@ -92,7 +92,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
   },
   headCount: {
     position: 5,
-    label: "Head Count",
+    label: "Headcount",
     show: false,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
@@ -158,7 +158,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
   },
   monthlyVolume: {
     position: 13,
-    label: "Monthly Volume",
+    label: "Volume/mo",
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
@@ -167,7 +167,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
   },
   monthlyFees: {
     position: 14,
-    label: "Monthly Fees",
+    label: "Fees/mo",
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
@@ -176,7 +176,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
   },
   monthlyRevenue: {
     position: 15,
-    label: "Monthly Revenue",
+    label: "Revenue/mo",
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
