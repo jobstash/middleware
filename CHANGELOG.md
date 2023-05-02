@@ -1,3 +1,17 @@
+# [1.26.0](https://github.com/jobstash/middleware/compare/v1.25.2...v1.26.0) (2023-05-01)
+
+
+### Features
+
+* **job filters:** implemented sorting for multi search filter configs and refactored default state for step sizes ([#73](https://github.com/jobstash/middleware/issues/73)) ([3a9254e](https://github.com/jobstash/middleware/commit/3a9254e9cc5da7a77e446c61cba3713fdf068bae))
+
+## [1.25.2](https://github.com/jobstash/middleware/compare/v1.25.1...v1.25.2) (2023-04-30)
+
+
+### Bug Fixes
+
+* **types:** fix types of repository entity ([47654f7](https://github.com/jobstash/middleware/commit/47654f7e34cc095c61d1df41cfce965addf32de5))
+
 ## [1.25.1](https://github.com/jobstash/middleware/compare/v1.25.0...v1.25.1) (2023-04-30)
 
 

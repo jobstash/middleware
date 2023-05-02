@@ -4,6 +4,7 @@ import {
   JOB_FILTER_CONFIG_PRESETS,
 } from "../presets/job-filter-configs";
 import { intConverter } from "../helpers";
+import { createNewSortInstance } from "fast-sort";
 
 type RawJobFilters = {
   minSalaryRange?: number | null;
@@ -20,8 +21,13 @@ type RawJobFilters = {
   maxHeadCount?: number | null;
   minTeamSize?: number | null;
   maxTeamSize?: number | null;
-  technologies?: string[] | null;
+  minAudits?: number | null;
+  maxAudits?: number | null;
+  tech?: string[] | null;
+  fundingRounds?: string[] | null;
+  projects?: string[] | null;
   categories?: string[] | null;
+  chains?: string[] | null;
   locations?: string[] | null;
   organizations?: string[] | null;
   seniority?: string[] | null;
@@ -34,32 +40,48 @@ export class JobFilterConfigsEntity {
   constructor(private readonly raw: RawJobFilters) {}
 
   getRangePresets(key: string): object {
+    const range = {
+      lowest: {
+        value: this.raw[this.paramKeyPresets[key].lowest]
+          ? intConverter(this.raw[this.paramKeyPresets[key].lowest])
+          : 0,
+        paramKey: this.paramKeyPresets[key].lowest,
+      },
+      highest: {
+        value: this.raw[this.paramKeyPresets[key].highest]
+          ? intConverter(this.raw[this.paramKeyPresets[key].highest])
+          : 0,
+        paramKey: this.paramKeyPresets[key].highest,
+      },
+    };
     return {
       ...this.configPresets[key],
-      value: {
-        lowest: {
-          value: this.raw[this.paramKeyPresets[key].lowest]
-            ? intConverter(this.raw[this.paramKeyPresets[key].lowest])
-            : 0,
-          paramKey: this.paramKeyPresets[key].lowest,
-        },
-        highest: {
-          value: this.raw[this.paramKeyPresets[key].highest]
-            ? intConverter(this.raw[this.paramKeyPresets[key].highest])
-            : 0,
-          paramKey: this.paramKeyPresets[key].highest,
-        },
-      },
+      stepSize:
+        range.highest.value === 0 && range.lowest.value === 0
+          ? 0
+          : this.configPresets[key].stepSize,
+      value: range,
     };
   }
 
   getMultiValuePresets(key: string): object {
+    const sort = createNewSortInstance({
+      comparer: new Intl.Collator(undefined, {
+        numeric: true,
+        caseFirst: "lower",
+        sensitivity: "case",
+      }).compare,
+    });
+
+    const isValidFilterConfig = (value: string): boolean =>
+      value !== "unspecified" &&
+      value !== "undefined" &&
+      value !== "" &&
+      value !== "null";
+
     return {
       ...this.configPresets[key],
-      options:
-        this.raw[key]?.filter(
-          value => value !== "unspecified" && value !== "undefined",
-        ) ?? null,
+      options: sort(this.raw[key]?.filter(isValidFilterConfig) ?? null).asc(),
       paramKey: this.paramKeyPresets[key],
     };
   }
