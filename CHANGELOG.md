@@ -1,3 +1,10 @@
+## [1.26.1](https://github.com/jobstash/middleware/compare/v1.26.0...v1.26.1) (2023-05-02)
+
+
+### Bug Fixes
+
+* **filter:** Update filter labels to be slightly more compact ([0ca0cc6](https://github.com/jobstash/middleware/commit/0ca0cc6deea206c2e01d5ff0fe3545d6634fd6fb))
+
 # [1.26.0](https://github.com/jobstash/middleware/compare/v1.25.2...v1.26.0) (2023-05-01)
 
 
