@@ -19,6 +19,7 @@ import { CreatePreferredTermInput } from "./dto/create-preferred-term.input";
 import { DeletePreferredTermInput } from "./dto/delete-preferred-term.input";
 import { CreatePairedTermsInput } from "./dto/create-paired-terms.input";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import * as Sentry from "@sentry/node";
 @Controller("technologies")
 @ApiExtraModels(TechnologyPreferredTerm, PreferredTerm)
 export class TechnologiesController {
@@ -35,13 +36,31 @@ export class TechnologiesController {
     description: "Returns a list of all technologies",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Technology) }),
   })
-  async getTechnologies(): Promise<Response<Technology[]>> {
+  async getTechnologies(): Promise<
+    Response<Technology[]> | ResponseWithNoData
+  > {
     this.logger.log(`/technologies`);
-    return this.technologiesService.getAll().then(res => ({
-      success: true,
-      message: "Retrieved all technologies",
-      data: res,
-    }));
+    return this.technologiesService
+      .getAll()
+      .then(res => ({
+        success: true,
+        message: "Retrieved all technologies",
+        data: res,
+      }))
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-call",
+            source: "technologies.controller",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`/technologies ${err.message}`);
+        return {
+          success: false,
+          message: `Error retrieving technologies!`,
+        };
+      });
   }
 
   @Get("/blocked-terms")
@@ -51,13 +70,31 @@ export class TechnologiesController {
     description: "Returns a list of all blocked terms",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Technology) }),
   })
-  async getBlockedTerms(): Promise<Response<Technology[]>> {
+  async getBlockedTerms(): Promise<
+    Response<Technology[]> | ResponseWithNoData
+  > {
     this.logger.log(`/technologies/blocked-terms`);
-    return this.technologiesService.getBlockedTerms().then(res => ({
-      success: true,
-      message: "Retrieved all blocked terms",
-      data: res,
-    }));
+    return this.technologiesService
+      .getBlockedTerms()
+      .then(res => ({
+        success: true,
+        message: "Retrieved all blocked terms",
+        data: res,
+      }))
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-call",
+            source: "technologies.controller",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`/technologies/blocked-terms ${err.message}`);
+        return {
+          success: false,
+          message: `Error retrieving blocked technology terms!`,
+        };
+      });
   }
 
   @Post("/set-blocked-terms")
@@ -99,13 +136,31 @@ export class TechnologiesController {
       $ref: getSchemaPath(TechnologyPreferredTerm),
     }),
   })
-  async getPreferredTerms(): Promise<Response<TechnologyPreferredTerm[]>> {
+  async getPreferredTerms(): Promise<
+    Response<TechnologyPreferredTerm[]> | ResponseWithNoData
+  > {
     this.logger.log(`/technologies/preferred-terms`);
-    return this.technologiesService.getPreferredTerms().then(res => ({
-      success: true,
-      message: "Retrieved all preferred terms",
-      data: res,
-    }));
+    return this.technologiesService
+      .getPreferredTerms()
+      .then(res => ({
+        success: true,
+        message: "Retrieved all preferred terms",
+        data: res,
+      }))
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-call",
+            source: "technologies.controller",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`/technologies/preferred-terms ${err.message}`);
+        return {
+          success: false,
+          message: `Error retrieving preferred technology terms!`,
+        };
+      });
   }
 
   @Get("paired-terms")
@@ -117,13 +172,29 @@ export class TechnologiesController {
       $ref: getSchemaPath(PairedTerm),
     }),
   })
-  async getPairedTerms(): Promise<Response<PairedTerm[]>> {
+  async getPairedTerms(): Promise<Response<PairedTerm[]> | ResponseWithNoData> {
     this.logger.log(`/technologies/paired-terms`);
-    return this.technologiesService.getPairedTerms().then(res => ({
-      success: true,
-      message: "Retrieved all paired terms",
-      data: res,
-    }));
+    return this.technologiesService
+      .getPairedTerms()
+      .then(res => ({
+        success: true,
+        message: "Retrieved all paired terms",
+        data: res,
+      }))
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-call",
+            source: "technologies.controller",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`/technologies/paired-terms ${err.message}`);
+        return {
+          success: false,
+          message: `Error retrieving paired technology terms!`,
+        };
+      });
   }
 
   @Post("/create-paired-terms")

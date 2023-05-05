@@ -4,9 +4,12 @@ import { ConfigService } from "@nestjs/config";
 import { ExtractJwt, Strategy } from "passport-jwt";
 import { UserService } from "../user/user.service";
 import { User } from "src/shared/types";
+import { CustomLogger } from "src/shared/utils/custom-logger";
+import * as Sentry from "@sentry/node";
 
 @Injectable()
 export class JwtAuthStrategy extends PassportStrategy(Strategy) {
+  logger = new CustomLogger(JwtAuthStrategy.name);
   constructor(
     private readonly configService: ConfigService,
     private readonly userService: UserService,
@@ -19,12 +22,26 @@ export class JwtAuthStrategy extends PassportStrategy(Strategy) {
     });
   }
   async validate(payload: string): Promise<User | null> {
-    return this.userService.findByNodeId(payload).then(user => {
-      if (user !== undefined) {
-        return user.getProperties();
-      } else {
+    return this.userService
+      .findByNodeId(payload)
+      .then(user => {
+        if (user !== undefined) {
+          return user.getProperties();
+        } else {
+          return null;
+        }
+      })
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "token-validate",
+            source: "jwt-auth.strategy",
+          });
+          scope.setExtra("input", payload);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`JwtAuthStrategy::validate ${err.message}`);
         return null;
-      }
-    });
+      });
   }
 }

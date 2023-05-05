@@ -64,13 +64,29 @@ export class ProjectsController {
     description: "Returns a list of all projects",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
   })
-  async getProjects(): Promise<Response<Project[]>> {
+  async getProjects(): Promise<Response<Project[]> | ResponseWithNoData> {
     this.logger.log(`/projects`);
-    return this.projectsService.getProjects().then(res => ({
-      success: true,
-      message: "Retrieved all projects successfully",
-      data: res,
-    }));
+    return this.projectsService
+      .getProjects()
+      .then(res => ({
+        success: true,
+        message: "Retrieved all projects successfully",
+        data: res,
+      }))
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-call",
+            source: "projects.controller",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`/projects ${err.message}`);
+        return {
+          success: false,
+          message: `Error retrieving projects!`,
+        };
+      });
   }
 
   @Get("/category/:category")
@@ -82,13 +98,29 @@ export class ProjectsController {
   })
   async getProjectsByCategory(
     @Param("category") category: string,
-  ): Promise<Response<Project[]>> {
+  ): Promise<Response<Project[]> | ResponseWithNoData> {
     this.logger.log(`/projects/category/${category}`);
-    return this.projectsService.getProjectsByCategory(category).then(res => ({
-      success: true,
-      message: "Retrieved all projects in category successfully",
-      data: res,
-    }));
+    return this.projectsService
+      .getProjectsByCategory(category)
+      .then(res => ({
+        success: true,
+        message: "Retrieved all projects in category successfully",
+        data: res,
+      }))
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-call",
+            source: "projects.controller",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`/projects/category/${category} ${err.message}`);
+        return {
+          success: false,
+          message: `Error retrieving projects by category!`,
+        };
+      });
   }
 
   @Get("/competitors/:id")
@@ -99,13 +131,29 @@ export class ProjectsController {
   })
   async getProjectCompetitors(
     @Param("id") id: string,
-  ): Promise<Response<Project[]>> {
+  ): Promise<Response<Project[]> | ResponseWithNoData> {
     this.logger.log(`/projects/competitors/${id}`);
-    return this.projectsService.getProjectCompetitors(id).then(res => ({
-      success: true,
-      message: "Retrieved all competing projects successfully",
-      data: res,
-    }));
+    return this.projectsService
+      .getProjectCompetitors(id)
+      .then(res => ({
+        success: true,
+        message: "Retrieved all competing projects successfully",
+        data: res,
+      }))
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-call",
+            source: "projects.controller",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`/projects/competitors/${id} ${err.message}`);
+        return {
+          success: false,
+          message: `Error retrieving project competitors!`,
+        };
+      });
   }
 
   @Get("/all/:id")
@@ -117,13 +165,29 @@ export class ProjectsController {
   })
   async getProjectsByOrgId(
     @Param("id") id: string,
-  ): Promise<Response<Project[]>> {
+  ): Promise<Response<Project[]> | ResponseWithNoData> {
     this.logger.log(`/projects/all/${id}`);
-    return this.projectsService.getProjectsByOrgId(id).then(res => ({
-      success: true,
-      message: "Retrieved all organization projects successfully",
-      data: res,
-    }));
+    return this.projectsService
+      .getProjectsByOrgId(id)
+      .then(res => ({
+        success: true,
+        message: "Retrieved all organization projects successfully",
+        data: res,
+      }))
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-call",
+            source: "projects.controller",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`/projects/all/${id} ${err.message}`);
+        return {
+          success: false,
+          message: `Error retrieving project for organization!`,
+        };
+      });
   }
 
   @Get("/search")
@@ -135,13 +199,29 @@ export class ProjectsController {
   })
   async searchProjects(
     @Query("query") query: string,
-  ): Promise<Response<Project[]>> {
+  ): Promise<Response<Project[]> | ResponseWithNoData> {
     this.logger.log(`/projects/search?query=${query}`);
-    return this.projectsService.searchProjects(query).then(res => ({
-      success: true,
-      message: "Retrieved matching projects successfully",
-      data: res,
-    }));
+    return this.projectsService
+      .searchProjects(query)
+      .then(res => ({
+        success: true,
+        message: "Retrieved matching projects successfully",
+        data: res,
+      }))
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-call",
+            source: "projects.controller",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`/projects/search?query=${query} ${err.message}`);
+        return {
+          success: false,
+          message: `Error retrieving projects by query!`,
+        };
+      });
   }
 
   @Get("/:id")

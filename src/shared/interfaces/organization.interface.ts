@@ -4,6 +4,7 @@ import {
   getSchemaPath,
 } from "@nestjs/swagger";
 import { Technology } from "./technology.interface";
+import { FundingRound } from "./funding-round.interface";
 
 export class Organization {
   @ApiProperty()
@@ -58,6 +59,20 @@ export class ShortOrg {
   lastFundingAmount: number;
   @ApiProperty()
   lastFundingDate: number;
+  @ApiProperty()
+  url: string;
+  @ApiProperty()
+  description: string;
+  @ApiProperty()
+  github: string;
+  @ApiProperty()
+  twitter: string;
+  @ApiProperty()
+  telegram: string;
+  @ApiProperty()
+  discord: string;
+  @ApiProperty({ type: "array", items: { $ref: getSchemaPath(FundingRound) } })
+  fundingRounds: FundingRound[];
   @ApiProperty({ type: "array", items: { $ref: getSchemaPath(Technology) } })
   technologies: Technology[];
 }

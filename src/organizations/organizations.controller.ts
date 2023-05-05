@@ -71,13 +71,29 @@ export class OrganizationsController {
     description: "Returns a list of all organizations",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(ShortOrg) }),
   })
-  async getOrganizations(): Promise<Response<ShortOrg[]>> {
+  async getOrganizations(): Promise<Response<ShortOrg[]> | ResponseWithNoData> {
     this.logger.log(`/organizations`);
-    return this.organizationsService.getAll().then(res => ({
-      success: true,
-      message: "Retrieved all organizations successfully",
-      data: res,
-    }));
+    return this.organizationsService
+      .getAll()
+      .then(res => ({
+        success: true,
+        message: "Retrieved all organizations successfully",
+        data: res,
+      }))
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-call",
+            source: "organizations.controller",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`/organizations ${err.message}`);
+        return {
+          success: false,
+          message: `Error retrieving organizations!`,
+        };
+      });
   }
 
   @Get("/search")
@@ -90,13 +106,31 @@ export class OrganizationsController {
   })
   async searchOrganizations(
     @Query("query") query: string,
-  ): Promise<Response<ShortOrg[]>> {
+  ): Promise<Response<ShortOrg[]> | ResponseWithNoData> {
     this.logger.log(`/organizations/search?query=${query}`);
-    return this.organizationsService.searchOrganizations(query).then(res => ({
-      success: true,
-      message: "Retrieved matching organizations successfully",
-      data: res,
-    }));
+    return this.organizationsService
+      .searchOrganizations(query)
+      .then(res => ({
+        success: true,
+        message: "Retrieved matching organizations successfully",
+        data: res,
+      }))
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-call",
+            source: "organizations.controller",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(
+          `/organizations/search?query=${query} ${err.message}`,
+        );
+        return {
+          success: false,
+          message: `Error retrieving organizations for query!`,
+        };
+      });
   }
 
   @Get("/:id")
@@ -250,12 +284,28 @@ export class OrganizationsController {
   })
   async getRepositoriesForOrganization(
     @Param("id") id: string,
-  ): Promise<Response<Repository[]>> {
+  ): Promise<Response<Repository[]> | ResponseWithNoData> {
     this.logger.log(`/organizations/repositories/${id}`);
-    return this.organizationsService.getRepositories(id).then(res => ({
-      success: true,
-      message: "Retrieved organization repositories successfully",
-      data: res,
-    }));
+    return this.organizationsService
+      .getRepositories(id)
+      .then(res => ({
+        success: true,
+        message: "Retrieved organization repositories successfully",
+        data: res,
+      }))
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-call",
+            source: "projects.controller",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`/organizations/repositories/${id} ${err.message}`);
+        return {
+          success: false,
+          message: `Error retrieving organization repositories!`,
+        };
+      });
   }
 }

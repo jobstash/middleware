@@ -375,7 +375,7 @@ export class JobsService {
       .then(res => {
         const result = res.records[0]?.get("res");
         return {
-          page: result?.data?.length > 0 ? params.page ?? 1 : -1 ?? -1,
+          page: (result?.data?.length > 0 ? params.page ?? 1 : -1) ?? -1,
           count: result?.data?.length ?? 0,
           total: result?.total ? intConverter(result?.total) : 0,
           data:
