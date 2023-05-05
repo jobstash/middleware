@@ -42,6 +42,7 @@
     "date-fns": "^2.29.3",
     "dotenv": "^16.0.3",
     "ethers": "5.5.1",
+    "express-basic-auth": "^1.2.1",
     "express-jwt": "^8.4.1",
     "express-session": "^1.17.3",
     "fast-sort": "^3.4.0",

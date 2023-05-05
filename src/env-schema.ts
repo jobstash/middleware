@@ -31,6 +31,8 @@ const envSchema = Joi.object({
   SENTRY_DSN: Joi.string(),
   SENTRY_TRACES_SAMPLE_RATE: Joi.number(),
   SESSION_SECRET: Joi.string(),
+  SWAGGER_USER: Joi.string(),
+  SWAGGER_PASSWORD: Joi.string(),
 });
 
 export default envSchema;

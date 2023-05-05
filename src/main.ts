@@ -9,6 +9,7 @@ import { ironSession } from "iron-session/express";
 import { IronSessionOptions } from "iron-session";
 import * as dotenv from "dotenv";
 import * as fs from "fs";
+import * as basicAuth from "express-basic-auth";
 dotenv.config();
 
 if (!process.env.SESSION_SECRET) throw new Error("SESSION_SECRET must be set");
@@ -49,6 +50,13 @@ async function bootstrap(): Promise<void> {
     allowedHeaders: ["content-type"],
     methods: ["GET", "OPTIONS", "POST"],
   });
+  app.use(
+    ["/api", "/api-json", "/api-yaml"],
+    basicAuth({
+      challenge: true,
+      users: { [process.env.SWAGGER_USER]: process.env.SWAGGER_PASSWORD },
+    }),
+  );
 
   const config = new DocumentBuilder()
     .setTitle("JobStash Middleware")
