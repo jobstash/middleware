@@ -1,3 +1,10 @@
+# [1.27.0](https://github.com/jobstash/middleware/compare/v1.26.1...v1.27.0) (2023-05-05)
+
+
+### Features
+
+* **swagger:** added auth for swagger ([002995f](https://github.com/jobstash/middleware/commit/002995f62fa54302c2aae8c68eaa0a23e3d691b2))
+
 ## [1.26.1](https://github.com/jobstash/middleware/compare/v1.26.0...v1.26.1) (2023-05-02)
 
 
