@@ -1,3 +1,13 @@
+## [1.27.1](https://github.com/jobstash/middleware/compare/v1.27.0...v1.27.1) (2023-05-09)
+
+
+### Bug Fixes
+
+* **linter:** fixed linter issues ([4aaeaf9](https://github.com/jobstash/middleware/commit/4aaeaf9854ab880a85f61d487a1516a24f576ab8))
+* **linter:** temp fix ([f4c858d](https://github.com/jobstash/middleware/commit/f4c858dc2643eb16ce324e283580e8ca9b1f3275))
+* **orgs.service:** fixed bug with name search ([b331b31](https://github.com/jobstash/middleware/commit/b331b31d192f5afb609dccf11e344b64132a9882))
+* **siwe:** fixed build issue with ethers ([c7b758f](https://github.com/jobstash/middleware/commit/c7b758f3c9d95a4b1db074695a348901bf22c95b))
+
 # [1.27.0](https://github.com/jobstash/middleware/compare/v1.26.1...v1.27.0) (2023-05-05)
 
 
