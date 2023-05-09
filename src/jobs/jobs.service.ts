@@ -151,7 +151,7 @@ export class JobsService {
             }
             ${
               params.chains
-                ? "any(y IN cats WHERE y.name IN $categories) AND "
+                ? "any(y IN chains WHERE y.name IN $chains) AND "
                 : ""
             }
             ${

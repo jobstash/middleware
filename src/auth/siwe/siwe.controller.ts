@@ -15,7 +15,7 @@ import { AuthService } from "../auth.service";
 import { VerifyMessageInput } from "../dto/verify-message.input";
 import { generateNonce, SiweMessage } from "siwe";
 import { ConfigService } from "@nestjs/config";
-import { AlchemyProvider } from "@ethersproject/providers";
+import { AlchemyProvider } from "ethers";
 import {
   CheckWalletFlows,
   CheckWalletRoles,
