@@ -68,7 +68,7 @@ export class OrganizationsService {
         WITH o, COUNT(DISTINCT p) as projectCount, COUNT(DISTINCT j) as jobCount, COLLECT(DISTINCT t) as technologies, fr
         ORDER BY fr.date DESC
         WITH o, projectCount, jobCount, technologies, COLLECT(fr)[0] as mrfr, COLLECT(fr) as fundingRounds
-        WHERE name =~ $query
+        WHERE o.name =~ $query
         RETURN { id: o.orgId, name: o.name, logo: o.logo, location: o.location, headCount: o.headCount, projectCount: projectCount, jobCount: jobCount, technologies: technologies, lastFundingAmount: mrfr.raisedAmount, lastFundingDate: mrfr.date, url: o.url, description: o.description, github: o.github, twitter: o.twitter, telegram: o.telegram, discord: o.discord, fundingRounds: fundingRounds } as res
         `,
         { query: `(?i).*${query}.*` },
