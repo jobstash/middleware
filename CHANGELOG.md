@@ -1,3 +1,10 @@
+## [1.28.1](https://github.com/jobstash/middleware/compare/v1.28.0...v1.28.1) (2023-05-10)
+
+
+### Bug Fixes
+
+* **filters:** typo in collect ([3850668](https://github.com/jobstash/middleware/commit/38506684cb5d811f9466155936a767c1ede681f2))
+
 # [1.28.0](https://github.com/jobstash/middleware/compare/v1.27.1...v1.28.0) (2023-05-10)
 
 
