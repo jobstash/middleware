@@ -145,6 +145,11 @@ export class JobsService {
                 : ""
             }
             ${
+              params.investors
+                ? "any(x IN investors WHERE x.name IN $investors) AND "
+                : ""
+            }
+            ${
               params.categories
                 ? "any(y IN cats WHERE y.name IN $categories) AND "
                 : ""
@@ -296,6 +301,11 @@ export class JobsService {
               ${
                 params.fundingRounds
                   ? "any(x IN rounds WHERE x.roundName IN $fundingRounds) AND "
+                  : ""
+              }
+              ${
+                params.investors
+                  ? "any(x IN investors WHERE x.name IN $investors) AND "
                   : ""
               }
               ${

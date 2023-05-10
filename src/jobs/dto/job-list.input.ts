@@ -245,6 +245,14 @@ export class JobListParams {
   fundingRounds?: string[];
 
   @ApiPropertyOptional({
+    example: "Lemniscap,3AC",
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(({ value }) => value?.toString().split(","))
+  investors?: string[];
+
+  @ApiPropertyOptional({
     example: true,
   })
   @IsOptional()

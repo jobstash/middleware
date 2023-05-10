@@ -105,6 +105,8 @@ export class JobFilterConfigs {
   @ApiProperty()
   fundingRounds: MultiSelectSearchFilter;
   @ApiProperty()
+  investors: MultiSelectSearchFilter;
+  @ApiProperty()
   organizations: MultiSelectSearchFilter;
   @ApiProperty()
   chains: MultiSelectSearchFilter;
