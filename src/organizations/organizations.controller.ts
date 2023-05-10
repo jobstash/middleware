@@ -134,8 +134,8 @@ export class OrganizationsController {
   }
 
   @Get("/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  // @UseGuards(RBACGuard)
+  // @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns the details of the org with the provided id",
   })
