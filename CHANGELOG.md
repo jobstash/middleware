@@ -1,3 +1,15 @@
+# [1.28.0](https://github.com/jobstash/middleware/compare/v1.27.1...v1.28.0) (2023-05-10)
+
+
+### Bug Fixes
+
+* **organizations:** fixed issue with short orgs not returning new links data ([#75](https://github.com/jobstash/middleware/issues/75)) ([7f027c7](https://github.com/jobstash/middleware/commit/7f027c7c64fd6d9329c2ec3aeb53e217e530da2f))
+
+
+### Features
+
+* **jobs:** added investor filter for jobs list ([#76](https://github.com/jobstash/middleware/issues/76)) ([7758d93](https://github.com/jobstash/middleware/commit/7758d93fb4ac2de391b89c8975e4d6e587969638))
+
 ## [1.27.1](https://github.com/jobstash/middleware/compare/v1.27.0...v1.27.1) (2023-05-09)
 
 
