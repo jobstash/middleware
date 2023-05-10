@@ -106,6 +106,7 @@ export class JobFilterConfigsEntity {
       audits: this.getRangePresets("audits"),
       hacks: this.getSingleSelectPresets("hacks"),
       fundingRounds: this.getMultiValuePresets("fundingRounds"),
+      investors: this.getMultiValuePresets("investors"),
       tech: this.getMultiValuePresets("tech"),
       organizations: this.getMultiValuePresets("organizations"),
       chains: this.getMultiValuePresets("chains"),

@@ -115,8 +115,16 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventId: null,
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
-  organizations: {
+  investors: {
     position: 8,
+    label: "Funding Rounds",
+    show: true,
+    googleAnalyticsEventName: null,
+    googleAnalyticsEventId: null,
+    kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
+  },
+  organizations: {
+    position: 9,
     label: "Organizations",
     show: true,
     googleAnalyticsEventName: null,
@@ -124,7 +132,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   chains: {
-    position: 9,
+    position: 10,
     label: "Chains",
     show: true,
     googleAnalyticsEventName: null,
@@ -132,7 +140,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   projects: {
-    position: 10,
+    position: 11,
     label: "Projects",
     show: true,
     googleAnalyticsEventName: null,
@@ -140,7 +148,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   categories: {
-    position: 11,
+    position: 12,
     label: "Categories",
     show: true,
     googleAnalyticsEventName: null,
@@ -148,7 +156,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   tvl: {
-    position: 12,
+    position: 13,
     label: "TVL",
     show: true,
     googleAnalyticsEventName: null,
@@ -157,7 +165,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     stepSize: 100000,
   },
   monthlyVolume: {
-    position: 13,
+    position: 14,
     label: "Volume/mo",
     show: true,
     googleAnalyticsEventName: null,
@@ -166,7 +174,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     stepSize: 100000,
   },
   monthlyFees: {
-    position: 14,
+    position: 15,
     label: "Fees/mo",
     show: true,
     googleAnalyticsEventName: null,
@@ -175,7 +183,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     stepSize: 100,
   },
   monthlyRevenue: {
-    position: 15,
+    position: 16,
     label: "Revenue/mo",
     show: true,
     googleAnalyticsEventName: null,
@@ -184,7 +192,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     stepSize: 100000,
   },
   audits: {
-    position: 16,
+    position: 17,
     label: "Audits",
     show: false,
     googleAnalyticsEventName: null,
@@ -193,7 +201,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     stepSize: 5,
   },
   hacks: {
-    position: 17,
+    position: 18,
     label: "Hacks",
     show: true,
     googleAnalyticsEventName: null,
@@ -202,7 +210,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.hacks,
   },
   mainNet: {
-    position: 18,
+    position: 19,
     label: "Mainnet",
     show: true,
     googleAnalyticsEventName: null,
@@ -211,7 +219,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.mainNet,
   },
   token: {
-    position: 19,
+    position: 20,
     label: "Has Token",
     show: true,
     googleAnalyticsEventName: null,
@@ -220,7 +228,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.token,
   },
   order: {
-    position: 20,
+    position: 21,
     label: "Order",
     show: true,
     googleAnalyticsEventName: null,
@@ -229,7 +237,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.order,
   },
   orderBy: {
-    position: 21,
+    position: 22,
     label: "Order By",
     show: true,
     googleAnalyticsEventName: null,
@@ -257,6 +265,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
   },
   tech: "tech",
   fundingRounds: "fundingRounds",
+  investors: "investors",
   organizations: "organizations",
   chains: "chains",
   projects: "projects",
