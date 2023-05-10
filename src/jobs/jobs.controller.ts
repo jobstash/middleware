@@ -1,4 +1,11 @@
-import { Controller, Get, Param, Query, ValidationPipe } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Header,
+  Param,
+  Query,
+  ValidationPipe,
+} from "@nestjs/common";
 import { JobsService } from "./jobs.service";
 import {
   JobFilterConfigs,
@@ -17,6 +24,7 @@ import {
 } from "@nestjs/swagger";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { JobListParams } from "./dto/job-list.input";
+import { CACHE_CONTROL_HEADER } from "src/shared/presets/cache-control";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobListResult, JobFilterConfigs, ValidationError)
@@ -25,6 +33,7 @@ export class JobsController {
   constructor(private readonly jobsService: JobsService) {}
 
   @Get("/list")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER)
   @ApiOkResponse({
     description:
       "Returns a paginated sorted list of jobs that satisfy the search and filter predicate",
@@ -69,6 +78,7 @@ export class JobsController {
   }
 
   @Get("/filters")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER)
   @ApiOkResponse({
     description: "Returns the configuration data for the ui filters",
     schema: {
@@ -118,6 +128,7 @@ export class JobsController {
   }
 
   @Get("/org/:uuid")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER)
   @ApiOkResponse({
     description: "Returns a list of jobs posted by an org",
     type: Response<JobListResult[]>,

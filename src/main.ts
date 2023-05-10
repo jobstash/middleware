@@ -10,6 +10,7 @@ import { IronSessionOptions } from "iron-session";
 import * as dotenv from "dotenv";
 import * as fs from "fs";
 import * as basicAuth from "express-basic-auth";
+import * as compression from "compression";
 dotenv.config();
 
 if (!process.env.SESSION_SECRET) throw new Error("SESSION_SECRET must be set");
@@ -43,6 +44,7 @@ async function bootstrap(): Promise<void> {
   app.use(Sentry.Handlers.errorHandler());
   app.use(ironSession(ironOptions));
   app.use(helmet());
+  app.use(compression());
   // Enable CORS with wildcard origin and the specified allowed headers
   app.enableCors({
     credentials: true,
