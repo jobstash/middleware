@@ -443,7 +443,7 @@ export class JobsService {
             maxAudits: MAX(audits),
             tech: COLLECT(DISTINCT t.name),
             fundingRounds: COLLECT(DISTINCT f.roundName),
-            investors: COLLECT(DISTINCT a.name),
+            investors: COLLECT(DISTINCT i.name),
             projects: COLLECT(DISTINCT p.name),
             categories: COLLECT(DISTINCT cat.name),
             chains: COLLECT(DISTINCT c.name),
