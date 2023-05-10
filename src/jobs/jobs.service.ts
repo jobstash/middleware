@@ -420,9 +420,10 @@ export class JobsService {
         OPTIONAL MATCH (t)<-[:IS_PREFERRED_TERM_OF]-(:PreferredTerm)
         OPTIONAL MATCH (t)<-[:IS_PAIRED_WITH]-(:TechnologyPairing)-[:IS_PAIRED_WITH]->(:Technology)
         OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)
+        OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)-[:INVESTED_BY]->(i:Investor)
         OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(c:Chain)
         OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
-        WITH o, p, j, t, f, c, cat, COUNT(DISTINCT a) as audits
+        WITH o, p, j, t, f, i, c, cat, COUNT(DISTINCT a) as audits
         RETURN {
             minSalaryRange: MIN(j.medianSalary),
             maxSalaryRange: MAX(j.medianSalary),
@@ -442,6 +443,7 @@ export class JobsService {
             maxAudits: MAX(audits),
             tech: COLLECT(DISTINCT t.name),
             fundingRounds: COLLECT(DISTINCT f.roundName),
+            investors: COLLECT(DISTINCT a.name),
             projects: COLLECT(DISTINCT p.name),
             categories: COLLECT(DISTINCT cat.name),
             chains: COLLECT(DISTINCT c.name),

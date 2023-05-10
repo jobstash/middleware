@@ -117,7 +117,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
   },
   investors: {
     position: 8,
-    label: "Funding Rounds",
+    label: "Investors",
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
