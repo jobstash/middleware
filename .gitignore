@@ -26,14 +26,19 @@ lerna-debug.log*
 *.launch
 .settings/
 *.sublime-workspace
-
-# IDE - VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
+.vscode
 
 # Environment
 .env
 .env.local
+
+# Sentry
+.sentryclirc
+
+# Scripts
+tunnel.sh
+
+certs/localhost-key.pem
+certs/localhost.pem
+
+swagger.yaml

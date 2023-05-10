@@ -1,0 +1,16 @@
+export const CheckWalletRoles = {
+  ANON: "ANON",
+  ADMIN: "ADMIN",
+  DEV: "DEV",
+  ORG: "ORG",
+};
+
+export const CheckWalletFlows = {
+  LOGIN: "LOGIN",
+  PICK_ROLE: "PICK-ROLE",
+  ADD_GITHUB_REPO: "ADD-GITHUB-REPO",
+  ONBOARD_REPO: "ONBOARD-REPO",
+  ONBOARD_PROFILE: "ONBOARD-PROFILE",
+  SIGNUP_COMPLETE: "SIGNUP-COMPLETE",
+  ADMIN_SYNONYMS: "SYNONYMS",
+};
