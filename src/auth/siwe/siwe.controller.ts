@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Body,
   Req,
+  Header,
 } from "@nestjs/common";
 import { Request, Response as ExpressResponse } from "express";
 import { getIronSession, IronSession, IronSessionOptions } from "iron-session";
@@ -35,6 +36,7 @@ import { responseSchemaWrapper } from "src/shared/helpers";
 import * as Sentry from "@sentry/node";
 import { UserService } from "../user/user.service";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import { NO_CACHE } from "src/shared/presets/cache-control";
 
 @Controller("siwe")
 @ApiExtraModels(SessionObject, User)
@@ -102,6 +104,8 @@ export class SiweController {
   }
 
   @Get("nonce")
+  @Header("Cache-Control", NO_CACHE)
+  @Header("Expires", "-1")
   @ApiOkResponse({
     description: "Returns a nonce generated for the SIWE flow",
     schema: responseSchemaWrapper({ type: "string" }),
@@ -129,6 +133,8 @@ export class SiweController {
   }
 
   @Get("session")
+  @Header("Cache-Control", NO_CACHE)
+  @Header("Expires", "-1")
   @ApiOkResponse({
     description: "Returns the session object for the SIWE flow",
     schema: responseSchemaWrapper({
@@ -157,6 +163,8 @@ export class SiweController {
   }
 
   @Get("logout")
+  @Header("Cache-Control", NO_CACHE)
+  @Header("Expires", "-1")
   @ApiOkResponse({
     description: "Ends the current session and clears the cookies",
   })
@@ -173,6 +181,8 @@ export class SiweController {
   }
 
   @Post("verify")
+  @Header("Cache-Control", NO_CACHE)
+  @Header("Expires", "-1")
   @ApiOkResponse({
     description:
       "Verifies the message, creates the user and adds the wallet address, chain id and auth token to session",
@@ -240,6 +250,8 @@ export class SiweController {
   }
 
   @Get("check-wallet")
+  @Header("Cache-Control", NO_CACHE)
+  @Header("Expires", "-1")
   @ApiOkResponse({
     description:
       "Returns the role of the user with the wallet embedded in the session cookie",
