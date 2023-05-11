@@ -1,3 +1,10 @@
+## [1.28.2](https://github.com/jobstash/middleware/compare/v1.28.1...v1.28.2) (2023-05-11)
+
+
+### Bug Fixes
+
+* **jobs:** fixed seniority filter bug ([#80](https://github.com/jobstash/middleware/issues/80)) ([af26025](https://github.com/jobstash/middleware/commit/af2602528ce76b70b6a87c44e2634427d4df130e))
+
 ## [1.28.1](https://github.com/jobstash/middleware/compare/v1.28.0...v1.28.1) (2023-05-10)
 
 
