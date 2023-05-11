@@ -295,7 +295,7 @@ export class JobsService {
                     : "p.isMainnet = true AND "
                   : ""
               }
-              ${params.seniority ? "j.seniority = $seniority AND " : ""}
+              ${params.seniority ? "j.seniority IN $seniority AND " : ""}
               ${params.locations ? "j.jobLocation IN $locations AND " : ""}
               ${params.tech ? "any(x IN tech WHERE x.name IN $tech) AND " : ""}
               ${
