@@ -9,6 +9,7 @@ import {
   Min,
 } from "class-validator";
 import { JobListOrder, JobListOrderBy } from "src/shared/types";
+import { btoaList } from "src/shared/utils/helpers";
 import { Compare } from "src/shared/validators";
 
 export class JobListParams {
@@ -197,19 +198,19 @@ export class JobListParams {
   hacks?: boolean;
 
   @ApiPropertyOptional({
-    example: "String,C++",
+    example: "U3RyaW5n,Qysr",
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => value?.toString().split(","))
+  @Transform(btoaList)
   tech?: string[];
 
   @ApiPropertyOptional({
-    example: "OpenSea,Jet",
+    example: "T3BlblNlYQ==,SmV0",
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => value?.toString().split(","))
+  @Transform(btoaList)
   organizations?: string[];
 
   @ApiPropertyOptional({
@@ -217,40 +218,56 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => value?.toString().split(","))
+  @Transform(btoaList)
   chains?: string[];
 
   @ApiPropertyOptional({
-    example: "Opensea,Across",
+    example: "T3BlbnNlYQ==,QWNyb3Nz",
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => value?.toString().split(","))
+  @Transform(btoaList)
   projects?: string[];
 
   @ApiPropertyOptional({
-    example: "Options,Yield",
+    example: "T3B0aW9ucw==,WWllbGQ=",
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => value?.toString().split(","))
+  @Transform(btoaList)
   categories?: string[];
 
   @ApiPropertyOptional({
-    example: "Seed,Series A",
+    example: "U2VlZA==,U2VyaWVzIEE=",
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => value?.toString().split(","))
+  @Transform(btoaList)
   fundingRounds?: string[];
 
   @ApiPropertyOptional({
-    example: "Lemniscap,3AC",
+    example: "TGVtbmlzY2Fw,M0FD",
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => value?.toString().split(","))
+  @Transform(btoaList)
   investors?: string[];
+
+  @ApiPropertyOptional({
+    example: "MQ==,Mg==",
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(btoaList)
+  seniority?: string[];
+
+  @ApiPropertyOptional({
+    example: "UmVtb3Rl,T25zaXRl",
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(btoaList)
+  locations?: string[];
 
   @ApiPropertyOptional({
     example: true,
@@ -267,22 +284,6 @@ export class JobListParams {
   @IsBoolean()
   @Type(() => Boolean)
   mainNet?: boolean;
-
-  @ApiPropertyOptional({
-    example: "1,2",
-  })
-  @IsOptional()
-  @Type(() => String)
-  @Transform(({ value }) => value?.toString().split(","))
-  seniority?: string;
-
-  @ApiPropertyOptional({
-    example: "Remote,Onsite",
-  })
-  @IsOptional()
-  @Type(() => String)
-  @Transform(({ value }) => value?.toString().split(","))
-  locations?: string;
 
   @ApiPropertyOptional({
     enum: ["asc", "desc"],
