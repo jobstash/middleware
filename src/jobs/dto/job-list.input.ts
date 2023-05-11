@@ -9,6 +9,7 @@ import {
   Min,
 } from "class-validator";
 import { JobListOrder, JobListOrderBy } from "src/shared/types";
+import { btoaList } from "src/shared/utils/helpers";
 import { Compare } from "src/shared/validators";
 
 export class JobListParams {
@@ -201,16 +202,7 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => {
-    if (typeof value === "string") {
-      return value
-        .split(",")
-        .map(encodedString =>
-          Buffer.from(encodedString, "base64").toString("ascii"),
-        );
-    }
-    return value;
-  })
+  @Transform(btoaList)
   tech?: string[];
 
   @ApiPropertyOptional({
@@ -218,16 +210,7 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => {
-    if (typeof value === "string") {
-      return value
-        .split(",")
-        .map(encodedString =>
-          Buffer.from(encodedString, "base64").toString("ascii"),
-        );
-    }
-    return value;
-  })
+  @Transform(btoaList)
   organizations?: string[];
 
   @ApiPropertyOptional({
@@ -235,16 +218,7 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => {
-    if (typeof value === "string") {
-      return value
-        .split(",")
-        .map(encodedString =>
-          Buffer.from(encodedString, "base64").toString("ascii"),
-        );
-    }
-    return value;
-  })
+  @Transform(btoaList)
   chains?: string[];
 
   @ApiPropertyOptional({
@@ -252,16 +226,7 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => {
-    if (typeof value === "string") {
-      return value
-        .split(",")
-        .map(encodedString =>
-          Buffer.from(encodedString, "base64").toString("ascii"),
-        );
-    }
-    return value;
-  })
+  @Transform(btoaList)
   projects?: string[];
 
   @ApiPropertyOptional({
@@ -269,16 +234,7 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => {
-    if (typeof value === "string") {
-      return value
-        .split(",")
-        .map(encodedString =>
-          Buffer.from(encodedString, "base64").toString("ascii"),
-        );
-    }
-    return value;
-  })
+  @Transform(btoaList)
   categories?: string[];
 
   @ApiPropertyOptional({
@@ -286,16 +242,7 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => {
-    if (typeof value === "string") {
-      return value
-        .split(",")
-        .map(encodedString =>
-          Buffer.from(encodedString, "base64").toString("ascii"),
-        );
-    }
-    return value;
-  })
+  @Transform(btoaList)
   fundingRounds?: string[];
 
   @ApiPropertyOptional({
@@ -303,16 +250,7 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => {
-    if (typeof value === "string") {
-      return value
-        .split(",")
-        .map(encodedString =>
-          Buffer.from(encodedString, "base64").toString("ascii"),
-        );
-    }
-    return value;
-  })
+  @Transform(btoaList)
   investors?: string[];
 
   @ApiPropertyOptional({
@@ -320,16 +258,7 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => {
-    if (typeof value === "string") {
-      return value
-        .split(",")
-        .map(encodedString =>
-          Buffer.from(encodedString, "base64").toString("ascii"),
-        );
-    }
-    return value;
-  })
+  @Transform(btoaList)
   seniority?: string[];
 
   @ApiPropertyOptional({
@@ -337,16 +266,7 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => {
-    if (typeof value === "string") {
-      return value
-        .split(",")
-        .map(encodedString =>
-          Buffer.from(encodedString, "base64").toString("ascii"),
-        );
-    }
-    return value;
-  })
+  @Transform(btoaList)
   locations?: string[];
 
   @ApiPropertyOptional({
