@@ -197,19 +197,37 @@ export class JobListParams {
   hacks?: boolean;
 
   @ApiPropertyOptional({
-    example: "String,C++",
+    example: "U3RyaW5n,Qysr",
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => value?.toString().split(","))
+  @Transform(({ value }) => {
+    if (typeof value === "string") {
+      return value
+        .split(",")
+        .map(encodedString =>
+          Buffer.from(encodedString, "base64").toString("ascii"),
+        );
+    }
+    return value;
+  })
   tech?: string[];
 
   @ApiPropertyOptional({
-    example: "OpenSea,Jet",
+    example: "T3BlblNlYQ==,SmV0",
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => value?.toString().split(","))
+  @Transform(({ value }) => {
+    if (typeof value === "string") {
+      return value
+        .split(",")
+        .map(encodedString =>
+          Buffer.from(encodedString, "base64").toString("ascii"),
+        );
+    }
+    return value;
+  })
   organizations?: string[];
 
   @ApiPropertyOptional({
@@ -217,40 +235,119 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => value?.toString().split(","))
+  @Transform(({ value }) => {
+    if (typeof value === "string") {
+      return value
+        .split(",")
+        .map(encodedString =>
+          Buffer.from(encodedString, "base64").toString("ascii"),
+        );
+    }
+    return value;
+  })
   chains?: string[];
 
   @ApiPropertyOptional({
-    example: "Opensea,Across",
+    example: "T3BlbnNlYQ==,QWNyb3Nz",
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => value?.toString().split(","))
+  @Transform(({ value }) => {
+    if (typeof value === "string") {
+      return value
+        .split(",")
+        .map(encodedString =>
+          Buffer.from(encodedString, "base64").toString("ascii"),
+        );
+    }
+    return value;
+  })
   projects?: string[];
 
   @ApiPropertyOptional({
-    example: "Options,Yield",
+    example: "T3B0aW9ucw==,WWllbGQ=",
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => value?.toString().split(","))
+  @Transform(({ value }) => {
+    if (typeof value === "string") {
+      return value
+        .split(",")
+        .map(encodedString =>
+          Buffer.from(encodedString, "base64").toString("ascii"),
+        );
+    }
+    return value;
+  })
   categories?: string[];
 
   @ApiPropertyOptional({
-    example: "Seed,Series A",
+    example: "U2VlZA==,U2VyaWVzIEE=",
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => value?.toString().split(","))
+  @Transform(({ value }) => {
+    if (typeof value === "string") {
+      return value
+        .split(",")
+        .map(encodedString =>
+          Buffer.from(encodedString, "base64").toString("ascii"),
+        );
+    }
+    return value;
+  })
   fundingRounds?: string[];
 
   @ApiPropertyOptional({
-    example: "Lemniscap,3AC",
+    example: "TGVtbmlzY2Fw,M0FD",
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(({ value }) => value?.toString().split(","))
+  @Transform(({ value }) => {
+    if (typeof value === "string") {
+      return value
+        .split(",")
+        .map(encodedString =>
+          Buffer.from(encodedString, "base64").toString("ascii"),
+        );
+    }
+    return value;
+  })
   investors?: string[];
+
+  @ApiPropertyOptional({
+    example: "MQ==,Mg==",
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(({ value }) => {
+    if (typeof value === "string") {
+      return value
+        .split(",")
+        .map(encodedString =>
+          Buffer.from(encodedString, "base64").toString("ascii"),
+        );
+    }
+    return value;
+  })
+  seniority?: string[];
+
+  @ApiPropertyOptional({
+    example: "UmVtb3Rl,T25zaXRl",
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(({ value }) => {
+    if (typeof value === "string") {
+      return value
+        .split(",")
+        .map(encodedString =>
+          Buffer.from(encodedString, "base64").toString("ascii"),
+        );
+    }
+    return value;
+  })
+  locations?: string[];
 
   @ApiPropertyOptional({
     example: true,
@@ -267,22 +364,6 @@ export class JobListParams {
   @IsBoolean()
   @Type(() => Boolean)
   mainNet?: boolean;
-
-  @ApiPropertyOptional({
-    example: "1,2",
-  })
-  @IsOptional()
-  @Type(() => String)
-  @Transform(({ value }) => value?.toString().split(","))
-  seniority?: string;
-
-  @ApiPropertyOptional({
-    example: "Remote,Onsite",
-  })
-  @IsOptional()
-  @Type(() => String)
-  @Transform(({ value }) => value?.toString().split(","))
-  locations?: string;
 
   @ApiPropertyOptional({
     enum: ["asc", "desc"],
