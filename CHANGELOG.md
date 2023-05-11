@@ -1,3 +1,10 @@
+## [1.28.3](https://github.com/jobstash/middleware/compare/v1.28.2...v1.28.3) (2023-05-11)
+
+
+### Bug Fixes
+
+* **jobs:** fixed filter issue by refactoring multiselect filters to use base64 encoding for parsing values. ([167acd2](https://github.com/jobstash/middleware/commit/167acd212e7e8c9e40d12e01b9f9376595640445))
+
 ## [1.28.2](https://github.com/jobstash/middleware/compare/v1.28.1...v1.28.2) (2023-05-11)
 
 
