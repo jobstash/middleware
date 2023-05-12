@@ -79,7 +79,18 @@ export class JobsController {
     params: JobListParams,
   ): Promise<PaginatedData<JobListResult>> {
     this.logger.log(`/jobs/list ${JSON.stringify(params)}`);
-    return this.jobsService.getJobsListWithSearch(params);
+    return this.jobsService.getJobsListWithSearch(params).then(res => {
+      if (res === undefined) {
+        return {
+          page: -1,
+          count: 0,
+          total: 0,
+          data: [],
+        };
+      } else {
+        return res;
+      }
+    });
   }
 
   @Get("/filters")
