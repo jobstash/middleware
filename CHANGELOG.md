@@ -1,3 +1,10 @@
+## [1.28.4](https://github.com/jobstash/middleware/compare/v1.28.3...v1.28.4) (2023-05-12)
+
+
+### Bug Fixes
+
+* **jobs:** fixed second chains filter ([25f33f1](https://github.com/jobstash/middleware/commit/25f33f1ec4049618db1db7e97c55325b3208aedc))
+
 ## [1.28.3](https://github.com/jobstash/middleware/compare/v1.28.2...v1.28.3) (2023-05-11)
 
 
