@@ -38,7 +38,7 @@ export class JobsService {
             OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
             OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
             OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(ch:Chain)
-            WITH o, p, j, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(p) as pProps
+            WITH o, p, j, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(COLLECT(p)[0]) as pProps
             WHERE ${params.organizations ? "o.name IN $organizations AND " : ""}
             ${params.projects ? "p.name IN $projects AND " : ""}
             ${
@@ -195,7 +195,7 @@ export class JobsService {
               OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
               OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
               OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(ch:Chain)
-              WITH o, p, j, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(p) as pProps
+              WITH o, p, j, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(COLLECT(p)[0]) as pProps
               WHERE ${
                 params.organizations ? "o.name IN $organizations AND " : ""
               }
@@ -488,7 +488,7 @@ export class JobsService {
         OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
         OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
         OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(ch:Chain)
-        WITH o, p, j, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(p) as pProps
+        WITH o, p, j, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(COLLECT(p)[0]) as pProps
         RETURN { organization: PROPERTIES(o), project: pProps{.*, chains: chains, hacks: hacks, audits: audits}, jobpost: PROPERTIES(j), fundingRounds: rounds, investors: investors, technologies: tech, categories: cats } as res`,
         { uuid },
       )
@@ -526,7 +526,7 @@ export class JobsService {
         OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
         OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
         OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(ch:Chain)
-        WITH o, p, j, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(p) as pProps
+        WITH o, p, j, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(COLLECT(p)[0]) as pProps
         RETURN { organization: PROPERTIES(o), project: pProps{.*, chains: chains, hacks: hacks, audits: audits}, jobpost: PROPERTIES(j), fundingRounds: rounds, investors: investors, technologies: tech, categories: cats } as res`,
         { uuid },
       )
