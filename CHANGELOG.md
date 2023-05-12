@@ -1,3 +1,10 @@
+## [1.28.5](https://github.com/jobstash/middleware/compare/v1.28.4...v1.28.5) (2023-05-12)
+
+
+### Bug Fixes
+
+* **jobs:** fixed issue with duplicated job posts due to multiple projects ([1b1e6f2](https://github.com/jobstash/middleware/commit/1b1e6f274a9820824bd66c6e3c3cbe5658ef46ea))
+
 ## [1.28.4](https://github.com/jobstash/middleware/compare/v1.28.3...v1.28.4) (2023-05-12)
 
 
