@@ -182,7 +182,6 @@ export class JobsService {
     const generatedQuery = `
             MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
             MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
-            MATCH (jp)-[:HAS_STATUS]->(j:JobpostStatus {status: "active"})
             OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)-[:INVESTED_BY]->(i:Investor)
             OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(c:ProjectCategory)
             OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
@@ -197,7 +196,6 @@ export class JobsService {
             WITH o, pf, j, tech, cats, auditCount, hackCount, chainCount, audits, hacks, chains, rounds, investors, mrfr
             CALL {
               MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
-              MATCH (jp)-[:HAS_STATUS]->(j:JobpostStatus {status: "active"})
               MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
               OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)-[:INVESTED_BY]->(i:Investor)
               OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(c:ProjectCategory)
