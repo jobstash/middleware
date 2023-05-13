@@ -10,7 +10,7 @@ import {
   DateRange,
   JobFilterConfigs,
   JobFilterConfigsEntity,
-  JobListResult,
+  OldJobListResult,
   JobListResultEntity,
   PaginatedData,
 } from "src/shared/types";
@@ -25,7 +25,7 @@ export class JobsService {
 
   async getJobsListWithSearch(
     params: JobListParams,
-  ): Promise<PaginatedData<JobListResult>> {
+  ): Promise<PaginatedData<OldJobListResult>> {
     const generatedFilters = `
     WHERE ${params.organizations ? "o.name IN $organizations AND " : ""}
     ${
@@ -191,9 +191,9 @@ export class JobsService {
             OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
             OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
             OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(ch:Chain)
-            WITH o, COLLECT(p)[0] as pf, COLLECT(p) as projects, j, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(COLLECT(p)[0]) as pProps
+            WITH o, COLLECT(p)[0] as pf, COLLECT(p) as projects, j, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks
             ${generatedFilters}
-            WITH o, pf, j, tech, cats, auditCount, hackCount, chainCount, audits, hacks, chains, pProps, rounds, investors, mrfr
+            WITH o, pf, j, tech, cats, auditCount, hackCount, chainCount, audits, hacks, chains, rounds, investors, mrfr
             CALL {
               MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
               MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
@@ -206,11 +206,11 @@ export class JobsService {
               OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
               OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
               OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(ch:Chain)
-              WITH o, COLLECT(p)[0] as pf, COLLECT(p) as projects, j, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks, PROPERTIES(COLLECT(p)[0]) as pProps
+              WITH o, COLLECT(p)[0] as pf, COLLECT(p) as projects, j, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount, COLLECT(DISTINCT a) as audits, COLLECT(DISTINCT h) as hacks
               ${generatedFilters}
-              RETURN { organization: PROPERTIES(o), project: pProps{.*, chains: chains, hacks: hacks, audits: audits}, jobpost: PROPERTIES(j), fundingRounds: rounds, investors: investors, technologies: tech, categories: cats } as results
-            } 
-            WITH COUNT(results) as count, o, pf, j, tech, cats, auditCount, hackCount, chainCount, audits, hacks, chains, pProps, rounds, investors, mrfr
+              RETURN COUNT(j) as results
+            }
+            WITH results as count, o, pf, PROPERTIES(pf) as pProps, j, tech, cats, auditCount, hackCount, chainCount, audits, hacks, chains, rounds, investors, mrfr
             WITH { organization: PROPERTIES(o), project: pProps{.*, chains: chains, hacks: hacks, audits: audits}, jobpost: PROPERTIES(j), fundingRounds: rounds, investors: investors, technologies: tech, categories: cats } as results, o, pf, j, auditCount, hackCount, chainCount, count, mrfr
             ${generatedSorters}
             WITH count, COLLECT(results) as data
@@ -312,7 +312,9 @@ export class JobsService {
       });
   }
 
-  async getJobDetailsByUuid(uuid: string): Promise<JobListResult | undefined> {
+  async getJobDetailsByUuid(
+    uuid: string,
+  ): Promise<OldJobListResult | undefined> {
     return this.neo4jService
       .read(
         `
@@ -350,7 +352,9 @@ export class JobsService {
       });
   }
 
-  async getJobsByOrgUuid(uuid: string): Promise<JobListResult[] | undefined> {
+  async getJobsByOrgUuid(
+    uuid: string,
+  ): Promise<OldJobListResult[] | undefined> {
     return this.neo4jService
       .read(
         `

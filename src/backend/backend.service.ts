@@ -7,8 +7,8 @@ import { UpdateOrganizationInput } from "src/organizations/dto/update-organizati
 import { CreateProjectInput } from "src/projects/dto/create-project.input";
 import { UpdateProjectInput } from "src/projects/dto/update-project.input";
 import {
-  Organization,
-  Project,
+  OldOrganization,
+  OldProject,
   User,
   PreferredTerm,
   Response,
@@ -197,7 +197,7 @@ export class BackendService {
 
   async createOrganization(
     input: CreateOrganizationInput,
-  ): Promise<Response<Organization> | ResponseWithNoData> {
+  ): Promise<Response<OldOrganization> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
     this.logger.log(`/organization/create: ${JSON.stringify(input)}`);
 
@@ -206,7 +206,7 @@ export class BackendService {
       .then(res => {
         const data = res.data;
         if (data.success) {
-          return data as Response<Organization>;
+          return data as Response<OldOrganization>;
         } else {
           this.logger.error(
             `Error creating organization ${JSON.stringify(data)}`,
@@ -230,7 +230,7 @@ export class BackendService {
 
   async updateOrganization(
     input: UpdateOrganizationInput,
-  ): Promise<Response<Organization> | ResponseWithNoData> {
+  ): Promise<Response<OldOrganization> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
     this.logger.log(`/organization/update: ${JSON.stringify(input)}`);
 
@@ -239,7 +239,7 @@ export class BackendService {
       .then(res => {
         const data = res.data;
         if (data.success) {
-          return data as Response<Organization>;
+          return data as Response<OldOrganization>;
         } else {
           this.logger.error(
             `Error updating organization ${JSON.stringify(data)}`,
@@ -263,7 +263,7 @@ export class BackendService {
 
   async createProject(
     input: CreateProjectInput,
-  ): Promise<Response<Project> | ResponseWithNoData> {
+  ): Promise<Response<OldProject> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
     this.logger.log(`/project/create: ${JSON.stringify(input)}`);
 
@@ -272,7 +272,7 @@ export class BackendService {
       .then(res => {
         const data = res.data;
         if (data.success) {
-          return data as Response<Project>;
+          return data as Response<OldProject>;
         } else {
           this.logger.error(`Error creating project ${JSON.stringify(data)}`);
           return data as ResponseWithNoData;
@@ -294,7 +294,7 @@ export class BackendService {
 
   async updateProject(
     input: UpdateProjectInput,
-  ): Promise<Response<Project> | ResponseWithNoData> {
+  ): Promise<Response<OldProject> | ResponseWithNoData> {
     const client = await this.getOrRefreshClient();
     this.logger.log(`/project/update: ${JSON.stringify(input)}`);
 
@@ -303,7 +303,7 @@ export class BackendService {
       .then(res => {
         const data = res.data;
         if (data.success) {
-          return data as Response<Project>;
+          return data as Response<OldProject>;
         } else {
           this.logger.error(`Error updating project ${JSON.stringify(data)}`);
           return data as ResponseWithNoData;

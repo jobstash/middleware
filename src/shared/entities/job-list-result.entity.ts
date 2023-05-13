@@ -1,20 +1,20 @@
 import {
-  JobListResult,
-  Organization,
-  Project,
+  OldJobListResult,
+  OldOrganization,
+  OldProject,
   ProjectCategory,
   StructuredJobpost,
   Technology,
 } from "src/shared/types";
 import { notStringOrNull } from "../helpers";
-import { FundingRound } from "../interfaces/funding-round.interface";
+import { OldFundingRound } from "../interfaces/funding-round.interface";
 import { Investor } from "../interfaces/investor.interface";
 
 type RawJobPost = {
-  organization?: Organization | null;
-  project?: Project | null;
+  organization?: OldOrganization | null;
+  project?: OldProject | null;
   jobpost?: StructuredJobpost | null;
-  fundingRounds?: [object & { properties: FundingRound }] | null;
+  fundingRounds?: [object & { properties: OldFundingRound }] | null;
   investors?: [object & { properties: Investor }] | null;
   technologies?: [object & { properties: Technology }] | null;
   categories?: [object & { properties: ProjectCategory }] | null;
@@ -23,7 +23,7 @@ type RawJobPost = {
 export class JobListResultEntity {
   constructor(private readonly raw: RawJobPost) {}
 
-  getProperties(): JobListResult {
+  getProperties(): OldJobListResult {
     // eslint-disable-next-line
     const {
       organization,
@@ -73,6 +73,6 @@ export class JobListResultEntity {
       investors: investors?.map(investor => investor.properties),
       technologies: technologies?.map(technology => technology.properties),
       categories: categories?.map(category => category.properties),
-    } as JobListResult;
+    } as OldJobListResult;
   }
 }
