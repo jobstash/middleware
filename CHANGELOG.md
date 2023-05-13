@@ -1,3 +1,17 @@
+## [1.28.9](https://github.com/jobstash/middleware/compare/v1.28.8...v1.28.9) (2023-05-13)
+
+
+### Bug Fixes
+
+* **listquery:** include active status jobs only ([045295d](https://github.com/jobstash/middleware/commit/045295d1148161c95974d0f5f89d030bdc36da98))
+
+## [1.28.8](https://github.com/jobstash/middleware/compare/v1.28.7...v1.28.8) (2023-05-13)
+
+
+### Bug Fixes
+
+* **casing:** Change casing of props ([f011abf](https://github.com/jobstash/middleware/commit/f011abfc131661fa6cfb9d877e83f5430dc495f9))
+
 ## [1.28.7](https://github.com/jobstash/middleware/compare/v1.28.6...v1.28.7) (2023-05-13)
 
 

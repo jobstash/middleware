@@ -14,9 +14,9 @@ export class OldProject {
   @ApiProperty()
   id: string;
   @ApiPropertyOptional()
-  defillamaId?: string;
+  defiLlamaId?: string;
   @ApiPropertyOptional()
-  defillamaSlug?: string;
+  defiLlamaSlug?: string;
   @ApiProperty()
   name: string;
   @ApiProperty()
