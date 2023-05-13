@@ -7,9 +7,10 @@ import {
 import { Audit } from "./audit.interface";
 import { Chain } from "./chain.interface";
 import { Hack } from "./hack.interface";
+import { ProjectCategory } from "./project-category.interface";
 
 @ApiExtraModels(Audit, Hack, Chain)
-export class Project {
+export class OldProject {
   @ApiProperty()
   id: string;
   @ApiPropertyOptional()
@@ -60,4 +61,12 @@ export class Project {
     items: { $ref: getSchemaPath(Chain) },
   })
   chains?: Chain[];
+}
+
+export class Project extends OldProject {
+  @ApiPropertyOptional({
+    type: "array",
+    items: { $ref: getSchemaPath(ProjectCategory) },
+  })
+  categories?: ProjectCategory[] | null;
 }

@@ -1,6 +1,7 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Investor } from "./investor.interface";
 
-export class FundingRound {
+export class OldFundingRound {
   @ApiProperty()
   id: string;
   @ApiProperty()
@@ -13,4 +14,9 @@ export class FundingRound {
   sourceLink: string;
   @ApiProperty()
   createdTimestamp: number;
+}
+
+export class FundingRound extends OldFundingRound {
+  @ApiPropertyOptional()
+  investors: Investor[] | null;
 }

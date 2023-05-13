@@ -4,42 +4,54 @@ import {
   ApiPropertyOptional,
   getSchemaPath,
 } from "@nestjs/swagger";
-import { FundingRound } from "./funding-round.interface";
+import { OldFundingRound } from "./funding-round.interface";
 import { Investor } from "./investor.interface";
-import { Organization } from "./organization.interface";
+import { Organization, OldOrganization } from "./organization.interface";
 import { ProjectCategory } from "./project-category.interface";
-import { Project } from "./project.interface";
+import { OldProject } from "./project.interface";
 import { StructuredJobpost } from "./structured-jobpost.interface";
 import { Technology } from "./technology.interface";
 
 @ApiExtraModels(
-  Organization,
-  Project,
+  OldOrganization,
+  OldProject,
   StructuredJobpost,
   Technology,
   ProjectCategory,
-  FundingRound,
+  OldFundingRound,
   Investor,
 )
-export class JobListResult {
+export class OldJobListResult {
+  @ApiPropertyOptional()
+  organization?: OldOrganization | null;
+  @ApiPropertyOptional()
+  project?: OldProject | null;
+  @ApiPropertyOptional()
+  jobpost?: StructuredJobpost | null;
+  @ApiPropertyOptional()
+  fundingRounds: OldFundingRound[] | null;
+  @ApiPropertyOptional()
+  investors: Investor[] | null;
+  @ApiPropertyOptional({
+    type: "array",
+    items: { $ref: getSchemaPath(Technology) },
+  })
+  technologies?: Technology[] | null;
+  @ApiPropertyOptional({
+    type: "array",
+    items: { $ref: getSchemaPath(ProjectCategory) },
+  })
+  categories?: ProjectCategory[] | null;
+}
+
+@ApiExtraModels(Organization)
+export class JobListResult extends StructuredJobpost {
   @ApiProperty()
   organization?: Organization | null;
-  @ApiPropertyOptional()
-  project?: Project | null;
-  @ApiProperty()
-  jobpost?: StructuredJobpost | null;
-  @ApiProperty()
-  fundingRounds: FundingRound[] | null;
-  @ApiProperty()
-  investors: Investor[] | null;
+
   @ApiProperty({
     type: "array",
     items: { $ref: getSchemaPath(Technology) },
   })
   technologies?: Technology[] | null;
-  @ApiProperty({
-    type: "array",
-    items: { $ref: getSchemaPath(ProjectCategory) },
-  })
-  categories?: ProjectCategory[] | null;
 }

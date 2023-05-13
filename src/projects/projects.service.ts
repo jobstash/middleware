@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
-import { Project } from "src/shared/types";
+import { OldProject } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 
@@ -9,7 +9,7 @@ export class ProjectsService {
   logger = new CustomLogger(ProjectsService.name);
   constructor(private readonly neo4jService: Neo4jService) {}
 
-  async getProjectsByOrgId(id: string): Promise<Project[] | undefined> {
+  async getProjectsByOrgId(id: string): Promise<OldProject[] | undefined> {
     return this.neo4jService
       .read(
         `
@@ -18,7 +18,7 @@ export class ProjectsService {
         `,
         { id },
       )
-      .then(res => res.records.map(record => record.get("res") as Project))
+      .then(res => res.records.map(record => record.get("res") as OldProject))
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -33,7 +33,7 @@ export class ProjectsService {
       });
   }
 
-  async getProjects(): Promise<Project[]> {
+  async getProjects(): Promise<OldProject[]> {
     return this.neo4jService
       .read(
         `
@@ -41,7 +41,7 @@ export class ProjectsService {
         RETURN PROPERTIES(p) as res
         `,
       )
-      .then(res => res.records.map(record => record.get("res") as Project))
+      .then(res => res.records.map(record => record.get("res") as OldProject))
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -55,7 +55,7 @@ export class ProjectsService {
       });
   }
 
-  async getProjectsByCategory(category: string): Promise<Project[]> {
+  async getProjectsByCategory(category: string): Promise<OldProject[]> {
     return this.neo4jService
       .read(
         `
@@ -64,7 +64,7 @@ export class ProjectsService {
         `,
         { category },
       )
-      .then(res => res.records.map(record => record.get("res") as Project))
+      .then(res => res.records.map(record => record.get("res") as OldProject))
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -81,7 +81,7 @@ export class ProjectsService {
       });
   }
 
-  async getProjectCompetitors(id: string): Promise<Project[]> {
+  async getProjectCompetitors(id: string): Promise<OldProject[]> {
     return this.neo4jService
       .read(
         `
@@ -92,7 +92,7 @@ export class ProjectsService {
         `,
         { id },
       )
-      .then(res => res.records.map(record => record.get("res") as Project))
+      .then(res => res.records.map(record => record.get("res") as OldProject))
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -109,7 +109,7 @@ export class ProjectsService {
       });
   }
 
-  async searchProjects(query: string): Promise<Project[]> {
+  async searchProjects(query: string): Promise<OldProject[]> {
     return this.neo4jService
       .read(
         `
@@ -119,7 +119,7 @@ export class ProjectsService {
         `,
         { query: `(?i).*${query}.*` },
       )
-      .then(res => res.records.map(record => record.get("res") as Project))
+      .then(res => res.records.map(record => record.get("res") as OldProject))
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -134,7 +134,7 @@ export class ProjectsService {
       });
   }
 
-  async getProjectById(id: string): Promise<Project | undefined> {
+  async getProjectById(id: string): Promise<OldProject | undefined> {
     return this.neo4jService
       .read(
         `
@@ -145,7 +145,7 @@ export class ProjectsService {
         { id },
       )
       .then(res =>
-        res.records[0] ? (res.records[0].get("res") as Project) : undefined,
+        res.records[0] ? (res.records[0].get("res") as OldProject) : undefined,
       )
       .catch(err => {
         Sentry.withScope(scope => {

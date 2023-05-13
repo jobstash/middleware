@@ -1,3 +1,10 @@
+## [1.28.7](https://github.com/jobstash/middleware/compare/v1.28.6...v1.28.7) (2023-05-13)
+
+
+### Bug Fixes
+
+* **jobs:** implemented workaround for neo4j bug to fix error with getting jobs list ([07f5f2f](https://github.com/jobstash/middleware/commit/07f5f2f399652e5768953e04827304697d42a0b0))
+
 ## [1.28.6](https://github.com/jobstash/middleware/compare/v1.28.5...v1.28.6) (2023-05-12)
 
 

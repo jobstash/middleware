@@ -1,14 +1,14 @@
 import { OmitType } from "@nestjs/swagger";
 import { intConverter } from "../helpers";
 import { ShortOrg, Technology } from "../interfaces";
-import { FundingRound } from "../interfaces/funding-round.interface";
+import { OldFundingRound } from "../interfaces/funding-round.interface";
 
 class RawShortOrg extends OmitType(ShortOrg, [
   "technologies",
   "fundingRounds",
 ] as const) {
   technologies: [object & { properties: Technology }] | null;
-  fundingRounds: [object & { properties: FundingRound }] | null;
+  fundingRounds: [object & { properties: OldFundingRound }] | null;
 }
 export class ShortOrgEntity {
   constructor(private readonly raw: RawShortOrg) {}

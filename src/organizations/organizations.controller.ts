@@ -27,7 +27,7 @@ import { Roles } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
   Repository,
-  Organization,
+  OldOrganization,
   Response,
   ResponseWithNoData,
   ShortOrg,
@@ -45,7 +45,7 @@ import * as Sentry from "@sentry/node";
 const mime = require("mime");
 
 @Controller("organizations")
-@ApiExtraModels(ShortOrg, Organization)
+@ApiExtraModels(ShortOrg, OldOrganization)
 export class OrganizationsController {
   private readonly NFT_STORAGE_API_KEY;
   private readonly nftStorageClient: NFTStorage;
@@ -241,7 +241,7 @@ export class OrganizationsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Creates a new organization",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(Organization) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldOrganization) }),
   })
   @ApiUnprocessableEntityResponse({
     description:
@@ -250,7 +250,7 @@ export class OrganizationsController {
   })
   async createOrganization(
     @Body() body: CreateOrganizationInput,
-  ): Promise<Response<Organization> | ResponseWithNoData> {
+  ): Promise<Response<OldOrganization> | ResponseWithNoData> {
     this.logger.log(`/organizations/create ${JSON.stringify(body)}`);
     return this.backendService.createOrganization(body);
   }
@@ -260,7 +260,7 @@ export class OrganizationsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Updates an existing organization",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(Organization) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldOrganization) }),
   })
   @ApiUnprocessableEntityResponse({
     description:
@@ -269,7 +269,7 @@ export class OrganizationsController {
   })
   async updateOrganization(
     @Body() body: UpdateOrganizationInput,
-  ): Promise<Response<Organization> | ResponseWithNoData> {
+  ): Promise<Response<OldOrganization> | ResponseWithNoData> {
     this.logger.log(`/organizations/update ${JSON.stringify(body)}`);
     return this.backendService.updateOrganization(body);
   }
