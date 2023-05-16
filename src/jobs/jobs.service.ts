@@ -112,15 +112,15 @@ export class JobsService {
     ${
       params.token !== undefined
         ? params.token
-          ? "p.tokenAddress IS NOT NULL AND "
-          : "p.tokenAddress = null AND "
+          ? "pf.tokenAddress IS NOT NULL AND "
+          : "pf.tokenAddress = null AND "
         : ""
     }
     ${
       params.mainNet !== undefined
         ? params.mainNet
-          ? "p.isMainnet IS NOT NULL AND "
-          : "p.isMainnet = true AND "
+          ? "pf.isMainnet IS NOT NULL AND "
+          : "pf.isMainnet = true AND "
         : ""
     }
     ${params.seniority ? "j.seniority IN $seniority AND " : ""}
