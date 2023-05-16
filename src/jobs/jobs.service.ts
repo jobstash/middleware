@@ -196,7 +196,7 @@ export class JobsService {
               WITH p ORDER BY p.monthlyVolume DESC
               RETURN COLLECT(DISTINCT p)[0] as pf
             }
-            WITH o, j, pf, COLLECT(DISTINCT p) as projects, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount
+            WITH o, j, pf, COLLECT(DISTINCT p) as projects, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount
             ${generatedFilters}
             WITH o, pf, j, tech, cats, auditCount, hackCount, chainCount, mrfr
             CALL {
@@ -237,7 +237,7 @@ export class JobsService {
                 WITH p ORDER BY p.monthlyVolume DESC
                 RETURN COLLECT(DISTINCT p)[0] as pf
               }
-              WITH o, pf, COLLECT(p) as projects, j, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount
+              WITH o, pf, COLLECT(p) as projects, j, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount
               ${generatedFilters}
               RETURN COUNT(j) as count
             }
