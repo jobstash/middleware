@@ -52,7 +52,7 @@ export const orderBySelector = (args: {
       return `${jobVar}.jobCreatedTimestamp`;
 
     case "tvl":
-      return `${projectVar}.tvl`;
+      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.tvl ELSE ${jobVar}.jobCreatedTimestamp END)`;
 
     case "salary":
       return `${jobVar}.medianSalary`;
@@ -61,13 +61,13 @@ export const orderBySelector = (args: {
       return `${roundVar}`;
 
     case "monthlyVolume":
-      return `${projectVar}.monthlyVolume`;
+      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.monthlyVolume ELSE ${jobVar}.jobCreatedTimestamp END)`;
 
     case "monthlyFees":
-      return `${projectVar}.monthlyFees`;
+      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.monthlyFees ELSE ${jobVar}.jobCreatedTimestamp END)`;
 
     case "monthlyRevenue":
-      return `${projectVar}.monthlyRevenue`;
+      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.monthlyRevenue ELSE ${jobVar}.jobCreatedTimestamp END)`;
 
     case "audits":
       return `auditCount`;
@@ -82,7 +82,7 @@ export const orderBySelector = (args: {
       return `${orgVar}.headCount`;
 
     case "teamSize":
-      return `${projectVar}.teamSize`;
+      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.teamSize ELSE ${jobVar}.jobCreatedTimestamp END)`;
 
     default:
       return null;
