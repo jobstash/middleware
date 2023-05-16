@@ -27,7 +27,7 @@ import { Roles } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
   Repository,
-  OldOrganization,
+  OrganizationProperties,
   Response,
   ResponseWithNoData,
   ShortOrg,
@@ -45,7 +45,7 @@ import * as Sentry from "@sentry/node";
 const mime = require("mime");
 
 @Controller("organizations")
-@ApiExtraModels(ShortOrg, OldOrganization)
+@ApiExtraModels(ShortOrg, OrganizationProperties)
 export class OrganizationsController {
   private readonly NFT_STORAGE_API_KEY;
   private readonly nftStorageClient: NFTStorage;
@@ -241,7 +241,9 @@ export class OrganizationsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Creates a new organization",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldOrganization) }),
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(OrganizationProperties),
+    }),
   })
   @ApiUnprocessableEntityResponse({
     description:
@@ -250,7 +252,7 @@ export class OrganizationsController {
   })
   async createOrganization(
     @Body() body: CreateOrganizationInput,
-  ): Promise<Response<OldOrganization> | ResponseWithNoData> {
+  ): Promise<Response<OrganizationProperties> | ResponseWithNoData> {
     this.logger.log(`/organizations/create ${JSON.stringify(body)}`);
     return this.backendService.createOrganization(body);
   }
@@ -260,7 +262,9 @@ export class OrganizationsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Updates an existing organization",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldOrganization) }),
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(OrganizationProperties),
+    }),
   })
   @ApiUnprocessableEntityResponse({
     description:
@@ -269,7 +273,7 @@ export class OrganizationsController {
   })
   async updateOrganization(
     @Body() body: UpdateOrganizationInput,
-  ): Promise<Response<OldOrganization> | ResponseWithNoData> {
+  ): Promise<Response<OrganizationProperties> | ResponseWithNoData> {
     this.logger.log(`/organizations/update ${JSON.stringify(body)}`);
     return this.backendService.updateOrganization(body);
   }

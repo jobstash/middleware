@@ -1,13 +1,17 @@
 import {
+  ApiExtraModels,
   ApiProperty,
   ApiPropertyOptional,
   getSchemaPath,
 } from "@nestjs/swagger";
 import { Technology } from "./technology.interface";
-import { FundingRound, OldFundingRound } from "./funding-round.interface";
+import {
+  FundingRound,
+  FundingRoundProperties,
+} from "./funding-round.interface";
 import { Project } from "./project.interface";
 
-export class OldOrganization {
+export class OrganizationProperties {
   @ApiProperty()
   id: string;
   @ApiProperty()
@@ -41,10 +45,17 @@ export class OldOrganization {
   updatedTimestamp?: number;
 }
 
-export class Organization extends OldOrganization {
-  @ApiPropertyOptional()
-  project?: Project | null;
-  @ApiPropertyOptional()
+@ApiExtraModels(Project, FundingRound)
+export class Organization extends OrganizationProperties {
+  @ApiPropertyOptional({
+    type: "array",
+    items: { $ref: getSchemaPath(Project) },
+  })
+  projects?: Project[] | null;
+  @ApiPropertyOptional({
+    type: "array",
+    items: { $ref: getSchemaPath(FundingRound) },
+  })
   fundingRounds: FundingRound[] | null;
 }
 
@@ -81,9 +92,9 @@ export class ShortOrg {
   discord: string;
   @ApiProperty({
     type: "array",
-    items: { $ref: getSchemaPath(OldFundingRound) },
+    items: { $ref: getSchemaPath(FundingRoundProperties) },
   })
-  fundingRounds: OldFundingRound[];
+  fundingRounds: FundingRoundProperties[];
   @ApiProperty({ type: "array", items: { $ref: getSchemaPath(Technology) } })
   technologies: Technology[];
 }

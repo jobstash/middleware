@@ -9,9 +9,8 @@ import {
 import { JobsService } from "./jobs.service";
 import {
   JobFilterConfigs,
-  OldJobListResult,
+  JobListResult,
   PaginatedData,
-  Response,
   ResponseWithNoData,
   ValidationError,
 } from "src/shared/types";
@@ -31,12 +30,7 @@ import {
 } from "src/shared/presets/cache-control";
 
 @Controller("jobs")
-@ApiExtraModels(
-  PaginatedData,
-  OldJobListResult,
-  JobFilterConfigs,
-  ValidationError,
-)
+@ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
 export class JobsController {
   logger = new CustomLogger(JobsController.name);
   constructor(private readonly jobsService: JobsService) {}
@@ -47,7 +41,7 @@ export class JobsController {
   @ApiOkResponse({
     description:
       "Returns a paginated sorted list of jobs that satisfy the search and filter predicate",
-    type: PaginatedData<OldJobListResult>,
+    type: PaginatedData<JobListResult>,
     schema: {
       allOf: [
         {
@@ -61,7 +55,7 @@ export class JobsController {
             },
             data: {
               type: "array",
-              items: { $ref: getSchemaPath(OldJobListResult) },
+              items: { $ref: getSchemaPath(JobListResult) },
             },
           },
         },
@@ -82,7 +76,7 @@ export class JobsController {
   async getJobsListWithSearch(
     @Query(new ValidationPipe({ transform: true }))
     params: JobListParams,
-  ): Promise<PaginatedData<OldJobListResult>> {
+  ): Promise<PaginatedData<JobListResult>> {
     this.logger.log(`/jobs/list ${JSON.stringify(params)}`);
     return this.jobsService.getJobsListWithSearch(params).then(res => {
       if (res === undefined) {
@@ -127,7 +121,7 @@ export class JobsController {
     schema: {
       allOf: [
         {
-          $ref: getSchemaPath(OldJobListResult),
+          $ref: getSchemaPath(JobListResult),
         },
       ],
     },
@@ -144,7 +138,7 @@ export class JobsController {
   })
   async getJobDetailsByUuid(
     @Param("uuid") uuid: string,
-  ): Promise<OldJobListResult | undefined> {
+  ): Promise<JobListResult | undefined> {
     this.logger.log(`/jobs/details/${uuid}`);
     return this.jobsService.getJobDetailsByUuid(uuid);
   }
@@ -154,12 +148,11 @@ export class JobsController {
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
     description: "Returns a list of jobs posted by an org",
-    type: Response<OldJobListResult[]>,
     schema: {
       allOf: [
         {
           type: "array",
-          items: { $ref: getSchemaPath(OldJobListResult) },
+          items: { $ref: getSchemaPath(JobListResult) },
         },
       ],
     },
@@ -175,9 +168,7 @@ export class JobsController {
       ],
     },
   })
-  async getOrgJobsList(
-    @Param("uuid") uuid: string,
-  ): Promise<OldJobListResult[]> {
+  async getOrgJobsList(@Param("uuid") uuid: string): Promise<JobListResult[]> {
     this.logger.log(`/jobs/org/${uuid}`);
     return this.jobsService.getJobsByOrgUuid(uuid);
   }

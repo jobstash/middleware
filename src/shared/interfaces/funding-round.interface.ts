@@ -1,7 +1,12 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import {
+  ApiExtraModels,
+  ApiProperty,
+  ApiPropertyOptional,
+  getSchemaPath,
+} from "@nestjs/swagger";
 import { Investor } from "./investor.interface";
 
-export class OldFundingRound {
+export class FundingRoundProperties {
   @ApiProperty()
   id: string;
   @ApiProperty()
@@ -16,7 +21,11 @@ export class OldFundingRound {
   createdTimestamp: number;
 }
 
-export class FundingRound extends OldFundingRound {
-  @ApiPropertyOptional()
+@ApiExtraModels(Investor)
+export class FundingRound extends FundingRoundProperties {
+  @ApiPropertyOptional({
+    type: "array",
+    items: { $ref: getSchemaPath(Investor) },
+  })
   investors: Investor[] | null;
 }

@@ -1,11 +1,11 @@
-import { CacheModule, Module, OnModuleInit } from "@nestjs/common";
+import { Module, OnModuleInit } from "@nestjs/common";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
-import { ConfigModule } from "@nestjs/config";
+import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AuthModule } from "./auth/auth.module";
 import * as Sentry from "@sentry/node";
 import * as Tracing from "@sentry/tracing";
-import { Neo4jModule } from "nest-neo4j/dist";
+import { Neo4jConnection, Neo4jModule } from "nest-neo4j/dist";
 import { JobsModule } from "./jobs/jobs.module";
 import { BackendModule } from "./backend/backend.module";
 import { SiweModule } from "./auth/siwe/siwe.module";
@@ -14,6 +14,7 @@ import { GithubModule } from "./auth/github/github.module";
 import { OrganizationsModule } from "./organizations/organizations.module";
 import envSchema from "./env-schema";
 import { ProjectsModule } from "./projects/projects.module";
+import { CacheModule } from "@nestjs/cache-manager";
 
 @Module({
   imports: [
@@ -24,7 +25,18 @@ import { ProjectsModule } from "./projects/projects.module";
         abortEarly: false,
       },
     }),
-    Neo4jModule.fromEnv(),
+    Neo4jModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) =>
+        ({
+          host: configService.get<string>("NEO4J_HOST"),
+          password: configService.get<string>("NEO4J_PASSWORD"),
+          port: configService.get<string>("NEO4J_PORT"),
+          scheme: configService.get<string>("NEO4J_SCHEME"),
+          username: configService.get<string>("NEO4J_USERNAME"),
+        } as Neo4jConnection),
+    }),
     CacheModule.register({ isGlobal: true }),
     AuthModule,
     JobsModule,

@@ -9,8 +9,8 @@ import { Chain } from "./chain.interface";
 import { Hack } from "./hack.interface";
 import { ProjectCategory } from "./project-category.interface";
 
-@ApiExtraModels(Audit, Hack, Chain)
-export class OldProject {
+@ApiExtraModels(Audit, Hack, Chain, ProjectCategory)
+export class ProjectProperties {
   @ApiProperty()
   id: string;
   @ApiPropertyOptional()
@@ -43,6 +43,14 @@ export class OldProject {
   createdTimestamp: number;
   @ApiPropertyOptional()
   updatedTimestamp?: number;
+}
+
+export class Project extends ProjectProperties {
+  @ApiPropertyOptional({
+    type: "array",
+    items: { $ref: getSchemaPath(ProjectCategory) },
+  })
+  categories?: ProjectCategory[] | null;
 
   @ApiPropertyOptional({
     type: "array",
@@ -61,12 +69,4 @@ export class OldProject {
     items: { $ref: getSchemaPath(Chain) },
   })
   chains?: Chain[];
-}
-
-export class Project extends OldProject {
-  @ApiPropertyOptional({
-    type: "array",
-    items: { $ref: getSchemaPath(ProjectCategory) },
-  })
-  categories?: ProjectCategory[] | null;
 }
