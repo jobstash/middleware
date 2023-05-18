@@ -145,7 +145,8 @@ export class JobsService {
         ? "(j.jobTitle =~ $query OR any(x IN tech WHERE x.name =~ $query) OR o.name =~ $query) AND "
         : ""
     }
-    o.name IS NOT NULL AND o.name <> ""`;
+    o.name IS NOT NULL AND o.name <> ""
+    `;
 
     const generatedSorters = `
     ${
@@ -165,22 +166,19 @@ export class JobsService {
             roundVar: "mrfr",
           })}`
     } ${params.order ? params.order.toUpperCase() : "DESC"}
-            ${
-              params.page && params.page > 0
-                ? params.limit && params.limit > 0
-                  ? "SKIP toInteger(($page - 1) * $limit)"
-                  : "SKIP toInteger(($page - 1) * 10)"
-                : ""
-            }
-            ${
-              params.limit && params.limit > 0
-                ? "LIMIT toInteger($limit)"
-                : "LIMIT 10"
-            }
+    ${
+      params.page && params.page > 0
+        ? params.limit && params.limit > 0
+          ? "SKIP toInteger(($page - 1) * $limit)"
+          : "SKIP toInteger(($page - 1) * 10)"
+        : ""
+    }
+    ${params.limit && params.limit > 0 ? "LIMIT toInteger($limit)" : "LIMIT 10"}
     `;
 
     const generatedQuery = `
             MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
+            MATCH (jp)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
             MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
             OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)-[:INVESTED_BY]->(i:Investor)
             OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(c:ProjectCategory)
@@ -196,6 +194,7 @@ export class JobsService {
             WITH o, pf, j, tech, cats, auditCount, hackCount, chainCount, audits, hacks, chains, rounds, investors, mrfr
             CALL {
               MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
+              MATCH (jp)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
               MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
               OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)-[:INVESTED_BY]->(i:Investor)
               OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(c:ProjectCategory)
@@ -252,7 +251,6 @@ export class JobsService {
       .read(
         `
         MATCH (o)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
-        MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
         OPTIONAL MATCH (o:Organization)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(cat:ProjectCategory)
         OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
         WHERE NOT (t)<-[:IS_BLOCKED_TERM]-()
