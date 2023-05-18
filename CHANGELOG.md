@@ -1,3 +1,10 @@
+## [1.28.11](https://github.com/jobstash/middleware/compare/v1.28.10...v1.28.11) (2023-05-18)
+
+
+### Bug Fixes
+
+* **jobs:** fixed bug in jobs sorter ([0bdb022](https://github.com/jobstash/middleware/commit/0bdb022a3367ade131b7f8c2dc7d7de157ed9619))
+
 ## [1.28.10](https://github.com/jobstash/middleware/compare/v1.28.9...v1.28.10) (2023-05-13)
 
 
