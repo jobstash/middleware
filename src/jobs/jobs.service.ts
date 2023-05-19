@@ -239,11 +239,11 @@ export class JobsService {
               }
               WITH o, pf, COLLECT(p) as projects, j, COLLECT(DISTINCT fr) as rounds, MAX(fr.date) as mrfr, COLLECT(DISTINCT i) as investors, COLLECT(DISTINCT t) AS tech, COLLECT(DISTINCT c) as cats, COLLECT(DISTINCT ch) as chains, COUNT(DISTINCT a) as auditCount, COUNT(DISTINCT h) as hackCount, COUNT(DISTINCT ch) as chainCount
               ${generatedFilters}
-              RETURN COUNT(j) as count
+              RETURN COUNT(DISTINCT j) as count
             }
             WITH count, results, pf, j, tech, auditCount, hackCount, chainCount, mrfr
             ${generatedSorters}
-            WITH count, COLLECT(results) as data
+            WITH count, COLLECT(DISTINCT results) as data
             RETURN { total: count, data: data } as res
         `.replace(/^\s*$(?:\r\n?|\n)/gm, "");
     return this.neo4jService
