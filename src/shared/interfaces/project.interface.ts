@@ -40,6 +40,26 @@ export class ProjectProperties {
   @ApiPropertyOptional()
   monthlyRevenue?: number;
   @ApiProperty()
+  isMainnet: boolean;
+  @ApiProperty()
+  telegram: string;
+  @ApiProperty()
+  orgId: string;
+  @ApiProperty()
+  cmcId?: string;
+  @ApiProperty()
+  twitter: string;
+  @ApiProperty()
+  discord: string;
+  @ApiProperty()
+  docs: string;
+  @ApiPropertyOptional()
+  teamSize: null | number;
+  @ApiProperty()
+  githubOrganization: string;
+  @ApiProperty()
+  category: string;
+  @ApiProperty()
   createdTimestamp: number;
   @ApiPropertyOptional()
   updatedTimestamp?: number;
@@ -50,7 +70,7 @@ export class Project extends ProjectProperties {
     type: "array",
     items: { $ref: getSchemaPath(ProjectCategory) },
   })
-  categories?: ProjectCategory[] | null;
+  categories?: ProjectCategory[];
 
   @ApiPropertyOptional({
     type: "array",

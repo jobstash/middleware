@@ -8,40 +8,43 @@ export class StructuredJobpost {
   shortUUID: string;
 
   @ApiProperty()
-  minSalaryRange: number;
+  minSalaryRange?: number;
 
   @ApiProperty()
-  maxSalaryRange: number;
+  maxSalaryRange?: number;
 
   @ApiProperty()
-  role: string;
+  medianSalary: number;
+
+  @ApiProperty()
+  role: null | string;
 
   @ApiProperty()
   seniority: string;
 
   @ApiProperty()
-  team: string;
+  team: null | string;
 
   @ApiProperty()
-  benefits: string;
+  benefits: null | string;
 
   @ApiProperty()
-  culture: string;
+  culture: null | string;
 
   @ApiProperty()
-  salaryCurrency: string;
+  salaryCurrency?: string;
 
   @ApiProperty()
-  paysInCrypto: boolean;
+  paysInCrypto?: boolean;
 
   @ApiProperty()
-  offersTokenAllocation: boolean;
+  offersTokenAllocation?: boolean;
 
   @ApiProperty()
   jobApplyPageUrl: string;
 
   @ApiPropertyOptional()
-  jobCommitment?: string;
+  jobCommitment: null | string;
 
   @ApiProperty()
   jobCreatedTimestamp: string;

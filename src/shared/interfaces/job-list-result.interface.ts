@@ -23,11 +23,11 @@ export class JobListResult extends StructuredJobpost {
     type: "array",
     items: { $ref: getSchemaPath(Organization) },
   })
-  organization?: Organization | null;
+  organization?: Organization;
 
   @ApiPropertyOptional({
     type: "array",
     items: { $ref: getSchemaPath(Technology) },
   })
-  technologies?: Technology[] | null;
+  technologies?: Technology[];
 }

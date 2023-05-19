@@ -15,12 +15,13 @@ export class JobListResultEntity {
   constructor(private readonly raw: RawJobPost) {}
 
   getProperties(): JobListResult {
-    // eslint-disable-next-line
     const jobpost = this.raw;
     const { organization, technologies } = jobpost;
 
     return {
       ...jobpost,
+      minSalaryRange: jobpost.minSalaryRange ?? 0,
+      maxSalaryRange: jobpost.maxSalaryRange ?? 0,
       seniority: notStringOrNull(jobpost.seniority, ["", "undefined"]),
       jobLocation: notStringOrNull(jobpost.jobLocation, [
         "",
@@ -34,13 +35,23 @@ export class JobListResultEntity {
       culture: notStringOrNull(jobpost.culture, ["", "undefined"]),
       organization: {
         ...organization,
-        teamSize: notStringOrNull(organization?.teamSize, ["", "undefined"]),
-        projects: organization?.projects?.map(project => ({
-          ...project,
-          tokenSymbol: notStringOrNull(project.tokenSymbol, ["-"]),
-        })),
+        projects:
+          organization?.projects?.map(project => ({
+            ...project,
+            tokenSymbol: notStringOrNull(project.tokenSymbol, ["-"]),
+            categories: project.categories ?? [],
+            hacks: project.hacks ?? [],
+            audits: project.audits ?? [],
+            chains: project.chains ?? [],
+          })) ?? [],
+        fundingRounds:
+          organization.fundingRounds.map(fr => ({
+            ...fr,
+            investors: fr.investors ?? [],
+          })) ?? [],
       },
-      technologies: technologies?.map(technology => technology.properties),
+      technologies:
+        technologies?.map(technology => technology.properties) ?? [],
     } as JobListResult;
   }
 }

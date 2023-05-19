@@ -27,10 +27,19 @@ export class OrganizationProperties {
   @ApiProperty()
   url: string;
 
+  @ApiProperty()
+  jobsiteLink: string;
+  @ApiProperty()
+  docs?: string;
+  @ApiProperty()
+  altName: string;
+  @ApiProperty()
+  headCount: number;
+
   @ApiPropertyOptional()
-  githubOrganization?: string;
+  github: string;
   @ApiPropertyOptional()
-  teamSize?: string;
+  teamSize: null | number;
   @ApiPropertyOptional()
   twitter?: string;
   @ApiPropertyOptional()
@@ -51,12 +60,12 @@ export class Organization extends OrganizationProperties {
     type: "array",
     items: { $ref: getSchemaPath(Project) },
   })
-  projects?: Project[] | null;
+  projects?: Project[];
   @ApiPropertyOptional({
     type: "array",
     items: { $ref: getSchemaPath(FundingRound) },
   })
-  fundingRounds: FundingRound[] | null;
+  fundingRounds: FundingRound[];
 }
 
 export class ShortOrg {
