@@ -30,28 +30,28 @@ export class OrganizationProperties {
   @ApiProperty()
   jobsiteLink: string;
   @ApiProperty()
-  docs?: string;
+  docs: string | null;
   @ApiProperty()
-  altName: string;
+  altName: string | null;
   @ApiProperty()
-  headCount: number;
+  headCount: number | null;
 
   @ApiPropertyOptional()
-  github: string;
+  github: string | null;
   @ApiPropertyOptional()
-  teamSize: null | number;
+  teamSize: number | null;
   @ApiPropertyOptional()
-  twitter?: string;
+  twitter: string | null;
   @ApiPropertyOptional()
-  discord?: string;
+  discord: string | null;
   @ApiPropertyOptional()
-  linkedin?: string;
+  linkedin: string | null;
   @ApiPropertyOptional()
-  telegram?: string;
+  telegram: string | null;
   @ApiPropertyOptional()
-  createdTimestamp?: number;
+  createdTimestamp: number;
   @ApiPropertyOptional()
-  updatedTimestamp?: number;
+  updatedTimestamp: number;
 }
 
 @ApiExtraModels(Project, FundingRound)
@@ -60,7 +60,7 @@ export class Organization extends OrganizationProperties {
     type: "array",
     items: { $ref: getSchemaPath(Project) },
   })
-  projects?: Project[];
+  projects: Project[];
   @ApiPropertyOptional({
     type: "array",
     items: { $ref: getSchemaPath(FundingRound) },

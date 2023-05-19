@@ -14,9 +14,11 @@ export class ProjectProperties {
   @ApiProperty()
   id: string;
   @ApiPropertyOptional()
-  defiLlamaId?: string;
+  defiLlamaId: string | null;
   @ApiPropertyOptional()
-  defiLlamaSlug?: string;
+  defiLlamaSlug: string | null;
+  @ApiPropertyOptional()
+  defiLlamaParent: string | null;
   @ApiProperty()
   name: string;
   @ApiProperty()
@@ -26,43 +28,43 @@ export class ProjectProperties {
   @ApiProperty()
   logo: string;
   @ApiPropertyOptional()
-  tokenAddress?: string;
+  tokenAddress: string | null;
   @ApiPropertyOptional()
-  tokenSymbol?: string;
+  tokenSymbol: string | null;
   @ApiPropertyOptional()
-  isInConstruction?: boolean;
+  isInConstruction: boolean | null;
   @ApiPropertyOptional()
-  tvl?: number;
+  tvl: number | null;
   @ApiPropertyOptional()
-  monthlyVolume?: number;
+  monthlyVolume: number | null;
   @ApiPropertyOptional()
-  monthlyFees?: number;
+  monthlyFees: number | null;
   @ApiPropertyOptional()
-  monthlyRevenue?: number;
+  monthlyRevenue: number | null;
   @ApiProperty()
   isMainnet: boolean;
   @ApiProperty()
-  telegram: string;
+  telegram: string | null;
   @ApiProperty()
   orgId: string;
   @ApiProperty()
-  cmcId?: string;
+  cmcId: string;
   @ApiProperty()
-  twitter: string;
+  twitter: string | null;
   @ApiProperty()
-  discord: string;
+  discord: string | null;
   @ApiProperty()
-  docs: string;
+  docs: string | null;
   @ApiPropertyOptional()
-  teamSize: null | number;
+  teamSize: number | null;
   @ApiProperty()
-  githubOrganization: string;
+  githubOrganization: string | null;
   @ApiProperty()
   category: string;
   @ApiProperty()
   createdTimestamp: number;
   @ApiPropertyOptional()
-  updatedTimestamp?: number;
+  updatedTimestamp: number | null;
 }
 
 export class Project extends ProjectProperties {
@@ -70,23 +72,23 @@ export class Project extends ProjectProperties {
     type: "array",
     items: { $ref: getSchemaPath(ProjectCategory) },
   })
-  categories?: ProjectCategory[];
+  categories: ProjectCategory[];
 
   @ApiPropertyOptional({
     type: "array",
     items: { $ref: getSchemaPath(Hack) },
   })
-  hacks?: Hack[];
+  hacks: Hack[];
 
   @ApiPropertyOptional({
     type: "array",
     items: { $ref: getSchemaPath(Audit) },
   })
-  audits?: Audit[];
+  audits: Audit[];
 
   @ApiPropertyOptional({
     type: "array",
     items: { $ref: getSchemaPath(Chain) },
   })
-  chains?: Chain[];
+  chains: Chain[];
 }

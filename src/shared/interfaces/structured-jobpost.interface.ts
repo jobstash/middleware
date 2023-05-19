@@ -8,61 +8,61 @@ export class StructuredJobpost {
   shortUUID: string;
 
   @ApiProperty()
-  minSalaryRange?: number;
+  minSalaryRange: number | null;
 
   @ApiProperty()
-  maxSalaryRange?: number;
+  maxSalaryRange: number | null;
 
   @ApiProperty()
-  medianSalary: number;
+  medianSalary: number | null;
 
   @ApiProperty()
-  role: null | string;
+  role: string | null;
 
   @ApiProperty()
-  seniority: string;
+  seniority: string | null;
 
   @ApiProperty()
-  team: null | string;
+  team: string | null;
 
   @ApiProperty()
-  benefits: null | string;
+  benefits: string | null;
 
   @ApiProperty()
-  culture: null | string;
+  culture: string | null;
 
   @ApiProperty()
-  salaryCurrency?: string;
+  salaryCurrency: string | null;
 
   @ApiProperty()
-  paysInCrypto?: boolean;
+  paysInCrypto: boolean | null;
 
   @ApiProperty()
-  offersTokenAllocation?: boolean;
+  offersTokenAllocation: boolean | null;
 
   @ApiProperty()
   jobApplyPageUrl: string;
 
   @ApiPropertyOptional()
-  jobCommitment: null | string;
+  jobCommitment: string | null;
 
   @ApiProperty()
-  jobCreatedTimestamp: string;
+  jobCreatedTimestamp: number;
 
   @ApiProperty()
-  jobFoundTimestamp: string;
+  jobFoundTimestamp: number;
 
   @ApiProperty()
-  jobPageUrl: string;
+  jobPageUrl: string | null;
 
   @ApiProperty()
-  jobLocation: string;
+  jobLocation: string | null;
 
   @ApiProperty()
-  jobTitle: string;
+  jobTitle: string | null;
 
   @ApiProperty()
-  aiDetectedTechnologies: string;
+  aiDetectedTechnologies: string | null;
 
   @ApiProperty()
   extractedTimestamp: string;

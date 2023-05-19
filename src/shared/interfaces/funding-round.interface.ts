@@ -10,20 +10,20 @@ export class FundingRoundProperties {
   @ApiProperty()
   id: string;
   @ApiProperty()
-  raisedAmount?: number;
-  @ApiProperty()
-  roundName?: string;
+  raisedAmount: number;
+  @ApiPropertyOptional()
+  roundName: string | null;
   @ApiProperty()
   date: number;
-  @ApiProperty()
-  sourceLink?: string;
+  @ApiPropertyOptional()
+  sourceLink: string | null;
   @ApiProperty()
   createdTimestamp: number;
 }
 
 @ApiExtraModels(Investor)
 export class FundingRound extends FundingRoundProperties {
-  @ApiPropertyOptional({
+  @ApiProperty({
     type: "array",
     items: { $ref: getSchemaPath(Investor) },
   })

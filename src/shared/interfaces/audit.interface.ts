@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class Audit {
   @ApiPropertyOptional()
-  auditor?: string;
+  auditor: string | null;
 
   @ApiProperty()
   link: string;

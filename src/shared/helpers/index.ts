@@ -105,7 +105,7 @@ export const intConverter = (
 
 export const notStringOrNull = (
   value: string | null | undefined,
-  space: string[],
+  space: string[] = [""],
 ): string | null => {
   if (
     space.includes(value) ||
