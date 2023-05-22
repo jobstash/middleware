@@ -86,12 +86,12 @@ export class JobsService {
               // Note that investor and funding round data is left in node form. this is to allow for matching down the line to relate and collect them
               WITH structured_jobpost, organization, project,
               categories, 
-              COLLECT(investor) AS investors,
-              COLLECT(funding_round) AS funding_rounds, MAX(funding_round.date) as most_recent_funding_round, 
-              COLLECT(PROPERTIES(technology)) AS technologies,
-              COLLECT(PROPERTIES(audit)) AS audits,
-              COLLECT(PROPERTIES(hack)) AS hacks,
-              COLLECT(PROPERTIES(chain)) AS chains, numAudits, numHacks, COUNT(chain) as numChains
+              COLLECT(DISTINCT investor) AS investors,
+              COLLECT(DISTINCT funding_round) AS funding_rounds, MAX(funding_round.date) as most_recent_funding_round, 
+              COLLECT(DISTINCT PROPERTIES(technology)) AS technologies,
+              COLLECT(DISTINCT PROPERTIES(audit)) AS audits,
+              COLLECT(DISTINCT PROPERTIES(hack)) AS hacks,
+              COLLECT(DISTINCT PROPERTIES(chain)) AS chains, numAudits, numHacks, COUNT(chain) as numChains
               WHERE (any(x IN technologies WHERE x.name IN $tech) OR $tech IS NULL)
               AND (any(x IN funding_rounds WHERE x.roundName IN $fundingRounds) OR $fundingRounds IS NULL)
               AND (any(y IN categories WHERE y.name IN $categories) OR $categories IS NULL)
