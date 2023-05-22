@@ -16,6 +16,8 @@ import {
 } from "@nestjs/swagger/dist/interfaces/open-api-spec.interface";
 import { getSchemaPath } from "@nestjs/swagger";
 import { Response } from "../entities";
+import { TransformFnParams } from "class-transformer";
+import { CustomLogger } from "../utils/custom-logger";
 
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
@@ -44,9 +46,21 @@ export const orderBySelector = (args: {
   projectVar: string;
   orgVar: string;
   roundVar: string;
+  auditsVar: string;
+  hacksVar: string;
+  chainsVar: string;
   orderBy: JobListOrderBy;
 }): string | null => {
-  const { jobVar, projectVar, orgVar, roundVar, orderBy } = args;
+  const {
+    jobVar,
+    projectVar,
+    orgVar,
+    roundVar,
+    auditsVar,
+    hacksVar,
+    chainsVar,
+    orderBy,
+  } = args;
   switch (orderBy) {
     case "publicationDate":
       return `${jobVar}.jobCreatedTimestamp`;
@@ -70,13 +84,13 @@ export const orderBySelector = (args: {
       return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.monthlyRevenue ELSE ${jobVar}.jobCreatedTimestamp / 1000000000 END)`;
 
     case "audits":
-      return `auditCount`;
+      return auditsVar;
 
     case "hacks":
-      return `hackCount`;
+      return hacksVar;
 
     case "chains":
-      return `chainCount`;
+      return chainsVar;
 
     case "headCount":
       return `${orgVar}.headCount`;
@@ -119,53 +133,50 @@ export const notStringOrNull = (
   }
 };
 
-export const publicationDateRangeParser = (
-  dateRange: DateRange,
-  jobVar: string,
-): string => {
+export const publicationDateRangeGenerator = (
+  dateRange: DateRange | null,
+): { startDate: number; endDate: number } => {
+  const logger = new CustomLogger("PublicationDateRangeGenerator");
   const now = Date.now();
   switch (dateRange) {
     case "today":
-      return `${jobVar}.jobCreatedTimestamp / 1000000000 >= ${startOfDay(
-        now,
-      ).getTime()} AND ${jobVar}.jobCreatedTimestamp / 1000000000 <= ${endOfDay(
-        now,
-      ).getTime()} AND `;
+      return {
+        startDate: startOfDay(now).getTime(),
+        endDate: endOfDay(now).getTime(),
+      };
     case "this-week":
-      return `${jobVar}.jobCreatedTimestamp / 1000000000 >= ${startOfWeek(
-        now,
-      ).getTime()} AND ${jobVar}.jobCreatedTimestamp / 1000000000 <= ${endOfWeek(
-        now,
-      ).getTime()} AND `;
+      return {
+        startDate: startOfWeek(now).getTime(),
+        endDate: endOfWeek(now).getTime(),
+      };
     case "this-month":
-      return `${jobVar}.jobCreatedTimestamp / 1000000000 >= ${startOfMonth(
-        now,
-      ).getTime()} AND ${jobVar}.jobCreatedTimestamp / 1000000000 <= ${endOfMonth(
-        now,
-      ).getTime()} AND `;
+      return {
+        startDate: startOfMonth(now).getTime(),
+        endDate: endOfMonth(now).getTime(),
+      };
     case "past-2-weeks":
       const twoWeeksAgo = subWeeks(now, 2);
-      return `${jobVar}.jobCreatedTimestamp / 1000000000 >= ${startOfDay(
-        twoWeeksAgo,
-      ).getTime()} AND ${jobVar}.jobCreatedTimestamp / 1000000000 <= ${endOfDay(
-        now,
-      ).getTime()} AND `;
+      return {
+        startDate: startOfDay(twoWeeksAgo).getTime(),
+        endDate: endOfDay(now).getTime(),
+      };
     case "past-3-months":
       const threeMonthsAgo = subMonths(now, 3);
-      return `${jobVar}.jobCreatedTimestamp / 1000000000 >= ${startOfDay(
-        threeMonthsAgo,
-      ).getTime()} AND ${jobVar}.jobCreatedTimestamp / 1000000000 <= ${endOfDay(
-        now,
-      ).getTime()} AND `;
+      return {
+        startDate: startOfDay(threeMonthsAgo).getTime(),
+        endDate: endOfDay(now).getTime(),
+      };
     case "past-6-months":
       const sixMonthsAgo = subMonths(now, 6);
-      return `${jobVar}.jobCreatedTimestamp / 1000000000 >= ${startOfDay(
-        sixMonthsAgo,
-      ).getTime()} AND ${jobVar}.jobCreatedTimestamp / 1000000000 <= ${endOfDay(
-        now,
-      ).getTime()} AND `;
+      return {
+        startDate: startOfDay(sixMonthsAgo).getTime(),
+        endDate: endOfDay(now).getTime(),
+      };
     default:
-      throw new Error(`Invalid date range: ${dateRange}`);
+      if (dateRange !== null) {
+        logger.error(`Invalid date range: ${dateRange}`);
+      }
+      return { startDate: null, endDate: null };
   }
 };
 
@@ -184,4 +195,24 @@ export const responseSchemaWrapper = (
       data: child,
     },
   };
+};
+
+export const btoaList = ({ value }: TransformFnParams): string[] | null => {
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map(encodedString =>
+        Buffer.from(encodedString, "base64").toString("ascii"),
+      );
+  } else if (typeof value === "undefined") {
+    return null;
+  } else {
+    return value;
+  }
+};
+
+export const transformToNullIfUndefined = (
+  value: unknown | undefined,
+): unknown => {
+  return value === undefined ? null : value;
 };

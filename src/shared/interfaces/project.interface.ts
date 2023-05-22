@@ -41,6 +41,8 @@ export class ProjectProperties {
   monthlyFees: number | null;
   @ApiPropertyOptional()
   monthlyRevenue: number | null;
+  @ApiPropertyOptional()
+  monthlyActiveUsers: number | null;
   @ApiProperty()
   isMainnet: boolean;
   @ApiProperty()
