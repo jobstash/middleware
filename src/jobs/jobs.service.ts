@@ -344,7 +344,7 @@ export class JobsService {
         OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
         OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
         OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(ch:Chain)
-        WITH o, j, COLLECT(DISTINCT t) AS tech
+        WITH o, j, COLLECT(DISTINCT PROPERTIES(t)) AS tech
         CALL {
           WITH o, j, tech
           CALL {
@@ -404,7 +404,7 @@ export class JobsService {
         OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
         OPTIONAL MATCH (p)-[:HAS_HACK]-(h:Hack)
         OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(ch:Chain)
-        WITH o, j, COLLECT(DISTINCT t) AS tech
+        WITH o, j, COLLECT(DISTINCT PROPERTIES(t)) AS tech
         CALL {
           WITH o, j, tech
           CALL {
