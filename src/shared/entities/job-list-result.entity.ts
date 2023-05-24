@@ -18,7 +18,7 @@ export class JobListResultEntity {
     const jobpost = this.raw;
     const { organization, technologies } = jobpost;
 
-    return {
+    return new JobListResult({
       ...jobpost,
       minSalaryRange: jobpost?.minSalaryRange ?? null,
       maxSalaryRange: jobpost?.maxSalaryRange ?? null,
@@ -84,12 +84,13 @@ export class JobListResultEntity {
         fundingRounds:
           organization?.fundingRounds.map(fr => ({
             ...fr,
+            investors: fr?.investors ?? [],
+            raisedAmount: fr?.raisedAmount ?? null,
             roundName: notStringOrNull(fr?.roundName),
             sourceLink: notStringOrNull(fr?.sourceLink),
-            investors: fr?.investors ?? [],
           })) ?? [],
       },
       technologies: technologies ?? [],
-    } as JobListResult;
+    });
   }
 }

@@ -216,3 +216,25 @@ export const transformToNullIfUndefined = (
 ): unknown => {
   return value === undefined ? null : value;
 };
+
+export const inferObjectType = (obj: unknown): string => {
+  const objectType = typeof obj;
+  let objectString = "";
+
+  if (objectType === "object") {
+    if (Array.isArray(obj)) {
+      objectString = `Array<${inferObjectType(obj[0])}>`;
+    } else if (obj === null) {
+      objectString = "null";
+    } else {
+      const propertyStrings = Object.entries(obj)
+        .map(([key, value]) => `          ${key}: ${inferObjectType(value)}`)
+        .sort((a: string, b: string) => a.length - b.length);
+      objectString = `{ \n${propertyStrings.join(",\n")}\n }`;
+    }
+  } else {
+    objectString = objectType;
+  }
+
+  return objectString;
+};

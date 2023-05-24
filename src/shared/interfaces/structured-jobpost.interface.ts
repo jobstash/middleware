@@ -1,6 +1,34 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import * as t from "io-ts";
+import { inferObjectType } from "../helpers";
+import { isLeft } from "fp-ts/lib/Either";
 
 export class StructuredJobpost {
+  public static readonly StructuredJobpostType = t.type({
+    id: t.string,
+    shortUUID: t.string,
+    jobApplyPageUrl: t.string,
+    jobFoundTimestamp: t.number,
+    extractedTimestamp: t.number,
+    jobCreatedTimestamp: t.number,
+    role: t.union([t.string, t.null]),
+    team: t.union([t.string, t.null]),
+    culture: t.union([t.string, t.null]),
+    benefits: t.union([t.string, t.null]),
+    jobTitle: t.union([t.string, t.null]),
+    seniority: t.union([t.string, t.null]),
+    jobPageUrl: t.union([t.string, t.null]),
+    jobLocation: t.union([t.string, t.null]),
+    medianSalary: t.union([t.number, t.null]),
+    paysInCrypto: t.union([t.boolean, t.null]),
+    jobCommitment: t.union([t.string, t.null]),
+    minSalaryRange: t.union([t.number, t.null]),
+    maxSalaryRange: t.union([t.number, t.null]),
+    salaryCurrency: t.union([t.string, t.null]),
+    offersTokenAllocation: t.union([t.boolean, t.null]),
+    aiDetectedTechnologies: t.union([t.string, t.null]),
+  });
+
   @ApiProperty()
   id: string;
 
@@ -65,5 +93,87 @@ export class StructuredJobpost {
   aiDetectedTechnologies: string | null;
 
   @ApiProperty()
-  extractedTimestamp: string;
+  extractedTimestamp: number;
+
+  constructor(raw: StructuredJobpost) {
+    const {
+      id,
+      role,
+      team,
+      culture,
+      benefits,
+      jobTitle,
+      shortUUID,
+      seniority,
+      jobPageUrl,
+      jobLocation,
+      medianSalary,
+      paysInCrypto,
+      jobCommitment,
+      minSalaryRange,
+      maxSalaryRange,
+      salaryCurrency,
+      jobApplyPageUrl,
+      jobFoundTimestamp,
+      extractedTimestamp,
+      jobCreatedTimestamp,
+      offersTokenAllocation,
+      aiDetectedTechnologies,
+    } = raw;
+
+    const result = StructuredJobpost.StructuredJobpostType.decode(raw);
+
+    this.id = id;
+    this.role = role;
+    this.team = team;
+    this.culture = culture;
+    this.benefits = benefits;
+    this.jobTitle = jobTitle;
+    this.shortUUID = shortUUID;
+    this.seniority = seniority;
+    this.jobPageUrl = jobPageUrl;
+    this.jobLocation = jobLocation;
+    this.medianSalary = medianSalary;
+    this.paysInCrypto = paysInCrypto;
+    this.jobCommitment = jobCommitment;
+    this.minSalaryRange = minSalaryRange;
+    this.maxSalaryRange = maxSalaryRange;
+    this.salaryCurrency = salaryCurrency;
+    this.jobApplyPageUrl = jobApplyPageUrl;
+    this.jobFoundTimestamp = jobFoundTimestamp;
+    this.extractedTimestamp = extractedTimestamp;
+    this.jobCreatedTimestamp = jobCreatedTimestamp;
+    this.offersTokenAllocation = offersTokenAllocation;
+    this.aiDetectedTechnologies = aiDetectedTechnologies;
+
+    if (isLeft(result)) {
+      throw new Error(
+        `Error Serializing StructuredJobpost! Constructor expected: \n {
+          id: string,
+          shortUUID: string,
+          role: string | null,
+          team: string | null,
+          culture: string | null,
+          benefits: string | null,
+          jobApplyPageUrl: string,
+          jobTitle: string | null,
+          seniority: string | null,
+          jobFoundTimestamp: number,
+          jobPageUrl: string | null,
+          extractedTimestamp: number
+          jobLocation: string | null,
+          medianSalary: number | null,
+          jobCreatedTimestamp: number,
+          paysInCrypto: boolean | null,
+          jobCommitment: string | null,
+          minSalaryRange: number | null,
+          maxSalaryRange: number | null,
+          salaryCurrency: string | null,
+          offersTokenAllocation: boolean | null,
+          aiDetectedTechnologies: string | null,
+        } 
+        got ${inferObjectType(raw)}`,
+      );
+    }
+  }
 }
