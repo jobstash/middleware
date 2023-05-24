@@ -1,7 +1,6 @@
 import { OmitType } from "@nestjs/swagger";
 import { intConverter } from "../helpers";
-import { ShortOrg, Technology } from "../interfaces";
-import { FundingRoundProperties } from "../interfaces/funding-round.interface";
+import { ShortOrg, Technology, FundingRoundProperties } from "../interfaces";
 
 class RawShortOrg extends OmitType(ShortOrg, [
   "technologies",

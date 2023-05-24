@@ -30,18 +30,18 @@ export class JobsService {
               // Starting the query with just organizations to enable whatever org filters are present to reduce the result set considerably for subsequent steps
               MATCH (organization: Organization)
               WHERE ($organizations IS NULL OR organization.name IN $organizations)
-                AND ($minHeadCount IS NULL OR organization.minHeadCount >= $minHeadCount)
-                AND ($maxHeadCount IS NULL OR organization.maxHeadCount <= $maxHeadCount)
+                AND ($minHeadCount IS NULL OR (organization.headCount IS NOT NULL AND organization.headCount >= $minHeadCount))
+                AND ($maxHeadCount IS NULL OR (organization.headCount IS NOT NULL AND organization.headCount <= $maxHeadCount))
               
               // Filtering further by jobpost filters. Priority is to ensure that each step removes as much redundant data as possible
               MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
               MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
-              WHERE ($minSalaryRange IS NULL OR structured_jobpost.salaryRange >= $minSalaryRange)
-                AND ($maxSalaryRange IS NULL OR structured_jobpost.salaryRange <= $maxSalaryRange)
+              WHERE ($minSalaryRange IS NULL OR (structured_jobpost.medianSalary IS NOT NULL AND structured_jobpost.medianSalary >= $minSalaryRange))
+                AND ($maxSalaryRange IS NULL OR (structured_jobpost.medianSalary IS NOT NULL AND structured_jobpost.medianSalary <= $maxSalaryRange))
                 AND ($startDate IS NULL OR structured_jobpost.jobCreatedTimestamp >= $startDate)
                 AND ($endDate IS NULL OR structured_jobpost.jobCreatedTimestamp <= $endDate)
-                AND ($seniority IS NULL OR structured_jobpost.seniority IN $seniority)
-                AND ($locations IS NULL OR structured_jobpost.jobLocation IN $locations)
+                AND ($seniority IS NULL OR (structured_jobpost.seniority IS NOT NULL AND structured_jobpost.seniority IN $seniority))
+                AND ($locations IS NULL OR (structured_jobpost.jobLocation IS NOT NULL AND structured_jobpost.jobLocation IN $locations))
                         
               // Filter out technologies that are blocked
               OPTIONAL MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
@@ -74,14 +74,14 @@ export class JobsService {
                 OR 
                 ($hacks = false AND numHacks = 0) 
               ))
-              AND ($minAudits IS NULL OR numAudits >= $minAudits)
-              AND ($maxAudits IS NULL OR numAudits <= $maxAudits)
-              AND ($tech IS NULL OR any(x IN technologies WHERE x.name IN $tech))
-              AND ($fundingRounds IS NULL OR any(x IN funding_rounds WHERE x.roundName IN $fundingRounds))
-              AND ($categories IS NULL OR any(y IN categories WHERE y.name IN $categories))
-              AND ($investors IS NULL OR any(x IN investors WHERE x.name IN $investors))
-              AND ($chains IS NULL OR any(y IN chains WHERE y.name IN $chains))
-              AND ($query IS NULL OR (organization.name =~ $query OR structured_jobpost.jobTitle =~ $query OR any(x IN technologies WHERE x.name =~ $query)))
+              AND ($minAudits IS NULL OR (numAudits IS NOT NULL AND numAudits >= $minAudits))
+              AND ($maxAudits IS NULL OR (numAudits IS NOT NULL AND numAudits <= $maxAudits))
+              AND ($tech IS NULL OR (technologies IS NOT NULL AND any(x IN technologies WHERE x.name IN $tech)))
+              AND ($fundingRounds IS NULL OR (funding_rounds IS NOT NULL AND any(x IN funding_rounds WHERE x.roundName IN $fundingRounds)))
+              AND ($categories IS NULL OR (categories IS NOT NULL AND any(y IN categories WHERE y.name IN $categories)))
+              AND ($investors IS NULL OR (investors IS NOT NULL AND any(x IN investors WHERE x.name IN $investors)))
+              AND ($chains IS NULL OR (chains IS NOT NULL AND any(y IN chains WHERE y.name IN $chains)))
+              AND ($query IS NULL OR (technologies IS NOT NULL AND (organization.name =~ $query OR structured_jobpost.jobTitle =~ $query OR any(x IN technologies WHERE x.name =~ $query))))
 
               CALL {
                 WITH funding_rounds
@@ -190,18 +190,30 @@ export class JobsService {
 
               WITH result, structured_jobpost, organization, most_recent_funding_round, anchor_project, numAudits, numHacks, numChains
 
-              WHERE ($mainNet IS NULL OR anchor_project.isMainnet = $mainNet)
-                AND ($minTeamSize IS NULL OR anchor_project.teamSize >= $minTeamSize)
-                AND ($maxTeamSize IS NULL OR anchor_project.teamSize <= $maxTeamSize)
-                AND ($minTvl IS NULL OR anchor_project.tvl >= $minTvl)
-                AND ($maxTvl IS NULL OR anchor_project.tvl <= $maxTvl)
-                AND ($minMonthlyVolume IS NULL OR anchor_project.monthlyVolume >= $minMonthlyVolume)
-                AND ($maxMonthlyVolume IS NULL OR anchor_project.monthlyVolume <= $maxMonthlyVolume)
-                AND ($minMonthlyFees IS NULL OR anchor_project.monthlyFees >= $minMonthlyFees)
-                AND ($maxMonthlyFees IS NULL OR anchor_project.monthlyFees <= $maxMonthlyFees)
-                AND ($minMonthlyRevenue IS NULL OR anchor_project.monthlyRevenue >= $minMonthlyRevenue)
-                AND ($maxMonthlyRevenue IS NULL OR anchor_project.monthlyRevenue <= $maxMonthlyRevenue)
-                AND ($token IS NULL OR anchor_project.tokenAddress IS NOT NULL = $token)
+              WHERE ($mainNet IS NULL OR (anchor_project IS NOT NULL AND anchor_project.isMainnet = $mainNet))
+                AND ($minTeamSize IS NULL OR (anchor_project IS NOT NULL AND anchor_project.teamSize >= $minTeamSize))
+                AND ($maxTeamSize IS NULL OR (anchor_project IS NOT NULL AND anchor_project.teamSize <= $maxTeamSize))
+                AND ($minTvl IS NULL OR (anchor_project IS NOT NULL AND anchor_project.tvl >= $minTvl))
+                AND ($maxTvl IS NULL OR (anchor_project IS NOT NULL AND anchor_project.tvl <= $maxTvl))
+                AND ($minMonthlyVolume IS NULL OR (anchor_project IS NOT NULL AND anchor_project.monthlyVolume >= $minMonthlyVolume))
+                AND ($maxMonthlyVolume IS NULL OR (anchor_project IS NOT NULL AND anchor_project.monthlyVolume <= $maxMonthlyVolume))
+                AND ($minMonthlyFees IS NULL OR (anchor_project IS NOT NULL AND anchor_project.monthlyFees >= $minMonthlyFees))
+                AND ($maxMonthlyFees IS NULL OR (anchor_project IS NOT NULL AND anchor_project.monthlyFees <= $maxMonthlyFees))
+                AND ($minMonthlyRevenue IS NULL OR (anchor_project IS NOT NULL AND anchor_project.monthlyRevenue >= $minMonthlyRevenue))
+                AND ($maxMonthlyRevenue IS NULL OR (anchor_project IS NOT NULL AND anchor_project.monthlyRevenue <= $maxMonthlyRevenue))
+                AND ($token IS NULL OR (anchor_project IS NOT NULL AND anchor_project.tokenAddress IS NOT NULL = $token))
+
+              // Drop results that don't have the sort param
+              AND ${orderBySelector({
+                orderBy: params.orderBy ?? "publicationDate",
+                jobVar: "structured_jobpost",
+                orgVar: "organization",
+                projectVar: "anchor_project",
+                roundVar: "most_recent_funding_round",
+                auditsVar: "numAudits",
+                hacksVar: "numHacks",
+                chainsVar: "numChains",
+              })} IS NOT NULL
 
               WITH result, structured_jobpost, organization, most_recent_funding_round, anchor_project, numAudits, numHacks, numChains
 

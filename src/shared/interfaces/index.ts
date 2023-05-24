@@ -3,6 +3,7 @@ export * from "./hack.interface";
 export * from "./chain.interface";
 export * from "./audit.interface";
 export * from "./project.interface";
+export * from "./response.interface";
 export * from "./org-repos.interface";
 export * from "./technology.interface";
 export * from "./paired-term.interface";

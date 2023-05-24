@@ -3,7 +3,7 @@ import {
   Organization,
   StructuredJobpost,
   Technology,
-} from "src/shared/types";
+} from "../interfaces";
 import { notStringOrNull } from "../helpers";
 
 type RawJobPost = StructuredJobpost & {

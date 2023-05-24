@@ -15,9 +15,10 @@ import {
   SchemaObject,
 } from "@nestjs/swagger/dist/interfaces/open-api-spec.interface";
 import { getSchemaPath } from "@nestjs/swagger";
-import { Response } from "../entities";
+import { Response } from "../interfaces/response.interface";
 import { TransformFnParams } from "class-transformer";
 import { CustomLogger } from "../utils/custom-logger";
+import { FundingRound, JobListResult, Project } from "../interfaces";
 
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
@@ -223,7 +224,12 @@ export const inferObjectType = (obj: unknown): string => {
 
   if (objectType === "object") {
     if (Array.isArray(obj)) {
-      objectString = `Array<${inferObjectType(obj[0])}>`;
+      const first = inferObjectType(obj[0]);
+      if (Array.from(obj).every(x => inferObjectType(x) === first)) {
+        objectString = `Array<${first}>`;
+      } else {
+        objectString = "Array<any>";
+      }
     } else if (obj === null) {
       objectString = "null";
     } else {
@@ -237,4 +243,121 @@ export const inferObjectType = (obj: unknown): string => {
   }
 
   return objectString;
+};
+
+export const printDuplicateItems = <T>(
+  uniqueItems: Set<T>,
+  itemsArray: T[],
+  itemName: string,
+): boolean => {
+  let hasDuplicates = false;
+  const countMap: Map<T, number> = new Map();
+  const indexesMap: Map<T, number[]> = new Map();
+
+  for (let i = 0; i < itemsArray.length; i++) {
+    const item = itemsArray[i];
+    if (uniqueItems.has(item)) {
+      // Increment the count for duplicated items
+      countMap.set(item, (countMap.get(item) || 0) + 1);
+      // Store the index of the duplicated item
+      const indexes = indexesMap.get(item) || [];
+      indexes.push(i);
+      indexesMap.set(item, indexes);
+    }
+  }
+
+  for (const [item, count] of countMap.entries()) {
+    if (count > 1) {
+      const indexes = indexesMap.get(item);
+      const firstX = indexes.slice(undefined, indexes.length - 1);
+      console.log(
+        `${itemName} '${item}' is found ${count} times at indexes: ${firstX.join(
+          ", ",
+        )} and ${indexes[indexes.length - 1]}`,
+      );
+      hasDuplicates = true;
+    }
+  }
+  return hasDuplicates;
+};
+
+export const hasDuplicates = <A, B>(
+  array: A[],
+  getUniqueProperty: (x: A) => B,
+  arrayName: string,
+): boolean => {
+  const props = array.map(getUniqueProperty);
+  const propsSet = new Set([...props]);
+
+  return printDuplicateItems(propsSet, props, arrayName);
+};
+
+const projectHasArrayPropsDuplication = (
+  project: Project,
+  jobPostUUID: string,
+): boolean => {
+  return (
+    hasDuplicates(
+      project.audits,
+      a => a.auditor.toLowerCase(),
+      `Audit for Project ${project.id} for Jobpost ${jobPostUUID}`,
+    ) &&
+    hasDuplicates(
+      project.hacks,
+      h => h.id,
+      `Hack for Project ${project.id} for Jobpost ${jobPostUUID}`,
+    ) &&
+    hasDuplicates(
+      project.chains,
+      c => c.id,
+      `Chain for Project ${project.id} for Jobpost ${jobPostUUID}`,
+    ) &&
+    hasDuplicates(
+      project.categories,
+      c => c.id,
+      `Category for Project ${project.id} for Jobpost ${jobPostUUID}`,
+    )
+  );
+};
+
+const fundingRoundHasArrayPropsDuplication = (
+  fundingRound: FundingRound,
+  jobPostUUID: string,
+): boolean => {
+  return hasDuplicates(
+    fundingRound.investors,
+    i => i.id,
+    `Investor for Funding Round ${fundingRound.id} for Jobpost ${jobPostUUID}`,
+  );
+};
+
+export const jlrHasArrayPropsDuplication = (
+  jobListResult: JobListResult,
+): boolean => {
+  return (
+    hasDuplicates(
+      jobListResult.organization.projects,
+      p => p.id,
+      `Org Projects for Jobpost ${jobListResult.shortUUID}`,
+    ) &&
+    hasDuplicates(
+      jobListResult.technologies,
+      x => x.id,
+      `Technologies for Jobpost ${jobListResult.shortUUID}`,
+    ) &&
+    hasDuplicates(
+      jobListResult.organization.fundingRounds,
+      x => x.id,
+      `Org Funding Rounds for Jobpost ${jobListResult.shortUUID}`,
+    ) &&
+    jobListResult.organization.projects.every(
+      x =>
+        projectHasArrayPropsDuplication(x, jobListResult.shortUUID) === false,
+    ) === true &&
+    jobListResult.organization.fundingRounds.every(
+      x =>
+        fundingRoundHasArrayPropsDuplication(x, jobListResult.shortUUID) ===
+        false,
+    ) === true
+  );
 };

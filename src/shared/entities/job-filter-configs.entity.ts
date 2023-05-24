@@ -4,7 +4,7 @@ import {
   MultiSelectSearchFilter,
   RangeFilter,
   SingleSelectFilter,
-} from "src/shared/types";
+} from "../interfaces";
 import {
   FILTER_PARAM_KEY_PRESETS,
   JOB_FILTER_CONFIG_PRESETS,

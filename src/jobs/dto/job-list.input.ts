@@ -8,7 +8,7 @@ import {
   IsString,
   Min,
 } from "class-validator";
-import { JobListOrder, JobListOrderBy } from "src/shared/types";
+import { DateRange, JobListOrder, JobListOrderBy } from "src/shared/types";
 import { btoaList } from "src/shared/helpers";
 import { Compare } from "src/shared/validators";
 
@@ -35,7 +35,7 @@ export class JobListParams {
     "past-6-months",
   ])
   @Type(() => String)
-  publicationDate?: string | null = null;
+  publicationDate?: DateRange | null = null;
 
   @ApiPropertyOptional({
     example: 90000,

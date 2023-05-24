@@ -53,16 +53,9 @@ jobs:
       # Run Linter against code base #
       ################################
       - name: Lint Code Base
-        uses: github/super-linter/slim@v5.0.0
-        env:
-          VALIDATE_ALL_CODEBASE: false
-          DEFAULT_BRANCH: main
-          LINTER_RULES_PATH: /
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          JAVASCRIPT_ES_CONFIG_FILE: .eslintrc.js
-          TYPESCRIPT_ES_CONFIG_FILE: .eslintrc.js
-          TYPESCRIPT_DEFAULT_STYLE: prettier
-          JAVASCRIPT_DEFAULT_STYLE: prettier
-          VALIDATE_JAVASCRIPT_ES: true
-          VALIDATE_TYPESCRIPT_ES: true
-          FILTER_REGEX_INCLUDE: .*src/.*
+        run: yarn lint
+      #############
+      # Run tests #
+      #############
+      - name: Run Tests
+        run: yarn test --detectOpenHandles
