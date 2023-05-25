@@ -28,6 +28,7 @@ import {
   CACHE_DURATION,
   CACHE_EXPIRY,
 } from "src/shared/presets/cache-control";
+import { btoa } from "src/shared/helpers";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
@@ -77,8 +78,12 @@ export class JobsController {
     @Query(new ValidationPipe({ transform: true }))
     params: JobListParams,
   ): Promise<PaginatedData<JobListResult>> {
-    this.logger.log(`/jobs/list ${JSON.stringify(params)}`);
-    return this.jobsService.getJobsListWithSearch(params);
+    const paramsParsed = {
+      ...params,
+      query: btoa(params.query),
+    };
+    this.logger.log(`/jobs/list ${JSON.stringify(paramsParsed)}`);
+    return this.jobsService.getJobsListWithSearch(paramsParsed);
   }
 
   @Get("/filters")
