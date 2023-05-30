@@ -1,3 +1,10 @@
+## [1.28.12](https://github.com/jobstash/middleware/compare/v1.28.11...v1.28.12) (2023-05-29)
+
+
+### Bug Fixes
+
+* **async:** Fix async issue ([a5c31f7](https://github.com/jobstash/middleware/commit/a5c31f7b1fd07e19c9bf7efd6487ba2629791a92))
+
 ## [1.28.11](https://github.com/jobstash/middleware/compare/v1.28.10...v1.28.11) (2023-05-18)
 
 
