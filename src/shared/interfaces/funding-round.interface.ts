@@ -1,16 +1,10 @@
-import {
-  ApiExtraModels,
-  ApiProperty,
-  ApiPropertyOptional,
-  getSchemaPath,
-} from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import * as t from "io-ts";
 // import { inferObjectType } from "../helpers";
 // import { isLeft } from "fp-ts/lib/Either";
-import { Investor } from "./investor.interface";
 
-export class FundingRoundProperties {
-  public static readonly FundingRoundPropertiesType = t.strict({
+export class FundingRound {
+  public static readonly FundingRoundType = t.strict({
     id: t.string,
     date: t.number,
     createdTimestamp: t.number,
@@ -65,34 +59,29 @@ export class FundingRoundProperties {
   // }
 }
 
-@ApiExtraModels(Investor)
-export class FundingRound extends FundingRoundProperties {
-  public static readonly FundingRoundType = t.intersection([
-    FundingRoundProperties.FundingRoundPropertiesType,
-    t.strict({ investors: t.array(Investor.InvestorType) }),
-  ]);
-  @ApiProperty({
-    type: "array",
-    items: { $ref: getSchemaPath(Investor) },
-  })
-  investors: Investor[];
+// @ApiExtraModels(Investor)
+// export class FundingRound extends FundingRoundProperties {
+//   public static readonly FundingRoundType = t.intersection([
+//     FundingRoundProperties.FundingRoundPropertiesType,
+//     t.strict({ investors: t.array(Investor.InvestorType) }),
+//   ]);
 
-  // constructor(raw: FundingRound) {
-  //   const { investors, ...fundingRoundProps } = raw;
+// constructor(raw: FundingRound) {
+//   const { investors, ...fundingRoundProps } = raw;
 
-  //   const result = FundingRound.FundingRoundType.decode(raw);
+//   const result = FundingRound.FundingRoundType.decode(raw);
 
-  //   super(fundingRoundProps);
+//   super(fundingRoundProps);
 
-  //   this.investors = investors;
+//   this.investors = investors;
 
-  //   if (isLeft(result)) {
-  //     throw new Error(
-  //       `Error Serializing FundingRound! Constructor expected: \n {
-  //         ...FundingRoundProperties,
-  //         investors: Investor[],
-  //       } got ${inferObjectType(raw)}`,
-  //     );
-  //   }
-  // }
-}
+//   if (isLeft(result)) {
+//     throw new Error(
+//       `Error Serializing FundingRound! Constructor expected: \n {
+//         ...FundingRoundProperties,
+//         investors: Investor[],
+//       } got ${inferObjectType(raw)}`,
+//     );
+//   }
+// }
+// }

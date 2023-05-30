@@ -3,7 +3,7 @@ import {
   ApiPropertyOptional,
   getSchemaPath,
 } from "@nestjs/swagger";
-import { FundingRoundProperties } from "./funding-round.interface";
+import { FundingRound } from "./funding-round.interface";
 import { Investor } from "./investor.interface";
 import { Organization } from "./organization.interface";
 import { ProjectCategory } from "./project-category.interface";
@@ -17,7 +17,7 @@ import { isLeft } from "fp-ts/lib/Either";
   StructuredJobpost,
   Technology,
   ProjectCategory,
-  FundingRoundProperties,
+  FundingRound,
   Investor,
   Organization,
 )

@@ -8,11 +8,9 @@ import * as t from "io-ts";
 // import { inferObjectType } from "../helpers";
 // import { isLeft } from "fp-ts/lib/Either";
 import { Technology } from "./technology.interface";
-import {
-  FundingRound,
-  FundingRoundProperties,
-} from "./funding-round.interface";
+import { FundingRound } from "./funding-round.interface";
 import { Project } from "./project.interface";
+import { Investor } from "./investor.interface";
 
 export class OrganizationProperties {
   public static readonly OrganizationPropertiesType = t.strict({
@@ -29,7 +27,6 @@ export class OrganizationProperties {
     altName: t.union([t.string, t.null]),
     discord: t.union([t.string, t.null]),
     twitter: t.union([t.string, t.null]),
-    linkedin: t.union([t.string, t.null]),
     teamSize: t.union([t.number, t.null]),
     telegram: t.union([t.string, t.null]),
     headCount: t.union([t.number, t.null]),
@@ -83,9 +80,6 @@ export class OrganizationProperties {
   discord: string | null;
 
   @ApiPropertyOptional()
-  linkedin: string | null;
-
-  @ApiPropertyOptional()
   telegram: string | null;
 
   @ApiPropertyOptional()
@@ -108,7 +102,6 @@ export class OrganizationProperties {
   //     discord,
   //     location,
   //     teamSize,
-  //     linkedin,
   //     telegram,
   //     headCount,
   //     description,
@@ -132,7 +125,6 @@ export class OrganizationProperties {
   //   this.discord = discord;
   //   this.location = location;
   //   this.teamSize = teamSize;
-  //   this.linkedin = linkedin;
   //   this.telegram = telegram;
   //   this.headCount = headCount;
   //   this.description = description;
@@ -157,7 +149,6 @@ export class OrganizationProperties {
   //         twitter: string | null,
   //         discord: string | null,
   //         teamSize: number | null,
-  //         linkedin: string | null,
   //         telegram: string | null,
   //         headCount: number | null,
   //         createdTimestamp: number | null,
@@ -175,6 +166,7 @@ export class Organization extends OrganizationProperties {
     t.strict({
       projects: t.array(Project.ProjectType),
       fundingRounds: t.array(FundingRound.FundingRoundType),
+      investors: t.array(Investor.InvestorType),
     }),
   ]);
 
@@ -188,6 +180,12 @@ export class Organization extends OrganizationProperties {
     items: { $ref: getSchemaPath(FundingRound) },
   })
   fundingRounds: FundingRound[];
+
+  @ApiProperty({
+    type: "array",
+    items: { $ref: getSchemaPath(Investor) },
+  })
+  investors: Investor[];
 
   // constructor(raw: Organization) {
   //   const { projects, fundingRounds, ...orgProperties } = raw;
@@ -229,7 +227,7 @@ export class ShortOrg {
     lastFundingAmount: t.number,
     logo: t.union([t.string, t.null]),
     technologies: t.array(Technology.TechnologyType),
-    fundingRounds: t.array(FundingRoundProperties.FundingRoundPropertiesType),
+    fundingRounds: t.array(FundingRound.FundingRoundType),
   });
 
   @ApiProperty()
@@ -279,9 +277,9 @@ export class ShortOrg {
 
   @ApiProperty({
     type: "array",
-    items: { $ref: getSchemaPath(FundingRoundProperties) },
+    items: { $ref: getSchemaPath(FundingRound) },
   })
-  fundingRounds: FundingRoundProperties[];
+  fundingRounds: FundingRound[];
 
   @ApiProperty({ type: "array", items: { $ref: getSchemaPath(Technology) } })
   technologies: Technology[];

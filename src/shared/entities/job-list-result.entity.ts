@@ -4,7 +4,7 @@ import {
   StructuredJobpost,
   Technology,
 } from "../interfaces";
-import { notStringOrNull } from "../helpers";
+import { nonZeroOrNull, notStringOrNull } from "../helpers";
 
 type RawJobPost = StructuredJobpost & {
   organization?: Organization | null;
@@ -20,9 +20,9 @@ export class JobListResultEntity {
 
     return new JobListResult({
       ...jobpost,
-      minSalaryRange: jobpost?.minSalaryRange ?? null,
-      maxSalaryRange: jobpost?.maxSalaryRange ?? null,
-      medianSalary: jobpost?.medianSalary ?? null,
+      minSalaryRange: nonZeroOrNull(jobpost?.minSalaryRange),
+      maxSalaryRange: nonZeroOrNull(jobpost?.maxSalaryRange),
+      medianSalary: nonZeroOrNull(jobpost?.medianSalary),
       seniority: notStringOrNull(jobpost?.seniority, ["", "undefined"]),
       jobLocation: notStringOrNull(jobpost?.jobLocation, [
         "",
@@ -44,14 +44,13 @@ export class JobListResultEntity {
         ...organization,
         docs: notStringOrNull(organization?.docs),
         altName: notStringOrNull(organization?.altName),
-        headCount: organization?.headCount ?? null,
-        teamSize: organization?.teamSize ?? null,
+        headCount: nonZeroOrNull(organization?.headCount),
+        teamSize: nonZeroOrNull(organization?.teamSize),
         github: notStringOrNull(organization?.github),
         twitter: notStringOrNull(organization?.twitter),
         discord: notStringOrNull(organization?.discord),
-        linkedin: notStringOrNull(organization?.linkedin),
         telegram: notStringOrNull(organization?.telegram),
-        updatedTimestamp: organization?.updatedTimestamp ?? null,
+        updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
         projects:
           organization?.projects?.map(project => ({
             ...project,
@@ -61,17 +60,18 @@ export class JobListResultEntity {
             tokenAddress: notStringOrNull(project?.tokenAddress),
             tokenSymbol: notStringOrNull(project?.tokenSymbol, ["-"]),
             isInConstruction: project?.isInConstruction ?? null,
-            tvl: project?.tvl ?? null,
-            monthlyVolume: project?.monthlyVolume ?? null,
-            monthlyFees: project?.monthlyFees ?? null,
-            monthlyRevenue: project?.monthlyRevenue ?? null,
+            tvl: nonZeroOrNull(project?.tvl),
+            monthlyVolume: nonZeroOrNull(project?.monthlyVolume),
+            monthlyFees: nonZeroOrNull(project?.monthlyFees),
+            monthlyRevenue: nonZeroOrNull(project?.monthlyRevenue),
             telegram: notStringOrNull(project?.telegram),
+            logo: notStringOrNull(project?.logo),
             twitter: notStringOrNull(project?.twitter),
             discord: notStringOrNull(project?.discord),
             docs: notStringOrNull(project?.docs),
-            teamSize: project?.teamSize ?? null,
+            teamSize: nonZeroOrNull(project?.teamSize),
             githubOrganization: notStringOrNull(project?.githubOrganization),
-            updatedTimestamp: project?.updatedTimestamp ?? null,
+            updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
             categories: project?.categories ?? [],
             hacks: project?.hacks ?? [],
             audits:
@@ -84,11 +84,11 @@ export class JobListResultEntity {
         fundingRounds:
           organization?.fundingRounds.map(fr => ({
             ...fr,
-            investors: fr?.investors ?? [],
-            raisedAmount: fr?.raisedAmount ?? null,
+            raisedAmount: nonZeroOrNull(fr?.raisedAmount),
             roundName: notStringOrNull(fr?.roundName),
             sourceLink: notStringOrNull(fr?.sourceLink),
           })) ?? [],
+        investors: organization?.investors ?? [],
       },
       technologies: technologies ?? [],
     });

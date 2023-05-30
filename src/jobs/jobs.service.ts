@@ -62,8 +62,8 @@ export class JobsService {
               // Note that investor and funding round data is left in node form. this is to allow for matching down the line to relate and collect them
               WITH structured_jobpost, organization, project,
               categories, 
-              COLLECT(DISTINCT investor) AS investors,
-              COLLECT(DISTINCT funding_round) AS funding_rounds, MAX(funding_round.date) as most_recent_funding_round, 
+              COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
+              COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, MAX(funding_round.date) as most_recent_funding_round, 
               COLLECT(DISTINCT PROPERTIES(technology)) AS technologies,
               COLLECT(DISTINCT PROPERTIES(audit)) AS audits,
               COLLECT(DISTINCT PROPERTIES(hack)) AS hacks,
@@ -83,18 +83,8 @@ export class JobsService {
               AND ($chains IS NULL OR (chains IS NOT NULL AND any(y IN chains WHERE y.name IN $chains)))
               AND ($query IS NULL OR (technologies IS NOT NULL AND (organization.name =~ $query OR structured_jobpost.jobTitle =~ $query OR any(x IN technologies WHERE x.name =~ $query))))
 
-              CALL {
-                WITH funding_rounds
-                UNWIND funding_rounds as funding_round
-                MATCH (funding_round)-[:INVESTED_BY]->(investor: Investor)
-                WITH PROPERTIES(funding_round) as fundingRound, COLLECT(DISTINCT PROPERTIES(investor)) as investors
-                WITH fundingRound {.*, investors: investors} as funding_round
-                ORDER BY funding_round.date DESC
-                RETURN COLLECT(DISTINCT funding_round) as fundingRounds
-              }
-
-              WITH structured_jobpost, organization, fundingRounds, technologies, most_recent_funding_round, numAudits, numHacks, numChains,
-                COLLECT({
+              WITH structured_jobpost, organization, funding_rounds, investors, technologies, most_recent_funding_round, numAudits, numHacks, numChains,
+                COLLECT(DISTINCT {
                     id: project.id,
                     defiLlamaId: project.defiLlamaId,
                     defiLlamaSlug: project.defiLlamaSlug,
@@ -175,7 +165,8 @@ export class JobsService {
                       updatedTimestamp: organization.updatedTimestamp,
                       teamSize: organization.teamSize,
                       projects: [project in projects WHERE project.id IS NOT NULL],
-                      fundingRounds: [fundingRound in fundingRounds WHERE fundingRound.id IS NOT NULL]
+                      fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
+                      investors: [investor in investors WHERE investor.id IS NOT NULL]
                   },
                   technologies: [technology in technologies WHERE technology.id IS NOT NULL]
               } AS result, structured_jobpost, projects, organization, most_recent_funding_round, numAudits, numHacks, numChains
@@ -368,24 +359,14 @@ export class JobsService {
         WITH structured_jobpost, organization, project, COLLECT(DISTINCT PROPERTIES(project_category)) AS categories, funding_round, investor, technology, audit, hack, chain
         WITH structured_jobpost, organization, project,
           categories, 
-          COLLECT(DISTINCT investor) AS investors,
-          COLLECT(DISTINCT funding_round) AS funding_rounds, 
+          COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
+          COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
           COLLECT(DISTINCT PROPERTIES(technology)) AS technologies,
           COLLECT(DISTINCT PROPERTIES(audit)) AS audits,
           COLLECT(DISTINCT PROPERTIES(hack)) AS hacks,
           COLLECT(DISTINCT PROPERTIES(chain)) AS chains
-        
-        CALL {
-          WITH funding_rounds
-          UNWIND funding_rounds as funding_round
-          MATCH (funding_round)-[:INVESTED_BY]->(investor: Investor)
-          WITH PROPERTIES(funding_round) as fundingRound, COLLECT(DISTINCT PROPERTIES(investor)) as investors
-          WITH fundingRound {.*, investors: investors} as funding_round
-          ORDER BY funding_round.date DESC
-          RETURN COLLECT(DISTINCT funding_round) as fundingRounds
-        }
 
-        WITH structured_jobpost, organization, fundingRounds, technologies,
+        WITH structured_jobpost, organization, funding_rounds, investors, technologies,
           COLLECT({
             id: project.id,
             defiLlamaId: project.defiLlamaId,
@@ -462,7 +443,8 @@ export class JobsService {
               updatedTimestamp: organization.updatedTimestamp,
               teamSize: organization.teamSize,
               projects: [project in projects WHERE project.id IS NOT NULL],
-              fundingRounds: [fundingRound in fundingRounds WHERE fundingRound.id IS NOT NULL]
+              fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
+              investors: [investor in investors WHERE investor.id IS NOT NULL]
           },
           technologies: [technology in technologies WHERE technology.id IS NOT NULL]
         } as res
@@ -507,24 +489,14 @@ export class JobsService {
         WITH structured_jobpost, organization, project, COLLECT(DISTINCT PROPERTIES(project_category)) AS categories, funding_round, investor, technology, audit, hack, chain
         WITH structured_jobpost, organization, project,
           categories, 
-          COLLECT(DISTINCT investor) AS investors,
-          COLLECT(DISTINCT funding_round) AS funding_rounds, 
+          COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
+          COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
           COLLECT(DISTINCT PROPERTIES(technology)) AS technologies,
           COLLECT(DISTINCT PROPERTIES(audit)) AS audits,
           COLLECT(DISTINCT PROPERTIES(hack)) AS hacks,
           COLLECT(DISTINCT PROPERTIES(chain)) AS chains
-        
-        CALL {
-          WITH funding_rounds
-          UNWIND funding_rounds as funding_round
-          MATCH (funding_round)-[:INVESTED_BY]->(investor: Investor)
-          WITH PROPERTIES(funding_round) as fundingRound, COLLECT(DISTINCT PROPERTIES(investor)) as investors
-          WITH fundingRound {.*, investors: investors} as funding_round
-          ORDER BY funding_round.date DESC
-          RETURN COLLECT(DISTINCT funding_round) as fundingRounds
-        }
 
-        WITH structured_jobpost, organization, fundingRounds, technologies,
+        WITH structured_jobpost, organization, funding_rounds, technologies,
           COLLECT({
             id: project.id,
             defiLlamaId: project.defiLlamaId,
@@ -601,7 +573,8 @@ export class JobsService {
               updatedTimestamp: organization.updatedTimestamp,
               teamSize: organization.teamSize,
               projects: [project in projects WHERE project.id IS NOT NULL],
-              fundingRounds: [fundingRound in fundingRounds WHERE fundingRound.id IS NOT NULL]
+              fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
+              investors: [investor in investors WHERE investor.id IS NOT NULL],
           },
           technologies: [technology in technologies WHERE technology.id IS NOT NULL]
         } as res

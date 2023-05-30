@@ -18,7 +18,6 @@ import { getSchemaPath } from "@nestjs/swagger";
 import { Response } from "../interfaces/response.interface";
 import { TransformFnParams } from "class-transformer";
 import { CustomLogger } from "../utils/custom-logger";
-import { FundingRound, JobListResult, Project } from "../interfaces";
 
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
@@ -134,6 +133,16 @@ export const notStringOrNull = (
   }
 };
 
+export const nonZeroOrNull = (
+  value: number | null | undefined,
+): number | null => {
+  if (value === 0 || typeof value === "undefined" || value === null) {
+    return null;
+  } else {
+    return value;
+  }
+};
+
 export const publicationDateRangeGenerator = (
   dateRange: DateRange | null,
 ): { startDate: number; endDate: number } => {
@@ -238,7 +247,14 @@ export const inferObjectType = (obj: unknown): string => {
       if (Array.from(obj).every(x => inferObjectType(x) === first)) {
         objectString = `Array<${first}>`;
       } else {
-        objectString = "Array<any>";
+        if (typeof first === "undefined") {
+          objectString = "Array<unknown>";
+        } else {
+          const types = Array.from(
+            new Set([...Array.from(obj).map(x => inferObjectType(x))]),
+          );
+          objectString = `Array<${types.join(" | ")}>`;
+        }
       }
     } else if (obj === null) {
       objectString = "null";
@@ -299,75 +315,9 @@ export const hasDuplicates = <A, B>(
   const props = array.map(getUniqueProperty);
   const propsSet = new Set([...props]);
 
-  return printDuplicateItems(propsSet, props, arrayName);
-};
-
-const projectHasArrayPropsDuplication = (
-  project: Project,
-  jobPostUUID: string,
-): boolean => {
-  return (
-    hasDuplicates(
-      project.audits,
-      a => a.auditor.toLowerCase(),
-      `Audit for Project ${project.id} for Jobpost ${jobPostUUID}`,
-    ) &&
-    hasDuplicates(
-      project.hacks,
-      h => h.id,
-      `Hack for Project ${project.id} for Jobpost ${jobPostUUID}`,
-    ) &&
-    hasDuplicates(
-      project.chains,
-      c => c.id,
-      `Chain for Project ${project.id} for Jobpost ${jobPostUUID}`,
-    ) &&
-    hasDuplicates(
-      project.categories,
-      c => c.id,
-      `Category for Project ${project.id} for Jobpost ${jobPostUUID}`,
-    )
-  );
-};
-
-const fundingRoundHasArrayPropsDuplication = (
-  fundingRound: FundingRound,
-  jobPostUUID: string,
-): boolean => {
-  return hasDuplicates(
-    fundingRound.investors,
-    i => i.id,
-    `Investor for Funding Round ${fundingRound.id} for Jobpost ${jobPostUUID}`,
-  );
-};
-
-export const jlrHasArrayPropsDuplication = (
-  jobListResult: JobListResult,
-): boolean => {
-  return (
-    hasDuplicates(
-      jobListResult.organization.projects,
-      p => p.id,
-      `Org Projects for Jobpost ${jobListResult.shortUUID}`,
-    ) &&
-    hasDuplicates(
-      jobListResult.technologies,
-      x => x.id,
-      `Technologies for Jobpost ${jobListResult.shortUUID}`,
-    ) &&
-    hasDuplicates(
-      jobListResult.organization.fundingRounds,
-      x => x.id,
-      `Org Funding Rounds for Jobpost ${jobListResult.shortUUID}`,
-    ) &&
-    jobListResult.organization.projects.every(
-      x =>
-        projectHasArrayPropsDuplication(x, jobListResult.shortUUID) === false,
-    ) === true &&
-    jobListResult.organization.fundingRounds.every(
-      x =>
-        fundingRoundHasArrayPropsDuplication(x, jobListResult.shortUUID) ===
-        false,
-    ) === true
-  );
+  if (props.length === propsSet.size) {
+    return false;
+  } else {
+    return printDuplicateItems(propsSet, props, arrayName);
+  }
 };
