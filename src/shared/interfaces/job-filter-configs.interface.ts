@@ -62,13 +62,13 @@ export class FilterConfigField {
 export class FilterConfigLabel {
   public static readonly FilterConfigLabelType = t.strict({
     label: t.string,
-    value: t.string,
+    value: t.union([t.string, t.boolean]),
   });
 
   @ApiProperty()
   label: string;
   @ApiProperty()
-  value: string;
+  value: string | boolean;
 
   constructor(raw: FilterConfigLabel) {
     const { label, value } = raw;
@@ -81,7 +81,7 @@ export class FilterConfigLabel {
       throw new Error(
         `Error Serializing FilterConfigLabel! Constructor expected: \n {
           label: string,
-          value: string,
+          value: string | boolean,
         } got ${inferObjectType(raw)}`,
       );
     }
@@ -146,13 +146,12 @@ export class Range {
   }
 }
 
-class FilterConfigLabeledValues extends OmitType(FilterConfigField, [
-  "label",
-] as const) {
+class FilterConfigLabeledValues extends FilterConfigField {
   public static readonly FilterConfigLabeledValuesType = t.strict({
     show: t.boolean,
     position: t.number,
     paramKey: t.string,
+    label: t.string,
     googleAnalyticsEventId: t.union([t.string, t.null]),
     googleAnalyticsEventName: t.union([t.string, t.null]),
     options: t.array(FilterConfigLabel.FilterConfigLabelType),
@@ -163,7 +162,7 @@ class FilterConfigLabeledValues extends OmitType(FilterConfigField, [
       $ref: getSchemaPath(FilterConfigLabel),
     },
   })
-  options: FilterConfigLabel[];
+  options: FilterConfigLabel[] | string[];
   @ApiProperty()
   paramKey: string;
 
@@ -182,6 +181,7 @@ class FilterConfigLabeledValues extends OmitType(FilterConfigField, [
           show: boolean,
           position: number,
           paramKey: string,
+          label: string,
           options: FilterConfigLabel[],
           googleAnalyticsEventId: string | null,
           googleAnalyticsEventName: string | null,
@@ -218,16 +218,27 @@ export class SingleSelectFilter extends FilterConfigLabeledValues {
   }
 }
 
-export class MultiSelectFilter extends FilterConfigLabeledValues {
-  public static readonly MultiSelectFilterType = t.intersection([
-    FilterConfigLabeledValues.FilterConfigLabeledValuesType,
-    t.strict({ kind: t.string }),
-  ]);
+export class MultiSelectFilter extends OmitType(FilterConfigLabeledValues, [
+  "options",
+] as const) {
+  public static readonly MultiSelectFilterType = t.strict({
+    show: t.boolean,
+    position: t.number,
+    paramKey: t.string,
+    label: t.string,
+    googleAnalyticsEventId: t.union([t.string, t.null]),
+    googleAnalyticsEventName: t.union([t.string, t.null]),
+    options: t.array(t.string),
+    kind: t.string,
+  });
+
+  @ApiProperty()
+  options: string[];
 
   @ApiProperty()
   kind: string;
 
-  constructor(raw: SingleSelectFilter) {
+  constructor(raw: MultiSelectFilter) {
     const { kind, ...parentProps } = raw;
     super(parentProps);
     const result = MultiSelectFilter.MultiSelectFilterType.decode(raw);
@@ -245,16 +256,28 @@ export class MultiSelectFilter extends FilterConfigLabeledValues {
   }
 }
 
-export class MultiSelectSearchFilter extends FilterConfigLabeledValues {
-  public static readonly MultiSelectSearchFilterType = t.intersection([
-    FilterConfigLabeledValues.FilterConfigLabeledValuesType,
-    t.strict({ kind: t.string }),
-  ]);
+export class MultiSelectSearchFilter extends OmitType(
+  FilterConfigLabeledValues,
+  ["options"] as const,
+) {
+  public static readonly MultiSelectSearchFilterType = t.strict({
+    show: t.boolean,
+    position: t.number,
+    paramKey: t.string,
+    label: t.string,
+    googleAnalyticsEventId: t.union([t.string, t.null]),
+    googleAnalyticsEventName: t.union([t.string, t.null]),
+    options: t.array(t.string),
+    kind: t.string,
+  });
+
+  @ApiProperty()
+  options: string[];
 
   @ApiProperty()
   kind: string;
 
-  constructor(raw: SingleSelectFilter) {
+  constructor(raw: MultiSelectFilter) {
     const { kind, ...parentProps } = raw;
     super(parentProps);
     const result =

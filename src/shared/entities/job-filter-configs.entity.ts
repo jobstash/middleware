@@ -89,7 +89,7 @@ export class JobFilterConfigsEntity {
 
     return {
       ...this.configPresets[key],
-      options: sort(this.raw[key]?.filter(isValidFilterConfig) ?? null).asc(),
+      options: sort(this.raw[key]?.filter(isValidFilterConfig) ?? []).asc(),
       paramKey: this.paramKeyPresets[key],
     };
   }

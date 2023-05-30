@@ -281,14 +281,15 @@ export class JobsService {
     return this.neo4jService
       .read(
         `
-        MATCH (o)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
-        OPTIONAL MATCH (o:Organization)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(cat:ProjectCategory)
+        MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)
+        MATCH (jp)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
+        MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
+        OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(cat:ProjectCategory)
         OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
         WHERE NOT (t)<-[:IS_BLOCKED_TERM]-()
         OPTIONAL MATCH (t)<-[:IS_PREFERRED_TERM_OF]-(:PreferredTerm)
         OPTIONAL MATCH (t)<-[:IS_PAIRED_WITH]-(:TechnologyPairing)-[:IS_PAIRED_WITH]->(:Technology)
-        OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)
-        OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)-[:INVESTED_BY]->(i:Investor)
+        OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)-[:INVESTED_BY]->(i:Investor)
         OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(c:Chain)
         OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
         WITH o, p, j, t, f, i, c, cat, COUNT(DISTINCT a) as audits
