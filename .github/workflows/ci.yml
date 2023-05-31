@@ -54,8 +54,25 @@ jobs:
       ################################
       - name: Lint Code Base
         run: yarn lint
-      #############
-      # Run tests #
-      #############
-      - name: Run Tests
+      ##################
+      # Run prod tests #
+      ##################
+      - name: Run Prod Tests
         run: yarn test --detectOpenHandles
+        env:
+          NEO4J_HOST: ${{ secrets.NEO4J_HOST_PROD }}
+          NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD_PROD }}
+          NEO4J_PORT: ${{ secrets.NEO4J_PORT_PROD }}
+          NEO4J_SCHEME: ${{ secrets.NEO4J_SCHEME_PROD }}
+          NEO4J_USERNAME: ${{ secrets.NEO4J_USERNAME_PROD }}
+      #####################
+      # Run staging tests #
+      #####################
+      - name: Run Staging Tests
+        run: yarn test --detectOpenHandles
+        env:
+          NEO4J_HOST: ${{ secrets.NEO4J_HOST_STAGING }}
+          NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD_STAGING }}
+          NEO4J_PORT: ${{ secrets.NEO4J_PORT_STAGING }}
+          NEO4J_SCHEME: ${{ secrets.NEO4J_SCHEME_STAGING }}
+          NEO4J_USERNAME: ${{ secrets.NEO4J_USERNAME_STAGING }}
