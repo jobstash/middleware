@@ -1,4 +1,10 @@
-import { JobFilterConfigs } from "src/shared/types";
+import {
+  JobFilterConfigs,
+  MultiSelectFilter,
+  MultiSelectSearchFilter,
+  RangeFilter,
+  SingleSelectFilter,
+} from "../interfaces";
 import {
   FILTER_PARAM_KEY_PRESETS,
   JOB_FILTER_CONFIG_PRESETS,
@@ -39,7 +45,7 @@ export class JobFilterConfigsEntity {
 
   constructor(private readonly raw: RawJobFilters) {}
 
-  getRangePresets(key: string): object {
+  getRangePresets(key: string): RangeFilter {
     const range = {
       lowest: {
         value: this.raw[this.paramKeyPresets[key].lowest]
@@ -64,7 +70,9 @@ export class JobFilterConfigsEntity {
     };
   }
 
-  getMultiValuePresets(key: string): object {
+  getMultiValuePresets(
+    key: string,
+  ): MultiSelectFilter | MultiSelectSearchFilter {
     const sort = createNewSortInstance({
       comparer: new Intl.Collator(undefined, {
         numeric: true,
@@ -81,12 +89,12 @@ export class JobFilterConfigsEntity {
 
     return {
       ...this.configPresets[key],
-      options: sort(this.raw[key]?.filter(isValidFilterConfig) ?? null).asc(),
+      options: sort(this.raw[key]?.filter(isValidFilterConfig) ?? []).asc(),
       paramKey: this.paramKeyPresets[key],
     };
   }
 
-  getSingleSelectPresets(key: string): object {
+  getSingleSelectPresets(key: string): SingleSelectFilter {
     return {
       ...this.configPresets[key],
       paramKey: this.paramKeyPresets[key],
@@ -94,7 +102,7 @@ export class JobFilterConfigsEntity {
   }
 
   getProperties(): JobFilterConfigs {
-    return {
+    return new JobFilterConfigs({
       publicationDate: this.getSingleSelectPresets("publicationDate"),
       salary: this.getRangePresets("salary"),
       teamSize: this.getRangePresets("teamSize"),
@@ -118,6 +126,6 @@ export class JobFilterConfigsEntity {
       token: this.getSingleSelectPresets("token"),
       order: this.getSingleSelectPresets("order"),
       orderBy: this.getSingleSelectPresets("orderBy"),
-    } as JobFilterConfigs;
+    });
   }
 }
