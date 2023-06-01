@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
-import { OldProject } from "src/shared/types";
+import { ProjectProperties } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 
@@ -9,7 +9,9 @@ export class ProjectsService {
   logger = new CustomLogger(ProjectsService.name);
   constructor(private readonly neo4jService: Neo4jService) {}
 
-  async getProjectsByOrgId(id: string): Promise<OldProject[] | undefined> {
+  async getProjectsByOrgId(
+    id: string,
+  ): Promise<ProjectProperties[] | undefined> {
     return this.neo4jService
       .read(
         `
@@ -18,7 +20,9 @@ export class ProjectsService {
         `,
         { id },
       )
-      .then(res => res.records.map(record => record.get("res") as OldProject))
+      .then(res =>
+        res.records.map(record => record.get("res") as ProjectProperties),
+      )
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -33,7 +37,7 @@ export class ProjectsService {
       });
   }
 
-  async getProjects(): Promise<OldProject[]> {
+  async getProjects(): Promise<ProjectProperties[]> {
     return this.neo4jService
       .read(
         `
@@ -41,7 +45,9 @@ export class ProjectsService {
         RETURN PROPERTIES(p) as res
         `,
       )
-      .then(res => res.records.map(record => record.get("res") as OldProject))
+      .then(res =>
+        res.records.map(record => record.get("res") as ProjectProperties),
+      )
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -55,7 +61,7 @@ export class ProjectsService {
       });
   }
 
-  async getProjectsByCategory(category: string): Promise<OldProject[]> {
+  async getProjectsByCategory(category: string): Promise<ProjectProperties[]> {
     return this.neo4jService
       .read(
         `
@@ -64,7 +70,9 @@ export class ProjectsService {
         `,
         { category },
       )
-      .then(res => res.records.map(record => record.get("res") as OldProject))
+      .then(res =>
+        res.records.map(record => record.get("res") as ProjectProperties),
+      )
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -81,7 +89,7 @@ export class ProjectsService {
       });
   }
 
-  async getProjectCompetitors(id: string): Promise<OldProject[]> {
+  async getProjectCompetitors(id: string): Promise<ProjectProperties[]> {
     return this.neo4jService
       .read(
         `
@@ -92,7 +100,9 @@ export class ProjectsService {
         `,
         { id },
       )
-      .then(res => res.records.map(record => record.get("res") as OldProject))
+      .then(res =>
+        res.records.map(record => record.get("res") as ProjectProperties),
+      )
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -109,7 +119,7 @@ export class ProjectsService {
       });
   }
 
-  async searchProjects(query: string): Promise<OldProject[]> {
+  async searchProjects(query: string): Promise<ProjectProperties[]> {
     return this.neo4jService
       .read(
         `
@@ -119,7 +129,9 @@ export class ProjectsService {
         `,
         { query: `(?i).*${query}.*` },
       )
-      .then(res => res.records.map(record => record.get("res") as OldProject))
+      .then(res =>
+        res.records.map(record => record.get("res") as ProjectProperties),
+      )
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -134,7 +146,7 @@ export class ProjectsService {
       });
   }
 
-  async getProjectById(id: string): Promise<OldProject | undefined> {
+  async getProjectById(id: string): Promise<ProjectProperties | undefined> {
     return this.neo4jService
       .read(
         `
@@ -145,7 +157,9 @@ export class ProjectsService {
         { id },
       )
       .then(res =>
-        res.records[0] ? (res.records[0].get("res") as OldProject) : undefined,
+        res.records[0]
+          ? (res.records[0].get("res") as ProjectProperties)
+          : undefined,
       )
       .catch(err => {
         Sentry.withScope(scope => {

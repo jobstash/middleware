@@ -21,6 +21,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@nestjs/cache-manager": "^1.0.0",
     "@nestjs/common": "^9.4.0",
     "@nestjs/config": "^2.3.1",
     "@nestjs/core": "^9.4.0",
@@ -47,12 +48,14 @@
     "express-jwt": "^8.4.1",
     "express-session": "^1.17.3",
     "fast-sort": "^3.4.0",
+    "fp-ts": "^2.15.0",
     "helmet": "^7.0.0",
+    "io-ts": "^2.2.20",
     "iron-session": "^6.3.1",
     "joi": "^17.9.2",
     "mime": "^3.0.0",
     "neo4j-driver": "^5.8.0",
-    "nest-neo4j": "^0.2.0",
+    "nest-neo4j": "^0.3.1",
     "nft.storage": "^7.0.3",
     "passport": "^0.6.0",
     "passport-jwt": "^4.0.1",
@@ -97,7 +100,7 @@
       "json",
       "ts"
     ],
-    "rootDir": "src",
+    "rootDir": "./",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
@@ -106,6 +109,16 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "roots": [
+      "<rootDir>"
+    ],
+    "modulePaths": [
+      "<rootDir>"
+    ],
+    "moduleDirectories": [
+      "node_modules",
+      "<rootDir>"
+    ]
   }
 }

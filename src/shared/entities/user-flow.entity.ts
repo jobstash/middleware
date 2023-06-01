@@ -1,5 +1,5 @@
 import { Node } from "neo4j-driver";
-import { UserFlow } from "src/shared/types";
+import { UserFlow } from "../interfaces";
 
 export class UserFlowEntity {
   constructor(private readonly node: Node) {}

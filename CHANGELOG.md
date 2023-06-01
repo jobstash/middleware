@@ -1,3 +1,24 @@
+## [1.28.12](https://github.com/jobstash/middleware/compare/v1.28.11...v1.28.12) (2023-05-29)
+
+
+### Bug Fixes
+
+* **async:** Fix async issue ([a5c31f7](https://github.com/jobstash/middleware/commit/a5c31f7b1fd07e19c9bf7efd6487ba2629791a92))
+
+## [1.28.11](https://github.com/jobstash/middleware/compare/v1.28.10...v1.28.11) (2023-05-18)
+
+
+### Bug Fixes
+
+* **jobs:** fixed bug in jobs sorter ([0bdb022](https://github.com/jobstash/middleware/commit/0bdb022a3367ade131b7f8c2dc7d7de157ed9619))
+
+## [1.28.10](https://github.com/jobstash/middleware/compare/v1.28.9...v1.28.10) (2023-05-13)
+
+
+### Bug Fixes
+
+* **query:** unfuck query ([4411b7d](https://github.com/jobstash/middleware/commit/4411b7d14f466295b51e21b9e31b2eb9c9c8ee89))
+
 ## [1.28.9](https://github.com/jobstash/middleware/compare/v1.28.8...v1.28.9) (2023-05-13)
 
 

@@ -1,5 +1,4 @@
-import { TechnologyPreferredTerm } from "../interfaces/technology-preferred-term.interface";
-import { Technology } from "../types";
+import { TechnologyPreferredTerm, Technology } from "../interfaces";
 
 type RawTechnologyPreferredTerm = {
   id: string;

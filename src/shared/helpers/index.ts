@@ -15,7 +15,9 @@ import {
   SchemaObject,
 } from "@nestjs/swagger/dist/interfaces/open-api-spec.interface";
 import { getSchemaPath } from "@nestjs/swagger";
-import { Response } from "../entities";
+import { Response } from "../interfaces/response.interface";
+import { TransformFnParams } from "class-transformer";
+import { CustomLogger } from "../utils/custom-logger";
 
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
@@ -44,15 +46,27 @@ export const orderBySelector = (args: {
   projectVar: string;
   orgVar: string;
   roundVar: string;
+  auditsVar: string;
+  hacksVar: string;
+  chainsVar: string;
   orderBy: JobListOrderBy;
 }): string | null => {
-  const { jobVar, projectVar, orgVar, roundVar, orderBy } = args;
+  const {
+    jobVar,
+    projectVar,
+    orgVar,
+    roundVar,
+    auditsVar,
+    hacksVar,
+    chainsVar,
+    orderBy,
+  } = args;
   switch (orderBy) {
     case "publicationDate":
       return `${jobVar}.jobCreatedTimestamp`;
 
     case "tvl":
-      return `${projectVar}.tvl`;
+      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.tvl ELSE ${jobVar}.jobCreatedTimestamp / 1000000000 END)`;
 
     case "salary":
       return `${jobVar}.medianSalary`;
@@ -61,28 +75,28 @@ export const orderBySelector = (args: {
       return `${roundVar}`;
 
     case "monthlyVolume":
-      return `${projectVar}.monthlyVolume`;
+      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.monthlyVolume ELSE ${jobVar}.jobCreatedTimestamp / 1000000000 END)`;
 
     case "monthlyFees":
-      return `${projectVar}.monthlyFees`;
+      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.monthlyFees ELSE ${jobVar}.jobCreatedTimestamp / 1000000000 END)`;
 
     case "monthlyRevenue":
-      return `${projectVar}.monthlyRevenue`;
+      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.monthlyRevenue ELSE ${jobVar}.jobCreatedTimestamp / 1000000000 END)`;
 
     case "audits":
-      return `auditCount`;
+      return auditsVar;
 
     case "hacks":
-      return `hackCount`;
+      return hacksVar;
 
     case "chains":
-      return `chainCount`;
+      return chainsVar;
 
     case "headCount":
       return `${orgVar}.headCount`;
 
     case "teamSize":
-      return `${projectVar}.teamSize`;
+      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.teamSize ELSE ${jobVar}.jobCreatedTimestamp / 1000000000 END)`;
 
     default:
       return null;
@@ -105,7 +119,7 @@ export const intConverter = (
 
 export const notStringOrNull = (
   value: string | null | undefined,
-  space: string[],
+  space: string[] = [""],
 ): string | null => {
   if (
     space.includes(value) ||
@@ -119,53 +133,60 @@ export const notStringOrNull = (
   }
 };
 
-export const publicationDateRangeParser = (
-  dateRange: DateRange,
-  jobVar: string,
-): string => {
+export const nonZeroOrNull = (
+  value: number | null | undefined,
+): number | null => {
+  if (value === 0 || typeof value === "undefined" || value === null) {
+    return null;
+  } else {
+    return value;
+  }
+};
+
+export const publicationDateRangeGenerator = (
+  dateRange: DateRange | null,
+): { startDate: number; endDate: number } => {
+  const logger = new CustomLogger("PublicationDateRangeGenerator");
   const now = Date.now();
   switch (dateRange) {
     case "today":
-      return `${jobVar}.jobCreatedTimestamp >= ${startOfDay(
-        now,
-      ).getTime()} AND ${jobVar}.jobCreatedTimestamp <= ${endOfDay(
-        now,
-      ).getTime()} AND `;
+      return {
+        startDate: startOfDay(now).getTime(),
+        endDate: endOfDay(now).getTime(),
+      };
     case "this-week":
-      return `${jobVar}.jobCreatedTimestamp >= ${startOfWeek(
-        now,
-      ).getTime()} AND ${jobVar}.jobCreatedTimestamp <= ${endOfWeek(
-        now,
-      ).getTime()} AND `;
+      return {
+        startDate: startOfWeek(now).getTime(),
+        endDate: endOfWeek(now).getTime(),
+      };
     case "this-month":
-      return `${jobVar}.jobCreatedTimestamp >= ${startOfMonth(
-        now,
-      ).getTime()} AND ${jobVar}.jobCreatedTimestamp <= ${endOfMonth(
-        now,
-      ).getTime()} AND `;
+      return {
+        startDate: startOfMonth(now).getTime(),
+        endDate: endOfMonth(now).getTime(),
+      };
     case "past-2-weeks":
       const twoWeeksAgo = subWeeks(now, 2);
-      return `${jobVar}.jobCreatedTimestamp >= ${startOfDay(
-        twoWeeksAgo,
-      ).getTime()} AND ${jobVar}.jobCreatedTimestamp <= ${endOfDay(
-        now,
-      ).getTime()} AND `;
+      return {
+        startDate: startOfDay(twoWeeksAgo).getTime(),
+        endDate: endOfDay(now).getTime(),
+      };
     case "past-3-months":
       const threeMonthsAgo = subMonths(now, 3);
-      return `${jobVar}.jobCreatedTimestamp >= ${startOfDay(
-        threeMonthsAgo,
-      ).getTime()} AND ${jobVar}.jobCreatedTimestamp <= ${endOfDay(
-        now,
-      ).getTime()} AND `;
+      return {
+        startDate: startOfDay(threeMonthsAgo).getTime(),
+        endDate: endOfDay(now).getTime(),
+      };
     case "past-6-months":
       const sixMonthsAgo = subMonths(now, 6);
-      return `${jobVar}.jobCreatedTimestamp >= ${startOfDay(
-        sixMonthsAgo,
-      ).getTime()} AND ${jobVar}.jobCreatedTimestamp <= ${endOfDay(
-        now,
-      ).getTime()} AND `;
+      return {
+        startDate: startOfDay(sixMonthsAgo).getTime(),
+        endDate: endOfDay(now).getTime(),
+      };
     default:
-      throw new Error(`Invalid date range: ${dateRange}`);
+      if (dateRange !== null) {
+        logger.error(`Invalid date range: ${dateRange}`);
+      }
+      return { startDate: null, endDate: null };
   }
 };
 
@@ -184,4 +205,119 @@ export const responseSchemaWrapper = (
       data: child,
     },
   };
+};
+
+export const btoaList = ({ value }: TransformFnParams): string[] | null => {
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map(encodedString =>
+        Buffer.from(encodedString, "base64").toString("ascii"),
+      );
+  } else if (typeof value === "undefined") {
+    return null;
+  } else {
+    return value;
+  }
+};
+
+export const btoa = (value: string): string | null => {
+  if (typeof value === "string") {
+    return Buffer.from(value, "base64").toString("ascii");
+  } else if (typeof value === "undefined") {
+    return null;
+  } else {
+    return value;
+  }
+};
+
+export const transformToNullIfUndefined = (
+  value: unknown | undefined,
+): unknown => {
+  return value === undefined ? null : value;
+};
+
+export const inferObjectType = (obj: unknown): string => {
+  const objectType = typeof obj;
+  let objectString = "";
+
+  if (objectType === "object") {
+    if (Array.isArray(obj)) {
+      const first = inferObjectType(obj[0]);
+      if (Array.from(obj).every(x => inferObjectType(x) === first)) {
+        objectString = `Array<${first}>`;
+      } else {
+        if (typeof first === "undefined") {
+          objectString = "Array<unknown>";
+        } else {
+          const types = Array.from(
+            new Set([...Array.from(obj).map(x => inferObjectType(x))]),
+          );
+          objectString = `Array<${types.join(" | ")}>`;
+        }
+      }
+    } else if (obj === null) {
+      objectString = "null";
+    } else {
+      const propertyStrings = Object.entries(obj)
+        .map(([key, value]) => `          ${key}: ${inferObjectType(value)}`)
+        .sort((a: string, b: string) => a.length - b.length);
+      objectString = `{ \n${propertyStrings.join(",\n")}\n }`;
+    }
+  } else {
+    objectString = objectType;
+  }
+
+  return objectString;
+};
+
+export const printDuplicateItems = <T>(
+  uniqueItems: Set<T>,
+  itemsArray: T[],
+  itemName: string,
+): boolean => {
+  let hasDuplicates = false;
+  const countMap: Map<T, number> = new Map();
+  const indexesMap: Map<T, number[]> = new Map();
+
+  for (let i = 0; i < itemsArray.length; i++) {
+    const item = itemsArray[i];
+    if (uniqueItems.has(item)) {
+      // Increment the count for duplicated items
+      countMap.set(item, (countMap.get(item) || 0) + 1);
+      // Store the index of the duplicated item
+      const indexes = indexesMap.get(item) || [];
+      indexes.push(i);
+      indexesMap.set(item, indexes);
+    }
+  }
+
+  for (const [item, count] of countMap.entries()) {
+    if (count > 1) {
+      const indexes = indexesMap.get(item);
+      const firstX = indexes.slice(undefined, indexes.length - 1);
+      console.log(
+        `${itemName} '${item}' is found ${count} times at indexes: ${firstX.join(
+          ", ",
+        )} and ${indexes[indexes.length - 1]}`,
+      );
+      hasDuplicates = true;
+    }
+  }
+  return hasDuplicates;
+};
+
+export const hasDuplicates = <A, B>(
+  array: A[],
+  getUniqueProperty: (x: A) => B,
+  arrayName: string,
+): boolean => {
+  const props = array.map(getUniqueProperty);
+  const propsSet = new Set([...props]);
+
+  if (props.length === propsSet.size) {
+    return false;
+  } else {
+    return printDuplicateItems(propsSet, props, arrayName);
+  }
 };

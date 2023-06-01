@@ -1,57 +1,63 @@
 import {
   ApiExtraModels,
-  ApiProperty,
   ApiPropertyOptional,
   getSchemaPath,
 } from "@nestjs/swagger";
-import { OldFundingRound } from "./funding-round.interface";
+import { FundingRound } from "./funding-round.interface";
 import { Investor } from "./investor.interface";
-import { Organization, OldOrganization } from "./organization.interface";
+import { Organization } from "./organization.interface";
 import { ProjectCategory } from "./project-category.interface";
-import { OldProject } from "./project.interface";
 import { StructuredJobpost } from "./structured-jobpost.interface";
 import { Technology } from "./technology.interface";
+import * as t from "io-ts";
+import { inferObjectType } from "../helpers";
+import { isLeft } from "fp-ts/lib/Either";
 
 @ApiExtraModels(
-  OldOrganization,
-  OldProject,
   StructuredJobpost,
   Technology,
   ProjectCategory,
-  OldFundingRound,
+  FundingRound,
   Investor,
+  Organization,
 )
-export class OldJobListResult {
-  @ApiPropertyOptional()
-  organization?: OldOrganization | null;
-  @ApiPropertyOptional()
-  project?: OldProject | null;
-  @ApiPropertyOptional()
-  jobpost?: StructuredJobpost | null;
-  @ApiPropertyOptional()
-  fundingRounds: OldFundingRound[] | null;
-  @ApiPropertyOptional()
-  investors: Investor[] | null;
-  @ApiPropertyOptional({
-    type: "array",
-    items: { $ref: getSchemaPath(Technology) },
-  })
-  technologies?: Technology[] | null;
-  @ApiPropertyOptional({
-    type: "array",
-    items: { $ref: getSchemaPath(ProjectCategory) },
-  })
-  categories?: ProjectCategory[] | null;
-}
-
-@ApiExtraModels(Organization)
 export class JobListResult extends StructuredJobpost {
-  @ApiProperty()
-  organization?: Organization | null;
+  public static readonly JobListResultType = t.intersection([
+    StructuredJobpost.StructuredJobpostType,
+    t.strict({
+      organization: Organization.OrganizationType,
+      technologies: t.array(Technology.TechnologyType),
+    }),
+  ]);
 
-  @ApiProperty({
+  @ApiPropertyOptional({
+    type: "array",
+    items: { $ref: getSchemaPath(Organization) },
+  })
+  organization: Organization;
+
+  @ApiPropertyOptional({
     type: "array",
     items: { $ref: getSchemaPath(Technology) },
   })
-  technologies?: Technology[] | null;
+  technologies: Technology[];
+
+  constructor(raw: JobListResult) {
+    const { organization, technologies, ...jobpostProperties } = raw;
+    super(jobpostProperties);
+    const result = JobListResult.JobListResultType.decode(raw);
+
+    this.organization = organization;
+    this.technologies = technologies;
+
+    if (isLeft(result)) {
+      throw new Error(
+        `Error Serializing JobListResult! Constructor expected: \n {
+          ...StructuredJobpost,
+          organization: Organization,
+          technologies: Technology[],
+        } got ${inferObjectType(raw)}`,
+      );
+    }
+  }
 }

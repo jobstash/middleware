@@ -1,5 +1,5 @@
 import { Node } from "neo4j-driver";
-import { StructuredJobpost } from "src/shared/types";
+import { StructuredJobpost } from "../interfaces";
 
 export class StructuredJobpostEntity {
   constructor(private readonly node: Node) {}

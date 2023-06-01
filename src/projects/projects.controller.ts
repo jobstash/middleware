@@ -25,7 +25,11 @@ import { RBACGuard } from "src/auth/rbac.guard";
 import { BackendService } from "src/backend/backend.service";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
-import { OldProject, Response, ResponseWithNoData } from "src/shared/types";
+import {
+  ProjectProperties,
+  Response,
+  ResponseWithNoData,
+} from "src/shared/types";
 import { CreateProjectInput } from "./dto/create-project.input";
 import { UpdateProjectInput } from "./dto/update-project.input";
 import { ProjectsService } from "./projects.service";
@@ -38,7 +42,7 @@ import * as Sentry from "@sentry/node";
 const mime = require("mime");
 
 @Controller("projects")
-@ApiExtraModels(OldProject)
+@ApiExtraModels(ProjectProperties)
 export class ProjectsController {
   private readonly NFT_STORAGE_API_KEY;
   private readonly nftStorageClient: NFTStorage;
@@ -62,9 +66,11 @@ export class ProjectsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldProject) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),
   })
-  async getProjects(): Promise<Response<OldProject[]> | ResponseWithNoData> {
+  async getProjects(): Promise<
+    Response<ProjectProperties[]> | ResponseWithNoData
+  > {
     this.logger.log(`/projects`);
     return this.projectsService
       .getProjects()
@@ -94,11 +100,11 @@ export class ProjectsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects under the speccified category",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldProject) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),
   })
   async getProjectsByCategory(
     @Param("category") category: string,
-  ): Promise<Response<OldProject[]> | ResponseWithNoData> {
+  ): Promise<Response<ProjectProperties[]> | ResponseWithNoData> {
     this.logger.log(`/projects/category/${category}`);
     return this.projectsService
       .getProjectsByCategory(category)
@@ -127,11 +133,11 @@ export class ProjectsController {
   @ApiOkResponse({
     description:
       "Returns a list of competing projects for the specified project",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldProject) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),
   })
   async getProjectCompetitors(
     @Param("id") id: string,
-  ): Promise<Response<OldProject[]> | ResponseWithNoData> {
+  ): Promise<Response<ProjectProperties[]> | ResponseWithNoData> {
     this.logger.log(`/projects/competitors/${id}`);
     return this.projectsService
       .getProjectCompetitors(id)
@@ -161,11 +167,11 @@ export class ProjectsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects for an organization",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldProject) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),
   })
   async getProjectsByOrgId(
     @Param("id") id: string,
-  ): Promise<Response<OldProject[]> | ResponseWithNoData> {
+  ): Promise<Response<ProjectProperties[]> | ResponseWithNoData> {
     this.logger.log(`/projects/all/${id}`);
     return this.projectsService
       .getProjectsByOrgId(id)
@@ -195,11 +201,11 @@ export class ProjectsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects with names matching the query",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldProject) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),
   })
   async searchProjects(
     @Query("query") query: string,
-  ): Promise<Response<OldProject[]> | ResponseWithNoData> {
+  ): Promise<Response<ProjectProperties[]> | ResponseWithNoData> {
     this.logger.log(`/projects/search?query=${query}`);
     return this.projectsService
       .searchProjects(query)
@@ -233,7 +239,7 @@ export class ProjectsController {
   async getProjectDetails(
     @Param("id") id: string,
     @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<Response<OldProject> | ResponseWithNoData> {
+  ): Promise<Response<ProjectProperties> | ResponseWithNoData> {
     this.logger.log(`/projects/${id}`);
     const result = await this.projectsService.getProjectById(id);
 
@@ -328,7 +334,7 @@ export class ProjectsController {
   // @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Creates a new project",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldProject) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),
   })
   @ApiUnprocessableEntityResponse({
     description:
@@ -337,7 +343,7 @@ export class ProjectsController {
   })
   async createProject(
     @Body() body: CreateProjectInput,
-  ): Promise<Response<OldProject> | ResponseWithNoData> {
+  ): Promise<Response<ProjectProperties> | ResponseWithNoData> {
     this.logger.log(`/projects/create ${JSON.stringify(body)}`);
     return this.backendService.createProject(body);
   }
@@ -347,7 +353,7 @@ export class ProjectsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Updates an existing project",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldProject) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),
   })
   @ApiUnprocessableEntityResponse({
     description:
@@ -356,7 +362,7 @@ export class ProjectsController {
   })
   async updateProject(
     @Body() body: UpdateProjectInput,
-  ): Promise<Response<OldProject> | ResponseWithNoData> {
+  ): Promise<Response<ProjectProperties> | ResponseWithNoData> {
     this.logger.log(`/projects/update ${JSON.stringify(body)}`);
     return this.backendService.updateProject(body);
   }
