@@ -58,7 +58,7 @@ jobs:
       # Run prod tests #
       ##################
       - name: Run Prod Tests
-        run: yarn test --detectOpenHandles
+        run: yarn test --detectOpenHandles --forceExit
         env:
           NEO4J_HOST: ${{ secrets.NEO4J_HOST_PROD }}
           NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD_PROD }}
@@ -69,7 +69,7 @@ jobs:
       # Run staging tests #
       #####################
       - name: Run Staging Tests
-        run: yarn test --detectOpenHandles
+        run: yarn test --detectOpenHandles --forceExit
         env:
           NEO4J_HOST: ${{ secrets.NEO4J_HOST_STAGING }}
           NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD_STAGING }}
