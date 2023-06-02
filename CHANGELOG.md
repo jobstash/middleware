@@ -1,3 +1,10 @@
+## [1.28.14](https://github.com/jobstash/middleware/compare/v1.28.13...v1.28.14) (2023-06-02)
+
+
+### Bug Fixes
+
+* **filters:** fixed bug introduced by prev fix ([8a6beba](https://github.com/jobstash/middleware/commit/8a6beba5a557c846d4b1d96c20ca4d9f32e10942))
+
 ## [1.28.13](https://github.com/jobstash/middleware/compare/v1.28.12...v1.28.13) (2023-06-02)
 
 
