@@ -51,7 +51,8 @@ export class JobsService {
               
               // Generate other data for the leanest result set possible at this point
               OPTIONAL MATCH (project)-[:HAS_CATEGORY]->(project_category:ProjectCategory)
-              OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)-[:INVESTED_BY]->(investor:Investor)
+              OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
+              OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
               OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
               OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
               OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain:Chain)
@@ -289,7 +290,8 @@ export class JobsService {
         WHERE NOT (t)<-[:IS_BLOCKED_TERM]-()
         OPTIONAL MATCH (t)<-[:IS_PREFERRED_TERM_OF]-(:PreferredTerm)
         OPTIONAL MATCH (t)<-[:IS_PAIRED_WITH]-(:TechnologyPairing)-[:IS_PAIRED_WITH]->(:Technology)
-        OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)-[:INVESTED_BY]->(i:Investor)
+        OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)
+        OPTIONAL MATCH (f)-[:INVESTED_BY]->(i:Investor)
         OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(c:Chain)
         OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
         WITH o, p, j, t, f, i, c, cat, COUNT(DISTINCT a) as audits
@@ -348,7 +350,8 @@ export class JobsService {
         `
         MATCH (organization:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
         MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost {shortUUID: $uuid})
-        OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)-[:INVESTED_BY]->(investor:Investor)
+        OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
+        OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
         OPTIONAL MATCH (organization)-[:HAS_PROJECT]->(project:Project)-[:HAS_CATEGORY]->(project_category:ProjectCategory)
         OPTIONAL MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
         WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()
@@ -478,7 +481,8 @@ export class JobsService {
         `
         MATCH (organization:Organization {id: $uuid})-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
         MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
-        OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)-[:INVESTED_BY]->(investor:Investor)
+        OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
+        OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
         OPTIONAL MATCH (organization)-[:HAS_PROJECT]->(project:Project)-[:HAS_CATEGORY]->(project_category:ProjectCategory)
         OPTIONAL MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
         WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()

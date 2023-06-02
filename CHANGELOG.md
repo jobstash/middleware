@@ -1,3 +1,18 @@
+## [1.28.14](https://github.com/jobstash/middleware/compare/v1.28.13...v1.28.14) (2023-06-02)
+
+
+### Bug Fixes
+
+* **filters:** fixed bug introduced by prev fix ([8a6beba](https://github.com/jobstash/middleware/commit/8a6beba5a557c846d4b1d96c20ca4d9f32e10942))
+
+## [1.28.13](https://github.com/jobstash/middleware/compare/v1.28.12...v1.28.13) (2023-06-02)
+
+
+### Bug Fixes
+
+* **jobs:** fixed bug with funding rounds that have no investors ([1164bc4](https://github.com/jobstash/middleware/commit/1164bc453d7160ca695aad19c3932a687dea4557))
+
+
 ## [1.28.12](https://github.com/jobstash/middleware/compare/v1.28.11...v1.28.12) (2023-05-29)
 
 
