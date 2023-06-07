@@ -1,3 +1,10 @@
+## [1.28.15](https://github.com/jobstash/middleware/compare/v1.28.14...v1.28.15) (2023-06-07)
+
+
+### Bug Fixes
+
+* **jobs:** fixed nuked sorting for funding rounds ([#92](https://github.com/jobstash/middleware/issues/92)) ([a8a32ba](https://github.com/jobstash/middleware/commit/a8a32bab369b13832ee747b0f83ff825e2fb2022))
+
 ## [1.28.14](https://github.com/jobstash/middleware/compare/v1.28.13...v1.28.14) (2023-06-02)
 
 
