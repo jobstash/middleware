@@ -11,6 +11,8 @@ import { Technology } from "./technology.interface";
 import { FundingRound } from "./funding-round.interface";
 import { Project } from "./project.interface";
 import { Investor } from "./investor.interface";
+import { inferObjectType } from "../helpers";
+import { isLeft } from "fp-ts/lib/Either";
 
 export class OrganizationProperties {
   public static readonly OrganizationPropertiesType = t.strict({
@@ -88,75 +90,75 @@ export class OrganizationProperties {
   @ApiPropertyOptional()
   updatedTimestamp: number | null;
 
-  // constructor(raw: OrganizationProperties) {
-  //   const {
-  //     id,
-  //     url,
-  //     name,
-  //     docs,
-  //     orgId,
-  //     github,
-  //     summary,
-  //     altName,
-  //     twitter,
-  //     discord,
-  //     location,
-  //     teamSize,
-  //     telegram,
-  //     headCount,
-  //     description,
-  //     jobsiteLink,
-  //     createdTimestamp,
-  //     updatedTimestamp,
-  //   } = raw;
+  constructor(raw: OrganizationProperties) {
+    const {
+      id,
+      url,
+      name,
+      docs,
+      orgId,
+      github,
+      summary,
+      altName,
+      twitter,
+      discord,
+      location,
+      teamSize,
+      telegram,
+      headCount,
+      description,
+      jobsiteLink,
+      createdTimestamp,
+      updatedTimestamp,
+    } = raw;
 
-  //   const result =
-  //     OrganizationProperties.OrganizationPropertiesType.decode(raw);
+    const result =
+      OrganizationProperties.OrganizationPropertiesType.decode(raw);
 
-  //   this.id = id;
-  //   this.url = url;
-  //   this.name = name;
-  //   this.docs = docs;
-  //   this.orgId = orgId;
-  //   this.github = github;
-  //   this.summary = summary;
-  //   this.altName = altName;
-  //   this.twitter = twitter;
-  //   this.discord = discord;
-  //   this.location = location;
-  //   this.teamSize = teamSize;
-  //   this.telegram = telegram;
-  //   this.headCount = headCount;
-  //   this.description = description;
-  //   this.jobsiteLink = jobsiteLink;
-  //   this.createdTimestamp = createdTimestamp;
-  //   this.updatedTimestamp = updatedTimestamp;
+    this.id = id;
+    this.url = url;
+    this.name = name;
+    this.docs = docs;
+    this.orgId = orgId;
+    this.github = github;
+    this.summary = summary;
+    this.altName = altName;
+    this.twitter = twitter;
+    this.discord = discord;
+    this.location = location;
+    this.teamSize = teamSize;
+    this.telegram = telegram;
+    this.headCount = headCount;
+    this.description = description;
+    this.jobsiteLink = jobsiteLink;
+    this.createdTimestamp = createdTimestamp;
+    this.updatedTimestamp = updatedTimestamp;
 
-  //   if (isLeft(result)) {
-  //     throw new Error(
-  //       `Error Serializing OrganizationProperties! Constructor expected: \n {
-  //         id: string,
-  //         url: string,
-  //         name: string,
-  //         orgId: string,
-  //         summary: string,
-  //         location: string,
-  //         description: string,
-  //         jobsiteLink: string,
-  //         docs: string | null,
-  //         github: string | null,
-  //         altName: string | null,
-  //         twitter: string | null,
-  //         discord: string | null,
-  //         teamSize: number | null,
-  //         telegram: string | null,
-  //         headCount: number | null,
-  //         createdTimestamp: number | null,
-  //         updatedTimestamp: number | null,
-  //       } got ${inferObjectType(raw)}`,
-  //     );
-  //   }
-  // }
+    if (isLeft(result)) {
+      throw new Error(
+        `Error Serializing OrganizationProperties! Constructor expected: \n {
+          id: string,
+          url: string,
+          name: string,
+          orgId: string,
+          summary: string,
+          location: string,
+          description: string,
+          jobsiteLink: string,
+          docs: string | null,
+          github: string | null,
+          altName: string | null,
+          twitter: string | null,
+          discord: string | null,
+          teamSize: number | null,
+          telegram: string | null,
+          headCount: number | null,
+          createdTimestamp: number | null,
+          updatedTimestamp: number | null,
+        } got ${inferObjectType(raw)}`,
+      );
+    }
+  }
 }
 
 @ApiExtraModels(Project, FundingRound)
@@ -175,6 +177,7 @@ export class Organization extends OrganizationProperties {
     items: { $ref: getSchemaPath(Project) },
   })
   projects: Project[];
+
   @ApiPropertyOptional({
     type: "array",
     items: { $ref: getSchemaPath(FundingRound) },
@@ -187,25 +190,26 @@ export class Organization extends OrganizationProperties {
   })
   investors: Investor[];
 
-  // constructor(raw: Organization) {
-  //   const { projects, fundingRounds, ...orgProperties } = raw;
-  //   super(orgProperties);
-  //   const result = Organization.OrganizationType.decode(raw);
+  constructor(raw: Organization) {
+    const { projects, fundingRounds, ...orgProperties } = raw;
+    super(orgProperties);
+    const result = Organization.OrganizationType.decode(raw);
 
-  //   this.projects = projects;
-  //   this.fundingRounds = fundingRounds;
+    this.projects = projects;
+    this.fundingRounds = fundingRounds;
 
-  //   if (isLeft(result)) {
-  //     throw new Error(
-  //       `Error Serializing Project! Constructor expected: \n {
-  //         ...OrganizationProperties,
-  //         projects: Project[],
-  //         fundingRounds: FundingRound[],
-  //       }
-  //       got ${inferObjectType(raw)}`,
-  //     );
-  //   }
-  // }
+    if (isLeft(result)) {
+      throw new Error(
+        `Error Serializing Project! Constructor expected: \n {
+          ...OrganizationProperties,
+          projects: Project[],
+          investors: Investor[],
+          fundingRounds: FundingRound[],
+        }
+        got ${inferObjectType(raw)}`,
+      );
+    }
+  }
 }
 
 // TODO: Review this with @duckdegen

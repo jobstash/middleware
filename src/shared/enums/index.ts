@@ -1,2 +1,2 @@
-export * from "./job-filters.enum";
+export * from "./list-filters.enum";
 export * from "./check-wallet-result.enum";

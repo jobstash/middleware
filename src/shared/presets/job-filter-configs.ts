@@ -46,7 +46,7 @@ export const SINGLE_SELECT_OPTIONS = {
   ],
 };
 
-export const JOB_FILTER_CONFIG_PRESETS = {
+export const FILTER_CONFIG_PRESETS = {
   publicationDate: {
     position: 0,
     label: "Publication Date",
@@ -92,7 +92,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
   },
   headCount: {
     position: 5,
-    label: "Headcount",
+    label: "Head Count",
     show: false,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,

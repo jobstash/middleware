@@ -1,5 +1,4 @@
 import {
-  JobFilterConfigs,
   MultiSelectFilter,
   MultiSelectSearchFilter,
   RangeFilter,
@@ -8,42 +7,24 @@ import {
 import {
   FILTER_PARAM_KEY_PRESETS,
   FILTER_CONFIG_PRESETS,
-} from "../presets/job-filter-configs";
+} from "../presets/org-filter-configs";
 import { intConverter } from "../helpers";
 import { createNewSortInstance } from "fast-sort";
+import { OrgFilterConfigs } from "../interfaces/org-filter-configs.interface";
 
-type RawJobFilters = {
-  minSalaryRange?: number | null;
-  maxSalaryRange?: number | null;
-  minTvl?: number | null;
-  maxTvl?: number | null;
-  minMonthlyVolume?: number | null;
-  maxMonthlyVolume?: number | null;
-  minMonthlyFees?: number | null;
-  maxMonthlyFees?: number | null;
-  minMonthlyRevenue?: number | null;
-  maxMonthlyRevenue?: number | null;
+type RawOrgFilters = {
   minHeadCount?: number | null;
   maxHeadCount?: number | null;
-  minTeamSize?: number | null;
-  maxTeamSize?: number | null;
-  minAudits?: number | null;
-  maxAudits?: number | null;
-  tech?: string[] | null;
   fundingRounds?: string[] | null;
-  projects?: string[] | null;
-  categories?: string[] | null;
-  chains?: string[] | null;
+  investors?: string[] | null;
   locations?: string[] | null;
-  organizations?: string[] | null;
-  seniority?: string[] | null;
 };
 
-export class JobFilterConfigsEntity {
+export class OrgFilterConfigsEntity {
   configPresets = FILTER_CONFIG_PRESETS;
   paramKeyPresets = FILTER_PARAM_KEY_PRESETS;
 
-  constructor(private readonly raw: RawJobFilters) {}
+  constructor(private readonly raw: RawOrgFilters) {}
 
   getRangePresets(key: string): RangeFilter {
     const range = {
@@ -101,29 +82,14 @@ export class JobFilterConfigsEntity {
     };
   }
 
-  getProperties(): JobFilterConfigs {
-    return new JobFilterConfigs({
-      publicationDate: this.getSingleSelectPresets("publicationDate"),
-      salary: this.getRangePresets("salary"),
-      teamSize: this.getRangePresets("teamSize"),
+  getProperties(): OrgFilterConfigs {
+    return new OrgFilterConfigs({
       headCount: this.getRangePresets("headCount"),
-      tvl: this.getRangePresets("tvl"),
-      monthlyVolume: this.getRangePresets("monthlyVolume"),
-      monthlyFees: this.getRangePresets("monthlyFees"),
-      monthlyRevenue: this.getRangePresets("monthlyRevenue"),
-      audits: this.getRangePresets("audits"),
-      hacks: this.getSingleSelectPresets("hacks"),
       fundingRounds: this.getMultiValuePresets("fundingRounds"),
       investors: this.getMultiValuePresets("investors"),
-      tech: this.getMultiValuePresets("tech"),
-      organizations: this.getMultiValuePresets("organizations"),
-      chains: this.getMultiValuePresets("chains"),
-      projects: this.getMultiValuePresets("projects"),
-      categories: this.getMultiValuePresets("categories"),
-      seniority: this.getMultiValuePresets("seniority"),
       locations: this.getMultiValuePresets("locations"),
-      mainNet: this.getSingleSelectPresets("mainNet"),
-      token: this.getSingleSelectPresets("token"),
+      hasJobs: this.getSingleSelectPresets("hasJobs"),
+      hasProjects: this.getSingleSelectPresets("hasProjects"),
       order: this.getSingleSelectPresets("order"),
       orderBy: this.getSingleSelectPresets("orderBy"),
     });
