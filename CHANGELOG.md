@@ -1,3 +1,10 @@
+# [1.29.0](https://github.com/jobstash/middleware/compare/v1.28.17...v1.29.0) (2023-06-08)
+
+
+### Features
+
+* **organizations:** implement user facing orgs list ([#93](https://github.com/jobstash/middleware/issues/93)) ([594561e](https://github.com/jobstash/middleware/commit/594561ee6353e91ebfe3d71570095d519fe1379b)), closes [#92](https://github.com/jobstash/middleware/issues/92) [#92](https://github.com/jobstash/middleware/issues/92)
+
 ## [1.28.17](https://github.com/jobstash/middleware/compare/v1.28.16...v1.28.17) (2023-06-08)
 
 
