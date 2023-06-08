@@ -1,3 +1,10 @@
+## [1.28.16](https://github.com/jobstash/middleware/compare/v1.28.15...v1.28.16) (2023-06-08)
+
+
+### Bug Fixes
+
+* **ci:** add database variable in ci config ([1be7746](https://github.com/jobstash/middleware/commit/1be77460a60f2205e4f00cdcf4c5d8fa43661fae))
+
 ## [1.28.15](https://github.com/jobstash/middleware/compare/v1.28.14...v1.28.15) (2023-06-07)
 
 
