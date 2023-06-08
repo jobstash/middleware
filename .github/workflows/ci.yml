@@ -65,6 +65,8 @@ jobs:
           NEO4J_PORT: ${{ secrets.NEO4J_PORT_PROD }}
           NEO4J_SCHEME: ${{ secrets.NEO4J_SCHEME_PROD }}
           NEO4J_USERNAME: ${{ secrets.NEO4J_USERNAME_PROD }}
+          NEO4J_DATABASE: ${{ secrets.NEO4J_DATABASE_PROD }}
+
       #####################
       # Run staging tests #
       #####################
@@ -76,3 +78,4 @@ jobs:
           NEO4J_PORT: ${{ secrets.NEO4J_PORT_STAGING }}
           NEO4J_SCHEME: ${{ secrets.NEO4J_SCHEME_STAGING }}
           NEO4J_USERNAME: ${{ secrets.NEO4J_USERNAME_STAGING }}
+          NEO4J_DATABASE: ${{ secrets.NEO4J_DATABASE_STAGING }}
