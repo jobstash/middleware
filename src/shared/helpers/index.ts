@@ -1,5 +1,5 @@
 import { Integer } from "neo4j-driver";
-import { DateRange, JobListOrderBy } from "../enums";
+import { DateRange, JobListOrderBy, OrgListOrderBy } from "../enums";
 import {
   startOfDay,
   endOfDay,
@@ -41,7 +41,7 @@ export const optionalMinMaxFilter = (
   }
 };
 
-export const orderBySelector = (args: {
+export const jobListOrderBySelector = (args: {
   jobVar: string;
   projectVar: string;
   orgVar: string;
@@ -97,6 +97,28 @@ export const orderBySelector = (args: {
 
     case "teamSize":
       return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.teamSize ELSE ${jobVar}.jobCreatedTimestamp / 1000000000 END)`;
+
+    default:
+      return null;
+  }
+};
+
+export const orgListOrderBySelector = (args: {
+  headCountVar: string;
+  roundVar: string;
+  recentJobVar: string;
+  orderBy: OrgListOrderBy;
+}): string | null => {
+  const { recentJobVar, headCountVar, roundVar, orderBy } = args;
+  switch (orderBy) {
+    case "recentFundingDate":
+      return roundVar;
+
+    case "recentJobDate":
+      return recentJobVar;
+
+    case "headCount":
+      return headCountVar;
 
     default:
       return null;
@@ -312,12 +334,16 @@ export const hasDuplicates = <A, B>(
   getUniqueProperty: (x: A) => B,
   arrayName: string,
 ): boolean => {
-  const props = array.map(getUniqueProperty);
-  const propsSet = new Set([...props]);
+  if (array) {
+    const props = array.map(getUniqueProperty);
+    const propsSet = new Set([...props]);
 
-  if (props.length === propsSet.size) {
-    return false;
+    if (props.length === propsSet.size) {
+      return false;
+    } else {
+      return printDuplicateItems(propsSet, props, arrayName);
+    }
   } else {
-    return printDuplicateItems(propsSet, props, arrayName);
+    return false;
   }
 };

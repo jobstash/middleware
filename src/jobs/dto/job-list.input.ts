@@ -8,7 +8,7 @@ import {
   IsString,
   Min,
 } from "class-validator";
-import { DateRange, JobListOrder, JobListOrderBy } from "src/shared/types";
+import { DateRange, ListOrder, JobListOrderBy } from "src/shared/types";
 import { btoaList } from "src/shared/helpers";
 import { Compare } from "src/shared/validators";
 
@@ -291,7 +291,7 @@ export class JobListParams {
   @IsOptional()
   @IsIn(["asc", "desc"])
   @IsString()
-  order?: JobListOrder | null = null;
+  order?: ListOrder | null = null;
 
   @ApiPropertyOptional({
     enum: [

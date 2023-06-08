@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpStatus,
   Param,
   ParseFilePipeBuilder,
@@ -11,11 +12,14 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  ValidationPipe,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import {
+  ApiBadRequestResponse,
   ApiExtraModels,
   ApiInternalServerErrorResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiUnprocessableEntityResponse,
   getSchemaPath,
@@ -24,13 +28,16 @@ import { Response as ExpressResponse } from "express";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { BackendService } from "src/backend/backend.service";
 import { Roles } from "src/shared/decorators/role.decorator";
-import { responseSchemaWrapper } from "src/shared/helpers";
+import { btoa, responseSchemaWrapper } from "src/shared/helpers";
 import {
   Repository,
   OrganizationProperties,
   Response,
   ResponseWithNoData,
   ShortOrg,
+  PaginatedData,
+  OrgFilterConfigs,
+  OrgListResult,
 } from "src/shared/types";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
@@ -40,6 +47,13 @@ import { NFTStorage, File } from "nft.storage";
 import { ConfigService } from "@nestjs/config";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
+import {
+  CACHE_CONTROL_HEADER,
+  CACHE_DURATION,
+  CACHE_EXPIRY,
+} from "src/shared/presets/cache-control";
+import { ValidationError } from "class-validator";
+import { OrgListParams } from "./dto/org-list.input";
 // import mime from "mime";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
@@ -96,6 +110,79 @@ export class OrganizationsController {
       });
   }
 
+  @Get("/list")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiOkResponse({
+    description:
+      "Returns a paginated sorted list of organizations that satisfy the search and filter predicate",
+    type: PaginatedData<OrganizationProperties>,
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(PaginatedData),
+          properties: {
+            page: {
+              type: "number",
+            },
+            count: {
+              type: "number",
+            },
+            data: {
+              type: "array",
+              items: { $ref: getSchemaPath(OrganizationProperties) },
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ValidationError),
+        },
+      ],
+    },
+  })
+  async getOrgsListWithSearch(
+    @Query(new ValidationPipe({ transform: true }))
+    params: OrgListParams,
+  ): Promise<PaginatedData<OrganizationProperties>> {
+    const paramsParsed = {
+      ...params,
+      query: btoa(params.query),
+    };
+    this.logger.log(`/organizations/list ${JSON.stringify(paramsParsed)}`);
+    return this.organizationsService.getOrgsListWithSearch(paramsParsed);
+  }
+
+  @Get("/filters")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiOkResponse({
+    description: "Returns the configuration data for the ui filters",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(OrgFilterConfigs),
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  async getFilterConfigs(): Promise<OrgFilterConfigs> {
+    this.logger.log(`/jobs/filters`);
+    return this.organizationsService.getFilterConfigs();
+  }
+
   @Get("/search")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
@@ -131,6 +218,34 @@ export class OrganizationsController {
           message: `Error retrieving organizations for query!`,
         };
       });
+  }
+
+  @Get("details/:id")
+  @ApiOkResponse({
+    description: "Returns the organization details for the provided id",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(OrgListResult),
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  @ApiNotFoundResponse({
+    description:
+      "Returns that no organization details were found for the provided id",
+    type: ResponseWithNoData,
+  })
+  async getOrgDetailsById(
+    @Param("id") id: string,
+  ): Promise<OrgListResult | undefined> {
+    this.logger.log(`/organizations/details/${id}`);
+    return this.organizationsService.getOrgDetailsById(id);
   }
 
   @Get("/:id")
