@@ -121,6 +121,7 @@ describe("OrganizationsController", () => {
               port: configService.get<string>("NEO4J_PORT"),
               scheme: configService.get<string>("NEO4J_SCHEME"),
               username: configService.get<string>("NEO4J_USERNAME"),
+              database: configService.get<string>("NEO4J_DATABASE"),
             } as Neo4jConnection),
         }),
       ],
