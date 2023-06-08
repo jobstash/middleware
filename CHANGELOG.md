@@ -1,3 +1,10 @@
+## [1.28.17](https://github.com/jobstash/middleware/compare/v1.28.16...v1.28.17) (2023-06-08)
+
+
+### Bug Fixes
+
+* **neoconfig:** add db config everywhere ([b564dcf](https://github.com/jobstash/middleware/commit/b564dcf4fc55b0b50f6812a90267d6b05445c25f))
+
 ## [1.28.16](https://github.com/jobstash/middleware/compare/v1.28.15...v1.28.16) (2023-06-08)
 
 
