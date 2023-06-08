@@ -4,4 +4,6 @@ export * from "./organization.entity";
 export * from "./user-role.entity";
 export * from "./user-flow.entity";
 export * from "./job-list-result.entity";
+export * from "./org-list-result.entity";
 export * from "./job-filter-configs.entity";
+export * from "./org-filter-configs.entity";

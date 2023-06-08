@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
 import {
   intConverter,
-  orderBySelector,
+  jobListOrderBySelector,
   publicationDateRangeGenerator,
 } from "src/shared/helpers";
 import {
@@ -196,7 +196,7 @@ export class JobsService {
                 AND ($token IS NULL OR (anchor_project IS NOT NULL AND anchor_project.tokenAddress IS NOT NULL = $token))
 
               // Drop results that don't have the sort param
-              AND ${orderBySelector({
+              AND ${jobListOrderBySelector({
                 orderBy: params.orderBy ?? "publicationDate",
                 jobVar: "structured_jobpost",
                 orgVar: "organization",
@@ -211,7 +211,7 @@ export class JobsService {
 
               // <--Sorter Embedding-->
               // The sorter has to be embedded in this manner due to its dynamic nature
-              ORDER BY ${orderBySelector({
+              ORDER BY ${jobListOrderBySelector({
                 orderBy: params.orderBy ?? "publicationDate",
                 jobVar: "structured_jobpost",
                 orgVar: "organization",
@@ -296,22 +296,22 @@ export class JobsService {
         OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
         WITH o, p, j, t, f, i, c, cat, COUNT(DISTINCT a) as audits
         RETURN {
-            minSalaryRange: MIN(j.medianSalary),
-            maxSalaryRange: MAX(j.medianSalary),
-            minTvl: MIN(p.tvl),
-            maxTvl: MAX(p.tvl),
-            minMonthlyVolume: MIN(p.monthlyVolume),
-            maxMonthlyVolume: MAX(p.monthlyVolume),
-            minMonthlyFees: MIN(p.monthlyFees),
-            maxMonthlyFees: MAX(p.monthlyFees),
-            minMonthlyRevenue: MIN(p.monthlyRevenue),
-            maxMonthlyRevenue: MAX(p.monthlyRevenue),
-            minHeadCount: MIN(o.headCount),
-            maxHeadCount: MAX(o.headCount),
-            minTeamSize: MIN(p.teamSize),
-            maxTeamSize: MAX(p.teamSize),
-            minAudits: MIN(audits),
-            maxAudits: MAX(audits),
+            minSalaryRange: MIN(CASE WHEN NOT j.medianSalary IS NULL AND isNaN(j.medianSalary) = false THEN toFloat(j.medianSalary) END),
+            maxSalaryRange: MAX(CASE WHEN NOT j.medianSalary IS NULL AND isNaN(j.medianSalary) = false THEN toFloat(j.medianSalary) END),
+            minTvl: MIN(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
+            maxTvl: MAX(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
+            minMonthlyVolume: MIN(CASE WHEN NOT p.monthlyVolume IS NULL AND isNaN(p.monthlyVolume) = false THEN toFloat(p.monthlyVolume) END),
+            maxMonthlyVolume: MAX(CASE WHEN NOT p.monthlyVolume IS NULL AND isNaN(p.monthlyVolume) = false THEN toFloat(p.monthlyVolume) END),
+            minMonthlyFees: MIN(CASE WHEN NOT p.monthlyFees IS NULL AND isNaN(p.monthlyFees) = false THEN toFloat(p.monthlyFees) END),
+            maxMonthlyFees: MAX(CASE WHEN NOT p.monthlyFees IS NULL AND isNaN(p.monthlyFees) = false THEN toFloat(p.monthlyFees) END),
+            minMonthlyRevenue: MIN(CASE WHEN NOT p.monthlyRevenue IS NULL AND isNaN(p.monthlyRevenue) = false THEN toFloat(p.monthlyRevenue) END),
+            maxMonthlyRevenue: MAX(CASE WHEN NOT p.monthlyRevenue IS NULL AND isNaN(p.monthlyRevenue) = false THEN toFloat(p.monthlyRevenue) END),
+            minHeadCount: MIN(CASE WHEN NOT o.headCount IS NULL AND isNaN(o.headCount) = false THEN toFloat(o.headCount) END),
+            maxHeadCount: MAX(CASE WHEN NOT o.headCount IS NULL AND isNaN(o.headCount) = false THEN toFloat(o.headCount) END),
+            minTeamSize: MIN(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
+            maxTeamSize: MAX(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
+            minAudits: MIN(CASE WHEN NOT audits IS NULL AND isNaN(audits) = false THEN toFloat(audits) END),
+            maxAudits: MAX(CASE WHEN NOT audits IS NULL AND isNaN(audits) = false THEN toFloat(audits) END),
             tech: COLLECT(DISTINCT t.name),
             fundingRounds: COLLECT(DISTINCT f.roundName),
             investors: COLLECT(DISTINCT i.name),

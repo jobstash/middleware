@@ -24,6 +24,7 @@ const envSchema = Joi.object({
     "neo4j+scc",
   ),
   NEO4J_USERNAME: Joi.string(),
+  NEO4J_DATABASE: Joi.string(),
   NFT_STORAGE_API_KEY: Joi.string(),
   NODE_ENV: Joi.string()
     .valid("development", "production", "test", "staging")

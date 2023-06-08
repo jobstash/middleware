@@ -1,4 +1,4 @@
-export type JobListOrder = "asc" | "desc";
+export type ListOrder = "asc" | "desc";
 export type JobListOrderBy =
   | "publicationDate"
   | "tvl"
@@ -12,6 +12,10 @@ export type JobListOrderBy =
   | "chains"
   | "teamSize"
   | "headCount";
+export type OrgListOrderBy =
+  | "recentFundingDate"
+  | "headCount"
+  | "recentJobDate";
 export type DateRange =
   | "today"
   | "this-week"

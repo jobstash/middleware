@@ -82,12 +82,14 @@ export class JobListResultEntity {
             chains: project?.chains ?? [],
           })) ?? [],
         fundingRounds:
-          organization?.fundingRounds.map(fr => ({
-            ...fr,
-            raisedAmount: nonZeroOrNull(fr?.raisedAmount),
-            roundName: notStringOrNull(fr?.roundName),
-            sourceLink: notStringOrNull(fr?.sourceLink),
-          })) ?? [],
+          organization?.fundingRounds
+            .map(fr => ({
+              ...fr,
+              raisedAmount: nonZeroOrNull(fr?.raisedAmount),
+              roundName: notStringOrNull(fr?.roundName),
+              sourceLink: notStringOrNull(fr?.sourceLink),
+            }))
+            .sort((a, b) => b.date - a.date) ?? [],
         investors: organization?.investors ?? [],
       },
       technologies: technologies ?? [],

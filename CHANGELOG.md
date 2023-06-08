@@ -1,3 +1,32 @@
+# [1.29.0](https://github.com/jobstash/middleware/compare/v1.28.17...v1.29.0) (2023-06-08)
+
+
+### Features
+
+* **organizations:** implement user facing orgs list ([#93](https://github.com/jobstash/middleware/issues/93)) ([594561e](https://github.com/jobstash/middleware/commit/594561ee6353e91ebfe3d71570095d519fe1379b)), closes [#92](https://github.com/jobstash/middleware/issues/92) [#92](https://github.com/jobstash/middleware/issues/92)
+
+## [1.28.17](https://github.com/jobstash/middleware/compare/v1.28.16...v1.28.17) (2023-06-08)
+
+
+### Bug Fixes
+
+* **neoconfig:** add db config everywhere ([b564dcf](https://github.com/jobstash/middleware/commit/b564dcf4fc55b0b50f6812a90267d6b05445c25f))
+
+## [1.28.16](https://github.com/jobstash/middleware/compare/v1.28.15...v1.28.16) (2023-06-08)
+
+
+### Bug Fixes
+
+* **ci:** add database variable in ci config ([1be7746](https://github.com/jobstash/middleware/commit/1be77460a60f2205e4f00cdcf4c5d8fa43661fae))
+
+## [1.28.15](https://github.com/jobstash/middleware/compare/v1.28.14...v1.28.15) (2023-06-07)
+
+
+### Bug Fixes
+
+* **jobs:** fixed nuked sorting for funding rounds ([#92](https://github.com/jobstash/middleware/issues/92)) ([a8a32ba](https://github.com/jobstash/middleware/commit/a8a32bab369b13832ee747b0f83ff825e2fb2022))
+
+
 ## [1.28.14](https://github.com/jobstash/middleware/compare/v1.28.13...v1.28.14) (2023-06-02)
 
 
