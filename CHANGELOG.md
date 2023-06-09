@@ -1,3 +1,10 @@
+## [1.29.1](https://github.com/jobstash/middleware/compare/v1.29.0...v1.29.1) (2023-06-09)
+
+
+### Bug Fixes
+
+* **cd:** fixed version ref ([fb82c80](https://github.com/jobstash/middleware/commit/fb82c801d9d2adb911058907609f38bc5a3257f3))
+
 # [1.29.0](https://github.com/jobstash/middleware/compare/v1.28.17...v1.29.0) (2023-06-08)
 
 

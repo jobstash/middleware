@@ -35,7 +35,7 @@ jobs:
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
         with:
           environment: ${{ github.ref_name }}
-          version: ${{ steps.semantic.outputs.new_release_version }}
+          version: ${{ steps.semver.outputs.new_release_version }}
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
