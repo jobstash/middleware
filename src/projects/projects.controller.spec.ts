@@ -6,14 +6,55 @@ import { Neo4jConnection, Neo4jModule } from "nest-neo4j/dist";
 import { ProjectsService } from "./projects.service";
 import { ProjectListParams } from "./dto/project-list.input";
 import { Integer } from "neo4j-driver";
-import { ProjectFilterConfigs, ProjectProperties } from "src/shared/interfaces";
-import { inferObjectType, printDuplicateItems } from "src/shared/helpers";
+import {
+  Project,
+  ProjectFilterConfigs,
+  ProjectProperties,
+} from "src/shared/interfaces";
+import {
+  hasDuplicates,
+  inferObjectType,
+  printDuplicateItems,
+} from "src/shared/helpers";
 import { BackendService } from "src/backend/backend.service";
 import { createMock } from "@golevelup/ts-jest";
 import { isRight } from "fp-ts/lib/Either";
 
 describe("ProjectsController", () => {
   let controller: ProjectsController;
+
+  const projectHasArrayPropsDuplication = (project: Project): boolean => {
+    const hasDuplicateAudits = hasDuplicates(
+      project.audits,
+      a => a.auditor.toLowerCase(),
+      `Audit for Project ${project.id}`,
+    );
+    const hasDuplicateHacks = hasDuplicates(
+      project.hacks,
+      h => h.id,
+      `Hack for Project ${project.id}`,
+    );
+    const hasDuplicateChains = hasDuplicates(
+      project.chains,
+      c => c.id,
+      `Chain for Project ${project.id}`,
+    );
+    const hasDuplicateCategories = hasDuplicates(
+      project.categories,
+      c => c.id,
+      `Category for Project ${project.id}`,
+    );
+    expect(hasDuplicateAudits).toBe(false);
+    expect(hasDuplicateHacks).toBe(false);
+    expect(hasDuplicateChains).toBe(false);
+    expect(hasDuplicateCategories).toBe(false);
+    return (
+      hasDuplicateAudits &&
+      hasDuplicateHacks &&
+      hasDuplicateChains &&
+      hasDuplicateCategories
+    );
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -109,4 +150,19 @@ describe("ProjectsController", () => {
       );
     }
   }, 100000);
+
+  it("should get job details with no array property duplication", async () => {
+    const params: ProjectListParams = {
+      ...new ProjectListParams(),
+      page: 1,
+      limit: 1,
+    };
+
+    const project = (await controller.getProjectsListWithSearch(params))
+      .data[0];
+
+    const details = await controller.getProjectDetailsById(project.id);
+
+    expect(projectHasArrayPropsDuplication(details)).toBe(false);
+  }, 10000);
 });

@@ -203,7 +203,7 @@ export class ProjectsController {
       "Returns that no job details were found for the specified uuid",
     type: ResponseWithNoData,
   })
-  async getProjectDetailsByUuid(
+  async getProjectDetailsById(
     @Param("id") id: string,
   ): Promise<ProjectListResult | undefined> {
     this.logger.log(`/projects/details/${id}`);
