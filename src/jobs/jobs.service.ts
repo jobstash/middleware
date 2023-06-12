@@ -268,7 +268,7 @@ export class JobsService {
           scope.setExtra("input", params);
           Sentry.captureException(err);
         });
-        this.logger.error(`JobsService::getAll ${err.message}`);
+        this.logger.error(`JobsService::getJobsListWithSearch ${err.message}`);
         return {
           page: -1,
           count: 0,

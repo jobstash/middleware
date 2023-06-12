@@ -1,5 +1,10 @@
 import { Integer } from "neo4j-driver";
-import { DateRange, JobListOrderBy, OrgListOrderBy } from "../enums";
+import {
+  DateRange,
+  JobListOrderBy,
+  OrgListOrderBy,
+  ProjectListOrderBy,
+} from "../enums";
 import {
   startOfDay,
   endOfDay,
@@ -97,6 +102,44 @@ export const jobListOrderBySelector = (args: {
 
     case "teamSize":
       return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.teamSize ELSE ${jobVar}.jobCreatedTimestamp / 1000000000 END)`;
+
+    default:
+      return null;
+  }
+};
+
+export const projectListOrderBySelector = (args: {
+  projectVar: string;
+  auditsVar: string;
+  hacksVar: string;
+  chainsVar: string;
+  orderBy: ProjectListOrderBy;
+}): string | null => {
+  const { projectVar, auditsVar, hacksVar, chainsVar, orderBy } = args;
+  switch (orderBy) {
+    case "tvl":
+      return `${projectVar}.tvl`;
+
+    case "monthlyVolume":
+      return `${projectVar}.monthlyVolume`;
+
+    case "monthlyFees":
+      return `${projectVar}.monthlyFees`;
+
+    case "monthlyRevenue":
+      return `${projectVar}.monthlyRevenue`;
+
+    case "audits":
+      return auditsVar;
+
+    case "hacks":
+      return hacksVar;
+
+    case "chains":
+      return chainsVar;
+
+    case "teamSize":
+      return `${projectVar}.teamSize`;
 
     default:
       return null;
