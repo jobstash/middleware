@@ -6,10 +6,11 @@ import { Neo4jConnection, Neo4jModule } from "nest-neo4j/dist";
 import { ProjectsService } from "./projects.service";
 import { ProjectListParams } from "./dto/project-list.input";
 import { Integer } from "neo4j-driver";
-import { ProjectProperties } from "src/shared/interfaces";
-import { printDuplicateItems } from "src/shared/helpers";
+import { ProjectFilterConfigs, ProjectProperties } from "src/shared/interfaces";
+import { inferObjectType, printDuplicateItems } from "src/shared/helpers";
 import { BackendService } from "src/backend/backend.service";
 import { createMock } from "@golevelup/ts-jest";
+import { isRight } from "fp-ts/lib/Either";
 
 describe("ProjectsController", () => {
   let controller: ProjectsController;
@@ -74,4 +75,38 @@ describe("ProjectsController", () => {
 
     expect(setOfUuids.size).toBe(uuids.length);
   }, 300000);
+
+  it("should get correctly formatted filter configs", async () => {
+    const configs = await controller.getFilterConfigs();
+
+    expect(configs).toBeDefined();
+
+    const validationResult =
+      ProjectFilterConfigs.ProjectFilterConfigsType.decode(configs);
+    if (isRight(validationResult)) {
+      // The result is of the expected type
+      const validatedResult = validationResult.right;
+      expect(validatedResult).toEqual(configs);
+    } else {
+      // The result is not of the expected type
+      throw new Error(
+        `Error Serializing ProjectFilterConfigs! Constructor expected: \n {
+          tvl: RangeFilter,
+          audits: RangeFilter,
+          teamSize: RangeFilter,
+          monthlyFees: RangeFilter,
+          hacks: SingleSelectFilter,
+          token: SingleSelectFilter,
+          order: SingleSelectFilter,
+          monthlyVolume: RangeFilter,
+          monthlyRevenue: RangeFilter,
+          mainNet: SingleSelectFilter,
+          orderBy: SingleSelectFilter,
+          chains: MultiSelectSearchFilter,
+          categories: MultiSelectSearchFilter,
+          organizations: MultiSelectSearchFilter,
+        } got ${inferObjectType(configs)}`,
+      );
+    }
+  }, 100000);
 });

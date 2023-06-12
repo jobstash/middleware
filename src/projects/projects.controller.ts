@@ -30,6 +30,7 @@ import { Roles } from "src/shared/decorators/role.decorator";
 import { btoa, responseSchemaWrapper } from "src/shared/helpers";
 import {
   PaginatedData,
+  ProjectFilterConfigs,
   ProjectProperties,
   Response,
   ResponseWithNoData,
@@ -154,6 +155,29 @@ export class ProjectsController {
     };
     this.logger.log(`/projects/list ${JSON.stringify(paramsParsed)}`);
     return this.projectsService.getProjectsListWithSearch(paramsParsed);
+  }
+
+  @Get("/filters")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiOkResponse({
+    description: "Returns the configuration data for the ui filters",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ProjectFilterConfigs),
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  async getFilterConfigs(): Promise<ProjectFilterConfigs> {
+    this.logger.log(`/projects/filters`);
+    return this.projectsService.getFilterConfigs();
   }
 
   @Get("/category/:category")

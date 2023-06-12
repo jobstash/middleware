@@ -1,6 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
-import { PaginatedData, ProjectProperties } from "src/shared/types";
+import {
+  PaginatedData,
+  ProjectFilterConfigs,
+  ProjectFilterConfigsEntity,
+  ProjectProperties,
+} from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { ProjectListParams } from "./dto/project-list.input";
@@ -154,6 +159,54 @@ export class ProjectsService {
           total: 0,
           data: [],
         };
+      });
+  }
+
+  async getFilterConfigs(): Promise<ProjectFilterConfigs> {
+    return this.neo4jService
+      .read(
+        `
+        MATCH (p:Project)-[:HAS_CATEGORY]->(cat:ProjectCategory)
+        MATCH (o:Organization)-[:HAS_PROJECT]->(project)
+        OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(c:Chain)
+        OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
+        WITH o, p, c, cat, COUNT(DISTINCT a) as audits
+        RETURN {
+            minTvl: MIN(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
+            maxTvl: MAX(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
+            minMonthlyVolume: MIN(CASE WHEN NOT p.monthlyVolume IS NULL AND isNaN(p.monthlyVolume) = false THEN toFloat(p.monthlyVolume) END),
+            maxMonthlyVolume: MAX(CASE WHEN NOT p.monthlyVolume IS NULL AND isNaN(p.monthlyVolume) = false THEN toFloat(p.monthlyVolume) END),
+            minMonthlyFees: MIN(CASE WHEN NOT p.monthlyFees IS NULL AND isNaN(p.monthlyFees) = false THEN toFloat(p.monthlyFees) END),
+            maxMonthlyFees: MAX(CASE WHEN NOT p.monthlyFees IS NULL AND isNaN(p.monthlyFees) = false THEN toFloat(p.monthlyFees) END),
+            minMonthlyRevenue: MIN(CASE WHEN NOT p.monthlyRevenue IS NULL AND isNaN(p.monthlyRevenue) = false THEN toFloat(p.monthlyRevenue) END),
+            maxMonthlyRevenue: MAX(CASE WHEN NOT p.monthlyRevenue IS NULL AND isNaN(p.monthlyRevenue) = false THEN toFloat(p.monthlyRevenue) END),
+            minTeamSize: MIN(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
+            maxTeamSize: MAX(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
+            minAudits: MIN(CASE WHEN NOT audits IS NULL AND isNaN(audits) = false THEN toFloat(audits) END),
+            maxAudits: MAX(CASE WHEN NOT audits IS NULL AND isNaN(audits) = false THEN toFloat(audits) END),
+            categories: COLLECT(DISTINCT cat.name),
+            chains: COLLECT(DISTINCT c.name),
+            organizations: COLLECT(DISTINCT o.name)
+        } as res
+      `,
+      )
+      .then(res =>
+        res.records.length
+          ? new ProjectFilterConfigsEntity(
+              res.records[0].get("res"),
+            ).getProperties()
+          : undefined,
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "projects.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`ProjectsService::getFilterConfigs ${err.message}`);
+        return undefined;
       });
   }
 
