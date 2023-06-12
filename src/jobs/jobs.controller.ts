@@ -4,14 +4,17 @@ import {
   Header,
   Param,
   Query,
+  UseGuards,
   ValidationPipe,
 } from "@nestjs/common";
 import { JobsService } from "./jobs.service";
 import {
+  CheckWalletRoles,
   JobFilterConfigs,
   JobListResult,
   PaginatedData,
   ResponseWithNoData,
+  StructuredJobpost,
   ValidationError,
 } from "src/shared/types";
 import {
@@ -29,6 +32,8 @@ import {
   CACHE_EXPIRY,
 } from "src/shared/presets/cache-control";
 import { btoa } from "src/shared/helpers";
+import { RBACGuard } from "src/auth/rbac.guard";
+import { Roles } from "src/shared/decorators/role.decorator";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
@@ -165,5 +170,41 @@ export class JobsController {
   async getOrgJobsList(@Param("uuid") uuid: string): Promise<JobListResult[]> {
     this.logger.log(`/jobs/org/${uuid}`);
     return this.jobsService.getJobsByOrgUuid(uuid);
+  }
+
+  @Get("/all")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description:
+      "Returns a paginated, sorted list of jobs that satisfy the search and filter predicate",
+    type: PaginatedData<StructuredJobpost>,
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(PaginatedData),
+          properties: {
+            page: {
+              type: "number",
+            },
+            count: {
+              type: "number",
+            },
+            data: {
+              type: "array",
+              items: { $ref: getSchemaPath(StructuredJobpost) },
+            },
+          },
+        },
+      ],
+    },
+  })
+  async getAllJobs(): Promise<PaginatedData<StructuredJobpost>> {
+    return {
+      page: -1,
+      count: 0,
+      total: 0,
+      data: [],
+    };
   }
 }
