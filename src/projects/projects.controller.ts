@@ -19,6 +19,7 @@ import {
   ApiBadRequestResponse,
   ApiExtraModels,
   ApiInternalServerErrorResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiUnprocessableEntityResponse,
   getSchemaPath,
@@ -32,6 +33,7 @@ import {
   PaginatedData,
   ProjectFilterConfigs,
   ProjectProperties,
+  ProjectListResult,
   Response,
   ResponseWithNoData,
 } from "src/shared/types";
@@ -178,6 +180,34 @@ export class ProjectsController {
   async getFilterConfigs(): Promise<ProjectFilterConfigs> {
     this.logger.log(`/projects/filters`);
     return this.projectsService.getFilterConfigs();
+  }
+
+  @Get("details/:id")
+  @ApiOkResponse({
+    description: "Returns the project details for the provided id",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ProjectListResult),
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  @ApiNotFoundResponse({
+    description:
+      "Returns that no job details were found for the specified uuid",
+    type: ResponseWithNoData,
+  })
+  async getProjectDetailsByUuid(
+    @Param("id") id: string,
+  ): Promise<ProjectListResult | undefined> {
+    this.logger.log(`/projects/details/${id}`);
+    return this.projectsService.getProjectDetailsById(id);
   }
 
   @Get("/category/:category")

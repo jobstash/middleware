@@ -4,6 +4,8 @@ import {
   PaginatedData,
   ProjectFilterConfigs,
   ProjectFilterConfigsEntity,
+  ProjectListResult,
+  ProjectListResultEntity,
   ProjectProperties,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -206,6 +208,101 @@ export class ProjectsService {
           Sentry.captureException(err);
         });
         this.logger.error(`ProjectsService::getFilterConfigs ${err.message}`);
+        return undefined;
+      });
+  }
+
+  async getProjectDetailsById(
+    id: string,
+  ): Promise<ProjectListResult | undefined> {
+    return this.neo4jService
+      .read(
+        `
+        MATCH (project: Project {id: $id})
+        MATCH (organization: Organization)-[:HAS_PROJECT]->(project:Project)-[:HAS_CATEGORY]->(project_category:ProjectCategory)
+        OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
+        OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
+        OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain:Chain)
+        WITH organization, project, COLLECT(DISTINCT PROPERTIES(project_category)) AS categories, 
+          COLLECT(DISTINCT PROPERTIES(audit)) AS audits,
+          COLLECT(DISTINCT PROPERTIES(hack)) AS hacks,
+          COLLECT(DISTINCT PROPERTIES(chain)) AS chains
+
+        WITH {
+            id: project.id,
+            defiLlamaId: project.defiLlamaId,
+            defiLlamaSlug: project.defiLlamaSlug,
+            defiLlamaParent: project.defiLlamaParent,
+            name: project.name,
+            description: project.description,
+            url: project.url,
+            logo: project.logo,
+            tokenAddress: project.tokenAddress,
+            tokenSymbol: project.tokenSymbol,
+            isInConstruction: project.isInConstruction,
+            tvl: project.tvl,
+            monthlyVolume: project.monthlyVolume,
+            monthlyFees: project.monthlyFees,
+            monthlyRevenue: project.monthlyRevenue,
+            monthlyActiveUsers: project.monthlyActiveUsers,
+            isMainnet: project.isMainnet,
+            telegram: project.telegram,
+            orgId: project.orgId,
+            cmcId: project.cmcId,
+            twitter: project.twitter,
+            discord: project.discord,
+            docs: project.docs,
+            teamSize: project.teamSize,
+            githubOrganization: project.githubOrganization,
+            category: project.category,
+            createdTimestamp: project.createdTimestamp,
+            updatedTimestamp: project.updatedTimestamp,
+            organization: {
+              id: organization.id,
+              orgId: organization.orgId,
+              name: organization.name,
+              description: organization.description,
+              summary: organization.summary,
+              location: organization.location,
+              url: organization.url,
+              twitter: organization.twitter,
+              discord: organization.discord,
+              github: organization.github,
+              telegram: organization.telegram,
+              docs: organization.docs,
+              jobsiteLink: organization.jobsiteLink,
+              createdTimestamp: organization.createdTimestamp,
+              updatedTimestamp: organization.updatedTimestamp,
+              teamSize: organization.teamSize
+            },
+            categories: [category in categories WHERE category.id IS NOT NULL],
+            hacks: [hack in hacks WHERE hack.id IS NOT NULL],
+            audits: [audit in audits WHERE audit.id IS NOT NULL],
+            chains: [chain in chains WHERE chain.id IS NOT NULL]
+          } as res
+        RETURN res
+        `,
+        { id },
+      )
+      .then(res =>
+        res.records.length
+          ? new ProjectListResultEntity(
+              res.records[0].get("res"),
+            ).getProperties()
+          : undefined,
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "projects.service",
+          });
+          scope.setExtra("input", id);
+          Sentry.captureException(err);
+        });
+        this.logger.error(
+          `ProjectsService::getProjectDetailsById ${err.message}`,
+        );
         return undefined;
       });
   }
