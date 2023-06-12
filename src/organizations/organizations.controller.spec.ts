@@ -26,27 +26,27 @@ describe("OrganizationsController", () => {
 
   const projectHasArrayPropsDuplication = (
     project: Project,
-    jobPostUUID: string,
+    orgId: string,
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
       project.audits,
       a => a.auditor.toLowerCase(),
-      `Audit for Project ${project.id} for Org ${jobPostUUID}`,
+      `Audit for Project ${project.id} for Org ${orgId}`,
     );
     const hasDuplicateHacks = hasDuplicates(
       project.hacks,
       h => h.id,
-      `Hack for Project ${project.id} for Org ${jobPostUUID}`,
+      `Hack for Project ${project.id} for Org ${orgId}`,
     );
     const hasDuplicateChains = hasDuplicates(
       project.chains,
       c => c.id,
-      `Chain for Project ${project.id} for Org ${jobPostUUID}`,
+      `Chain for Project ${project.id} for Org ${orgId}`,
     );
     const hasDuplicateCategories = hasDuplicates(
       project.categories,
       c => c.id,
-      `Category for Project ${project.id} for Org ${jobPostUUID}`,
+      `Category for Project ${project.id} for Org ${orgId}`,
     );
     expect(hasDuplicateAudits).toBe(false);
     expect(hasDuplicateHacks).toBe(false);

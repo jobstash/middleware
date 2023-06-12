@@ -20,5 +20,7 @@ export * from "./project-category.interface";
 export * from "./structured-jobpost.interface";
 export * from "./job-filter-configs.interface";
 export * from "./org-filter-configs.interface";
+export * from "./project-list-result.interface";
+export * from "./project-filter-configs.interface";
 export * from "./technology-primary-term.interface";
 export * from "./technology-preferred-term.interface";

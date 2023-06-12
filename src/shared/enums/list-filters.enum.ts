@@ -12,6 +12,17 @@ export type JobListOrderBy =
   | "chains"
   | "teamSize"
   | "headCount";
+
+export type ProjectListOrderBy =
+  | "tvl"
+  | "monthlyVolume"
+  | "monthlyFees"
+  | "monthlyRevenue"
+  | "audits"
+  | "hacks"
+  | "chains"
+  | "teamSize";
+
 export type OrgListOrderBy =
   | "recentFundingDate"
   | "headCount"
