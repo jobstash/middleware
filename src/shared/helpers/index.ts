@@ -199,12 +199,12 @@ export const notStringOrNull = (
 };
 
 export const nonZeroOrNull = (
-  value: number | null | undefined,
+  value: { low: number; high: number } | number | null | undefined,
 ): number | null => {
   if (value === 0 || typeof value === "undefined" || value === null) {
     return null;
   } else {
-    return value;
+    return typeof value === "object" ? intConverter(value) : value;
   }
 };
 
