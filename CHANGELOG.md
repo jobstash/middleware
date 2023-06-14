@@ -1,3 +1,10 @@
+## [1.29.2](https://github.com/jobstash/middleware/compare/v1.29.1...v1.29.2) (2023-06-14)
+
+
+### Bug Fixes
+
+* **jobs:** added automagic converter for numbers in jobs list result interface from neo object number type to JS number ([bf7bf30](https://github.com/jobstash/middleware/commit/bf7bf303145a8a83cfdbef2e69eebc8d89b1f5d5))
+
 ## [1.29.1](https://github.com/jobstash/middleware/compare/v1.29.0...v1.29.1) (2023-06-09)
 
 
