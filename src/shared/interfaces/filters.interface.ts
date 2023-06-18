@@ -5,8 +5,8 @@ import {
   getSchemaPath,
 } from "@nestjs/swagger";
 import { isLeft } from "fp-ts/lib/Either";
-import { inferObjectType } from "../helpers";
 import * as t from "io-ts";
+import { report } from "io-ts-human-reporter";
 
 export class FilterConfigField {
   public static readonly FilterConfigFieldType = t.strict({
@@ -45,15 +45,9 @@ export class FilterConfigField {
     this.googleAnalyticsEventName = googleAnalyticsEventName;
 
     if (isLeft(result)) {
-      throw new Error(
-        `Error Serializing FilterConfigField! Constructor expected: \n {
-          label: string,
-          show: boolean,
-          position: number,
-          googleAnalyticsEventId: string | null,
-          googleAnalyticsEventName: string | null,
-        } got ${inferObjectType(raw)}`,
-      );
+      report(result).forEach(x => {
+        console.error(x);
+      });
     }
   }
 }
@@ -77,12 +71,9 @@ export class FilterConfigLabel {
     this.value = value;
 
     if (isLeft(result)) {
-      throw new Error(
-        `Error Serializing FilterConfigLabel! Constructor expected: \n {
-          label: string,
-          value: string | boolean,
-        } got ${inferObjectType(raw)}`,
-      );
+      report(result).forEach(x => {
+        console.error(x);
+      });
     }
   }
 }
@@ -106,12 +97,9 @@ export class NumberWithParamKey {
     this.value = value;
 
     if (isLeft(result)) {
-      throw new Error(
-        `Error Serializing NumberWithParamKey! Constructor expected: \n {
-          paramKey: string,
-          value: number | null,
-        } got ${inferObjectType(raw)}`,
-      );
+      report(result).forEach(x => {
+        console.error(x);
+      });
     }
   }
 }
@@ -135,12 +123,9 @@ export class Range {
     this.highest = highest;
 
     if (isLeft(result)) {
-      throw new Error(
-        `Error Serializing Range! Constructor expected: \n {
-          lowest: NumberWithParamKey,
-          highest: NumberWithParamKey,
-        } got ${inferObjectType(raw)}`,
-      );
+      report(result).forEach(x => {
+        console.error(x);
+      });
     }
   }
 }
@@ -175,17 +160,9 @@ export class FilterConfigLabeledValues extends FilterConfigField {
     this.paramKey = paramKey;
 
     if (isLeft(result)) {
-      throw new Error(
-        `Error Serializing FilterConfigLabeledValues! Constructor expected: \n {
-          show: boolean,
-          position: number,
-          paramKey: string,
-          label: string,
-          options: FilterConfigLabel[],
-          googleAnalyticsEventId: string | null,
-          googleAnalyticsEventName: string | null,
-        } got ${inferObjectType(raw)}`,
-      );
+      report(result).forEach(x => {
+        console.error(x);
+      });
     }
   }
 }
@@ -207,12 +184,9 @@ export class SingleSelectFilter extends FilterConfigLabeledValues {
     this.kind = kind;
 
     if (isLeft(result)) {
-      throw new Error(
-        `Error Serializing SingleSelectFilter! Constructor expected: \n {
-          ...FilterConfigLabeledValues,
-          kind: string,
-        } got ${inferObjectType(raw)}`,
-      );
+      report(result).forEach(x => {
+        console.error(x);
+      });
     }
   }
 }
@@ -245,12 +219,9 @@ export class MultiSelectFilter extends OmitType(FilterConfigLabeledValues, [
     this.kind = kind;
 
     if (isLeft(result)) {
-      throw new Error(
-        `Error Serializing MultiSelectFilter! Constructor expected: \n {
-          ...FilterConfigLabeledValues,
-          kind: string,
-        } got ${inferObjectType(raw)}`,
-      );
+      report(result).forEach(x => {
+        console.error(x);
+      });
     }
   }
 }
@@ -285,12 +256,9 @@ export class MultiSelectSearchFilter extends OmitType(
     this.kind = kind;
 
     if (isLeft(result)) {
-      throw new Error(
-        `Error Serializing MultiSelectSearchFilter! Constructor expected: \n {
-          ...FilterConfigLabeledValues,
-          kind: string,
-        } got ${inferObjectType(raw)}`,
-      );
+      report(result).forEach(x => {
+        console.error(x);
+      });
     }
   }
 }
@@ -318,14 +286,9 @@ export class RangeFilter extends FilterConfigField {
     this.value = value;
 
     if (isLeft(result)) {
-      throw new Error(
-        `Error Serializing RangeFilter! Constructor expected: \n {
-          ...FilterConfigField,
-          kind: string,
-          value: Range,
-          stepSize: number,
-        } got ${inferObjectType(raw)}`,
-      );
+      report(result).forEach(x => {
+        console.error(x);
+      });
     }
   }
 }

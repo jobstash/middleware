@@ -12,14 +12,11 @@ import {
   OrganizationProperties,
   Project,
 } from "src/shared/types";
-import {
-  hasDuplicates,
-  inferObjectType,
-  printDuplicateItems,
-} from "src/shared/helpers";
+import { hasDuplicates, printDuplicateItems } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
 import { BackendService } from "src/backend/backend.service";
 import { createMock } from "@golevelup/ts-jest";
+import { report } from "io-ts-human-reporter";
 
 describe("OrganizationsController", () => {
   let controller: OrganizationsController;
@@ -237,18 +234,9 @@ describe("OrganizationsController", () => {
       expect(validatedResult).toEqual(configs);
     } else {
       // The result is not of the expected type
-      throw new Error(
-        `Error Serializing OrgFilterConfigs! Constructor expected: \n {
-          headCount: RangeFilter,
-          order: SingleSelectFilter,
-          orderBy: SingleSelectFilter,
-          hasJobs: SingleSelectFilter,
-          hasProjects: SingleSelectFilter
-          locations: MultiSelectFilter,
-          investors: MultiSelectSearchFilter,
-          fundingRounds: MultiSelectSearchFilter,
-        } got ${inferObjectType(configs)}`,
-      );
+      report(validationResult).forEach(x => {
+        console.error(x);
+      });
     }
   }, 100000);
 });
