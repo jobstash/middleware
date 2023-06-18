@@ -5,14 +5,12 @@ import {
   getSchemaPath,
 } from "@nestjs/swagger";
 import * as t from "io-ts";
-// import { inferObjectType } from "../helpers";
-// import { isLeft } from "fp-ts/lib/Either";
 import { Technology } from "./technology.interface";
 import { FundingRound } from "./funding-round.interface";
 import { Project } from "./project.interface";
 import { Investor } from "./investor.interface";
-import { inferObjectType } from "../helpers";
 import { isLeft } from "fp-ts/lib/Either";
+import { report } from "io-ts-human-reporter";
 
 export class OrganizationProperties {
   public static readonly OrganizationPropertiesType = t.strict({
@@ -135,28 +133,9 @@ export class OrganizationProperties {
     this.updatedTimestamp = updatedTimestamp;
 
     if (isLeft(result)) {
-      throw new Error(
-        `Error Serializing OrganizationProperties! Constructor expected: \n {
-          id: string,
-          url: string,
-          name: string,
-          orgId: string,
-          summary: string,
-          location: string,
-          description: string,
-          jobsiteLink: string,
-          docs: string | null,
-          github: string | null,
-          altName: string | null,
-          twitter: string | null,
-          discord: string | null,
-          teamSize: number | null,
-          telegram: string | null,
-          headCount: number | null,
-          createdTimestamp: number | null,
-          updatedTimestamp: number | null,
-        } got ${inferObjectType(raw)}`,
-      );
+      report(result).forEach(x => {
+        console.error(x);
+      });
     }
   }
 }
@@ -199,15 +178,9 @@ export class Organization extends OrganizationProperties {
     this.fundingRounds = fundingRounds;
 
     if (isLeft(result)) {
-      throw new Error(
-        `Error Serializing Project! Constructor expected: \n {
-          ...OrganizationProperties,
-          projects: Project[],
-          investors: Investor[],
-          fundingRounds: FundingRound[],
-        }
-        got ${inferObjectType(raw)}`,
-      );
+      report(result).forEach(x => {
+        console.error(x);
+      });
     }
   }
 }

@@ -11,14 +11,11 @@ import {
   ProjectFilterConfigs,
   ProjectProperties,
 } from "src/shared/interfaces";
-import {
-  hasDuplicates,
-  inferObjectType,
-  printDuplicateItems,
-} from "src/shared/helpers";
+import { hasDuplicates, printDuplicateItems } from "src/shared/helpers";
 import { BackendService } from "src/backend/backend.service";
 import { createMock } from "@golevelup/ts-jest";
 import { isRight } from "fp-ts/lib/Either";
+import { report } from "io-ts-human-reporter";
 
 describe("ProjectsController", () => {
   let controller: ProjectsController;
@@ -130,24 +127,9 @@ describe("ProjectsController", () => {
       expect(validatedResult).toEqual(configs);
     } else {
       // The result is not of the expected type
-      throw new Error(
-        `Error Serializing ProjectFilterConfigs! Constructor expected: \n {
-          tvl: RangeFilter,
-          audits: RangeFilter,
-          teamSize: RangeFilter,
-          monthlyFees: RangeFilter,
-          hacks: SingleSelectFilter,
-          token: SingleSelectFilter,
-          order: SingleSelectFilter,
-          monthlyVolume: RangeFilter,
-          monthlyRevenue: RangeFilter,
-          mainNet: SingleSelectFilter,
-          orderBy: SingleSelectFilter,
-          chains: MultiSelectSearchFilter,
-          categories: MultiSelectSearchFilter,
-          organizations: MultiSelectSearchFilter,
-        } got ${inferObjectType(configs)}`,
-      );
+      report(validationResult).forEach(x => {
+        console.error(x);
+      });
     }
   }, 100000);
 

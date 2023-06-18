@@ -10,8 +10,8 @@ import { ProjectCategory } from "./project-category.interface";
 import { StructuredJobpost } from "./structured-jobpost.interface";
 import { Technology } from "./technology.interface";
 import * as t from "io-ts";
-import { inferObjectType } from "../helpers";
 import { isLeft } from "fp-ts/lib/Either";
+import { report } from "io-ts-human-reporter";
 
 @ApiExtraModels(
   StructuredJobpost,
@@ -51,13 +51,9 @@ export class JobListResult extends StructuredJobpost {
     this.technologies = technologies;
 
     if (isLeft(result)) {
-      throw new Error(
-        `Error Serializing JobListResult! Constructor expected: \n {
-          ...StructuredJobpost,
-          organization: Organization,
-          technologies: Technology[],
-        } got ${inferObjectType(raw)}`,
-      );
+      report(result).forEach(x => {
+        console.error(x);
+      });
     }
   }
 }

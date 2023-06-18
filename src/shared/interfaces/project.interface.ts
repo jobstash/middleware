@@ -10,8 +10,8 @@ import { Audit } from "./audit.interface";
 import { Chain } from "./chain.interface";
 import { Hack } from "./hack.interface";
 import { ProjectCategory } from "./project-category.interface";
-import { inferObjectType } from "../helpers";
 import { isLeft } from "fp-ts/lib/Either";
+import { report } from "io-ts-human-reporter";
 // import { isLeft } from "fp-ts/lib/Either";
 
 @ApiExtraModels(Audit, Hack, Chain, ProjectCategory)
@@ -168,39 +168,9 @@ export class ProjectProperties {
     this.githubOrganization = githubOrganization;
 
     if (isLeft(result)) {
-      throw new Error(
-        `Error Serializing ProjectProperties! Constructor expected: \n {
-          id: string,
-          url: string,
-          name: string,
-          logo: string,
-          orgId: string,
-          category: string,
-          tvl: number | null,
-          isMainnet: boolean,
-          description: string,
-          docs: string | null,
-          cmcId: string | null,
-          twitter: string | null,
-          discord: string | null,
-          telegram: string | null,
-          teamSize: number | null,
-          createdTimestamp: number,
-          defiLlamaId: string | null,
-          tokenSymbol: string | null,
-          monthlyFees: number | null,
-          tokenAddress: string | null,
-          defiLlamaSlug: string | null,
-          monthlyVolume: number | null,
-          monthlyRevenue: number | null,
-          defiLlamaParent: string | null,
-          updatedTimestamp: number | null,
-          isInConstruction: boolean | null,
-          monthlyActiveUsers: number | null,
-          githubOrganization: string | null,
-        }
-        got ${inferObjectType(raw)}`,
-      );
+      report(result).forEach(x => {
+        console.error(x);
+      });
     }
   }
 }
@@ -251,15 +221,9 @@ export class Project extends ProjectProperties {
     this.categories = categories;
 
     if (isLeft(result)) {
-      throw new Error(
-        `Error Serializing Project! Constructor expected: \n {
-          ...ProjectProperties,
-          hacks: Hack[],
-          audits: Audit[],
-          chains: Chain[],
-          categories: ProjectCategory[],
-        } got ${inferObjectType(raw)}`,
-      );
+      report(result).forEach(x => {
+        console.error(x);
+      });
     }
   }
 }

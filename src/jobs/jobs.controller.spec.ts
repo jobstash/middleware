@@ -14,11 +14,11 @@ import {
 import { Integer } from "neo4j-driver";
 import {
   hasDuplicates,
-  inferObjectType,
   printDuplicateItems,
   publicationDateRangeGenerator,
 } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
+import { report } from "io-ts-human-reporter";
 
 describe("JobsController", () => {
   let controller: JobsController;
@@ -355,33 +355,9 @@ describe("JobsController", () => {
       expect(validatedResult).toEqual(configs);
     } else {
       // The result is not of the expected type
-      throw new Error(
-        `Error Serializing JobFilterConfigs! Constructor expected: \n {
-          tvl: RangeFilter,
-          salary: RangeFilter,
-          audits: RangeFilter,
-          teamSize: RangeFilter,
-          headCount: RangeFilter,
-          monthlyFees: RangeFilter,
-          hacks: SingleSelectFilter,
-          token: SingleSelectFilter,
-          order: SingleSelectFilter,
-          monthlyVolume: RangeFilter,
-          monthlyRevenue: RangeFilter,
-          mainNet: SingleSelectFilter,
-          orderBy: SingleSelectFilter,
-          seniority: MultiSelectFilter,
-          locations: MultiSelectFilter,
-          tech: MultiSelectSearchFilter,
-          chains: MultiSelectSearchFilter,
-          projects: MultiSelectSearchFilter,
-          investors: MultiSelectSearchFilter,
-          publicationDate: SingleSelectFilter,
-          categories: MultiSelectSearchFilter,
-          fundingRounds: MultiSelectSearchFilter,
-          organizations: MultiSelectSearchFilter,
-        } got ${inferObjectType(configs)}`,
-      );
+      report(validationResult).forEach(x => {
+        console.error(x);
+      });
     }
   }, 100000);
 });

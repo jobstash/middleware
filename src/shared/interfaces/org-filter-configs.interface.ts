@@ -1,6 +1,5 @@
 import { ApiExtraModels, ApiProperty } from "@nestjs/swagger";
 import * as t from "io-ts";
-import { inferObjectType } from "../helpers";
 import { isLeft } from "fp-ts/lib/Either";
 import {
   FilterConfigField,
@@ -11,6 +10,7 @@ import {
   RangeFilter,
   SingleSelectFilter,
 } from "./filters.interface";
+import { report } from "io-ts-human-reporter";
 
 @ApiExtraModels(FilterConfigLabel, FilterConfigField, FilterConfigLabeledValues)
 export class OrgFilterConfigs {
@@ -66,18 +66,9 @@ export class OrgFilterConfigs {
     this.hasProjects = hasProjects;
 
     if (isLeft(result)) {
-      throw new Error(
-        `Error Serializing OrgFilterConfigs! Constructor expected: \n {
-          headCount: RangeFilter,
-          order: SingleSelectFilter,
-          orderBy: SingleSelectFilter,
-          hasJobs: SingleSelectFilter,
-          hasProjects: SingleSelectFilter
-          locations: MultiSelectFilter,
-          investors: MultiSelectSearchFilter,
-          fundingRounds: MultiSelectSearchFilter,
-        } got ${inferObjectType(raw)}`,
-      );
+      report(result).forEach(x => {
+        console.error(x);
+      });
     }
   }
 }

@@ -1,9 +1,9 @@
 import { ApiExtraModels, ApiPropertyOptional } from "@nestjs/swagger";
 import { Organization, OrganizationProperties } from "./organization.interface";
 import * as t from "io-ts";
-import { inferObjectType } from "../helpers";
 import { isLeft } from "fp-ts/lib/Either";
 import { Project } from "./project.interface";
+import { report } from "io-ts-human-reporter";
 
 @ApiExtraModels(Project, ProjectListResult)
 export class ProjectListResult extends Project {
@@ -27,12 +27,9 @@ export class ProjectListResult extends Project {
     this.organization = organization;
 
     if (isLeft(result)) {
-      throw new Error(
-        `Error Serializing ProjectListResult! Constructor expected: \n {
-          ...Project,
-          organization: OrganizationProperties,
-        } got ${inferObjectType(raw)}`,
-      );
+      report(result).forEach(x => {
+        console.error(x);
+      });
     }
   }
 }

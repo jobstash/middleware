@@ -1,6 +1,5 @@
 import { ApiExtraModels, ApiProperty } from "@nestjs/swagger";
 import * as t from "io-ts";
-import { inferObjectType } from "../helpers";
 import { isLeft } from "fp-ts/lib/Either";
 import {
   FilterConfigField,
@@ -11,6 +10,7 @@ import {
   RangeFilter,
   SingleSelectFilter,
 } from "./filters.interface";
+import { report } from "io-ts-human-reporter";
 
 @ApiExtraModels(FilterConfigLabel, FilterConfigField, FilterConfigLabeledValues)
 export class JobFilterConfigs {
@@ -141,33 +141,9 @@ export class JobFilterConfigs {
     this.publicationDate = publicationDate;
 
     if (isLeft(result)) {
-      throw new Error(
-        `Error Serializing JobFilterConfigs! Constructor expected: \n {
-          tvl: RangeFilter,
-          salary: RangeFilter,
-          audits: RangeFilter,
-          teamSize: RangeFilter,
-          headCount: RangeFilter,
-          monthlyFees: RangeFilter,
-          hacks: SingleSelectFilter,
-          token: SingleSelectFilter,
-          order: SingleSelectFilter,
-          monthlyVolume: RangeFilter,
-          monthlyRevenue: RangeFilter,
-          mainNet: SingleSelectFilter,
-          orderBy: SingleSelectFilter,
-          seniority: MultiSelectFilter,
-          locations: MultiSelectFilter,
-          tech: MultiSelectSearchFilter,
-          chains: MultiSelectSearchFilter,
-          projects: MultiSelectSearchFilter,
-          investors: MultiSelectSearchFilter,
-          publicationDate: SingleSelectFilter,
-          categories: MultiSelectSearchFilter,
-          fundingRounds: MultiSelectSearchFilter,
-          organizations: MultiSelectSearchFilter,
-        } got ${inferObjectType(raw)}`,
-      );
+      report(result).forEach(x => {
+        console.error(x);
+      });
     }
   }
 }
