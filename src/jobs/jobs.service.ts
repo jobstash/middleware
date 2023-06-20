@@ -40,6 +40,7 @@ export class JobsService {
               
               // Filtering further by jobpost filters. Priority is to ensure that each step removes as much redundant data as possible
               MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
+              MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
               MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
               WHERE ($minSalaryRange IS NULL OR (structured_jobpost.medianSalary IS NOT NULL AND structured_jobpost.medianSalary >= $minSalaryRange))
                 AND ($maxSalaryRange IS NULL OR (structured_jobpost.medianSalary IS NOT NULL AND structured_jobpost.medianSalary <= $maxSalaryRange))
@@ -290,6 +291,7 @@ export class JobsService {
         MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)
         MATCH (jp)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
         MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
+        MATCH (jp)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
         OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(cat:ProjectCategory)
         OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
         WHERE NOT (t)<-[:IS_BLOCKED_TERM]-()
@@ -354,6 +356,7 @@ export class JobsService {
       .read(
         `
         MATCH (organization:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
+        MATCH (jp)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
         MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost {shortUUID: $uuid})
         OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
         OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
@@ -485,6 +488,7 @@ export class JobsService {
       .read(
         `
         MATCH (organization:Organization {id: $uuid})-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
+        MATCH (jp)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
         MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
         OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
         OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
@@ -624,6 +628,7 @@ export class JobsService {
               
               // Filtering further by jobpost filters. Priority is to ensure that each step removes as much redundant data as possible
               MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)-[:IS_CATEGORIZED_AS]-(jobpost_category:JobpostCategory)
+              MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
               MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
               WHERE ($categories IS NULL OR jobpost_category.name IN $categories)
               AND ($query IS NULL OR structured_jobpost.title =~ $query)
@@ -745,6 +750,7 @@ export class JobsService {
       .read(
         `
         MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)
+        MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
         MATCH (jp)-[:IS_CATEGORIZED_AS]-(cat:JobpostCategory)
         WITH o, cat
         RETURN {
