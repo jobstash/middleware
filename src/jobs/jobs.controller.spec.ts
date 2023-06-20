@@ -6,6 +6,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { Neo4jConnection, Neo4jModule } from "nest-neo4j/dist";
 import envSchema from "src/env-schema";
 import {
+  AllJobsFilterConfigs,
   DateRange,
   JobFilterConfigs,
   JobListResult,
@@ -19,6 +20,7 @@ import {
 } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
+import { AllJobsListResult } from "src/shared/interfaces/all-jobs-list-result.interface";
 
 describe("JobsController", () => {
   let controller: JobsController;
@@ -101,6 +103,18 @@ describe("JobsController", () => {
     );
   };
 
+  const ajlrHasArrayPropsDuplication = (
+    jobListResult: AllJobsListResult,
+  ): boolean => {
+    const hasDuplicateTechs = hasDuplicates(
+      jobListResult.technologies,
+      x => x.id,
+      `Technologies for Jobpost ${jobListResult.shortUUID}`,
+    );
+    expect(hasDuplicateTechs).toBe(false);
+    return hasDuplicateTechs;
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
@@ -159,6 +173,33 @@ describe("JobsController", () => {
     expect(setOfUuids.size).toBe(uuids.length);
 
     expect(res.data.every(x => jlrHasArrayPropsDuplication(x) === false)).toBe(
+      true,
+    );
+  }, 300000);
+
+  it("should get all jobs list with no jobpost and array property duplication", async () => {
+    const params: JobListParams = {
+      ...new JobListParams(),
+      page: 1,
+      limit: Number(Integer.MAX_VALUE),
+    };
+    const res = await controller.getAllJobsWithSearch(params);
+
+    const uuids = res.data.map(job => job.shortUUID);
+    const setOfUuids = new Set([...uuids]);
+
+    expect(res).toEqual({
+      page: 1,
+      count: expect.any(Number),
+      total: expect.any(Number),
+      data: expect.any(Array<JobListResult>),
+    });
+
+    printDuplicateItems(setOfUuids, uuids, "StructuredJobpost with UUID");
+
+    expect(setOfUuids.size).toBe(uuids.length);
+
+    expect(res.data.every(x => ajlrHasArrayPropsDuplication(x) === false)).toBe(
       true,
     );
   }, 300000);
@@ -349,6 +390,25 @@ describe("JobsController", () => {
 
     const validationResult =
       JobFilterConfigs.JobFilterConfigsType.decode(configs);
+    if (isRight(validationResult)) {
+      // The result is of the expected type
+      const validatedResult = validationResult.right;
+      expect(validatedResult).toEqual(configs);
+    } else {
+      // The result is not of the expected type
+      report(validationResult).forEach(x => {
+        console.error(x);
+      });
+    }
+  }, 100000);
+
+  it("should get correctly formatted all jobs filter configs", async () => {
+    const configs = await controller.getAllJobsListFilterConfigs();
+
+    expect(configs).toBeDefined();
+
+    const validationResult =
+      AllJobsFilterConfigs.AllJobsFilterConfigsType.decode(configs);
     if (isRight(validationResult)) {
       // The result is of the expected type
       const validatedResult = validationResult.right;

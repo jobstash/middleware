@@ -16,6 +16,8 @@ import {
   ResponseWithNoData,
   StructuredJobpost,
   ValidationError,
+  AllJobsListResult,
+  AllJobsFilterConfigs,
 } from "src/shared/types";
 import {
   ApiBadRequestResponse,
@@ -26,6 +28,7 @@ import {
 } from "@nestjs/swagger";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { JobListParams } from "./dto/job-list.input";
+import { AllJobsParams } from "./dto/all-jobs.input";
 import {
   CACHE_CONTROL_HEADER,
   CACHE_DURATION,
@@ -177,7 +180,7 @@ export class JobsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description:
-      "Returns a paginated, sorted list of jobs that satisfy the search and filter predicate",
+      "Returns a paginated, sorted list of all jobs that satisfy the search and filter predicate",
     type: PaginatedData<StructuredJobpost>,
     schema: {
       allOf: [
@@ -199,12 +202,40 @@ export class JobsController {
       ],
     },
   })
-  async getAllJobs(): Promise<PaginatedData<StructuredJobpost>> {
-    return {
-      page: -1,
-      count: 0,
-      total: 0,
-      data: [],
+  async getAllJobsWithSearch(
+    @Query(new ValidationPipe({ transform: true }))
+    params: AllJobsParams,
+  ): Promise<PaginatedData<AllJobsListResult>> {
+    const paramsParsed = {
+      ...params,
+      query: btoa(params.query),
     };
+    this.logger.log(`/jobs/all ${JSON.stringify(paramsParsed)}`);
+    return this.jobsService.getAllJobsWithSearch(paramsParsed);
+  }
+
+  @Get("/all/filters")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Returns the configuration data for the ui filters",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(JobFilterConfigs),
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  async getAllJobsListFilterConfigs(): Promise<AllJobsFilterConfigs> {
+    this.logger.log(`/jobs/all/filters`);
+    return this.jobsService.getAllJobsFilterConfigs();
   }
 }
