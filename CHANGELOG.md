@@ -1,3 +1,10 @@
+## [1.29.3](https://github.com/jobstash/middleware/compare/v1.29.2...v1.29.3) (2023-06-20)
+
+
+### Bug Fixes
+
+* **jobs:** add jobstatus filter to all jobs related queries ([c651a75](https://github.com/jobstash/middleware/commit/c651a75c3b10fa2f3116a09908d8754d506b3d7d))
+
 ## [1.29.2](https://github.com/jobstash/middleware/compare/v1.29.1...v1.29.2) (2023-06-14)
 
 
