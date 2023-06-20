@@ -6,6 +6,7 @@ import {
   publicationDateRangeGenerator,
 } from "src/shared/helpers";
 import {
+  AllJobsFilterConfigs,
   DateRange,
   JobFilterConfigs,
   JobFilterConfigsEntity,
@@ -16,6 +17,10 @@ import {
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { JobListParams } from "./dto/job-list.input";
+import { AllJobsParams } from "./dto/all-jobs.input";
+import { AllJobListResultEntity } from "src/shared/entities/all-jobs-list-result.entity";
+import { AllJobsListResult } from "src/shared/interfaces/all-jobs-list-result.interface";
+import { AllJobsFilterConfigsEntity } from "src/shared/entities/all-jobs-filter-configs.entity";
 
 @Injectable()
 export class JobsService {
@@ -604,6 +609,168 @@ export class JobsService {
           Sentry.captureException(err);
         });
         this.logger.error(`JobsService::getJobsByOrgUuid ${err.message}`);
+        return undefined;
+      });
+  }
+
+  async getAllJobsWithSearch(
+    params: AllJobsParams,
+  ): Promise<PaginatedData<AllJobsListResult>> {
+    const generatedQuery = `
+            CALL {
+              // Starting the query with just organizations to enable whatever org filters are present to reduce the result set considerably for subsequent steps
+              MATCH (organization: Organization)
+              WHERE ($organizations IS NULL OR organization.name IN $organizations)
+              
+              // Filtering further by jobpost filters. Priority is to ensure that each step removes as much redundant data as possible
+              MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)-[:IS_CATEGORIZED_AS]-(jobpost_category:JobpostCategory)
+              MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
+              WHERE ($categories IS NULL OR jobpost_category.name IN $categories)
+              AND ($query IS NULL OR structured_jobpost.title =~ $query)
+              // Filter out technologies that are blocked
+              OPTIONAL MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
+              WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()
+
+              WITH structured_jobpost, organization, jobpost_category, COLLECT(DISTINCT PROPERTIES(technology)) as technologies
+
+              WITH {
+                  id: structured_jobpost.id,
+                  jobTitle: structured_jobpost.jobTitle,
+                  role: structured_jobpost.role,
+                  jobLocation: structured_jobpost.jobLocation,
+                  jobApplyPageUrl: structured_jobpost.jobApplyPageUrl,
+                  jobPageUrl: structured_jobpost.jobPageUrl,
+                  shortUUID: structured_jobpost.shortUUID,
+                  seniority: structured_jobpost.seniority,
+                  jobCreatedTimestamp: structured_jobpost.jobCreatedTimestamp,
+                  jobFoundTimestamp: structured_jobpost.jobFoundTimestamp,
+                  minSalaryRange: structured_jobpost.minSalaryRange,
+                  maxSalaryRange: structured_jobpost.maxSalaryRange,
+                  medianSalary: structured_jobpost.medianSalary,
+                  salaryCurrency: structured_jobpost.salaryCurrency,
+                  aiDetectedTechnologies: structured_jobpost.aiDetectedTechnologies,
+                  extractedTimestamp: structured_jobpost.extractedTimestamp,
+                  team: structured_jobpost.team,
+                  benefits: structured_jobpost.benefits,
+                  culture: structured_jobpost.culture,
+                  paysInCrypto: structured_jobpost.paysInCrypto,
+                  offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+                  jobCommitment: structured_jobpost.jobCommitment,
+                  category: {
+                    id: jobpost_category.id,
+                    name: jobpost_category.name
+                  },
+                  organization: {
+                      id: organization.id,
+                      orgId: organization.orgId,
+                      name: organization.name,
+                      description: organization.description,
+                      summary: organization.summary,
+                      location: organization.location,
+                      url: organization.url,
+                      twitter: organization.twitter,
+                      discord: organization.discord,
+                      github: organization.github,
+                      telegram: organization.telegram,
+                      docs: organization.docs,
+                      jobsiteLink: organization.jobsiteLink,
+                      createdTimestamp: organization.createdTimestamp,
+                      updatedTimestamp: organization.updatedTimestamp,
+                      teamSize: organization.teamSize
+                  },
+                  technologies: [technology in technologies WHERE technology.id IS NOT NULL]
+              } AS result
+
+              // <--Sorter Embedding-->
+              // The sorter has to be embedded in this manner due to its dynamic nature
+              ORDER BY result.jobCreatedTimestamp DESC
+              // <--!!!Sorter Embedding-->
+              RETURN COLLECT(result) as results
+            }
+
+            // It's important to have the main query exist within the CALL subquery to enable generation of the total count
+            WITH SIZE(results) as total, results
+
+            // Result set has to be unwound for pagination
+            UNWIND results as result
+            WITH result, total
+            SKIP toInteger(($page - 1) * $limit)
+            LIMIT toInteger($limit)
+            WITH total, COLLECT(result) as data
+            RETURN { total: total, data: data } as res
+        `.replace(/^\s*$(?:\r\n?|\n)/gm, "");
+    // console.log(generatedQuery);
+    const paramsPassed = {
+      ...params,
+      query: params.query ? `(?i).*${params.query}.*` : null,
+      limit: params.limit ?? 10,
+      page: params.page ?? 1,
+    };
+    // console.log(paramsPassed);
+    return this.neo4jService
+      .read(generatedQuery, paramsPassed)
+      .then(res => {
+        const result = res.records[0]?.get("res");
+        return {
+          page: (result?.data?.length > 0 ? params.page ?? 1 : -1) ?? -1,
+          count: result?.data?.length ?? 0,
+          total: result?.total ? intConverter(result?.total) : 0,
+          data:
+            result?.data?.map(record =>
+              new AllJobListResultEntity(record).getProperties(),
+            ) ?? [],
+        };
+      })
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "jobs.service",
+          });
+          scope.setExtra("input", params);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`JobsService::getAllJobsWithSearch ${err.message}`);
+        return {
+          page: -1,
+          count: 0,
+          total: 0,
+          data: [],
+        };
+      });
+  }
+
+  async getAllJobsFilterConfigs(): Promise<AllJobsFilterConfigs> {
+    return this.neo4jService
+      .read(
+        `
+        MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)
+        MATCH (jp)-[:IS_CATEGORIZED_AS]-(cat:JobpostCategory)
+        WITH o, cat
+        RETURN {
+            categories: COLLECT(DISTINCT cat.name),
+            organizations: COLLECT(DISTINCT o.name)
+        } as res
+      `,
+      )
+      .then(res =>
+        res.records.length
+          ? new AllJobsFilterConfigsEntity(
+              res.records[0].get("res"),
+            ).getProperties()
+          : undefined,
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "jobs.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(
+          `JobsService::getAllJobsFilterConfigs ${err.message}`,
+        );
         return undefined;
       });
   }

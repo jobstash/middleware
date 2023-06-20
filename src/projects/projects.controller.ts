@@ -445,8 +445,8 @@ export class ProjectsController {
   }
 
   @Post("/create")
-  // @UseGuards(RBACGuard)
-  // @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Creates a new project",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),

@@ -4,15 +4,20 @@ import {
   Header,
   Param,
   Query,
+  UseGuards,
   ValidationPipe,
 } from "@nestjs/common";
 import { JobsService } from "./jobs.service";
 import {
+  CheckWalletRoles,
   JobFilterConfigs,
   JobListResult,
   PaginatedData,
   ResponseWithNoData,
+  StructuredJobpost,
   ValidationError,
+  AllJobsListResult,
+  AllJobsFilterConfigs,
 } from "src/shared/types";
 import {
   ApiBadRequestResponse,
@@ -23,12 +28,15 @@ import {
 } from "@nestjs/swagger";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { JobListParams } from "./dto/job-list.input";
+import { AllJobsParams } from "./dto/all-jobs.input";
 import {
   CACHE_CONTROL_HEADER,
   CACHE_DURATION,
   CACHE_EXPIRY,
 } from "src/shared/presets/cache-control";
 import { btoa } from "src/shared/helpers";
+import { RBACGuard } from "src/auth/rbac.guard";
+import { Roles } from "src/shared/decorators/role.decorator";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
@@ -165,5 +173,69 @@ export class JobsController {
   async getOrgJobsList(@Param("uuid") uuid: string): Promise<JobListResult[]> {
     this.logger.log(`/jobs/org/${uuid}`);
     return this.jobsService.getJobsByOrgUuid(uuid);
+  }
+
+  @Get("/all")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description:
+      "Returns a paginated, sorted list of all jobs that satisfy the search and filter predicate",
+    type: PaginatedData<StructuredJobpost>,
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(PaginatedData),
+          properties: {
+            page: {
+              type: "number",
+            },
+            count: {
+              type: "number",
+            },
+            data: {
+              type: "array",
+              items: { $ref: getSchemaPath(StructuredJobpost) },
+            },
+          },
+        },
+      ],
+    },
+  })
+  async getAllJobsWithSearch(
+    @Query(new ValidationPipe({ transform: true }))
+    params: AllJobsParams,
+  ): Promise<PaginatedData<AllJobsListResult>> {
+    const paramsParsed = {
+      ...params,
+      query: btoa(params.query),
+    };
+    this.logger.log(`/jobs/all ${JSON.stringify(paramsParsed)}`);
+    return this.jobsService.getAllJobsWithSearch(paramsParsed);
+  }
+
+  @Get("/all/filters")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Returns the configuration data for the ui filters",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(JobFilterConfigs),
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  async getAllJobsListFilterConfigs(): Promise<AllJobsFilterConfigs> {
+    this.logger.log(`/jobs/all/filters`);
+    return this.jobsService.getAllJobsFilterConfigs();
   }
 }
