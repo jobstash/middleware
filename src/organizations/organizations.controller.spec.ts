@@ -235,7 +235,7 @@ describe("OrganizationsController", () => {
     } else {
       // The result is not of the expected type
       report(validationResult).forEach(x => {
-        console.error(x);
+        throw new Error(x);
       });
     }
   }, 100000);
