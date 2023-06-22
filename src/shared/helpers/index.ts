@@ -58,7 +58,7 @@ export const jobListOrderBySelector = (args: {
 }): string | null => {
   const {
     jobVar,
-    projectVar,
+    // projectVar,
     orgVar,
     roundVar,
     auditsVar,
@@ -71,7 +71,7 @@ export const jobListOrderBySelector = (args: {
       return `${jobVar}.jobCreatedTimestamp`;
 
     case "tvl":
-      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.tvl ELSE ${jobVar}.jobCreatedTimestamp / 1000000000 END)`;
+      return `${jobVar}.jobCreatedTimestamp`;
 
     case "salary":
       return `${jobVar}.medianSalary`;
@@ -80,13 +80,13 @@ export const jobListOrderBySelector = (args: {
       return `${roundVar}`;
 
     case "monthlyVolume":
-      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.monthlyVolume ELSE ${jobVar}.jobCreatedTimestamp / 1000000000 END)`;
+      return `${jobVar}.jobCreatedTimestamp`;
 
     case "monthlyFees":
-      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.monthlyFees ELSE ${jobVar}.jobCreatedTimestamp / 1000000000 END)`;
+      return `${jobVar}.jobCreatedTimestamp`;
 
     case "monthlyRevenue":
-      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.monthlyRevenue ELSE ${jobVar}.jobCreatedTimestamp / 1000000000 END)`;
+      return `${jobVar}.jobCreatedTimestamp`;
 
     case "audits":
       return auditsVar;
@@ -101,7 +101,7 @@ export const jobListOrderBySelector = (args: {
       return `${orgVar}.headCount`;
 
     case "teamSize":
-      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.teamSize ELSE ${jobVar}.jobCreatedTimestamp / 1000000000 END)`;
+      return `${jobVar}.jobCreatedTimestamp`;
 
     default:
       return null;
@@ -199,12 +199,21 @@ export const notStringOrNull = (
 };
 
 export const nonZeroOrNull = (
-  value: { low: number; high: number } | number | null | undefined,
+  value: { low: number; high: number } | number | string | null | undefined,
 ): number | null => {
   if (value === 0 || typeof value === "undefined" || value === null) {
     return null;
   } else {
-    return typeof value === "object" ? intConverter(value) : value;
+    if (typeof value === "string") {
+      const trial = Number(value);
+      if (Number.isNaN(trial)) {
+        return null;
+      } else {
+        return trial;
+      }
+    } else {
+      return typeof value === "object" ? intConverter(value) : value;
+    }
   }
 };
 

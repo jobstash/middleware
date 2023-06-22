@@ -128,12 +128,12 @@ describe("ProjectsController", () => {
     } else {
       // The result is not of the expected type
       report(validationResult).forEach(x => {
-        console.error(x);
+        throw new Error(x);
       });
     }
   }, 100000);
 
-  it("should get job details with no array property duplication", async () => {
+  it("should get project details with no array property duplication", async () => {
     const params: ProjectListParams = {
       ...new ProjectListParams(),
       page: 1,

@@ -142,7 +142,7 @@ export class JobFilterConfigs {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        console.error(x);
+        throw new Error(x);
       });
     }
   }

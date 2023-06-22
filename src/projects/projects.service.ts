@@ -24,6 +24,9 @@ export class ProjectsService {
     const generatedQuery = `
             CALL {
               MATCH (project: Project)
+              OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
+              OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
+              OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]-(chain:Chain)
 
               WHERE ($query IS NULL OR $query =~ project.name)
 
@@ -46,9 +49,9 @@ export class ProjectsService {
                 WHERE project_category.name IN $categories
               })
 
-              OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
-              OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
-              OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]-(chain:Chain)
+              WITH project, COUNT(DISTINCT audit) as numAudits,
+                COUNT(DISTINCT hack) as numHacks,
+                COUNT(DISTINCT chain) as numChains
 
               WITH {
                     id: project.id,
@@ -79,9 +82,7 @@ export class ProjectsService {
                     category: project.category,
                     createdTimestamp: project.createdTimestamp,
                     updatedTimestamp: project.updatedTimestamp
-                } AS project, COUNT(DISTINCT audit) as numAudits,
-                COUNT(DISTINCT hack) as numHacks,
-                COUNT(DISTINCT chain) as numChains
+                } AS project, numAudits, numHacks, numChains
 
               WHERE ($mainNet IS NULL OR (project IS NOT NULL AND project.isMainnet = $mainNet))
                 AND ($minTeamSize IS NULL OR (project IS NOT NULL AND project.teamSize >= $minTeamSize))
