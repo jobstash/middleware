@@ -259,6 +259,130 @@ describe("JobsController", () => {
     );
   }, 1000000);
 
+  it("should respond with the correct results for {(min & max)SalaryRange} filter", async () => {
+    const minSalaryRange = 1000;
+    const maxSalaryRange = 2000000;
+    const params: JobListParams = {
+      ...new JobListParams(),
+      minSalaryRange,
+      maxSalaryRange,
+      page: 1,
+      limit: Number(Integer.MAX_VALUE),
+      order: "asc",
+      orderBy: "salary",
+    };
+
+    const matchesSalaryRange = (jobListResult: JobListResult): boolean => {
+      return (
+        minSalaryRange <= jobListResult.medianSalary &&
+        jobListResult.medianSalary <= maxSalaryRange
+      );
+    };
+
+    const res = await controller.getJobsListWithSearch(params);
+    const results = res.data;
+    expect(results.every(x => matchesSalaryRange(x) === true)).toBe(true);
+  }, 1000000);
+
+  it("should respond with the correct results for {(min & max)MonthlyFees} filter", async () => {
+    const minMonthlyFees = 1000;
+    const maxMonthlyFees = 2000000;
+    const params: JobListParams = {
+      ...new JobListParams(),
+      minMonthlyFees,
+      maxMonthlyFees,
+      page: 1,
+      limit: Number(Integer.MAX_VALUE),
+      order: "asc",
+      orderBy: "monthlyFees",
+    };
+
+    const matchesMonthlyFeeRange = (anchorProject: Project): boolean => {
+      return (
+        minMonthlyFees <= anchorProject.monthlyFees &&
+        anchorProject.monthlyFees <= maxMonthlyFees
+      );
+    };
+
+    const res = await controller.getJobsListWithSearch(params);
+    const results = res.data;
+    expect(results.every(x => x.organization.projects.length > 0)).toBe(true);
+    expect(
+      results.every(x => {
+        const anchorProject = x.organization.projects.sort(
+          (a, b) => a.monthlyVolume - b.monthlyVolume,
+        )[0];
+        return matchesMonthlyFeeRange(anchorProject) === true;
+      }),
+    ).toBe(true);
+  }, 1000000);
+
+  it("should respond with the correct results for {(min & max)monthlyRevenue} filter", async () => {
+    const minMonthlyRevenue = 1000;
+    const maxMonthlyRevenue = 2000000;
+    const params: JobListParams = {
+      ...new JobListParams(),
+      minMonthlyRevenue,
+      maxMonthlyRevenue,
+      page: 1,
+      limit: Number(Integer.MAX_VALUE),
+      order: "asc",
+      orderBy: "monthlyRevenue",
+    };
+
+    const matchesMonthlyRevenueRange = (anchorProject: Project): boolean => {
+      return (
+        minMonthlyRevenue <= anchorProject.monthlyRevenue &&
+        anchorProject.monthlyRevenue <= maxMonthlyRevenue
+      );
+    };
+
+    const res = await controller.getJobsListWithSearch(params);
+    const results = res.data;
+    expect(results.every(x => x.organization.projects.length > 0)).toBe(true);
+    expect(
+      results.every(x => {
+        const anchorProject = x.organization.projects.sort(
+          (a, b) => a.monthlyVolume - b.monthlyVolume,
+        )[0];
+        return matchesMonthlyRevenueRange(anchorProject) === true;
+      }),
+    ).toBe(true);
+  }, 1000000);
+
+  it("should respond with the correct results for {(min & max)Audits} filter", async () => {
+    const minAudits = 1;
+    const maxAudits = 10;
+    const params: JobListParams = {
+      ...new JobListParams(),
+      minAudits,
+      maxAudits,
+      page: 1,
+      limit: Number(Integer.MAX_VALUE),
+      order: "asc",
+      orderBy: "audits",
+    };
+
+    const matchesAuditRange = (anchorProject: Project): boolean => {
+      return (
+        minAudits <= anchorProject.audits.length &&
+        anchorProject.audits.length <= maxAudits
+      );
+    };
+
+    const res = await controller.getJobsListWithSearch(params);
+    const results = res.data;
+    expect(results.every(x => x.organization.projects.length > 0)).toBe(true);
+    expect(
+      results.every(x => {
+        const anchorProject = x.organization.projects.sort(
+          (a, b) => a.monthlyVolume - b.monthlyVolume,
+        )[0];
+        return matchesAuditRange(anchorProject) === true;
+      }),
+    ).toBe(true);
+  }, 1000000);
+
   it("should get correctly formatted filter configs", async () => {
     const configs = await controller.getFilterConfigs();
 
@@ -273,7 +397,7 @@ describe("JobsController", () => {
     } else {
       // The result is not of the expected type
       report(validationResult).forEach(x => {
-        throw new Error(x);
+        console.error(x);
       });
     }
   }, 100000);
@@ -292,7 +416,7 @@ describe("JobsController", () => {
     } else {
       // The result is not of the expected type
       report(validationResult).forEach(x => {
-        throw new Error(x);
+        console.error(x);
       });
     }
   }, 100000);

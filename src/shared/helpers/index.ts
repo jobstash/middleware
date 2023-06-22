@@ -199,21 +199,12 @@ export const notStringOrNull = (
 };
 
 export const nonZeroOrNull = (
-  value: { low: number; high: number } | number | string | null | undefined,
+  value: { low: number; high: number } | number | null | undefined,
 ): number | null => {
   if (value === 0 || typeof value === "undefined" || value === null) {
     return null;
   } else {
-    if (typeof value === "string") {
-      const trial = Number(value);
-      if (Number.isNaN(trial)) {
-        return null;
-      } else {
-        return trial;
-      }
-    } else {
-      return typeof value === "object" ? intConverter(value) : value;
-    }
+    return typeof value === "object" ? intConverter(value) : value;
   }
 };
 

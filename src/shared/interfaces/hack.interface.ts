@@ -1,70 +1,53 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { isLeft } from "fp-ts/lib/Either";
 import * as t from "io-ts";
-import { report } from "io-ts-human-reporter";
+// import { inferObjectType } from "../helpers";
+// import { isLeft } from "fp-ts/lib/Either";
 
 export class Hack {
   public static readonly HackType = t.strict({
     id: t.string,
-    defiId: t.string,
-    category: t.string,
+    date: t.number,
+    link: t.string,
     fundsLost: t.number,
-    issueType: t.string,
-    description: t.string,
-    date: t.union([t.string, t.null]),
-    fundsReturned: t.union([t.number, t.null]),
+    classification: t.string,
   });
 
   @ApiProperty()
   id: string;
 
   @ApiProperty()
-  date: string;
+  date: number;
 
   @ApiProperty()
-  defiId: string;
-
-  @ApiProperty()
-  category: number;
+  classification: string;
 
   @ApiProperty()
   fundsLost: number;
 
   @ApiProperty()
-  issueType: string;
+  link: string;
 
-  @ApiProperty()
-  description: string;
+  // constructor(raw: Hack) {
+  //   const { id, date, classification, fundsLost, link } = raw;
+  //   const result = Hack.HackType.decode(raw);
 
-  @ApiProperty()
-  fundsReturned: number;
+  //   this.id = id;
+  //   this.date = date;
+  //   this.link = link;
+  //   this.fundsLost = fundsLost;
+  //   this.classification = classification;
 
-  constructor(raw: Hack) {
-    const {
-      id,
-      date,
-      defiId,
-      category,
-      fundsLost,
-      issueType,
-      description,
-      fundsReturned,
-    } = raw;
-    const result = Hack.HackType.decode(raw);
-
-    this.id = id;
-    this.date = date;
-    this.defiId = defiId;
-    this.category = category;
-    this.fundsLost = fundsLost;
-    this.issueType = issueType;
-    this.description = description;
-    this.fundsReturned = fundsReturned;
-
-    if (isLeft(result)) {
-      report(result).forEach(x => {
-        throw new Error(x);
-      });
-    }
-  }
+  //   if (isLeft(result)) {
+  //     throw new Error(
+  //       `Error Serializing Hack! Constructor expected: \n {
+  //         id: string,
+  //         date: number,
+  //         link: string,
+  //         fundsLost: number,
+  //         classification: string,
+  //       }
+  //       got ${inferObjectType(raw)}`,
+  //     );
+  //   }
+  // }
 }
