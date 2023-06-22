@@ -206,7 +206,7 @@ export const nonZeroOrNull = (
   } else {
     if (typeof value === "string") {
       const trial = Number(value);
-      if (isNaN(trial)) {
+      if (Number.isNaN(trial)) {
         return null;
       } else {
         return trial;
