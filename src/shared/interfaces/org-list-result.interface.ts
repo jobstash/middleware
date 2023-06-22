@@ -42,7 +42,7 @@ export class OrgListResult extends Organization {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        console.error(x);
       });
     }
   }

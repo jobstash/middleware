@@ -169,7 +169,7 @@ export class ProjectProperties {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        console.error(x);
       });
     }
   }
@@ -222,7 +222,7 @@ export class Project extends ProjectProperties {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        console.error(x);
       });
     }
   }

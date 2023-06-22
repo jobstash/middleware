@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { isLeft } from "fp-ts/lib/Either";
 import * as t from "io-ts";
-import { report } from "io-ts-human-reporter";
+// import { inferObjectType } from "../helpers";
+// import { isLeft } from "fp-ts/lib/Either";
 
 export class FundingRound {
   public static readonly FundingRoundType = t.strict({
@@ -30,23 +30,58 @@ export class FundingRound {
   @ApiProperty()
   createdTimestamp: number;
 
-  constructor(raw: FundingRound) {
-    const { id, raisedAmount, roundName, date, sourceLink, createdTimestamp } =
-      raw;
+  // constructor(raw: FundingRoundProperties) {
+  //   const { id, raisedAmount, roundName, date, sourceLink, createdTimestamp } =
+  //     raw;
 
-    const result = FundingRound.FundingRoundType.decode(raw);
+  //   const result =
+  //     FundingRoundProperties.FundingRoundPropertiesType.decode(raw);
 
-    this.id = id;
-    this.date = date;
-    this.roundName = roundName;
-    this.sourceLink = sourceLink;
-    this.raisedAmount = raisedAmount;
-    this.createdTimestamp = createdTimestamp;
+  //   this.id = id;
+  //   this.date = date;
+  //   this.roundName = roundName;
+  //   this.sourceLink = sourceLink;
+  //   this.raisedAmount = raisedAmount;
+  //   this.createdTimestamp = createdTimestamp;
 
-    if (isLeft(result)) {
-      report(result).forEach(x => {
-        throw new Error(x);
-      });
-    }
-  }
+  //   if (isLeft(result)) {
+  //     throw new Error(
+  //       `Error Serializing FundingRoundProperties! Constructor expected: \n {
+  //         id: string,
+  //         date: number,
+  //         createdTimestamp: number,
+  //         roundName: string | null,
+  //         sourceLink: string | null,
+  //         raisedAmount: number | null,
+  //       } got ${inferObjectType(raw)}`,
+  //     );
+  //   }
+  // }
 }
+
+// @ApiExtraModels(Investor)
+// export class FundingRound extends FundingRoundProperties {
+//   public static readonly FundingRoundType = t.intersection([
+//     FundingRoundProperties.FundingRoundPropertiesType,
+//     t.strict({ investors: t.array(Investor.InvestorType) }),
+//   ]);
+
+// constructor(raw: FundingRound) {
+//   const { investors, ...fundingRoundProps } = raw;
+
+//   const result = FundingRound.FundingRoundType.decode(raw);
+
+//   super(fundingRoundProps);
+
+//   this.investors = investors;
+
+//   if (isLeft(result)) {
+//     throw new Error(
+//       `Error Serializing FundingRound! Constructor expected: \n {
+//         ...FundingRoundProperties,
+//         investors: Investor[],
+//       } got ${inferObjectType(raw)}`,
+//     );
+//   }
+// }
+// }

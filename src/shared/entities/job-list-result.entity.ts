@@ -73,13 +73,7 @@ export class JobListResultEntity {
             githubOrganization: notStringOrNull(project?.githubOrganization),
             updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
             categories: project?.categories ?? [],
-            hacks:
-              project?.hacks.map(hack => ({
-                ...hack,
-                date: notStringOrNull(hack.date),
-                fundsLost: hack.fundsLost,
-                fundsReturned: nonZeroOrNull(hack.fundsReturned),
-              })) ?? [],
+            hacks: project?.hacks ?? [],
             audits:
               project?.audits.map(audit => ({
                 ...audit,

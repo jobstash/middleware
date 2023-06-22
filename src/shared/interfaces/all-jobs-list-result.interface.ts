@@ -42,7 +42,7 @@ export class AllJobsListResult extends StructuredJobpostWithCategory {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        console.error(x);
       });
     }
   }

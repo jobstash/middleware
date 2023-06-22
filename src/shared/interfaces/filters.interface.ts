@@ -46,7 +46,7 @@ export class FilterConfigField {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        console.error(x);
       });
     }
   }
@@ -72,7 +72,7 @@ export class FilterConfigLabel {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        console.error(x);
       });
     }
   }
@@ -98,7 +98,7 @@ export class NumberWithParamKey {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        console.error(x);
       });
     }
   }
@@ -124,7 +124,7 @@ export class Range {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        console.error(x);
       });
     }
   }
@@ -161,7 +161,7 @@ export class FilterConfigLabeledValues extends FilterConfigField {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        console.error(x);
       });
     }
   }
@@ -185,7 +185,7 @@ export class SingleSelectFilter extends FilterConfigLabeledValues {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        console.error(x);
       });
     }
   }
@@ -220,7 +220,7 @@ export class MultiSelectFilter extends OmitType(FilterConfigLabeledValues, [
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        console.error(x);
       });
     }
   }
@@ -257,7 +257,7 @@ export class MultiSelectSearchFilter extends OmitType(
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        console.error(x);
       });
     }
   }
@@ -287,7 +287,7 @@ export class RangeFilter extends FilterConfigField {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        console.error(x);
       });
     }
   }

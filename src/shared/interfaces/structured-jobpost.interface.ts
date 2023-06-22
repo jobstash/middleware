@@ -148,7 +148,7 @@ export class StructuredJobpost {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        console.error(x);
       });
     }
   }

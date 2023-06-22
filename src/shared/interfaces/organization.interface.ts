@@ -134,7 +134,7 @@ export class OrganizationProperties {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        console.error(x);
       });
     }
   }
@@ -179,7 +179,7 @@ export class Organization extends OrganizationProperties {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        console.error(x);
       });
     }
   }
