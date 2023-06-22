@@ -1,3 +1,10 @@
+## [1.29.4](https://github.com/jobstash/middleware/compare/v1.29.3...v1.29.4) (2023-06-22)
+
+
+### Reverts
+
+* Revert "Fix/unbork-hacks-and-audits-wip (#99)" (#100) ([343f551](https://github.com/jobstash/middleware/commit/343f5511563d5ac1146059d49d40bbb86687d191)), closes [#99](https://github.com/jobstash/middleware/issues/99) [#100](https://github.com/jobstash/middleware/issues/100)
+
 ## [1.29.3](https://github.com/jobstash/middleware/compare/v1.29.2...v1.29.3) (2023-06-20)
 
 
