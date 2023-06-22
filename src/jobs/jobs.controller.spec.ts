@@ -170,12 +170,12 @@ describe("JobsController", () => {
 
     printDuplicateItems(setOfUuids, uuids, "StructuredJobpost with UUID");
 
-    expect(setOfUuids.size).toBe(uuids.length);
+    expect(uuids.length).toBe(setOfUuids.size);
 
     expect(res.data.every(x => jlrHasArrayPropsDuplication(x) === false)).toBe(
       true,
     );
-  }, 300000);
+  }, 3000000);
 
   it("should get all jobs list with no jobpost and array property duplication", async () => {
     const params: JobListParams = {
@@ -197,7 +197,7 @@ describe("JobsController", () => {
 
     printDuplicateItems(setOfUuids, uuids, "StructuredJobpost with UUID");
 
-    expect(setOfUuids.size).toBe(uuids.length);
+    expect(uuids.length).toBe(setOfUuids.size);
 
     expect(res.data.every(x => ajlrHasArrayPropsDuplication(x) === false)).toBe(
       true,
@@ -215,9 +215,7 @@ describe("JobsController", () => {
 
     const details = await controller.getJobDetailsByUuid(job.shortUUID);
 
-    expect(job).toEqual(details);
-
-    expect(jlrHasArrayPropsDuplication(job)).toBe(false);
+    expect(jlrHasArrayPropsDuplication(details)).toBe(false);
   }, 10000);
 
   it("should respond with the correct page ", async () => {

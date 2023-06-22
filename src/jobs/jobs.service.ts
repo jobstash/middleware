@@ -56,77 +56,26 @@ export class JobsService {
               OPTIONAL MATCH (organization)-[:HAS_PROJECT]->(project:Project)
               
               // Generate other data for the leanest result set possible at this point
-              OPTIONAL MATCH (project)-[:HAS_CATEGORY]->(project_category:ProjectCategory)
               OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
               OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
-              OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
-              OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
-              OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain:Chain)
               
               // NOTE: project category aggregation needs to be done at this step to prevent duplication of categories in the result set further down the line
-              WITH structured_jobpost, organization, project, COLLECT(DISTINCT PROPERTIES(project_category)) AS categories, funding_round, investor, technology, audit, hack, chain, COUNT(audit) AS numAudits, COUNT(hack) AS numHacks, COUNT(chain) as numChains
+              WITH structured_jobpost, organization, 
+              COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
+              COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
+              MAX(funding_round.date) as most_recent_funding_round, 
+              COLLECT(DISTINCT PROPERTIES(technology)) AS technologies
               
               // Note that investor and funding round data is left in node form. this is to allow for matching down the line to relate and collect them
-              WITH structured_jobpost, organization, project,
-              categories, 
-              COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
-              COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, MAX(funding_round.date) as most_recent_funding_round, 
-              COLLECT(DISTINCT PROPERTIES(technology)) AS technologies,
-              COLLECT(DISTINCT PROPERTIES(audit)) AS audits,
-              COLLECT(DISTINCT PROPERTIES(hack)) AS hacks,
-              COLLECT(DISTINCT PROPERTIES(chain)) AS chains, numAudits, numHacks, numChains
+              WITH structured_jobpost, organization, investors, funding_rounds, 
+              most_recent_funding_round, technologies
               
-              WHERE ($hacks IS NULL OR (
-                ($hacks = true AND numHacks >= 1) 
-                OR 
-                ($hacks = false AND numHacks = 0) 
-              ))
-              AND ($minAudits IS NULL OR (numAudits IS NOT NULL AND numAudits >= $minAudits))
-              AND ($maxAudits IS NULL OR (numAudits IS NOT NULL AND numAudits <= $maxAudits))
-              AND ($tech IS NULL OR (technologies IS NOT NULL AND any(x IN technologies WHERE x.name IN $tech)))
+              WHERE ($tech IS NULL OR (technologies IS NOT NULL AND any(x IN technologies WHERE x.name IN $tech)))
               AND ($fundingRounds IS NULL OR (funding_rounds IS NOT NULL AND any(x IN funding_rounds WHERE x.roundName IN $fundingRounds)))
-              AND ($categories IS NULL OR (categories IS NOT NULL AND any(y IN categories WHERE y.name IN $categories)))
               AND ($investors IS NULL OR (investors IS NOT NULL AND any(x IN investors WHERE x.name IN $investors)))
-              AND ($chains IS NULL OR (chains IS NOT NULL AND any(y IN chains WHERE y.name IN $chains)))
               AND ($query IS NULL OR (technologies IS NOT NULL AND (organization.name =~ $query OR structured_jobpost.jobTitle =~ $query OR any(x IN technologies WHERE x.name =~ $query))))
 
-              WITH structured_jobpost, organization, funding_rounds, investors, technologies, most_recent_funding_round, numAudits, numHacks, numChains,
-                COLLECT(DISTINCT {
-                    id: project.id,
-                    defiLlamaId: project.defiLlamaId,
-                    defiLlamaSlug: project.defiLlamaSlug,
-                    defiLlamaParent: project.defiLlamaParent,
-                    name: project.name,
-                    description: project.description,
-                    url: project.url,
-                    logo: project.logo,
-                    tokenAddress: project.tokenAddress,
-                    tokenSymbol: project.tokenSymbol,
-                    isInConstruction: project.isInConstruction,
-                    tvl: project.tvl,
-                    monthlyVolume: project.monthlyVolume,
-                    monthlyFees: project.monthlyFees,
-                    monthlyRevenue: project.monthlyRevenue,
-                    monthlyActiveUsers: project.monthlyActiveUsers,
-                    isMainnet: project.isMainnet,
-                    telegram: project.telegram,
-                    orgId: project.orgId,
-                    cmcId: project.cmcId,
-                    twitter: project.twitter,
-                    discord: project.discord,
-                    docs: project.docs,
-                    teamSize: project.teamSize,
-                    githubOrganization: project.githubOrganization,
-                    category: project.category,
-                    createdTimestamp: project.createdTimestamp,
-                    updatedTimestamp: project.updatedTimestamp,
-                    categories: [category in categories WHERE category.id IS NOT NULL],
-                    hacks: [hack in hacks WHERE hack.id IS NOT NULL],
-                    audits: [audit in audits WHERE audit.id IS NOT NULL],
-                    chains: [chain in chains WHERE chain.id IS NOT NULL]
-                }) AS projects
-
-              WHERE ($projects IS NULL OR any(x IN projects WHERE x.name IN $projects))
+              WITH structured_jobpost, organization, funding_rounds, investors, technologies, most_recent_funding_round
 
               // VERY IMPORTANT!!! Variables with multiple values must not be allowed unaggregated past this point, to prevent duplication of jobposts by each value
               // Observe that this is done. It is very crucial!
@@ -171,38 +120,14 @@ export class JobsService {
                       createdTimestamp: organization.createdTimestamp,
                       updatedTimestamp: organization.updatedTimestamp,
                       teamSize: organization.teamSize,
-                      projects: [project in projects WHERE project.id IS NOT NULL],
                       fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
                       investors: [investor in investors WHERE investor.id IS NOT NULL]
                   },
                   technologies: [technology in technologies WHERE technology.id IS NOT NULL]
-              } AS result, structured_jobpost, projects, organization, most_recent_funding_round, numAudits, numHacks, numChains
-
-              CALL {
-                WITH projects
-                UNWIND projects as project
-                WITH project
-                ORDER BY project.monthlyVolume DESC
-                RETURN COLLECT(DISTINCT project)[0] as anchor_project
-              }
-
-              WITH result, structured_jobpost, organization, most_recent_funding_round, anchor_project, numAudits, numHacks, numChains
-
-              WHERE ($mainNet IS NULL OR (anchor_project IS NOT NULL AND anchor_project.isMainnet = $mainNet))
-                AND ($minTeamSize IS NULL OR (anchor_project IS NOT NULL AND anchor_project.teamSize >= $minTeamSize))
-                AND ($maxTeamSize IS NULL OR (anchor_project IS NOT NULL AND anchor_project.teamSize <= $maxTeamSize))
-                AND ($minTvl IS NULL OR (anchor_project IS NOT NULL AND anchor_project.tvl >= $minTvl))
-                AND ($maxTvl IS NULL OR (anchor_project IS NOT NULL AND anchor_project.tvl <= $maxTvl))
-                AND ($minMonthlyVolume IS NULL OR (anchor_project IS NOT NULL AND anchor_project.monthlyVolume >= $minMonthlyVolume))
-                AND ($maxMonthlyVolume IS NULL OR (anchor_project IS NOT NULL AND anchor_project.monthlyVolume <= $maxMonthlyVolume))
-                AND ($minMonthlyFees IS NULL OR (anchor_project IS NOT NULL AND anchor_project.monthlyFees >= $minMonthlyFees))
-                AND ($maxMonthlyFees IS NULL OR (anchor_project IS NOT NULL AND anchor_project.monthlyFees <= $maxMonthlyFees))
-                AND ($minMonthlyRevenue IS NULL OR (anchor_project IS NOT NULL AND anchor_project.monthlyRevenue >= $minMonthlyRevenue))
-                AND ($maxMonthlyRevenue IS NULL OR (anchor_project IS NOT NULL AND anchor_project.monthlyRevenue <= $maxMonthlyRevenue))
-                AND ($token IS NULL OR (anchor_project IS NOT NULL AND anchor_project.tokenAddress IS NOT NULL = $token))
+              } AS result, structured_jobpost, organization, most_recent_funding_round
 
               // Drop results that don't have the sort param
-              AND ${jobListOrderBySelector({
+              WHERE ${jobListOrderBySelector({
                 orderBy: params.orderBy ?? "publicationDate",
                 jobVar: "structured_jobpost",
                 orgVar: "organization",
@@ -213,7 +138,7 @@ export class JobsService {
                 chainsVar: "numChains",
               })} IS NOT NULL
 
-              WITH result, structured_jobpost, organization, most_recent_funding_round, anchor_project, numAudits, numHacks, numChains
+              WITH result, structured_jobpost, organization, most_recent_funding_round
 
               // <--Sorter Embedding-->
               // The sorter has to be embedded in this manner due to its dynamic nature
