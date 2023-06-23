@@ -186,8 +186,9 @@ export class OrganizationsService {
     return this.neo4jService
       .read(
         `
-        MATCH (organization:Organization {orgId: $id})-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
-        MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
+        MATCH (organization:Organization {orgId: $id})
+        OPTIONAL MATCH (organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
+        OPTIONAL MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
         OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
         OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
         OPTIONAL MATCH (organization)-[:HAS_PROJECT]->(project:Project)
@@ -407,7 +408,7 @@ export class OrganizationsService {
     return this.neo4jService
       .read(
         `
-        MATCH (o:Organization)
+        MATCH (o:Organization {orgId: $id})
         OPTIONAL MATCH (o)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)
         OPTIONAL MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
         OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)
@@ -419,7 +420,6 @@ export class OrganizationsService {
         WITH o, COUNT(DISTINCT p) as projectCount, COUNT(DISTINCT j) as jobCount, COLLECT(DISTINCT t) as technologies, fr
         ORDER BY fr.date DESC
         WITH o, projectCount, jobCount, technologies, COLLECT(fr)[0] as mrfr, COLLECT(fr) as fundingRounds
-        WHERE o.orgId = $id
         RETURN { id: o.orgId, name: o.name, logo: o.logo, location: o.location, headCount: o.headCount, projectCount: projectCount, jobCount: jobCount, technologies: technologies, lastFundingAmount: mrfr.raisedAmount, lastFundingDate: mrfr.date, url: o.url, description: o.description, github: o.github, twitter: o.twitter, telegram: o.telegram, discord: o.discord, fundingRounds: fundingRounds } as res
         `,
         { id },
