@@ -3,6 +3,7 @@ import { Neo4jService } from "nest-neo4j/dist";
 import {
   intConverter,
   jobListOrderBySelector,
+  notStringOrNull,
   publicationDateRangeGenerator,
 } from "src/shared/helpers";
 import {
@@ -29,9 +30,9 @@ export class JobsService {
   logger = new CustomLogger(JobsService.name);
   constructor(private readonly neo4jService: Neo4jService) {}
 
-  async getProjectsDataForJobListResult(orgId: string): Promise<Project[]> {
+  async getProjectsData(): Promise<Project[]> {
     const generatedQuery = `
-        MATCH (organization: Organization {orgId: $orgId})-[:HAS_PROJECT]->(project: Project)
+        MATCH (project: Project)
         OPTIONAL MATCH (project)-[:HAS_CATEGORY]->(project_category:ProjectCategory)
         OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
         OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
@@ -75,11 +76,24 @@ export class JobsService {
           chains: [chain in chains WHERE chain.id IS NOT NULL]
         }) AS projects
     `.replace(/^\s*$(?:\r\n?|\n)/gm, "");
-    const res = await this.neo4jService.read(generatedQuery, { orgId });
-    const results = res?.records[0]
-      .get("projects")
-      .map(record => new Project(record));
-    return results;
+    return this.neo4jService
+      .read(generatedQuery)
+      .then(res => {
+        return res?.records[0]
+          .get("projects")
+          .map(record => new Project(record));
+      })
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "jobs.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`JobsService::getProjectsData ${err.message}`);
+        return [];
+      });
   }
 
   async transformResultSet(
@@ -87,24 +101,24 @@ export class JobsService {
     params: JobListParams,
   ): Promise<PaginatedData<JobListResult>> {
     const {
-      // minTeamSize,
-      // maxTeamSize,
-      // minTvl,
-      // maxTvl,
-      // minMonthlyVolume,
-      // maxMonthlyVolume,
-      // minMonthlyFees,
-      // maxMonthlyFees,
-      // minMonthlyRevenue,
-      // maxMonthlyRevenue,
-      // minAudits,
-      // maxAudits,
-      // hacks,
-      // chains,
-      // projects,
-      // categories,
-      // token,
-      // mainNet,
+      minTeamSize,
+      maxTeamSize,
+      minTvl,
+      maxTvl,
+      minMonthlyVolume,
+      maxMonthlyVolume,
+      minMonthlyFees,
+      maxMonthlyFees,
+      minMonthlyRevenue,
+      maxMonthlyRevenue,
+      minAudits,
+      maxAudits,
+      hacks,
+      chains,
+      projects,
+      categories,
+      token,
+      mainNet,
       order,
       orderBy,
       page,
@@ -114,92 +128,100 @@ export class JobsService {
       new JobListResultEntity(record).getProperties(),
     ) ?? []) as JobListResult[];
     const resultSet = [];
+    const allProjects = await this.getProjectsData();
     for (const result of validatedResults) {
-      const projectList = await this.getProjectsDataForJobListResult(
-        result.organization.orgId,
+      const projectList = allProjects.filter(
+        x => x.orgId === result.organization.orgId,
       );
-      // const anchorProject = projectList.sort(
-      //   (a, b) => b.monthlyVolume - a.monthlyVolume,
-      // )[0];
-      // if (
-      //   !projects ||
-      //   projectList.filter(x => projects.includes(x.name)).length > 0
-      // ) {
-      //   if (
-      //     !categories ||
-      //     projectList.filter(x => categories.includes(x.category)).length > 0
-      //   ) {
-      //     if (
-      //       !token ||
-      //       projectList.filter(x => notStringOrNull(x.tokenAddress) !== null)
-      //         .length > 0
-      //     ) {
-      //       if (!mainNet || projectList.filter(x => x.isMainnet).length > 0) {
-      //         if (
-      //           (!minTeamSize || anchorProject.teamSize > minTeamSize) &&
-      //           (!maxTeamSize || anchorProject.teamSize < maxTeamSize)
-      //         ) {
-      //           if (
-      //             (!minTvl || anchorProject.tvl > minTvl) &&
-      //             (!maxTvl || anchorProject.tvl < maxTvl)
-      //           ) {
-      //             if (
-      //               (!minMonthlyVolume ||
-      //                 anchorProject.monthlyVolume > minMonthlyVolume) &&
-      //               (!maxMonthlyVolume ||
-      //                 anchorProject.monthlyVolume < maxMonthlyVolume)
-      //             ) {
-      //               if (
-      //                 (!minMonthlyFees ||
-      //                   anchorProject.monthlyFees > minMonthlyFees) &&
-      //                 (!maxMonthlyFees ||
-      //                   anchorProject.monthlyFees < maxMonthlyFees)
-      //               ) {
-      //                 if (
-      //                   (!minMonthlyRevenue ||
-      //                     anchorProject.monthlyRevenue > minMonthlyRevenue) &&
-      //                   (!maxMonthlyRevenue ||
-      //                     anchorProject.monthlyRevenue < maxMonthlyRevenue)
-      //                 ) {
-      //                   if (
-      //                     (!minAudits ||
-      //                       anchorProject.audits.length > minAudits) &&
-      //                     (!maxAudits ||
-      //                       anchorProject.audits.length < maxAudits)
-      //                   ) {
-      //                     if (
-      //                       !hacks ||
-      //                       anchorProject.hacks.length > 0 === hacks
-      //                     ) {
-      //                       if (
-      //                         !chains ||
-      //                         anchorProject.chains
-      //                           .map(x => x.name)
-      //                           .filter(
-      //                             x => chains.filter(y => x === y).length > 0,
-      //                           )
-      //                       ) {
-      const updatedResult: JobListResult = {
-        ...result,
-        organization: {
-          ...result.organization,
-          projects: projectList,
-        },
-      };
-      resultSet.push(updatedResult);
-      //                         }
-      //                       }
-      //                     }
-      //                   }
-      //                 }
-      //               }
-      //             }
-      //           }
-      //         }
-      //       }
-      //     }
-      //   }
+
+      const anchorProject = projectList.sort(
+        (a, b) => b.monthlyVolume - a.monthlyVolume,
+      )[0];
+
+      if (
+        !projects ||
+        projectList.filter(x => projects.includes(x.name)).length > 0
+      ) {
+        if (
+          !categories ||
+          projectList.filter(x => categories.includes(x.category)).length > 0
+        ) {
+          if (
+            !token ||
+            projectList.filter(x => notStringOrNull(x.tokenAddress) !== null)
+              .length > 0
+          ) {
+            if (!mainNet || projectList.filter(x => x.isMainnet).length > 0) {
+              if (
+                (!minTeamSize ||
+                  (anchorProject?.teamSize ?? 0) > minTeamSize) &&
+                (!maxTeamSize || (anchorProject?.teamSize ?? 0) < maxTeamSize)
+              ) {
+                if (
+                  (!minTvl || (anchorProject?.tvl ?? 0) > minTvl) &&
+                  (!maxTvl || (anchorProject?.tvl ?? 0) < maxTvl)
+                ) {
+                  if (
+                    (!minMonthlyVolume ||
+                      (anchorProject?.monthlyVolume ?? 0) > minMonthlyVolume) &&
+                    (!maxMonthlyVolume ||
+                      (anchorProject?.monthlyVolume ?? 0) < maxMonthlyVolume)
+                  ) {
+                    if (
+                      (!minMonthlyFees ||
+                        (anchorProject?.monthlyFees ?? 0) > minMonthlyFees) &&
+                      (!maxMonthlyFees ||
+                        (anchorProject?.monthlyFees ?? 0) < maxMonthlyFees)
+                    ) {
+                      if (
+                        (!minMonthlyRevenue ||
+                          (anchorProject?.monthlyRevenue ?? 0) >
+                            minMonthlyRevenue) &&
+                        (!maxMonthlyRevenue ||
+                          (anchorProject?.monthlyRevenue ?? 0) <
+                            maxMonthlyRevenue)
+                      ) {
+                        if (
+                          (!minAudits ||
+                            (anchorProject?.audits.length ?? 0) > minAudits) &&
+                          (!maxAudits ||
+                            (anchorProject?.audits.length ?? 0) < maxAudits)
+                        ) {
+                          if (
+                            !hacks ||
+                            (anchorProject?.hacks.length ?? 0) > 0 === hacks
+                          ) {
+                            if (
+                              !chains ||
+                              (anchorProject?.chains
+                                ?.map(x => x.name)
+                                .filter(
+                                  x => chains.filter(y => x === y).length > 0,
+                                ) ??
+                                false)
+                            ) {
+                              const updatedResult: JobListResult = {
+                                ...result,
+                                organization: {
+                                  ...result.organization,
+                                  projects: projectList,
+                                },
+                              };
+                              resultSet.push(updatedResult);
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
+
     const getSortParam = (jlr: JobListResult): number => {
       const p1 = jlr.organization.projects.sort(
         (a, b) => b.monthlyVolume - a.monthlyVolume,
@@ -223,17 +245,22 @@ export class JobsService {
           return jlr.jobCreatedTimestamp;
       }
     };
+
     let final = [];
     if (!order || order === "desc") {
       final = sort<JobListResult>(resultSet).desc(getSortParam);
     } else {
       final = sort<JobListResult>(resultSet).asc(getSortParam);
     }
+
     return {
       page: (final.length > 0 ? params.page ?? 1 : -1) ?? -1,
-      count: final.length ?? 0,
+      count: limit > final.length ? final.length : limit,
       total: final.length ? intConverter(final.length) : 0,
-      data: final.slice(page > 1 ? page * limit : page, final.length),
+      data: final.slice(
+        page > 1 ? page * limit : 0,
+        page === 1 ? limit : (page + 1) * limit,
+      ),
     };
   }
 
