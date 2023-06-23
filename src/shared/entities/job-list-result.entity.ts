@@ -83,7 +83,7 @@ export class JobListResultEntity {
             audits:
               project?.audits.map(audit => ({
                 ...audit,
-                auditor: notStringOrNull(audit?.auditor),
+                auditor: notStringOrNull(audit?.auditor) ?? null,
               })) ?? [],
             chains: project?.chains ?? [],
           })) ?? [],

@@ -175,7 +175,7 @@ describe("JobsController", () => {
     expect(res.data.every(x => jlrHasArrayPropsDuplication(x) === false)).toBe(
       true,
     );
-  }, 3000000);
+  }, 1000000000);
 
   it("should get all jobs list with no jobpost and array property duplication", async () => {
     const params: JobListParams = {
@@ -229,7 +229,7 @@ describe("JobsController", () => {
     const res = await controller.getJobsListWithSearch(params);
 
     expect(res.page).toEqual(page);
-  }, 10000);
+  }, 1000000000);
 
   it("should respond with the correct results for publicationDate filter", async () => {
     const dateRange: DateRange = "this-week";

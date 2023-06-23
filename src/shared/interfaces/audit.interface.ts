@@ -6,7 +6,7 @@ import { report } from "io-ts-human-reporter";
 export class Audit {
   public static readonly AuditType = t.strict({
     link: t.string,
-    auditor: t.union([t.string, t.null]),
+    auditor: t.union([t.string, t.null, t.undefined]),
   });
 
   @ApiPropertyOptional()
