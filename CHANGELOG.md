@@ -1,3 +1,14 @@
+## [1.29.5](https://github.com/jobstash/middleware/compare/v1.29.4...v1.29.5) (2023-06-23)
+
+
+### Bug Fixes
+
+* **helpers:** removed support for project based sorters on jobs list ([83fe425](https://github.com/jobstash/middleware/commit/83fe42516d9da72cb2c2111ab2ab913f3e51ab76))
+* **jobs:** fix for hacks and audits causing dupes wip ([d2ca9af](https://github.com/jobstash/middleware/commit/d2ca9af6f38041a85a9b9448ab50181cc1d77138))
+* **jobs:** unbork hacks and audits integration wip ([7053354](https://github.com/jobstash/middleware/commit/70533547d418a459c10ec4dc097531537a3666e4))
+* **orgs:** fixed issue with org details ([7b84901](https://github.com/jobstash/middleware/commit/7b84901d72b3e971fcc15e45bfa24d5256e85d7d))
+* **projects:** fix for projects to prevent dupes by hacks and audits ([79a5e18](https://github.com/jobstash/middleware/commit/79a5e18a892347955bf0057d93f8d8735d7b391d))
+
 ## [1.29.4](https://github.com/jobstash/middleware/compare/v1.29.3...v1.29.4) (2023-06-22)
 
 
