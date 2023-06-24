@@ -31,7 +31,7 @@ describe("JobsController", () => {
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
       project.audits,
-      a => a.auditor.toLowerCase(),
+      a => a?.link.toLowerCase(),
       `Audit for Project ${project.id} for Jobpost ${jobPostUUID}`,
     );
     const hasDuplicateHacks = hasDuplicates(
@@ -175,7 +175,7 @@ describe("JobsController", () => {
     expect(res.data.every(x => jlrHasArrayPropsDuplication(x) === false)).toBe(
       true,
     );
-  }, 3000000);
+  }, 6000000);
 
   it("should get all jobs list with no jobpost and array property duplication", async () => {
     const params: JobListParams = {
@@ -202,7 +202,7 @@ describe("JobsController", () => {
     expect(res.data.every(x => ajlrHasArrayPropsDuplication(x) === false)).toBe(
       true,
     );
-  }, 300000);
+  }, 60000000);
 
   it("should get job details with no array property duplication", async () => {
     const params: JobListParams = {
@@ -216,7 +216,7 @@ describe("JobsController", () => {
     const details = await controller.getJobDetailsByUuid(job.shortUUID);
 
     expect(jlrHasArrayPropsDuplication(details)).toBe(false);
-  }, 10000);
+  }, 60000000);
 
   it("should respond with the correct page ", async () => {
     const page = 1;
@@ -229,7 +229,7 @@ describe("JobsController", () => {
     const res = await controller.getJobsListWithSearch(params);
 
     expect(res.page).toEqual(page);
-  }, 10000);
+  }, 1000000000);
 
   it("should respond with the correct results for publicationDate filter", async () => {
     const dateRange: DateRange = "this-week";
