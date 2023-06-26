@@ -21,7 +21,6 @@ export class OrganizationProperties {
     summary: t.string,
     location: t.string,
     description: t.string,
-    jobsiteLink: t.string,
     docs: t.union([t.string, t.null]),
     github: t.union([t.string, t.null]),
     altName: t.union([t.string, t.null]),
@@ -29,6 +28,7 @@ export class OrganizationProperties {
     twitter: t.union([t.string, t.null]),
     telegram: t.union([t.string, t.null]),
     headCount: t.union([t.number, t.null]),
+    jobsiteLink: t.union([t.string, t.null]),
     createdTimestamp: t.union([t.number, t.null]),
     updatedTimestamp: t.union([t.number, t.null]),
   });
@@ -164,12 +164,13 @@ export class Organization extends OrganizationProperties {
   investors: Investor[];
 
   constructor(raw: Organization) {
-    const { projects, fundingRounds, ...orgProperties } = raw;
+    const { projects, fundingRounds, investors, ...orgProperties } = raw;
     super(orgProperties);
     const result = Organization.OrganizationType.decode(raw);
 
     this.projects = projects;
     this.fundingRounds = fundingRounds;
+    this.investors = investors;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

@@ -12,7 +12,7 @@ export class OrgListResultEntity {
 
   getProperties(): OrgListResult {
     const organization = this.raw;
-    const { jobs, technologies } = organization;
+    const { jobs, technologies, investors, fundingRounds } = organization;
 
     return new OrgListResult({
       ...organization,
@@ -56,13 +56,13 @@ export class OrgListResultEntity {
           chains: project?.chains ?? [],
         })) ?? [],
       fundingRounds:
-        organization?.fundingRounds.map(fr => ({
+        fundingRounds.map(fr => ({
           ...fr,
           raisedAmount: nonZeroOrNull(fr?.raisedAmount),
           roundName: notStringOrNull(fr?.roundName),
           sourceLink: notStringOrNull(fr?.sourceLink),
         })) ?? [],
-      investors: organization?.investors ?? [],
+      investors: investors ?? [],
       jobs: jobs.map(jobpost => ({
         ...jobpost,
         minSalaryRange: nonZeroOrNull(jobpost?.minSalaryRange),
