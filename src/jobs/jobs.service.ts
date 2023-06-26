@@ -103,7 +103,7 @@ export class JobsService {
           await this.cacheManager.set(
             "projects",
             JSON.stringify(projects),
-            18000,
+            18000000,
           );
           return projects;
         })
@@ -425,29 +425,55 @@ export class JobsService {
       page: params.page ?? 1,
     };
     // console.log(paramsPassed);
-    return this.neo4jService
-      .read(generatedQuery, paramsPassed)
-      .then(async res => {
-        const results = res.records[0]?.get("results");
-        return this.transformResultSet(results, paramsPassed);
-      })
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "jobs.service",
+    const paramsSet = Object.values({
+      ...params,
+      limit: null,
+      page: null,
+    }).filter(x => x !== null);
+    const cachedJobsString =
+      (await this.cacheManager.get<string>("jobs")) ?? "[]";
+    const cachedJobs = JSON.parse(cachedJobsString) as JobListResult[];
+    if (
+      cachedJobs !== null &&
+      cachedJobs !== undefined &&
+      cachedJobs.length !== 0 &&
+      paramsSet.length === 0
+    ) {
+      this.logger.log("Found cached jobs");
+      return this.transformResultSet(cachedJobs, paramsPassed);
+    } else {
+      this.logger.log("No applicable cached jobs found, retrieving from db.");
+      return this.neo4jService
+        .read(generatedQuery, paramsPassed)
+        .then(async res => {
+          const results = res.records[0]?.get("results");
+          await this.cacheManager.set(
+            "jobs",
+            JSON.stringify(results),
+            18000000,
+          );
+          return this.transformResultSet(results, paramsPassed);
+        })
+        .catch(err => {
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "db-call",
+              source: "jobs.service",
+            });
+            scope.setExtra("input", params);
+            Sentry.captureException(err);
           });
-          scope.setExtra("input", params);
-          Sentry.captureException(err);
+          this.logger.error(
+            `JobsService::getJobsListWithSearch ${err.message}`,
+          );
+          return {
+            page: -1,
+            count: 0,
+            total: 0,
+            data: [],
+          };
         });
-        this.logger.error(`JobsService::getJobsListWithSearch ${err.message}`);
-        return {
-          page: -1,
-          count: 0,
-          total: 0,
-          data: [],
-        };
-      });
+    }
   }
 
   async getFilterConfigs(): Promise<JobFilterConfigs> {
