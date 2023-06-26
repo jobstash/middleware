@@ -28,7 +28,7 @@ describe("OrganizationsController", () => {
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
       project.audits,
-      a => a.auditor.toLowerCase(),
+      a => a.auditor?.toLowerCase(),
       `Audit for Project ${project.id} for Org ${orgId}`,
     );
     const hasDuplicateHacks = hasDuplicates(
