@@ -50,6 +50,7 @@ export class OrganizationsService {
 
               WHERE ($hasJobs IS NULL OR EXISTS {
                 MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
+                MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
                 MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
               } = $hasJobs)
 
@@ -82,7 +83,8 @@ export class OrganizationsService {
                   jobCount: jobCount,
                   projectCount: projectCount,
                   lastFundingDate: lastFundingDate,
-                  lastFundingAmount: lastFundingAmount
+                  lastFundingAmount: lastFundingAmount,
+                  technologies: technologies
               } AS result, organization.headCount as head_count, most_recent_funding_round, most_recent_jobpost
 
               WITH result, head_count, most_recent_jobpost, most_recent_funding_round
