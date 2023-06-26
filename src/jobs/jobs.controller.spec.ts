@@ -21,6 +21,7 @@ import {
 import { isRight } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
 import { AllJobsListResult } from "src/shared/interfaces/all-jobs-list-result.interface";
+import { CacheModule } from "@nestjs/cache-manager";
 
 describe("JobsController", () => {
   let controller: JobsController;
@@ -138,6 +139,7 @@ describe("JobsController", () => {
               database: configService.get<string>("NEO4J_DATABASE"),
             } as Neo4jConnection),
         }),
+        CacheModule.register({ isGlobal: true }),
       ],
       controllers: [JobsController],
       providers: [JobsService],

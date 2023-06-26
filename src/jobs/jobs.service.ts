@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
 import {
   intConverter,
@@ -24,14 +24,32 @@ import { AllJobListResultEntity } from "src/shared/entities/all-jobs-list-result
 import { AllJobsListResult } from "src/shared/interfaces/all-jobs-list-result.interface";
 import { AllJobsFilterConfigsEntity } from "src/shared/entities/all-jobs-filter-configs.entity";
 import { sort } from "fast-sort";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { Cache } from "cache-manager";
 
 @Injectable()
 export class JobsService {
   logger = new CustomLogger(JobsService.name);
-  constructor(private readonly neo4jService: Neo4jService) {}
+  constructor(
+    private readonly neo4jService: Neo4jService,
+    @Inject(CACHE_MANAGER)
+    private cacheManager: Cache,
+  ) {}
 
   async getProjectsData(): Promise<Project[]> {
-    const generatedQuery = `
+    const cachedProjectsString =
+      (await this.cacheManager.get<string>("projects")) ?? "[]";
+    const cachedProjects = JSON.parse(cachedProjectsString) as Project[];
+    if (
+      cachedProjects !== null &&
+      cachedProjects !== undefined &&
+      cachedProjects.length !== 0
+    ) {
+      this.logger.log("Found cached projects");
+      return cachedProjects;
+    } else {
+      this.logger.log("No cached projects found, retrieving from db.");
+      const generatedQuery = `
         MATCH (project: Project)
         OPTIONAL MATCH (project)-[:HAS_CATEGORY]->(project_category:ProjectCategory)
         OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
@@ -76,24 +94,31 @@ export class JobsService {
           chains: [chain in chains WHERE chain.id IS NOT NULL]
         }) AS projects
     `.replace(/^\s*$(?:\r\n?|\n)/gm, "");
-    return this.neo4jService
-      .read(generatedQuery)
-      .then(res => {
-        return res?.records[0]
-          .get("projects")
-          .map(record => new Project(record));
-      })
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "jobs.service",
+      return this.neo4jService
+        .read(generatedQuery)
+        .then(async res => {
+          const projects: Project[] = res?.records[0]
+            .get("projects")
+            .map(record => new Project(record));
+          await this.cacheManager.set(
+            "projects",
+            JSON.stringify(projects),
+            18000000,
+          );
+          return projects;
+        })
+        .catch(err => {
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "db-call",
+              source: "jobs.service",
+            });
+            Sentry.captureException(err);
           });
-          Sentry.captureException(err);
+          this.logger.error(`JobsService::getProjectsData ${err.message}`);
+          return [];
         });
-        this.logger.error(`JobsService::getProjectsData ${err.message}`);
-        return [];
-      });
+    }
   }
 
   async transformResultSet(
@@ -400,29 +425,55 @@ export class JobsService {
       page: params.page ?? 1,
     };
     // console.log(paramsPassed);
-    return this.neo4jService
-      .read(generatedQuery, paramsPassed)
-      .then(async res => {
-        const results = res.records[0]?.get("results");
-        return this.transformResultSet(results, paramsPassed);
-      })
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "jobs.service",
+    const paramsSet = Object.values({
+      ...params,
+      limit: null,
+      page: null,
+    }).filter(x => x !== null);
+    const cachedJobsString =
+      (await this.cacheManager.get<string>("jobs")) ?? "[]";
+    const cachedJobs = JSON.parse(cachedJobsString) as JobListResult[];
+    if (
+      cachedJobs !== null &&
+      cachedJobs !== undefined &&
+      cachedJobs.length !== 0 &&
+      paramsSet.length === 0
+    ) {
+      this.logger.log("Found cached jobs");
+      return this.transformResultSet(cachedJobs, paramsPassed);
+    } else {
+      this.logger.log("No applicable cached jobs found, retrieving from db.");
+      return this.neo4jService
+        .read(generatedQuery, paramsPassed)
+        .then(async res => {
+          const results = res.records[0]?.get("results");
+          await this.cacheManager.set(
+            "jobs",
+            JSON.stringify(results),
+            18000000,
+          );
+          return this.transformResultSet(results, paramsPassed);
+        })
+        .catch(err => {
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "db-call",
+              source: "jobs.service",
+            });
+            scope.setExtra("input", params);
+            Sentry.captureException(err);
           });
-          scope.setExtra("input", params);
-          Sentry.captureException(err);
+          this.logger.error(
+            `JobsService::getJobsListWithSearch ${err.message}`,
+          );
+          return {
+            page: -1,
+            count: 0,
+            total: 0,
+            data: [],
+          };
         });
-        this.logger.error(`JobsService::getJobsListWithSearch ${err.message}`);
-        return {
-          page: -1,
-          count: 0,
-          total: 0,
-          data: [],
-        };
-      });
+    }
   }
 
   async getFilterConfigs(): Promise<JobFilterConfigs> {
