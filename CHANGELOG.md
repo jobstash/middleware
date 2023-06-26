@@ -1,3 +1,10 @@
+# [1.30.0](https://github.com/jobstash/middleware/compare/v1.29.5...v1.30.0) (2023-06-26)
+
+
+### Features
+
+* **jobs:** added caching for projects data ([#106](https://github.com/jobstash/middleware/issues/106)) ([580e49c](https://github.com/jobstash/middleware/commit/580e49c316039145a36549c9833171bb8929c6d8))
+
 ## [1.29.5](https://github.com/jobstash/middleware/compare/v1.29.4...v1.29.5) (2023-06-23)
 
 
