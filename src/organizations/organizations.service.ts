@@ -5,7 +5,6 @@ import {
   ShortOrg,
   Repository,
   PaginatedData,
-  OrganizationProperties,
   OrgFilterConfigs,
   OrgFilterConfigsEntity,
   OrgListResult,
@@ -24,7 +23,7 @@ export class OrganizationsService {
 
   async getOrgsListWithSearch(
     params: OrgListParams,
-  ): Promise<PaginatedData<OrganizationProperties>> {
+  ): Promise<PaginatedData<ShortOrg>> {
     const generatedQuery = `
             CALL {
               MATCH (organization: Organization)
@@ -34,15 +33,24 @@ export class OrganizationsService {
 
               OPTIONAL MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
               OPTIONAL MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
+              WHERE (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
+              OPTIONAL MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
+
+              OPTIONAL MATCH (organization)-[:HAS_PROJECT]->(project:Project)
               
               // Note that investor and funding round data is left in node form. this is to allow for matching down the line to relate and collect them
               WITH organization, 
+              COLLECT(DISTINCT PROPERTIES(technology)) AS technologies,
               COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
-              COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, MAX(funding_round.date) as most_recent_funding_round, 
+              COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
+              COUNT(DISTINCT project) AS projectCount,
+              COUNT(DISTINCT structured_jobpost) AS jobCount,
+              MAX(funding_round.date) as most_recent_funding_round, 
               MAX(structured_jobpost.jobCreatedTimestamp) as most_recent_jobpost
 
               WHERE ($hasJobs IS NULL OR EXISTS {
                 MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
+                MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
                 MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
               } = $hasJobs)
 
@@ -57,23 +65,26 @@ export class OrganizationsService {
               AND ($investors IS NULL OR (investors IS NOT NULL AND any(x IN investors WHERE x.name IN $investors)))
               AND ($query IS NULL OR organization.name =~ $query)
 
+              CALL {
+                WITH funding_rounds
+                UNWIND funding_rounds as funding_round
+                WITH funding_round
+                ORDER BY funding_round.date DESC
+                WITH COLLECT(DISTINCT funding_round)[0] AS mrfr
+                RETURN mrfr.raisedAmount as lastFundingAmount, mrfr.date as lastFundingDate
+              }
+
               WITH {
-                  id: organization.id,
                   orgId: organization.orgId,
-                  name: organization.name,
-                  description: organization.description,
-                  summary: organization.summary,
-                  location: organization.location,
                   url: organization.url,
-                  twitter: organization.twitter,
-                  discord: organization.discord,
-                  github: organization.github,
-                  telegram: organization.telegram,
-                  docs: organization.docs,
-                  jobsiteLink: organization.jobsiteLink,
-                  createdTimestamp: organization.createdTimestamp,
-                  updatedTimestamp: organization.updatedTimestamp,
-                  teamSize: organization.teamSize
+                  name: organization.name,
+                  location: organization.location,
+                  headCount: organization.headCount,
+                  jobCount: jobCount,
+                  projectCount: projectCount,
+                  lastFundingDate: lastFundingDate,
+                  lastFundingAmount: lastFundingAmount,
+                  technologies: technologies
               } AS result, organization.headCount as head_count, most_recent_funding_round, most_recent_jobpost
 
               WITH result, head_count, most_recent_jobpost, most_recent_funding_round
@@ -118,7 +129,9 @@ export class OrganizationsService {
           count: result?.data?.length ?? 0,
           total: result?.total ? intConverter(result?.total) : 0,
           data:
-            result?.data?.map(record => record as OrganizationProperties) ?? [],
+            result?.data?.map(record =>
+              new ShortOrgEntity(record).getProperties(),
+            ) ?? [],
         };
       })
       .catch(err => {
@@ -337,10 +350,10 @@ export class OrganizationsService {
         WHERE NOT (t)<-[:IS_BLOCKED_TERM]-()
         AND (t)<-[:IS_PREFERRED_TERM_OF]-(:PreferredTerm)
         AND (t)<-[:IS_PAIRED_WITH]-(:TechnologyPairing)-[:IS_PAIRED_WITH]->(:Technology)
-        WITH o.orgId as id, o.logoUrl as logo, o.name as name, o.location as location, o.headCount as headCount, COUNT(DISTINCT p) as projectCount, COUNT(DISTINCT j) as jobCount, COLLECT(DISTINCT t) as technologies, fr
+        WITH o.orgId as orgId, o.logoUrl as logo, o.name as name, o.location as location, o.headCount as headCount, COUNT(DISTINCT p) as projectCount, COUNT(DISTINCT j) as jobCount, COLLECT(DISTINCT t) as technologies, fr
         ORDER BY fr.date DESC
-        WITH id, name, logo, location, headCount, projectCount, jobCount, technologies, collect(fr)[0] as mrfr
-        RETURN { id: id, name: name, logo: logo, location: location, headCount: headCount, projectCount: projectCount, jobCount: jobCount, technologies: technologies, lastFundingAmount: mrfr.raisedAmount, lastFundingDate: mrfr.date } as res
+        WITH orgId, name, logo, location, headCount, projectCount, jobCount, technologies, collect(fr)[0] as mrfr
+        RETURN { orgId: orgId, name: name, logo: logo, location: location, headCount: headCount, projectCount: projectCount, jobCount: jobCount, technologies: technologies, lastFundingAmount: mrfr.raisedAmount, lastFundingDate: mrfr.date } as res
         `,
       )
       .then(res =>
