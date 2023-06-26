@@ -1,4 +1,4 @@
-import { CACHE_MANAGER, Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { InjectAuthentication } from "@twirelab/nestjs-auth0";
@@ -6,6 +6,7 @@ import { AuthenticationClient, TokenResponse } from "auth0";
 import { Cache } from "cache-manager";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
 
 @Injectable()
 export class AuthService {
