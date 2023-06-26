@@ -11,6 +11,7 @@ import {
   OrgListResult,
   OrganizationProperties,
   Project,
+  ShortOrg,
 } from "src/shared/types";
 import { hasDuplicates, printDuplicateItems } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
@@ -203,9 +204,7 @@ describe("OrganizationsController", () => {
       orderBy: "headCount",
     };
 
-    const matchesHeadCountRange = (
-      orgListResult: OrganizationProperties,
-    ): boolean => {
+    const matchesHeadCountRange = (orgListResult: ShortOrg): boolean => {
       if (typeof orgListResult.headCount === "number") {
         return (
           minHeadCount <= orgListResult.headCount &&

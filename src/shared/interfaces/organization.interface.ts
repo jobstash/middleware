@@ -27,7 +27,6 @@ export class OrganizationProperties {
     altName: t.union([t.string, t.null]),
     discord: t.union([t.string, t.null]),
     twitter: t.union([t.string, t.null]),
-    teamSize: t.union([t.number, t.null]),
     telegram: t.union([t.string, t.null]),
     headCount: t.union([t.number, t.null]),
     createdTimestamp: t.union([t.number, t.null]),
@@ -71,9 +70,6 @@ export class OrganizationProperties {
   github: string | null;
 
   @ApiPropertyOptional()
-  teamSize: number | null;
-
-  @ApiPropertyOptional()
   twitter: string | null;
 
   @ApiPropertyOptional()
@@ -101,7 +97,6 @@ export class OrganizationProperties {
       twitter,
       discord,
       location,
-      teamSize,
       telegram,
       headCount,
       description,
@@ -124,7 +119,6 @@ export class OrganizationProperties {
     this.twitter = twitter;
     this.discord = discord;
     this.location = location;
-    this.teamSize = teamSize;
     this.telegram = telegram;
     this.headCount = headCount;
     this.description = description;
@@ -188,27 +182,21 @@ export class Organization extends OrganizationProperties {
 // TODO: Review this with @duckdegen
 export class ShortOrg {
   public static readonly ShortOrgType = t.strict({
-    id: t.string,
+    orgId: t.string,
     url: t.string,
     name: t.string,
-    github: t.string,
-    twitter: t.string,
-    discord: t.string,
     location: t.string,
     jobCount: t.number,
-    telegram: t.string,
     headCount: t.number,
-    description: t.string,
     projectCount: t.number,
     lastFundingDate: t.number,
     lastFundingAmount: t.number,
     logo: t.union([t.string, t.null]),
     technologies: t.array(Technology.TechnologyType),
-    fundingRounds: t.array(FundingRound.FundingRoundType),
   });
 
   @ApiProperty()
-  id: string;
+  orgId: string;
 
   @ApiProperty()
   name: string;
@@ -240,90 +228,44 @@ export class ShortOrg {
   @ApiProperty()
   description: string;
 
-  @ApiProperty()
-  github: string;
-
-  @ApiProperty()
-  twitter: string;
-
-  @ApiProperty()
-  telegram: string;
-
-  @ApiProperty()
-  discord: string;
-
-  @ApiProperty({
-    type: "array",
-    items: { $ref: getSchemaPath(FundingRound) },
-  })
-  fundingRounds: FundingRound[];
-
   @ApiProperty({ type: "array", items: { $ref: getSchemaPath(Technology) } })
   technologies: Technology[];
 
-  // constructor(raw: ShortOrg) {
-  //   const {
-  //     id,
-  //     url,
-  //     name,
-  //     logo,
-  //     github,
-  //     twitter,
-  //     discord,
-  //     location,
-  //     jobCount,
-  //     telegram,
-  //     headCount,
-  //     description,
-  //     projectCount,
-  //     technologies,
-  //     fundingRounds,
-  //     lastFundingDate,
-  //     lastFundingAmount,
-  //   } = raw;
+  constructor(raw: ShortOrg) {
+    const {
+      orgId,
+      url,
+      name,
+      logo,
+      location,
+      jobCount,
+      headCount,
+      description,
+      projectCount,
+      technologies,
+      lastFundingDate,
+      lastFundingAmount,
+    } = raw;
 
-  //   const result = ShortOrg.ShortOrgType.decode(raw);
+    const result = ShortOrg.ShortOrgType.decode(raw);
 
-  //   this.id = id;
-  //   this.url = url;
-  //   this.name = name;
-  //   this.logo = logo;
-  //   this.github = github;
-  //   this.twitter = twitter;
-  //   this.discord = discord;
-  //   this.location = location;
-  //   this.jobCount = jobCount;
-  //   this.telegram = telegram;
-  //   this.headCount = headCount;
-  //   this.description = description;
-  //   this.projectCount = projectCount;
-  //   this.technologies = technologies;
-  //   this.fundingRounds = fundingRounds;
-  //   this.lastFundingDate = lastFundingDate;
-  //   this.lastFundingAmount = lastFundingAmount;
+    this.orgId = orgId;
+    this.url = url;
+    this.name = name;
+    this.logo = logo;
+    this.location = location;
+    this.jobCount = jobCount;
+    this.headCount = headCount;
+    this.description = description;
+    this.projectCount = projectCount;
+    this.technologies = technologies;
+    this.lastFundingDate = lastFundingDate;
+    this.lastFundingAmount = lastFundingAmount;
 
-  //   if (isLeft(result)) {
-  //     throw new Error(
-  //       `Error Serializing ShortOrg! Constructor expected: \n {
-  //         id: string,
-  //         url: string,
-  //         name: string,
-  //         github: string,
-  //         twitter: string,
-  //         discord: string,
-  //         location: string,
-  //         jobCount: number,
-  //         telegram: string,
-  //         headCount: number,
-  //         logo: string | null,
-  //         description: string,
-  //         projectCount: number,
-  //         lastFundingDate: number,
-  //         lastFundingAmount: number,
-  //         technologies: Technology[]
-  //         fundingRounds: FundingRoundProperties[],
-  //       } got ${inferObjectType(raw)}`,
-  //     );
-  //   }
-  // }
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(x);
+      });
+    }
+  }
 }
