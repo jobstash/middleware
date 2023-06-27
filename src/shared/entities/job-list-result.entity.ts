@@ -45,11 +45,11 @@ export class JobListResultEntity {
         docs: notStringOrNull(organization?.docs),
         altName: notStringOrNull(organization?.altName),
         headCount: nonZeroOrNull(organization?.headCount),
-        teamSize: nonZeroOrNull(organization?.teamSize),
         github: notStringOrNull(organization?.github),
         twitter: notStringOrNull(organization?.twitter),
         discord: notStringOrNull(organization?.discord),
         telegram: notStringOrNull(organization?.telegram),
+        createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
         updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
         projects:
           organization.projects.map(project => ({
