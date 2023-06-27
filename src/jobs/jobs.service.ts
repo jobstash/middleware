@@ -46,7 +46,7 @@ export class JobsService {
       cachedProjects.length !== 0
     ) {
       this.logger.log("Found cached projects");
-      return cachedProjects;
+      return cachedProjects.map(x => new Project(x));
     } else {
       this.logger.log("No cached projects found, retrieving from db.");
       const generatedQuery = `
@@ -149,12 +149,9 @@ export class JobsService {
       page,
       limit,
     } = params;
-    const validatedResults = (results?.map(record =>
-      new JobListResultEntity(record).getProperties(),
-    ) ?? []) as JobListResult[];
     const resultSet = [];
     const allProjects = await this.getProjectsData();
-    for (const result of validatedResults) {
+    for (const result of results) {
       const projectList = allProjects.filter(
         x => x.orgId === result.organization.orgId,
       );
@@ -282,10 +279,12 @@ export class JobsService {
       page: (final.length > 0 ? params.page ?? 1 : -1) ?? -1,
       count: limit > final.length ? final.length : limit,
       total: final.length ? intConverter(final.length) : 0,
-      data: final.slice(
-        page > 1 ? page * limit : 0,
-        page === 1 ? limit : (page + 1) * limit,
-      ),
+      data: final
+        .slice(
+          page > 1 ? page * limit : 0,
+          page === 1 ? limit : (page + 1) * limit,
+        )
+        .map(x => new JobListResultEntity(x).getProperties()),
     };
   }
 
