@@ -52,9 +52,10 @@ export class JobListResultEntity {
         createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
         updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
         projects:
-          organization?.projects?.map(project => ({
+          organization.projects.map(project => ({
             ...project,
             defiLlamaId: notStringOrNull(project?.defiLlamaId),
+            cmcId: notStringOrNull(project?.cmcId),
             defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug),
             defiLlamaParent: notStringOrNull(project?.defiLlamaParent),
             tokenAddress: notStringOrNull(project?.tokenAddress),
