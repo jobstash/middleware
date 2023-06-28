@@ -1,3 +1,10 @@
+## [1.30.1](https://github.com/jobstash/middleware/compare/v1.30.0...v1.30.1) (2023-06-28)
+
+
+### Bug Fixes
+
+* **orgs:** added job status filters to orgs queries ([ffc1990](https://github.com/jobstash/middleware/commit/ffc1990dac3d8e931628ca5ecf9e4de005f45105))
+
 # [1.30.0](https://github.com/jobstash/middleware/compare/v1.29.5...v1.30.0) (2023-06-26)
 
 
