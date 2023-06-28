@@ -1,3 +1,10 @@
+## [1.30.3](https://github.com/jobstash/middleware/compare/v1.30.2...v1.30.3) (2023-06-28)
+
+
+### Bug Fixes
+
+* **interface:** change date interface from string to number ([333be00](https://github.com/jobstash/middleware/commit/333be006aa89ca216c967e5862093b4f0100be66))
+
 ## [1.30.2](https://github.com/jobstash/middleware/compare/v1.30.1...v1.30.2) (2023-06-28)
 
 
