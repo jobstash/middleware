@@ -176,28 +176,29 @@ export class JobsService {
             if (!mainNet || projectList.filter(x => x.isMainnet).length > 0) {
               if (
                 (!minTeamSize ||
-                  (anchorProject?.teamSize ?? 0) > minTeamSize) &&
+                  (anchorProject?.teamSize ?? 0) >= minTeamSize) &&
                 (!maxTeamSize || (anchorProject?.teamSize ?? 0) < maxTeamSize)
               ) {
                 if (
-                  (!minTvl || (anchorProject?.tvl ?? 0) > minTvl) &&
+                  (!minTvl || (anchorProject?.tvl ?? 0) >= minTvl) &&
                   (!maxTvl || (anchorProject?.tvl ?? 0) < maxTvl)
                 ) {
                   if (
                     (!minMonthlyVolume ||
-                      (anchorProject?.monthlyVolume ?? 0) > minMonthlyVolume) &&
+                      (anchorProject?.monthlyVolume ?? 0) >=
+                        minMonthlyVolume) &&
                     (!maxMonthlyVolume ||
                       (anchorProject?.monthlyVolume ?? 0) < maxMonthlyVolume)
                   ) {
                     if (
                       (!minMonthlyFees ||
-                        (anchorProject?.monthlyFees ?? 0) > minMonthlyFees) &&
+                        (anchorProject?.monthlyFees ?? 0) >= minMonthlyFees) &&
                       (!maxMonthlyFees ||
                         (anchorProject?.monthlyFees ?? 0) < maxMonthlyFees)
                     ) {
                       if (
                         (!minMonthlyRevenue ||
-                          (anchorProject?.monthlyRevenue ?? 0) >
+                          (anchorProject?.monthlyRevenue ?? 0) >=
                             minMonthlyRevenue) &&
                         (!maxMonthlyRevenue ||
                           (anchorProject?.monthlyRevenue ?? 0) <
@@ -205,7 +206,7 @@ export class JobsService {
                       ) {
                         if (
                           (!minAudits ||
-                            (anchorProject?.audits.length ?? 0) > minAudits) &&
+                            (anchorProject?.audits.length ?? 0) >= minAudits) &&
                           (!maxAudits ||
                             (anchorProject?.audits.length ?? 0) < maxAudits)
                         ) {
