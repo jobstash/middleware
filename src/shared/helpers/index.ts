@@ -150,9 +150,10 @@ export const orgListOrderBySelector = (args: {
   headCountVar: string;
   roundVar: string;
   recentJobVar: string;
+  orgVar: string;
   orderBy: OrgListOrderBy;
 }): string | null => {
-  const { recentJobVar, headCountVar, roundVar, orderBy } = args;
+  const { recentJobVar, headCountVar, roundVar, orgVar, orderBy } = args;
   switch (orderBy) {
     case "recentFundingDate":
       return roundVar;
@@ -164,7 +165,7 @@ export const orgListOrderBySelector = (args: {
       return headCountVar;
 
     default:
-      return null;
+      return `${orgVar}.name`;
   }
 };
 

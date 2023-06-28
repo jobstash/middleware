@@ -92,11 +92,12 @@ export class OrganizationsService {
               // <--Sorter Embedding-->
               // The sorter has to be embedded in this manner due to its dynamic nature
               ORDER BY ${orgListOrderBySelector({
-                orderBy: params.orderBy ?? "recentJobDate",
+                orderBy: params.orderBy,
                 headCountVar: "head_count",
                 roundVar: "most_recent_funding_round",
+                orgVar: "result",
                 recentJobVar: "most_recent_jobpost",
-              })} ${params.order?.toUpperCase() ?? "DESC"}
+              })} ${params.order?.toUpperCase() ?? "ASC"}
               // <--!!!Sorter Embedding-->
               RETURN COLLECT(DISTINCT result) as results
             }
