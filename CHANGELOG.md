@@ -1,3 +1,10 @@
+## [1.30.2](https://github.com/jobstash/middleware/compare/v1.30.1...v1.30.2) (2023-06-28)
+
+
+### Bug Fixes
+
+* **jobs:** fixed min filters ([b32cb45](https://github.com/jobstash/middleware/commit/b32cb4533acf467de16a466e80da5131e788f037))
+
 ## [1.30.1](https://github.com/jobstash/middleware/compare/v1.30.0...v1.30.1) (2023-06-28)
 
 
