@@ -34,13 +34,11 @@ export class OrganizationsService {
               OPTIONAL MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
               OPTIONAL MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
               WHERE (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
-              OPTIONAL MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
 
               OPTIONAL MATCH (organization)-[:HAS_PROJECT]->(project:Project)
               
               // Note that investor and funding round data is left in node form. this is to allow for matching down the line to relate and collect them
               WITH organization, 
-              COLLECT(DISTINCT PROPERTIES(technology)) AS technologies,
               COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
               COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
               COUNT(DISTINCT project) AS projectCount,
@@ -83,8 +81,7 @@ export class OrganizationsService {
                   jobCount: jobCount,
                   projectCount: projectCount,
                   lastFundingDate: lastFundingDate,
-                  lastFundingAmount: lastFundingAmount,
-                  technologies: technologies
+                  lastFundingAmount: lastFundingAmount
               } AS result, organization.headCount as head_count, most_recent_funding_round, most_recent_jobpost
 
               WITH result, head_count, most_recent_jobpost, most_recent_funding_round

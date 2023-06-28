@@ -99,7 +99,7 @@ export class JobsService {
         .then(async res => {
           const projects: Project[] = res?.records[0]
             .get("projects")
-            .map(record => new Project(record));
+            .map(record => record as Project);
           await this.cacheManager.set(
             "projects",
             JSON.stringify(projects),

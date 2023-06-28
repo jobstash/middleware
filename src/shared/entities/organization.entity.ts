@@ -13,7 +13,6 @@ export class ShortOrgEntity {
       headCount: intConverter(this.raw.headCount),
       lastFundingAmount: intConverter(this.raw.lastFundingAmount),
       lastFundingDate: intConverter(this.raw.lastFundingDate),
-      technologies: this.raw.technologies ?? [],
     };
   }
 }
