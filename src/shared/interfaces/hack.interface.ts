@@ -10,8 +10,8 @@ export class Hack {
     category: t.string,
     fundsLost: t.number,
     issueType: t.string,
-    description: t.string,
     date: t.union([t.string, t.null]),
+    description: t.union([t.string, t.null]),
     fundsReturned: t.union([t.number, t.null]),
   });
 
@@ -19,7 +19,7 @@ export class Hack {
   id: string;
 
   @ApiProperty()
-  date: string;
+  date: string | null;
 
   @ApiProperty()
   defiId: string;
@@ -34,10 +34,10 @@ export class Hack {
   issueType: string;
 
   @ApiProperty()
-  description: string;
+  description: string | null;
 
   @ApiProperty()
-  fundsReturned: number;
+  fundsReturned: number | null;
 
   constructor(raw: Hack) {
     const {

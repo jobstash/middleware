@@ -15,7 +15,12 @@ export class OrgListResult extends Organization {
   public static readonly OrgListResultType = t.intersection([
     Organization.OrganizationType,
     t.strict({
-      jobs: t.array(StructuredJobpost.StructuredJobpostType),
+      jobs: t.array(
+        t.intersection([
+          StructuredJobpost.StructuredJobpostType,
+          t.strict({ technologies: t.array(Technology.TechnologyType) }),
+        ]),
+      ),
       technologies: t.array(Technology.TechnologyType),
     }),
   ]);
@@ -24,7 +29,7 @@ export class OrgListResult extends Organization {
     type: "array",
     items: { $ref: getSchemaPath(StructuredJobpost) },
   })
-  jobs: StructuredJobpost[];
+  jobs: (StructuredJobpost & { technologies: Technology[] })[];
 
   @ApiPropertyOptional({
     type: "array",

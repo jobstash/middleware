@@ -1,10 +1,20 @@
-import { Organization, StructuredJobpost, Technology } from "../interfaces";
+import {
+  FundingRound,
+  Organization,
+  StructuredJobpost,
+  Technology,
+} from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { OrgListResult } from "../interfaces/org-list-result.interface";
+import { Project } from "ts-morph";
+import { Investor } from "../interfaces/investor.interface";
 
 type RawOrg = Organization & {
-  jobs?: StructuredJobpost[] | null;
-  technologies?: Technology[] | null;
+  jobs?: (StructuredJobpost & { technologies: Technology[] })[] | null;
+  technologies: Technology[];
+  projects?: Project[] | null;
+  investors?: Investor[] | null;
+  fundingRounds?: FundingRound[] | null;
 };
 
 export class OrgListResultEntity {
@@ -12,7 +22,8 @@ export class OrgListResultEntity {
 
   getProperties(): OrgListResult {
     const organization = this.raw;
-    const { jobs, technologies, investors, fundingRounds } = organization;
+    const { jobs, investors, fundingRounds, projects, technologies } =
+      organization;
 
     return new OrgListResult({
       ...organization,
@@ -26,7 +37,7 @@ export class OrgListResultEntity {
       createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
       updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
       projects:
-        organization?.projects?.map(project => ({
+        projects.map(project => ({
           ...project,
           defiLlamaId: notStringOrNull(project?.defiLlamaId),
           defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug),
