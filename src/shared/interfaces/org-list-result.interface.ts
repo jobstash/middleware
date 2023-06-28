@@ -21,6 +21,7 @@ export class OrgListResult extends Organization {
           t.strict({ technologies: t.array(Technology.TechnologyType) }),
         ]),
       ),
+      technologies: t.array(Technology.TechnologyType),
     }),
   ]);
 
@@ -30,12 +31,19 @@ export class OrgListResult extends Organization {
   })
   jobs: (StructuredJobpost & { technologies: Technology[] })[];
 
+  @ApiPropertyOptional({
+    type: "array",
+    items: { $ref: getSchemaPath(Technology) },
+  })
+  technologies: Technology[];
+
   constructor(raw: OrgListResult) {
-    const { jobs, ...orgProperties } = raw;
+    const { jobs, technologies, ...orgProperties } = raw;
     super(orgProperties);
     const result = OrgListResult.OrgListResultType.decode(raw);
 
     this.jobs = jobs;
+    this.technologies = technologies;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

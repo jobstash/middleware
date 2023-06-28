@@ -289,7 +289,16 @@ export class OrganizationsService {
           }) AS projects
         }
 
-        WITH organization, funding_rounds, investors, projects, jobs
+        CALL {
+          WITH organization
+          MATCH (organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
+          MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
+          MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
+          WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()
+          RETURN COLLECT(DISTINCT PROPERTIES(technology)) as technologies
+        }
+
+        WITH organization, funding_rounds, investors, projects, jobs, technologies
         
         WITH {
           id: organization.id,
@@ -311,7 +320,8 @@ export class OrganizationsService {
           projects: [project in projects WHERE project.id IS NOT NULL],
           fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
           investors: [investor in investors WHERE investor.id IS NOT NULL],
-          jobs: [job in jobs WHERE job.id IS NOT NULL]
+          jobs: [job in jobs WHERE job.id IS NOT NULL],
+          technologies: [technology in technologies WHERE technology.id IS NOT NULL]
         } as res
         RETURN res
         `,
