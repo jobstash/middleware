@@ -66,11 +66,6 @@ describe("OrganizationsController", () => {
       p => p.id,
       `Projects for Org ${orgListResult.orgId}`,
     );
-    const hasDuplicateTechs = hasDuplicates(
-      orgListResult.technologies,
-      x => x.id,
-      `Technologies for Org ${orgListResult.orgId}`,
-    );
     const hasDuplicateInvestors = hasDuplicates(
       orgListResult.investors,
       i => i.id,
@@ -86,13 +81,11 @@ describe("OrganizationsController", () => {
         x => projectHasArrayPropsDuplication(x, orgListResult.orgId) === false,
       ) === true;
     expect(hasDuplicateProjects).toBe(false);
-    expect(hasDuplicateTechs).toBe(false);
     expect(hasDuplicateInvestors).toBe(false);
     expect(hasDuplicateFundingRounds).toBe(false);
     expect(hasProjectsWithUniqueProps).toBe(true);
     return (
       hasDuplicateProjects &&
-      hasDuplicateTechs &&
       hasDuplicateInvestors &&
       hasDuplicateFundingRounds &&
       hasProjectsWithUniqueProps

@@ -211,11 +211,12 @@ export class OrganizationsService {
         WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()
         OPTIONAL MATCH (technology)<-[:IS_PREFERRED_TERM_OF]-(:PreferredTerm)
         OPTIONAL MATCH (technology)<-[:IS_PAIRED_WITH]-(:TechnologyPairing)-[:IS_PAIRED_WITH]->(:Technology)
-        WITH organization, COLLECT(DISTINCT project) AS projectNodes, 
+        WITH organization, structured_jobpost, COLLECT(DISTINCT project) AS projectNodes, 
           COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
           COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
-          COLLECT(DISTINCT PROPERTIES(technology)) AS technologies,
-          COLLECT(DISTINCT {
+          COLLECT(DISTINCT PROPERTIES(technology)) AS technologies
+        
+        WITH COLLECT(DISTINCT {
             id: structured_jobpost.id,
             jobTitle: structured_jobpost.jobTitle,
             role: structured_jobpost.role,
@@ -237,10 +238,9 @@ export class OrganizationsService {
             culture: structured_jobpost.culture,
             paysInCrypto: structured_jobpost.paysInCrypto,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
-            jobCommitment: structured_jobpost.jobCommitment
-          }) as jobs
-
-        WITH organization, jobs, projectNodes, investors, funding_rounds, technologies
+            jobCommitment: structured_jobpost.jobCommitment,
+            technologies: technologies
+          }) as jobs, organization, projectNodes, investors, funding_rounds
         
         CALL {
           WITH projectNodes
@@ -289,7 +289,7 @@ export class OrganizationsService {
           }) AS projects
         }
 
-        WITH organization, funding_rounds, investors, projects, technologies, jobs
+        WITH organization, funding_rounds, investors, projects, jobs
         
         WITH {
           id: organization.id,
@@ -311,8 +311,7 @@ export class OrganizationsService {
           projects: [project in projects WHERE project.id IS NOT NULL],
           fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
           investors: [investor in investors WHERE investor.id IS NOT NULL],
-          jobs: [job in jobs WHERE job.id IS NOT NULL],
-          technologies: [technology in technologies WHERE technology.id IS NOT NULL]
+          jobs: [job in jobs WHERE job.id IS NOT NULL]
         } as res
         RETURN res
         `,
