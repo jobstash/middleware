@@ -10,7 +10,7 @@ export class Hack {
     category: t.string,
     fundsLost: t.number,
     issueType: t.string,
-    date: t.union([t.string, t.null]),
+    date: t.union([t.number, t.null]),
     description: t.union([t.string, t.null]),
     fundsReturned: t.union([t.number, t.null]),
   });
