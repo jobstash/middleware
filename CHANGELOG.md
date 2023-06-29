@@ -1,3 +1,10 @@
+## [1.30.4](https://github.com/jobstash/middleware/compare/v1.30.3...v1.30.4) (2023-06-29)
+
+
+### Bug Fixes
+
+* **middleware:** fixed some bugs ([#109](https://github.com/jobstash/middleware/issues/109)) ([1a5c287](https://github.com/jobstash/middleware/commit/1a5c2873c366517ecf60d44c3a8dcf58b18392f2))
+
 ## [1.30.3](https://github.com/jobstash/middleware/compare/v1.30.2...v1.30.3) (2023-06-28)
 
 
