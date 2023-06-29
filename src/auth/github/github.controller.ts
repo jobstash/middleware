@@ -144,7 +144,7 @@ export class GithubController {
 
     await this.backendService.addGithubInfoToUser({
       githubAccessToken: accessToken,
-      githubRefreshToken: "", // TODO: where do we get this? tokenData does not return this
+      githubRefreshToken: "",
       githubLogin: profileData.login,
       githubId: profileData.id,
       githubNodeId: profileData.node_id,

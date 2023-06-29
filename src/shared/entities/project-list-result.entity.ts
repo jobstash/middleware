@@ -1,9 +1,9 @@
-import { OrganizationProperties, Project } from "../interfaces";
+import { Organization, Project, Technology } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { ProjectListResult } from "../interfaces/project-list-result.interface";
 
 type RawProject = Project & {
-  organization?: OrganizationProperties | null;
+  organization?: (Organization & { technologies: Technology[] }) | null;
 };
 
 export class ProjectListResultEntity {
@@ -33,7 +33,14 @@ export class ProjectListResultEntity {
       githubOrganization: notStringOrNull(project?.githubOrganization),
       updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
       categories: project?.categories ?? [],
-      hacks: project?.hacks ?? [],
+      hacks:
+        project?.hacks.map(hack => ({
+          ...hack,
+          fundsLost: hack.fundsLost,
+          date: notStringOrNull(hack.date),
+          description: notStringOrNull(hack.description),
+          fundsReturned: nonZeroOrNull(hack.fundsReturned),
+        })) ?? [],
       audits:
         project?.audits.map(audit => ({
           ...audit,
@@ -51,6 +58,16 @@ export class ProjectListResultEntity {
         telegram: notStringOrNull(organization?.telegram),
         createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
         updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
+        fundingRounds:
+          organization?.fundingRounds.map(fr => ({
+            ...fr,
+            raisedAmount: nonZeroOrNull(fr?.raisedAmount),
+            roundName: notStringOrNull(fr?.roundName),
+            sourceLink: notStringOrNull(fr?.sourceLink),
+          })) ?? [],
+        investors: organization?.investors ?? [],
+        technologies: organization?.technologies ?? [],
+        projects: [],
       },
     });
   }

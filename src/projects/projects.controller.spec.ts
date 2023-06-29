@@ -7,8 +7,8 @@ import { ProjectsService } from "./projects.service";
 import { ProjectListParams } from "./dto/project-list.input";
 import { Integer } from "neo4j-driver";
 import {
-  Project,
   ProjectFilterConfigs,
+  ProjectListResult,
   ProjectProperties,
 } from "src/shared/interfaces";
 import { hasDuplicates, printDuplicateItems } from "src/shared/helpers";
@@ -20,24 +20,26 @@ import { report } from "io-ts-human-reporter";
 describe("ProjectsController", () => {
   let controller: ProjectsController;
 
-  const projectHasArrayPropsDuplication = (project: Project): boolean => {
+  const projectHasArrayPropsDuplication = (
+    project: ProjectListResult,
+  ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
-      project.audits,
+      project?.audits,
       a => a.auditor.toLowerCase(),
       `Audit for Project ${project.id}`,
     );
     const hasDuplicateHacks = hasDuplicates(
-      project.hacks,
+      project?.hacks,
       h => h.id,
       `Hack for Project ${project.id}`,
     );
     const hasDuplicateChains = hasDuplicates(
-      project.chains,
+      project?.chains,
       c => c.id,
       `Chain for Project ${project.id}`,
     );
     const hasDuplicateCategories = hasDuplicates(
-      project.categories,
+      project?.categories,
       c => c.id,
       `Category for Project ${project.id}`,
     );
@@ -99,7 +101,7 @@ describe("ProjectsController", () => {
     };
     const res = await controller.getProjectsListWithSearch(params);
 
-    const uuids = res.data.map(job => job.id);
+    const uuids = res.data.map(project => project.id);
     const setOfUuids = new Set([...uuids]);
 
     expect(res).toEqual({

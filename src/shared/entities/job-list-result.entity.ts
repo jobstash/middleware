@@ -77,8 +77,9 @@ export class JobListResultEntity {
             hacks:
               project?.hacks.map(hack => ({
                 ...hack,
-                date: notStringOrNull(hack.date),
                 fundsLost: hack.fundsLost,
+                date: notStringOrNull(hack.date),
+                description: notStringOrNull(hack.description),
                 fundsReturned: nonZeroOrNull(hack.fundsReturned),
               })) ?? [],
             audits:
