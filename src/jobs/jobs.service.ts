@@ -46,7 +46,7 @@ export class JobsService {
       cachedProjects.length !== 0
     ) {
       this.logger.log("Found cached projects");
-      return cachedProjects.map(x => new Project(x));
+      return cachedProjects.map(x => x as Project);
     } else {
       this.logger.log("No cached projects found, retrieving from db.");
       const generatedQuery = `

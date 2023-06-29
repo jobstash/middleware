@@ -58,7 +58,14 @@ export class OrgListResultEntity {
           githubOrganization: notStringOrNull(project?.githubOrganization),
           updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
           categories: project?.categories ?? [],
-          hacks: project?.hacks ?? [],
+          hacks:
+            project?.hacks.map(hack => ({
+              ...hack,
+              fundsLost: hack.fundsLost,
+              date: notStringOrNull(hack.date),
+              description: notStringOrNull(hack.description),
+              fundsReturned: nonZeroOrNull(hack.fundsReturned),
+            })) ?? [],
           audits:
             project?.audits.map(audit => ({
               ...audit,

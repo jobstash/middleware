@@ -1,21 +1,25 @@
 import { ApiExtraModels, ApiPropertyOptional } from "@nestjs/swagger";
-import { Organization, OrganizationProperties } from "./organization.interface";
+import { Organization } from "./organization.interface";
 import * as t from "io-ts";
 import { isLeft } from "fp-ts/lib/Either";
 import { Project } from "./project.interface";
 import { report } from "io-ts-human-reporter";
+import { Technology } from "./technology.interface";
 
 @ApiExtraModels(Project, ProjectListResult)
 export class ProjectListResult extends Project {
   public static readonly ProjectListResultType = t.intersection([
     Project.ProjectType,
     t.strict({
-      organization: Organization.OrganizationPropertiesType,
+      organization: t.intersection([
+        Organization.OrganizationType,
+        t.strict({ technologies: t.array(Technology.TechnologyType) }),
+      ]),
     }),
   ]);
 
   @ApiPropertyOptional()
-  organization: OrganizationProperties;
+  organization: Organization & { technologies: Technology[] };
 
   constructor(raw: ProjectListResult) {
     const { organization, ...projectProps } = raw;

@@ -180,7 +180,6 @@ export class Organization extends OrganizationProperties {
   }
 }
 
-// TODO: Review this with @duckdegen
 export class ShortOrg {
   public static readonly ShortOrgType = t.strict({
     orgId: t.string,

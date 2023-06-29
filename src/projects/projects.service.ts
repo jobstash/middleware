@@ -24,34 +24,26 @@ export class ProjectsService {
     const generatedQuery = `
             CALL {
               MATCH (project: Project)
+              MATCH (project)-[:HAS_CATEGORY]->(project_category:ProjectCategory)
               OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
               OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
               OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]-(chain:Chain)
+              MATCH (organization: Organization)-[:HAS_PROJECT]->(project)
+              
+              WITH project, organization, COUNT(DISTINCT audit) as numAudits,
+                COUNT(DISTINCT hack) as numHacks,
+                COUNT(DISTINCT chain) as numChains,
+              COLLECT(DISTINCT PROPERTIES(project_category)) as categories,
+              COLLECT(DISTINCT PROPERTIES(chain)) as chains,
+              COLLECT(DISTINCT PROPERTIES(hack)) as hacks
 
               WHERE ($query IS NULL OR $query =~ project.name)
+              AND ($organizations IS NULL OR organization.name IN $organizations)
+              AND ($hacks IS NULL OR numHacks > 1 = $hacks)
+              AND ($chains IS NULL OR (chains IS NOT NULL AND any(x IN chains WHERE x.name IN $chains)))
+              AND ($categories IS NULL OR (categories IS NOT NULL AND any(x IN categories WHERE x.name IN $categories)))
 
-              AND ($organizations IS NULL OR EXISTS {
-                MATCH (organization)-[:HAS_PROJECT]->(project)
-                WHERE ($organizations IS NULL OR organization.name IN $organizations)
-              })
-
-              AND ($hacks IS NULL OR (EXISTS {
-                MATCH (project)-[:HAS_HACK]-(hack:Hack)
-              } = $hacks))
-
-              AND ($chains IS NULL OR EXISTS {
-                MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]-(chain:Chain)
-                WHERE chain.name IN $chains
-              })
-
-              AND ($categories IS NULL OR EXISTS {
-                MATCH (project)-[:HAS_CATEGORY]->(project_category:ProjectCategory)
-                WHERE project_category.name IN $categories
-              })
-
-              WITH project, COUNT(DISTINCT audit) as numAudits,
-                COUNT(DISTINCT hack) as numHacks,
-                COUNT(DISTINCT chain) as numChains
+              WITH project, numAudits, numHacks, numChains
 
               WITH {
                     id: project.id,
@@ -220,14 +212,28 @@ export class ProjectsService {
       .read(
         `
         MATCH (project: Project {id: $id})
-        MATCH (organization: Organization)-[:HAS_PROJECT]->(project:Project)-[:HAS_CATEGORY]->(project_category:ProjectCategory)
+        OPTIONAL MATCH (organization: Organization)-[:HAS_PROJECT]->(project:Project)-[:HAS_CATEGORY]->(project_category:ProjectCategory)
         OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
         OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
         OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain:Chain)
-        WITH organization, project, COLLECT(DISTINCT PROPERTIES(project_category)) AS categories, 
+        OPTIONAL MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
+        OPTIONAL MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
+        OPTIONAL MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
+        OPTIONAL MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
+        WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()
+        OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
+        OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
+        WITH organization, project, 
+          COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
+          COLLECT(DISTINCT PROPERTIES(technology)) AS technologies,
+          COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds,
+          COLLECT(DISTINCT PROPERTIES(project_category)) AS categories, 
           COLLECT(DISTINCT PROPERTIES(audit)) AS audits,
           COLLECT(DISTINCT PROPERTIES(hack)) AS hacks,
           COLLECT(DISTINCT PROPERTIES(chain)) AS chains
+        
+        WITH organization, project, investors, technologies, 
+          funding_rounds, categories, audits, hacks, chains
 
         WITH {
             id: project.id,
@@ -274,7 +280,9 @@ export class ProjectsService {
               jobsiteLink: organization.jobsiteLink,
               createdTimestamp: organization.createdTimestamp,
               updatedTimestamp: organization.updatedTimestamp,
-              teamSize: organization.teamSize
+              fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
+              investors: [investor in investors WHERE investor.id IS NOT NULL],
+              technologies: [technology in technologies WHERE technology.id IS NOT NULL]
             },
             categories: [category in categories WHERE category.id IS NOT NULL],
             hacks: [hack in hacks WHERE hack.id IS NOT NULL],
