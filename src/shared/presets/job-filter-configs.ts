@@ -93,7 +93,7 @@ export const FILTER_CONFIG_PRESETS = {
   headCount: {
     position: 5,
     label: "Head Count",
-    show: false,
+    show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
@@ -134,7 +134,7 @@ export const FILTER_CONFIG_PRESETS = {
   chains: {
     position: 10,
     label: "Chains",
-    show: true,
+    show: false,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
@@ -194,7 +194,7 @@ export const FILTER_CONFIG_PRESETS = {
   audits: {
     position: 17,
     label: "Audits",
-    show: false,
+    show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
