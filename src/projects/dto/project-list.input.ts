@@ -109,23 +109,12 @@ export class ProjectListParams {
   maxMonthlyRevenue?: number | null = null;
 
   @ApiPropertyOptional({
-    example: 2,
+    example: true,
   })
   @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  minAudits?: number | null = null;
-
-  @ApiPropertyOptional({
-    example: 100,
-  })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Compare("minAudits", ">=")
-  @Type(() => Number)
-  maxAudits?: number | null = null;
+  @IsBoolean()
+  @Type(() => Boolean)
+  audits?: boolean | null = null;
 
   @ApiPropertyOptional({
     example: true,

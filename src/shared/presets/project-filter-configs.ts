@@ -10,6 +10,10 @@ export const SINGLE_SELECT_OPTIONS = {
     { label: "Has been hacked", value: true },
     { label: "Has not been hacked", value: false },
   ],
+  audits: [
+    { label: "Has been audited", value: true },
+    { label: "Has not been audited", value: false },
+  ],
   mainNet: [
     { label: "Deployed on Mainnet", value: true },
     { label: "Not Deployed on Mainnet", value: false },
@@ -42,7 +46,7 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 1,
+    prefix: null,
   },
   organizations: {
     position: 2,
@@ -75,7 +79,7 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 100000,
+    prefix: "$",
   },
   monthlyVolume: {
     position: 6,
@@ -84,7 +88,7 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 100000,
+    prefix: "$",
   },
   monthlyFees: {
     position: 7,
@@ -93,7 +97,7 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 100,
+    prefix: "$",
   },
   monthlyRevenue: {
     position: 8,
@@ -102,7 +106,7 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 100000,
+    prefix: "$",
   },
   audits: {
     position: 9,
@@ -111,7 +115,7 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 5,
+    options: SINGLE_SELECT_OPTIONS.audits,
   },
   hacks: {
     position: 10,

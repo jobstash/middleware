@@ -60,10 +60,6 @@ export class JobFilterConfigsEntity {
     };
     return {
       ...this.configPresets[key],
-      stepSize:
-        range.highest.value === 0 && range.lowest.value === 0
-          ? 0
-          : this.configPresets[key].stepSize,
       value: range,
     };
   }

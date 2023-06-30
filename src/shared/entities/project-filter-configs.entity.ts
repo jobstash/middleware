@@ -53,10 +53,6 @@ export class ProjectFilterConfigsEntity {
     };
     return {
       ...this.configPresets[key],
-      stepSize:
-        range.highest.value === 0 && range.lowest.value === 0
-          ? 0
-          : this.configPresets[key].stepSize,
       value: range,
     };
   }
@@ -99,7 +95,7 @@ export class ProjectFilterConfigsEntity {
       monthlyVolume: this.getRangePresets("monthlyVolume"),
       monthlyFees: this.getRangePresets("monthlyFees"),
       monthlyRevenue: this.getRangePresets("monthlyRevenue"),
-      audits: this.getRangePresets("audits"),
+      audits: this.getSingleSelectPresets("audits"),
       hacks: this.getSingleSelectPresets("hacks"),
       organizations: this.getMultiValuePresets("organizations"),
       chains: this.getMultiValuePresets("chains"),
