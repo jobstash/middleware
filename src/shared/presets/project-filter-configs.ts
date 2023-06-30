@@ -188,10 +188,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
     lowest: "minMonthlyRevenue",
     highest: "maxMonthlyRevenue",
   },
-  audits: {
-    lowest: "minAudits",
-    highest: "maxAudits",
-  },
+  audits: "audits",
   hacks: "hacks",
   mainNet: "mainNet",
   token: "token",
