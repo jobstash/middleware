@@ -70,6 +70,12 @@ export class OrgListResultEntity {
             project?.audits.map(audit => ({
               ...audit,
               auditor: notStringOrNull(audit?.auditor),
+              id: notStringOrNull(audit?.id),
+              name: notStringOrNull(audit?.name),
+              defiId: notStringOrNull(audit?.defiId),
+              date: nonZeroOrNull(audit?.date),
+              techIssues: nonZeroOrNull(audit?.techIssues),
+              link: notStringOrNull(audit?.link),
             })) ?? [],
           chains: project?.chains ?? [],
         })) ?? [],
