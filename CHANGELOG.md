@@ -1,3 +1,84 @@
+# [1.31.0](https://github.com/jobstash/middleware/compare/v1.30.5...v1.31.0) (2023-06-30)
+
+
+### Features
+
+* **jobs:** added projects to search corpus ([1d71f7f](https://github.com/jobstash/middleware/commit/1d71f7f23c3fc4b927243c7c2f886a78dd6ce2f1))
+
+## [1.30.5](https://github.com/jobstash/middleware/compare/v1.30.4...v1.30.5) (2023-06-30)
+
+
+### Bug Fixes
+
+* **middleware:** fixed audits interface ([f61fd81](https://github.com/jobstash/middleware/commit/f61fd8175ce552aa3476b0e8e4281af45c19ebd1))
+
+## [1.30.4](https://github.com/jobstash/middleware/compare/v1.30.3...v1.30.4) (2023-06-29)
+
+
+### Bug Fixes
+
+* **middleware:** fixed some bugs ([#109](https://github.com/jobstash/middleware/issues/109)) ([1a5c287](https://github.com/jobstash/middleware/commit/1a5c2873c366517ecf60d44c3a8dcf58b18392f2))
+
+## [1.30.3](https://github.com/jobstash/middleware/compare/v1.30.2...v1.30.3) (2023-06-28)
+
+
+### Bug Fixes
+
+* **interface:** change date interface from string to number ([333be00](https://github.com/jobstash/middleware/commit/333be006aa89ca216c967e5862093b4f0100be66))
+
+## [1.30.2](https://github.com/jobstash/middleware/compare/v1.30.1...v1.30.2) (2023-06-28)
+
+
+### Bug Fixes
+
+* **jobs:** fixed min filters ([b32cb45](https://github.com/jobstash/middleware/commit/b32cb4533acf467de16a466e80da5131e788f037))
+
+## [1.30.1](https://github.com/jobstash/middleware/compare/v1.30.0...v1.30.1) (2023-06-28)
+
+
+### Bug Fixes
+
+* **orgs:** added job status filters to orgs queries ([ffc1990](https://github.com/jobstash/middleware/commit/ffc1990dac3d8e931628ca5ecf9e4de005f45105))
+
+# [1.30.0](https://github.com/jobstash/middleware/compare/v1.29.5...v1.30.0) (2023-06-26)
+
+
+### Features
+
+* **jobs:** added caching for projects data ([#106](https://github.com/jobstash/middleware/issues/106)) ([580e49c](https://github.com/jobstash/middleware/commit/580e49c316039145a36549c9833171bb8929c6d8))
+
+## [1.29.5](https://github.com/jobstash/middleware/compare/v1.29.4...v1.29.5) (2023-06-23)
+
+
+### Bug Fixes
+
+* **helpers:** removed support for project based sorters on jobs list ([83fe425](https://github.com/jobstash/middleware/commit/83fe42516d9da72cb2c2111ab2ab913f3e51ab76))
+* **jobs:** fix for hacks and audits causing dupes wip ([d2ca9af](https://github.com/jobstash/middleware/commit/d2ca9af6f38041a85a9b9448ab50181cc1d77138))
+* **jobs:** unbork hacks and audits integration wip ([7053354](https://github.com/jobstash/middleware/commit/70533547d418a459c10ec4dc097531537a3666e4))
+* **orgs:** fixed issue with org details ([7b84901](https://github.com/jobstash/middleware/commit/7b84901d72b3e971fcc15e45bfa24d5256e85d7d))
+* **projects:** fix for projects to prevent dupes by hacks and audits ([79a5e18](https://github.com/jobstash/middleware/commit/79a5e18a892347955bf0057d93f8d8735d7b391d))
+
+## [1.29.4](https://github.com/jobstash/middleware/compare/v1.29.3...v1.29.4) (2023-06-22)
+
+
+### Reverts
+
+* Revert "Fix/unbork-hacks-and-audits-wip (#99)" (#100) ([343f551](https://github.com/jobstash/middleware/commit/343f5511563d5ac1146059d49d40bbb86687d191)), closes [#99](https://github.com/jobstash/middleware/issues/99) [#100](https://github.com/jobstash/middleware/issues/100)
+
+## [1.29.3](https://github.com/jobstash/middleware/compare/v1.29.2...v1.29.3) (2023-06-20)
+
+
+### Bug Fixes
+
+* **jobs:** add jobstatus filter to all jobs related queries ([c651a75](https://github.com/jobstash/middleware/commit/c651a75c3b10fa2f3116a09908d8754d506b3d7d))
+
+## [1.29.2](https://github.com/jobstash/middleware/compare/v1.29.1...v1.29.2) (2023-06-14)
+
+
+### Bug Fixes
+
+* **jobs:** added automagic converter for numbers in jobs list result interface from neo object number type to JS number ([bf7bf30](https://github.com/jobstash/middleware/commit/bf7bf303145a8a83cfdbef2e69eebc8d89b1f5d5))
+
 ## [1.29.1](https://github.com/jobstash/middleware/compare/v1.29.0...v1.29.1) (2023-06-09)
 
 

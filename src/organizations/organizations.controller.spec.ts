@@ -11,42 +11,40 @@ import {
   OrgListResult,
   OrganizationProperties,
   Project,
+  ShortOrg,
 } from "src/shared/types";
-import {
-  hasDuplicates,
-  inferObjectType,
-  printDuplicateItems,
-} from "src/shared/helpers";
+import { hasDuplicates, printDuplicateItems } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
 import { BackendService } from "src/backend/backend.service";
 import { createMock } from "@golevelup/ts-jest";
+import { report } from "io-ts-human-reporter";
 
 describe("OrganizationsController", () => {
   let controller: OrganizationsController;
 
   const projectHasArrayPropsDuplication = (
     project: Project,
-    jobPostUUID: string,
+    orgId: string,
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
       project.audits,
-      a => a.auditor.toLowerCase(),
-      `Audit for Project ${project.id} for Org ${jobPostUUID}`,
+      a => a.auditor?.toLowerCase(),
+      `Audit for Project ${project.id} for Org ${orgId}`,
     );
     const hasDuplicateHacks = hasDuplicates(
       project.hacks,
       h => h.id,
-      `Hack for Project ${project.id} for Org ${jobPostUUID}`,
+      `Hack for Project ${project.id} for Org ${orgId}`,
     );
     const hasDuplicateChains = hasDuplicates(
       project.chains,
       c => c.id,
-      `Chain for Project ${project.id} for Org ${jobPostUUID}`,
+      `Chain for Project ${project.id} for Org ${orgId}`,
     );
     const hasDuplicateCategories = hasDuplicates(
       project.categories,
       c => c.id,
-      `Category for Project ${project.id} for Org ${jobPostUUID}`,
+      `Category for Project ${project.id} for Org ${orgId}`,
     );
     expect(hasDuplicateAudits).toBe(false);
     expect(hasDuplicateHacks).toBe(false);
@@ -68,6 +66,11 @@ describe("OrganizationsController", () => {
       p => p.id,
       `Projects for Org ${orgListResult.orgId}`,
     );
+    const hasDuplicateJobs = hasDuplicates(
+      orgListResult.jobs,
+      j => j.shortUUID,
+      `Jobs for Org ${orgListResult.orgId}`,
+    );
     const hasDuplicateTechs = hasDuplicates(
       orgListResult.technologies,
       x => x.id,
@@ -88,6 +91,7 @@ describe("OrganizationsController", () => {
         x => projectHasArrayPropsDuplication(x, orgListResult.orgId) === false,
       ) === true;
     expect(hasDuplicateProjects).toBe(false);
+    expect(hasDuplicateJobs).toBe(false);
     expect(hasDuplicateTechs).toBe(false);
     expect(hasDuplicateInvestors).toBe(false);
     expect(hasDuplicateFundingRounds).toBe(false);
@@ -95,6 +99,7 @@ describe("OrganizationsController", () => {
     return (
       hasDuplicateProjects &&
       hasDuplicateTechs &&
+      hasDuplicateJobs &&
       hasDuplicateInvestors &&
       hasDuplicateFundingRounds &&
       hasProjectsWithUniqueProps
@@ -206,9 +211,7 @@ describe("OrganizationsController", () => {
       orderBy: "headCount",
     };
 
-    const matchesHeadCountRange = (
-      orgListResult: OrganizationProperties,
-    ): boolean => {
+    const matchesHeadCountRange = (orgListResult: ShortOrg): boolean => {
       if (typeof orgListResult.headCount === "number") {
         return (
           minHeadCount <= orgListResult.headCount &&
@@ -237,18 +240,9 @@ describe("OrganizationsController", () => {
       expect(validatedResult).toEqual(configs);
     } else {
       // The result is not of the expected type
-      throw new Error(
-        `Error Serializing OrgFilterConfigs! Constructor expected: \n {
-          headCount: RangeFilter,
-          order: SingleSelectFilter,
-          orderBy: SingleSelectFilter,
-          hasJobs: SingleSelectFilter,
-          hasProjects: SingleSelectFilter
-          locations: MultiSelectFilter,
-          investors: MultiSelectSearchFilter,
-          fundingRounds: MultiSelectSearchFilter,
-        } got ${inferObjectType(configs)}`,
-      );
+      report(validationResult).forEach(x => {
+        throw new Error(x);
+      });
     }
   }, 100000);
 });

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpStatus,
   Param,
   ParseFilePipeBuilder,
@@ -11,11 +12,14 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  ValidationPipe,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import {
+  ApiBadRequestResponse,
   ApiExtraModels,
   ApiInternalServerErrorResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiUnprocessableEntityResponse,
   getSchemaPath,
@@ -24,9 +28,12 @@ import { Response as ExpressResponse } from "express";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { BackendService } from "src/backend/backend.service";
 import { Roles } from "src/shared/decorators/role.decorator";
-import { responseSchemaWrapper } from "src/shared/helpers";
+import { btoa, responseSchemaWrapper } from "src/shared/helpers";
 import {
+  PaginatedData,
+  ProjectFilterConfigs,
   ProjectProperties,
+  ProjectListResult,
   Response,
   ResponseWithNoData,
 } from "src/shared/types";
@@ -38,6 +45,13 @@ import { NFTStorage, File } from "nft.storage";
 import { ConfigService } from "@nestjs/config";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
+import {
+  CACHE_CONTROL_HEADER,
+  CACHE_DURATION,
+  CACHE_EXPIRY,
+} from "src/shared/presets/cache-control";
+import { ValidationError } from "class-validator";
+import { ProjectListParams } from "./dto/project-list.input";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -93,6 +107,107 @@ export class ProjectsController {
           message: `Error retrieving projects!`,
         };
       });
+  }
+
+  @Get("/list")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiOkResponse({
+    description:
+      "Returns a paginated sorted list of projects that satisfy the search and filter predicate",
+    type: PaginatedData<ProjectProperties>,
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(PaginatedData),
+          properties: {
+            page: {
+              type: "number",
+            },
+            count: {
+              type: "number",
+            },
+            data: {
+              type: "array",
+              items: { $ref: getSchemaPath(ProjectProperties) },
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ValidationError),
+        },
+      ],
+    },
+  })
+  async getProjectsListWithSearch(
+    @Query(new ValidationPipe({ transform: true }))
+    params: ProjectListParams,
+  ): Promise<PaginatedData<ProjectProperties>> {
+    const paramsParsed = {
+      ...params,
+      query: btoa(params.query),
+    };
+    this.logger.log(`/projects/list ${JSON.stringify(paramsParsed)}`);
+    return this.projectsService.getProjectsListWithSearch(paramsParsed);
+  }
+
+  @Get("/filters")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiOkResponse({
+    description: "Returns the configuration data for the ui filters",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ProjectFilterConfigs),
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  async getFilterConfigs(): Promise<ProjectFilterConfigs> {
+    this.logger.log(`/projects/filters`);
+    return this.projectsService.getFilterConfigs();
+  }
+
+  @Get("details/:id")
+  @ApiOkResponse({
+    description: "Returns the project details for the provided id",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ProjectListResult),
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  @ApiNotFoundResponse({
+    description:
+      "Returns that no job details were found for the specified uuid",
+    type: ResponseWithNoData,
+  })
+  async getProjectDetailsById(
+    @Param("id") id: string,
+  ): Promise<ProjectListResult | undefined> {
+    this.logger.log(`/projects/details/${id}`);
+    return this.projectsService.getProjectDetailsById(id);
   }
 
   @Get("/category/:category")
@@ -330,8 +445,8 @@ export class ProjectsController {
   }
 
   @Post("/create")
-  // @UseGuards(RBACGuard)
-  // @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Creates a new project",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),

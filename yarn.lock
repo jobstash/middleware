@@ -5052,6 +5052,11 @@ into-stream@^7.0.0:
     from2 "^2.3.0"
     p-is-promise "^3.0.0"
 
+io-ts-human-reporter@^0.1.2:
+  version "0.1.2"
+  resolved "https://registry.yarnpkg.com/io-ts-human-reporter/-/io-ts-human-reporter-0.1.2.tgz#a94f624e4eb1131e2649921b648741af27dff1ba"
+  integrity sha512-L14JPaEmNjO+eQqvpEsfiUWNVlznKHnnfivc+qljshmQh5nMec/B/6ROaxS0hyrTBTOEU0bNSKz88+YS6S+KgQ==
+
 io-ts@^2.2.20:
   version "2.2.20"
   resolved "https://registry.yarnpkg.com/io-ts/-/io-ts-2.2.20.tgz#be42b75f6668a2c44f706f72ee6e4c906777c7f5"

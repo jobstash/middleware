@@ -10,6 +10,8 @@ import { Audit } from "./audit.interface";
 import { Chain } from "./chain.interface";
 import { Hack } from "./hack.interface";
 import { ProjectCategory } from "./project-category.interface";
+import { isLeft } from "fp-ts/lib/Either";
+import { report } from "io-ts-human-reporter";
 // import { isLeft } from "fp-ts/lib/Either";
 
 @ApiExtraModels(Audit, Hack, Chain, ProjectCategory)
@@ -102,105 +104,75 @@ export class ProjectProperties {
   @ApiPropertyOptional()
   updatedTimestamp: number | null;
 
-  // constructor(raw: ProjectProperties) {
-  //   const {
-  //     id,
-  //     url,
-  //     tvl,
-  //     name,
-  //     logo,
-  //     docs,
-  //     orgId,
-  //     cmcId,
-  //     twitter,
-  //     discord,
-  //     telegram,
-  //     teamSize,
-  //     category,
-  //     isMainnet,
-  //     defiLlamaId,
-  //     description,
-  //     tokenSymbol,
-  //     monthlyFees,
-  //     tokenAddress,
-  //     defiLlamaSlug,
-  //     monthlyVolume,
-  //     monthlyRevenue,
-  //     defiLlamaParent,
-  //     isInConstruction,
-  //     createdTimestamp,
-  //     updatedTimestamp,
-  //     monthlyActiveUsers,
-  //     githubOrganization,
-  //   } = raw;
+  constructor(raw: ProjectProperties) {
+    const {
+      id,
+      url,
+      tvl,
+      name,
+      logo,
+      docs,
+      orgId,
+      cmcId,
+      twitter,
+      discord,
+      telegram,
+      teamSize,
+      category,
+      isMainnet,
+      defiLlamaId,
+      description,
+      tokenSymbol,
+      monthlyFees,
+      tokenAddress,
+      defiLlamaSlug,
+      monthlyVolume,
+      monthlyRevenue,
+      defiLlamaParent,
+      isInConstruction,
+      createdTimestamp,
+      updatedTimestamp,
+      monthlyActiveUsers,
+      githubOrganization,
+    } = raw;
 
-  //   const result = ProjectProperties.ProjectPropertiesType.decode(raw);
+    const result = ProjectProperties.ProjectPropertiesType.decode(raw);
 
-  //   this.id = id;
-  //   this.url = url;
-  //   this.tvl = tvl;
-  //   this.name = name;
-  //   this.logo = logo;
-  //   this.docs = docs;
-  //   this.orgId = orgId;
-  //   this.cmcId = cmcId;
-  //   this.twitter = twitter;
-  //   this.discord = discord;
-  //   this.telegram = telegram;
-  //   this.teamSize = teamSize;
-  //   this.category = category;
-  //   this.isMainnet = isMainnet;
-  //   this.defiLlamaId = defiLlamaId;
-  //   this.description = description;
-  //   this.tokenSymbol = tokenSymbol;
-  //   this.monthlyFees = monthlyFees;
-  //   this.tokenAddress = tokenAddress;
-  //   this.defiLlamaSlug = defiLlamaSlug;
-  //   this.monthlyVolume = monthlyVolume;
-  //   this.monthlyRevenue = monthlyRevenue;
-  //   this.defiLlamaParent = defiLlamaParent;
-  //   this.isInConstruction = isInConstruction;
-  //   this.createdTimestamp = createdTimestamp;
-  //   this.updatedTimestamp = updatedTimestamp;
-  //   this.monthlyActiveUsers = monthlyActiveUsers;
-  //   this.githubOrganization = githubOrganization;
+    this.id = id;
+    this.url = url;
+    this.tvl = tvl;
+    this.name = name;
+    this.logo = logo;
+    this.docs = docs;
+    this.orgId = orgId;
+    this.cmcId = cmcId;
+    this.twitter = twitter;
+    this.discord = discord;
+    this.telegram = telegram;
+    this.teamSize = teamSize;
+    this.category = category;
+    this.isMainnet = isMainnet;
+    this.defiLlamaId = defiLlamaId;
+    this.description = description;
+    this.tokenSymbol = tokenSymbol;
+    this.monthlyFees = monthlyFees;
+    this.tokenAddress = tokenAddress;
+    this.defiLlamaSlug = defiLlamaSlug;
+    this.monthlyVolume = monthlyVolume;
+    this.monthlyRevenue = monthlyRevenue;
+    this.defiLlamaParent = defiLlamaParent;
+    this.isInConstruction = isInConstruction;
+    this.createdTimestamp = createdTimestamp;
+    this.updatedTimestamp = updatedTimestamp;
+    this.monthlyActiveUsers = monthlyActiveUsers;
+    this.githubOrganization = githubOrganization;
 
-  //   if (isLeft(result)) {
-  //     throw new Error(
-  //       `Error Serializing ProjectProperties! Constructor expected: \n {
-  //         id: string,
-  //         url: string,
-  //         name: string,
-  //         logo: string,
-  //         orgId: string,
-  //         category: string,
-  //         tvl: number | null,
-  //         isMainnet: boolean,
-  //         description: string,
-  //         docs: string | null,
-  //         cmcId: string | null,
-  //         twitter: string | null,
-  //         discord: string | null,
-  //         telegram: string | null,
-  //         teamSize: number | null,
-  //         createdTimestamp: number,
-  //         defiLlamaId: string | null,
-  //         tokenSymbol: string | null,
-  //         monthlyFees: number | null,
-  //         tokenAddress: string | null,
-  //         defiLlamaSlug: string | null,
-  //         monthlyVolume: number | null,
-  //         monthlyRevenue: number | null,
-  //         defiLlamaParent: string | null,
-  //         updatedTimestamp: number | null,
-  //         isInConstruction: boolean | null,
-  //         monthlyActiveUsers: number | null,
-  //         githubOrganization: string | null,
-  //       }
-  //       got ${inferObjectType(raw)}`,
-  //     );
-  //   }
-  // }
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(x);
+      });
+    }
+  }
 }
 
 export class Project extends ProjectProperties {
@@ -238,26 +210,20 @@ export class Project extends ProjectProperties {
   })
   chains: Chain[];
 
-  // constructor(raw: Project) {
-  //   const { categories, hacks, audits, chains, ...projectProperties } = raw;
-  //   super(projectProperties);
-  //   const result = Project.ProjectType.decode(raw);
+  constructor(raw: Project) {
+    const { categories, hacks, audits, chains, ...projectProperties } = raw;
+    super(projectProperties);
+    const result = Project.ProjectType.decode(raw);
 
-  //   this.hacks = hacks;
-  //   this.audits = audits;
-  //   this.chains = chains;
-  //   this.categories = categories;
+    this.hacks = hacks;
+    this.audits = audits;
+    this.chains = chains;
+    this.categories = categories;
 
-  //   if (isLeft(result)) {
-  //     throw new Error(
-  //       `Error Serializing Project! Constructor expected: \n {
-  //         ...ProjectProperties,
-  //         hacks: Hack[],
-  //         audits: Audit[],
-  //         chains: Chain[],
-  //         categories: ProjectCategory[],
-  //       } got ${inferObjectType(raw)}`,
-  //     );
-  //   }
-  // }
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(x);
+      });
+    }
+  }
 }

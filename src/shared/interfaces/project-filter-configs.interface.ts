@@ -5,7 +5,6 @@ import {
   FilterConfigField,
   FilterConfigLabel,
   FilterConfigLabeledValues,
-  MultiSelectFilter,
   MultiSelectSearchFilter,
   RangeFilter,
   SingleSelectFilter,
@@ -13,57 +12,30 @@ import {
 import { report } from "io-ts-human-reporter";
 
 @ApiExtraModels(FilterConfigLabel, FilterConfigField, FilterConfigLabeledValues)
-export class JobFilterConfigs {
-  public static readonly JobFilterConfigsType = t.strict({
+export class ProjectFilterConfigs {
+  public static readonly ProjectFilterConfigsType = t.strict({
     tvl: RangeFilter.RangeFilterType,
-    salary: RangeFilter.RangeFilterType,
     audits: RangeFilter.RangeFilterType,
     teamSize: RangeFilter.RangeFilterType,
-    headCount: RangeFilter.RangeFilterType,
     monthlyFees: RangeFilter.RangeFilterType,
     monthlyVolume: RangeFilter.RangeFilterType,
     monthlyRevenue: RangeFilter.RangeFilterType,
     hacks: SingleSelectFilter.SingleSelectFilterType,
     token: SingleSelectFilter.SingleSelectFilterType,
     order: SingleSelectFilter.SingleSelectFilterType,
-    seniority: MultiSelectFilter.MultiSelectFilterType,
-    locations: MultiSelectFilter.MultiSelectFilterType,
     mainNet: SingleSelectFilter.SingleSelectFilterType,
     orderBy: SingleSelectFilter.SingleSelectFilterType,
-    tech: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    publicationDate: SingleSelectFilter.SingleSelectFilterType,
     chains: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    projects: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    investors: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     categories: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    fundingRounds: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     organizations: MultiSelectSearchFilter.MultiSelectSearchFilterType,
   });
 
   @ApiProperty()
-  publicationDate: SingleSelectFilter;
-  @ApiProperty()
-  salary: RangeFilter;
-  @ApiProperty()
-  seniority: MultiSelectFilter;
-  @ApiProperty()
-  locations: MultiSelectFilter;
-  @ApiProperty()
   teamSize: RangeFilter;
-  @ApiProperty()
-  headCount: RangeFilter;
-  @ApiProperty()
-  tech: MultiSelectSearchFilter;
-  @ApiProperty()
-  fundingRounds: MultiSelectSearchFilter;
-  @ApiProperty()
-  investors: MultiSelectSearchFilter;
   @ApiProperty()
   organizations: MultiSelectSearchFilter;
   @ApiProperty()
   chains: MultiSelectSearchFilter;
-  @ApiProperty()
-  projects: MultiSelectSearchFilter;
   @ApiProperty()
   categories: MultiSelectSearchFilter;
   @ApiProperty()
@@ -87,58 +59,40 @@ export class JobFilterConfigs {
   @ApiProperty()
   orderBy: SingleSelectFilter;
 
-  constructor(raw: JobFilterConfigs) {
+  constructor(raw: ProjectFilterConfigs) {
     const {
       tvl,
-      tech,
       hacks,
       token,
       order,
-      salary,
       chains,
       audits,
       mainNet,
       orderBy,
       teamSize,
-      projects,
-      seniority,
-      locations,
-      headCount,
-      investors,
       categories,
       monthlyFees,
-      fundingRounds,
       organizations,
       monthlyVolume,
       monthlyRevenue,
-      publicationDate,
     } = raw;
 
-    const result = JobFilterConfigs.JobFilterConfigsType.decode(raw);
+    const result = ProjectFilterConfigs.ProjectFilterConfigsType.decode(raw);
 
     this.tvl = tvl;
-    this.tech = tech;
     this.hacks = hacks;
     this.token = token;
     this.order = order;
-    this.salary = salary;
     this.chains = chains;
     this.audits = audits;
     this.mainNet = mainNet;
     this.orderBy = orderBy;
     this.teamSize = teamSize;
-    this.projects = projects;
-    this.seniority = seniority;
-    this.locations = locations;
-    this.headCount = headCount;
-    this.investors = investors;
     this.categories = categories;
     this.monthlyFees = monthlyFees;
-    this.fundingRounds = fundingRounds;
     this.organizations = organizations;
     this.monthlyVolume = monthlyVolume;
     this.monthlyRevenue = monthlyRevenue;
-    this.publicationDate = publicationDate;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

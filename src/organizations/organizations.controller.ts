@@ -151,7 +151,7 @@ export class OrganizationsController {
   async getOrgsListWithSearch(
     @Query(new ValidationPipe({ transform: true }))
     params: OrgListParams,
-  ): Promise<PaginatedData<OrganizationProperties>> {
+  ): Promise<PaginatedData<ShortOrg>> {
     const paramsParsed = {
       ...params,
       query: btoa(params.query),

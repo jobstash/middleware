@@ -1,53 +1,70 @@
 import { ApiProperty } from "@nestjs/swagger";
+import { isLeft } from "fp-ts/lib/Either";
 import * as t from "io-ts";
-// import { inferObjectType } from "../helpers";
-// import { isLeft } from "fp-ts/lib/Either";
+import { report } from "io-ts-human-reporter";
 
 export class Hack {
   public static readonly HackType = t.strict({
     id: t.string,
-    date: t.number,
-    link: t.string,
+    defiId: t.string,
+    category: t.string,
     fundsLost: t.number,
-    classification: t.string,
+    issueType: t.string,
+    date: t.union([t.number, t.null]),
+    description: t.union([t.string, t.null]),
+    fundsReturned: t.union([t.number, t.null]),
   });
 
   @ApiProperty()
   id: string;
 
   @ApiProperty()
-  date: number;
+  date: string | null;
 
   @ApiProperty()
-  classification: string;
+  defiId: string;
+
+  @ApiProperty()
+  category: number;
 
   @ApiProperty()
   fundsLost: number;
 
   @ApiProperty()
-  link: string;
+  issueType: string;
 
-  // constructor(raw: Hack) {
-  //   const { id, date, classification, fundsLost, link } = raw;
-  //   const result = Hack.HackType.decode(raw);
+  @ApiProperty()
+  description: string | null;
 
-  //   this.id = id;
-  //   this.date = date;
-  //   this.link = link;
-  //   this.fundsLost = fundsLost;
-  //   this.classification = classification;
+  @ApiProperty()
+  fundsReturned: number | null;
 
-  //   if (isLeft(result)) {
-  //     throw new Error(
-  //       `Error Serializing Hack! Constructor expected: \n {
-  //         id: string,
-  //         date: number,
-  //         link: string,
-  //         fundsLost: number,
-  //         classification: string,
-  //       }
-  //       got ${inferObjectType(raw)}`,
-  //     );
-  //   }
-  // }
+  constructor(raw: Hack) {
+    const {
+      id,
+      date,
+      defiId,
+      category,
+      fundsLost,
+      issueType,
+      description,
+      fundsReturned,
+    } = raw;
+    const result = Hack.HackType.decode(raw);
+
+    this.id = id;
+    this.date = date;
+    this.defiId = defiId;
+    this.category = category;
+    this.fundsLost = fundsLost;
+    this.issueType = issueType;
+    this.description = description;
+    this.fundsReturned = fundsReturned;
+
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(x);
+      });
+    }
+  }
 }

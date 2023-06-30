@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import * as t from "io-ts";
-import { inferObjectType } from "../helpers";
 import { isLeft } from "fp-ts/lib/Either";
+import { report } from "io-ts-human-reporter";
 
 export class StructuredJobpost {
   public static readonly StructuredJobpostType = t.type({
@@ -147,33 +147,9 @@ export class StructuredJobpost {
     this.aiDetectedTechnologies = aiDetectedTechnologies;
 
     if (isLeft(result)) {
-      throw new Error(
-        `Error Serializing StructuredJobpost! Constructor expected: \n {
-          id: string,
-          shortUUID: string,
-          role: string | null,
-          team: string | null,
-          culture: string | null,
-          benefits: string | null,
-          jobApplyPageUrl: string,
-          jobTitle: string | null,
-          seniority: string | null,
-          jobFoundTimestamp: number,
-          jobPageUrl: string | null,
-          extractedTimestamp: number
-          jobLocation: string | null,
-          medianSalary: number | null,
-          jobCreatedTimestamp: number,
-          paysInCrypto: boolean | null,
-          jobCommitment: string | null,
-          minSalaryRange: number | null,
-          maxSalaryRange: number | null,
-          salaryCurrency: string | null,
-          offersTokenAllocation: boolean | null,
-          aiDetectedTechnologies: string | null,
-        } 
-        got ${inferObjectType(raw)}`,
-      );
+      report(result).forEach(x => {
+        throw new Error(x);
+      });
     }
   }
 }

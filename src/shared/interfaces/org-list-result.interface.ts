@@ -6,16 +6,21 @@ import {
 import { Organization } from "./organization.interface";
 import { StructuredJobpost } from "./structured-jobpost.interface";
 import * as t from "io-ts";
-import { inferObjectType } from "../helpers";
 import { isLeft } from "fp-ts/lib/Either";
 import { Technology } from "./technology.interface";
+import { report } from "io-ts-human-reporter";
 
 @ApiExtraModels(Organization, OrgListResult)
 export class OrgListResult extends Organization {
   public static readonly OrgListResultType = t.intersection([
     Organization.OrganizationType,
     t.strict({
-      jobs: t.array(StructuredJobpost.StructuredJobpostType),
+      jobs: t.array(
+        t.intersection([
+          StructuredJobpost.StructuredJobpostType,
+          t.strict({ technologies: t.array(Technology.TechnologyType) }),
+        ]),
+      ),
       technologies: t.array(Technology.TechnologyType),
     }),
   ]);
@@ -24,7 +29,7 @@ export class OrgListResult extends Organization {
     type: "array",
     items: { $ref: getSchemaPath(StructuredJobpost) },
   })
-  jobs: StructuredJobpost[];
+  jobs: (StructuredJobpost & { technologies: Technology[] })[];
 
   @ApiPropertyOptional({
     type: "array",
@@ -41,13 +46,9 @@ export class OrgListResult extends Organization {
     this.technologies = technologies;
 
     if (isLeft(result)) {
-      throw new Error(
-        `Error Serializing OrgListResult! Constructor expected: \n {
-          ...Organization,
-          jobs: StructuredJobpost[],
-          technologies: Technology[],
-        } got ${inferObjectType(raw)}`,
-      );
+      report(result).forEach(x => {
+        throw new Error(x);
+      });
     }
   }
 }

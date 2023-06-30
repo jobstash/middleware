@@ -1,5 +1,10 @@
 import { Integer } from "neo4j-driver";
-import { DateRange, JobListOrderBy, OrgListOrderBy } from "../enums";
+import {
+  DateRange,
+  JobListOrderBy,
+  OrgListOrderBy,
+  ProjectListOrderBy,
+} from "../enums";
 import {
   startOfDay,
   endOfDay,
@@ -53,7 +58,7 @@ export const jobListOrderBySelector = (args: {
 }): string | null => {
   const {
     jobVar,
-    projectVar,
+    // projectVar,
     orgVar,
     roundVar,
     auditsVar,
@@ -66,7 +71,7 @@ export const jobListOrderBySelector = (args: {
       return `${jobVar}.jobCreatedTimestamp`;
 
     case "tvl":
-      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.tvl ELSE ${jobVar}.jobCreatedTimestamp / 1000000000 END)`;
+      return `${jobVar}.jobCreatedTimestamp`;
 
     case "salary":
       return `${jobVar}.medianSalary`;
@@ -75,13 +80,13 @@ export const jobListOrderBySelector = (args: {
       return `${roundVar}`;
 
     case "monthlyVolume":
-      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.monthlyVolume ELSE ${jobVar}.jobCreatedTimestamp / 1000000000 END)`;
+      return `${jobVar}.jobCreatedTimestamp`;
 
     case "monthlyFees":
-      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.monthlyFees ELSE ${jobVar}.jobCreatedTimestamp / 1000000000 END)`;
+      return `${jobVar}.jobCreatedTimestamp`;
 
     case "monthlyRevenue":
-      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.monthlyRevenue ELSE ${jobVar}.jobCreatedTimestamp / 1000000000 END)`;
+      return `${jobVar}.jobCreatedTimestamp`;
 
     case "audits":
       return auditsVar;
@@ -96,7 +101,45 @@ export const jobListOrderBySelector = (args: {
       return `${orgVar}.headCount`;
 
     case "teamSize":
-      return `(CASE WHEN ${projectVar} IS NOT NULL THEN ${projectVar}.teamSize ELSE ${jobVar}.jobCreatedTimestamp / 1000000000 END)`;
+      return `${jobVar}.jobCreatedTimestamp`;
+
+    default:
+      return null;
+  }
+};
+
+export const projectListOrderBySelector = (args: {
+  projectVar: string;
+  auditsVar: string;
+  hacksVar: string;
+  chainsVar: string;
+  orderBy: ProjectListOrderBy;
+}): string | null => {
+  const { projectVar, auditsVar, hacksVar, chainsVar, orderBy } = args;
+  switch (orderBy) {
+    case "tvl":
+      return `${projectVar}.tvl`;
+
+    case "monthlyVolume":
+      return `${projectVar}.monthlyVolume`;
+
+    case "monthlyFees":
+      return `${projectVar}.monthlyFees`;
+
+    case "monthlyRevenue":
+      return `${projectVar}.monthlyRevenue`;
+
+    case "audits":
+      return auditsVar;
+
+    case "hacks":
+      return hacksVar;
+
+    case "chains":
+      return chainsVar;
+
+    case "teamSize":
+      return `${projectVar}.teamSize`;
 
     default:
       return null;
@@ -107,9 +150,10 @@ export const orgListOrderBySelector = (args: {
   headCountVar: string;
   roundVar: string;
   recentJobVar: string;
+  orgVar: string;
   orderBy: OrgListOrderBy;
 }): string | null => {
-  const { recentJobVar, headCountVar, roundVar, orderBy } = args;
+  const { recentJobVar, headCountVar, roundVar, orgVar, orderBy } = args;
   switch (orderBy) {
     case "recentFundingDate":
       return roundVar;
@@ -121,7 +165,7 @@ export const orgListOrderBySelector = (args: {
       return headCountVar;
 
     default:
-      return null;
+      return `${orgVar}.name`;
   }
 };
 
@@ -156,12 +200,21 @@ export const notStringOrNull = (
 };
 
 export const nonZeroOrNull = (
-  value: number | null | undefined,
+  value: { low: number; high: number } | number | string | null | undefined,
 ): number | null => {
   if (value === 0 || typeof value === "undefined" || value === null) {
     return null;
   } else {
-    return value;
+    if (typeof value === "string") {
+      const trial = Number(value);
+      if (Number.isNaN(trial)) {
+        return null;
+      } else {
+        return trial;
+      }
+    } else {
+      return typeof value === "object" ? intConverter(value) : value;
+    }
   }
 };
 

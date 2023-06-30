@@ -1,7 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
+import { isLeft } from "fp-ts/lib/Either";
 import * as t from "io-ts";
-// import { inferObjectType } from "../helpers";
-// import { isLeft } from "fp-ts/lib/Either";
+import { report } from "io-ts-human-reporter";
 
 export class Investor {
   public static readonly InvestorType = t.strict({
@@ -15,20 +15,17 @@ export class Investor {
   @ApiProperty()
   name: string;
 
-  // constructor(raw: Investor) {
-  //   const { id, name } = raw;
-  //   const result = Investor.InvestorType.decode(raw);
+  constructor(raw: Investor) {
+    const { id, name } = raw;
+    const result = Investor.InvestorType.decode(raw);
 
-  //   this.id = id;
-  //   this.name = name;
+    this.id = id;
+    this.name = name;
 
-  //   if (isLeft(result)) {
-  //     throw new Error(
-  //       `Error Serializing Investor! Constructor expected: \n {
-  //         id: string,
-  //         name: string,
-  //       } got ${inferObjectType(raw)}`,
-  //     );
-  //   }
-  // }
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(x);
+      });
+    }
+  }
 }

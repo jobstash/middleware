@@ -1,10 +1,20 @@
-import { Organization, StructuredJobpost, Technology } from "../interfaces";
+import {
+  FundingRound,
+  Organization,
+  StructuredJobpost,
+  Technology,
+} from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { OrgListResult } from "../interfaces/org-list-result.interface";
+import { Project } from "ts-morph";
+import { Investor } from "../interfaces/investor.interface";
 
 type RawOrg = Organization & {
-  jobs?: StructuredJobpost[] | null;
-  technologies?: Technology[] | null;
+  jobs?: (StructuredJobpost & { technologies: Technology[] })[] | null;
+  technologies: Technology[];
+  projects?: Project[] | null;
+  investors?: Investor[] | null;
+  fundingRounds?: FundingRound[] | null;
 };
 
 export class OrgListResultEntity {
@@ -12,21 +22,22 @@ export class OrgListResultEntity {
 
   getProperties(): OrgListResult {
     const organization = this.raw;
-    const { jobs, technologies } = organization;
+    const { jobs, investors, fundingRounds, projects, technologies } =
+      organization;
 
     return new OrgListResult({
       ...organization,
       docs: notStringOrNull(organization?.docs),
       altName: notStringOrNull(organization?.altName),
       headCount: nonZeroOrNull(organization?.headCount),
-      teamSize: nonZeroOrNull(organization?.teamSize),
       github: notStringOrNull(organization?.github),
       twitter: notStringOrNull(organization?.twitter),
       discord: notStringOrNull(organization?.discord),
       telegram: notStringOrNull(organization?.telegram),
+      createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
       updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
       projects:
-        organization?.projects?.map(project => ({
+        projects.map(project => ({
           ...project,
           defiLlamaId: notStringOrNull(project?.defiLlamaId),
           defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug),
@@ -47,22 +58,35 @@ export class OrgListResultEntity {
           githubOrganization: notStringOrNull(project?.githubOrganization),
           updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
           categories: project?.categories ?? [],
-          hacks: project?.hacks ?? [],
+          hacks:
+            project?.hacks.map(hack => ({
+              ...hack,
+              fundsLost: hack.fundsLost,
+              date: notStringOrNull(hack.date),
+              description: notStringOrNull(hack.description),
+              fundsReturned: nonZeroOrNull(hack.fundsReturned),
+            })) ?? [],
           audits:
             project?.audits.map(audit => ({
               ...audit,
               auditor: notStringOrNull(audit?.auditor),
+              id: notStringOrNull(audit?.id),
+              name: notStringOrNull(audit?.name),
+              defiId: notStringOrNull(audit?.defiId),
+              date: nonZeroOrNull(audit?.date),
+              techIssues: nonZeroOrNull(audit?.techIssues),
+              link: notStringOrNull(audit?.link),
             })) ?? [],
           chains: project?.chains ?? [],
         })) ?? [],
       fundingRounds:
-        organization?.fundingRounds.map(fr => ({
+        fundingRounds.map(fr => ({
           ...fr,
           raisedAmount: nonZeroOrNull(fr?.raisedAmount),
           roundName: notStringOrNull(fr?.roundName),
           sourceLink: notStringOrNull(fr?.sourceLink),
         })) ?? [],
-      investors: organization?.investors ?? [],
+      investors: investors ?? [],
       jobs: jobs.map(jobpost => ({
         ...jobpost,
         minSalaryRange: nonZeroOrNull(jobpost?.minSalaryRange),

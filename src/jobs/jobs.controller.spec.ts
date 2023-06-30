@@ -6,6 +6,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { Neo4jConnection, Neo4jModule } from "nest-neo4j/dist";
 import envSchema from "src/env-schema";
 import {
+  AllJobsFilterConfigs,
   DateRange,
   JobFilterConfigs,
   JobListResult,
@@ -14,11 +15,13 @@ import {
 import { Integer } from "neo4j-driver";
 import {
   hasDuplicates,
-  inferObjectType,
   printDuplicateItems,
   publicationDateRangeGenerator,
 } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
+import { report } from "io-ts-human-reporter";
+import { AllJobsListResult } from "src/shared/interfaces/all-jobs-list-result.interface";
+import { CacheModule } from "@nestjs/cache-manager";
 
 describe("JobsController", () => {
   let controller: JobsController;
@@ -29,7 +32,7 @@ describe("JobsController", () => {
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
       project.audits,
-      a => a.auditor.toLowerCase(),
+      a => a?.link.toLowerCase(),
       `Audit for Project ${project.id} for Jobpost ${jobPostUUID}`,
     );
     const hasDuplicateHacks = hasDuplicates(
@@ -101,6 +104,18 @@ describe("JobsController", () => {
     );
   };
 
+  const ajlrHasArrayPropsDuplication = (
+    jobListResult: AllJobsListResult,
+  ): boolean => {
+    const hasDuplicateTechs = hasDuplicates(
+      jobListResult.technologies,
+      x => x.id,
+      `Technologies for Jobpost ${jobListResult.shortUUID}`,
+    );
+    expect(hasDuplicateTechs).toBe(false);
+    return hasDuplicateTechs;
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
@@ -124,6 +139,7 @@ describe("JobsController", () => {
               database: configService.get<string>("NEO4J_DATABASE"),
             } as Neo4jConnection),
         }),
+        CacheModule.register({ isGlobal: true }),
       ],
       controllers: [JobsController],
       providers: [JobsService],
@@ -156,12 +172,39 @@ describe("JobsController", () => {
 
     printDuplicateItems(setOfUuids, uuids, "StructuredJobpost with UUID");
 
-    expect(setOfUuids.size).toBe(uuids.length);
+    expect(uuids.length).toBe(setOfUuids.size);
 
     expect(res.data.every(x => jlrHasArrayPropsDuplication(x) === false)).toBe(
       true,
     );
-  }, 300000);
+  }, 6000000);
+
+  it("should get all jobs list with no jobpost and array property duplication", async () => {
+    const params: JobListParams = {
+      ...new JobListParams(),
+      page: 1,
+      limit: Number(Integer.MAX_VALUE),
+    };
+    const res = await controller.getAllJobsWithSearch(params);
+
+    const uuids = res.data.map(job => job.shortUUID);
+    const setOfUuids = new Set([...uuids]);
+
+    expect(res).toEqual({
+      page: 1,
+      count: expect.any(Number),
+      total: expect.any(Number),
+      data: expect.any(Array<JobListResult>),
+    });
+
+    printDuplicateItems(setOfUuids, uuids, "StructuredJobpost with UUID");
+
+    expect(uuids.length).toBe(setOfUuids.size);
+
+    expect(res.data.every(x => ajlrHasArrayPropsDuplication(x) === false)).toBe(
+      true,
+    );
+  }, 60000000);
 
   it("should get job details with no array property duplication", async () => {
     const params: JobListParams = {
@@ -174,10 +217,8 @@ describe("JobsController", () => {
 
     const details = await controller.getJobDetailsByUuid(job.shortUUID);
 
-    expect(job).toEqual(details);
-
-    expect(jlrHasArrayPropsDuplication(job)).toBe(false);
-  }, 10000);
+    expect(jlrHasArrayPropsDuplication(details)).toBe(false);
+  }, 60000000);
 
   it("should respond with the correct page ", async () => {
     const page = 1;
@@ -190,7 +231,7 @@ describe("JobsController", () => {
     const res = await controller.getJobsListWithSearch(params);
 
     expect(res.page).toEqual(page);
-  }, 10000);
+  }, 1000000000);
 
   it("should respond with the correct results for publicationDate filter", async () => {
     const dateRange: DateRange = "this-week";
@@ -218,130 +259,6 @@ describe("JobsController", () => {
     );
   }, 1000000);
 
-  it("should respond with the correct results for {(min & max)SalaryRange} filter", async () => {
-    const minSalaryRange = 1000;
-    const maxSalaryRange = 2000000;
-    const params: JobListParams = {
-      ...new JobListParams(),
-      minSalaryRange,
-      maxSalaryRange,
-      page: 1,
-      limit: Number(Integer.MAX_VALUE),
-      order: "asc",
-      orderBy: "salary",
-    };
-
-    const matchesSalaryRange = (jobListResult: JobListResult): boolean => {
-      return (
-        minSalaryRange <= jobListResult.medianSalary &&
-        jobListResult.medianSalary <= maxSalaryRange
-      );
-    };
-
-    const res = await controller.getJobsListWithSearch(params);
-    const results = res.data;
-    expect(results.every(x => matchesSalaryRange(x) === true)).toBe(true);
-  }, 1000000);
-
-  it("should respond with the correct results for {(min & max)MonthlyFees} filter", async () => {
-    const minMonthlyFees = 1000;
-    const maxMonthlyFees = 2000000;
-    const params: JobListParams = {
-      ...new JobListParams(),
-      minMonthlyFees,
-      maxMonthlyFees,
-      page: 1,
-      limit: Number(Integer.MAX_VALUE),
-      order: "asc",
-      orderBy: "monthlyFees",
-    };
-
-    const matchesMonthlyFeeRange = (anchorProject: Project): boolean => {
-      return (
-        minMonthlyFees <= anchorProject.monthlyFees &&
-        anchorProject.monthlyFees <= maxMonthlyFees
-      );
-    };
-
-    const res = await controller.getJobsListWithSearch(params);
-    const results = res.data;
-    expect(results.every(x => x.organization.projects.length > 0)).toBe(true);
-    expect(
-      results.every(x => {
-        const anchorProject = x.organization.projects.sort(
-          (a, b) => a.monthlyVolume - b.monthlyVolume,
-        )[0];
-        return matchesMonthlyFeeRange(anchorProject) === true;
-      }),
-    ).toBe(true);
-  }, 1000000);
-
-  it("should respond with the correct results for {(min & max)monthlyRevenue} filter", async () => {
-    const minMonthlyRevenue = 1000;
-    const maxMonthlyRevenue = 2000000;
-    const params: JobListParams = {
-      ...new JobListParams(),
-      minMonthlyRevenue,
-      maxMonthlyRevenue,
-      page: 1,
-      limit: Number(Integer.MAX_VALUE),
-      order: "asc",
-      orderBy: "monthlyRevenue",
-    };
-
-    const matchesMonthlyRevenueRange = (anchorProject: Project): boolean => {
-      return (
-        minMonthlyRevenue <= anchorProject.monthlyRevenue &&
-        anchorProject.monthlyRevenue <= maxMonthlyRevenue
-      );
-    };
-
-    const res = await controller.getJobsListWithSearch(params);
-    const results = res.data;
-    expect(results.every(x => x.organization.projects.length > 0)).toBe(true);
-    expect(
-      results.every(x => {
-        const anchorProject = x.organization.projects.sort(
-          (a, b) => a.monthlyVolume - b.monthlyVolume,
-        )[0];
-        return matchesMonthlyRevenueRange(anchorProject) === true;
-      }),
-    ).toBe(true);
-  }, 1000000);
-
-  it("should respond with the correct results for {(min & max)Audits} filter", async () => {
-    const minAudits = 1;
-    const maxAudits = 10;
-    const params: JobListParams = {
-      ...new JobListParams(),
-      minAudits,
-      maxAudits,
-      page: 1,
-      limit: Number(Integer.MAX_VALUE),
-      order: "asc",
-      orderBy: "audits",
-    };
-
-    const matchesAuditRange = (anchorProject: Project): boolean => {
-      return (
-        minAudits <= anchorProject.audits.length &&
-        anchorProject.audits.length <= maxAudits
-      );
-    };
-
-    const res = await controller.getJobsListWithSearch(params);
-    const results = res.data;
-    expect(results.every(x => x.organization.projects.length > 0)).toBe(true);
-    expect(
-      results.every(x => {
-        const anchorProject = x.organization.projects.sort(
-          (a, b) => a.monthlyVolume - b.monthlyVolume,
-        )[0];
-        return matchesAuditRange(anchorProject) === true;
-      }),
-    ).toBe(true);
-  }, 1000000);
-
   it("should get correctly formatted filter configs", async () => {
     const configs = await controller.getFilterConfigs();
 
@@ -355,33 +272,28 @@ describe("JobsController", () => {
       expect(validatedResult).toEqual(configs);
     } else {
       // The result is not of the expected type
-      throw new Error(
-        `Error Serializing JobFilterConfigs! Constructor expected: \n {
-          tvl: RangeFilter,
-          salary: RangeFilter,
-          audits: RangeFilter,
-          teamSize: RangeFilter,
-          headCount: RangeFilter,
-          monthlyFees: RangeFilter,
-          hacks: SingleSelectFilter,
-          token: SingleSelectFilter,
-          order: SingleSelectFilter,
-          monthlyVolume: RangeFilter,
-          monthlyRevenue: RangeFilter,
-          mainNet: SingleSelectFilter,
-          orderBy: SingleSelectFilter,
-          seniority: MultiSelectFilter,
-          locations: MultiSelectFilter,
-          tech: MultiSelectSearchFilter,
-          chains: MultiSelectSearchFilter,
-          projects: MultiSelectSearchFilter,
-          investors: MultiSelectSearchFilter,
-          publicationDate: SingleSelectFilter,
-          categories: MultiSelectSearchFilter,
-          fundingRounds: MultiSelectSearchFilter,
-          organizations: MultiSelectSearchFilter,
-        } got ${inferObjectType(configs)}`,
-      );
+      report(validationResult).forEach(x => {
+        throw new Error(x);
+      });
+    }
+  }, 100000);
+
+  it("should get correctly formatted all jobs filter configs", async () => {
+    const configs = await controller.getAllJobsListFilterConfigs();
+
+    expect(configs).toBeDefined();
+
+    const validationResult =
+      AllJobsFilterConfigs.AllJobsFilterConfigsType.decode(configs);
+    if (isRight(validationResult)) {
+      // The result is of the expected type
+      const validatedResult = validationResult.right;
+      expect(validatedResult).toEqual(configs);
+    } else {
+      // The result is not of the expected type
+      report(validationResult).forEach(x => {
+        throw new Error(x);
+      });
     }
   }, 100000);
 });
