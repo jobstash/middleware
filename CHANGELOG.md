@@ -1,3 +1,10 @@
+## [1.30.5](https://github.com/jobstash/middleware/compare/v1.30.4...v1.30.5) (2023-06-30)
+
+
+### Bug Fixes
+
+* **middleware:** fixed audits interface ([f61fd81](https://github.com/jobstash/middleware/commit/f61fd8175ce552aa3476b0e8e4281af45c19ebd1))
+
 ## [1.30.4](https://github.com/jobstash/middleware/compare/v1.30.3...v1.30.4) (2023-06-29)
 
 
