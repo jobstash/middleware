@@ -1,3 +1,10 @@
+## [1.31.1](https://github.com/jobstash/middleware/compare/v1.31.0...v1.31.1) (2023-06-30)
+
+
+### Bug Fixes
+
+* **jobs:** refactored stepsize to prefix ([e6f5493](https://github.com/jobstash/middleware/commit/e6f54934b10cbbeaf4df8820fc99ef45016173b5))
+
 # [1.31.0](https://github.com/jobstash/middleware/compare/v1.30.5...v1.31.0) (2023-06-30)
 
 
