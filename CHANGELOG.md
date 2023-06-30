@@ -1,3 +1,10 @@
+## [1.31.2](https://github.com/jobstash/middleware/compare/v1.31.1...v1.31.2) (2023-06-30)
+
+
+### Bug Fixes
+
+* **projects:** fixed bug with filter config presets ([8e0ee0c](https://github.com/jobstash/middleware/commit/8e0ee0c013f35f795f896aff2aefa6a3622659fe))
+
 ## [1.31.1](https://github.com/jobstash/middleware/compare/v1.31.0...v1.31.1) (2023-06-30)
 
 
