@@ -1,3 +1,10 @@
+# [1.31.0](https://github.com/jobstash/middleware/compare/v1.30.5...v1.31.0) (2023-06-30)
+
+
+### Features
+
+* **jobs:** added projects to search corpus ([1d71f7f](https://github.com/jobstash/middleware/commit/1d71f7f23c3fc4b927243c7c2f886a78dd6ce2f1))
+
 ## [1.30.5](https://github.com/jobstash/middleware/compare/v1.30.4...v1.30.5) (2023-06-30)
 
 
