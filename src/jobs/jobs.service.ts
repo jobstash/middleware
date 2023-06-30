@@ -323,6 +323,7 @@ export class JobsService {
       // NOTE: project category aggregation needs to be done at this step to prevent duplication of categories in the result set further down the line
       WITH structured_jobpost, organization, 
       COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
+      COLLECT(DISTINCT PROPERTIES(project)) AS projects,
       COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
       MAX(funding_round.date) as most_recent_funding_round, 
       COLLECT(DISTINCT PROPERTIES(technology)) AS technologies
@@ -334,7 +335,7 @@ export class JobsService {
       WHERE ($tech IS NULL OR (technologies IS NOT NULL AND any(x IN technologies WHERE x.name IN $tech)))
       AND ($fundingRounds IS NULL OR (funding_rounds IS NOT NULL AND any(x IN funding_rounds WHERE x.roundName IN $fundingRounds)))
       AND ($investors IS NULL OR (investors IS NOT NULL AND any(x IN investors WHERE x.name IN $investors)))
-      AND ($query IS NULL OR (technologies IS NOT NULL AND (organization.name =~ $query OR structured_jobpost.jobTitle =~ $query OR any(x IN technologies WHERE x.name =~ $query))))
+      AND ($query IS NULL OR (technologies IS NOT NULL AND (organization.name =~ $query OR structured_jobpost.jobTitle =~ $query OR any(x IN technologies WHERE x.name =~ $query) OR any(x IN projects WHERE x.name =~ $query))))
 
       WITH structured_jobpost, organization, funding_rounds, investors, technologies, most_recent_funding_round
 
