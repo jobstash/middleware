@@ -445,11 +445,13 @@ export class JobsService {
         .read(generatedQuery, paramsPassed)
         .then(async res => {
           const results = res.records[0]?.get("results");
-          await this.cacheManager.set(
-            "jobs",
-            JSON.stringify(results),
-            18000000,
-          );
+          if (paramsSet.length === 0) {
+            await this.cacheManager.set(
+              "jobs",
+              JSON.stringify(results),
+              18000000,
+            );
+          }
           return this.transformResultSet(results, paramsPassed);
         })
         .catch(err => {

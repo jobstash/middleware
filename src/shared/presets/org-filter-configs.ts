@@ -41,7 +41,7 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 1,
+    prefix: null,
   },
   fundingRounds: {
     position: 3,

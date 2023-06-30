@@ -40,6 +40,7 @@ export class ProjectsService {
               WHERE ($query IS NULL OR $query =~ project.name)
               AND ($organizations IS NULL OR organization.name IN $organizations)
               AND ($hacks IS NULL OR numHacks > 1 = $hacks)
+              AND ($audits IS NULL OR numAudits > 1 = $audits)
               AND ($chains IS NULL OR (chains IS NOT NULL AND any(x IN chains WHERE x.name IN $chains)))
               AND ($categories IS NULL OR (categories IS NOT NULL AND any(x IN categories WHERE x.name IN $categories)))
 
@@ -81,8 +82,6 @@ export class ProjectsService {
                 AND ($maxTeamSize IS NULL OR (project IS NOT NULL AND project.teamSize <= $maxTeamSize))
                 AND ($minTvl IS NULL OR (project IS NOT NULL AND project.tvl >= $minTvl))
                 AND ($maxTvl IS NULL OR (project IS NOT NULL AND project.tvl <= $maxTvl))
-                AND ($minAudits IS NULL OR (numAudits IS NOT NULL AND numAudits >= $minAudits))
-                AND ($maxAudits IS NULL OR (numAudits IS NOT NULL AND numAudits <= $maxAudits))
                 AND ($minMonthlyVolume IS NULL OR (project IS NOT NULL AND project.monthlyVolume >= $minMonthlyVolume))
                 AND ($maxMonthlyVolume IS NULL OR (project IS NOT NULL AND project.monthlyVolume <= $maxMonthlyVolume))
                 AND ($minMonthlyFees IS NULL OR (project IS NOT NULL AND project.monthlyFees >= $minMonthlyFees))
@@ -177,8 +176,6 @@ export class ProjectsService {
             maxMonthlyRevenue: MAX(CASE WHEN NOT p.monthlyRevenue IS NULL AND isNaN(p.monthlyRevenue) = false THEN toFloat(p.monthlyRevenue) END),
             minTeamSize: MIN(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
             maxTeamSize: MAX(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
-            minAudits: MIN(CASE WHEN NOT audits IS NULL AND isNaN(audits) = false THEN toFloat(audits) END),
-            maxAudits: MAX(CASE WHEN NOT audits IS NULL AND isNaN(audits) = false THEN toFloat(audits) END),
             categories: COLLECT(DISTINCT cat.name),
             chains: COLLECT(DISTINCT c.name),
             organizations: COLLECT(DISTINCT o.name)

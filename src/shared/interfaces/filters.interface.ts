@@ -266,23 +266,27 @@ export class MultiSelectSearchFilter extends OmitType(
 export class RangeFilter extends FilterConfigField {
   public static readonly RangeFilterType = t.intersection([
     FilterConfigField.FilterConfigFieldType,
-    t.strict({ kind: t.string, stepSize: t.number, value: Range.RangeType }),
+    t.strict({
+      kind: t.string,
+      prefix: t.union([t.string, t.null]),
+      value: Range.RangeType,
+    }),
   ]);
 
   @ApiProperty()
   kind: string;
   @ApiProperty()
-  stepSize: number;
+  prefix: string | null;
   @ApiProperty()
   value: Range;
 
   constructor(raw: RangeFilter) {
-    const { kind, stepSize, value, ...parentProps } = raw;
+    const { kind, prefix, value, ...parentProps } = raw;
     super(parentProps);
     const result = RangeFilter.RangeFilterType.decode(raw);
 
     this.kind = kind;
-    this.stepSize = stepSize;
+    this.prefix = prefix;
     this.value = value;
 
     if (isLeft(result)) {

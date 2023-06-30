@@ -15,7 +15,6 @@ import { report } from "io-ts-human-reporter";
 export class ProjectFilterConfigs {
   public static readonly ProjectFilterConfigsType = t.strict({
     tvl: RangeFilter.RangeFilterType,
-    audits: RangeFilter.RangeFilterType,
     teamSize: RangeFilter.RangeFilterType,
     monthlyFees: RangeFilter.RangeFilterType,
     monthlyVolume: RangeFilter.RangeFilterType,
@@ -23,6 +22,7 @@ export class ProjectFilterConfigs {
     hacks: SingleSelectFilter.SingleSelectFilterType,
     token: SingleSelectFilter.SingleSelectFilterType,
     order: SingleSelectFilter.SingleSelectFilterType,
+    audits: SingleSelectFilter.SingleSelectFilterType,
     mainNet: SingleSelectFilter.SingleSelectFilterType,
     orderBy: SingleSelectFilter.SingleSelectFilterType,
     chains: MultiSelectSearchFilter.MultiSelectSearchFilterType,
@@ -47,7 +47,7 @@ export class ProjectFilterConfigs {
   @ApiProperty()
   monthlyRevenue: RangeFilter;
   @ApiProperty()
-  audits: RangeFilter;
+  audits: SingleSelectFilter;
   @ApiProperty()
   hacks: SingleSelectFilter;
   @ApiProperty()

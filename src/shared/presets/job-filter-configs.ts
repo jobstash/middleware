@@ -67,7 +67,7 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 1000,
+    prefix: "$",
   },
   seniority: {
     position: 2,
@@ -92,7 +92,7 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 1,
+    prefix: null,
   },
   headCount: {
     position: 5,
@@ -101,7 +101,7 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 1,
+    prefix: null,
   },
   tech: {
     position: 6,
@@ -166,7 +166,7 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 100000,
+    prefix: "$",
   },
   monthlyVolume: {
     position: 14,
@@ -175,7 +175,7 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 100000,
+    prefix: "$",
   },
   monthlyFees: {
     position: 15,
@@ -184,7 +184,7 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 100,
+    prefix: "$",
   },
   monthlyRevenue: {
     position: 16,
@@ -193,7 +193,7 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 100000,
+    prefix: "$",
   },
   audits: {
     position: 17,
