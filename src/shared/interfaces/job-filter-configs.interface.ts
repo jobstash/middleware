@@ -17,7 +17,6 @@ export class JobFilterConfigs {
   public static readonly JobFilterConfigsType = t.strict({
     tvl: RangeFilter.RangeFilterType,
     salary: RangeFilter.RangeFilterType,
-    audits: RangeFilter.RangeFilterType,
     teamSize: RangeFilter.RangeFilterType,
     headCount: RangeFilter.RangeFilterType,
     monthlyFees: RangeFilter.RangeFilterType,
@@ -26,6 +25,7 @@ export class JobFilterConfigs {
     hacks: SingleSelectFilter.SingleSelectFilterType,
     token: SingleSelectFilter.SingleSelectFilterType,
     order: SingleSelectFilter.SingleSelectFilterType,
+    audits: SingleSelectFilter.SingleSelectFilterType,
     seniority: MultiSelectFilter.MultiSelectFilterType,
     locations: MultiSelectFilter.MultiSelectFilterType,
     mainNet: SingleSelectFilter.SingleSelectFilterType,
@@ -75,7 +75,7 @@ export class JobFilterConfigs {
   @ApiProperty()
   monthlyRevenue: RangeFilter;
   @ApiProperty()
-  audits: RangeFilter;
+  audits: SingleSelectFilter;
   @ApiProperty()
   hacks: SingleSelectFilter;
   @ApiProperty()
