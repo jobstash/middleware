@@ -136,8 +136,7 @@ export class JobsService {
       maxMonthlyFees,
       minMonthlyRevenue,
       maxMonthlyRevenue,
-      minAudits,
-      maxAudits,
+      audits,
       hacks,
       chains,
       projects,
@@ -205,10 +204,8 @@ export class JobsService {
                             maxMonthlyRevenue)
                       ) {
                         if (
-                          (!minAudits ||
-                            (anchorProject?.audits.length ?? 0) >= minAudits) &&
-                          (!maxAudits ||
-                            (anchorProject?.audits.length ?? 0) < maxAudits)
+                          !audits ||
+                          (anchorProject?.audits.length ?? 0) > 0 === audits
                         ) {
                           if (
                             !hacks ||
@@ -493,8 +490,7 @@ export class JobsService {
         OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)
         OPTIONAL MATCH (f)-[:INVESTED_BY]->(i:Investor)
         OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(c:Chain)
-        OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
-        WITH o, p, j, t, f, i, c, cat, COUNT(DISTINCT a) as audits
+        WITH o, p, j, t, f, i, c, cat
         RETURN {
             minSalaryRange: MIN(CASE WHEN NOT j.medianSalary IS NULL AND isNaN(j.medianSalary) = false THEN toFloat(j.medianSalary) END),
             maxSalaryRange: MAX(CASE WHEN NOT j.medianSalary IS NULL AND isNaN(j.medianSalary) = false THEN toFloat(j.medianSalary) END),
@@ -510,8 +506,6 @@ export class JobsService {
             maxHeadCount: MAX(CASE WHEN NOT o.headCount IS NULL AND isNaN(o.headCount) = false THEN toFloat(o.headCount) END),
             minTeamSize: MIN(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
             maxTeamSize: MAX(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
-            minAudits: MIN(CASE WHEN NOT audits IS NULL AND isNaN(audits) = false THEN toFloat(audits) END),
-            maxAudits: MAX(CASE WHEN NOT audits IS NULL AND isNaN(audits) = false THEN toFloat(audits) END),
             tech: COLLECT(DISTINCT t.name),
             fundingRounds: COLLECT(DISTINCT f.roundName),
             investors: COLLECT(DISTINCT i.name),

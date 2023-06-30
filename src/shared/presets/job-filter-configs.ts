@@ -18,6 +18,10 @@ export const SINGLE_SELECT_OPTIONS = {
     { label: "Has been hacked", value: true },
     { label: "Has not been hacked", value: false },
   ],
+  audits: [
+    { label: "Has been audited", value: true },
+    { label: "Has not been audited", value: false },
+  ],
   mainNet: [
     { label: "Deployed on Mainnet", value: true },
     { label: "Not Deployed on Mainnet", value: false },
@@ -197,8 +201,8 @@ export const FILTER_CONFIG_PRESETS = {
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
-    kind: FilterKind.RANGE,
-    stepSize: 5,
+    kind: FilterKind.SINGLE_SELECT,
+    options: SINGLE_SELECT_OPTIONS.audits,
   },
   hacks: {
     position: 18,
@@ -286,10 +290,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
     lowest: "minMonthlyRevenue",
     highest: "maxMonthlyRevenue",
   },
-  audits: {
-    lowest: "minAudits",
-    highest: "maxAudits",
-  },
+  audits: "audits",
   hacks: "hacks",
   mainNet: "mainNet",
   token: "token",
