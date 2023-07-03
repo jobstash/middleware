@@ -1,3 +1,10 @@
+## [1.32.1](https://github.com/jobstash/middleware/compare/v1.32.0...v1.32.1) (2023-07-03)
+
+
+### Bug Fixes
+
+* **jobs:** modified cache validation step to make more sense ([c4d85e7](https://github.com/jobstash/middleware/commit/c4d85e7ed434affe80c00ed501013c2a76cf8a40))
+
 # [1.32.0](https://github.com/jobstash/middleware/compare/v1.31.2...v1.32.0) (2023-07-03)
 
 
