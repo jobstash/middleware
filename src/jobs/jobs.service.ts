@@ -36,35 +36,37 @@ export class JobsService {
     private cacheManager: Cache,
   ) {}
 
-  async shouldClearCache(): Promise<boolean> {
-    return this.neo4jService
-      .read(
+  async validateCache(): Promise<void> {
+    try {
+      const res = await this.neo4jService.write(
         `
           MATCH (node: DirtyNode)
-          RETURN node.dirty as isDirty
+          WITH node.dirty as isDirty, node
+          SET (CASE WHEN isDirty = true THEN node END).dirty = false 
+          RETURN isDirty
       `.replace(/^\s*$(?:\r\n?|\n)/gm, ""),
-      )
-      .then(res => (res.records[0]?.get("isDirty") as boolean) ?? false)
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "jobs.service",
-          });
-          Sentry.captureException(err);
+      );
+      const isDirty = (res.records[0]?.get("isDirty") as boolean) ?? false;
+      if (isDirty) {
+        await this.cacheManager.reset();
+      }
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
         });
-        this.logger.error(`JobsService::shouldClearCache ${err.message}`);
-        return false;
+        Sentry.captureException(error);
       });
+      this.logger.error(`JobsService::shouldClearCache ${error.message}`);
+    }
   }
 
   async getProjectsData(): Promise<Project[]> {
-    const isDirty = await this.shouldClearCache();
     const cachedProjectsString =
       (await this.cacheManager.get<string>("projects")) ?? "[]";
     const cachedProjects = JSON.parse(cachedProjectsString) as Project[];
     if (
-      isDirty &&
       cachedProjects !== null &&
       cachedProjects !== undefined &&
       cachedProjects.length !== 0
@@ -454,12 +456,11 @@ export class JobsService {
       limit: null,
       page: null,
     }).filter(x => x !== null);
-    const isDirty = await this.shouldClearCache();
+    await this.validateCache();
     const cachedJobsString =
       (await this.cacheManager.get<string>("jobs")) ?? "[]";
     const cachedJobs = JSON.parse(cachedJobsString) as JobListResult[];
     if (
-      isDirty &&
       cachedJobs !== null &&
       cachedJobs !== undefined &&
       cachedJobs.length !== 0 &&
