@@ -1,3 +1,10 @@
+# [1.32.0](https://github.com/jobstash/middleware/compare/v1.31.2...v1.32.0) (2023-07-03)
+
+
+### Features
+
+* **jobs:** added dirty node checker for cache mgt ([b7250ec](https://github.com/jobstash/middleware/commit/b7250ec7a264446724dcab00e3ac4a0cb216bb8b))
+
 ## [1.31.2](https://github.com/jobstash/middleware/compare/v1.31.1...v1.31.2) (2023-06-30)
 
 
