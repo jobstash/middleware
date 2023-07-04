@@ -669,6 +669,7 @@ export class JobsService {
               github: organization.github,
               telegram: organization.telegram,
               docs: organization.docs,
+              logo: organization.logo,
               jobsiteLink: organization.jobsiteLink,
               createdTimestamp: organization.createdTimestamp,
               updatedTimestamp: organization.updatedTimestamp,
