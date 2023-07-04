@@ -48,7 +48,7 @@ export class PublicController {
       limit: number;
     },
   ): Promise<PaginatedData<JobListResult>> {
-    this.logger.log(`/jobs/external/all ${JSON.stringify(params)}`);
+    this.logger.log(`/public/all-jobs ${JSON.stringify(params)}`);
     return this.publicService.getAllJobsList(params);
   }
 }

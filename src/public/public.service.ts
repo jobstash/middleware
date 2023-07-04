@@ -275,7 +275,7 @@ export class PublicService {
             scope.setExtra("input", params);
             Sentry.captureException(err);
           });
-          this.logger.error(`JobsService::getAllJobsList ${err.message}`);
+          this.logger.error(`PublicService::getAllJobsList ${err.message}`);
           return {
             page: -1,
             count: 0,
