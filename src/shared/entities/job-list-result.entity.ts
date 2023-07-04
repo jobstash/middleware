@@ -43,6 +43,7 @@ export class JobListResultEntity {
       organization: {
         ...organization,
         docs: notStringOrNull(organization?.docs),
+        logo: notStringOrNull(organization?.logo),
         altName: notStringOrNull(organization?.altName),
         headCount: nonZeroOrNull(organization?.headCount),
         github: notStringOrNull(organization?.github),
