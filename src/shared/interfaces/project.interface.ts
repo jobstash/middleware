@@ -62,7 +62,7 @@ export class ProjectProperties {
   @ApiProperty()
   url: string;
   @ApiProperty()
-  logo: string;
+  logo: string | null;
   @ApiPropertyOptional()
   tokenAddress: string | null;
   @ApiPropertyOptional()

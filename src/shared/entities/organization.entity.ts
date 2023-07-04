@@ -7,7 +7,7 @@ export class ShortOrgEntity {
   getProperties(): ShortOrg {
     return {
       ...this.raw,
-      logo: this.raw.logo,
+      logo: notStringOrNull(this.raw.logo),
       jobCount: intConverter(this.raw.jobCount),
       projectCount: intConverter(this.raw.projectCount),
       headCount: intConverter(this.raw.headCount),
@@ -24,6 +24,7 @@ export class OrganizationEntity {
     const organization = this.raw;
     return {
       ...this.raw,
+      logo: notStringOrNull(organization?.logo),
       docs: notStringOrNull(organization?.docs),
       altName: notStringOrNull(organization?.altName),
       headCount: nonZeroOrNull(organization?.headCount),
