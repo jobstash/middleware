@@ -1,3 +1,10 @@
+## [1.32.4](https://github.com/jobstash/middleware/compare/v1.32.3...v1.32.4) (2023-07-04)
+
+
+### Bug Fixes
+
+* **jobs:** fixed org logo discrepancies ([ac0fc68](https://github.com/jobstash/middleware/commit/ac0fc683a1e80bb426bdd9adf3753ad085e4fe55))
+
 ## [1.32.3](https://github.com/jobstash/middleware/compare/v1.32.2...v1.32.3) (2023-07-04)
 
 
