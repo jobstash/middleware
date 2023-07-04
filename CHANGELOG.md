@@ -1,3 +1,10 @@
+## [1.32.2](https://github.com/jobstash/middleware/compare/v1.32.1...v1.32.2) (2023-07-04)
+
+
+### Bug Fixes
+
+* **jobs:** fixed automagic nulls for project and org logos ([80f0d78](https://github.com/jobstash/middleware/commit/80f0d7888c26162d4a086845665eebe2345cf00a))
+
 ## [1.32.1](https://github.com/jobstash/middleware/compare/v1.32.0...v1.32.1) (2023-07-03)
 
 
