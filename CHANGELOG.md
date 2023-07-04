@@ -1,3 +1,10 @@
+## [1.33.1](https://github.com/jobstash/middleware/compare/v1.33.0...v1.33.1) (2023-07-04)
+
+
+### Bug Fixes
+
+* **public:** some light renaming ([2f344f9](https://github.com/jobstash/middleware/commit/2f344f9f4b9e6ab64920cd8077fe182cc9099116))
+
 # [1.33.0](https://github.com/jobstash/middleware/compare/v1.32.4...v1.33.0) (2023-07-04)
 
 
