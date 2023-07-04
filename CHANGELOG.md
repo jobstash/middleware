@@ -1,3 +1,10 @@
+# [1.33.0](https://github.com/jobstash/middleware/compare/v1.32.4...v1.33.0) (2023-07-04)
+
+
+### Features
+
+* **public:** implemented endpoint for public use protected by api key ([b63bfd4](https://github.com/jobstash/middleware/commit/b63bfd417fd92884bba143011352cb05ecb15db3))
+
 ## [1.32.4](https://github.com/jobstash/middleware/compare/v1.32.3...v1.32.4) (2023-07-04)
 
 
