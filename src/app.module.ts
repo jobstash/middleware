@@ -15,6 +15,7 @@ import { OrganizationsModule } from "./organizations/organizations.module";
 import envSchema from "./env-schema";
 import { ProjectsModule } from "./projects/projects.module";
 import { CacheModule } from "@nestjs/cache-manager";
+import { PublicModule } from './public/public.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { CacheModule } from "@nestjs/cache-manager";
     GithubModule,
     OrganizationsModule,
     ProjectsModule,
+    PublicModule,
   ],
   controllers: [AppController],
   providers: [AppService],
