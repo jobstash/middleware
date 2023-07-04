@@ -1,3 +1,10 @@
+## [1.32.3](https://github.com/jobstash/middleware/compare/v1.32.2...v1.32.3) (2023-07-04)
+
+
+### Bug Fixes
+
+* **projects:** fixed bugs in list interface entities ([3d65cd2](https://github.com/jobstash/middleware/commit/3d65cd24f28540c5a24625f7055e2b7ebde53ce9))
+
 ## [1.32.2](https://github.com/jobstash/middleware/compare/v1.32.1...v1.32.2) (2023-07-04)
 
 
