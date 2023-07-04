@@ -1,3 +1,38 @@
+## [1.32.4](https://github.com/jobstash/middleware/compare/v1.32.3...v1.32.4) (2023-07-04)
+
+
+### Bug Fixes
+
+* **jobs:** fixed org logo discrepancies ([ac0fc68](https://github.com/jobstash/middleware/commit/ac0fc683a1e80bb426bdd9adf3753ad085e4fe55))
+
+## [1.32.3](https://github.com/jobstash/middleware/compare/v1.32.2...v1.32.3) (2023-07-04)
+
+
+### Bug Fixes
+
+* **projects:** fixed bugs in list interface entities ([3d65cd2](https://github.com/jobstash/middleware/commit/3d65cd24f28540c5a24625f7055e2b7ebde53ce9))
+
+## [1.32.2](https://github.com/jobstash/middleware/compare/v1.32.1...v1.32.2) (2023-07-04)
+
+
+### Bug Fixes
+
+* **jobs:** fixed automagic nulls for project and org logos ([80f0d78](https://github.com/jobstash/middleware/commit/80f0d7888c26162d4a086845665eebe2345cf00a))
+
+## [1.32.1](https://github.com/jobstash/middleware/compare/v1.32.0...v1.32.1) (2023-07-03)
+
+
+### Bug Fixes
+
+* **jobs:** modified cache validation step to make more sense ([c4d85e7](https://github.com/jobstash/middleware/commit/c4d85e7ed434affe80c00ed501013c2a76cf8a40))
+
+# [1.32.0](https://github.com/jobstash/middleware/compare/v1.31.2...v1.32.0) (2023-07-03)
+
+
+### Features
+
+* **jobs:** added dirty node checker for cache mgt ([b7250ec](https://github.com/jobstash/middleware/commit/b7250ec7a264446724dcab00e3ac4a0cb216bb8b))
+
 ## [1.31.2](https://github.com/jobstash/middleware/compare/v1.31.1...v1.31.2) (2023-06-30)
 
 

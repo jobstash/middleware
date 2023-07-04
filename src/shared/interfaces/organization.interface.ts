@@ -22,6 +22,7 @@ export class OrganizationProperties {
     location: t.string,
     description: t.string,
     docs: t.union([t.string, t.null]),
+    logo: t.union([t.string, t.null]),
     github: t.union([t.string, t.null]),
     altName: t.union([t.string, t.null]),
     discord: t.union([t.string, t.null]),
@@ -61,6 +62,9 @@ export class OrganizationProperties {
   docs: string | null;
 
   @ApiProperty()
+  logo: string | null;
+
+  @ApiProperty()
   altName: string | null;
 
   @ApiProperty()
@@ -90,6 +94,7 @@ export class OrganizationProperties {
       url,
       name,
       docs,
+      logo,
       orgId,
       github,
       summary,
@@ -112,6 +117,7 @@ export class OrganizationProperties {
     this.url = url;
     this.name = name;
     this.docs = docs;
+    this.logo = logo;
     this.orgId = orgId;
     this.github = github;
     this.summary = summary;
