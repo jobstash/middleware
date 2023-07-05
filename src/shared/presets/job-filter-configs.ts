@@ -31,8 +31,8 @@ export const SINGLE_SELECT_OPTIONS = {
     { label: "Has No Token", value: false },
   ],
   order: [
-    { label: "Ascending", value: "asc" },
-    { label: "Descending", value: "desc" },
+    { label: "A-Z", value: "asc" },
+    { label: "Z-A", value: "desc" },
   ],
   orderBy: [
     { label: "Funding Date", value: "fundingDate" },
