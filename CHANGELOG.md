@@ -1,3 +1,10 @@
+# [1.34.0](https://github.com/jobstash/middleware/compare/v1.33.1...v1.34.0) (2023-07-05)
+
+
+### Features
+
+* **public:** added swagger bearer auth support ([4888184](https://github.com/jobstash/middleware/commit/488818465f6bdfd4ac6868808af67e731633ab60))
+
 ## [1.33.1](https://github.com/jobstash/middleware/compare/v1.33.0...v1.33.1) (2023-07-04)
 
 
