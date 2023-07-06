@@ -1,3 +1,10 @@
+## [1.34.1](https://github.com/jobstash/middleware/compare/v1.34.0...v1.34.1) (2023-07-06)
+
+
+### Bug Fixes
+
+* **jobs:** fixed issue with job details endpoint not returning org headCount ([803dd01](https://github.com/jobstash/middleware/commit/803dd015a722e364378d3a830c2cbe9bf4abaace))
+
 # [1.34.0](https://github.com/jobstash/middleware/compare/v1.33.1...v1.34.0) (2023-07-05)
 
 
