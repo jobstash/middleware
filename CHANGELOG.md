@@ -1,3 +1,10 @@
+# [1.35.0](https://github.com/jobstash/middleware/compare/v1.34.1...v1.35.0) (2023-07-09)
+
+
+### Features
+
+* **projects:** projects list refactor ([#118](https://github.com/jobstash/middleware/issues/118)) ([a418da8](https://github.com/jobstash/middleware/commit/a418da842bf4d224154ffe297574d5646e7e10ba))
+
 ## [1.34.1](https://github.com/jobstash/middleware/compare/v1.34.0...v1.34.1) (2023-07-06)
 
 
