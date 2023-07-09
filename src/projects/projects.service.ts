@@ -4,9 +4,10 @@ import {
   PaginatedData,
   ProjectFilterConfigs,
   ProjectFilterConfigsEntity,
-  ProjectListResult,
-  ProjectListResultEntity,
+  ProjectDetails,
+  ProjectDetailsEntity,
   ProjectProperties,
+  Project,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -20,7 +21,7 @@ export class ProjectsService {
 
   async getProjectsListWithSearch(
     params: ProjectListParams,
-  ): Promise<PaginatedData<ProjectProperties>> {
+  ): Promise<PaginatedData<Project>> {
     const generatedQuery = `
             CALL {
               MATCH (project: Project)
@@ -35,6 +36,7 @@ export class ProjectsService {
                 COUNT(DISTINCT chain) as numChains,
               COLLECT(DISTINCT PROPERTIES(project_category)) as categories,
               COLLECT(DISTINCT PROPERTIES(chain)) as chains,
+              COLLECT(DISTINCT PROPERTIES(audit)) as audits,
               COLLECT(DISTINCT PROPERTIES(hack)) as hacks
 
               WHERE ($query IS NULL OR $query =~ project.name)
@@ -44,37 +46,27 @@ export class ProjectsService {
               AND ($chains IS NULL OR (chains IS NOT NULL AND any(x IN chains WHERE x.name IN $chains)))
               AND ($categories IS NULL OR (categories IS NOT NULL AND any(x IN categories WHERE x.name IN $categories)))
 
-              WITH project, numAudits, numHacks, numChains
+              WITH project, hacks, chains, audits, categories, numAudits, numHacks, numChains
 
               WITH {
                     id: project.id,
-                    defiLlamaId: project.defiLlamaId,
-                    defiLlamaSlug: project.defiLlamaSlug,
-                    defiLlamaParent: project.defiLlamaParent,
                     name: project.name,
-                    description: project.description,
                     url: project.url,
                     logo: project.logo,
-                    tokenAddress: project.tokenAddress,
                     tokenSymbol: project.tokenSymbol,
-                    isInConstruction: project.isInConstruction,
                     tvl: project.tvl,
                     monthlyVolume: project.monthlyVolume,
                     monthlyFees: project.monthlyFees,
                     monthlyRevenue: project.monthlyRevenue,
                     monthlyActiveUsers: project.monthlyActiveUsers,
                     isMainnet: project.isMainnet,
-                    telegram: project.telegram,
                     orgId: project.orgId,
-                    cmcId: project.cmcId,
-                    twitter: project.twitter,
-                    discord: project.discord,
-                    docs: project.docs,
                     teamSize: project.teamSize,
-                    githubOrganization: project.githubOrganization,
                     category: project.category,
-                    createdTimestamp: project.createdTimestamp,
-                    updatedTimestamp: project.updatedTimestamp
+                    hacks: hacks,
+                    chains: chains,
+                    audits: audits,
+                    categories: categories
                 } AS project, numAudits, numHacks, numChains
 
               WHERE ($mainNet IS NULL OR (project IS NOT NULL AND project.isMainnet = $mainNet))
@@ -132,7 +124,7 @@ export class ProjectsService {
           page: (result?.data?.length > 0 ? params.page ?? 1 : -1) ?? -1,
           count: result?.data?.length ?? 0,
           total: result?.total ? intConverter(result?.total) : 0,
-          data: result?.data?.map(record => record as ProjectProperties) ?? [],
+          data: result?.data?.map(record => record as Project) ?? [],
         };
       })
       .catch(err => {
@@ -202,9 +194,7 @@ export class ProjectsService {
       });
   }
 
-  async getProjectDetailsById(
-    id: string,
-  ): Promise<ProjectListResult | undefined> {
+  async getProjectDetailsById(id: string): Promise<ProjectDetails | undefined> {
     return this.neo4jService
       .read(
         `
@@ -292,9 +282,7 @@ export class ProjectsService {
       )
       .then(res =>
         res.records.length
-          ? new ProjectListResultEntity(
-              res.records[0].get("res"),
-            ).getProperties()
+          ? new ProjectDetailsEntity(res.records[0].get("res")).getProperties()
           : undefined,
       )
       .catch(err => {
@@ -365,7 +353,7 @@ export class ProjectsService {
       });
   }
 
-  async getProjectsByCategory(category: string): Promise<ProjectProperties[]> {
+  async getProjectsByCategory(category: string): Promise<Project[]> {
     return this.neo4jService
       .read(
         `
@@ -374,9 +362,7 @@ export class ProjectsService {
         `,
         { category },
       )
-      .then(res =>
-        res.records.map(record => record.get("res") as ProjectProperties),
-      )
+      .then(res => res.records.map(record => record.get("res") as Project))
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -393,7 +379,7 @@ export class ProjectsService {
       });
   }
 
-  async getProjectCompetitors(id: string): Promise<ProjectProperties[]> {
+  async getProjectCompetitors(id: string): Promise<Project[]> {
     return this.neo4jService
       .read(
         `
@@ -404,9 +390,7 @@ export class ProjectsService {
         `,
         { id },
       )
-      .then(res =>
-        res.records.map(record => record.get("res") as ProjectProperties),
-      )
+      .then(res => res.records.map(record => record.get("res") as Project))
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -423,7 +407,7 @@ export class ProjectsService {
       });
   }
 
-  async searchProjects(query: string): Promise<ProjectProperties[]> {
+  async searchProjects(query: string): Promise<Project[]> {
     return this.neo4jService
       .read(
         `
@@ -433,9 +417,7 @@ export class ProjectsService {
         `,
         { query: `(?i).*${query}.*` },
       )
-      .then(res =>
-        res.records.map(record => record.get("res") as ProjectProperties),
-      )
+      .then(res => res.records.map(record => record.get("res") as Project))
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -450,7 +432,7 @@ export class ProjectsService {
       });
   }
 
-  async getProjectById(id: string): Promise<ProjectProperties | undefined> {
+  async getProjectById(id: string): Promise<Project | undefined> {
     return this.neo4jService
       .read(
         `
@@ -461,9 +443,7 @@ export class ProjectsService {
         { id },
       )
       .then(res =>
-        res.records[0]
-          ? (res.records[0].get("res") as ProjectProperties)
-          : undefined,
+        res.records[0] ? (res.records[0].get("res") as Project) : undefined,
       )
       .catch(err => {
         Sentry.withScope(scope => {

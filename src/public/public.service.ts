@@ -1,7 +1,11 @@
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Inject, Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
-import { JobListResult, PaginatedData, Project } from "src/shared/interfaces";
+import {
+  JobListResult,
+  PaginatedData,
+  ProjectMoreInfo,
+} from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { Cache } from "cache-manager";
@@ -43,17 +47,19 @@ export class PublicService {
     }
   }
 
-  async getProjectsData(): Promise<Project[]> {
+  async getProjectsData(): Promise<ProjectMoreInfo[]> {
     const cachedProjectsString =
       (await this.cacheManager.get<string>("projects")) ?? "[]";
-    const cachedProjects = JSON.parse(cachedProjectsString) as Project[];
+    const cachedProjects = JSON.parse(
+      cachedProjectsString,
+    ) as ProjectMoreInfo[];
     if (
       cachedProjects !== null &&
       cachedProjects !== undefined &&
       cachedProjects.length !== 0
     ) {
       this.logger.log("Found cached projects");
-      return cachedProjects.map(x => x as Project);
+      return cachedProjects.map(x => x as ProjectMoreInfo);
     } else {
       this.logger.log("No cached projects found, retrieving from db.");
       const generatedQuery = `
@@ -104,9 +110,9 @@ export class PublicService {
       return this.neo4jService
         .read(generatedQuery)
         .then(async res => {
-          const projects: Project[] = res?.records[0]
+          const projects: ProjectMoreInfo[] = res?.records[0]
             .get("projects")
-            .map(record => record as Project);
+            .map(record => record as ProjectMoreInfo);
           await this.cacheManager.set(
             "projects",
             JSON.stringify(projects),

@@ -22,39 +22,19 @@ export class ProjectProperties {
     name: t.string,
     orgId: t.string,
     isMainnet: t.boolean,
-    description: t.string,
     tvl: t.union([t.number, t.null]),
-    docs: t.union([t.string, t.null]),
     logo: t.union([t.string, t.null]),
-    cmcId: t.union([t.string, t.null]),
-    twitter: t.union([t.string, t.null]),
-    discord: t.union([t.string, t.null]),
-    telegram: t.union([t.string, t.null]),
     teamSize: t.union([t.number, t.null]),
     category: t.union([t.string, t.null]),
-    defiLlamaId: t.union([t.string, t.null]),
     tokenSymbol: t.union([t.string, t.null]),
     monthlyFees: t.union([t.number, t.null]),
-    tokenAddress: t.union([t.string, t.null]),
-    defiLlamaSlug: t.union([t.string, t.null]),
     monthlyVolume: t.union([t.number, t.null]),
     monthlyRevenue: t.union([t.number, t.null]),
-    defiLlamaParent: t.union([t.string, t.null]),
-    createdTimestamp: t.union([t.number, t.null]),
-    updatedTimestamp: t.union([t.number, t.null]),
-    isInConstruction: t.union([t.boolean, t.null]),
     monthlyActiveUsers: t.union([t.number, t.null]),
-    githubOrganization: t.union([t.string, t.null]),
   });
 
   @ApiProperty()
   id: string;
-  @ApiPropertyOptional()
-  defiLlamaId: string | null;
-  @ApiPropertyOptional()
-  defiLlamaSlug: string | null;
-  @ApiPropertyOptional()
-  defiLlamaParent: string | null;
   @ApiProperty()
   name: string;
   @ApiProperty()
@@ -64,11 +44,7 @@ export class ProjectProperties {
   @ApiProperty()
   logo: string | null;
   @ApiPropertyOptional()
-  tokenAddress: string | null;
-  @ApiPropertyOptional()
   tokenSymbol: string | null;
-  @ApiPropertyOptional()
-  isInConstruction: boolean | null;
   @ApiPropertyOptional()
   tvl: number | null;
   @ApiPropertyOptional()
@@ -82,27 +58,11 @@ export class ProjectProperties {
   @ApiProperty()
   isMainnet: boolean;
   @ApiProperty()
-  telegram: string | null;
-  @ApiProperty()
   orgId: string;
-  @ApiProperty()
-  cmcId: string;
-  @ApiProperty()
-  twitter: string | null;
-  @ApiProperty()
-  discord: string | null;
-  @ApiProperty()
-  docs: string | null;
   @ApiPropertyOptional()
   teamSize: number | null;
   @ApiProperty()
-  githubOrganization: string | null;
-  @ApiProperty()
   category: string;
-  @ApiProperty()
-  createdTimestamp: number | null;
-  @ApiPropertyOptional()
-  updatedTimestamp: number | null;
 
   constructor(raw: ProjectProperties) {
     const {
@@ -111,29 +71,16 @@ export class ProjectProperties {
       tvl,
       name,
       logo,
-      docs,
       orgId,
-      cmcId,
-      twitter,
-      discord,
-      telegram,
       teamSize,
       category,
       isMainnet,
-      defiLlamaId,
       description,
       tokenSymbol,
       monthlyFees,
-      tokenAddress,
-      defiLlamaSlug,
       monthlyVolume,
       monthlyRevenue,
-      defiLlamaParent,
-      isInConstruction,
-      createdTimestamp,
-      updatedTimestamp,
       monthlyActiveUsers,
-      githubOrganization,
     } = raw;
 
     const result = ProjectProperties.ProjectPropertiesType.decode(raw);
@@ -143,29 +90,16 @@ export class ProjectProperties {
     this.tvl = tvl;
     this.name = name;
     this.logo = logo;
-    this.docs = docs;
     this.orgId = orgId;
-    this.cmcId = cmcId;
-    this.twitter = twitter;
-    this.discord = discord;
-    this.telegram = telegram;
     this.teamSize = teamSize;
     this.category = category;
     this.isMainnet = isMainnet;
-    this.defiLlamaId = defiLlamaId;
     this.description = description;
     this.tokenSymbol = tokenSymbol;
     this.monthlyFees = monthlyFees;
-    this.tokenAddress = tokenAddress;
-    this.defiLlamaSlug = defiLlamaSlug;
     this.monthlyVolume = monthlyVolume;
     this.monthlyRevenue = monthlyRevenue;
-    this.defiLlamaParent = defiLlamaParent;
-    this.isInConstruction = isInConstruction;
-    this.createdTimestamp = createdTimestamp;
-    this.updatedTimestamp = updatedTimestamp;
     this.monthlyActiveUsers = monthlyActiveUsers;
-    this.githubOrganization = githubOrganization;
 
     if (isLeft(result)) {
       report(result).forEach(x => {
