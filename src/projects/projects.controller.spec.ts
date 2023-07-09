@@ -8,7 +8,7 @@ import { ProjectListParams } from "./dto/project-list.input";
 import { Integer } from "neo4j-driver";
 import {
   ProjectFilterConfigs,
-  ProjectListResult,
+  ProjectDetails,
   ProjectProperties,
 } from "src/shared/interfaces";
 import { hasDuplicates, printDuplicateItems } from "src/shared/helpers";
@@ -21,7 +21,7 @@ describe("ProjectsController", () => {
   let controller: ProjectsController;
 
   const projectHasArrayPropsDuplication = (
-    project: ProjectListResult,
+    project: ProjectDetails,
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
       project?.audits,

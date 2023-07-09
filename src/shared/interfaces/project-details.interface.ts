@@ -5,11 +5,12 @@ import { isLeft } from "fp-ts/lib/Either";
 import { Project } from "./project.interface";
 import { report } from "io-ts-human-reporter";
 import { Technology } from "./technology.interface";
+import { ProjectMoreInfo } from "./project-more-info.interface";
 
-@ApiExtraModels(Project, ProjectListResult)
-export class ProjectListResult extends Project {
-  public static readonly ProjectListResultType = t.intersection([
-    Project.ProjectType,
+@ApiExtraModels(Project, ProjectDetails)
+export class ProjectDetails extends ProjectMoreInfo {
+  public static readonly ProjectDetailsType = t.intersection([
+    ProjectMoreInfo.ProjectMoreInfoType,
     t.strict({
       organization: t.intersection([
         Organization.OrganizationType,
@@ -21,12 +22,12 @@ export class ProjectListResult extends Project {
   @ApiPropertyOptional()
   organization: Organization & { technologies: Technology[] };
 
-  constructor(raw: ProjectListResult) {
+  constructor(raw: ProjectDetails) {
     const { organization, ...projectProps } = raw;
 
     super(projectProps);
 
-    const result = ProjectListResult.ProjectListResultType.decode(raw);
+    const result = ProjectDetails.ProjectDetailsType.decode(raw);
 
     this.organization = organization;
 

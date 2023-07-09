@@ -33,9 +33,10 @@ import {
   PaginatedData,
   ProjectFilterConfigs,
   ProjectProperties,
-  ProjectListResult,
+  ProjectDetails,
   Response,
   ResponseWithNoData,
+  Project,
 } from "src/shared/types";
 import { CreateProjectInput } from "./dto/create-project.input";
 import { UpdateProjectInput } from "./dto/update-project.input";
@@ -115,7 +116,7 @@ export class ProjectsController {
   @ApiOkResponse({
     description:
       "Returns a paginated sorted list of projects that satisfy the search and filter predicate",
-    type: PaginatedData<ProjectProperties>,
+    type: PaginatedData<Project>,
     schema: {
       allOf: [
         {
@@ -129,7 +130,7 @@ export class ProjectsController {
             },
             data: {
               type: "array",
-              items: { $ref: getSchemaPath(ProjectProperties) },
+              items: { $ref: getSchemaPath(Project) },
             },
           },
         },
@@ -150,7 +151,7 @@ export class ProjectsController {
   async getProjectsListWithSearch(
     @Query(new ValidationPipe({ transform: true }))
     params: ProjectListParams,
-  ): Promise<PaginatedData<ProjectProperties>> {
+  ): Promise<PaginatedData<Project>> {
     const paramsParsed = {
       ...params,
       query: btoa(params.query),
@@ -188,7 +189,7 @@ export class ProjectsController {
     schema: {
       allOf: [
         {
-          $ref: getSchemaPath(ProjectListResult),
+          $ref: getSchemaPath(ProjectDetails),
         },
       ],
     },
@@ -205,7 +206,7 @@ export class ProjectsController {
   })
   async getProjectDetailsById(
     @Param("id") id: string,
-  ): Promise<ProjectListResult | undefined> {
+  ): Promise<ProjectDetails | undefined> {
     this.logger.log(`/projects/details/${id}`);
     return this.projectsService.getProjectDetailsById(id);
   }
@@ -215,11 +216,11 @@ export class ProjectsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects under the speccified category",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
   })
   async getProjectsByCategory(
     @Param("category") category: string,
-  ): Promise<Response<ProjectProperties[]> | ResponseWithNoData> {
+  ): Promise<Response<Project[]> | ResponseWithNoData> {
     this.logger.log(`/projects/category/${category}`);
     return this.projectsService
       .getProjectsByCategory(category)
@@ -248,11 +249,11 @@ export class ProjectsController {
   @ApiOkResponse({
     description:
       "Returns a list of competing projects for the specified project",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
   })
   async getProjectCompetitors(
     @Param("id") id: string,
-  ): Promise<Response<ProjectProperties[]> | ResponseWithNoData> {
+  ): Promise<Response<Project[]> | ResponseWithNoData> {
     this.logger.log(`/projects/competitors/${id}`);
     return this.projectsService
       .getProjectCompetitors(id)
@@ -282,11 +283,11 @@ export class ProjectsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects for an organization",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
   })
   async getProjectsByOrgId(
     @Param("id") id: string,
-  ): Promise<Response<ProjectProperties[]> | ResponseWithNoData> {
+  ): Promise<Response<Project[]> | ResponseWithNoData> {
     this.logger.log(`/projects/all/${id}`);
     return this.projectsService
       .getProjectsByOrgId(id)
@@ -316,11 +317,11 @@ export class ProjectsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects with names matching the query",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
   })
   async searchProjects(
     @Query("query") query: string,
-  ): Promise<Response<ProjectProperties[]> | ResponseWithNoData> {
+  ): Promise<Response<Project[]> | ResponseWithNoData> {
     this.logger.log(`/projects/search?query=${query}`);
     return this.projectsService
       .searchProjects(query)
@@ -354,7 +355,7 @@ export class ProjectsController {
   async getProjectDetails(
     @Param("id") id: string,
     @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<Response<ProjectProperties> | ResponseWithNoData> {
+  ): Promise<Response<Project> | ResponseWithNoData> {
     this.logger.log(`/projects/${id}`);
     const result = await this.projectsService.getProjectById(id);
 

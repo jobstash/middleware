@@ -11,6 +11,7 @@ import { Project } from "./project.interface";
 import { Investor } from "./investor.interface";
 import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
+import { ProjectMoreInfo } from "./project-more-info.interface";
 
 export class OrganizationProperties {
   public static readonly OrganizationPropertiesType = t.strict({
@@ -145,7 +146,7 @@ export class Organization extends OrganizationProperties {
   public static readonly OrganizationType = t.intersection([
     OrganizationProperties.OrganizationPropertiesType,
     t.strict({
-      projects: t.array(Project.ProjectType),
+      projects: t.array(ProjectMoreInfo.ProjectMoreInfoType),
       fundingRounds: t.array(FundingRound.FundingRoundType),
       investors: t.array(Investor.InvestorType),
     }),
@@ -155,7 +156,7 @@ export class Organization extends OrganizationProperties {
     type: "array",
     items: { $ref: getSchemaPath(Project) },
   })
-  projects: Project[];
+  projects: ProjectMoreInfo[];
 
   @ApiPropertyOptional({
     type: "array",
