@@ -25,13 +25,13 @@ export class JobFilterConfigs {
     hacks: SingleSelectFilter.SingleSelectFilterType,
     token: SingleSelectFilter.SingleSelectFilterType,
     order: SingleSelectFilter.SingleSelectFilterType,
-    audits: SingleSelectFilter.SingleSelectFilterType,
     seniority: MultiSelectFilter.MultiSelectFilterType,
     locations: MultiSelectFilter.MultiSelectFilterType,
     mainNet: SingleSelectFilter.SingleSelectFilterType,
     orderBy: SingleSelectFilter.SingleSelectFilterType,
     tech: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     publicationDate: SingleSelectFilter.SingleSelectFilterType,
+    audits: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     chains: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     projects: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     investors: MultiSelectSearchFilter.MultiSelectSearchFilterType,
@@ -75,7 +75,7 @@ export class JobFilterConfigs {
   @ApiProperty()
   monthlyRevenue: RangeFilter;
   @ApiProperty()
-  audits: SingleSelectFilter;
+  audits: MultiSelectSearchFilter;
   @ApiProperty()
   hacks: SingleSelectFilter;
   @ApiProperty()
