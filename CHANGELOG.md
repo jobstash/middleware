@@ -1,3 +1,10 @@
+## [1.35.1](https://github.com/jobstash/middleware/compare/v1.35.0...v1.35.1) (2023-07-10)
+
+
+### Bug Fixes
+
+* **audits:** refactored audits filter to be multi select with search ([#120](https://github.com/jobstash/middleware/issues/120)) ([0d7c200](https://github.com/jobstash/middleware/commit/0d7c200410ae2a0c58534d375bb4d11cb9094d09))
+
 # [1.35.0](https://github.com/jobstash/middleware/compare/v1.34.1...v1.35.0) (2023-07-09)
 
 
