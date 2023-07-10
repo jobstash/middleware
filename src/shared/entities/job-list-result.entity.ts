@@ -72,9 +72,9 @@ export class JobListResultEntity {
             discord: notStringOrNull(project?.discord),
             docs: notStringOrNull(project?.docs),
             teamSize: nonZeroOrNull(project?.teamSize),
+            category: notStringOrNull(project?.category),
             githubOrganization: notStringOrNull(project?.githubOrganization),
             updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
-            categories: project?.categories ?? [],
             hacks:
               project?.hacks.map(hack => ({
                 ...hack,

@@ -8,6 +8,7 @@ export class ProjectEntity {
     const project = this.raw;
     return new Project({
       ...project,
+      category: notStringOrNull(project.category),
       tokenSymbol: notStringOrNull(project?.tokenSymbol, ["-"]),
       tvl: nonZeroOrNull(project?.tvl),
       monthlyVolume: nonZeroOrNull(project?.monthlyVolume),
@@ -15,7 +16,6 @@ export class ProjectEntity {
       monthlyRevenue: nonZeroOrNull(project?.monthlyRevenue),
       logo: notStringOrNull(project?.logo),
       teamSize: nonZeroOrNull(project?.teamSize),
-      categories: project?.categories ?? [],
       hacks:
         project?.hacks.map(hack => ({
           ...hack,
