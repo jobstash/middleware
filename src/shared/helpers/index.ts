@@ -191,7 +191,8 @@ export const notStringOrNull = (
     space.includes(value) ||
     value === "" ||
     typeof value === "undefined" ||
-    value === null
+    value === null ||
+    value === undefined
   ) {
     return null;
   } else {
@@ -202,7 +203,12 @@ export const notStringOrNull = (
 export const nonZeroOrNull = (
   value: { low: number; high: number } | number | string | null | undefined,
 ): number | null => {
-  if (value === 0 || typeof value === "undefined" || value === null) {
+  if (
+    value === 0 ||
+    typeof value === "undefined" ||
+    value === null ||
+    value === undefined
+  ) {
     return null;
   } else {
     if (typeof value === "string") {

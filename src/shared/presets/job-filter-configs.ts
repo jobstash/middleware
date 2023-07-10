@@ -18,10 +18,6 @@ export const SINGLE_SELECT_OPTIONS = {
     { label: "Has been hacked", value: true },
     { label: "Has not been hacked", value: false },
   ],
-  audits: [
-    { label: "Has been audited", value: true },
-    { label: "Has not been audited", value: false },
-  ],
   mainNet: [
     { label: "Deployed on Mainnet", value: true },
     { label: "Not Deployed on Mainnet", value: false },
@@ -201,8 +197,7 @@ export const FILTER_CONFIG_PRESETS = {
     show: true,
     googleAnalyticsEventName: null,
     googleAnalyticsEventId: null,
-    kind: FilterKind.SINGLE_SELECT,
-    options: SINGLE_SELECT_OPTIONS.audits,
+    kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   hacks: {
     position: 18,
