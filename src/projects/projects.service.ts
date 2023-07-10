@@ -31,7 +31,7 @@ export class ProjectsService {
               OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]-(chain:Chain)
               MATCH (organization: Organization)-[:HAS_PROJECT]->(project)
               
-              WITH project, organization, COUNT(DISTINCT audit) as numAudits,
+              WITH project, project_category, organization, COUNT(DISTINCT audit) as numAudits,
                 COUNT(DISTINCT hack) as numHacks,
                 COUNT(DISTINCT chain) as numChains,
               COLLECT(DISTINCT PROPERTIES(project_category)) as categories,
@@ -46,7 +46,7 @@ export class ProjectsService {
               AND ($chains IS NULL OR (chains IS NOT NULL AND any(x IN chains WHERE x.name IN $chains)))
               AND ($categories IS NULL OR (categories IS NOT NULL AND any(x IN categories WHERE x.name IN $categories)))
 
-              WITH project, hacks, chains, audits, categories, numAudits, numHacks, numChains
+              WITH project, project_category, hacks, chains, audits, categories, numAudits, numHacks, numChains
 
               WITH {
                     id: project.id,
@@ -62,7 +62,7 @@ export class ProjectsService {
                     isMainnet: project.isMainnet,
                     orgId: project.orgId,
                     teamSize: project.teamSize,
-                    category: project.category,
+                    category: project_category.name,
                     hacks: hacks,
                     chains: chains,
                     audits: audits,
@@ -211,17 +211,16 @@ export class ProjectsService {
         WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()
         OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
         OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
-        WITH organization, project, 
+        WITH organization, project, project_category,
           COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
           COLLECT(DISTINCT PROPERTIES(technology)) AS technologies,
           COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds,
-          COLLECT(DISTINCT PROPERTIES(project_category)) AS categories, 
           COLLECT(DISTINCT PROPERTIES(audit)) AS audits,
           COLLECT(DISTINCT PROPERTIES(hack)) AS hacks,
           COLLECT(DISTINCT PROPERTIES(chain)) AS chains
         
-        WITH organization, project, investors, technologies, 
-          funding_rounds, categories, audits, hacks, chains
+        WITH organization, project, project_category, investors, technologies, 
+          funding_rounds, audits, hacks, chains
 
         WITH {
             id: project.id,
@@ -248,8 +247,8 @@ export class ProjectsService {
             discord: project.discord,
             docs: project.docs,
             teamSize: project.teamSize,
+            category: project_category.name,
             githubOrganization: project.githubOrganization,
-            category: project.category,
             createdTimestamp: project.createdTimestamp,
             updatedTimestamp: project.updatedTimestamp,
             organization: {
@@ -272,7 +271,6 @@ export class ProjectsService {
               investors: [investor in investors WHERE investor.id IS NOT NULL],
               technologies: [technology in technologies WHERE technology.id IS NOT NULL]
             },
-            categories: [category in categories WHERE category.id IS NOT NULL],
             hacks: [hack in hacks WHERE hack.id IS NOT NULL],
             audits: [audit in audits WHERE audit.id IS NOT NULL],
             chains: [chain in chains WHERE chain.id IS NOT NULL]

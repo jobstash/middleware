@@ -83,7 +83,7 @@ export class JobsService {
         OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
         OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
         OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain:Chain)
-        WITH COLLECT(DISTINCT PROPERTIES(project_category)) AS categories,
+        WITH project_category,
           COLLECT(DISTINCT PROPERTIES(hack)) as hacks, 
           COLLECT(DISTINCT PROPERTIES(audit)) as audits, 
           COLLECT(DISTINCT PROPERTIES(chain)) as chains, project
@@ -113,10 +113,9 @@ export class JobsService {
           docs: project.docs,
           teamSize: project.teamSize,
           githubOrganization: project.githubOrganization,
-          category: project.category,
+          category: project_category.name,
           createdTimestamp: project.createdTimestamp,
           updatedTimestamp: project.updatedTimestamp,
-          categories: [category in categories WHERE category.id IS NOT NULL],
           hacks: [hack in hacks WHERE hack.id IS NOT NULL],
           audits: [audit in audits WHERE audit.id IS NOT NULL],
           chains: [chain in chains WHERE chain.id IS NOT NULL]
@@ -590,9 +589,9 @@ export class JobsService {
         OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
         OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
         OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain:Chain)
-        WITH structured_jobpost, organization, project, COLLECT(DISTINCT PROPERTIES(project_category)) AS categories, funding_round, investor, technology, audit, hack, chain
+        WITH structured_jobpost, organization, project, project_category, COLLECT(DISTINCT PROPERTIES(project_category)) AS categories, funding_round, investor, technology, audit, hack, chain
         WITH structured_jobpost, organization, project,
-          categories, 
+          project_category, 
           COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
           COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
           COLLECT(DISTINCT PROPERTIES(technology)) AS technologies,
@@ -627,10 +626,9 @@ export class JobsService {
             docs: project.docs,
             teamSize: project.teamSize,
             githubOrganization: project.githubOrganization,
-            category: project.category,
+            category: project_category.name,
             createdTimestamp: project.createdTimestamp,
             updatedTimestamp: project.updatedTimestamp,
-            categories: [category in categories WHERE category.id IS NOT NULL],
             hacks: [hack in hacks WHERE hack.id IS NOT NULL],
             audits: [audit in audits WHERE audit.id IS NOT NULL],
             chains: [chain in chains WHERE chain.id IS NOT NULL]
@@ -723,9 +721,9 @@ export class JobsService {
         OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
         OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
         OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain:Chain)
-        WITH structured_jobpost, organization, project, COLLECT(DISTINCT PROPERTIES(project_category)) AS categories, funding_round, investor, technology, audit, hack, chain
+        WITH structured_jobpost, organization, project, project_category, funding_round, investor, technology, audit, hack, chain
         WITH structured_jobpost, organization, project,
-          categories, 
+          project_category, 
           COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
           COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
           COLLECT(DISTINCT PROPERTIES(technology)) AS technologies,
@@ -760,10 +758,9 @@ export class JobsService {
             docs: project.docs,
             teamSize: project.teamSize,
             githubOrganization: project.githubOrganization,
-            category: project.category,
+            category: project_category.name,
             createdTimestamp: project.createdTimestamp,
             updatedTimestamp: project.updatedTimestamp,
-            categories: [category in categories WHERE category.id IS NOT NULL],
             hacks: [hack in hacks WHERE hack.id IS NOT NULL],
             audits: [audit in audits WHERE audit.id IS NOT NULL],
             chains: [chain in chains WHERE chain.id IS NOT NULL]

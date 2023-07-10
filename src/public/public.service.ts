@@ -68,10 +68,9 @@ export class PublicService {
         OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
         OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
         OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain:Chain)
-        WITH COLLECT(DISTINCT PROPERTIES(project_category)) AS categories,
-          COLLECT(DISTINCT PROPERTIES(hack)) as hacks, 
+        WITH COLLECT(DISTINCT PROPERTIES(hack)) as hacks, 
           COLLECT(DISTINCT PROPERTIES(audit)) as audits, 
-          COLLECT(DISTINCT PROPERTIES(chain)) as chains, project
+          COLLECT(DISTINCT PROPERTIES(chain)) as chains, project, project_category
         RETURN COLLECT(DISTINCT {
           id: project.id,
           defiLlamaId: project.defiLlamaId,
@@ -98,10 +97,9 @@ export class PublicService {
           docs: project.docs,
           teamSize: project.teamSize,
           githubOrganization: project.githubOrganization,
-          category: project.category,
+          category: project_category.name,
           createdTimestamp: project.createdTimestamp,
           updatedTimestamp: project.updatedTimestamp,
-          categories: [category in categories WHERE category.id IS NOT NULL],
           hacks: [hack in hacks WHERE hack.id IS NOT NULL],
           audits: [audit in audits WHERE audit.id IS NOT NULL],
           chains: [chain in chains WHERE chain.id IS NOT NULL]

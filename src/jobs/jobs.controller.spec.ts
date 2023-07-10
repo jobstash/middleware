@@ -45,21 +45,10 @@ describe("JobsController", () => {
       c => c.id,
       `Chain for Project ${project.id} for Jobpost ${jobPostUUID}`,
     );
-    const hasDuplicateCategories = hasDuplicates(
-      project.categories,
-      c => c.id,
-      `Category for Project ${project.id} for Jobpost ${jobPostUUID}`,
-    );
     expect(hasDuplicateAudits).toBe(false);
     expect(hasDuplicateHacks).toBe(false);
     expect(hasDuplicateChains).toBe(false);
-    expect(hasDuplicateCategories).toBe(false);
-    return (
-      hasDuplicateAudits &&
-      hasDuplicateHacks &&
-      hasDuplicateChains &&
-      hasDuplicateCategories
-    );
+    return hasDuplicateAudits && hasDuplicateHacks && hasDuplicateChains;
   };
 
   const jlrHasArrayPropsDuplication = (

@@ -62,7 +62,7 @@ export class ProjectProperties {
   @ApiPropertyOptional()
   teamSize: number | null;
   @ApiProperty()
-  category: string;
+  category: string | null;
 
   constructor(raw: ProjectProperties) {
     const {
@@ -116,15 +116,8 @@ export class Project extends ProjectProperties {
       hacks: t.array(Hack.HackType),
       audits: t.array(Audit.AuditType),
       chains: t.array(Chain.ChainType),
-      categories: t.array(ProjectCategory.ProjectCategoryType),
     }),
   ]);
-
-  @ApiPropertyOptional({
-    type: "array",
-    items: { $ref: getSchemaPath(ProjectCategory) },
-  })
-  categories: ProjectCategory[];
 
   @ApiPropertyOptional({
     type: "array",
@@ -145,14 +138,13 @@ export class Project extends ProjectProperties {
   chains: Chain[];
 
   constructor(raw: Project) {
-    const { categories, hacks, audits, chains, ...projectProperties } = raw;
+    const { hacks, audits, chains, ...projectProperties } = raw;
     super(projectProperties);
     const result = Project.ProjectType.decode(raw);
 
     this.hacks = hacks;
     this.audits = audits;
     this.chains = chains;
-    this.categories = categories;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

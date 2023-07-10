@@ -57,7 +57,6 @@ export class OrgListResultEntity {
           teamSize: nonZeroOrNull(project?.teamSize),
           githubOrganization: notStringOrNull(project?.githubOrganization),
           updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
-          categories: project?.categories ?? [],
           hacks:
             project?.hacks.map(hack => ({
               ...hack,
