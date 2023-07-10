@@ -22,9 +22,9 @@ export class ProjectFilterConfigs {
     hacks: SingleSelectFilter.SingleSelectFilterType,
     token: SingleSelectFilter.SingleSelectFilterType,
     order: SingleSelectFilter.SingleSelectFilterType,
-    audits: SingleSelectFilter.SingleSelectFilterType,
     mainNet: SingleSelectFilter.SingleSelectFilterType,
     orderBy: SingleSelectFilter.SingleSelectFilterType,
+    audits: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     chains: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     categories: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     organizations: MultiSelectSearchFilter.MultiSelectSearchFilterType,
@@ -47,7 +47,7 @@ export class ProjectFilterConfigs {
   @ApiProperty()
   monthlyRevenue: RangeFilter;
   @ApiProperty()
-  audits: SingleSelectFilter;
+  audits: MultiSelectSearchFilter;
   @ApiProperty()
   hacks: SingleSelectFilter;
   @ApiProperty()

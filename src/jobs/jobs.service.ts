@@ -522,7 +522,8 @@ export class JobsService {
         OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)
         OPTIONAL MATCH (f)-[:INVESTED_BY]->(i:Investor)
         OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(c:Chain)
-        WITH o, p, j, t, f, i, c, cat
+        OPTIONAL MATCH (p)-[:HAS_AUDIT]->(a:Audit)
+        WITH o, p, j, t, f, a, i, c, cat
         RETURN {
             minSalaryRange: MIN(CASE WHEN NOT j.medianSalary IS NULL AND isNaN(j.medianSalary) = false THEN toFloat(j.medianSalary) END),
             maxSalaryRange: MAX(CASE WHEN NOT j.medianSalary IS NULL AND isNaN(j.medianSalary) = false THEN toFloat(j.medianSalary) END),
@@ -542,6 +543,7 @@ export class JobsService {
             fundingRounds: COLLECT(DISTINCT f.roundName),
             investors: COLLECT(DISTINCT i.name),
             projects: COLLECT(DISTINCT p.name),
+            audits: COLLECT(DISTINCT a.name),
             categories: COLLECT(DISTINCT cat.name),
             chains: COLLECT(DISTINCT c.name),
             locations: COLLECT(DISTINCT j.jobLocation),

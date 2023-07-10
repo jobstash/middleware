@@ -156,7 +156,7 @@ export class ProjectsService {
         MATCH (o:Organization)-[:HAS_PROJECT]->(project)
         OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(c:Chain)
         OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
-        WITH o, p, c, cat, COUNT(DISTINCT a) as audits
+        WITH o, p, c, a, cat
         RETURN {
             minTvl: MIN(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
             maxTvl: MAX(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
@@ -170,6 +170,7 @@ export class ProjectsService {
             maxTeamSize: MAX(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
             categories: COLLECT(DISTINCT cat.name),
             chains: COLLECT(DISTINCT c.name),
+            audits: COLLECT(DISTINCT a.name),
             organizations: COLLECT(DISTINCT o.name)
         } as res
       `,
