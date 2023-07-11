@@ -206,9 +206,14 @@ export class ProjectsController {
   })
   async getProjectDetailsById(
     @Param("id") id: string,
+    @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<ProjectDetails | undefined> {
     this.logger.log(`/projects/details/${id}`);
-    return this.projectsService.getProjectDetailsById(id);
+    const result = this.projectsService.getProjectDetailsById(id);
+    if (result === undefined) {
+      res.status(HttpStatus.NOT_FOUND);
+    }
+    return result;
   }
 
   @Get("/category/:category")

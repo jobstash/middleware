@@ -16,6 +16,7 @@ import { BackendService } from "src/backend/backend.service";
 import { createMock } from "@golevelup/ts-jest";
 import { isRight } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
+import { Response } from "express";
 
 describe("ProjectsController", () => {
   let controller: ProjectsController;
@@ -25,7 +26,7 @@ describe("ProjectsController", () => {
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
       project?.audits,
-      a => a.auditor.toLowerCase(),
+      a => a.id.toLowerCase(),
       `Audit for Project ${project.id}`,
     );
     const hasDuplicateHacks = hasDuplicates(
@@ -135,7 +136,12 @@ describe("ProjectsController", () => {
     const project = (await controller.getProjectsListWithSearch(params))
       .data[0];
 
-    const details = await controller.getProjectDetailsById(project.id);
+    const res: Partial<Response> = {};
+
+    const details = await controller.getProjectDetailsById(
+      project.id,
+      res as Response,
+    );
 
     expect(projectHasArrayPropsDuplication(details)).toBe(false);
   }, 10000);

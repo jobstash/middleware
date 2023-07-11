@@ -243,9 +243,14 @@ export class OrganizationsController {
   })
   async getOrgDetailsById(
     @Param("id") id: string,
+    @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<OrgListResult | undefined> {
     this.logger.log(`/organizations/details/${id}`);
-    return this.organizationsService.getOrgDetailsById(id);
+    const result = await this.organizationsService.getOrgDetailsById(id);
+    if (result === undefined) {
+      res.status(HttpStatus.NOT_FOUND);
+    }
+    return result;
   }
 
   @Get("/:id")

@@ -18,6 +18,7 @@ import { isRight } from "fp-ts/lib/Either";
 import { BackendService } from "src/backend/backend.service";
 import { createMock } from "@golevelup/ts-jest";
 import { report } from "io-ts-human-reporter";
+import { Response } from "express";
 
 describe("OrganizationsController", () => {
   let controller: OrganizationsController;
@@ -167,7 +168,12 @@ describe("OrganizationsController", () => {
 
     const org = (await controller.getOrgsListWithSearch(params)).data[0];
 
-    const details = await controller.getOrgDetailsById(org.orgId);
+    const res: Partial<Response> = {};
+
+    const details = await controller.getOrgDetailsById(
+      org.orgId,
+      res as Response,
+    );
 
     expect(details).toBeDefined();
 
