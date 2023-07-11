@@ -4,14 +4,16 @@ import {
   PaginatedData,
   ProjectFilterConfigs,
   ProjectFilterConfigsEntity,
-  ProjectListResult,
-  ProjectListResultEntity,
+  ProjectDetails,
+  ProjectDetailsEntity,
   ProjectProperties,
+  Project,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { ProjectListParams } from "./dto/project-list.input";
 import { intConverter, projectListOrderBySelector } from "src/shared/helpers";
+import { ProjectEntity } from "src/shared/entities/project.entity";
 
 @Injectable()
 export class ProjectsService {
@@ -20,7 +22,7 @@ export class ProjectsService {
 
   async getProjectsListWithSearch(
     params: ProjectListParams,
-  ): Promise<PaginatedData<ProjectProperties>> {
+  ): Promise<PaginatedData<Project>> {
     const generatedQuery = `
             CALL {
               MATCH (project: Project)
@@ -30,51 +32,41 @@ export class ProjectsService {
               OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]-(chain:Chain)
               MATCH (organization: Organization)-[:HAS_PROJECT]->(project)
               
-              WITH project, organization, COUNT(DISTINCT audit) as numAudits,
+              WITH project, project_category, organization, COUNT(DISTINCT audit) as numAudits,
                 COUNT(DISTINCT hack) as numHacks,
                 COUNT(DISTINCT chain) as numChains,
               COLLECT(DISTINCT PROPERTIES(project_category)) as categories,
               COLLECT(DISTINCT PROPERTIES(chain)) as chains,
+              COLLECT(DISTINCT PROPERTIES(audit)) as audits,
               COLLECT(DISTINCT PROPERTIES(hack)) as hacks
 
-              WHERE ($query IS NULL OR $query =~ project.name)
+              WHERE ($query IS NULL OR project.name =~ $query)
               AND ($organizations IS NULL OR organization.name IN $organizations)
               AND ($hacks IS NULL OR numHacks > 1 = $hacks)
               AND ($audits IS NULL OR numAudits > 1 = $audits)
               AND ($chains IS NULL OR (chains IS NOT NULL AND any(x IN chains WHERE x.name IN $chains)))
               AND ($categories IS NULL OR (categories IS NOT NULL AND any(x IN categories WHERE x.name IN $categories)))
 
-              WITH project, numAudits, numHacks, numChains
+              WITH project, project_category, hacks, chains, audits, categories, numAudits, numHacks, numChains
 
               WITH {
                     id: project.id,
-                    defiLlamaId: project.defiLlamaId,
-                    defiLlamaSlug: project.defiLlamaSlug,
-                    defiLlamaParent: project.defiLlamaParent,
                     name: project.name,
-                    description: project.description,
                     url: project.url,
                     logo: project.logo,
-                    tokenAddress: project.tokenAddress,
                     tokenSymbol: project.tokenSymbol,
-                    isInConstruction: project.isInConstruction,
                     tvl: project.tvl,
                     monthlyVolume: project.monthlyVolume,
                     monthlyFees: project.monthlyFees,
                     monthlyRevenue: project.monthlyRevenue,
                     monthlyActiveUsers: project.monthlyActiveUsers,
                     isMainnet: project.isMainnet,
-                    telegram: project.telegram,
                     orgId: project.orgId,
-                    cmcId: project.cmcId,
-                    twitter: project.twitter,
-                    discord: project.discord,
-                    docs: project.docs,
                     teamSize: project.teamSize,
-                    githubOrganization: project.githubOrganization,
-                    category: project.category,
-                    createdTimestamp: project.createdTimestamp,
-                    updatedTimestamp: project.updatedTimestamp
+                    category: project_category.name,
+                    hacks: hacks,
+                    chains: chains,
+                    audits: audits
                 } AS project, numAudits, numHacks, numChains
 
               WHERE ($mainNet IS NULL OR (project IS NOT NULL AND project.isMainnet = $mainNet))
@@ -99,8 +91,8 @@ export class ProjectsService {
                 auditsVar: "numAudits",
                 hacksVar: "numHacks",
                 chainsVar: "numChains",
-                orderBy: params?.orderBy ?? "monthlyVolume",
-              })} ${params.order?.toUpperCase() ?? "DESC"}
+                orderBy: params?.orderBy,
+              })} ${params.order?.toUpperCase() ?? "ASC"}
               // <--!!!Sorter Embedding-->
               RETURN COLLECT(project) as results
             }
@@ -132,7 +124,10 @@ export class ProjectsService {
           page: (result?.data?.length > 0 ? params.page ?? 1 : -1) ?? -1,
           count: result?.data?.length ?? 0,
           total: result?.total ? intConverter(result?.total) : 0,
-          data: result?.data?.map(record => record as ProjectProperties) ?? [],
+          data:
+            result?.data?.map(record =>
+              new ProjectEntity(record).getProperties(),
+            ) ?? [],
         };
       })
       .catch(err => {
@@ -164,7 +159,7 @@ export class ProjectsService {
         MATCH (o:Organization)-[:HAS_PROJECT]->(project)
         OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(c:Chain)
         OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
-        WITH o, p, c, cat, COUNT(DISTINCT a) as audits
+        WITH o, p, c, a, cat
         RETURN {
             minTvl: MIN(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
             maxTvl: MAX(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
@@ -178,6 +173,7 @@ export class ProjectsService {
             maxTeamSize: MAX(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
             categories: COLLECT(DISTINCT cat.name),
             chains: COLLECT(DISTINCT c.name),
+            audits: COLLECT(DISTINCT a.name),
             organizations: COLLECT(DISTINCT o.name)
         } as res
       `,
@@ -202,9 +198,7 @@ export class ProjectsService {
       });
   }
 
-  async getProjectDetailsById(
-    id: string,
-  ): Promise<ProjectListResult | undefined> {
+  async getProjectDetailsById(id: string): Promise<ProjectDetails | undefined> {
     return this.neo4jService
       .read(
         `
@@ -220,17 +214,16 @@ export class ProjectsService {
         WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()
         OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
         OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
-        WITH organization, project, 
+        WITH organization, project, project_category,
           COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
           COLLECT(DISTINCT PROPERTIES(technology)) AS technologies,
           COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds,
-          COLLECT(DISTINCT PROPERTIES(project_category)) AS categories, 
           COLLECT(DISTINCT PROPERTIES(audit)) AS audits,
           COLLECT(DISTINCT PROPERTIES(hack)) AS hacks,
           COLLECT(DISTINCT PROPERTIES(chain)) AS chains
         
-        WITH organization, project, investors, technologies, 
-          funding_rounds, categories, audits, hacks, chains
+        WITH organization, project, project_category, investors, technologies, 
+          funding_rounds, audits, hacks, chains
 
         WITH {
             id: project.id,
@@ -257,8 +250,8 @@ export class ProjectsService {
             discord: project.discord,
             docs: project.docs,
             teamSize: project.teamSize,
+            category: project_category.name,
             githubOrganization: project.githubOrganization,
-            category: project.category,
             createdTimestamp: project.createdTimestamp,
             updatedTimestamp: project.updatedTimestamp,
             organization: {
@@ -281,7 +274,6 @@ export class ProjectsService {
               investors: [investor in investors WHERE investor.id IS NOT NULL],
               technologies: [technology in technologies WHERE technology.id IS NOT NULL]
             },
-            categories: [category in categories WHERE category.id IS NOT NULL],
             hacks: [hack in hacks WHERE hack.id IS NOT NULL],
             audits: [audit in audits WHERE audit.id IS NOT NULL],
             chains: [chain in chains WHERE chain.id IS NOT NULL]
@@ -292,9 +284,7 @@ export class ProjectsService {
       )
       .then(res =>
         res.records.length
-          ? new ProjectListResultEntity(
-              res.records[0].get("res"),
-            ).getProperties()
+          ? new ProjectDetailsEntity(res.records[0].get("res")).getProperties()
           : undefined,
       )
       .catch(err => {
@@ -365,7 +355,7 @@ export class ProjectsService {
       });
   }
 
-  async getProjectsByCategory(category: string): Promise<ProjectProperties[]> {
+  async getProjectsByCategory(category: string): Promise<Project[]> {
     return this.neo4jService
       .read(
         `
@@ -374,9 +364,7 @@ export class ProjectsService {
         `,
         { category },
       )
-      .then(res =>
-        res.records.map(record => record.get("res") as ProjectProperties),
-      )
+      .then(res => res.records.map(record => record.get("res") as Project))
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -393,7 +381,7 @@ export class ProjectsService {
       });
   }
 
-  async getProjectCompetitors(id: string): Promise<ProjectProperties[]> {
+  async getProjectCompetitors(id: string): Promise<Project[]> {
     return this.neo4jService
       .read(
         `
@@ -404,9 +392,7 @@ export class ProjectsService {
         `,
         { id },
       )
-      .then(res =>
-        res.records.map(record => record.get("res") as ProjectProperties),
-      )
+      .then(res => res.records.map(record => record.get("res") as Project))
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -423,7 +409,7 @@ export class ProjectsService {
       });
   }
 
-  async searchProjects(query: string): Promise<ProjectProperties[]> {
+  async searchProjects(query: string): Promise<Project[]> {
     return this.neo4jService
       .read(
         `
@@ -433,9 +419,7 @@ export class ProjectsService {
         `,
         { query: `(?i).*${query}.*` },
       )
-      .then(res =>
-        res.records.map(record => record.get("res") as ProjectProperties),
-      )
+      .then(res => res.records.map(record => record.get("res") as Project))
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -450,7 +434,7 @@ export class ProjectsService {
       });
   }
 
-  async getProjectById(id: string): Promise<ProjectProperties | undefined> {
+  async getProjectById(id: string): Promise<Project | undefined> {
     return this.neo4jService
       .read(
         `
@@ -461,9 +445,7 @@ export class ProjectsService {
         { id },
       )
       .then(res =>
-        res.records[0]
-          ? (res.records[0].get("res") as ProjectProperties)
-          : undefined,
+        res.records[0] ? (res.records[0].get("res") as Project) : undefined,
       )
       .catch(err => {
         Sentry.withScope(scope => {

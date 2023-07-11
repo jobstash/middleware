@@ -1,18 +1,18 @@
-import { Organization, Project, Technology } from "../interfaces";
+import { Organization, Technology } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
-import { ProjectListResult } from "../interfaces/project-list-result.interface";
+import { ProjectDetails } from "../interfaces/project-details.interface";
 
-type RawProject = Project & {
+type RawProject = ProjectDetails & {
   organization?: (Organization & { technologies: Technology[] }) | null;
 };
 
-export class ProjectListResultEntity {
+export class ProjectDetailsEntity {
   constructor(private readonly raw: RawProject) {}
 
-  getProperties(): ProjectListResult {
+  getProperties(): ProjectDetails {
     const { organization, ...project } = this.raw;
 
-    return new ProjectListResult({
+    return new ProjectDetails({
       ...project,
       defiLlamaId: notStringOrNull(project?.defiLlamaId),
       defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug),
@@ -32,7 +32,6 @@ export class ProjectListResultEntity {
       teamSize: nonZeroOrNull(project?.teamSize),
       githubOrganization: notStringOrNull(project?.githubOrganization),
       updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
-      categories: project?.categories ?? [],
       hacks:
         project?.hacks.map(hack => ({
           ...hack,

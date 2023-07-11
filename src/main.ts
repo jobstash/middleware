@@ -65,6 +65,7 @@ async function bootstrap(): Promise<void> {
     .setDescription(
       "This application provides all the data needed by the various frontends in a unified, latency-optimised way",
     )
+    .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup("api", app, document);

@@ -8,7 +8,7 @@ import { ProjectListParams } from "./dto/project-list.input";
 import { Integer } from "neo4j-driver";
 import {
   ProjectFilterConfigs,
-  ProjectListResult,
+  ProjectDetails,
   ProjectProperties,
 } from "src/shared/interfaces";
 import { hasDuplicates, printDuplicateItems } from "src/shared/helpers";
@@ -21,7 +21,7 @@ describe("ProjectsController", () => {
   let controller: ProjectsController;
 
   const projectHasArrayPropsDuplication = (
-    project: ProjectListResult,
+    project: ProjectDetails,
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
       project?.audits,
@@ -38,21 +38,11 @@ describe("ProjectsController", () => {
       c => c.id,
       `Chain for Project ${project.id}`,
     );
-    const hasDuplicateCategories = hasDuplicates(
-      project?.categories,
-      c => c.id,
-      `Category for Project ${project.id}`,
-    );
+
     expect(hasDuplicateAudits).toBe(false);
     expect(hasDuplicateHacks).toBe(false);
     expect(hasDuplicateChains).toBe(false);
-    expect(hasDuplicateCategories).toBe(false);
-    return (
-      hasDuplicateAudits &&
-      hasDuplicateHacks &&
-      hasDuplicateChains &&
-      hasDuplicateCategories
-    );
+    return hasDuplicateAudits && hasDuplicateHacks && hasDuplicateChains;
   };
 
   beforeEach(async () => {

@@ -14,7 +14,7 @@ import {
   JobListResult,
   JobListResultEntity,
   PaginatedData,
-  Project,
+  ProjectMoreInfo,
 } from "src/shared/types";
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -62,17 +62,19 @@ export class JobsService {
     }
   }
 
-  async getProjectsData(): Promise<Project[]> {
+  async getProjectsData(): Promise<ProjectMoreInfo[]> {
     const cachedProjectsString =
       (await this.cacheManager.get<string>("projects")) ?? "[]";
-    const cachedProjects = JSON.parse(cachedProjectsString) as Project[];
+    const cachedProjects = JSON.parse(
+      cachedProjectsString,
+    ) as ProjectMoreInfo[];
     if (
       cachedProjects !== null &&
       cachedProjects !== undefined &&
       cachedProjects.length !== 0
     ) {
       this.logger.log("Found cached projects");
-      return cachedProjects.map(x => x as Project);
+      return cachedProjects.map(x => x as ProjectMoreInfo);
     } else {
       this.logger.log("No cached projects found, retrieving from db.");
       const generatedQuery = `
@@ -81,7 +83,7 @@ export class JobsService {
         OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
         OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
         OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain:Chain)
-        WITH COLLECT(DISTINCT PROPERTIES(project_category)) AS categories,
+        WITH project_category,
           COLLECT(DISTINCT PROPERTIES(hack)) as hacks, 
           COLLECT(DISTINCT PROPERTIES(audit)) as audits, 
           COLLECT(DISTINCT PROPERTIES(chain)) as chains, project
@@ -111,10 +113,9 @@ export class JobsService {
           docs: project.docs,
           teamSize: project.teamSize,
           githubOrganization: project.githubOrganization,
-          category: project.category,
+          category: project_category.name,
           createdTimestamp: project.createdTimestamp,
           updatedTimestamp: project.updatedTimestamp,
-          categories: [category in categories WHERE category.id IS NOT NULL],
           hacks: [hack in hacks WHERE hack.id IS NOT NULL],
           audits: [audit in audits WHERE audit.id IS NOT NULL],
           chains: [chain in chains WHERE chain.id IS NOT NULL]
@@ -123,9 +124,9 @@ export class JobsService {
       return this.neo4jService
         .read(generatedQuery)
         .then(async res => {
-          const projects: Project[] = res?.records[0]
+          const projects: ProjectMoreInfo[] = res?.records[0]
             .get("projects")
-            .map(record => record as Project);
+            .map(record => record as ProjectMoreInfo);
           await this.cacheManager.set(
             "projects",
             JSON.stringify(projects),
@@ -231,7 +232,11 @@ export class JobsService {
                       ) {
                         if (
                           !audits ||
-                          (anchorProject?.audits.length ?? 0) > 0 === audits
+                          projectList.some(
+                            x =>
+                              x.audits.filter(x => audits.includes(x.name))
+                                .length > 0,
+                          )
                         ) {
                           if (
                             !hacks ||
@@ -521,7 +526,8 @@ export class JobsService {
         OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)
         OPTIONAL MATCH (f)-[:INVESTED_BY]->(i:Investor)
         OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(c:Chain)
-        WITH o, p, j, t, f, i, c, cat
+        OPTIONAL MATCH (p)-[:HAS_AUDIT]->(a:Audit)
+        WITH o, p, j, t, f, a, i, c, cat
         RETURN {
             minSalaryRange: MIN(CASE WHEN NOT j.medianSalary IS NULL AND isNaN(j.medianSalary) = false THEN toFloat(j.medianSalary) END),
             maxSalaryRange: MAX(CASE WHEN NOT j.medianSalary IS NULL AND isNaN(j.medianSalary) = false THEN toFloat(j.medianSalary) END),
@@ -541,6 +547,7 @@ export class JobsService {
             fundingRounds: COLLECT(DISTINCT f.roundName),
             investors: COLLECT(DISTINCT i.name),
             projects: COLLECT(DISTINCT p.name),
+            audits: COLLECT(DISTINCT a.name),
             categories: COLLECT(DISTINCT cat.name),
             chains: COLLECT(DISTINCT c.name),
             locations: COLLECT(DISTINCT j.jobLocation),
@@ -586,9 +593,9 @@ export class JobsService {
         OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
         OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
         OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain:Chain)
-        WITH structured_jobpost, organization, project, COLLECT(DISTINCT PROPERTIES(project_category)) AS categories, funding_round, investor, technology, audit, hack, chain
+        WITH structured_jobpost, organization, project, project_category, COLLECT(DISTINCT PROPERTIES(project_category)) AS categories, funding_round, investor, technology, audit, hack, chain
         WITH structured_jobpost, organization, project,
-          categories, 
+          project_category, 
           COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
           COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
           COLLECT(DISTINCT PROPERTIES(technology)) AS technologies,
@@ -623,11 +630,9 @@ export class JobsService {
             docs: project.docs,
             teamSize: project.teamSize,
             githubOrganization: project.githubOrganization,
-            category: project.category,
-            headcount: organization.headCount,
+            category: project_category.name,
             createdTimestamp: project.createdTimestamp,
             updatedTimestamp: project.updatedTimestamp,
-            categories: [category in categories WHERE category.id IS NOT NULL],
             hacks: [hack in hacks WHERE hack.id IS NOT NULL],
             audits: [audit in audits WHERE audit.id IS NOT NULL],
             chains: [chain in chains WHERE chain.id IS NOT NULL]
@@ -668,12 +673,12 @@ export class JobsService {
               discord: organization.discord,
               github: organization.github,
               telegram: organization.telegram,
+              headCount: organization.headCount,
               docs: organization.docs,
               logo: organization.logo,
               jobsiteLink: organization.jobsiteLink,
               createdTimestamp: organization.createdTimestamp,
               updatedTimestamp: organization.updatedTimestamp,
-              teamSize: organization.teamSize,
               projects: [project in projects WHERE project.id IS NOT NULL],
               fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
               investors: [investor in investors WHERE investor.id IS NOT NULL]
@@ -720,9 +725,9 @@ export class JobsService {
         OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
         OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
         OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain:Chain)
-        WITH structured_jobpost, organization, project, COLLECT(DISTINCT PROPERTIES(project_category)) AS categories, funding_round, investor, technology, audit, hack, chain
+        WITH structured_jobpost, organization, project, project_category, funding_round, investor, technology, audit, hack, chain
         WITH structured_jobpost, organization, project,
-          categories, 
+          project_category, 
           COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
           COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
           COLLECT(DISTINCT PROPERTIES(technology)) AS technologies,
@@ -757,10 +762,9 @@ export class JobsService {
             docs: project.docs,
             teamSize: project.teamSize,
             githubOrganization: project.githubOrganization,
-            category: project.category,
+            category: project_category.name,
             createdTimestamp: project.createdTimestamp,
             updatedTimestamp: project.updatedTimestamp,
-            categories: [category in categories WHERE category.id IS NOT NULL],
             hacks: [hack in hacks WHERE hack.id IS NOT NULL],
             audits: [audit in audits WHERE audit.id IS NOT NULL],
             chains: [chain in chains WHERE chain.id IS NOT NULL]

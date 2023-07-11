@@ -1,3 +1,68 @@
+## [1.36.1](https://github.com/jobstash/middleware/compare/v1.36.0...v1.36.1) (2023-07-11)
+
+
+### Bug Fixes
+
+* **projects:** refactored project default sort params ([6ad57e5](https://github.com/jobstash/middleware/commit/6ad57e513d6bf09ab7d2445b1070d6b2f815bbac))
+
+# [1.36.0](https://github.com/jobstash/middleware/compare/v1.35.1...v1.36.0) (2023-07-11)
+
+
+### Bug Fixes
+
+* **audits:** refactored audits filter to be multi select with search ([#120](https://github.com/jobstash/middleware/issues/120)) ([ac66f6f](https://github.com/jobstash/middleware/commit/ac66f6f5f0dda682099007f7c21fbbd2c274281a))
+* **orgs:** fixed bugs in tests ([e4e1fe8](https://github.com/jobstash/middleware/commit/e4e1fe86bb5237c9e4b1b3b17ba4cc4b66d132f9))
+* **projects:** fixed bugs on project related functionality ([9ef545b](https://github.com/jobstash/middleware/commit/9ef545b889bdd88110ee9e30a1ca28a4d8d48699))
+* **projects:** removed categories prop and refactored category prop to use data from ProjectCategory node ([48c4fc9](https://github.com/jobstash/middleware/commit/48c4fc9e25ad4a67bbd297ecebffde02c83b4228))
+* **projects:** removed categories prop and refactored category prop to use data from ProjectCategory node ([#119](https://github.com/jobstash/middleware/issues/119)) ([4140f24](https://github.com/jobstash/middleware/commit/4140f240271f9c22ecd92856fbf214629377c75a)), closes [#118](https://github.com/jobstash/middleware/issues/118) [#120](https://github.com/jobstash/middleware/issues/120) [#120](https://github.com/jobstash/middleware/issues/120)
+
+
+### Features
+
+* **projects:** projects list refactor ([88452d8](https://github.com/jobstash/middleware/commit/88452d84a94e7e78b4c0bea7937415ec8959f875))
+
+## [1.35.1](https://github.com/jobstash/middleware/compare/v1.35.0...v1.35.1) (2023-07-10)
+
+
+### Bug Fixes
+
+* **audits:** refactored audits filter to be multi select with search ([#120](https://github.com/jobstash/middleware/issues/120)) ([0d7c200](https://github.com/jobstash/middleware/commit/0d7c200410ae2a0c58534d375bb4d11cb9094d09))
+
+# [1.35.0](https://github.com/jobstash/middleware/compare/v1.34.1...v1.35.0) (2023-07-09)
+
+
+### Features
+
+* **projects:** projects list refactor ([#118](https://github.com/jobstash/middleware/issues/118)) ([a418da8](https://github.com/jobstash/middleware/commit/a418da842bf4d224154ffe297574d5646e7e10ba))
+
+## [1.34.1](https://github.com/jobstash/middleware/compare/v1.34.0...v1.34.1) (2023-07-06)
+
+
+### Bug Fixes
+
+* **jobs:** fixed issue with job details endpoint not returning org headCount ([803dd01](https://github.com/jobstash/middleware/commit/803dd015a722e364378d3a830c2cbe9bf4abaace))
+
+# [1.34.0](https://github.com/jobstash/middleware/compare/v1.33.1...v1.34.0) (2023-07-05)
+
+
+### Features
+
+* **public:** added swagger bearer auth support ([4888184](https://github.com/jobstash/middleware/commit/488818465f6bdfd4ac6868808af67e731633ab60))
+
+## [1.33.1](https://github.com/jobstash/middleware/compare/v1.33.0...v1.33.1) (2023-07-04)
+
+
+### Bug Fixes
+
+* **public:** some light renaming ([2f344f9](https://github.com/jobstash/middleware/commit/2f344f9f4b9e6ab64920cd8077fe182cc9099116))
+
+# [1.33.0](https://github.com/jobstash/middleware/compare/v1.32.4...v1.33.0) (2023-07-04)
+
+
+### Features
+
+* **public:** implemented endpoint for public use protected by api key ([b63bfd4](https://github.com/jobstash/middleware/commit/b63bfd417fd92884bba143011352cb05ecb15db3))
+
 ## [1.32.4](https://github.com/jobstash/middleware/compare/v1.32.3...v1.32.4) (2023-07-04)
 
 

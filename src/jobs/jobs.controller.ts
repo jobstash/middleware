@@ -14,7 +14,6 @@ import {
   JobListResult,
   PaginatedData,
   ResponseWithNoData,
-  StructuredJobpost,
   ValidationError,
   AllJobsListResult,
   AllJobsFilterConfigs,
@@ -174,14 +173,13 @@ export class JobsController {
     this.logger.log(`/jobs/org/${uuid}`);
     return this.jobsService.getJobsByOrgUuid(uuid);
   }
-
   @Get("/all")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description:
       "Returns a paginated, sorted list of all jobs that satisfy the search and filter predicate",
-    type: PaginatedData<StructuredJobpost>,
+    type: PaginatedData<AllJobsListResult>,
     schema: {
       allOf: [
         {
@@ -195,7 +193,7 @@ export class JobsController {
             },
             data: {
               type: "array",
-              items: { $ref: getSchemaPath(StructuredJobpost) },
+              items: { $ref: getSchemaPath(AllJobsListResult) },
             },
           },
         },

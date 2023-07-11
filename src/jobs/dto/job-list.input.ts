@@ -171,12 +171,12 @@ export class JobListParams {
   maxMonthlyRevenue?: number | null = null;
 
   @ApiPropertyOptional({
-    example: true,
+    example: "T3BlbnNlYQ==,QWNyb3Nz",
   })
   @IsOptional()
-  @IsBoolean()
-  @Type(() => Boolean)
-  audits?: boolean | null = null;
+  @Type(() => String)
+  @Transform(btoaList)
+  audits?: string[] | null = null;
 
   @ApiPropertyOptional({
     example: true,
