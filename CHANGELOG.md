@@ -1,3 +1,10 @@
+## [1.36.1](https://github.com/jobstash/middleware/compare/v1.36.0...v1.36.1) (2023-07-11)
+
+
+### Bug Fixes
+
+* **projects:** refactored project default sort params ([6ad57e5](https://github.com/jobstash/middleware/commit/6ad57e513d6bf09ab7d2445b1070d6b2f815bbac))
+
 # [1.36.0](https://github.com/jobstash/middleware/compare/v1.35.1...v1.36.0) (2023-07-11)
 
 
