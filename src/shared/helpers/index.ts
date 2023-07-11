@@ -1,10 +1,5 @@
 import { Integer } from "neo4j-driver";
-import {
-  DateRange,
-  JobListOrderBy,
-  OrgListOrderBy,
-  ProjectListOrderBy,
-} from "../enums";
+import { DateRange, JobListOrderBy } from "../enums";
 import {
   startOfDay,
   endOfDay,
@@ -105,67 +100,6 @@ export const jobListOrderBySelector = (args: {
 
     default:
       return null;
-  }
-};
-
-export const projectListOrderBySelector = (args: {
-  projectVar: string;
-  auditsVar: string;
-  hacksVar: string;
-  chainsVar: string;
-  orderBy: ProjectListOrderBy;
-}): string | null => {
-  const { projectVar, auditsVar, hacksVar, chainsVar, orderBy } = args;
-  switch (orderBy) {
-    case "tvl":
-      return `${projectVar}.tvl`;
-
-    case "monthlyVolume":
-      return `${projectVar}.monthlyVolume`;
-
-    case "monthlyFees":
-      return `${projectVar}.monthlyFees`;
-
-    case "monthlyRevenue":
-      return `${projectVar}.monthlyRevenue`;
-
-    case "audits":
-      return auditsVar;
-
-    case "hacks":
-      return hacksVar;
-
-    case "chains":
-      return chainsVar;
-
-    case "teamSize":
-      return `${projectVar}.teamSize`;
-
-    default:
-      return `${projectVar}.name`;
-  }
-};
-
-export const orgListOrderBySelector = (args: {
-  headCountVar: string;
-  roundVar: string;
-  recentJobVar: string;
-  orgVar: string;
-  orderBy: OrgListOrderBy;
-}): string | null => {
-  const { recentJobVar, headCountVar, roundVar, orgVar, orderBy } = args;
-  switch (orderBy) {
-    case "recentFundingDate":
-      return roundVar;
-
-    case "recentJobDate":
-      return recentJobVar;
-
-    case "headCount":
-      return headCountVar;
-
-    default:
-      return `${orgVar}.name`;
   }
 };
 
