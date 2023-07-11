@@ -142,7 +142,7 @@ export const projectListOrderBySelector = (args: {
       return `${projectVar}.teamSize`;
 
     default:
-      return null;
+      return `${projectVar}.name`;
   }
 };
 

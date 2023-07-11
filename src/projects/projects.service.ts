@@ -91,8 +91,8 @@ export class ProjectsService {
                 auditsVar: "numAudits",
                 hacksVar: "numHacks",
                 chainsVar: "numChains",
-                orderBy: params?.orderBy ?? "monthlyVolume",
-              })} ${params.order?.toUpperCase() ?? "DESC"}
+                orderBy: params?.orderBy,
+              })} ${params.order?.toUpperCase() ?? "ASC"}
               // <--!!!Sorter Embedding-->
               RETURN COLLECT(project) as results
             }
