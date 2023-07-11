@@ -232,7 +232,11 @@ export class JobsService {
                       ) {
                         if (
                           !audits ||
-                          (anchorProject?.audits.length ?? 0) > 0 === audits
+                          projectList.some(
+                            x =>
+                              x.audits.filter(x => audits.includes(x.name))
+                                .length > 0,
+                          )
                         ) {
                           if (
                             !hacks ||

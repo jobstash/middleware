@@ -13,6 +13,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { ProjectListParams } from "./dto/project-list.input";
 import { intConverter, projectListOrderBySelector } from "src/shared/helpers";
+import { ProjectEntity } from "src/shared/entities/project.entity";
 
 @Injectable()
 export class ProjectsService {
@@ -39,7 +40,7 @@ export class ProjectsService {
               COLLECT(DISTINCT PROPERTIES(audit)) as audits,
               COLLECT(DISTINCT PROPERTIES(hack)) as hacks
 
-              WHERE ($query IS NULL OR $query =~ project.name)
+              WHERE ($query IS NULL OR project.name =~ $query)
               AND ($organizations IS NULL OR organization.name IN $organizations)
               AND ($hacks IS NULL OR numHacks > 1 = $hacks)
               AND ($audits IS NULL OR numAudits > 1 = $audits)
@@ -65,8 +66,7 @@ export class ProjectsService {
                     category: project_category.name,
                     hacks: hacks,
                     chains: chains,
-                    audits: audits,
-                    categories: categories
+                    audits: audits
                 } AS project, numAudits, numHacks, numChains
 
               WHERE ($mainNet IS NULL OR (project IS NOT NULL AND project.isMainnet = $mainNet))
@@ -124,7 +124,10 @@ export class ProjectsService {
           page: (result?.data?.length > 0 ? params.page ?? 1 : -1) ?? -1,
           count: result?.data?.length ?? 0,
           total: result?.total ? intConverter(result?.total) : 0,
-          data: result?.data?.map(record => record as Project) ?? [],
+          data:
+            result?.data?.map(record =>
+              new ProjectEntity(record).getProperties(),
+            ) ?? [],
         };
       })
       .catch(err => {
