@@ -2,8 +2,10 @@ import {
   Controller,
   Get,
   Header,
+  HttpStatus,
   Param,
   Query,
+  Res,
   UseGuards,
   ValidationPipe,
 } from "@nestjs/common";
@@ -36,6 +38,7 @@ import {
 import { btoa } from "src/shared/helpers";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { Roles } from "src/shared/decorators/role.decorator";
+import { Response } from "express";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
@@ -139,9 +142,14 @@ export class JobsController {
   })
   async getJobDetailsByUuid(
     @Param("uuid") uuid: string,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<JobListResult | undefined> {
     this.logger.log(`/jobs/details/${uuid}`);
-    return this.jobsService.getJobDetailsByUuid(uuid);
+    const result = await this.jobsService.getJobDetailsByUuid(uuid);
+    if (result === undefined) {
+      res.status(HttpStatus.NOT_FOUND);
+    }
+    return result;
   }
 
   @Get("/org/:uuid")
