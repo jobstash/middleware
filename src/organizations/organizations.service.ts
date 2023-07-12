@@ -13,8 +13,9 @@ import {
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { OrgListParams } from "./dto/org-list.input";
-import { intConverter, orgListOrderBySelector } from "src/shared/helpers";
+import { intConverter } from "src/shared/helpers";
 import { RepositoryEntity } from "src/shared/entities/repository.entity";
+import { createNewSortInstance } from "fast-sort";
 
 @Injectable()
 export class OrganizationsService {
@@ -72,7 +73,7 @@ export class OrganizationsService {
                 RETURN mrfr.raisedAmount as lastFundingAmount, mrfr.date as lastFundingDate
               }
 
-              WITH {
+              RETURN {
                   orgId: organization.orgId,
                   url: organization.url,
                   name: organization.name,
@@ -82,33 +83,9 @@ export class OrganizationsService {
                   projectCount: projectCount,
                   lastFundingDate: lastFundingDate,
                   lastFundingAmount: lastFundingAmount
-              } AS result, organization.headCount as head_count, most_recent_funding_round, most_recent_jobpost
-
-              WITH result, head_count, most_recent_jobpost, most_recent_funding_round
-
-              // <--Sorter Embedding-->
-              // The sorter has to be embedded in this manner due to its dynamic nature
-              ORDER BY ${orgListOrderBySelector({
-                orderBy: params.orderBy,
-                headCountVar: "head_count",
-                roundVar: "most_recent_funding_round",
-                orgVar: "result",
-                recentJobVar: "most_recent_jobpost",
-              })} ${params.order?.toUpperCase() ?? "ASC"}
-              // <--!!!Sorter Embedding-->
-              RETURN COLLECT(DISTINCT result) as results
+              } AS result, most_recent_jobpost
             }
-
-            // It's important to have the main query exist within the CALL subquery to enable generation of the total count
-            WITH SIZE(results) as total, results
-
-            // Result set has to be unwound for pagination
-            UNWIND results as result
-            WITH result, total
-            SKIP toInteger(($page - 1) * $limit)
-            LIMIT toInteger($limit)
-            WITH total, COLLECT(result) as data
-            RETURN { total: total, data: data } as res
+            RETURN { shortOrg: result, recentJobDate: most_recent_jobpost } as res
         `.replace(/^\s*$(?:\r\n?|\n)/gm, "");
     // console.log(generatedQuery);
     const paramsPassed = {
@@ -121,15 +98,59 @@ export class OrganizationsService {
     return this.neo4jService
       .read(generatedQuery, paramsPassed)
       .then(res => {
-        const result = res.records[0]?.get("res");
+        type SortType = {
+          shortOrg: ShortOrg;
+          recentJobDate: number;
+        };
+        const results = res.records?.map(x => {
+          const res = x.get("res");
+          return {
+            shortOrg: new ShortOrgEntity(res.shortOrg).getProperties(),
+            recentJobDate: Number(res.recentJobDate) ?? 0,
+          };
+        });
+        const getSortParam = (org: SortType): number | null => {
+          switch (params.orderBy) {
+            case "recentFundingDate":
+              return org.shortOrg.lastFundingDate;
+            case "recentJobDate":
+              return org.recentJobDate;
+            case "headCount":
+              return org.shortOrg.headCount;
+            default:
+              return null;
+          }
+        };
+
+        let final: SortType[] = [];
+        const naturalSort = createNewSortInstance({
+          comparer: new Intl.Collator(undefined, {
+            numeric: true,
+            sensitivity: "base",
+          }).compare,
+        });
+        if (!params.order || params.order === "asc") {
+          final = naturalSort<SortType>(results).asc(x =>
+            params.orderBy ? getSortParam(x) : x.shortOrg.name,
+          );
+        } else {
+          final = naturalSort<SortType>(results).desc(x =>
+            params.orderBy ? getSortParam(x) : x.shortOrg.name,
+          );
+        }
+
         return {
-          page: (result?.data?.length > 0 ? params.page ?? 1 : -1) ?? -1,
-          count: result?.data?.length ?? 0,
-          total: result?.total ? intConverter(result?.total) : 0,
-          data:
-            result?.data?.map(record =>
-              new ShortOrgEntity(record).getProperties(),
-            ) ?? [],
+          page: (final.length > 0 ? params.page ?? 1 : -1) ?? -1,
+          count: params.limit > final.length ? final.length : params.limit,
+          total: final.length ? intConverter(final.length) : 0,
+          data: final
+            .slice(
+              params.page > 1 ? params.page * params.limit : 0,
+              params.page === 1
+                ? params.limit
+                : (params.page + 1) * params.limit,
+            )
+            .map(x => x.shortOrg),
         };
       })
       .catch(err => {

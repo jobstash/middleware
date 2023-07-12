@@ -22,6 +22,7 @@ import { isRight } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
 import { AllJobsListResult } from "src/shared/interfaces/all-jobs-list-result.interface";
 import { CacheModule } from "@nestjs/cache-manager";
+import { Response } from "express";
 
 describe("JobsController", () => {
   let controller: JobsController;
@@ -135,7 +136,7 @@ describe("JobsController", () => {
     }).compile();
 
     controller = module.get<JobsController>(JobsController);
-  });
+  }, 1000000);
 
   it("should be defined", () => {
     expect(controller).toBeDefined();
@@ -204,7 +205,12 @@ describe("JobsController", () => {
 
     const job = (await controller.getJobsListWithSearch(params)).data[0];
 
-    const details = await controller.getJobDetailsByUuid(job.shortUUID);
+    const res: Partial<Response> = {};
+
+    const details = await controller.getJobDetailsByUuid(
+      job.shortUUID,
+      res as Response,
+    );
 
     expect(jlrHasArrayPropsDuplication(details)).toBe(false);
   }, 60000000);

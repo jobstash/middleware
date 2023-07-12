@@ -1,3 +1,17 @@
+## [1.36.3](https://github.com/jobstash/middleware/compare/v1.36.2...v1.36.3) (2023-07-12)
+
+
+### Bug Fixes
+
+* **projects:** refactored project default sort params ([#122](https://github.com/jobstash/middleware/issues/122)) ([11b38bd](https://github.com/jobstash/middleware/commit/11b38bd089d989a38858205824f8bf668fd484dc)), closes [#118](https://github.com/jobstash/middleware/issues/118) [#118](https://github.com/jobstash/middleware/issues/118) [#120](https://github.com/jobstash/middleware/issues/120) [#120](https://github.com/jobstash/middleware/issues/120) [#118](https://github.com/jobstash/middleware/issues/118) [#120](https://github.com/jobstash/middleware/issues/120) [#120](https://github.com/jobstash/middleware/issues/120) [#119](https://github.com/jobstash/middleware/issues/119) [#118](https://github.com/jobstash/middleware/issues/118) [#120](https://github.com/jobstash/middleware/issues/120) [#120](https://github.com/jobstash/middleware/issues/120)
+
+## [1.36.2](https://github.com/jobstash/middleware/compare/v1.36.1...v1.36.2) (2023-07-11)
+
+
+### Bug Fixes
+
+* **middleware:** fixed sorting on org and project lists ([7090a0a](https://github.com/jobstash/middleware/commit/7090a0a57ab273d0570f53c7276fe5649ad589d8))
+
 ## [1.36.1](https://github.com/jobstash/middleware/compare/v1.36.0...v1.36.1) (2023-07-11)
 
 

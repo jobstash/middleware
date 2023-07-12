@@ -12,8 +12,9 @@ import {
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { ProjectListParams } from "./dto/project-list.input";
-import { intConverter, projectListOrderBySelector } from "src/shared/helpers";
+import { intConverter } from "src/shared/helpers";
 import { ProjectEntity } from "src/shared/entities/project.entity";
+import { createNewSortInstance } from "fast-sort";
 
 @Injectable()
 export class ProjectsService {
@@ -67,7 +68,7 @@ export class ProjectsService {
                     hacks: hacks,
                     chains: chains,
                     audits: audits
-                } AS project, numAudits, numHacks, numChains
+                } AS project
 
               WHERE ($mainNet IS NULL OR (project IS NOT NULL AND project.isMainnet = $mainNet))
                 AND ($minTeamSize IS NULL OR (project IS NOT NULL AND project.teamSize >= $minTeamSize))
@@ -82,31 +83,10 @@ export class ProjectsService {
                 AND ($maxMonthlyRevenue IS NULL OR (project IS NOT NULL AND project.monthlyRevenue <= $maxMonthlyRevenue))
                 AND ($token IS NULL OR (project IS NOT NULL AND project.tokenAddress IS NOT NULL = $token))
 
-              WITH project, numAudits, numHacks, numChains
-
-              // <--Sorter Embedding-->
-              // The sorter has to be embedded in this manner due to its dynamic nature
-              ORDER BY ${projectListOrderBySelector({
-                projectVar: "project",
-                auditsVar: "numAudits",
-                hacksVar: "numHacks",
-                chainsVar: "numChains",
-                orderBy: params?.orderBy,
-              })} ${params.order?.toUpperCase() ?? "ASC"}
-              // <--!!!Sorter Embedding-->
-              RETURN COLLECT(project) as results
+              RETURN project as result
             }
 
-            // It's important to have the main query exist within the CALL subquery to enable generation of the total count
-            WITH SIZE(results) as total, results
-
-            // Result set has to be unwound for pagination
-            UNWIND results as result
-            WITH result, total
-            SKIP toInteger(($page - 1) * $limit)
-            LIMIT toInteger($limit)
-            WITH total, COLLECT(result) as data
-            RETURN { total: total, data: data } as res
+            RETURN result
         `.replace(/^\s*$(?:\r\n?|\n)/gm, "");
     // console.log(generatedQuery);
     const paramsPassed = {
@@ -119,15 +99,55 @@ export class ProjectsService {
     return this.neo4jService
       .read(generatedQuery, paramsPassed)
       .then(res => {
-        const result = res.records[0]?.get("res");
+        const results = res.records?.map(x =>
+          new ProjectEntity(x.get("result")).getProperties(),
+        );
+        const getSortParam = (p1: Project): number | null => {
+          switch (params.orderBy) {
+            case "audits":
+              return p1.audits.length;
+            case "hacks":
+              return p1.hacks.length;
+            case "chains":
+              return p1.chains.length;
+            case "teamSize":
+              return p1.teamSize;
+            case "monthlyVolume":
+              return p1.monthlyVolume;
+            case "monthlyFees":
+              return p1.monthlyFees;
+            case "monthlyRevenue":
+              return p1.monthlyRevenue;
+            default:
+              return null;
+          }
+        };
+
+        let final: Project[] = [];
+        const naturalSort = createNewSortInstance({
+          comparer: new Intl.Collator(undefined, {
+            numeric: true,
+            sensitivity: "base",
+          }).compare,
+        });
+        if (!params.order || params.order === "asc") {
+          final = naturalSort<Project>(results).asc(x =>
+            params.orderBy ? getSortParam(x) : x.name,
+          );
+        } else {
+          final = naturalSort<Project>(results).desc(x =>
+            params.orderBy ? getSortParam(x) : x.name,
+          );
+        }
+
         return {
-          page: (result?.data?.length > 0 ? params.page ?? 1 : -1) ?? -1,
-          count: result?.data?.length ?? 0,
-          total: result?.total ? intConverter(result?.total) : 0,
-          data:
-            result?.data?.map(record =>
-              new ProjectEntity(record).getProperties(),
-            ) ?? [],
+          page: (final.length > 0 ? params.page ?? 1 : -1) ?? -1,
+          count: params.limit > final.length ? final.length : params.limit,
+          total: final.length ? intConverter(final.length) : 0,
+          data: final.slice(
+            params.page > 1 ? params.page * params.limit : 0,
+            params.page === 1 ? params.limit : (params.page + 1) * params.limit,
+          ),
         };
       })
       .catch(err => {
