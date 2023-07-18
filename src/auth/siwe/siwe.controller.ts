@@ -271,7 +271,7 @@ export class SiweController {
   })
   async checkWallet(
     @Req() req: Request,
-    @Res() res: ExpressResponse,
+    @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<void> {
     try {
       const session = await this.getSession(req, res, this.sessionConfig);
@@ -282,7 +282,6 @@ export class SiweController {
       );
 
       if (session.address === undefined || session.address === null) {
-        res.status(HttpStatus.OK);
         res.send({
           success: true,
           message: "Wallet checked successfully",
@@ -329,6 +328,94 @@ export class SiweController {
       }
     } catch (error) {
       this.logger.error(`/siwe/check-wallet`);
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-action",
+          source: "siwe.controller",
+        });
+        Sentry.captureException(error);
+      });
+      res.status(HttpStatus.BAD_REQUEST);
+      res.send({ success: false, message: error.message });
+    }
+  }
+
+  @Post("update-flow")
+  @Header("Cache-Control", NO_CACHE)
+  @Header("Expires", "-1")
+  @ApiOkResponse({
+    description:
+      "Updates the flow of the user with the wallet embedded in the session cookie",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  @ApiForbiddenResponse({
+    description: "Invalid or empty session detected",
+    schema: {
+      $ref: getSchemaPath(ResponseWithNoData),
+    },
+  })
+  @ApiBadRequestResponse({
+    description: "There was an error parsing the request",
+    schema: {
+      $ref: getSchemaPath(ResponseWithNoData),
+    },
+  })
+  async updateFlow(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Body() body: { flow: string },
+  ): Promise<void> {
+    try {
+      const session = await this.getSession(req, res, this.sessionConfig);
+      this.logger.log(
+        `/siwe/update-flow ${JSON.stringify(this.getLoggableSession(session))}`,
+      );
+      const { role, address } = session;
+      const { flow } = body;
+
+      if (!Object.values(CheckWalletFlows).includes(flow)) {
+        res.status(HttpStatus.BAD_REQUEST);
+        res.send({ success: false, message: "Invalid flow passed" });
+      } else {
+        if (address === undefined || address === null) {
+          res.status(HttpStatus.FORBIDDEN);
+          res.send({
+            success: false,
+            message: "No wallet found in session",
+          });
+        } else {
+          if (
+            (role !== undefined || role !== null) &&
+            (role === CheckWalletRoles.DEV || role === CheckWalletRoles.ORG)
+          ) {
+            await this.backendService.setFlowState({
+              wallet: address as string,
+              flow: flow,
+            });
+            session.token = this.authService.createToken({
+              wallet: address,
+              role: role,
+              flow: flow,
+            });
+            session.role = role;
+            session.flow = flow;
+            await session.save();
+            res.send({
+              success: true,
+              message: "Flow changed successfully",
+              data: { role, flow },
+            });
+          } else {
+            res.status(HttpStatus.FORBIDDEN);
+            res.send({
+              success: false,
+              message: "No valid role found in session",
+            });
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.error(`/siwe/update-flow`);
       Sentry.withScope(scope => {
         scope.setTags({
           action: "service-action",
