@@ -1,3 +1,10 @@
+# [1.37.0](https://github.com/jobstash/middleware/compare/v1.36.3...v1.37.0) (2023-07-18)
+
+
+### Features
+
+* **SIWE:** implemented update flow endpoint ([#125](https://github.com/jobstash/middleware/issues/125)) ([8a3ef74](https://github.com/jobstash/middleware/commit/8a3ef74cd595170f0cac057920084faa9ad5995d))
+
 ## [1.36.3](https://github.com/jobstash/middleware/compare/v1.36.2...v1.36.3) (2023-07-12)
 
 
