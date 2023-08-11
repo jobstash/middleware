@@ -156,7 +156,7 @@ export class GithubController {
     });
 
     await this.backendService.setFlowState({
-      flow: CheckWalletFlows.ADD_GITHUB_REPO,
+      flow: CheckWalletFlows.ONBOARD_REPO,
       wallet: wallet,
     });
 
