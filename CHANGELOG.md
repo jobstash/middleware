@@ -1,3 +1,10 @@
+## [1.37.1](https://github.com/jobstash/middleware/compare/v1.37.0...v1.37.1) (2023-08-17)
+
+
+### Bug Fixes
+
+* **jobs:** refactored org jobs getter endpoint to use orgid ([25ddd45](https://github.com/jobstash/middleware/commit/25ddd45aa33cf3fd4f820d4e9477775ceb21ec38))
+
 # [1.37.0](https://github.com/jobstash/middleware/compare/v1.36.3...v1.37.0) (2023-07-18)
 
 
