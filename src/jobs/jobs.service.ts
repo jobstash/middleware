@@ -708,11 +708,11 @@ export class JobsService {
       });
   }
 
-  async getJobsByOrgUuid(uuid: string): Promise<JobListResult[] | undefined> {
+  async getJobsByOrgId(id: string): Promise<JobListResult[] | undefined> {
     return this.neo4jService
       .read(
         `
-        MATCH (organization:Organization {id: $uuid})-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
+        MATCH (organization:Organization {orgId: $id})-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
         MATCH (jp)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
         MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
         OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
@@ -820,7 +820,7 @@ export class JobsService {
         } as res
         RETURN res
         `,
-        { uuid },
+        { id },
       )
       .then(res =>
         res.records.length
@@ -835,7 +835,7 @@ export class JobsService {
             action: "db-call",
             source: "jobs.service",
           });
-          scope.setExtra("input", uuid);
+          scope.setExtra("input", id);
           Sentry.captureException(err);
         });
         this.logger.error(`JobsService::getJobsByOrgUuid ${err.message}`);

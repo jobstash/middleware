@@ -152,7 +152,7 @@ export class JobsController {
     return result;
   }
 
-  @Get("/org/:uuid")
+  @Get("/org/:id")
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
@@ -177,9 +177,9 @@ export class JobsController {
       ],
     },
   })
-  async getOrgJobsList(@Param("uuid") uuid: string): Promise<JobListResult[]> {
-    this.logger.log(`/jobs/org/${uuid}`);
-    return this.jobsService.getJobsByOrgUuid(uuid);
+  async getOrgJobsList(@Param("id") id: string): Promise<JobListResult[]> {
+    this.logger.log(`/jobs/org/${id}`);
+    return this.jobsService.getJobsByOrgId(id);
   }
   @Get("/all")
   @UseGuards(RBACGuard)
