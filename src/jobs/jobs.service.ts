@@ -735,7 +735,7 @@ export class JobsService {
           COLLECT(DISTINCT PROPERTIES(hack)) AS hacks,
           COLLECT(DISTINCT PROPERTIES(chain)) AS chains
 
-        WITH structured_jobpost, organization, funding_rounds, technologies,
+        WITH structured_jobpost, organization, investors, funding_rounds, technologies,
           COLLECT({
             id: project.id,
             defiLlamaId: project.defiLlamaId,
@@ -814,7 +814,7 @@ export class JobsService {
               teamSize: organization.teamSize,
               projects: [project in projects WHERE project.id IS NOT NULL],
               fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
-              investors: [investor in investors WHERE investor.id IS NOT NULL],
+              investors: [investor in investors WHERE investor.id IS NOT NULL]
           },
           technologies: [technology in technologies WHERE technology.id IS NOT NULL]
         } as res
@@ -838,7 +838,7 @@ export class JobsService {
           scope.setExtra("input", id);
           Sentry.captureException(err);
         });
-        this.logger.error(`JobsService::getJobsByOrgUuid ${err.message}`);
+        this.logger.error(`JobsService::getJobsByOrgId ${err.message}`);
         return undefined;
       });
   }
