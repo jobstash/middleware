@@ -1,3 +1,10 @@
+## [1.37.2](https://github.com/jobstash/middleware/compare/v1.37.1...v1.37.2) (2023-08-17)
+
+
+### Bug Fixes
+
+* **jobs:** fixed bug in get org jobs ([a9490ab](https://github.com/jobstash/middleware/commit/a9490abb5bbb4c084421756158abecc347181798))
+
 ## [1.37.1](https://github.com/jobstash/middleware/compare/v1.37.0...v1.37.1) (2023-08-17)
 
 
