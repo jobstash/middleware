@@ -184,8 +184,6 @@ export class OrganizationsController {
   }
 
   @Get("/search")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description:
       "Returns a list of all organizations with names matching the query",
