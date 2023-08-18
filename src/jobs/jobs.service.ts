@@ -9,12 +9,14 @@ import {
 import {
   AllJobsFilterConfigs,
   DateRange,
+  Investor,
   JobFilterConfigs,
   JobFilterConfigsEntity,
   JobListResult,
   JobListResultEntity,
   PaginatedData,
   ProjectMoreInfo,
+  Technology,
 } from "src/shared/types";
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -26,12 +28,14 @@ import { AllJobsFilterConfigsEntity } from "src/shared/entities/all-jobs-filter-
 import { sort } from "fast-sort";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
+import { ModelService } from "src/model/model.service";
 
 @Injectable()
 export class JobsService {
   logger = new CustomLogger(JobsService.name);
   constructor(
     private readonly neo4jService: Neo4jService,
+    private readonly models: ModelService,
     @Inject(CACHE_MANAGER)
     private cacheManager: Cache,
   ) {}
@@ -507,6 +511,120 @@ export class JobsService {
           };
         });
     }
+  }
+
+  async getJobsListWithSearchV2(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    params: JobListParams,
+  ): Promise<PaginatedData<JobListResult>> {
+    const jobsites = await this.models.Organizations.findRelationships({
+      alias: "jobsite",
+      limit: 10,
+    });
+    const results: JobListResult[] = [];
+    for (const jobsite of jobsites) {
+      const fundingRounds = await jobsite.source.findRelationships({
+        alias: "fundingRounds",
+      });
+      const jobposts = await jobsite.target.findRelationships({
+        alias: "jobposts",
+      });
+      const projectRelations = await jobsite.source.findRelationships({
+        alias: "projects",
+      });
+      const investors: Investor[] = [];
+      const projects: ProjectMoreInfo[] = [];
+
+      for (const projectRelation of projectRelations) {
+        const project = projectRelation.target.getDataValues();
+
+        const chains = (
+          await projectRelation.target.findRelationships({
+            alias: "chains",
+          })
+        ).map(chain => chain.target.getDataValues());
+
+        const audits = (
+          await projectRelation.target.findRelationships({
+            alias: "audits",
+          })
+        ).map(chain => chain.target.getDataValues());
+
+        const hacks = (
+          await projectRelation.target.findRelationships({
+            alias: "hacks",
+          })
+        ).map(chain => chain.target.getDataValues());
+
+        projects.push({
+          ...project,
+          chains: chains,
+          audits: audits,
+          hacks: hacks,
+        });
+      }
+
+      for (const fundingRound of fundingRounds) {
+        const roundInvestors = (
+          await fundingRound.target.findRelationships({
+            alias: "investors",
+          })
+        ).map(investor => investor.target.getDataValues());
+        for (const investor of roundInvestors) {
+          investors.push(investor);
+        }
+      }
+
+      for (const jobpost of jobposts) {
+        const category = await jobpost.target.findRelationships({
+          alias: "category",
+          limit: 1,
+        });
+        const status = await jobpost.target.findRelationships({
+          alias: "status",
+          limit: 1,
+        });
+        if (
+          category[0].target.name === "technical" &&
+          status[0].target.status === "active"
+        ) {
+          const structuredJobposts = await jobpost.target.findRelationships({
+            alias: "structuredJobpost",
+          });
+          for (const structuredJobpost of structuredJobposts) {
+            const technologies: Technology[] = [];
+            const allTechnologies =
+              await structuredJobpost.target.findRelationships({
+                alias: "technologies",
+              });
+            for (const technology of allTechnologies) {
+              const isBlockedTerm = await technology.target.isBlockedTerm();
+              if (!isBlockedTerm) {
+                technologies.push(technology.target.getDataValues());
+              }
+            }
+            results.push({
+              ...structuredJobpost.target.getDataValues(),
+              organization: {
+                ...jobsite.source.getDataValues(),
+                fundingRounds: fundingRounds.map(round =>
+                  round.target.getDataValues(),
+                ),
+                investors: investors,
+                projects: projects,
+              },
+              technologies: technologies,
+            });
+          }
+        } else continue;
+      }
+    }
+    return {
+      page: 1,
+      count: results.length,
+      total: results.length,
+      data: results,
+    };
   }
 
   async getFilterConfigs(): Promise<JobFilterConfigs> {
