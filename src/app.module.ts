@@ -15,7 +15,9 @@ import { OrganizationsModule } from "./organizations/organizations.module";
 import envSchema from "./env-schema";
 import { ProjectsModule } from "./projects/projects.module";
 import { CacheModule } from "@nestjs/cache-manager";
-import { PublicModule } from './public/public.module';
+import { PublicModule } from "./public/public.module";
+import { ModelModule } from "./model/model.module";
+import { NeogmaModule } from "nest-neogma";
 
 @Module({
   imports: [
@@ -39,6 +41,10 @@ import { PublicModule } from './public/public.module';
           database: configService.get<string>("NEO4J_DATABASE"),
         } as Neo4jConnection),
     }),
+    NeogmaModule.fromEnv({
+      retryAttempts: 2,
+      retryDelay: 1000,
+    }),
     CacheModule.register({ isGlobal: true }),
     AuthModule,
     JobsModule,
@@ -49,6 +55,7 @@ import { PublicModule } from './public/public.module';
     OrganizationsModule,
     ProjectsModule,
     PublicModule,
+    ModelModule,
   ],
   controllers: [AppController],
   providers: [AppService],

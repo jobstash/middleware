@@ -411,7 +411,6 @@ export class JobsService {
               jobsiteLink: organization.jobsiteLink,
               createdTimestamp: organization.createdTimestamp,
               updatedTimestamp: organization.updatedTimestamp,
-              teamSize: organization.teamSize,
               fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
               investors: [investor in investors WHERE investor.id IS NOT NULL]
           },

@@ -3,15 +3,13 @@ import { StructuredJobpost } from "./structured-jobpost.interface";
 import * as t from "io-ts";
 import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
+import { JobpostCategory } from "./jobpost-category.interface";
 
 export class StructuredJobpostWithCategory extends StructuredJobpost {
   public static readonly StructuredJobpostWithCategoryType = t.intersection([
     StructuredJobpost.StructuredJobpostType,
     t.strict({
-      category: t.strict({
-        id: t.string,
-        name: t.string,
-      }),
+      category: JobpostCategory.JobpostCategoryType,
     }),
   ]);
 
