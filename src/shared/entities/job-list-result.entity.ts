@@ -50,6 +50,7 @@ export class JobListResultEntity {
         twitter: notStringOrNull(organization?.twitter),
         discord: notStringOrNull(organization?.discord),
         telegram: notStringOrNull(organization?.telegram),
+        jobsiteLink: notStringOrNull(organization?.jobsiteLink),
         createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
         updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
         projects:
@@ -78,10 +79,14 @@ export class JobListResultEntity {
             hacks:
               project?.hacks.map(hack => ({
                 ...hack,
-                fundsLost: hack.fundsLost,
-                date: notStringOrNull(hack.date),
-                description: notStringOrNull(hack.description),
-                fundsReturned: nonZeroOrNull(hack.fundsReturned),
+                id: notStringOrNull(hack?.id),
+                defiId: notStringOrNull(hack?.defiId),
+                category: nonZeroOrNull(hack?.category),
+                fundsLost: nonZeroOrNull(hack?.fundsLost),
+                date: notStringOrNull(hack?.date),
+                issueType: notStringOrNull(hack?.issueType),
+                description: notStringOrNull(hack?.description),
+                fundsReturned: nonZeroOrNull(hack?.fundsReturned),
               })) ?? [],
             audits:
               project?.audits.map(audit => ({
@@ -94,7 +99,11 @@ export class JobListResultEntity {
                 techIssues: nonZeroOrNull(audit?.techIssues),
                 link: notStringOrNull(audit?.link),
               })) ?? [],
-            chains: project?.chains ?? [],
+            chains:
+              project?.chains.map(chain => ({
+                id: notStringOrNull(chain?.id),
+                name: notStringOrNull(chain?.name),
+              })) ?? [],
           })) ?? [],
         fundingRounds:
           organization?.fundingRounds

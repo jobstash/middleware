@@ -23,6 +23,9 @@ import { report } from "io-ts-human-reporter";
 import { AllJobsListResult } from "src/shared/interfaces/all-jobs-list-result.interface";
 import { CacheModule } from "@nestjs/cache-manager";
 import { Response } from "express";
+import { ModelModule } from "src/model/model.module";
+import { NeogmaModule } from "nest-neogma";
+import { ModelService } from "src/model/model.service";
 
 describe("JobsController", () => {
   let controller: JobsController;
@@ -130,9 +133,14 @@ describe("JobsController", () => {
             } as Neo4jConnection),
         }),
         CacheModule.register({ isGlobal: true }),
+        NeogmaModule.fromEnv({
+          retryAttempts: 2,
+          retryDelay: 1000,
+        }),
+        ModelModule,
       ],
       controllers: [JobsController],
-      providers: [JobsService],
+      providers: [JobsService, ModelService],
     }).compile();
 
     controller = module.get<JobsController>(JobsController);

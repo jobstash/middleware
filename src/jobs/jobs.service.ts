@@ -9,14 +9,12 @@ import {
 import {
   AllJobsFilterConfigs,
   DateRange,
-  Investor,
   JobFilterConfigs,
   JobFilterConfigsEntity,
   JobListResult,
   JobListResultEntity,
   PaginatedData,
   ProjectMoreInfo,
-  Technology,
 } from "src/shared/types";
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -29,6 +27,7 @@ import { sort } from "fast-sort";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
 import { ModelService } from "src/model/model.service";
+import { OrganizationInstance } from "src/shared/models";
 
 @Injectable()
 export class JobsService {
@@ -514,116 +513,268 @@ export class JobsService {
   }
 
   async getJobsListWithSearchV2(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     params: JobListParams,
   ): Promise<PaginatedData<JobListResult>> {
-    const jobsites = await this.models.Organizations.findRelationships({
-      alias: "jobsite",
-      limit: 10,
-    });
-    const results: JobListResult[] = [];
-    for (const jobsite of jobsites) {
-      const fundingRounds = await jobsite.source.findRelationships({
-        alias: "fundingRounds",
-      });
-      const jobposts = await jobsite.target.findRelationships({
-        alias: "jobposts",
-      });
-      const projectRelations = await jobsite.source.findRelationships({
-        alias: "projects",
-      });
-      const investors: Investor[] = [];
-      const projects: ProjectMoreInfo[] = [];
+    const paramsPassed = {
+      ...publicationDateRangeGenerator(params.publicationDate as DateRange),
+      ...params,
+      query: params.query ? /params.query/g : null,
+      limit: params.limit ?? 10,
+      page: params.page ?? 1,
+    };
+    const {
+      minTeamSize,
+      maxTeamSize,
+      minTvl,
+      maxTvl,
+      minMonthlyVolume,
+      maxMonthlyVolume,
+      minMonthlyFees,
+      maxMonthlyFees,
+      minMonthlyRevenue,
+      maxMonthlyRevenue,
+      minSalaryRange,
+      maxSalaryRange,
+      minHeadCount,
+      maxHeadCount,
+      startDate,
+      endDate,
+      seniority: seniorityFilterList,
+      locations: locationFilterList,
+      tech: technologyFilterList,
+      audits: auditFilterList,
+      hacks: hackFilterList,
+      chains: chainFilterList,
+      projects: projectFilterList,
+      organizations: organizationFilterList,
+      investors: investorFilterList,
+      fundingRounds: fundingRoundFilterList,
+      categories: categoryFilterList,
+      token,
+      mainNet,
+      query,
+      order,
+      orderBy,
+      page,
+      limit,
+    } = paramsPassed;
 
-      for (const projectRelation of projectRelations) {
-        const project = projectRelation.target.getDataValues();
+    await this.validateCache();
 
-        const chains = (
-          await projectRelation.target.findRelationships({
-            alias: "chains",
-          })
-        ).map(chain => chain.target.getDataValues());
+    const cachedJobsString =
+      (await this.cacheManager.get<string>("jobs")) ?? "[]";
+    const cachedJobs = JSON.parse(cachedJobsString) as JobListResult[];
 
-        const audits = (
-          await projectRelation.target.findRelationships({
-            alias: "audits",
-          })
-        ).map(chain => chain.target.getDataValues());
+    const results: JobListResult[] = cachedJobs;
 
-        const hacks = (
-          await projectRelation.target.findRelationships({
-            alias: "hacks",
-          })
-        ).map(chain => chain.target.getDataValues());
+    if (
+      cachedJobs !== null &&
+      cachedJobs !== undefined &&
+      cachedJobs.length !== 0
+    ) {
+      this.logger.log("Found cached jobs");
+    } else {
+      this.logger.log("No cached jobs found, retrieving from db.");
+      const organizations = await this.models.Organizations.findMany();
 
-        projects.push({
-          ...project,
-          chains: chains,
-          audits: audits,
-          hacks: hacks,
-        });
-      }
-
-      for (const fundingRound of fundingRounds) {
-        const roundInvestors = (
-          await fundingRound.target.findRelationships({
-            alias: "investors",
-          })
-        ).map(investor => investor.target.getDataValues());
-        for (const investor of roundInvestors) {
-          investors.push(investor);
-        }
-      }
-
-      for (const jobpost of jobposts) {
-        const category = await jobpost.target.findRelationships({
-          alias: "category",
-          limit: 1,
-        });
-        const status = await jobpost.target.findRelationships({
-          alias: "status",
-          limit: 1,
-        });
-        if (
-          category[0].target.name === "technical" &&
-          status[0].target.status === "active"
-        ) {
-          const structuredJobposts = await jobpost.target.findRelationships({
-            alias: "structuredJobpost",
-          });
+      const getOrgJobs = async (
+        organization: OrganizationInstance,
+      ): Promise<void> => {
+        const fundingRounds = await organization.getFundingRoundsData();
+        const investors = await organization.getInvestorsData();
+        const projects = await organization.getProjectsMoreInfoData();
+        const jobsites = await organization.getJobsites();
+        for (const jobsite of jobsites) {
+          const structuredJobposts =
+            await jobsite.getTechnicalStructuredJobposts();
           for (const structuredJobpost of structuredJobposts) {
-            const technologies: Technology[] = [];
-            const allTechnologies =
-              await structuredJobpost.target.findRelationships({
-                alias: "technologies",
-              });
-            for (const technology of allTechnologies) {
-              const isBlockedTerm = await technology.target.isBlockedTerm();
-              if (!isBlockedTerm) {
-                technologies.push(technology.target.getDataValues());
-              }
-            }
-            results.push({
-              ...structuredJobpost.target.getDataValues(),
-              organization: {
-                ...jobsite.source.getDataValues(),
-                fundingRounds: fundingRounds.map(round =>
-                  round.target.getDataValues(),
-                ),
-                investors: investors,
-                projects: projects,
-              },
-              technologies: technologies,
-            });
+            const technologies =
+              await structuredJobpost.getUnblockedTechnologiesData();
+            results.push(
+              new JobListResultEntity({
+                ...structuredJobpost.getDataValues(),
+                organization: {
+                  ...organization.getDataValues(),
+                  fundingRounds: fundingRounds,
+                  investors: investors,
+                  projects: projects,
+                },
+                technologies: technologies,
+              }).getProperties(),
+            );
           }
-        } else continue;
+        }
+      };
+
+      try {
+        for (const organization of organizations) {
+          await getOrgJobs(organization);
+        }
+        await this.cacheManager.set("jobs", JSON.stringify(results), 18000000);
+      } catch (err) {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "jobs.service",
+          });
+          scope.setExtra("input", params);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`JobsService::getJobsListWithSearch ${err.message}`);
+        return {
+          page: -1,
+          count: 0,
+          total: 0,
+          data: [],
+        };
       }
     }
+
+    const jobFilters = (jlr: JobListResult): boolean => {
+      const {
+        projects,
+        investors,
+        fundingRounds,
+        name: orgName,
+        headCount,
+      } = jlr.organization;
+      const {
+        jobTitle,
+        technologies,
+        seniority,
+        jobLocation,
+        medianSalary,
+        jobCreatedTimestamp,
+      } = jlr;
+      const anchorProject = projects.sort(
+        (a, b) => b.monthlyVolume - a.monthlyVolume,
+      )[0];
+      return (
+        (!organizationFilterList || organizationFilterList.includes(orgName)) &&
+        (!seniorityFilterList || seniorityFilterList.includes(seniority)) &&
+        (!locationFilterList || locationFilterList.includes(jobLocation)) &&
+        (!minHeadCount || (headCount ?? 0) >= minHeadCount) &&
+        (!maxHeadCount || (headCount ?? 0) < maxHeadCount) &&
+        (!minSalaryRange || (medianSalary ?? 0) >= minSalaryRange) &&
+        (!maxSalaryRange || (medianSalary ?? 0) < maxSalaryRange) &&
+        (!startDate || jobCreatedTimestamp >= endDate) &&
+        (!endDate || jobCreatedTimestamp < endDate) &&
+        (!projectFilterList ||
+          projects.filter(x => projectFilterList.includes(x.name)).length >
+            0) &&
+        (!categoryFilterList ||
+          projects.filter(x => categoryFilterList.includes(x.category)).length >
+            0) &&
+        (!token ||
+          projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
+            .length > 0) &&
+        (!mainNet || projects.filter(x => x.isMainnet).length > 0) &&
+        (!minTeamSize || (anchorProject?.teamSize ?? 0) >= minTeamSize) &&
+        (!maxTeamSize || (anchorProject?.teamSize ?? 0) < maxTeamSize) &&
+        (!minTvl || (anchorProject?.tvl ?? 0) >= minTvl) &&
+        (!maxTvl || (anchorProject?.tvl ?? 0) < maxTvl) &&
+        (!minMonthlyVolume ||
+          (anchorProject?.monthlyVolume ?? 0) >= minMonthlyVolume) &&
+        (!maxMonthlyVolume ||
+          (anchorProject?.monthlyVolume ?? 0) < maxMonthlyVolume) &&
+        (!minMonthlyFees ||
+          (anchorProject?.monthlyFees ?? 0) >= minMonthlyFees) &&
+        (!maxMonthlyFees ||
+          (anchorProject?.monthlyFees ?? 0) < maxMonthlyFees) &&
+        (!minMonthlyRevenue ||
+          (anchorProject?.monthlyRevenue ?? 0) >= minMonthlyRevenue) &&
+        (!maxMonthlyRevenue ||
+          (anchorProject?.monthlyRevenue ?? 0) < maxMonthlyRevenue) &&
+        (!auditFilterList ||
+          projects.some(
+            x =>
+              x.audits.filter(x => auditFilterList.includes(x.name)).length > 0,
+          )) &&
+        (!hackFilterList ||
+          (anchorProject?.hacks.length ?? 0) > 0 === hackFilterList) &&
+        (!chainFilterList ||
+          (anchorProject?.chains
+            ?.map(x => x.name)
+            .filter(x => chainFilterList.filter(y => x === y).length > 0) ??
+            false)) &&
+        (!investorFilterList ||
+          investors.filter(investor =>
+            investorFilterList.includes(investor.name),
+          ).length > 0) &&
+        (!fundingRoundFilterList ||
+          fundingRounds.filter(fundingRound =>
+            fundingRoundFilterList.includes(fundingRound.roundName),
+          ).length > 0) &&
+        (!query ||
+          (technologies.length > 0 &&
+            (orgName.match(query) ||
+              jobTitle.match(query) ||
+              technologies.filter(technology => technology.name.match(query))
+                .length > 0 ||
+              projects.filter(project => project.name.match(query)).length >
+                0))) &&
+        (!technologyFilterList ||
+          technologies.filter(technology =>
+            technologyFilterList.includes(technology.name),
+          ).length > 0)
+      );
+    };
+
+    const filtered = results.filter(jobFilters);
+
+    const getSortParam = (jlr: JobListResult): number => {
+      const p1 = jlr.organization.projects.sort(
+        (a, b) => b.monthlyVolume - a.monthlyVolume,
+      )[0];
+      switch (orderBy) {
+        case "audits":
+          return p1.audits.length;
+        case "hacks":
+          return p1.hacks.length;
+        case "chains":
+          return p1.chains.length;
+        case "teamSize":
+          return p1.teamSize;
+        case "tvl":
+          return p1.tvl;
+        case "monthlyVolume":
+          return p1.monthlyVolume;
+        case "monthlyFees":
+          return p1.monthlyFees;
+        case "monthlyRevenue":
+          return p1.monthlyRevenue;
+        case "fundingDate":
+          return jlr.organization.fundingRounds.sort(
+            (a, b) => b.date - a.date,
+          )[0].date;
+        case "headCount":
+          return jlr.organization.headCount;
+        case "publicationDate":
+          return jlr.jobCreatedTimestamp;
+        case "salary":
+          return jlr.medianSalary;
+        default:
+          return jlr.jobCreatedTimestamp;
+      }
+    };
+
+    let final = [];
+    if (!order || order === "desc") {
+      final = sort<JobListResult>(filtered).desc(getSortParam);
+    } else {
+      final = sort<JobListResult>(filtered).asc(getSortParam);
+    }
+
     return {
-      page: 1,
-      count: results.length,
-      total: results.length,
-      data: results,
+      page: (final.length > 0 ? params.page ?? 1 : -1) ?? -1,
+      count: limit > final.length ? final.length : limit,
+      total: final.length ? intConverter(final.length) : 0,
+      data: final
+        .slice(
+          page > 1 ? page * limit : 0,
+          page === 1 ? limit : (page + 1) * limit,
+        )
+        .map(x => new JobListResultEntity(x).getProperties()),
     };
   }
 

@@ -35,6 +35,9 @@ import {
   Audits,
   Hacks,
   Chains,
+  StructuredJobpostMethods,
+  JobsiteMethods,
+  OrganizationMethods,
 } from "src/shared/models";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 
@@ -48,11 +51,16 @@ export class ModelService implements OnModuleInit {
 
   public StructuredJobposts: NeogmaModel<
     StructuredJobpostProps,
-    StructuredJobpostRelations
+    StructuredJobpostRelations,
+    StructuredJobpostMethods
   >;
   public Jobposts: NeogmaModel<JobpostProps, JobpostRelations>;
-  public Jobsites: NeogmaModel<JobsiteProps, JobsiteRelations>;
-  public Organizations: NeogmaModel<OrganizationProps, OrganizationRelations>;
+  public Jobsites: NeogmaModel<JobsiteProps, JobsiteRelations, JobsiteMethods>;
+  public Organizations: NeogmaModel<
+    OrganizationProps,
+    OrganizationRelations,
+    OrganizationMethods
+  >;
   public Projects: NeogmaModel<ProjectProps, object>;
   public Technologies: NeogmaModel<TechnologyProps, object>;
   public JobpostCategories: NeogmaModel<JobpostCategoryProps, object>;

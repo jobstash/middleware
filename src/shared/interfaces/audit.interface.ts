@@ -5,7 +5,7 @@ import { report } from "io-ts-human-reporter";
 
 export class Audit {
   public static readonly AuditType = t.strict({
-    id: t.string,
+    id: t.union([t.string, t.null]),
     name: t.union([t.string, t.null]),
     defiId: t.union([t.string, t.null]),
     date: t.union([t.number, t.null]),
@@ -15,7 +15,7 @@ export class Audit {
   });
 
   @ApiProperty()
-  id: string;
+  id: string | null;
 
   @ApiPropertyOptional()
   auditor: string | null;

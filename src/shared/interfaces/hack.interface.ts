@@ -5,33 +5,33 @@ import { report } from "io-ts-human-reporter";
 
 export class Hack {
   public static readonly HackType = t.strict({
-    id: t.string,
-    defiId: t.string,
-    category: t.string,
-    fundsLost: t.number,
-    issueType: t.string,
+    id: t.union([t.string, t.null]),
+    defiId: t.union([t.string, t.null]),
+    category: t.union([t.string, t.null]),
+    fundsLost: t.union([t.number, t.null]),
+    issueType: t.union([t.string, t.null]),
     date: t.union([t.number, t.null]),
-    description: t.union([t.string, t.null]),
+    description: t.union([t.union([t.string, t.null]), t.null]),
     fundsReturned: t.union([t.number, t.null]),
   });
 
   @ApiProperty()
-  id: string;
+  id: string | null;
 
   @ApiProperty()
   date: string | null;
 
   @ApiProperty()
-  defiId: string;
+  defiId: string | null;
 
   @ApiProperty()
-  category: number;
+  category: number | null;
 
   @ApiProperty()
-  fundsLost: number;
+  fundsLost: number | null;
 
   @ApiProperty()
-  issueType: string;
+  issueType: string | null;
 
   @ApiProperty()
   description: string | null;

@@ -4,17 +4,32 @@ import {
   Neogma,
   NeogmaInstance,
   NeogmaModel,
+  QueryBuilder,
 } from "neogma";
 import { StructuredJobpost } from "../interfaces";
 import { ExtractProps } from "../types";
-import { TechnologyInstance, Technologies } from "./technology.model";
+import {
+  TechnologyInstance,
+  Technologies,
+  TechnologyProps,
+} from "./technology.model";
 
 export type StructuredJobpostProps = ExtractProps<StructuredJobpost>;
 
 export type StructuredJobpostInstance = NeogmaInstance<
   StructuredJobpostProps,
-  StructuredJobpostRelations
+  StructuredJobpostRelations,
+  StructuredJobpostMethods
 >;
+
+export interface StructuredJobpostMethods {
+  getUnblockedTechnologies: (
+    this: StructuredJobpostInstance,
+  ) => Promise<TechnologyInstance[]>;
+  getUnblockedTechnologiesData: (
+    this: StructuredJobpostInstance,
+  ) => Promise<TechnologyProps[]>;
+}
 
 export interface StructuredJobpostRelations {
   technologies: ModelRelatedNodesI<
@@ -25,8 +40,17 @@ export interface StructuredJobpostRelations {
 
 export const StructuredJobposts = (
   neogma: Neogma,
-): NeogmaModel<StructuredJobpostProps, StructuredJobpostRelations> =>
-  ModelFactory<StructuredJobpostProps, StructuredJobpostRelations>(
+): NeogmaModel<
+  StructuredJobpostProps,
+  StructuredJobpostRelations,
+  StructuredJobpostMethods
+> =>
+  ModelFactory<
+    StructuredJobpostProps,
+    StructuredJobpostRelations,
+    never,
+    StructuredJobpostMethods
+  >(
     {
       label: "StructuredJobpost",
       schema: {
@@ -147,6 +171,55 @@ export const StructuredJobposts = (
           model: Technologies(neogma),
           direction: "out",
           name: "USES_TECHNOLOGY",
+        },
+      },
+      methods: {
+        getUnblockedTechnologies: async function (
+          this: StructuredJobpostInstance,
+        ): Promise<TechnologyInstance[]> {
+          const technologies: TechnologyInstance[] = [];
+          const allTechnologies = await this.findRelationships({
+            alias: "technologies",
+          });
+          for (const technology of allTechnologies) {
+            const isBlockedTerm = await technology.target.isBlockedTerm();
+            if (!isBlockedTerm) {
+              technologies.push(technology.target);
+            }
+          }
+          return technologies;
+        },
+        getUnblockedTechnologiesData: async function (
+          this: StructuredJobpostInstance,
+        ): Promise<TechnologyProps[]> {
+          const query = new QueryBuilder()
+            .match({
+              optional: true,
+              related: [
+                {
+                  label: "StructuredJobpost",
+                  where: {
+                    shortUUID: this.shortUUID,
+                  },
+                },
+                {
+                  direction: "out",
+                  name: "USES_TECHNOLOGY",
+                },
+                {
+                  label: "Technology",
+                  identifier: "technology",
+                },
+              ],
+            })
+            .raw("WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()")
+            .with("COLLECT(DISTINCT PROPERTIES(technology)) as technologies")
+            .return("technologies");
+          const result = await query.run(neogma.queryRunner);
+          const technologies: TechnologyProps[] = result?.records[0]
+            .get("technologies")
+            .map(record => record as TechnologyProps);
+          return technologies;
         },
       },
     },

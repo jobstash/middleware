@@ -31,15 +31,10 @@ export interface TechnologyMethods {
 
 export const Technologies = (
   neogma: Neogma,
-): NeogmaModel<
-  TechnologyProps,
-  TechnologyRelations,
-  never,
-  TechnologyMethods
-> =>
+): NeogmaModel<TechnologyProps, TechnologyRelations, TechnologyMethods> =>
   ModelFactory<TechnologyProps, TechnologyRelations, never, TechnologyMethods>(
     {
-      label: "Technolgy",
+      label: "Technology",
       schema: {
         id: {
           type: "string",
