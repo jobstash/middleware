@@ -29,20 +29,14 @@ export type OrganizationInstance = NeogmaInstance<
 export interface OrganizationStatics {}
 
 export interface OrganizationMethods {
-  getJobsites: (this: OrganizationInstance) => Promise<JobsiteInstance[]>;
-  getProjects: (this: OrganizationInstance) => Promise<ProjectInstance[]>;
-  getFundingRounds: (
-    this: OrganizationInstance,
-  ) => Promise<FundingRoundInstance[]>;
-  getInvestorsData: (this: OrganizationInstance) => Promise<InvestorProps[]>;
-  getJobsitesData: (this: OrganizationInstance) => Promise<JobsiteProps[]>;
-  getProjectsData: (this: OrganizationInstance) => Promise<ProjectProps[]>;
-  getProjectsMoreInfoData: (
-    this: OrganizationInstance,
-  ) => Promise<ProjectMoreInfo[]>;
-  getFundingRoundsData: (
-    this: OrganizationInstance,
-  ) => Promise<FundingRoundProps[]>;
+  getJobsites: () => Promise<JobsiteInstance[]>;
+  getProjects: () => Promise<ProjectInstance[]>;
+  getFundingRounds: () => Promise<FundingRoundInstance[]>;
+  getInvestorsData: () => Promise<InvestorProps[]>;
+  getJobsitesData: () => Promise<JobsiteProps[]>;
+  getProjectsData: () => Promise<ProjectProps[]>;
+  getProjectsMoreInfoData: () => Promise<ProjectMoreInfo[]>;
+  getFundingRoundsData: () => Promise<FundingRoundProps[]>;
 }
 
 export interface OrganizationRelations {
@@ -181,37 +175,37 @@ export const Organizations = (
         },
       },
       methods: {
-        getFundingRounds: async function (this: OrganizationInstance) {
+        getFundingRounds: async function () {
           return (await this.findRelationships({ alias: "fundingRounds" })).map(
             ref => ref.target,
           );
         },
-        getJobsites: async function (this: OrganizationInstance) {
+        getJobsites: async function () {
           return (await this.findRelationships({ alias: "jobsite" })).map(
             ref => ref.target,
           );
         },
-        getProjects: async function (this: OrganizationInstance) {
+        getProjects: async function () {
           return (await this.findRelationships({ alias: "projects" })).map(
             ref => ref.target,
           );
         },
-        getFundingRoundsData: async function (this: OrganizationInstance) {
+        getFundingRoundsData: async function () {
           return (await this.findRelationships({ alias: "fundingRounds" })).map(
             ref => ref.target.getDataValues(),
           );
         },
-        getJobsitesData: async function (this: OrganizationInstance) {
+        getJobsitesData: async function () {
           return (await this.findRelationships({ alias: "jobsite" })).map(ref =>
             ref.target.getDataValues(),
           );
         },
-        getProjectsData: async function (this: OrganizationInstance) {
+        getProjectsData: async function () {
           return (await this.findRelationships({ alias: "projects" })).map(
             ref => ref.target.getDataValues(),
           );
         },
-        getProjectsMoreInfoData: async function (this: OrganizationInstance) {
+        getProjectsMoreInfoData: async function () {
           const query = new QueryBuilder()
             .match({
               related: [
@@ -345,7 +339,7 @@ export const Organizations = (
             .map(record => record as ProjectMoreInfo);
           return projects;
         },
-        getInvestorsData: async function (this: OrganizationInstance) {
+        getInvestorsData: async function () {
           const result = await new QueryBuilder()
             .match({
               related: [

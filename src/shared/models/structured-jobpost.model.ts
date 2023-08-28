@@ -23,12 +23,8 @@ export type StructuredJobpostInstance = NeogmaInstance<
 >;
 
 export interface StructuredJobpostMethods {
-  getUnblockedTechnologies: (
-    this: StructuredJobpostInstance,
-  ) => Promise<TechnologyInstance[]>;
-  getUnblockedTechnologiesData: (
-    this: StructuredJobpostInstance,
-  ) => Promise<TechnologyProps[]>;
+  getUnblockedTechnologies: () => Promise<TechnologyInstance[]>;
+  getUnblockedTechnologiesData: () => Promise<TechnologyProps[]>;
 }
 
 export interface StructuredJobpostRelations {
@@ -174,9 +170,9 @@ export const StructuredJobposts = (
         },
       },
       methods: {
-        getUnblockedTechnologies: async function (
-          this: StructuredJobpostInstance,
-        ): Promise<TechnologyInstance[]> {
+        getUnblockedTechnologies: async function (): Promise<
+          TechnologyInstance[]
+        > {
           const technologies: TechnologyInstance[] = [];
           const allTechnologies = await this.findRelationships({
             alias: "technologies",
@@ -189,9 +185,9 @@ export const StructuredJobposts = (
           }
           return technologies;
         },
-        getUnblockedTechnologiesData: async function (
-          this: StructuredJobpostInstance,
-        ): Promise<TechnologyProps[]> {
+        getUnblockedTechnologiesData: async function (): Promise<
+          TechnologyProps[]
+        > {
           const query = new QueryBuilder()
             .match({
               optional: true,

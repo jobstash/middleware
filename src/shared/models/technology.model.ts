@@ -26,7 +26,7 @@ export interface TechnologyRelations {
   >;
 }
 export interface TechnologyMethods {
-  isBlockedTerm: (this: TechnologyInstance) => Promise<boolean>;
+  isBlockedTerm: () => Promise<boolean>;
 }
 
 export const Technologies = (

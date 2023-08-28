@@ -27,13 +27,13 @@ export interface ProjectRelations {
 }
 
 export interface ProjectMethods {
-  getBaseProperties: (this: ProjectInstance) => ProjectProperties;
-  getAudits: (this: ProjectInstance) => Promise<AuditInstance[]>;
-  getAuditsData: (this: ProjectInstance) => Promise<AuditProps[]>;
-  getHacks: (this: ProjectInstance) => Promise<HackInstance[]>;
-  getHacksData: (this: ProjectInstance) => Promise<HackProps[]>;
-  getChains: (this: ProjectInstance) => Promise<ChainInstance[]>;
-  getChainsData: (this: ProjectInstance) => Promise<ChainProps[]>;
+  getBaseProperties: () => ProjectProperties;
+  getAudits: () => Promise<AuditInstance[]>;
+  getAuditsData: () => Promise<AuditProps[]>;
+  getHacks: () => Promise<HackInstance[]>;
+  getHacksData: () => Promise<HackProps[]>;
+  getChains: () => Promise<ChainInstance[]>;
+  getChainsData: () => Promise<ChainProps[]>;
 }
 
 export const Projects = (
@@ -203,7 +203,7 @@ export const Projects = (
         },
       },
       methods: {
-        getBaseProperties: function (this: ProjectInstance): ProjectProperties {
+        getBaseProperties: function (): ProjectProperties {
           return {
             id: this.id,
             url: this.url,
@@ -221,32 +221,32 @@ export const Projects = (
             monthlyActiveUsers: this.monthlyActiveUsers,
           };
         },
-        getAudits: async function (this: ProjectInstance) {
+        getAudits: async function () {
           return (await this.findRelationships({ alias: "audits" })).map(
             ref => ref.target,
           );
         },
-        getChains: async function (this: ProjectInstance) {
+        getChains: async function () {
           return (await this.findRelationships({ alias: "chains" })).map(
             ref => ref.target,
           );
         },
-        getHacks: async function (this: ProjectInstance) {
+        getHacks: async function () {
           return (await this.findRelationships({ alias: "hacks" })).map(
             ref => ref.target,
           );
         },
-        getAuditsData: async function (this: ProjectInstance) {
+        getAuditsData: async function () {
           return (await this.findRelationships({ alias: "audits" })).map(ref =>
             ref.target.getDataValues(),
           );
         },
-        getChainsData: async function (this: ProjectInstance) {
+        getChainsData: async function () {
           return (await this.findRelationships({ alias: "chains" })).map(ref =>
             ref.target.getDataValues(),
           );
         },
-        getHacksData: async function (this: ProjectInstance) {
+        getHacksData: async function () {
           return (await this.findRelationships({ alias: "hacks" })).map(ref =>
             ref.target.getDataValues(),
           );

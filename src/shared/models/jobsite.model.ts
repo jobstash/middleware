@@ -23,18 +23,9 @@ export type JobsiteInstance = NeogmaInstance<
 >;
 
 export interface JobsiteMethods {
-  getOrganization: (
-    this: JobsiteInstance,
-  ) => Promise<OrganizationInstance | null>;
-  getJobposts: (this: JobsiteInstance) => Promise<JobpostInstance[]>;
-  getTechnicalStructuredJobposts: (
-    minSalaryRange?: number,
-    maxSalaryRange?: number,
-    startDate?: number,
-    endDate?: number,
-    seniority?: string[],
-    locations?: string[],
-  ) => Promise<StructuredJobpostInstance[]>;
+  getOrganization: () => Promise<OrganizationInstance | null>;
+  getJobposts: () => Promise<JobpostInstance[]>;
+  getTechnicalStructuredJobposts: () => Promise<StructuredJobpostInstance[]>;
 }
 
 export interface JobsiteRelations {
@@ -68,38 +59,35 @@ export const Jobsites = (
         },
       },
       methods: {
-        getOrganization: async function (
-          this: JobsiteInstance,
-        ): Promise<OrganizationInstance | null> {
-          const result = await new QueryBuilder()
-            .match({
-              related: [
-                {
-                  label: "Jobsite",
-                  where: {
-                    id: this.id,
+        getOrganization:
+          async function (): Promise<OrganizationInstance | null> {
+            const result = await new QueryBuilder()
+              .match({
+                related: [
+                  {
+                    label: "Jobsite",
+                    where: {
+                      id: this.id,
+                    },
                   },
-                },
-                {
-                  direction: "in",
-                  name: "HAS_JOBSITE",
-                },
-                {
-                  label: "Organization",
-                  identifier: "organization",
-                },
-              ],
-            })
-            .return("organization")
-            .run(neogma.queryRunner);
-          const organization = Organizations(neogma).buildFromRecord(
-            result.records[0].get("organization"),
-          );
-          return organization;
-        },
-        getJobposts: async function (
-          this: JobsiteInstance,
-        ): Promise<JobpostInstance[]> {
+                  {
+                    direction: "in",
+                    name: "HAS_JOBSITE",
+                  },
+                  {
+                    label: "Organization",
+                    identifier: "organization",
+                  },
+                ],
+              })
+              .return("organization")
+              .run(neogma.queryRunner);
+            const organization = Organizations(neogma).buildFromRecord(
+              result.records[0].get("organization"),
+            );
+            return organization;
+          },
+        getJobposts: async function (): Promise<JobpostInstance[]> {
           return (await this.findRelationships({ alias: "jobposts" })).map(
             ref => ref.target,
           );
