@@ -1,10 +1,10 @@
-import { Organization, Technology } from "../interfaces";
+import { OrganizationProperties, Technology } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { StructuredJobpostWithCategory } from "../interfaces/structured-jobpost-with-category.interface";
 import { AllJobsListResult } from "../interfaces/all-jobs-list-result.interface";
 
 type RawJobPost = StructuredJobpostWithCategory & {
-  organization?: Organization | null;
+  organization?: OrganizationProperties | null;
   technologies?: Technology[] | null;
 };
 

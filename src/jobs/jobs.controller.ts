@@ -96,56 +96,6 @@ export class JobsController {
     return this.jobsService.getJobsListWithSearch(paramsParsed);
   }
 
-  @Get("/list/v2")
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
-  @ApiOkResponse({
-    description:
-      "Returns a paginated sorted list of jobs that satisfy the search and filter predicate",
-    type: PaginatedData<JobListResult>,
-    schema: {
-      allOf: [
-        {
-          $ref: getSchemaPath(PaginatedData),
-          properties: {
-            page: {
-              type: "number",
-            },
-            count: {
-              type: "number",
-            },
-            data: {
-              type: "array",
-              items: { $ref: getSchemaPath(JobListResult) },
-            },
-          },
-        },
-      ],
-    },
-  })
-  @ApiBadRequestResponse({
-    description:
-      "Returns an error message with a list of values that failed validation",
-    schema: {
-      allOf: [
-        {
-          $ref: getSchemaPath(ValidationError),
-        },
-      ],
-    },
-  })
-  async getJobsListWithSearchV2(
-    @Query(new ValidationPipe({ transform: true }))
-    params: JobListParams,
-  ): Promise<PaginatedData<JobListResult>> {
-    const paramsParsed = {
-      ...params,
-      query: btoa(params.query),
-    };
-    this.logger.log(`/jobs/list/v2 ${JSON.stringify(paramsParsed)}`);
-    return this.jobsService.getJobsListWithSearchV2(paramsParsed);
-  }
-
   @Get("/filters")
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))

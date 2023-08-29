@@ -13,6 +13,11 @@ import {
   Technologies,
   TechnologyProps,
 } from "./technology.model";
+import { OrganizationInstance, Organizations } from "./organization.model";
+import {
+  JobpostCategories,
+  JobpostCategoryInstance,
+} from "./jobpost-category.model";
 
 export type StructuredJobpostProps = ExtractProps<StructuredJobpost>;
 
@@ -25,6 +30,11 @@ export type StructuredJobpostInstance = NeogmaInstance<
 export interface StructuredJobpostMethods {
   getUnblockedTechnologies: () => Promise<TechnologyInstance[]>;
   getUnblockedTechnologiesData: () => Promise<TechnologyProps[]>;
+  getJobpostCategory: () => Promise<JobpostCategoryInstance>;
+}
+
+export interface StructuredJobposStatics {
+  getJobOrgByUUID: (uuid: string) => Promise<OrganizationInstance | undefined>;
 }
 
 export interface StructuredJobpostRelations {
@@ -39,12 +49,13 @@ export const StructuredJobposts = (
 ): NeogmaModel<
   StructuredJobpostProps,
   StructuredJobpostRelations,
-  StructuredJobpostMethods
+  StructuredJobpostMethods,
+  StructuredJobposStatics
 > =>
   ModelFactory<
     StructuredJobpostProps,
     StructuredJobpostRelations,
-    never,
+    StructuredJobposStatics,
     StructuredJobpostMethods
   >(
     {
@@ -216,6 +227,129 @@ export const StructuredJobposts = (
             .get("technologies")
             .map(record => record as TechnologyProps);
           return technologies;
+        },
+        getJobpostCategory:
+          async function (): Promise<JobpostCategoryInstance> {
+            const query = new QueryBuilder()
+              .match({
+                related: [
+                  {
+                    label: "Jobpost",
+                    identifier: "jobPost",
+                  },
+                  {
+                    name: "IS_CATEGORIZED_AS",
+                    direction: "out",
+                  },
+                  {
+                    label: "JobpostCategory",
+                    identifier: "category",
+                  },
+                ],
+              })
+              .match({
+                related: [
+                  {
+                    identifier: "jobPost",
+                  },
+                  {
+                    name: "HAS_STRUCTURED_JOBPOST",
+                    direction: "out",
+                  },
+                  {
+                    label: "StructuredJobpost",
+                    where: {
+                      shortUUID: this.shortUUID,
+                    },
+                  },
+                ],
+              })
+              .return("category");
+            const result = (await query.run(neogma.queryRunner)).records[0].get(
+              "category",
+            );
+            return JobpostCategories(neogma).buildFromRecord(result);
+          },
+      },
+      statics: {
+        getJobOrgByUUID: async function (
+          uuid: string,
+        ): Promise<OrganizationInstance | undefined> {
+          const query = new QueryBuilder()
+            .match({
+              related: [
+                {
+                  label: "Organization",
+                  identifier: "organization",
+                },
+                {
+                  name: "HAS_JOBSITE",
+                  direction: "out",
+                },
+                {
+                  label: "Jobsite",
+                },
+                {
+                  name: "HAS_JOBPOST",
+                  direction: "out",
+                },
+                {
+                  label: "Jobpost",
+                  identifier: "jobPost",
+                },
+                {
+                  name: "IS_CATEGORIZED_AS",
+                  direction: "out",
+                },
+                {
+                  label: "JobpostCategory",
+                  where: {
+                    name: "technical",
+                  },
+                },
+              ],
+            })
+            .match({
+              related: [
+                {
+                  identifier: "jobPost",
+                },
+                {
+                  name: "HAS_STATUS",
+                  direction: "out",
+                },
+                {
+                  label: "JobpostStatus",
+                  where: {
+                    status: "active",
+                  },
+                },
+              ],
+            })
+            .match({
+              related: [
+                {
+                  identifier: "jobPost",
+                },
+                {
+                  name: "HAS_STRUCTURED_JOBPOST",
+                  direction: "out",
+                },
+                {
+                  label: "StructuredJobpost",
+                  where: {
+                    shortUUID: uuid,
+                  },
+                },
+              ],
+            })
+            .return("organization");
+          const result = (await query.run(neogma.queryRunner)).records[0].get(
+            "organization",
+          );
+          return result
+            ? Organizations(neogma).buildFromRecord(result)
+            : undefined;
         },
       },
     },

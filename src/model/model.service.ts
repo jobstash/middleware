@@ -38,6 +38,7 @@ import {
   StructuredJobpostMethods,
   JobsiteMethods,
   OrganizationMethods,
+  StructuredJobposStatics,
 } from "src/shared/models";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 
@@ -52,7 +53,8 @@ export class ModelService implements OnModuleInit {
   public StructuredJobposts: NeogmaModel<
     StructuredJobpostProps,
     StructuredJobpostRelations,
-    StructuredJobpostMethods
+    StructuredJobpostMethods,
+    StructuredJobposStatics
   >;
   public Jobposts: NeogmaModel<JobpostProps, JobpostRelations>;
   public Jobsites: NeogmaModel<JobsiteProps, JobsiteRelations, JobsiteMethods>;
