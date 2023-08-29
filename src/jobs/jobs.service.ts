@@ -44,7 +44,7 @@ export class JobsService {
     private cacheManager: Cache,
     @InjectConnection()
     private neogma: Neogma,
-    private readonly models: ModelService,
+    private models: ModelService,
   ) {}
 
   validateCache = async (): Promise<void> => {
@@ -635,7 +635,9 @@ export class JobsService {
 
   async getAllJobsFilterConfigs(): Promise<AllJobsFilterConfigs> {
     try {
-      const result = await this.getCachedFilterConfigs<AllJobsFilterConfigs>();
+      const result = await this.getCachedFilterConfigs<AllJobsFilterConfigs>(
+        ALL_JOBS_FILTER_CONFIGS_CACHE_KEY,
+      );
       if (result?.categories) {
         return result;
       } else {
