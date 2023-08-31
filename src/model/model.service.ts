@@ -1,48 +1,9 @@
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Inject, Injectable, OnModuleInit } from "@nestjs/common";
+import * as Sentry from "@sentry/node";
 import { Cache } from "cache-manager";
 import { Neogma, NeogmaModel } from "neogma";
 import { InjectConnection } from "nest-neogma";
-import * as Sentry from "@sentry/node";
-import {
-  StructuredJobposts,
-  StructuredJobpostProps,
-  JobpostProps,
-  StructuredJobpostRelations,
-  JobpostRelations,
-  JobsiteProps,
-  JobsiteRelations,
-  OrganizationProps,
-  OrganizationRelations,
-  TechnologyProps,
-  Jobposts,
-  Jobsites,
-  Organizations,
-  Technologies,
-  ProjectProps,
-  Projects,
-  JobpostCategoryProps,
-  JobpostCategories,
-  JobpostStatuses,
-  JobpostStatusProps,
-  InvestorProps,
-  FundingRoundProps,
-  FundingRoundRelations,
-  FundingRounds,
-  Investors,
-  TechnolgyBlockedTermProps,
-  TechnolgyBlockedTerms,
-  AuditProps,
-  HackProps,
-  ChainProps,
-  Audits,
-  Hacks,
-  Chains,
-  StructuredJobpostMethods,
-  JobsiteMethods,
-  OrganizationMethods,
-  StructuredJobposStatics,
-} from "src/shared/models";
 import {
   ALL_JOBS_CACHE_KEY,
   ALL_JOBS_FILTER_CONFIGS_CACHE_KEY,
@@ -50,6 +11,49 @@ import {
   JOBS_LIST_FILTER_CONFIGS_CACHE_KEY,
   PUBLIC_JOBS_LIST_CACHE_KEY,
 } from "src/shared/constants";
+import {
+  AuditProps,
+  Audits,
+  ChainProps,
+  Chains,
+  FundingRoundProps,
+  FundingRoundRelations,
+  FundingRounds,
+  HackProps,
+  Hacks,
+  InvestorProps,
+  Investors,
+  JobpostCategories,
+  JobpostCategoryProps,
+  JobpostProps,
+  JobpostRelations,
+  JobpostStatusProps,
+  JobpostStatuses,
+  Jobposts,
+  JobsiteMethods,
+  JobsiteProps,
+  JobsiteRelations,
+  Jobsites,
+  OrganizationMethods,
+  OrganizationProps,
+  OrganizationRelations,
+  Organizations,
+  ProjectProps,
+  Projects,
+  StructuredJobposStatics,
+  StructuredJobpostMethods,
+  StructuredJobpostProps,
+  StructuredJobpostRelations,
+  StructuredJobposts,
+  TechnolgyBlockedTermProps,
+  TechnolgyBlockedTerms,
+  Technologies,
+  TechnologyMethods,
+  TechnologyProps,
+  TechnologyRelations,
+  TechnologyStatics,
+} from "src/shared/models";
+import { NoRelations } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Injectable()
@@ -75,16 +79,24 @@ export class ModelService implements OnModuleInit {
     OrganizationRelations,
     OrganizationMethods
   >;
-  public Projects: NeogmaModel<ProjectProps, object>;
-  public Technologies: NeogmaModel<TechnologyProps, object>;
-  public JobpostCategories: NeogmaModel<JobpostCategoryProps, object>;
-  public JobpostStatuses: NeogmaModel<JobpostStatusProps, object>;
+  public Projects: NeogmaModel<ProjectProps, NoRelations>;
+  public Technologies: NeogmaModel<
+    TechnologyProps,
+    TechnologyRelations,
+    TechnologyMethods,
+    TechnologyStatics
+  >;
+  public JobpostCategories: NeogmaModel<JobpostCategoryProps, NoRelations>;
+  public JobpostStatuses: NeogmaModel<JobpostStatusProps, NoRelations>;
   public FundingRounds: NeogmaModel<FundingRoundProps, FundingRoundRelations>;
-  public Investors: NeogmaModel<InvestorProps, object>;
-  public TechnologyBlockedTerms: NeogmaModel<TechnolgyBlockedTermProps, object>;
-  public Audits: NeogmaModel<AuditProps, object>;
-  public Hacks: NeogmaModel<HackProps, object>;
-  public Chains: NeogmaModel<ChainProps, object>;
+  public Investors: NeogmaModel<InvestorProps, NoRelations>;
+  public TechnologyBlockedTerms: NeogmaModel<
+    TechnolgyBlockedTermProps,
+    NoRelations
+  >;
+  public Audits: NeogmaModel<AuditProps, NoRelations>;
+  public Hacks: NeogmaModel<HackProps, NoRelations>;
+  public Chains: NeogmaModel<ChainProps, NoRelations>;
 
   onModuleInit = async (): Promise<void> => {
     try {
