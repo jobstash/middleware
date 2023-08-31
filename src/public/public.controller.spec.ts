@@ -4,13 +4,17 @@ import { PublicService } from "./public.service";
 import { Integer } from "neo4j-driver";
 import { JobListResult, Project } from "src/shared/interfaces";
 import { hasDuplicates, printDuplicateItems } from "src/shared/helpers";
-import { Neo4jConnection, Neo4jModule } from "nest-neo4j/dist";
+import { Neo4jConnection } from "nest-neo4j/dist";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { CacheModule } from "@nestjs/cache-manager";
 import envSchema from "src/env-schema";
+import { ModelService } from "src/model/model.service";
+import { ModelModule } from "src/model/model.module";
+import { NeogmaModule } from "nest-neogma";
 
 describe("PublicController", () => {
   let controller: PublicController;
+  let models: ModelService;
 
   const projectHasArrayPropsDuplication = (
     project: Project,
@@ -80,7 +84,7 @@ describe("PublicController", () => {
     );
   };
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({
@@ -90,7 +94,7 @@ describe("PublicController", () => {
             abortEarly: true,
           },
         }),
-        Neo4jModule.forRootAsync({
+        NeogmaModule.forRootAsync({
           imports: [ConfigModule],
           inject: [ConfigService],
           useFactory: (configService: ConfigService) =>
@@ -104,16 +108,27 @@ describe("PublicController", () => {
             } as Neo4jConnection),
         }),
         CacheModule.register({ isGlobal: true }),
+        ModelModule,
       ],
       controllers: [PublicController],
-      providers: [PublicService],
+      providers: [PublicService, ModelService],
     }).compile();
 
+    await module.init();
+    models = module.get<ModelService>(ModelService);
+    await models.onModuleInit();
     controller = module.get<PublicController>(PublicController);
-  });
+  }, 1000000);
 
   it("should be defined", () => {
     expect(controller).toBeDefined();
+  });
+
+  it("should be able to access models", async () => {
+    expect(models.Organizations.findMany).toBeDefined();
+    expect(
+      (await models.Organizations.findMany()).length,
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it("should get external all jobs list with no jobpost and array property duplication", async () => {

@@ -48,35 +48,6 @@ export class JobsService {
     private models: ModelService,
   ) {}
 
-  validateCache = async (): Promise<void> => {
-    try {
-      const res = await this.neogma.queryRunner.run(
-        `
-          MATCH (node: DirtyNode)
-          WITH node.dirty as isDirty, node
-          SET (CASE WHEN isDirty = true THEN node END).dirty = false 
-          RETURN isDirty
-      `.replace(/^\s*$(?:\r\n?|\n)/gm, ""),
-      );
-      const isDirty = (res.records[0]?.get("isDirty") as boolean) ?? false;
-      if (isDirty) {
-        await this.cacheManager.del(JOBS_LIST_CACHE_KEY);
-        await this.cacheManager.del(JOBS_LIST_FILTER_CONFIGS_CACHE_KEY);
-        await this.cacheManager.del(ALL_JOBS_CACHE_KEY);
-        await this.cacheManager.del(ALL_JOBS_FILTER_CONFIGS_CACHE_KEY);
-      }
-    } catch (error) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "jobs.service",
-        });
-        Sentry.captureException(error);
-      });
-      this.logger.error(`JobsService::shouldClearCache ${error.message}`);
-    }
-  };
-
   getCachedJobs = async <K>(
     cacheKey: string = JOBS_LIST_CACHE_KEY,
   ): Promise<K[]> => {
@@ -196,7 +167,7 @@ export class JobsService {
       limit,
     } = paramsPassed;
 
-    await this.validateCache();
+    await this.models.validateCache();
 
     const cachedJobs = await this.getCachedJobs<JobListResult>();
 
@@ -213,6 +184,7 @@ export class JobsService {
           const orgJobs = await this.getOrgJobsListResults(organization);
           results.push(...orgJobs);
         }
+
         await this.cacheManager.set(
           JOBS_LIST_CACHE_KEY,
           JSON.stringify(results),
@@ -497,7 +469,7 @@ export class JobsService {
 
   async getJobsByOrgId(id: string): Promise<JobListResult[] | undefined> {
     try {
-      await this.validateCache();
+      await this.models.validateCache();
 
       const cachedJobs = await this.getCachedJobs<JobListResult>();
 
@@ -556,7 +528,7 @@ export class JobsService {
       limit,
     } = paramsPassed;
 
-    await this.validateCache();
+    await this.models.validateCache();
 
     const cachedJobs = await this.getCachedJobs<AllJobsListResult>(
       ALL_JOBS_CACHE_KEY,
