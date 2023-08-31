@@ -292,9 +292,9 @@ export const Organizations = (
             .with([
               "project_category",
               "project",
-              "COLLECT(DISTINCT hack) as hacks",
-              "COLLECT(DISTINCT hack) as audits",
-              "COLLECT(DISTINCT hack) as chains",
+              "COLLECT(DISTINCT PROPERTIES(hack)) as hacks",
+              "COLLECT(DISTINCT PROPERTIES(audit)) as audits",
+              "COLLECT(DISTINCT PROPERTIES(chain)) as chains",
             ])
             .return(
               `
@@ -363,14 +363,12 @@ export const Organizations = (
                 { label: "Investor", identifier: "investor" },
               ],
             })
-            .return("investor")
+            .return("COLLECT(DISTINCT investor) as investors")
             .run(neogma.queryRunner);
           const investors: InvestorProps[] = [];
-          for (const record of result.records) {
+          for (const record of result.records[0].get("investors") as []) {
             investors.push(
-              Investors(neogma)
-                .buildFromRecord(record.get("investor"))
-                .getDataValues(),
+              Investors(neogma).buildFromRecord(record).getDataValues(),
             );
           }
           return investors;

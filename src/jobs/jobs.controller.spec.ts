@@ -3,7 +3,7 @@ import { JobsController } from "./jobs.controller";
 import { JobsService } from "./jobs.service";
 import { JobListParams } from "./dto/job-list.input";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { Neo4jConnection, Neo4jModule } from "nest-neo4j/dist";
+import { Neo4jConnection } from "nest-neo4j/dist";
 import envSchema from "src/env-schema";
 import {
   AllJobsFilterConfigs,
@@ -29,6 +29,7 @@ import { ModelService } from "src/model/model.service";
 
 describe("JobsController", () => {
   let controller: JobsController;
+  let models: ModelService;
 
   const projectHasArrayPropsDuplication = (
     project: Project,
@@ -36,7 +37,7 @@ describe("JobsController", () => {
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
       project.audits,
-      a => a?.link.toLowerCase(),
+      a => a.id,
       `Audit for Project ${project.id} for Jobpost ${jobPostUUID}`,
     );
     const hasDuplicateHacks = hasDuplicates(
@@ -109,7 +110,7 @@ describe("JobsController", () => {
     return hasDuplicateTechs;
   };
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({
@@ -119,7 +120,7 @@ describe("JobsController", () => {
             abortEarly: true,
           },
         }),
-        Neo4jModule.forRootAsync({
+        NeogmaModule.forRootAsync({
           imports: [ConfigModule],
           inject: [ConfigService],
           useFactory: (configService: ConfigService) =>
@@ -133,21 +134,27 @@ describe("JobsController", () => {
             } as Neo4jConnection),
         }),
         CacheModule.register({ isGlobal: true }),
-        NeogmaModule.fromEnv({
-          retryAttempts: 2,
-          retryDelay: 1000,
-        }),
         ModelModule,
       ],
       controllers: [JobsController],
       providers: [JobsService, ModelService],
     }).compile();
 
+    await module.init();
+    models = module.get<ModelService>(ModelService);
+    await models.onModuleInit();
     controller = module.get<JobsController>(JobsController);
   }, 1000000);
 
   it("should be defined", () => {
     expect(controller).toBeDefined();
+  });
+
+  it("should be able to access models", async () => {
+    expect(models.Organizations.findMany).toBeDefined();
+    expect(
+      (await models.Organizations.findMany()).length,
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it("should get jobs list with no jobpost and array property duplication", async () => {

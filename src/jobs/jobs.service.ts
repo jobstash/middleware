@@ -35,6 +35,7 @@ import {
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { AllJobsParams } from "./dto/all-jobs.input";
 import { JobListParams } from "./dto/job-list.input";
+import { IN_MEM_CACHE_EXPIRY } from "src/shared/presets/cache-control";
 
 @Injectable()
 export class JobsService {
@@ -130,7 +131,7 @@ export class JobsService {
     const results: AllJobsListResult[] = [];
     const jobsites = await organization.getJobsites();
     for (const jobsite of jobsites) {
-      const structuredJobposts = await jobsite.getTechnicalStructuredJobposts();
+      const structuredJobposts = await jobsite.getAllStructuredJobposts();
       for (const structuredJobpost of structuredJobposts) {
         const technologies =
           await structuredJobpost.getUnblockedTechnologiesData();
@@ -205,9 +206,9 @@ export class JobsService {
       this.logger.log("Found cached jobs");
     } else {
       this.logger.log("No cached jobs found, retrieving from db.");
-      const organizations = await this.models.Organizations.findMany();
-
       try {
+        const organizations = await this.models.Organizations.findMany();
+
         for (const organization of organizations) {
           const orgJobs = await this.getOrgJobsListResults(organization);
           results.push(...orgJobs);
@@ -215,7 +216,7 @@ export class JobsService {
         await this.cacheManager.set(
           JOBS_LIST_CACHE_KEY,
           JSON.stringify(results),
-          18000000,
+          IN_MEM_CACHE_EXPIRY,
         );
       } catch (err) {
         Sentry.withScope(scope => {
@@ -445,7 +446,7 @@ export class JobsService {
         await this.cacheManager.set(
           JOBS_LIST_FILTER_CONFIGS_CACHE_KEY,
           JSON.stringify(result),
-          18000000,
+          IN_MEM_CACHE_EXPIRY,
         );
         return result;
       }
@@ -574,9 +575,9 @@ export class JobsService {
           results.push(...orgJobs);
         }
         await this.cacheManager.set(
-          JOBS_LIST_CACHE_KEY,
+          ALL_JOBS_CACHE_KEY,
           JSON.stringify(results),
-          18000000,
+          IN_MEM_CACHE_EXPIRY,
         );
       } catch (err) {
         Sentry.withScope(scope => {
@@ -664,7 +665,7 @@ export class JobsService {
         await this.cacheManager.set(
           ALL_JOBS_FILTER_CONFIGS_CACHE_KEY,
           JSON.stringify(result),
-          18000000,
+          IN_MEM_CACHE_EXPIRY,
         );
         return result;
       }

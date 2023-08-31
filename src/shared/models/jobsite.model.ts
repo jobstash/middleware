@@ -26,6 +26,7 @@ export interface JobsiteMethods {
   getOrganization: () => Promise<OrganizationInstance | null>;
   getJobposts: () => Promise<JobpostInstance[]>;
   getTechnicalStructuredJobposts: () => Promise<StructuredJobpostInstance[]>;
+  getAllStructuredJobposts: () => Promise<StructuredJobpostInstance[]>;
 }
 
 export interface JobsiteRelations {
@@ -113,10 +114,71 @@ export const Jobsites = (
                   identifier: "raw_jobpost",
                 },
                 {
-                  direction: "in",
+                  direction: "none",
                   name: "IS_CATEGORIZED_AS",
                 },
                 { label: "JobpostCategory", where: { name: "technical" } },
+              ],
+            })
+            .match({
+              related: [
+                {
+                  identifier: "raw_jobpost",
+                },
+                {
+                  direction: "out",
+                  name: "HAS_STATUS",
+                },
+                { label: "JobpostStatus", where: { status: "active" } },
+              ],
+            })
+            .match({
+              related: [
+                {
+                  identifier: "raw_jobpost",
+                },
+                {
+                  direction: "out",
+                  name: "HAS_STRUCTURED_JOBPOST",
+                },
+                {
+                  label: "StructuredJobpost",
+                  identifier: "structured_jobpost",
+                },
+              ],
+            })
+            .return("structured_jobpost");
+          const result = await query.run(neogma.queryRunner);
+          const structuredJobposts: StructuredJobpostInstance[] = [];
+          for (const record of result.records) {
+            structuredJobposts.push(
+              StructuredJobposts(neogma).buildFromRecord(
+                record.get("structured_jobpost"),
+              ),
+            );
+          }
+          return structuredJobposts;
+        },
+        getAllStructuredJobposts: async function (): Promise<
+          StructuredJobpostInstance[]
+        > {
+          const query = new QueryBuilder()
+            .match({
+              related: [
+                {
+                  label: "Jobsite",
+                  where: {
+                    id: this.id,
+                  },
+                },
+                {
+                  direction: "out",
+                  name: "HAS_JOBPOST",
+                },
+                {
+                  label: "Jobpost",
+                  identifier: "raw_jobpost",
+                },
               ],
             })
             .match({

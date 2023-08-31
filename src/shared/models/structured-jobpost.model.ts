@@ -224,8 +224,8 @@ export const StructuredJobposts = (
             .return("technologies");
           const result = await query.run(neogma.queryRunner);
           const technologies: TechnologyProps[] = result?.records[0]
-            .get("technologies")
-            .map(record => record as TechnologyProps);
+            ?.get("technologies")
+            ?.map(record => record as TechnologyProps);
           return technologies;
         },
         getJobpostCategory:
@@ -239,7 +239,7 @@ export const StructuredJobposts = (
                   },
                   {
                     name: "IS_CATEGORIZED_AS",
-                    direction: "out",
+                    direction: "none",
                   },
                   {
                     label: "JobpostCategory",
@@ -265,9 +265,9 @@ export const StructuredJobposts = (
                 ],
               })
               .return("category");
-            const result = (await query.run(neogma.queryRunner)).records[0].get(
-              "category",
-            );
+            const result = (
+              await query.run(neogma.queryRunner)
+            ).records[0]?.get("category");
             return JobpostCategories(neogma).buildFromRecord(result);
           },
       },

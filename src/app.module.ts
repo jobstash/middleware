@@ -41,9 +41,18 @@ import { NeogmaModule } from "nest-neogma";
           database: configService.get<string>("NEO4J_DATABASE"),
         } as Neo4jConnection),
     }),
-    NeogmaModule.fromEnv({
-      retryAttempts: 2,
-      retryDelay: 1000,
+    NeogmaModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) =>
+        ({
+          host: configService.get<string>("NEO4J_HOST"),
+          password: configService.get<string>("NEO4J_PASSWORD"),
+          port: configService.get<string>("NEO4J_PORT"),
+          scheme: configService.get<string>("NEO4J_SCHEME"),
+          username: configService.get<string>("NEO4J_USERNAME"),
+          database: configService.get<string>("NEO4J_DATABASE"),
+        } as Neo4jConnection),
     }),
     CacheModule.register({ isGlobal: true }),
     AuthModule,

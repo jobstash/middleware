@@ -182,8 +182,8 @@ export class JobsController {
     return this.jobsService.getJobsByOrgId(id);
   }
   @Get("/all")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  // @UseGuards(RBACGuard)
+  // @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description:
       "Returns a paginated, sorted list of all jobs that satisfy the search and filter predicate",
