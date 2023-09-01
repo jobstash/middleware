@@ -1,5 +1,4 @@
-import { Injectable } from "@nestjs/common";
-import { Neo4jService } from "nest-neo4j/dist";
+import { Inject, Injectable } from "@nestjs/common";
 import {
   PaginatedData,
   ProjectFilterConfigs,
@@ -12,145 +11,108 @@ import {
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { ProjectListParams } from "./dto/project-list.input";
-import { intConverter } from "src/shared/helpers";
+import { intConverter, notStringOrNull } from "src/shared/helpers";
 import { ProjectEntity } from "src/shared/entities/project.entity";
 import { createNewSortInstance } from "fast-sort";
+import { ModelService } from "src/model/model.service";
+import { InjectConnection } from "nest-neogma";
+import { Neogma } from "neogma";
+import { Cache } from "cache-manager";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import {
+  PROJECTS_LIST_CACHE_KEY,
+  PROJECTS_LIST_FILTER_CONFIGS_CACHE_KEY,
+} from "src/shared/constants";
+import { IN_MEM_CACHE_EXPIRY } from "src/shared/presets/cache-control";
+import { ProjectProps } from "src/shared/models";
 
 @Injectable()
 export class ProjectsService {
   logger = new CustomLogger(ProjectsService.name);
-  constructor(private readonly neo4jService: Neo4jService) {}
+  constructor(
+    @Inject(CACHE_MANAGER)
+    private cacheManager: Cache,
+    @InjectConnection()
+    private neogma: Neogma,
+    private models: ModelService,
+  ) {}
+
+  getCachedProjects = async <K>(
+    cacheKey: string = PROJECTS_LIST_CACHE_KEY,
+  ): Promise<K[]> => {
+    const cachedJobsString =
+      (await this.cacheManager.get<string>(cacheKey)) ?? "[]";
+    const cachedJobs = JSON.parse(cachedJobsString) as K[];
+    return cachedJobs;
+  };
+
+  getCachedFilterConfigs = async <FC>(
+    cacheKey: string = PROJECTS_LIST_FILTER_CONFIGS_CACHE_KEY,
+  ): Promise<FC> => {
+    const cachedFilterConfigsString =
+      (await this.cacheManager.get<string>(cacheKey)) ?? "{}";
+    const cachedFilterConfigs = JSON.parse(cachedFilterConfigsString) as FC;
+    return cachedFilterConfigs;
+  };
 
   async getProjectsListWithSearch(
     params: ProjectListParams,
   ): Promise<PaginatedData<Project>> {
-    const generatedQuery = `
-            CALL {
-              MATCH (project: Project)
-              MATCH (project)-[:HAS_CATEGORY]->(project_category:ProjectCategory)
-              OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
-              OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
-              OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]-(chain:Chain)
-              MATCH (organization: Organization)-[:HAS_PROJECT]->(project)
-              
-              WITH project, project_category, organization, COUNT(DISTINCT audit) as numAudits,
-                COUNT(DISTINCT hack) as numHacks,
-                COUNT(DISTINCT chain) as numChains,
-              COLLECT(DISTINCT PROPERTIES(project_category)) as categories,
-              COLLECT(DISTINCT PROPERTIES(chain)) as chains,
-              COLLECT(DISTINCT PROPERTIES(audit)) as audits,
-              COLLECT(DISTINCT PROPERTIES(hack)) as hacks
-
-              WHERE ($query IS NULL OR project.name =~ $query)
-              AND ($organizations IS NULL OR organization.name IN $organizations)
-              AND ($hacks IS NULL OR numHacks > 1 = $hacks)
-              AND ($audits IS NULL OR numAudits > 1 = $audits)
-              AND ($chains IS NULL OR (chains IS NOT NULL AND any(x IN chains WHERE x.name IN $chains)))
-              AND ($categories IS NULL OR (categories IS NOT NULL AND any(x IN categories WHERE x.name IN $categories)))
-
-              WITH project, project_category, hacks, chains, audits, categories, numAudits, numHacks, numChains
-
-              WITH {
-                    id: project.id,
-                    name: project.name,
-                    url: project.url,
-                    logo: project.logo,
-                    tokenSymbol: project.tokenSymbol,
-                    tvl: project.tvl,
-                    monthlyVolume: project.monthlyVolume,
-                    monthlyFees: project.monthlyFees,
-                    monthlyRevenue: project.monthlyRevenue,
-                    monthlyActiveUsers: project.monthlyActiveUsers,
-                    isMainnet: project.isMainnet,
-                    orgId: project.orgId,
-                    teamSize: project.teamSize,
-                    category: project_category.name,
-                    hacks: hacks,
-                    chains: chains,
-                    audits: audits
-                } AS project
-
-              WHERE ($mainNet IS NULL OR (project IS NOT NULL AND project.isMainnet = $mainNet))
-                AND ($minTeamSize IS NULL OR (project IS NOT NULL AND project.teamSize >= $minTeamSize))
-                AND ($maxTeamSize IS NULL OR (project IS NOT NULL AND project.teamSize <= $maxTeamSize))
-                AND ($minTvl IS NULL OR (project IS NOT NULL AND project.tvl >= $minTvl))
-                AND ($maxTvl IS NULL OR (project IS NOT NULL AND project.tvl <= $maxTvl))
-                AND ($minMonthlyVolume IS NULL OR (project IS NOT NULL AND project.monthlyVolume >= $minMonthlyVolume))
-                AND ($maxMonthlyVolume IS NULL OR (project IS NOT NULL AND project.monthlyVolume <= $maxMonthlyVolume))
-                AND ($minMonthlyFees IS NULL OR (project IS NOT NULL AND project.monthlyFees >= $minMonthlyFees))
-                AND ($maxMonthlyFees IS NULL OR (project IS NOT NULL AND project.monthlyFees <= $maxMonthlyFees))
-                AND ($minMonthlyRevenue IS NULL OR (project IS NOT NULL AND project.monthlyRevenue >= $minMonthlyRevenue))
-                AND ($maxMonthlyRevenue IS NULL OR (project IS NOT NULL AND project.monthlyRevenue <= $maxMonthlyRevenue))
-                AND ($token IS NULL OR (project IS NOT NULL AND project.tokenAddress IS NOT NULL = $token))
-
-              RETURN project as result
-            }
-
-            RETURN result
-        `.replace(/^\s*$(?:\r\n?|\n)/gm, "");
-    // console.log(generatedQuery);
     const paramsPassed = {
       ...params,
       query: params.query ? `(?i).*${params.query}.*` : null,
       limit: params.limit ?? 10,
       page: params.page ?? 1,
     };
-    // console.log(paramsPassed);
-    return this.neo4jService
-      .read(generatedQuery, paramsPassed)
-      .then(res => {
-        const results = res.records?.map(x =>
-          new ProjectEntity(x.get("result")).getProperties(),
-        );
-        const getSortParam = (p1: Project): number | null => {
-          switch (params.orderBy) {
-            case "audits":
-              return p1.audits.length;
-            case "hacks":
-              return p1.hacks.length;
-            case "chains":
-              return p1.chains.length;
-            case "teamSize":
-              return p1.teamSize;
-            case "monthlyVolume":
-              return p1.monthlyVolume;
-            case "monthlyFees":
-              return p1.monthlyFees;
-            case "monthlyRevenue":
-              return p1.monthlyRevenue;
-            default:
-              return null;
-          }
-        };
 
-        let final: Project[] = [];
-        const naturalSort = createNewSortInstance({
-          comparer: new Intl.Collator(undefined, {
-            numeric: true,
-            sensitivity: "base",
-          }).compare,
-        });
-        if (!params.order || params.order === "asc") {
-          final = naturalSort<Project>(results).asc(x =>
-            params.orderBy ? getSortParam(x) : x.name,
-          );
-        } else {
-          final = naturalSort<Project>(results).desc(x =>
-            params.orderBy ? getSortParam(x) : x.name,
-          );
+    const {
+      minTeamSize,
+      maxTeamSize,
+      minTvl,
+      maxTvl,
+      minMonthlyVolume,
+      maxMonthlyVolume,
+      minMonthlyFees,
+      maxMonthlyFees,
+      minMonthlyRevenue,
+      maxMonthlyRevenue,
+      audits: auditFilter,
+      hacks: hackFilter,
+      chains: chainFilterList,
+      organizations: organizationFilterList,
+      categories: categoryFilterList,
+      token,
+      mainNet,
+      query,
+      order,
+      orderBy,
+      page,
+      limit,
+    } = paramsPassed;
+
+    await this.models.validateCache();
+
+    const cachedProjects = await this.getCachedProjects<
+      Project & { orgName: string }
+    >();
+
+    const results: (Project & { orgName: string })[] = cachedProjects;
+
+    if (cachedProjects.length !== 0) {
+      this.logger.log("Found cached projects.");
+    } else {
+      this.logger.log("No cached projects found, retrieving from db.");
+      try {
+        const projects = await this.models.Projects.getProjectsData();
+        for (const project of projects) {
+          results.push(project);
         }
-
-        return {
-          page: (final.length > 0 ? params.page ?? 1 : -1) ?? -1,
-          count: params.limit > final.length ? final.length : params.limit,
-          total: final.length ? intConverter(final.length) : 0,
-          data: final.slice(
-            params.page > 1 ? params.page * params.limit : 0,
-            params.page === 1 ? params.limit : (params.page + 1) * params.limit,
-          ),
-        };
-      })
-      .catch(err => {
+        await this.cacheManager.set(
+          PROJECTS_LIST_CACHE_KEY,
+          JSON.stringify(results),
+          IN_MEM_CACHE_EXPIRY,
+        );
+      } catch (err) {
         Sentry.withScope(scope => {
           scope.setTags({
             action: "db-call",
@@ -168,13 +130,106 @@ export class ProjectsService {
           total: 0,
           data: [],
         };
-      });
+      }
+    }
+
+    const projectFilters = (
+      project: Project & { orgName: string },
+    ): boolean => {
+      return (
+        (!query || project.name.match(query)) &&
+        (!categoryFilterList ||
+          categoryFilterList.includes(project.category)) &&
+        (!organizationFilterList ||
+          organizationFilterList.includes(project.orgName)) &&
+        (!mainNet || project.isMainnet) &&
+        (!minTeamSize || (project?.teamSize ?? 0) >= minTeamSize) &&
+        (!maxTeamSize || (project?.teamSize ?? 0) < maxTeamSize) &&
+        (!minTvl || (project?.tvl ?? 0) >= minTvl) &&
+        (!maxTvl || (project?.tvl ?? 0) < maxTvl) &&
+        (!minMonthlyVolume ||
+          (project?.monthlyVolume ?? 0) >= minMonthlyVolume) &&
+        (!maxMonthlyVolume ||
+          (project?.monthlyVolume ?? 0) < maxMonthlyVolume) &&
+        (!minMonthlyFees || (project?.monthlyFees ?? 0) >= minMonthlyFees) &&
+        (!maxMonthlyFees || (project?.monthlyFees ?? 0) < maxMonthlyFees) &&
+        (!minMonthlyRevenue ||
+          (project?.monthlyRevenue ?? 0) >= minMonthlyRevenue) &&
+        (!maxMonthlyRevenue ||
+          (project?.monthlyRevenue ?? 0) < maxMonthlyRevenue) &&
+        (!auditFilter || (project?.audits.length ?? 0) > 0 === auditFilter) &&
+        (!hackFilter || (project?.hacks.length ?? 0) > 0 === hackFilter) &&
+        (!chainFilterList ||
+          (project?.chains
+            ?.map(x => x.name)
+            .filter(x => chainFilterList.filter(y => x === y).length > 0) ??
+            false)) &&
+        (!token || notStringOrNull(project.tokenSymbol) !== null)
+      );
+    };
+
+    const filtered = results
+      .filter(projectFilters)
+      .map(x => new ProjectEntity(x).getProperties());
+
+    const getSortParam = (p1: Project): number | null => {
+      switch (params.orderBy) {
+        case "audits":
+          return p1.audits.length;
+        case "hacks":
+          return p1.hacks.length;
+        case "chains":
+          return p1.chains.length;
+        case "teamSize":
+          return p1.teamSize;
+        case "monthlyVolume":
+          return p1.monthlyVolume;
+        case "monthlyFees":
+          return p1.monthlyFees;
+        case "monthlyRevenue":
+          return p1.monthlyRevenue;
+        default:
+          return null;
+      }
+    };
+
+    let final: Project[] = [];
+    const naturalSort = createNewSortInstance({
+      comparer: new Intl.Collator(undefined, {
+        numeric: true,
+        sensitivity: "base",
+      }).compare,
+    });
+    if (!order || order === "asc") {
+      final = naturalSort<Project>(filtered).asc(x =>
+        orderBy ? getSortParam(x) : x.name,
+      );
+    } else {
+      final = naturalSort<Project>(filtered).desc(x =>
+        orderBy ? getSortParam(x) : x.name,
+      );
+    }
+
+    return {
+      page: (final.length > 0 ? page ?? 1 : -1) ?? -1,
+      count: limit > final.length ? final.length : limit,
+      total: final.length ? intConverter(final.length) : 0,
+      data: final.slice(
+        page > 1 ? page * limit : 0,
+        page === 1 ? limit : (page + 1) * limit,
+      ),
+    };
   }
 
   async getFilterConfigs(): Promise<ProjectFilterConfigs> {
-    return this.neo4jService
-      .read(
-        `
+    try {
+      const result = await this.getCachedFilterConfigs<ProjectFilterConfigs>();
+      if (result?.audits) {
+        return result;
+      } else {
+        const freshResult = await this.neogma.queryRunner
+          .run(
+            `
         MATCH (p:Project)-[:HAS_CATEGORY]->(cat:ProjectCategory)
         MATCH (o:Organization)-[:HAS_PROJECT]->(project)
         OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(c:Chain)
@@ -197,147 +252,92 @@ export class ProjectsService {
             organizations: COLLECT(DISTINCT o.name)
         } as res
       `,
-      )
-      .then(res =>
-        res.records.length
-          ? new ProjectFilterConfigsEntity(
-              res.records[0].get("res"),
-            ).getProperties()
-          : undefined,
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "projects.service",
-          });
-          Sentry.captureException(err);
+          )
+          .then(res =>
+            res.records.length
+              ? new ProjectFilterConfigsEntity(
+                  res.records[0].get("res"),
+                ).getProperties()
+              : undefined,
+          );
+        await this.cacheManager.set(
+          PROJECTS_LIST_FILTER_CONFIGS_CACHE_KEY,
+          JSON.stringify(freshResult),
+          IN_MEM_CACHE_EXPIRY,
+        );
+        return freshResult;
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
         });
-        this.logger.error(`ProjectsService::getFilterConfigs ${err.message}`);
-        return undefined;
+        Sentry.captureException(err);
       });
+      this.logger.error(`ProjectsService::getFilterConfigs ${err.message}`);
+      return undefined;
+    }
   }
 
   async getProjectDetailsById(id: string): Promise<ProjectDetails | undefined> {
-    return this.neo4jService
-      .read(
-        `
-        MATCH (project: Project {id: $id})
-        OPTIONAL MATCH (organization: Organization)-[:HAS_PROJECT]->(project:Project)-[:HAS_CATEGORY]->(project_category:ProjectCategory)
-        OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
-        OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
-        OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain:Chain)
-        OPTIONAL MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
-        OPTIONAL MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
-        OPTIONAL MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
-        OPTIONAL MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
-        WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()
-        OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
-        OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
-        WITH organization, project, project_category,
-          COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
-          COLLECT(DISTINCT PROPERTIES(technology)) AS technologies,
-          COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds,
-          COLLECT(DISTINCT PROPERTIES(audit)) AS audits,
-          COLLECT(DISTINCT PROPERTIES(hack)) AS hacks,
-          COLLECT(DISTINCT PROPERTIES(chain)) AS chains
-        
-        WITH organization, project, project_category, investors, technologies, 
-          funding_rounds, audits, hacks, chains
-
-        WITH {
-            id: project.id,
-            defiLlamaId: project.defiLlamaId,
-            defiLlamaSlug: project.defiLlamaSlug,
-            defiLlamaParent: project.defiLlamaParent,
-            name: project.name,
-            description: project.description,
-            url: project.url,
-            logo: project.logo,
-            tokenAddress: project.tokenAddress,
-            tokenSymbol: project.tokenSymbol,
-            isInConstruction: project.isInConstruction,
-            tvl: project.tvl,
-            monthlyVolume: project.monthlyVolume,
-            monthlyFees: project.monthlyFees,
-            monthlyRevenue: project.monthlyRevenue,
-            monthlyActiveUsers: project.monthlyActiveUsers,
-            isMainnet: project.isMainnet,
-            telegram: project.telegram,
-            orgId: project.orgId,
-            cmcId: project.cmcId,
-            twitter: project.twitter,
-            discord: project.discord,
-            docs: project.docs,
-            teamSize: project.teamSize,
-            category: project_category.name,
-            githubOrganization: project.githubOrganization,
-            createdTimestamp: project.createdTimestamp,
-            updatedTimestamp: project.updatedTimestamp,
-            organization: {
-              id: organization.id,
-              orgId: organization.orgId,
-              name: organization.name,
-              description: organization.description,
-              summary: organization.summary,
-              location: organization.location,
-              url: organization.url,
-              twitter: organization.twitter,
-              discord: organization.discord,
-              github: organization.github,
-              telegram: organization.telegram,
-              docs: organization.docs,
-              jobsiteLink: organization.jobsiteLink,
-              createdTimestamp: organization.createdTimestamp,
-              updatedTimestamp: organization.updatedTimestamp,
-              fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
-              investors: [investor in investors WHERE investor.id IS NOT NULL],
-              technologies: [technology in technologies WHERE technology.id IS NOT NULL]
-            },
-            hacks: [hack in hacks WHERE hack.id IS NOT NULL],
-            audits: [audit in audits WHERE audit.id IS NOT NULL],
-            chains: [chain in chains WHERE chain.id IS NOT NULL]
-          } as res
-        RETURN res
-        `,
-        { id },
-      )
-      .then(res =>
-        res.records.length
-          ? new ProjectDetailsEntity(res.records[0].get("res")).getProperties()
-          : undefined,
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "projects.service",
-          });
-          scope.setExtra("input", id);
-          Sentry.captureException(err);
+    try {
+      const details = await this.models.Projects.getProjectDetailsById(id);
+      return new ProjectDetailsEntity(details).getProperties();
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
         });
-        this.logger.error(
-          `ProjectsService::getProjectDetailsById ${err.message}`,
-        );
-        return undefined;
+        scope.setExtra("input", id);
+        Sentry.captureException(err);
       });
+      this.logger.error(
+        `ProjectsService::getProjectDetailsById ${err.message}`,
+      );
+      return undefined;
+    }
   }
 
   async getProjectsByOrgId(
     id: string,
   ): Promise<ProjectProperties[] | undefined> {
-    return this.neo4jService
-      .read(
-        `
-        MATCH (:Organization {orgId: $id})-[:HAS_PROJECT]->(p:Project)
-        RETURN PROPERTIES(p) as res
-        `,
-        { id },
-      )
-      .then(res =>
-        res.records.map(record => record.get("res") as ProjectProperties),
-      )
-      .catch(err => {
+    await this.models.validateCache();
+
+    const cachedProjects = await this.getCachedProjects<
+      Project & { orgName: string }
+    >();
+
+    const results: (Project & { orgName: string })[] = cachedProjects;
+    if (cachedProjects.length !== 0) {
+      this.logger.log("Found cached projects.");
+      return results
+        .filter(project => project.orgId === id)
+        .map(project => ({
+          id: project.id,
+          url: project.url,
+          name: project.name,
+          orgId: project.orgId,
+          isMainnet: project.isMainnet,
+          tvl: project.tvl,
+          logo: project.logo,
+          teamSize: project.teamSize,
+          category: project.category,
+          tokenSymbol: project.tokenSymbol,
+          monthlyFees: project.monthlyFees,
+          monthlyVolume: project.monthlyVolume,
+          monthlyRevenue: project.monthlyRevenue,
+          monthlyActiveUsers: project.monthlyActiveUsers,
+        }));
+    } else {
+      this.logger.log("No cached projects found, retrieving from db.");
+      try {
+        const projects = await this.models.Projects.findMany({
+          where: { orgId: id },
+        });
+        return projects.map(project => project.getBaseProperties());
+      } catch (err) {
         Sentry.withScope(scope => {
           scope.setTags({
             action: "db-call",
@@ -348,21 +348,42 @@ export class ProjectsService {
         });
         this.logger.error(`ProjectsService::getProjectByOrgId ${err.message}`);
         return undefined;
-      });
+      }
+    }
   }
 
   async getProjects(): Promise<ProjectProperties[]> {
-    return this.neo4jService
-      .read(
-        `
-        MATCH (p:Project)
-        RETURN PROPERTIES(p) as res
-        `,
-      )
-      .then(res =>
-        res.records.map(record => record.get("res") as ProjectProperties),
-      )
-      .catch(err => {
+    await this.models.validateCache();
+
+    const cachedProjects = await this.getCachedProjects<
+      Project & { orgName: string }
+    >();
+
+    const results: (Project & { orgName: string })[] = cachedProjects;
+    if (cachedProjects.length !== 0) {
+      this.logger.log("Found cached projects.");
+      return results.map(project => ({
+        id: project.id,
+        url: project.url,
+        name: project.name,
+        orgId: project.orgId,
+        isMainnet: project.isMainnet,
+        tvl: project.tvl,
+        logo: project.logo,
+        teamSize: project.teamSize,
+        category: project.category,
+        tokenSymbol: project.tokenSymbol,
+        monthlyFees: project.monthlyFees,
+        monthlyVolume: project.monthlyVolume,
+        monthlyRevenue: project.monthlyRevenue,
+        monthlyActiveUsers: project.monthlyActiveUsers,
+      }));
+    } else {
+      this.logger.log("No cached projects found, retrieving from db.");
+      try {
+        const projects = await this.models.Projects.findMany();
+        return projects.map(project => project.getBaseProperties());
+      } catch (err) {
         Sentry.withScope(scope => {
           scope.setTags({
             action: "db-call",
@@ -372,112 +393,79 @@ export class ProjectsService {
         });
         this.logger.error(`ProjectsService::getProjects ${err.message}`);
         return undefined;
-      });
+      }
+    }
   }
 
-  async getProjectsByCategory(category: string): Promise<Project[]> {
-    return this.neo4jService
-      .read(
-        `
-        MATCH (p:Project)-[:HAS_CATEGORY]->(:ProjectCategory { name: $category })
-        RETURN PROPERTIES(p) as res
-        `,
-        { category },
-      )
-      .then(res => res.records.map(record => record.get("res") as Project))
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "projects.service",
-          });
-          scope.setExtra("input", category);
-          Sentry.captureException(err);
+  async getProjectsByCategory(category: string): Promise<ProjectProps[]> {
+    try {
+      return this.models.Projects.getProjectsByCategory(category);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
         });
-        this.logger.error(
-          `ProjectsService::getProjectsByCategory ${err.message}`,
-        );
-        return undefined;
+        scope.setExtra("input", category);
+        Sentry.captureException(err);
       });
+      this.logger.error(
+        `ProjectsService::getProjectsByCategory ${err.message}`,
+      );
+      return undefined;
+    }
   }
 
-  async getProjectCompetitors(id: string): Promise<Project[]> {
-    return this.neo4jService
-      .read(
-        `
-        MATCH (c:ProjectCategory)<-[:HAS_CATEGORY]-(:Project {id: $id})
-        MATCH (c)<-[:HAS_CATEGORY]-(p:Project)
-        WHERE p.id <> $id
-        RETURN PROPERTIES(p) as res
-        `,
-        { id },
-      )
-      .then(res => res.records.map(record => record.get("res") as Project))
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "projects.service",
-          });
-          scope.setExtra("input", id);
-          Sentry.captureException(err);
+  async getProjectCompetitors(id: string): Promise<ProjectProps[]> {
+    try {
+      return this.models.Projects.getProjectCompetitors(id);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
         });
-        this.logger.error(
-          `ProjectsService::getProjectCompetitors ${err.message}`,
-        );
-        return undefined;
+        scope.setExtra("input", id);
+        Sentry.captureException(err);
       });
+      this.logger.error(
+        `ProjectsService::getProjectCompetitors ${err.message}`,
+      );
+      return undefined;
+    }
   }
 
-  async searchProjects(query: string): Promise<Project[]> {
-    return this.neo4jService
-      .read(
-        `
-        MATCH (p:Project)
-        WHERE p.name =~ $query
-        RETURN PROPERTIES(p) as res
-        `,
-        { query: `(?i).*${query}.*` },
-      )
-      .then(res => res.records.map(record => record.get("res") as Project))
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "projects.service",
-          });
-          scope.setExtra("input", query);
-          Sentry.captureException(err);
+  async searchProjects(query: string): Promise<ProjectProps[]> {
+    try {
+      return this.models.Projects.searchProjects(query);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
         });
-        this.logger.error(`ProjectsService::searchProjects ${err.message}`);
-        return undefined;
+        scope.setExtra("input", query);
+        Sentry.captureException(err);
       });
+      this.logger.error(`ProjectsService::searchProjects ${err.message}`);
+      return undefined;
+    }
   }
 
-  async getProjectById(id: string): Promise<Project | undefined> {
-    return this.neo4jService
-      .read(
-        `
-        MATCH (p:Project)
-        WHERE p.id = $id
-        RETURN PROPERTIES(p) as res
-        `,
-        { id },
-      )
-      .then(res =>
-        res.records[0] ? (res.records[0].get("res") as Project) : undefined,
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "projects.service",
-          });
-          scope.setExtra("input", id);
-          Sentry.captureException(err);
+  async getProjectById(id: string): Promise<ProjectProps | undefined> {
+    try {
+      return this.models.Projects.getProjectById(id);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
         });
-        this.logger.error(`ProjectsService::getProjectById ${err.message}`);
-        return undefined;
+        scope.setExtra("input", id);
+        Sentry.captureException(err);
       });
+      this.logger.error(`ProjectsService::getProjectById ${err.message}`);
+      return undefined;
+    }
   }
 }

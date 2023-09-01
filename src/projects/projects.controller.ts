@@ -53,6 +53,7 @@ import {
 } from "src/shared/presets/cache-control";
 import { ValidationError } from "class-validator";
 import { ProjectListParams } from "./dto/project-list.input";
+import { ProjectProps } from "src/shared/models";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -225,7 +226,7 @@ export class ProjectsController {
   })
   async getProjectsByCategory(
     @Param("category") category: string,
-  ): Promise<Response<Project[]> | ResponseWithNoData> {
+  ): Promise<Response<ProjectProps[]> | ResponseWithNoData> {
     this.logger.log(`/projects/category/${category}`);
     return this.projectsService
       .getProjectsByCategory(category)
@@ -258,7 +259,7 @@ export class ProjectsController {
   })
   async getProjectCompetitors(
     @Param("id") id: string,
-  ): Promise<Response<Project[]> | ResponseWithNoData> {
+  ): Promise<Response<ProjectProps[]> | ResponseWithNoData> {
     this.logger.log(`/projects/competitors/${id}`);
     return this.projectsService
       .getProjectCompetitors(id)
@@ -292,7 +293,7 @@ export class ProjectsController {
   })
   async getProjectsByOrgId(
     @Param("id") id: string,
-  ): Promise<Response<Project[]> | ResponseWithNoData> {
+  ): Promise<Response<ProjectProps[]> | ResponseWithNoData> {
     this.logger.log(`/projects/all/${id}`);
     return this.projectsService
       .getProjectsByOrgId(id)
@@ -326,7 +327,7 @@ export class ProjectsController {
   })
   async searchProjects(
     @Query("query") query: string,
-  ): Promise<Response<Project[]> | ResponseWithNoData> {
+  ): Promise<Response<ProjectProps[]> | ResponseWithNoData> {
     this.logger.log(`/projects/search?query=${query}`);
     return this.projectsService
       .searchProjects(query)
@@ -360,7 +361,7 @@ export class ProjectsController {
   async getProjectDetails(
     @Param("id") id: string,
     @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<Response<Project> | ResponseWithNoData> {
+  ): Promise<Response<ProjectProps> | ResponseWithNoData> {
     this.logger.log(`/projects/${id}`);
     const result = await this.projectsService.getProjectById(id);
 

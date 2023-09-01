@@ -363,7 +363,7 @@ export class JobsService {
       if (result?.audits) {
         return result;
       } else {
-        const result = await this.neogma.queryRunner
+        const freshResult = await this.neogma.queryRunner
           .run(
             `
         MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)
@@ -417,10 +417,10 @@ export class JobsService {
           );
         await this.cacheManager.set(
           JOBS_LIST_FILTER_CONFIGS_CACHE_KEY,
-          JSON.stringify(result),
+          JSON.stringify(freshResult),
           IN_MEM_CACHE_EXPIRY,
         );
-        return result;
+        return freshResult;
       }
     } catch (err) {
       Sentry.withScope(scope => {
@@ -614,7 +614,7 @@ export class JobsService {
       if (result?.categories) {
         return result;
       } else {
-        const result = await this.neogma.queryRunner
+        const freshResult = await this.neogma.queryRunner
           .run(
             `
         MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)
@@ -636,10 +636,10 @@ export class JobsService {
           );
         await this.cacheManager.set(
           ALL_JOBS_FILTER_CONFIGS_CACHE_KEY,
-          JSON.stringify(result),
+          JSON.stringify(freshResult),
           IN_MEM_CACHE_EXPIRY,
         );
-        return result;
+        return freshResult;
       }
     } catch (err) {
       Sentry.withScope(scope => {

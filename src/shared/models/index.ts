@@ -5,6 +5,7 @@ export * from "./jobsite.model";
 export * from "./jobpost.model";
 export * from "./project.model";
 export * from "./jobpost-category.model";
+export * from "./project-category.model";
 export * from "./jobpost-status.model";
 export * from "./funding-round.model";
 export * from "./investor.model";

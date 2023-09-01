@@ -9,6 +9,8 @@ import {
   ALL_JOBS_FILTER_CONFIGS_CACHE_KEY,
   JOBS_LIST_CACHE_KEY,
   JOBS_LIST_FILTER_CONFIGS_CACHE_KEY,
+  PROJECTS_LIST_CACHE_KEY,
+  PROJECTS_LIST_FILTER_CONFIGS_CACHE_KEY,
   PUBLIC_JOBS_LIST_CACHE_KEY,
 } from "src/shared/constants";
 import {
@@ -38,7 +40,12 @@ import {
   OrganizationProps,
   OrganizationRelations,
   Organizations,
+  ProjectCategories,
+  ProjectCategoryProps,
+  ProjectMethods,
   ProjectProps,
+  ProjectRelations,
+  ProjectStatics,
   Projects,
   StructuredJobposStatics,
   StructuredJobpostMethods,
@@ -79,7 +86,12 @@ export class ModelService implements OnModuleInit {
     OrganizationRelations,
     OrganizationMethods
   >;
-  public Projects: NeogmaModel<ProjectProps, NoRelations>;
+  public Projects: NeogmaModel<
+    ProjectProps,
+    ProjectRelations,
+    ProjectMethods,
+    ProjectStatics
+  >;
   public Technologies: NeogmaModel<
     TechnologyProps,
     TechnologyRelations,
@@ -87,6 +99,7 @@ export class ModelService implements OnModuleInit {
     TechnologyStatics
   >;
   public JobpostCategories: NeogmaModel<JobpostCategoryProps, NoRelations>;
+  public ProjectCategories: NeogmaModel<ProjectCategoryProps, NoRelations>;
   public JobpostStatuses: NeogmaModel<JobpostStatusProps, NoRelations>;
   public FundingRounds: NeogmaModel<FundingRoundProps, FundingRoundRelations>;
   public Investors: NeogmaModel<InvestorProps, NoRelations>;
@@ -111,6 +124,7 @@ export class ModelService implements OnModuleInit {
     this.Projects = Projects(this.neogma);
     this.Technologies = Technologies(this.neogma);
     this.JobpostCategories = JobpostCategories(this.neogma);
+    this.ProjectCategories = ProjectCategories(this.neogma);
     this.JobpostStatuses = JobpostStatuses(this.neogma);
     this.FundingRounds = FundingRounds(this.neogma);
     this.Investors = Investors(this.neogma);
@@ -132,11 +146,13 @@ export class ModelService implements OnModuleInit {
       );
       const isDirty = (res.records[0]?.get("isDirty") as boolean) ?? false;
       if (isDirty) {
+        await this.cacheManager.del(ALL_JOBS_CACHE_KEY);
         await this.cacheManager.del(JOBS_LIST_CACHE_KEY);
+        await this.cacheManager.del(PROJECTS_LIST_CACHE_KEY);
         await this.cacheManager.del(PUBLIC_JOBS_LIST_CACHE_KEY);
         await this.cacheManager.del(JOBS_LIST_FILTER_CONFIGS_CACHE_KEY);
-        await this.cacheManager.del(ALL_JOBS_CACHE_KEY);
         await this.cacheManager.del(ALL_JOBS_FILTER_CONFIGS_CACHE_KEY);
+        await this.cacheManager.del(PROJECTS_LIST_FILTER_CONFIGS_CACHE_KEY);
       }
     } catch (error) {
       Sentry.withScope(scope => {
