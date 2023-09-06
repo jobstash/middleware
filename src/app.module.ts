@@ -17,7 +17,7 @@ import { ProjectsModule } from "./projects/projects.module";
 import { CacheModule } from "@nestjs/cache-manager";
 import { PublicModule } from "./public/public.module";
 import { ModelModule } from "./model/model.module";
-import { NeogmaModule } from "nest-neogma";
+import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
 
 @Module({
   imports: [
@@ -52,7 +52,7 @@ import { NeogmaModule } from "nest-neogma";
           scheme: configService.get<string>("NEO4J_SCHEME"),
           username: configService.get<string>("NEO4J_USERNAME"),
           database: configService.get<string>("NEO4J_DATABASE"),
-        } as Neo4jConnection),
+        } as NeogmaModuleOptions),
     }),
     CacheModule.register({ isGlobal: true }),
     AuthModule,

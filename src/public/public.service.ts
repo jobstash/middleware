@@ -101,7 +101,9 @@ export class PublicService {
           scope.setExtra("input", params);
           Sentry.captureException(err);
         });
-        this.logger.error(`JobsService::getJobsListWithSearch ${err.message}`);
+        this.logger.error(
+          `PublicService::getAllJobsListWithSearch ${err.message}`,
+        );
         return {
           page: -1,
           count: 0,

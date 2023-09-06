@@ -77,6 +77,13 @@ export const Technologies = (
         },
       },
       primaryKeyField: "id",
+      relationships: {
+        blocked: {
+          model: TechnolgyBlockedTerms(neogma),
+          name: "IS_BLOCKED_TERM",
+          direction: "in",
+        },
+      },
       methods: {
         isBlockedTerm: async function (
           this: TechnologyInstance,
@@ -150,24 +157,26 @@ export const Technologies = (
         },
         getAllowedTerms: async function (): Promise<Technology[]> {
           const results: Technology[] = [];
-          const allTechnologies =
-            await this.models.Technologies.findRelationships({
-              alias: "blocked",
-            });
-          for (const technology of allTechnologies) {
-            const isBlockedTerm = technology.target.__existsInDatabase;
-            if (!isBlockedTerm) {
-              results.push(technology.source.getDataValues());
-            }
-          }
+          const query = new QueryBuilder()
+            .match({
+              label: "Technology",
+              identifier: "technology",
+            })
+            .raw("WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()")
+            .return("technology");
+          const result = await query.run(neogma.queryRunner);
+          result.records.forEach(record =>
+            results.push(
+              this.buildFromRecord(record.get("technology")).getDataValues(),
+            ),
+          );
           return results;
         },
         getBlockedTerms: async function (): Promise<Technology[]> {
           const results: Technology[] = [];
-          const allTechnologies =
-            await this.models.Technologies.findRelationships({
-              alias: "blocked",
-            });
+          const allTechnologies = await this.findRelationships({
+            alias: "blocked",
+          });
           for (const technology of allTechnologies) {
             const isBlockedTerm = technology.target.__existsInDatabase;
             if (isBlockedTerm) {

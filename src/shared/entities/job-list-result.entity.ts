@@ -110,6 +110,7 @@ export class JobListResultEntity {
             .map(fr => ({
               ...fr,
               raisedAmount: nonZeroOrNull(fr?.raisedAmount),
+              createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
               roundName: notStringOrNull(fr?.roundName),
               sourceLink: notStringOrNull(fr?.sourceLink),
             }))

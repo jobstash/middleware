@@ -2,7 +2,7 @@ import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Inject, Injectable, OnModuleInit } from "@nestjs/common";
 import * as Sentry from "@sentry/node";
 import { Cache } from "cache-manager";
-import { Neogma, NeogmaModel } from "neogma";
+import { Neogma, NeogmaModel, QueryBuilder } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import {
   ALL_JOBS_CACHE_KEY,
@@ -117,6 +117,7 @@ export class ModelService implements OnModuleInit {
     } catch (e) {
       this.logger.error(e);
     }
+    QueryBuilder.queryRunner = this.neogma.queryRunner;
     this.StructuredJobposts = StructuredJobposts(this.neogma);
     this.Jobposts = Jobposts(this.neogma);
     this.Jobsites = Jobsites(this.neogma);

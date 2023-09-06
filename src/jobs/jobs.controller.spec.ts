@@ -3,13 +3,13 @@ import { JobsController } from "./jobs.controller";
 import { JobsService } from "./jobs.service";
 import { JobListParams } from "./dto/job-list.input";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { Neo4jConnection } from "nest-neo4j/dist";
 import envSchema from "src/env-schema";
 import {
   AllJobsFilterConfigs,
   DateRange,
   JobFilterConfigs,
   JobListResult,
+  AllJobsListResult,
   Project,
 } from "src/shared/types";
 import { Integer } from "neo4j-driver";
@@ -20,11 +20,10 @@ import {
 } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
-import { AllJobsListResult } from "src/shared/interfaces/all-jobs-list-result.interface";
 import { CacheModule } from "@nestjs/cache-manager";
 import { Response } from "express";
 import { ModelModule } from "src/model/model.module";
-import { NeogmaModule } from "nest-neogma";
+import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
 import { ModelService } from "src/model/model.service";
 
 describe("JobsController", () => {
@@ -131,7 +130,7 @@ describe("JobsController", () => {
               scheme: configService.get<string>("NEO4J_SCHEME"),
               username: configService.get<string>("NEO4J_USERNAME"),
               database: configService.get<string>("NEO4J_DATABASE"),
-            } as Neo4jConnection),
+            } as NeogmaModuleOptions),
         }),
         CacheModule.register({ isGlobal: true }),
         ModelModule,
