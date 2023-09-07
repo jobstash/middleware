@@ -120,8 +120,8 @@ export const Technologies = (
                 { label: "Technology", identifier: "syn" },
               ],
             })
-            .with("WITH pt, COLLECT(syn) as synonyms, t").return(`
-              RETURN pt {
+            .with(["pt", "COLLECT(syn) as synonyms", "t"]).return(`
+              pt {
                 .*,
                 technology: t,
                 synonyms: synonyms
@@ -145,9 +145,9 @@ export const Technologies = (
                 { label: "Technology", identifier: "t2" },
               ],
             })
-            .with("WITH t1, COLLECT(DISTINCT PROPERTIES(t2)) as pairings")
+            .with(["t1", "COLLECT(DISTINCT PROPERTIES(t2)) as pairings"])
             .return(`
-              RETURN {
+              {
                 technology: PROPERTIES(t1),
                 pairings: pairings
               } as res
