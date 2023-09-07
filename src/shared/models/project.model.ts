@@ -5,7 +5,6 @@ import {
   Neogma,
   NeogmaInstance,
   NeogmaModel,
-  Op,
   QueryBuilder,
 } from "neogma";
 import {
@@ -844,11 +843,12 @@ export const Projects = (
             .return("PROPERTIES(project) as result");
           const result = await query.run(neogma.queryRunner);
           return result.records.map(
-            record => record.get("res") as ProjectMoreInfo,
+            record => record.get("result") as ProjectMoreInfo,
           );
         },
         getProjectCompetitors: async function (id: string) {
-          const query = new QueryBuilder()
+          const params = new BindParam({ id });
+          const query = new QueryBuilder(params)
             .match({
               related: [
                 {
@@ -861,11 +861,11 @@ export const Projects = (
                 },
               ],
             })
-            .match({ identifier: "project", where: { id: { [Op.ne]: id } } })
+            .raw("WHERE project.id <> $id")
             .return("PROPERTIES(project) as result");
           const result = await query.run(neogma.queryRunner);
           return result.records.map(
-            record => record.get("res") as ProjectMoreInfo,
+            record => record.get("result") as ProjectMoreInfo,
           );
         },
         getProjectById: async function (id: string) {
@@ -881,7 +881,7 @@ export const Projects = (
             })
             .return("PROPERTIES(project) as result");
           const result = await query.run(neogma.queryRunner);
-          return result?.records[0]?.get("res") as ProjectProps;
+          return result?.records[0]?.get("result") as ProjectProps;
         },
         searchProjects: async function (query: string) {
           const params = new BindParam({ query: `(?i).*${query}.*` });
