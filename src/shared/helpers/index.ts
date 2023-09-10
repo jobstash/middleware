@@ -18,6 +18,8 @@ import { getSchemaPath } from "@nestjs/swagger";
 import { Response } from "../interfaces/response.interface";
 import { TransformFnParams } from "class-transformer";
 import { CustomLogger } from "../utils/custom-logger";
+import { OrgListResult, ShortOrg } from "../interfaces";
+import { sort } from "fast-sort";
 
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
@@ -339,4 +341,32 @@ export const hasDuplicates = <A, B>(
   } else {
     return false;
   }
+};
+
+export const toShortOrg = (org: OrgListResult): ShortOrg => {
+  const {
+    orgId,
+    url,
+    name,
+    logo,
+    location,
+    headCount,
+    description,
+    technologies,
+  } = org;
+  const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
+  return {
+    orgId,
+    url,
+    name,
+    logo,
+    location,
+    headCount,
+    description,
+    technologies,
+    jobCount: org.jobs.length,
+    projectCount: org.projects.length,
+    lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
+    lastFundingDate: lastFundingRound?.date ?? 0,
+  };
 };

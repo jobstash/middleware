@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { Neo4jService } from "nest-neo4j/dist";
 import {
   ShortOrgEntity,
@@ -13,228 +13,134 @@ import {
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { OrgListParams } from "./dto/org-list.input";
-import { intConverter } from "src/shared/helpers";
+import { intConverter, toShortOrg } from "src/shared/helpers";
 import { RepositoryEntity } from "src/shared/entities/repository.entity";
-import { createNewSortInstance } from "fast-sort";
+import { createNewSortInstance, sort } from "fast-sort";
+import { ModelService } from "src/model/model.service";
+import { Neogma } from "neogma";
+import { InjectConnection } from "nest-neogma";
+import {
+  ORGS_LIST_CACHE_KEY,
+  ORGS_LIST_FILTER_CONFIGS_CACHE_KEY,
+} from "src/shared/constants";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { Cache } from "cache-manager";
+import { IN_MEM_CACHE_EXPIRY } from "src/shared/presets/cache-control";
 
 @Injectable()
 export class OrganizationsService {
   logger = new CustomLogger(OrganizationsService.name);
-  constructor(private readonly neo4jService: Neo4jService) {}
+  constructor(
+    @InjectConnection()
+    private neogma: Neogma,
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager: Cache,
+    private models: ModelService,
+    private readonly neo4jService: Neo4jService,
+  ) {}
 
-  async getOrgsListWithSearch(
-    params: OrgListParams,
-  ): Promise<PaginatedData<ShortOrg>> {
+  getCachedOrgs = async <K>(
+    cacheKey: string = ORGS_LIST_CACHE_KEY,
+  ): Promise<K[]> => {
+    const cachedOrgsString =
+      (await this.cacheManager.get<string>(cacheKey)) ?? "[]";
+    const cachedOrgs = JSON.parse(cachedOrgsString) as K[];
+    return cachedOrgs;
+  };
+
+  getCachedFilterConfigs = async <FC>(
+    cacheKey: string = ORGS_LIST_FILTER_CONFIGS_CACHE_KEY,
+  ): Promise<FC> => {
+    const cachedFilterConfigsString =
+      (await this.cacheManager.get<string>(cacheKey)) ?? "{}";
+    const cachedFilterConfigs = JSON.parse(cachedFilterConfigsString) as FC;
+    return cachedFilterConfigs;
+  };
+
+  getOrgListResults = async (): Promise<OrgListResult[]> => {
+    const results: OrgListResult[] = [];
+    // const generatedQuery = `
+    //   MATCH (organization: Organization)
+
+    //   MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
+    //   MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
+    //   MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
+
+    //   OPTIONAL MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
+    //   WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()
+
+    //   OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
+    //   OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
+
+    //   WITH organization,
+    //   COLLECT(DISTINCT {
+    //     id: structured_jobpost.id,
+    //       jobTitle: structured_jobpost.jobTitle,
+    //       role: structured_jobpost.role,
+    //       jobLocation: structured_jobpost.jobLocation,
+    //       jobApplyPageUrl: structured_jobpost.jobApplyPageUrl,
+    //       jobPageUrl: structured_jobpost.jobPageUrl,
+    //       shortUUID: structured_jobpost.shortUUID,
+    //       seniority: structured_jobpost.seniority,
+    //       jobCreatedTimestamp: structured_jobpost.jobCreatedTimestamp,
+    //       jobFoundTimestamp: structured_jobpost.jobFoundTimestamp,
+    //       minSalaryRange: structured_jobpost.minSalaryRange,
+    //       maxSalaryRange: structured_jobpost.maxSalaryRange,
+    //       medianSalary: structured_jobpost.medianSalary,
+    //       salaryCurrency: structured_jobpost.salaryCurrency,
+    //       aiDetectedTechnologies: structured_jobpost.aiDetectedTechnologies,
+    //       extractedTimestamp: structured_jobpost.extractedTimestamp,
+    //       team: structured_jobpost.team,
+    //       benefits: structured_jobpost.benefits,
+    //       culture: structured_jobpost.culture,
+    //       paysInCrypto: structured_jobpost.paysInCrypto,
+    //       offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+    //       jobCommitment: structured_jobpost.jobCommitment,
+    //   }) AS jobs,
+    //   COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
+    //   COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds,
+    //   COLLECT(DISTINCT PROPERTIES(technology)) AS technologies
+
+    //   WITH {
+    //     id: organization.id,
+    //     orgId: organization.orgId,
+    //     name: organization.name,
+    //     description: organization.description,
+    //     summary: organization.summary,
+    //     location: organization.location,
+    //     url: organization.url,
+    //     logo: organization.logo,
+    //     headCount: organization.headCount,
+    //     twitter: organization.twitter,
+    //     discord: organization.discord,
+    //     github: organization.github,
+    //     telegram: organization.telegram,
+    //     docs: organization.docs,
+    //     jobsiteLink: organization.jobsiteLink,
+    //     createdTimestamp: organization.createdTimestamp,
+    //     updatedTimestamp: organization.updatedTimestamp,
+    //     teamSize: organization.teamSize,
+    //     fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
+    //     investors: [investor in investors WHERE investor.id IS NOT NULL],
+    //     technologies: [technology in technologies WHERE technology.id IS NOT NULL],
+    //     jobs: [job in jobs WHERE job.id  IS NOT NULL]
+    //   } AS result
+
+    //   RETURN COLLECT(result) as results
+    // `;
     const generatedQuery = `
-            CALL {
-              MATCH (organization: Organization)
-              
-              OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
-              OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
-
-              OPTIONAL MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
-              OPTIONAL MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
-              WHERE (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
-
-              OPTIONAL MATCH (organization)-[:HAS_PROJECT]->(project:Project)
-              
-              // Note that investor and funding round data is left in node form. this is to allow for matching down the line to relate and collect them
-              WITH organization, 
-              COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
-              COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
-              COUNT(DISTINCT project) AS projectCount,
-              COUNT(DISTINCT structured_jobpost) AS jobCount,
-              MAX(funding_round.date) as most_recent_funding_round, 
-              MAX(structured_jobpost.jobCreatedTimestamp) as most_recent_jobpost
-
-              WHERE ($hasJobs IS NULL OR EXISTS {
-                MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
-                MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
-                MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
-              } = $hasJobs)
-
-              AND ($hasProjects IS NULL OR EXISTS {
-                MATCH (organization)-[:HAS_PROJECT]->(project:Project)
-              } = $hasProjects)
-              
-              AND ($minHeadCount IS NULL OR (organization.headCount IS NOT NULL AND organization.headCount >= $minHeadCount))
-              AND ($maxHeadCount IS NULL OR (organization.headCount IS NOT NULL AND organization.headCount <= $maxHeadCount))
-              AND ($locations IS NULL OR (organization.location IS NOT NULL AND organization.location IN $locations))
-              AND ($fundingRounds IS NULL OR (funding_rounds IS NOT NULL AND any(x IN funding_rounds WHERE x.roundName IN $fundingRounds)))
-              AND ($investors IS NULL OR (investors IS NOT NULL AND any(x IN investors WHERE x.name IN $investors)))
-              AND ($query IS NULL OR organization.name =~ $query)
-
-              CALL {
-                WITH funding_rounds
-                UNWIND funding_rounds as funding_round
-                WITH funding_round
-                ORDER BY funding_round.date DESC
-                WITH COLLECT(DISTINCT funding_round)[0] AS mrfr
-                RETURN mrfr.raisedAmount as lastFundingAmount, mrfr.date as lastFundingDate
-              }
-
-              RETURN {
-                  orgId: organization.orgId,
-                  url: organization.url,
-                  name: organization.name,
-                  location: organization.location,
-                  headCount: organization.headCount,
-                  jobCount: jobCount,
-                  projectCount: projectCount,
-                  lastFundingDate: lastFundingDate,
-                  lastFundingAmount: lastFundingAmount
-              } AS result, most_recent_jobpost
-            }
-            RETURN { shortOrg: result, recentJobDate: most_recent_jobpost } as res
-        `.replace(/^\s*$(?:\r\n?|\n)/gm, "");
-    // console.log(generatedQuery);
-    const paramsPassed = {
-      ...params,
-      query: params.query ? `(?i).*${params.query}.*` : null,
-      limit: params.limit ?? 10,
-      page: params.page ?? 1,
-    };
-    // console.log(paramsPassed);
-    return this.neo4jService
-      .read(generatedQuery, paramsPassed)
-      .then(res => {
-        type SortType = {
-          shortOrg: ShortOrg;
-          recentJobDate: number;
-        };
-        const results = res.records?.map(x => {
-          const res = x.get("res");
-          return {
-            shortOrg: new ShortOrgEntity(res.shortOrg).getProperties(),
-            recentJobDate: Number(res.recentJobDate) ?? 0,
-          };
-        });
-        const getSortParam = (org: SortType): number | null => {
-          switch (params.orderBy) {
-            case "recentFundingDate":
-              return org.shortOrg.lastFundingDate;
-            case "recentJobDate":
-              return org.recentJobDate;
-            case "headCount":
-              return org.shortOrg.headCount;
-            default:
-              return null;
-          }
-        };
-
-        let final: SortType[] = [];
-        const naturalSort = createNewSortInstance({
-          comparer: new Intl.Collator(undefined, {
-            numeric: true,
-            sensitivity: "base",
-          }).compare,
-        });
-        if (!params.order || params.order === "asc") {
-          final = naturalSort<SortType>(results).asc(x =>
-            params.orderBy ? getSortParam(x) : x.shortOrg.name,
-          );
-        } else {
-          final = naturalSort<SortType>(results).desc(x =>
-            params.orderBy ? getSortParam(x) : x.shortOrg.name,
-          );
-        }
-
-        return {
-          page: (final.length > 0 ? params.page ?? 1 : -1) ?? -1,
-          count: params.limit > final.length ? final.length : params.limit,
-          total: final.length ? intConverter(final.length) : 0,
-          data: final
-            .slice(
-              params.page > 1 ? params.page * params.limit : 0,
-              params.page === 1
-                ? params.limit
-                : (params.page + 1) * params.limit,
-            )
-            .map(x => x.shortOrg),
-        };
-      })
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "organizations.service",
-          });
-          scope.setExtra("input", params);
-          Sentry.captureException(err);
-        });
-        this.logger.error(
-          `OrganizationsService::getOrgsListWithSearch ${err.message}`,
-        );
-        return {
-          page: -1,
-          count: 0,
-          total: 0,
-          data: [],
-        };
-      });
-  }
-
-  async getFilterConfigs(): Promise<OrgFilterConfigs> {
-    return this.neo4jService
-      .read(
-        `
-        MATCH (o:Organization)
-        OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)
-        OPTIONAL MATCH (f)-[:INVESTED_BY]->(i:Investor)
-        WITH o, f, i
-        RETURN {
-            minHeadCount: MIN(CASE WHEN NOT o.headCount IS NULL AND isNaN(o.headCount) = false THEN o.headCount END),
-            maxHeadCount: MAX(CASE WHEN NOT o.headCount IS NULL AND isNaN(o.headCount) = false THEN o.headCount END),
-            fundingRounds: COLLECT(DISTINCT f.roundName),
-            investors: COLLECT(DISTINCT i.name),
-            locations: COLLECT(DISTINCT o.location)
-        } AS res
-
-      `,
-      )
-      .then(res =>
-        res.records.length
-          ? new OrgFilterConfigsEntity(
-              res.records[0].get("res"),
-            ).getProperties()
-          : undefined,
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "jobs.service",
-          });
-          Sentry.captureException(err);
-        });
-        this.logger.error(
-          `OrganizationsService::getFilterConfigs ${err.message}`,
-        );
-        return undefined;
-      });
-  }
-
-  async getOrgDetailsById(id: string): Promise<OrgListResult | undefined> {
-    return this.neo4jService
-      .read(
-        `
-        MATCH (organization:Organization {orgId: $id})
+        MATCH (organization:Organization)
+        
         OPTIONAL MATCH (organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
         OPTIONAL MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
         WHERE (jp)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
-        OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
-        OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
-        OPTIONAL MATCH (organization)-[:HAS_PROJECT]->(project:Project)
         OPTIONAL MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
         WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()
-        OPTIONAL MATCH (technology)<-[:IS_PREFERRED_TERM_OF]-(:PreferredTerm)
-        OPTIONAL MATCH (technology)<-[:IS_PAIRED_WITH]-(:TechnologyPairing)-[:IS_PAIRED_WITH]->(:Technology)
-        WITH organization, structured_jobpost, COLLECT(DISTINCT project) AS projectNodes, 
-          COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
-          COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
-          COLLECT(DISTINCT PROPERTIES(technology)) AS technologies
-        
-        WITH COLLECT(DISTINCT {
+
+        OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
+        OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
+
+        WITH organization, COLLECT(DISTINCT {
             id: structured_jobpost.id,
             jobTitle: structured_jobpost.jobTitle,
             role: structured_jobpost.role,
@@ -256,68 +162,12 @@ export class OrganizationsService {
             culture: structured_jobpost.culture,
             paysInCrypto: structured_jobpost.paysInCrypto,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
-            jobCommitment: structured_jobpost.jobCommitment,
-            technologies: technologies
-          }) as jobs, organization, projectNodes, investors, funding_rounds
-        
-        CALL {
-          WITH projectNodes
-          UNWIND projectNodes as project
-          OPTIONAL MATCH (project)-[:HAS_CATEGORY]->(project_category:ProjectCategory)
-          OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
-          OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
-          OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain:Chain)
-          WITH COLLECT(DISTINCT PROPERTIES(project_category)) AS categories,
-            COLLECT(DISTINCT PROPERTIES(hack)) as hacks, 
-            COLLECT(DISTINCT PROPERTIES(audit)) as audits, 
-            COLLECT(DISTINCT PROPERTIES(chain)) as chains, project
-          RETURN COLLECT(DISTINCT {
-            id: project.id,
-            defiLlamaId: project.defiLlamaId,
-            defiLlamaSlug: project.defiLlamaSlug,
-            defiLlamaParent: project.defiLlamaParent,
-            name: project.name,
-            description: project.description,
-            url: project.url,
-            logo: project.logo,
-            tokenAddress: project.tokenAddress,
-            tokenSymbol: project.tokenSymbol,
-            isInConstruction: project.isInConstruction,
-            tvl: project.tvl,
-            monthlyVolume: project.monthlyVolume,
-            monthlyFees: project.monthlyFees,
-            monthlyRevenue: project.monthlyRevenue,
-            monthlyActiveUsers: project.monthlyActiveUsers,
-            isMainnet: project.isMainnet,
-            telegram: project.telegram,
-            orgId: project.orgId,
-            cmcId: project.cmcId,
-            twitter: project.twitter,
-            discord: project.discord,
-            docs: project.docs,
-            teamSize: project.teamSize,
-            githubOrganization: project.githubOrganization,
-            category: project.category,
-            createdTimestamp: project.createdTimestamp,
-            updatedTimestamp: project.updatedTimestamp,
-            categories: [category in categories WHERE category.id IS NOT NULL],
-            hacks: [hack in hacks WHERE hack.id IS NOT NULL],
-            audits: [audit in audits WHERE audit.id IS NOT NULL],
-            chains: [chain in chains WHERE chain.id IS NOT NULL]
-          }) AS projects
-        }
+            jobCommitment: structured_jobpost.jobCommitment
+          }) as jobs,
+          COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
+          COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
+          COLLECT(DISTINCT PROPERTIES(technology)) AS technologies
 
-        CALL {
-          WITH organization
-          MATCH (organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
-          MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
-          MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
-          WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()
-          RETURN COLLECT(DISTINCT PROPERTIES(technology)) as technologies
-        }
-
-        WITH organization, funding_rounds, investors, projects, jobs, technologies
-        
         WITH {
           id: organization.id,
           orgId: organization.orgId,
@@ -337,162 +187,332 @@ export class OrganizationsService {
           createdTimestamp: organization.createdTimestamp,
           updatedTimestamp: organization.updatedTimestamp,
           teamSize: organization.teamSize,
-          projects: [project in projects WHERE project.id IS NOT NULL],
           fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
           investors: [investor in investors WHERE investor.id IS NOT NULL],
           jobs: [job in jobs WHERE job.id IS NOT NULL],
           technologies: [technology in technologies WHERE technology.id IS NOT NULL]
         } as res
         RETURN res
-        `,
-        { id },
-      )
-      .then(res =>
-        res.records.length
-          ? new OrgListResultEntity(res.records[0].get("res")).getProperties()
-          : undefined,
-      )
-      .catch(err => {
+        `;
+
+    try {
+      const projects = await this.models.Projects.getProjectsMoreInfoData();
+      const resultSet = (
+        await this.neogma.queryRunner.run(generatedQuery)
+      ).records?.map(record => record?.get("res") as OrgListResult);
+      for (const result of resultSet) {
+        const projectList = projects.filter(x => x.orgId === result.orgId);
+        const updatedResult: OrgListResult = {
+          ...result,
+          projects: projectList,
+        };
+        results.push(new OrgListResultEntity(updatedResult).getProperties());
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::getOrgsListResults ${err.message}`,
+      );
+    }
+
+    return results;
+  };
+
+  async getOrgsListWithSearch(
+    params: OrgListParams,
+  ): Promise<PaginatedData<ShortOrg>> {
+    const paramsPassed = {
+      ...params,
+      query: params.query ? `/${params.query}/g` : null,
+      limit: params.limit ?? 10,
+      page: params.page ?? 1,
+    };
+    const {
+      minHeadCount,
+      maxHeadCount,
+      locations: locationFilterList,
+      investors: investorFilterList,
+      fundingRounds: fundingRoundFilterList,
+      hasJobs,
+      hasProjects,
+      query,
+      order,
+      orderBy,
+      page,
+      limit,
+    } = paramsPassed;
+
+    await this.models.validateCache();
+
+    const cachedOrgs = await this.getCachedOrgs<OrgListResult>();
+
+    const results: OrgListResult[] = cachedOrgs;
+
+    if (cachedOrgs.length !== 0) {
+      this.logger.log("Found cached orgs");
+    } else {
+      this.logger.log("No cached orgs found, retrieving from db.");
+      try {
+        const result = await this.getOrgListResults();
+        results.push(...result);
+        await this.cacheManager.set(
+          ORGS_LIST_CACHE_KEY,
+          JSON.stringify(results),
+          IN_MEM_CACHE_EXPIRY,
+        );
+      } catch (err) {
         Sentry.withScope(scope => {
           scope.setTags({
             action: "db-call",
-            source: "jobs.service",
+            source: "organizations.service",
           });
-          scope.setExtra("input", id);
+          scope.setExtra("input", params);
           Sentry.captureException(err);
         });
         this.logger.error(
-          `OrganizationsService::getOrgDetailsById ${err.message}`,
+          `OrganizationsService::getOrgsListWithSearch ${err.message}`,
         );
-        return undefined;
+        return {
+          page: -1,
+          count: 0,
+          total: 0,
+          data: [],
+        };
+      }
+    }
+
+    const orgFilters = (org: OrgListResult): boolean => {
+      const { headCount, jobCount, projectCount, location, name } =
+        toShortOrg(org);
+      const { fundingRounds, investors } = org;
+      return (
+        (!query || name.match(query)) &&
+        (!hasJobs || jobCount > 0) &&
+        (!hasProjects || projectCount > 0) &&
+        (!minHeadCount || (headCount ?? 0) >= minHeadCount) &&
+        (!maxHeadCount || (headCount ?? 0) < maxHeadCount) &&
+        (!locationFilterList || locationFilterList.includes(location)) &&
+        (!investorFilterList ||
+          investors.filter(investor =>
+            investorFilterList.includes(investor.name),
+          ).length > 0) &&
+        (!fundingRoundFilterList ||
+          fundingRounds.filter(fundingRound =>
+            fundingRoundFilterList.includes(fundingRound.roundName),
+          ).length > 0)
+      );
+    };
+
+    const filtered = results.filter(orgFilters);
+
+    const getSortParam = (org: OrgListResult): number | null => {
+      const shortOrg = toShortOrg(org);
+      const lastJob = sort(org.jobs).desc(x => x.jobCreatedTimestamp)[0];
+      switch (orderBy) {
+        case "recentFundingDate":
+          return shortOrg?.lastFundingDate ?? 0;
+        case "recentJobDate":
+          return lastJob?.jobCreatedTimestamp ?? 0;
+        case "headCount":
+          return org?.headCount ?? 0;
+        default:
+          return null;
+      }
+    };
+
+    let final: OrgListResult[] = [];
+    const naturalSort = createNewSortInstance({
+      comparer: new Intl.Collator(undefined, {
+        numeric: true,
+        sensitivity: "base",
+      }).compare,
+    });
+    if (!order || order === "asc") {
+      final = naturalSort<OrgListResult>(filtered).asc(x =>
+        params.orderBy ? getSortParam(x) : x.name,
+      );
+    } else {
+      final = naturalSort<OrgListResult>(filtered).desc(x =>
+        params.orderBy ? getSortParam(x) : x.name,
+      );
+    }
+
+    return {
+      page: (final.length > 0 ? page ?? 1 : -1) ?? -1,
+      count: limit > final.length ? final.length : limit,
+      total: final.length ? intConverter(final.length) : 0,
+      data: final
+        .slice(
+          page > 1 ? page * limit : 0,
+          page === 1 ? limit : (page + 1) * limit,
+        )
+        .map(x => new ShortOrgEntity(toShortOrg(x)).getProperties()),
+    };
+  }
+
+  async getFilterConfigs(): Promise<OrgFilterConfigs> {
+    try {
+      const result = await this.getCachedFilterConfigs<OrgFilterConfigs>();
+      if (result?.fundingRounds) {
+        return result;
+      } else {
+        const freshResult = await this.neogma.queryRunner
+          .run(
+            `
+              MATCH (o:Organization)
+              OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)
+              OPTIONAL MATCH (f)-[:INVESTED_BY]->(i:Investor)
+              WITH o, f, i
+              RETURN {
+                  minHeadCount: MIN(CASE WHEN NOT o.headCount IS NULL AND isNaN(o.headCount) = false THEN o.headCount END),
+                  maxHeadCount: MAX(CASE WHEN NOT o.headCount IS NULL AND isNaN(o.headCount) = false THEN o.headCount END),
+                  fundingRounds: COLLECT(DISTINCT f.roundName),
+                  investors: COLLECT(DISTINCT i.name),
+                  locations: COLLECT(DISTINCT o.location)
+              } AS res
+      `,
+          )
+          .then(res =>
+            res.records.length
+              ? new OrgFilterConfigsEntity(
+                  res.records[0].get("res"),
+                ).getProperties()
+              : undefined,
+          );
+        await this.cacheManager.set(
+          ORGS_LIST_FILTER_CONFIGS_CACHE_KEY,
+          JSON.stringify(freshResult),
+          IN_MEM_CACHE_EXPIRY,
+        );
+        return freshResult;
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        Sentry.captureException(err);
       });
+      this.logger.error(
+        `OrganizationsService::getFilterConfigs ${err.message}`,
+      );
+      return undefined;
+    }
+  }
+
+  async getOrgDetailsById(id: string): Promise<OrgListResult | undefined> {
+    try {
+      await this.models.validateCache();
+
+      const cachedOrgs = await this.getCachedOrgs<OrgListResult>();
+
+      if (cachedOrgs.length === 0) {
+        return (await this.getOrgListResults()).find(org => org.orgId === id);
+      } else {
+        return cachedOrgs.find(org => org.orgId === id);
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        scope.setExtra("input", id);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::getOrgDetailsById ${err.message}`,
+      );
+      return undefined;
+    }
   }
 
   async getAll(): Promise<ShortOrg[]> {
-    return this.neo4jService
-      .read(
-        `
-        MATCH (o:Organization)
-        OPTIONAL MATCH (o)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)
-        OPTIONAL MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
-        WHERE (jp)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
-        OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)
-        OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)
-        OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
-        WHERE NOT (t)<-[:IS_BLOCKED_TERM]-()
-        AND (t)<-[:IS_PREFERRED_TERM_OF]-(:PreferredTerm)
-        AND (t)<-[:IS_PAIRED_WITH]-(:TechnologyPairing)-[:IS_PAIRED_WITH]->(:Technology)
-        WITH o.orgId as orgId, o.logoUrl as logo, o.name as name, o.location as location, o.headCount as headCount, COUNT(DISTINCT p) as projectCount, COUNT(DISTINCT j) as jobCount, COLLECT(DISTINCT t) as technologies, fr
-        ORDER BY fr.date DESC
-        WITH orgId, name, logo, location, headCount, projectCount, jobCount, technologies, collect(fr)[0] as mrfr
-        RETURN { orgId: orgId, name: name, logo: logo, location: location, headCount: headCount, projectCount: projectCount, jobCount: jobCount, technologies: technologies, lastFundingAmount: mrfr.raisedAmount, lastFundingDate: mrfr.date } as res
-        `,
-      )
-      .then(res =>
-        res.records.map(record => {
-          const ent = new ShortOrgEntity(record.get("res")).getProperties();
-          return ent;
-        }),
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "organizations.service",
-          });
-          Sentry.captureException(err);
+    try {
+      await this.models.validateCache();
+
+      const cachedOrgs = await this.getCachedOrgs<OrgListResult>();
+
+      const results: ShortOrg[] = cachedOrgs.map(org =>
+        new ShortOrgEntity(toShortOrg(org)).getProperties(),
+      );
+
+      if (
+        cachedOrgs === null ||
+        cachedOrgs === undefined ||
+        cachedOrgs.length === 0
+      ) {
+        results.push(
+          ...(await this.getOrgListResults()).map(org =>
+            new ShortOrgEntity(toShortOrg(org)).getProperties(),
+          ),
+        );
+        return results;
+      } else {
+        return results;
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "organizations.service",
         });
-        this.logger.error(`OrganizationsService::getAll ${err.message}`);
-        return undefined;
+        Sentry.captureException(err);
       });
+      this.logger.error(`OrganizationsService::getAll ${err.message}`);
+      return undefined;
+    }
   }
 
   async searchOrganizations(query: string): Promise<ShortOrg[]> {
-    return this.neo4jService
-      .read(
-        `
-        MATCH (o:Organization)
-        OPTIONAL MATCH (o)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)
-        OPTIONAL MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
-        WHERE (jp)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
-        OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)
-        OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)
-        OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
-        WHERE NOT (t)<-[:IS_BLOCKED_TERM]-()
-        AND (t)<-[:IS_PREFERRED_TERM_OF]-(:PreferredTerm)
-        AND (t)<-[:IS_PAIRED_WITH]-(:TechnologyPairing)-[:IS_PAIRED_WITH]->(:Technology)
-        WITH o, COUNT(DISTINCT p) as projectCount, COUNT(DISTINCT j) as jobCount, COLLECT(DISTINCT t) as technologies, fr
-        ORDER BY fr.date DESC
-        WITH o, projectCount, jobCount, technologies, COLLECT(fr)[0] as mrfr, COLLECT(fr) as fundingRounds
-        WHERE o.name =~ $query
-        RETURN { id: o.orgId, name: o.name, logo: o.logo, location: o.location, headCount: o.headCount, projectCount: projectCount, jobCount: jobCount, technologies: technologies, lastFundingAmount: mrfr.raisedAmount, lastFundingDate: mrfr.date, url: o.url, description: o.description, github: o.github, twitter: o.twitter, telegram: o.telegram, discord: o.discord, fundingRounds: fundingRounds } as res
-        `,
-        { query: `(?i).*${query}.*` },
-      )
-      .then(res =>
-        res.records.map(record =>
-          new ShortOrgEntity(record.get("res")).getProperties(),
-        ),
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "organizations.service",
-          });
-          scope.setExtra("input", query);
-          Sentry.captureException(err);
+    const parsedQuery = `/${query}/g`;
+    try {
+      const all = await this.getAll();
+      return all.filter(x => parsedQuery.match(x.name));
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "organizations.service",
         });
-        this.logger.error(
-          `OrganizationsService::searchOrganizations ${err.message}`,
-        );
-        return undefined;
+        scope.setExtra("input", query);
+        Sentry.captureException(err);
       });
+      this.logger.error(
+        `OrganizationsService::searchOrganizations ${err.message}`,
+      );
+      return undefined;
+    }
   }
 
   async getOrgById(id: string): Promise<ShortOrg | undefined> {
-    return this.neo4jService
-      .read(
-        `
-        MATCH (o:Organization {orgId: $id})
-        OPTIONAL MATCH (o)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)
-        OPTIONAL MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
-        WHERE (jp)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
-        OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)
-        OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)
-        OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
-        WHERE NOT (t)<-[:IS_BLOCKED_TERM]-()
-        AND (t)<-[:IS_PREFERRED_TERM_OF]-(:PreferredTerm)
-        AND (t)<-[:IS_PAIRED_WITH]-(:TechnologyPairing)-[:IS_PAIRED_WITH]->(:Technology)
-        WITH o, COUNT(DISTINCT p) as projectCount, COUNT(DISTINCT j) as jobCount, COLLECT(DISTINCT t) as technologies, fr
-        ORDER BY fr.date DESC
-        WITH o, projectCount, jobCount, technologies, COLLECT(fr)[0] as mrfr, COLLECT(fr) as fundingRounds
-        RETURN { id: o.orgId, name: o.name, logo: o.logo, location: o.location, headCount: o.headCount, projectCount: projectCount, jobCount: jobCount, technologies: technologies, lastFundingAmount: mrfr.raisedAmount, lastFundingDate: mrfr.date, url: o.url, description: o.description, github: o.github, twitter: o.twitter, telegram: o.telegram, discord: o.discord, fundingRounds: fundingRounds } as res
-        `,
-        { id },
-      )
-      .then(res =>
-        res.records[0]
-          ? new ShortOrgEntity(res.records[0].get("res")).getProperties()
-          : undefined,
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "organizations.service",
-          });
-          scope.setExtra("input", id);
-          Sentry.captureException(err);
+    try {
+      const all = await this.getAll();
+      return all.find(x => x.orgId === id);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "organizations.service",
         });
-        this.logger.error(`OrganizationsService::getOrgById ${err.message}`);
-        return undefined;
+        scope.setExtra("input", id);
+        Sentry.captureException(err);
       });
+      this.logger.error(`OrganizationsService::getOrgById ${err.message}`);
+      return undefined;
+    }
   }
 
   async getRepositories(id: string): Promise<Repository[]> {
-    return this.neo4jService
-      .read(
+    return this.neogma.queryRunner
+      .run(
         `
         MATCH (:Organization {orgId: $id})-[:HAS_REPOSITORY]->(r:Repository)
         RETURN r as res

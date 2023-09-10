@@ -19,9 +19,13 @@ import { BackendService } from "src/backend/backend.service";
 import { createMock } from "@golevelup/ts-jest";
 import { report } from "io-ts-human-reporter";
 import { Response } from "express";
+import { ModelService } from "src/model/model.service";
+import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
+import { CacheModule } from "@nestjs/cache-manager";
 
 describe("OrganizationsController", () => {
   let controller: OrganizationsController;
+  let models: ModelService;
 
   const projectHasArrayPropsDuplication = (
     project: Project,
@@ -96,7 +100,7 @@ describe("OrganizationsController", () => {
     );
   };
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({
@@ -119,20 +123,45 @@ describe("OrganizationsController", () => {
               database: configService.get<string>("NEO4J_DATABASE"),
             } as Neo4jConnection),
         }),
+        NeogmaModule.forRootAsync({
+          imports: [ConfigModule],
+          inject: [ConfigService],
+          useFactory: (configService: ConfigService) =>
+            ({
+              host: configService.get<string>("NEO4J_HOST"),
+              password: configService.get<string>("NEO4J_PASSWORD"),
+              port: configService.get<string>("NEO4J_PORT"),
+              scheme: configService.get<string>("NEO4J_SCHEME"),
+              username: configService.get<string>("NEO4J_USERNAME"),
+              database: configService.get<string>("NEO4J_DATABASE"),
+            } as NeogmaModuleOptions),
+        }),
+        CacheModule.register({ isGlobal: true }),
       ],
       controllers: [OrganizationsController],
       providers: [
         OrganizationsService,
         { provide: BackendService, useValue: createMock<BackendService>() },
+        ModelService,
       ],
     }).compile();
 
+    await module.init();
+    models = module.get<ModelService>(ModelService);
+    await models.onModuleInit();
     controller = module.get<OrganizationsController>(OrganizationsController);
   });
 
   it("should be defined", () => {
     expect(controller).toBeDefined();
   });
+
+  it("should be able to access models", async () => {
+    expect(models.Organizations.findMany).toBeDefined();
+    expect(
+      (await models.Organizations.findMany()).length,
+    ).toBeGreaterThanOrEqual(1);
+  }, 10000);
 
   it("should get orgs list with no org and array property duplication", async () => {
     const params: OrgListParams = {

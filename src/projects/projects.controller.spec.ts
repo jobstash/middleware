@@ -2,7 +2,6 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ProjectsController } from "./projects.controller";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import envSchema from "src/env-schema";
-import { Neo4jConnection, Neo4jModule } from "nest-neo4j/dist";
 import { ProjectsService } from "./projects.service";
 import { ProjectListParams } from "./dto/project-list.input";
 import { Integer } from "neo4j-driver";
@@ -17,9 +16,13 @@ import { createMock } from "@golevelup/ts-jest";
 import { isRight } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
 import { Response } from "express";
+import { ModelService } from "src/model/model.service";
+import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
+import { CacheModule } from "@nestjs/cache-manager";
 
 describe("ProjectsController", () => {
   let controller: ProjectsController;
+  let models: ModelService;
 
   const projectHasArrayPropsDuplication = (
     project: ProjectDetails,
@@ -46,7 +49,7 @@ describe("ProjectsController", () => {
     return hasDuplicateAudits && hasDuplicateHacks && hasDuplicateChains;
   };
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({
@@ -56,7 +59,7 @@ describe("ProjectsController", () => {
             abortEarly: true,
           },
         }),
-        Neo4jModule.forRootAsync({
+        NeogmaModule.forRootAsync({
           imports: [ConfigModule],
           inject: [ConfigService],
           useFactory: (configService: ConfigService) =>
@@ -67,22 +70,34 @@ describe("ProjectsController", () => {
               scheme: configService.get<string>("NEO4J_SCHEME"),
               username: configService.get<string>("NEO4J_USERNAME"),
               database: configService.get<string>("NEO4J_DATABASE"),
-            } as Neo4jConnection),
+            } as NeogmaModuleOptions),
         }),
+        CacheModule.register({ isGlobal: true }),
       ],
       controllers: [ProjectsController],
       providers: [
         ProjectsService,
         { provide: BackendService, useValue: createMock<BackendService>() },
+        ModelService,
       ],
     }).compile();
 
+    await module.init();
+    models = module.get<ModelService>(ModelService);
+    await models.onModuleInit();
     controller = module.get<ProjectsController>(ProjectsController);
   });
 
   it("should be defined", () => {
     expect(controller).toBeDefined();
   });
+
+  it("should be able to access models", async () => {
+    expect(models.Organizations.findMany).toBeDefined();
+    expect(
+      (await models.Organizations.findMany()).length,
+    ).toBeGreaterThanOrEqual(1);
+  }, 10000);
 
   it("should get projects list with no duplication", async () => {
     const params: ProjectListParams = {

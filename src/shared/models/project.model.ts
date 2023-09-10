@@ -387,6 +387,7 @@ export const Projects = (
             .with([
               "project_category",
               "project",
+              "organization",
               "COLLECT(DISTINCT PROPERTIES(hack)) as hacks",
               "COLLECT(DISTINCT PROPERTIES(audit)) as audits",
               "COLLECT(DISTINCT PROPERTIES(chain)) as chains",

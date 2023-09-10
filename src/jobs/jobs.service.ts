@@ -21,7 +21,6 @@ import {
   notStringOrNull,
   publicationDateRangeGenerator,
 } from "src/shared/helpers";
-import { OrganizationInstance } from "src/shared/models";
 import {
   AllJobsFilterConfigs,
   DateRange,
@@ -66,56 +65,192 @@ export class JobsService {
     return cachedFilterConfigs;
   };
 
-  getOrgJobsListResults = async (
-    organization: OrganizationInstance,
-  ): Promise<JobListResult[]> => {
+  getJobsListResults = async (): Promise<JobListResult[]> => {
     const results: JobListResult[] = [];
-    const fundingRounds = await organization.getFundingRoundsData();
-    const investors = await organization.getInvestorsData();
-    const projects = await organization.getProjectsMoreInfoData();
-    const jobsites = await organization.getJobsites();
-    for (const jobsite of jobsites) {
-      const structuredJobposts = await jobsite.getTechnicalStructuredJobposts();
-      for (const structuredJobpost of structuredJobposts) {
-        const technologies =
-          await structuredJobpost.getUnblockedTechnologiesData();
-        results.push(
-          new JobListResultEntity({
-            ...structuredJobpost.getDataValues(),
-            organization: {
-              ...organization.getDataValues(),
-              fundingRounds: fundingRounds,
-              investors: investors,
-              projects: projects,
-            },
-            technologies: technologies,
-          }).getProperties(),
+    const generatedQuery = `
+      MATCH (organization: Organization)
+
+      MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
+      MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
+      MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
+                
+      OPTIONAL MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
+      WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()
+      
+      OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
+      OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
+      
+      WITH structured_jobpost, organization, 
+      COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
+      COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
+      COLLECT(DISTINCT PROPERTIES(technology)) AS technologies
+
+      WITH {
+          id: structured_jobpost.id,
+          jobTitle: structured_jobpost.jobTitle,
+          role: structured_jobpost.role,
+          jobLocation: structured_jobpost.jobLocation,
+          jobApplyPageUrl: structured_jobpost.jobApplyPageUrl,
+          jobPageUrl: structured_jobpost.jobPageUrl,
+          shortUUID: structured_jobpost.shortUUID,
+          seniority: structured_jobpost.seniority,
+          jobCreatedTimestamp: structured_jobpost.jobCreatedTimestamp,
+          jobFoundTimestamp: structured_jobpost.jobFoundTimestamp,
+          minSalaryRange: structured_jobpost.minSalaryRange,
+          maxSalaryRange: structured_jobpost.maxSalaryRange,
+          medianSalary: structured_jobpost.medianSalary,
+          salaryCurrency: structured_jobpost.salaryCurrency,
+          aiDetectedTechnologies: structured_jobpost.aiDetectedTechnologies,
+          extractedTimestamp: structured_jobpost.extractedTimestamp,
+          team: structured_jobpost.team,
+          benefits: structured_jobpost.benefits,
+          culture: structured_jobpost.culture,
+          paysInCrypto: structured_jobpost.paysInCrypto,
+          offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+          jobCommitment: structured_jobpost.jobCommitment,
+          organization: {
+              id: organization.id,
+              orgId: organization.orgId,
+              name: organization.name,
+              description: organization.description,
+              summary: organization.summary,
+              location: organization.location,
+              url: organization.url,
+              logo: organization.logo,
+              headCount: organization.headCount,
+              twitter: organization.twitter,
+              discord: organization.discord,
+              github: organization.github,
+              telegram: organization.telegram,
+              docs: organization.docs,
+              jobsiteLink: organization.jobsiteLink,
+              createdTimestamp: organization.createdTimestamp,
+              updatedTimestamp: organization.updatedTimestamp,
+              teamSize: organization.teamSize,
+              fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
+              investors: [investor in investors WHERE investor.id IS NOT NULL]
+          },
+          technologies: [technology in technologies WHERE technology.id IS NOT NULL]
+      } AS result
+
+      RETURN COLLECT(result) as results
+    `;
+
+    try {
+      const projects = await this.models.Projects.getProjectsMoreInfoData();
+      const resultSet = (
+        await this.neogma.queryRunner.run(generatedQuery)
+      ).records[0]?.get("results") as JobListResult[];
+      for (const result of resultSet) {
+        const projectList = projects.filter(
+          x => x.orgId === result.organization.orgId,
         );
+        const updatedResult: JobListResult = {
+          ...result,
+          organization: {
+            ...result.organization,
+            projects: projectList,
+          },
+        };
+        results.push(new JobListResultEntity(updatedResult).getProperties());
       }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getJobsListResults ${err.message}`);
     }
+
     return results;
   };
 
-  getOrgAllJobsListResults = async (
-    organization: OrganizationInstance,
-  ): Promise<AllJobsListResult[]> => {
+  getAllJobsListResults = async (): Promise<AllJobsListResult[]> => {
     const results: AllJobsListResult[] = [];
-    const jobsites = await organization.getJobsites();
-    for (const jobsite of jobsites) {
-      const structuredJobposts = await jobsite.getAllStructuredJobposts();
-      for (const structuredJobpost of structuredJobposts) {
-        const technologies =
-          await structuredJobpost.getUnblockedTechnologiesData();
-        const category = await structuredJobpost.getJobpostCategory();
-        results.push(
-          new AllJobListResultEntity({
-            ...structuredJobpost.getDataValues(),
-            category: category.getDataValues(),
-            organization: organization.getDataValues(),
-            technologies: technologies,
-          }).getProperties(),
-        );
+    const generatedQuery = `
+          MATCH (organization: Organization)
+
+          MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)-[:IS_CATEGORIZED_AS]-(jobpost_category:JobpostCategory)
+          MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
+          MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
+
+          OPTIONAL MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
+          WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()
+
+          WITH structured_jobpost, organization, jobpost_category, COLLECT(DISTINCT PROPERTIES(technology)) as technologies
+
+          WITH {
+              id: structured_jobpost.id,
+              jobTitle: structured_jobpost.jobTitle,
+              role: structured_jobpost.role,
+              jobLocation: structured_jobpost.jobLocation,
+              jobApplyPageUrl: structured_jobpost.jobApplyPageUrl,
+              jobPageUrl: structured_jobpost.jobPageUrl,
+              shortUUID: structured_jobpost.shortUUID,
+              seniority: structured_jobpost.seniority,
+              jobCreatedTimestamp: structured_jobpost.jobCreatedTimestamp,
+              jobFoundTimestamp: structured_jobpost.jobFoundTimestamp,
+              minSalaryRange: structured_jobpost.minSalaryRange,
+              maxSalaryRange: structured_jobpost.maxSalaryRange,
+              medianSalary: structured_jobpost.medianSalary,
+              salaryCurrency: structured_jobpost.salaryCurrency,
+              aiDetectedTechnologies: structured_jobpost.aiDetectedTechnologies,
+              extractedTimestamp: structured_jobpost.extractedTimestamp,
+              team: structured_jobpost.team,
+              benefits: structured_jobpost.benefits,
+              culture: structured_jobpost.culture,
+              paysInCrypto: structured_jobpost.paysInCrypto,
+              offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+              jobCommitment: structured_jobpost.jobCommitment,
+              category: {
+                id: jobpost_category.id,
+                name: jobpost_category.name
+              },
+              organization: {
+                  id: organization.id,
+                  orgId: organization.orgId,
+                  name: organization.name,
+                  description: organization.description,
+                  summary: organization.summary,
+                  location: organization.location,
+                  url: organization.url,
+                  logo: organization.logo,
+                  headcount: organization.headcount,
+                  twitter: organization.twitter,
+                  discord: organization.discord,
+                  github: organization.github,
+                  telegram: organization.telegram,
+                  docs: organization.docs,
+                  jobsiteLink: organization.jobsiteLink,
+                  createdTimestamp: organization.createdTimestamp,
+                  updatedTimestamp: organization.updatedTimestamp,
+                  teamSize: organization.teamSize
+              },
+              technologies: [technology in technologies WHERE technology.id IS NOT NULL]
+          } AS result
+          
+          RETURN COLLECT(result) as results
+        `;
+
+    try {
+      const resultSet = (
+        await this.neogma.queryRunner.run(generatedQuery)
+      ).records[0]?.get("results") as AllJobsListResult[];
+      for (const result of resultSet) {
+        results.push(new AllJobListResultEntity(result).getProperties());
       }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getAllJobsListResults ${err.message}`);
     }
     return results;
   };
@@ -126,7 +261,7 @@ export class JobsService {
     const paramsPassed = {
       ...publicationDateRangeGenerator(params.publicationDate as DateRange),
       ...params,
-      query: params.query ? /params.query/g : null,
+      query: params.query ? `/${params.query}/g` : null,
       limit: params.limit ?? 10,
       page: params.page ?? 1,
     };
@@ -178,13 +313,8 @@ export class JobsService {
     } else {
       this.logger.log("No cached jobs found, retrieving from db.");
       try {
-        const organizations = await this.models.Organizations.findMany();
-
-        for (const organization of organizations) {
-          const orgJobs = await this.getOrgJobsListResults(organization);
-          results.push(...orgJobs);
-        }
-
+        const orgJobs = await this.getJobsListResults();
+        results.push(...orgJobs);
         await this.cacheManager.set(
           JOBS_LIST_CACHE_KEY,
           JSON.stringify(results),
@@ -359,7 +489,10 @@ export class JobsService {
 
   async getFilterConfigs(): Promise<JobFilterConfigs> {
     try {
+      await this.models.validateCache();
+
       const result = await this.getCachedFilterConfigs<JobFilterConfigs>();
+
       if (result?.audits) {
         return result;
       } else {
@@ -437,19 +570,14 @@ export class JobsService {
 
   async getJobDetailsByUuid(uuid: string): Promise<JobListResult | undefined> {
     try {
+      await this.models.validateCache();
+
       const cachedJobs = await this.getCachedJobs<JobListResult>();
 
       if (cachedJobs.length === 0) {
-        const jobOrg = await this.models.StructuredJobposts.getJobOrgByUUID(
-          uuid,
+        return (await this.getJobsListResults()).find(
+          job => job.shortUUID === uuid,
         );
-        if (jobOrg) {
-          return (await this.getOrgJobsListResults(jobOrg)).find(
-            job => job.shortUUID === uuid,
-          );
-        } else {
-          return undefined;
-        }
       } else {
         return cachedJobs.find(job => job.shortUUID === uuid);
       }
@@ -482,15 +610,10 @@ export class JobsService {
         cachedJobs === undefined ||
         cachedJobs.length === 0
       ) {
-        const organization = await this.models.Organizations.findOne({
-          where: {
-            orgId: id,
-          },
-        });
         results.push(
-          ...(await this.getOrgJobsListResults(organization)).map(orgJob =>
-            new JobListResultEntity(orgJob).getProperties(),
-          ),
+          ...(await this.getJobsListResults())
+            .filter(x => x.organization.orgId === id)
+            .map(orgJob => new JobListResultEntity(orgJob).getProperties()),
         );
         return results;
       } else {
@@ -515,7 +638,7 @@ export class JobsService {
   ): Promise<PaginatedData<AllJobsListResult>> {
     const paramsPassed = {
       ...params,
-      query: params.query ? /params.query/g : null,
+      query: params.query ? `/${params.query}/g` : null,
       limit: params.limit ?? 10,
       page: params.page ?? 1,
     };
@@ -541,11 +664,8 @@ export class JobsService {
     } else {
       try {
         this.logger.log("No cached jobs found, retrieving from db.");
-        const organizations = await this.models.Organizations.findMany();
-        for (const organization of organizations) {
-          const orgJobs = await this.getOrgAllJobsListResults(organization);
-          results.push(...orgJobs);
-        }
+        const orgJobs = await this.getAllJobsListResults();
+        results.push(...orgJobs);
         await this.cacheManager.set(
           ALL_JOBS_CACHE_KEY,
           JSON.stringify(results),
@@ -608,9 +728,12 @@ export class JobsService {
 
   async getAllJobsFilterConfigs(): Promise<AllJobsFilterConfigs> {
     try {
+      await this.models.validateCache();
+
       const result = await this.getCachedFilterConfigs<AllJobsFilterConfigs>(
         ALL_JOBS_FILTER_CONFIGS_CACHE_KEY,
       );
+
       if (result?.categories) {
         return result;
       } else {

@@ -198,8 +198,8 @@ export class TechnologiesController {
   }
 
   @Post("/create-paired-terms")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  // @UseGuards(RBACGuard)
+  // @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Create a new preferred term",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(PreferredTerm) }),

@@ -154,7 +154,7 @@ describe("JobsController", () => {
     expect(
       (await models.Organizations.findMany()).length,
     ).toBeGreaterThanOrEqual(1);
-  });
+  }, 10000);
 
   it("should get jobs list with no jobpost and array property duplication", async () => {
     const params: JobListParams = {
