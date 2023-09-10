@@ -333,10 +333,25 @@ export class ProjectsService {
     } else {
       this.logger.log("No cached projects found, retrieving from db.");
       try {
-        const projects = await this.models.Projects.findMany({
-          where: { orgId: id },
-        });
-        return projects.map(project => project.getBaseProperties());
+        const projects = await this.models.Projects.getProjectsData();
+        return projects
+          .filter(project => project.orgId === id)
+          .map(project => ({
+            id: project.id,
+            url: project.url,
+            name: project.name,
+            orgId: project.orgId,
+            isMainnet: project.isMainnet,
+            tvl: project.tvl,
+            logo: project.logo,
+            teamSize: project.teamSize,
+            category: project.category,
+            tokenSymbol: project.tokenSymbol,
+            monthlyFees: project.monthlyFees,
+            monthlyVolume: project.monthlyVolume,
+            monthlyRevenue: project.monthlyRevenue,
+            monthlyActiveUsers: project.monthlyActiveUsers,
+          }));
       } catch (err) {
         Sentry.withScope(scope => {
           scope.setTags({
