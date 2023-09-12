@@ -1,3 +1,10 @@
+## [1.37.3](https://github.com/jobstash/middleware/compare/v1.37.2...v1.37.3) (2023-09-12)
+
+
+### Bug Fixes
+
+* temp disable db name test ([fb135ba](https://github.com/jobstash/middleware/commit/fb135baa13cc95efe7cd11f6429509e0de443a6f))
+
 ## [1.37.2](https://github.com/jobstash/middleware/compare/v1.37.1...v1.37.2) (2023-08-17)
 
 
