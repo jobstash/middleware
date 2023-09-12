@@ -54,7 +54,6 @@ import {
 } from "src/shared/presets/cache-control";
 import { ValidationError } from "class-validator";
 import { OrgListParams } from "./dto/org-list.input";
-// import mime from "mime";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 

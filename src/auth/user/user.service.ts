@@ -1,14 +1,18 @@
 import { UserRoleEntity } from "./../../shared/entities/user-role.entity";
 import { Injectable } from "@nestjs/common";
-import { Neo4jService } from "nest-neo4j/dist";
 import { User, UserEntity, UserFlowEntity } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
+import { Neogma } from "neogma";
+import { InjectConnection } from "nest-neogma";
 
 @Injectable()
 export class UserService {
   logger = new CustomLogger(UserService.name);
-  constructor(private readonly neo4jService: Neo4jService) {}
+  constructor(
+    @InjectConnection()
+    private readonly neogma: Neogma,
+  ) {}
 
   async validateUser(id: string): Promise<User | undefined> {
     const user = await this.find(id);
@@ -21,8 +25,8 @@ export class UserService {
   }
 
   async find(id: string): Promise<UserEntity | undefined> {
-    return this.neo4jService
-      .read(
+    return this.neogma.queryRunner
+      .run(
         `
             MATCH (u:User {id: $id})
             RETURN u
@@ -48,8 +52,8 @@ export class UserService {
   }
 
   async findByWallet(wallet: string): Promise<UserEntity | undefined> {
-    return this.neo4jService
-      .read(
+    return this.neogma.queryRunner
+      .run(
         `
             MATCH (u:User {wallet: $wallet})
             RETURN u
@@ -75,8 +79,8 @@ export class UserService {
   }
 
   async findByNodeId(nodeId: string): Promise<UserEntity | undefined> {
-    return this.neo4jService
-      .read(
+    return this.neogma.queryRunner
+      .run(
         `
             MATCH (u:User {githubNodeId: $nodeId})
             RETURN u
@@ -102,8 +106,8 @@ export class UserService {
   }
 
   async getRoleForWallet(wallet: string): Promise<UserRoleEntity | undefined> {
-    return this.neo4jService
-      .read(
+    return this.neogma.queryRunner
+      .run(
         `
           MATCH (u:User {wallet: $wallet})-[:HAS_ROLE]->(ur:UserRole)
           RETURN ur
@@ -129,8 +133,8 @@ export class UserService {
   }
 
   async getFlowForWallet(wallet: string): Promise<UserFlowEntity | undefined> {
-    return this.neo4jService
-      .read(
+    return this.neogma.queryRunner
+      .run(
         `
           MATCH (u:User {wallet: $wallet})-[:HAS_USER_FLOW_STAGE]->(uf:UserFlow)
           RETURN uf

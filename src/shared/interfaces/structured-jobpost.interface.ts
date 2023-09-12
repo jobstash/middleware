@@ -4,7 +4,7 @@ import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
 
 export class StructuredJobpost {
-  public static readonly StructuredJobpostType = t.type({
+  public static readonly StructuredJobpostType = t.strict({
     id: t.string,
     shortUUID: t.string,
     jobApplyPageUrl: t.string,

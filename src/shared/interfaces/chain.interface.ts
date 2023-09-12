@@ -4,15 +4,15 @@ import * as t from "io-ts";
 import { report } from "io-ts-human-reporter";
 export class Chain {
   public static readonly ChainType = t.strict({
-    id: t.string,
-    name: t.string,
+    id: t.union([t.string, t.null]),
+    name: t.union([t.string, t.null]),
   });
 
   @ApiProperty()
-  id: string;
+  id: string | null;
 
   @ApiProperty()
-  name: string;
+  name: string | null;
 
   constructor(raw: Chain) {
     const { id, name } = raw;

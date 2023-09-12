@@ -38,8 +38,6 @@ export class ProjectProperties {
   @ApiProperty()
   name: string;
   @ApiProperty()
-  description: string;
-  @ApiProperty()
   url: string;
   @ApiProperty()
   logo: string | null;
@@ -75,7 +73,6 @@ export class ProjectProperties {
       teamSize,
       category,
       isMainnet,
-      description,
       tokenSymbol,
       monthlyFees,
       monthlyVolume,
@@ -94,7 +91,6 @@ export class ProjectProperties {
     this.teamSize = teamSize;
     this.category = category;
     this.isMainnet = isMainnet;
-    this.description = description;
     this.tokenSymbol = tokenSymbol;
     this.monthlyFees = monthlyFees;
     this.monthlyVolume = monthlyVolume;

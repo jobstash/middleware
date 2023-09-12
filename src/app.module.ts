@@ -5,7 +5,6 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AuthModule } from "./auth/auth.module";
 import * as Sentry from "@sentry/node";
 import * as Tracing from "@sentry/tracing";
-import { Neo4jConnection, Neo4jModule } from "nest-neo4j/dist";
 import { JobsModule } from "./jobs/jobs.module";
 import { BackendModule } from "./backend/backend.module";
 import { SiweModule } from "./auth/siwe/siwe.module";
@@ -15,7 +14,9 @@ import { OrganizationsModule } from "./organizations/organizations.module";
 import envSchema from "./env-schema";
 import { ProjectsModule } from "./projects/projects.module";
 import { CacheModule } from "@nestjs/cache-manager";
-import { PublicModule } from './public/public.module';
+import { PublicModule } from "./public/public.module";
+import { ModelModule } from "./model/model.module";
+import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
 
 @Module({
   imports: [
@@ -26,7 +27,7 @@ import { PublicModule } from './public/public.module';
         abortEarly: false,
       },
     }),
-    Neo4jModule.forRootAsync({
+    NeogmaModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) =>
@@ -37,7 +38,7 @@ import { PublicModule } from './public/public.module';
           scheme: configService.get<string>("NEO4J_SCHEME"),
           username: configService.get<string>("NEO4J_USERNAME"),
           database: configService.get<string>("NEO4J_DATABASE"),
-        } as Neo4jConnection),
+        } as NeogmaModuleOptions),
     }),
     CacheModule.register({ isGlobal: true }),
     AuthModule,
@@ -49,6 +50,7 @@ import { PublicModule } from './public/public.module';
     OrganizationsModule,
     ProjectsModule,
     PublicModule,
+    ModelModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -3,13 +3,13 @@ import { JobsController } from "./jobs.controller";
 import { JobsService } from "./jobs.service";
 import { JobListParams } from "./dto/job-list.input";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { Neo4jConnection, Neo4jModule } from "nest-neo4j/dist";
 import envSchema from "src/env-schema";
 import {
   AllJobsFilterConfigs,
   DateRange,
   JobFilterConfigs,
   JobListResult,
+  AllJobsListResult,
   Project,
 } from "src/shared/types";
 import { Integer } from "neo4j-driver";
@@ -20,12 +20,15 @@ import {
 } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
-import { AllJobsListResult } from "src/shared/interfaces/all-jobs-list-result.interface";
 import { CacheModule } from "@nestjs/cache-manager";
 import { Response } from "express";
+import { ModelModule } from "src/model/model.module";
+import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
+import { ModelService } from "src/model/model.service";
 
 describe("JobsController", () => {
   let controller: JobsController;
+  let models: ModelService;
 
   const projectHasArrayPropsDuplication = (
     project: Project,
@@ -33,7 +36,7 @@ describe("JobsController", () => {
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
       project.audits,
-      a => a?.link.toLowerCase(),
+      a => a.id,
       `Audit for Project ${project.id} for Jobpost ${jobPostUUID}`,
     );
     const hasDuplicateHacks = hasDuplicates(
@@ -106,7 +109,7 @@ describe("JobsController", () => {
     return hasDuplicateTechs;
   };
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({
@@ -116,7 +119,7 @@ describe("JobsController", () => {
             abortEarly: true,
           },
         }),
-        Neo4jModule.forRootAsync({
+        NeogmaModule.forRootAsync({
           imports: [ConfigModule],
           inject: [ConfigService],
           useFactory: (configService: ConfigService) =>
@@ -127,20 +130,31 @@ describe("JobsController", () => {
               scheme: configService.get<string>("NEO4J_SCHEME"),
               username: configService.get<string>("NEO4J_USERNAME"),
               database: configService.get<string>("NEO4J_DATABASE"),
-            } as Neo4jConnection),
+            } as NeogmaModuleOptions),
         }),
         CacheModule.register({ isGlobal: true }),
+        ModelModule,
       ],
       controllers: [JobsController],
-      providers: [JobsService],
+      providers: [JobsService, ModelService],
     }).compile();
 
+    await module.init();
+    models = module.get<ModelService>(ModelService);
+    await models.onModuleInit();
     controller = module.get<JobsController>(JobsController);
   }, 1000000);
 
   it("should be defined", () => {
     expect(controller).toBeDefined();
   });
+
+  it("should be able to access models", async () => {
+    expect(models.Organizations.findMany).toBeDefined();
+    expect(
+      (await models.Organizations.findMany()).length,
+    ).toBeGreaterThanOrEqual(1);
+  }, 10000);
 
   it("should get jobs list with no jobpost and array property duplication", async () => {
     const params: JobListParams = {
@@ -262,11 +276,9 @@ describe("JobsController", () => {
     const validationResult =
       JobFilterConfigs.JobFilterConfigsType.decode(configs);
     if (isRight(validationResult)) {
-      // The result is of the expected type
       const validatedResult = validationResult.right;
       expect(validatedResult).toEqual(configs);
     } else {
-      // The result is not of the expected type
       report(validationResult).forEach(x => {
         throw new Error(x);
       });
@@ -281,11 +293,9 @@ describe("JobsController", () => {
     const validationResult =
       AllJobsFilterConfigs.AllJobsFilterConfigsType.decode(configs);
     if (isRight(validationResult)) {
-      // The result is of the expected type
       const validatedResult = validationResult.right;
       expect(validatedResult).toEqual(configs);
     } else {
-      // The result is not of the expected type
       report(validationResult).forEach(x => {
         throw new Error(x);
       });

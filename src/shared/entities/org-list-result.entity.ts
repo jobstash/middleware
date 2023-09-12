@@ -1,18 +1,18 @@
 import {
   FundingRound,
   Organization,
+  ProjectMoreInfo,
   StructuredJobpost,
   Technology,
 } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { OrgListResult } from "../interfaces/org-list-result.interface";
-import { Project } from "ts-morph";
 import { Investor } from "../interfaces/investor.interface";
 
 type RawOrg = Organization & {
-  jobs?: (StructuredJobpost & { technologies: Technology[] })[] | null;
+  jobs?: StructuredJobpost[] | null;
   technologies: Technology[];
-  projects?: Project[] | null;
+  projects?: ProjectMoreInfo[] | null;
   investors?: Investor[] | null;
   fundingRounds?: FundingRound[] | null;
 };
@@ -84,6 +84,7 @@ export class OrgListResultEntity {
           raisedAmount: nonZeroOrNull(fr?.raisedAmount),
           roundName: notStringOrNull(fr?.roundName),
           sourceLink: notStringOrNull(fr?.sourceLink),
+          createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
         })) ?? [],
       investors: investors ?? [],
       jobs: jobs.map(jobpost => ({

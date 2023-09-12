@@ -13,7 +13,6 @@ export class FilterConfigField {
     label: t.string,
     show: t.boolean,
     position: t.number,
-    googleAnalyticsEventId: t.union([t.string, t.null]),
     googleAnalyticsEventName: t.union([t.string, t.null]),
   });
 
@@ -25,23 +24,14 @@ export class FilterConfigField {
   show: boolean;
   @ApiPropertyOptional()
   googleAnalyticsEventName: string | null;
-  @ApiPropertyOptional()
-  googleAnalyticsEventId: string | null;
 
   constructor(raw: FilterConfigField) {
-    const {
-      show,
-      label,
-      position,
-      googleAnalyticsEventId,
-      googleAnalyticsEventName,
-    } = raw;
+    const { show, label, position, googleAnalyticsEventName } = raw;
     const result = FilterConfigField.FilterConfigFieldType.decode(raw);
 
     this.show = show;
     this.label = label;
     this.position = position;
-    this.googleAnalyticsEventId = googleAnalyticsEventId;
     this.googleAnalyticsEventName = googleAnalyticsEventName;
 
     if (isLeft(result)) {
@@ -136,7 +126,6 @@ export class FilterConfigLabeledValues extends FilterConfigField {
     position: t.number,
     paramKey: t.string,
     label: t.string,
-    googleAnalyticsEventId: t.union([t.string, t.null]),
     googleAnalyticsEventName: t.union([t.string, t.null]),
     options: t.array(FilterConfigLabel.FilterConfigLabelType),
   });
@@ -199,7 +188,6 @@ export class MultiSelectFilter extends OmitType(FilterConfigLabeledValues, [
     position: t.number,
     paramKey: t.string,
     label: t.string,
-    googleAnalyticsEventId: t.union([t.string, t.null]),
     googleAnalyticsEventName: t.union([t.string, t.null]),
     options: t.array(t.string),
     kind: t.string,
@@ -235,7 +223,6 @@ export class MultiSelectSearchFilter extends OmitType(
     position: t.number,
     paramKey: t.string,
     label: t.string,
-    googleAnalyticsEventId: t.union([t.string, t.null]),
     googleAnalyticsEventName: t.union([t.string, t.null]),
     options: t.array(t.string),
     kind: t.string,

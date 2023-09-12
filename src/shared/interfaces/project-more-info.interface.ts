@@ -10,6 +10,7 @@ export class ProjectMoreInfo extends Project {
     t.strict({
       description: t.string,
       docs: t.union([t.string, t.null]),
+      cmcId: t.union([t.string, t.null]),
       twitter: t.union([t.string, t.null]),
       discord: t.union([t.string, t.null]),
       telegram: t.union([t.string, t.null]),
@@ -25,6 +26,8 @@ export class ProjectMoreInfo extends Project {
   ]);
 
   @ApiPropertyOptional()
+  description: string;
+  @ApiPropertyOptional()
   defiLlamaId: string | null;
   @ApiPropertyOptional()
   defiLlamaSlug: string | null;
@@ -34,8 +37,8 @@ export class ProjectMoreInfo extends Project {
   tokenAddress: string | null;
   @ApiPropertyOptional()
   isInConstruction: boolean | null;
-  @ApiProperty()
-  cmcId: string;
+  @ApiPropertyOptional()
+  cmcId: string | null;
   @ApiProperty()
   twitter: string | null;
   @ApiProperty()
@@ -60,6 +63,7 @@ export class ProjectMoreInfo extends Project {
       discord,
       telegram,
       defiLlamaId,
+      description,
       tokenAddress,
       defiLlamaSlug,
       defiLlamaParent,
@@ -77,6 +81,7 @@ export class ProjectMoreInfo extends Project {
     this.discord = discord;
     this.telegram = telegram;
     this.defiLlamaId = defiLlamaId;
+    this.description = description;
     this.tokenAddress = tokenAddress;
     this.defiLlamaSlug = defiLlamaSlug;
     this.defiLlamaParent = defiLlamaParent;

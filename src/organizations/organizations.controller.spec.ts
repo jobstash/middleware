@@ -2,7 +2,6 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { OrganizationsController } from "./organizations.controller";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import envSchema from "src/env-schema";
-import { Neo4jConnection, Neo4jModule } from "nest-neo4j/dist";
 import { OrganizationsService } from "./organizations.service";
 import { OrgListParams } from "./dto/org-list.input";
 import { Integer } from "neo4j-driver";
@@ -19,9 +18,13 @@ import { BackendService } from "src/backend/backend.service";
 import { createMock } from "@golevelup/ts-jest";
 import { report } from "io-ts-human-reporter";
 import { Response } from "express";
+import { ModelService } from "src/model/model.service";
+import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
+import { CacheModule } from "@nestjs/cache-manager";
 
 describe("OrganizationsController", () => {
   let controller: OrganizationsController;
+  let models: ModelService;
 
   const projectHasArrayPropsDuplication = (
     project: Project,
@@ -96,7 +99,7 @@ describe("OrganizationsController", () => {
     );
   };
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({
@@ -106,7 +109,7 @@ describe("OrganizationsController", () => {
             abortEarly: true,
           },
         }),
-        Neo4jModule.forRootAsync({
+        NeogmaModule.forRootAsync({
           imports: [ConfigModule],
           inject: [ConfigService],
           useFactory: (configService: ConfigService) =>
@@ -117,22 +120,34 @@ describe("OrganizationsController", () => {
               scheme: configService.get<string>("NEO4J_SCHEME"),
               username: configService.get<string>("NEO4J_USERNAME"),
               database: configService.get<string>("NEO4J_DATABASE"),
-            } as Neo4jConnection),
+            } as NeogmaModuleOptions),
         }),
+        CacheModule.register({ isGlobal: true }),
       ],
       controllers: [OrganizationsController],
       providers: [
         OrganizationsService,
         { provide: BackendService, useValue: createMock<BackendService>() },
+        ModelService,
       ],
     }).compile();
 
+    await module.init();
+    models = module.get<ModelService>(ModelService);
+    await models.onModuleInit();
     controller = module.get<OrganizationsController>(OrganizationsController);
   });
 
   it("should be defined", () => {
     expect(controller).toBeDefined();
   });
+
+  it("should be able to access models", async () => {
+    expect(models.Organizations.findMany).toBeDefined();
+    expect(
+      (await models.Organizations.findMany()).length,
+    ).toBeGreaterThanOrEqual(1);
+  }, 10000);
 
   it("should get orgs list with no org and array property duplication", async () => {
     const params: OrgListParams = {
@@ -230,11 +245,9 @@ describe("OrganizationsController", () => {
     const validationResult =
       OrgFilterConfigs.OrgFilterConfigsType.decode(configs);
     if (isRight(validationResult)) {
-      // The result is of the expected type
       const validatedResult = validationResult.right;
       expect(validatedResult).toEqual(configs);
     } else {
-      // The result is not of the expected type
       report(validationResult).forEach(x => {
         throw new Error(x);
       });

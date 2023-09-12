@@ -7,3 +7,5 @@ export const CACHE_EXPIRY = (duration: number): string => {
 export const CACHE_DURATION = 300;
 
 export const NO_CACHE = "no-cache, private, no-store, must-revalidate";
+
+export const IN_MEM_CACHE_EXPIRY = 1800000000; //in milliseconds

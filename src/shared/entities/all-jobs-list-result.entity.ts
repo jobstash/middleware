@@ -1,10 +1,10 @@
-import { Organization, Technology } from "../interfaces";
+import { OrganizationProperties, Technology } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { StructuredJobpostWithCategory } from "../interfaces/structured-jobpost-with-category.interface";
 import { AllJobsListResult } from "../interfaces/all-jobs-list-result.interface";
 
 type RawJobPost = StructuredJobpostWithCategory & {
-  organization?: Organization | null;
+  organization?: OrganizationProperties | null;
   technologies?: Technology[] | null;
 };
 
@@ -44,12 +44,14 @@ export class AllJobListResultEntity {
       organization: {
         ...organization,
         docs: notStringOrNull(organization?.docs),
+        logo: notStringOrNull(organization?.logo),
         altName: notStringOrNull(organization?.altName),
         headCount: nonZeroOrNull(organization?.headCount),
         github: notStringOrNull(organization?.github),
         twitter: notStringOrNull(organization?.twitter),
         discord: notStringOrNull(organization?.discord),
         telegram: notStringOrNull(organization?.telegram),
+        jobsiteLink: notStringOrNull(organization?.jobsiteLink),
         createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
         updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
       },

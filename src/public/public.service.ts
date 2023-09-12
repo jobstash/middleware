@@ -1,191 +1,49 @@
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Inject, Injectable } from "@nestjs/common";
-import { Neo4jService } from "nest-neo4j/dist";
-import {
-  JobListResult,
-  PaginatedData,
-  ProjectMoreInfo,
-} from "src/shared/interfaces";
-import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { Cache } from "cache-manager";
-import { intConverter } from "src/shared/helpers";
+import { sort } from "fast-sort";
+import { Neogma } from "neogma";
+import { InjectConnection } from "nest-neogma";
+import { ModelService } from "src/model/model.service";
+import { PUBLIC_JOBS_LIST_CACHE_KEY } from "src/shared/constants";
 import { JobListResultEntity } from "src/shared/entities";
+import { intConverter } from "src/shared/helpers";
+import { JobListResult, PaginatedData } from "src/shared/interfaces";
+import { IN_MEM_CACHE_EXPIRY } from "src/shared/presets/cache-control";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Injectable()
 export class PublicService {
   logger = new CustomLogger(PublicService.name);
   constructor(
-    private readonly neo4jService: Neo4jService,
     @Inject(CACHE_MANAGER)
     private cacheManager: Cache,
+    @InjectConnection()
+    private neogma: Neogma,
+    private models: ModelService,
   ) {}
 
-  async validateCache(): Promise<void> {
-    try {
-      const res = await this.neo4jService.write(
-        `
-          MATCH (node: DirtyNode)
-          WITH node.dirty as isDirty, node
-          SET (CASE WHEN isDirty = true THEN node END).dirty = false 
-          RETURN isDirty
-      `.replace(/^\s*$(?:\r\n?|\n)/gm, ""),
-      );
-      const isDirty = (res.records[0]?.get("isDirty") as boolean) ?? false;
-      if (isDirty) {
-        await this.cacheManager.reset();
-      }
-    } catch (error) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "jobs.service",
-        });
-        Sentry.captureException(error);
-      });
-      this.logger.error(`JobsService::shouldClearCache ${error.message}`);
-    }
-  }
-
-  async getProjectsData(): Promise<ProjectMoreInfo[]> {
-    const cachedProjectsString =
-      (await this.cacheManager.get<string>("projects")) ?? "[]";
-    const cachedProjects = JSON.parse(
-      cachedProjectsString,
-    ) as ProjectMoreInfo[];
-    if (
-      cachedProjects !== null &&
-      cachedProjects !== undefined &&
-      cachedProjects.length !== 0
-    ) {
-      this.logger.log("Found cached projects");
-      return cachedProjects.map(x => x as ProjectMoreInfo);
-    } else {
-      this.logger.log("No cached projects found, retrieving from db.");
-      const generatedQuery = `
-        MATCH (project: Project)
-        OPTIONAL MATCH (project)-[:HAS_CATEGORY]->(project_category:ProjectCategory)
-        OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
-        OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
-        OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain:Chain)
-        WITH COLLECT(DISTINCT PROPERTIES(hack)) as hacks, 
-          COLLECT(DISTINCT PROPERTIES(audit)) as audits, 
-          COLLECT(DISTINCT PROPERTIES(chain)) as chains, project, project_category
-        RETURN COLLECT(DISTINCT {
-          id: project.id,
-          defiLlamaId: project.defiLlamaId,
-          defiLlamaSlug: project.defiLlamaSlug,
-          defiLlamaParent: project.defiLlamaParent,
-          name: project.name,
-          description: project.description,
-          url: project.url,
-          logo: project.logo,
-          tokenAddress: project.tokenAddress,
-          tokenSymbol: project.tokenSymbol,
-          isInConstruction: project.isInConstruction,
-          tvl: project.tvl,
-          monthlyVolume: project.monthlyVolume,
-          monthlyFees: project.monthlyFees,
-          monthlyRevenue: project.monthlyRevenue,
-          monthlyActiveUsers: project.monthlyActiveUsers,
-          isMainnet: project.isMainnet,
-          telegram: project.telegram,
-          orgId: project.orgId,
-          cmcId: project.cmcId,
-          twitter: project.twitter,
-          discord: project.discord,
-          docs: project.docs,
-          teamSize: project.teamSize,
-          githubOrganization: project.githubOrganization,
-          category: project_category.name,
-          createdTimestamp: project.createdTimestamp,
-          updatedTimestamp: project.updatedTimestamp,
-          hacks: [hack in hacks WHERE hack.id IS NOT NULL],
-          audits: [audit in audits WHERE audit.id IS NOT NULL],
-          chains: [chain in chains WHERE chain.id IS NOT NULL]
-        }) AS projects
-    `.replace(/^\s*$(?:\r\n?|\n)/gm, "");
-      return this.neo4jService
-        .read(generatedQuery)
-        .then(async res => {
-          const projects: ProjectMoreInfo[] = res?.records[0]
-            .get("projects")
-            .map(record => record as ProjectMoreInfo);
-          await this.cacheManager.set(
-            "projects",
-            JSON.stringify(projects),
-            18000000,
-          );
-          return projects;
-        })
-        .catch(err => {
-          Sentry.withScope(scope => {
-            scope.setTags({
-              action: "db-call",
-              source: "jobs.service",
-            });
-            Sentry.captureException(err);
-          });
-          this.logger.error(`JobsService::getProjectsData ${err.message}`);
-          return [];
-        });
-    }
-  }
-  async transformResultSetWithNoFilters(
-    results: JobListResult[],
-    params: { page: number; limit: number },
-  ): Promise<PaginatedData<JobListResult>> {
-    const page = Number(params.page),
-      limit = Number(params.limit);
-    const final = [];
-    const allProjects = await this.getProjectsData();
-    for (const result of results) {
-      const projectList = allProjects.filter(
-        x => x.orgId === result.organization.orgId,
-      );
-
-      const updatedResult: JobListResult = {
-        ...result,
-        organization: {
-          ...result.organization,
-          projects: projectList,
-        },
-      };
-      final.push(updatedResult);
-    }
-
-    return {
-      page: (final.length > 0 ? page ?? 1 : -1) ?? -1,
-      count: limit > final.length ? final.length : limit,
-      total: final.length ? intConverter(final.length) : 0,
-      data: final
-        .slice(
-          page > 1 ? page * limit : 0,
-          page === 1 ? limit : (page + 1) * limit,
-        )
-        .map(x => new JobListResultEntity(x).getProperties()),
-    };
-  }
-
-  async getAllJobsList(params: {
-    page: number;
-    limit: number;
-  }): Promise<PaginatedData<JobListResult>> {
+  getAllJobsListResults = async (): Promise<JobListResult[]> => {
+    const results: JobListResult[] = [];
     const generatedQuery = `
       MATCH (organization: Organization)
-      MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)
+
+      MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory)
       MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
       MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
+                
       OPTIONAL MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
       WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()
+      
       OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
       OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
-
+      
       WITH structured_jobpost, organization, 
       COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
       COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
       COLLECT(DISTINCT PROPERTIES(technology)) AS technologies
-      
+
       WITH {
           id: structured_jobpost.id,
           jobTitle: structured_jobpost.jobTitle,
@@ -232,61 +90,115 @@ export class PublicService {
               investors: [investor in investors WHERE investor.id IS NOT NULL]
           },
           technologies: [technology in technologies WHERE technology.id IS NOT NULL]
-      } AS result, structured_jobpost, organization
+      } AS result
 
-      // <--Sorter Embedding-->
-      // The sorter has to be embedded in this manner due to its dynamic nature
-      ORDER BY result.jobCreatedTimestamp DESC
-      // <--!!!Sorter Embedding-->
       RETURN COLLECT(result) as results
-    `.replace(/^\s*$(?:\r\n?|\n)/gm, "");
-    // console.log(generatedQuery);
+    `;
+
+    try {
+      const projects = await this.models.Projects.getProjectsMoreInfoData();
+      const resultSet = (
+        await this.neogma.queryRunner.run(generatedQuery)
+      ).records[0]?.get("results") as JobListResult[];
+      for (const result of resultSet) {
+        const projectList = projects.filter(
+          x => x.orgId === result.organization.orgId,
+        );
+        const updatedResult: JobListResult = {
+          ...result,
+          organization: {
+            ...result.organization,
+            projects: projectList,
+          },
+        };
+        results.push(new JobListResultEntity(updatedResult).getProperties());
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getJobsListResults ${err.message}`);
+    }
+
+    return results;
+  };
+
+  getCachedJobs = async <K>(
+    cacheKey: string = PUBLIC_JOBS_LIST_CACHE_KEY,
+  ): Promise<K[]> => {
+    const cachedJobsString =
+      (await this.cacheManager.get<string>(cacheKey)) ?? "[]";
+    const cachedJobs = JSON.parse(cachedJobsString) as K[];
+    return cachedJobs;
+  };
+
+  async getAllJobsList(params: {
+    page: number;
+    limit: number;
+  }): Promise<PaginatedData<JobListResult>> {
     const paramsPassed = {
       limit: params.limit ?? 10,
       page: params.page ?? 1,
     };
+    const { page, limit } = paramsPassed;
 
-    await this.validateCache();
-    const cachedJobsString =
-      (await this.cacheManager.get<string>("jobs")) ?? "[]";
-    const cachedJobs = JSON.parse(cachedJobsString) as JobListResult[];
-    if (
-      cachedJobs !== null &&
-      cachedJobs !== undefined &&
-      cachedJobs.length !== 0
-    ) {
+    await this.models.validateCache();
+
+    const cachedJobs = await this.getCachedJobs<JobListResult>();
+
+    const results: JobListResult[] = cachedJobs;
+
+    if (cachedJobs.length !== 0) {
       this.logger.log("Found cached jobs");
-      return this.transformResultSetWithNoFilters(cachedJobs, paramsPassed);
     } else {
-      this.logger.log("No applicable cached jobs found, retrieving from db.");
-      return this.neo4jService
-        .read(generatedQuery, paramsPassed)
-        .then(async res => {
-          const results = res.records[0]?.get("results");
-          await this.cacheManager.set(
-            "jobs",
-            JSON.stringify(results),
-            18000000,
-          );
-          return this.transformResultSetWithNoFilters(results, paramsPassed);
-        })
-        .catch(err => {
-          Sentry.withScope(scope => {
-            scope.setTags({
-              action: "db-call",
-              source: "jobs.service",
-            });
-            scope.setExtra("input", params);
-            Sentry.captureException(err);
+      this.logger.log("No cached jobs found, retrieving from db.");
+      try {
+        const orgJobs = await this.getAllJobsListResults();
+        results.push(...orgJobs);
+        await this.cacheManager.set(
+          PUBLIC_JOBS_LIST_CACHE_KEY,
+          JSON.stringify(results),
+          IN_MEM_CACHE_EXPIRY,
+        );
+      } catch (err) {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "jobs.service",
           });
-          this.logger.error(`PublicService::getAllJobsList ${err.message}`);
-          return {
-            page: -1,
-            count: 0,
-            total: 0,
-            data: [],
-          };
+          scope.setExtra("input", params);
+          Sentry.captureException(err);
         });
+        this.logger.error(
+          `PublicService::getAllJobsListWithSearch ${err.message}`,
+        );
+        return {
+          page: -1,
+          count: 0,
+          total: 0,
+          data: [],
+        };
+      }
     }
+
+    const final = sort<JobListResult>(results).desc(
+      job => job.jobCreatedTimestamp,
+    );
+
+    return {
+      page: (final.length > 0 ? params.page ?? 1 : -1) ?? -1,
+      count: limit > final.length ? final.length : limit,
+      total: final.length ? intConverter(final.length) : 0,
+      data: final
+        .slice(
+          page > 1 ? page * limit : 0,
+          page === 1 ? limit : (page + 1) * limit,
+        )
+        .map(x => new JobListResultEntity(x).getProperties()),
+    };
   }
 }
