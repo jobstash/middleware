@@ -5,7 +5,6 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AuthModule } from "./auth/auth.module";
 import * as Sentry from "@sentry/node";
 import * as Tracing from "@sentry/tracing";
-import { Neo4jConnection, Neo4jModule } from "nest-neo4j/dist";
 import { JobsModule } from "./jobs/jobs.module";
 import { BackendModule } from "./backend/backend.module";
 import { SiweModule } from "./auth/siwe/siwe.module";
@@ -27,19 +26,6 @@ import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
       validationOptions: {
         abortEarly: false,
       },
-    }),
-    Neo4jModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) =>
-        ({
-          host: configService.get<string>("NEO4J_HOST"),
-          password: configService.get<string>("NEO4J_PASSWORD"),
-          port: configService.get<string>("NEO4J_PORT"),
-          scheme: configService.get<string>("NEO4J_SCHEME"),
-          username: configService.get<string>("NEO4J_USERNAME"),
-          database: configService.get<string>("NEO4J_DATABASE"),
-        } as Neo4jConnection),
     }),
     NeogmaModule.forRootAsync({
       imports: [ConfigModule],

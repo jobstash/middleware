@@ -276,11 +276,9 @@ describe("JobsController", () => {
     const validationResult =
       JobFilterConfigs.JobFilterConfigsType.decode(configs);
     if (isRight(validationResult)) {
-      // The result is of the expected type
       const validatedResult = validationResult.right;
       expect(validatedResult).toEqual(configs);
     } else {
-      // The result is not of the expected type
       report(validationResult).forEach(x => {
         throw new Error(x);
       });
@@ -295,11 +293,9 @@ describe("JobsController", () => {
     const validationResult =
       AllJobsFilterConfigs.AllJobsFilterConfigsType.decode(configs);
     if (isRight(validationResult)) {
-      // The result is of the expected type
       const validatedResult = validationResult.right;
       expect(validatedResult).toEqual(configs);
     } else {
-      // The result is not of the expected type
       report(validationResult).forEach(x => {
         throw new Error(x);
       });

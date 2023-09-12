@@ -2,7 +2,6 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { OrganizationsController } from "./organizations.controller";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import envSchema from "src/env-schema";
-import { Neo4jConnection, Neo4jModule } from "nest-neo4j/dist";
 import { OrganizationsService } from "./organizations.service";
 import { OrgListParams } from "./dto/org-list.input";
 import { Integer } from "neo4j-driver";
@@ -109,19 +108,6 @@ describe("OrganizationsController", () => {
           validationOptions: {
             abortEarly: true,
           },
-        }),
-        Neo4jModule.forRootAsync({
-          imports: [ConfigModule],
-          inject: [ConfigService],
-          useFactory: (configService: ConfigService) =>
-            ({
-              host: configService.get<string>("NEO4J_HOST"),
-              password: configService.get<string>("NEO4J_PASSWORD"),
-              port: configService.get<string>("NEO4J_PORT"),
-              scheme: configService.get<string>("NEO4J_SCHEME"),
-              username: configService.get<string>("NEO4J_USERNAME"),
-              database: configService.get<string>("NEO4J_DATABASE"),
-            } as Neo4jConnection),
         }),
         NeogmaModule.forRootAsync({
           imports: [ConfigModule],
@@ -259,11 +245,9 @@ describe("OrganizationsController", () => {
     const validationResult =
       OrgFilterConfigs.OrgFilterConfigsType.decode(configs);
     if (isRight(validationResult)) {
-      // The result is of the expected type
       const validatedResult = validationResult.right;
       expect(validatedResult).toEqual(configs);
     } else {
-      // The result is not of the expected type
       report(validationResult).forEach(x => {
         throw new Error(x);
       });

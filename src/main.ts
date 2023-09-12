@@ -45,7 +45,6 @@ async function bootstrap(): Promise<void> {
   app.use(ironSession(ironOptions));
   app.use(helmet());
   app.use(compression());
-  // Enable CORS with wildcard origin and the specified allowed headers
   app.enableCors({
     credentials: true,
     origin: process.env.ALLOWED_ORIGINS?.split(","),

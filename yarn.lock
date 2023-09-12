@@ -7218,7 +7218,7 @@ neo4j-driver@^5.10.0, neo4j-driver@^5.11.0:
     neo4j-driver-core "5.12.0"
     rxjs "^7.8.1"
 
-neo4j-driver@^5.6.0, neo4j-driver@^5.8.0:
+neo4j-driver@^5.8.0:
   version "5.8.0"
   resolved "https://registry.yarnpkg.com/neo4j-driver/-/neo4j-driver-5.8.0.tgz#abb11eb25e1c976c9f5e37a4c20ef4f2928e71bc"
   integrity sha512-SH/YsRl52TYqLnIoT1NkaVg/Wz4AtgN5z+YCr0gyWwxqFcN4eklJG0UtxCZgbKqXSCgQNQDvmpQCnrCe/AYPTQ==
@@ -7255,13 +7255,6 @@ nerf-dart@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/nerf-dart/-/nerf-dart-1.0.0.tgz#e6dab7febf5ad816ea81cf5c629c5a0ebde72c1a"
   integrity sha512-EZSPZB70jiVsivaBLYDCyntd5eH8NTSMOn3rB+HxwdmKThGELLdYv8qVIMWvZEFy9w8ZZpW9h9OB32l1rGtj7g==
-
-nest-neo4j@^0.3.1:
-  version "0.3.1"
-  resolved "https://registry.yarnpkg.com/nest-neo4j/-/nest-neo4j-0.3.1.tgz#aeacaa7dee58e0691f0ef151377d0625fbb1b373"
-  integrity sha512-Anp2Qmn8tledjzgU+R76Pw9eTmRYtwwTuqknWWgGNfBnd2VdRDQRaVEscTmoLM6KNkd0W10NU1hie4CWwZ2qTg==
-  dependencies:
-    neo4j-driver "^5.6.0"
 
 nest-neogma@^0.4.2:
   version "0.4.2"

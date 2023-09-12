@@ -4,13 +4,12 @@ import { PublicService } from "./public.service";
 import { Integer } from "neo4j-driver";
 import { JobListResult, Project } from "src/shared/interfaces";
 import { hasDuplicates, printDuplicateItems } from "src/shared/helpers";
-import { Neo4jConnection } from "nest-neo4j/dist";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { CacheModule } from "@nestjs/cache-manager";
 import envSchema from "src/env-schema";
 import { ModelService } from "src/model/model.service";
 import { ModelModule } from "src/model/model.module";
-import { NeogmaModule } from "nest-neogma";
+import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
 
 describe("PublicController", () => {
   let controller: PublicController;
@@ -106,7 +105,7 @@ describe("PublicController", () => {
               scheme: configService.get<string>("NEO4J_SCHEME"),
               username: configService.get<string>("NEO4J_USERNAME"),
               database: configService.get<string>("NEO4J_DATABASE"),
-            } as Neo4jConnection),
+            } as NeogmaModuleOptions),
         }),
         CacheModule.register({ isGlobal: true }),
         ModelModule,

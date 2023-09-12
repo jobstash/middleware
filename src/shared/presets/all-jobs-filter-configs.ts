@@ -10,16 +10,14 @@ export const FILTER_CONFIG_PRESETS = {
     position: 1,
     label: "Organizations",
     show: true,
-    googleAnalyticsEventName: null,
-    googleAnalyticsEventId: null,
+    googleAnalyticsEventName: "filter_alljobslist_organizations",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   categories: {
     position: 2,
     label: "Categories",
     show: true,
-    googleAnalyticsEventName: null,
-    googleAnalyticsEventId: null,
+    googleAnalyticsEventName: "filter_alljobslist_categories",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
 };

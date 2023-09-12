@@ -1,5 +1,4 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { Neo4jService } from "nest-neo4j/dist";
 import {
   ShortOrgEntity,
   ShortOrg,
@@ -36,7 +35,6 @@ export class OrganizationsService {
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
     private models: ModelService,
-    private readonly neo4jService: Neo4jService,
   ) {}
 
   getCachedOrgs = async <K>(
