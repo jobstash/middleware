@@ -1,5 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
+import { isLeft } from "fp-ts/lib/Either";
 import * as t from "io-ts";
+import { report } from "io-ts-human-reporter";
 // import { inferObjectType } from "../helpers";
 // import { isLeft } from "fp-ts/lib/Either";
 
@@ -17,22 +19,20 @@ export class Technology {
   @ApiProperty()
   normalizedName: string;
 
-  // constructor(raw: Technology) {
-  //   const { id, name, normalizedName } = raw;
-  //   const result = Technology.TechnologyType.decode(raw);
+  constructor(raw: Technology) {
+    const { id, name, normalizedName } = raw;
+    const result = Technology.TechnologyType.decode(raw);
 
-  //   this.id = id;
-  //   this.name = name;
-  //   this.normalizedName = normalizedName;
+    this.id = id;
+    this.name = name;
+    this.normalizedName = normalizedName;
 
-  //   if (isLeft(result)) {
-  //     throw new Error(
-  //       `Error Serializing Technology! Constructor expected: \n {
-  //         id: string,
-  //         name: string,
-  //         normalizedName: string
-  //       } got ${inferObjectType(raw)}`,
-  //     );
-  //   }
-  // }
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(
+          `technology instance with id ${this.id} failed validation with error '${x}'`,
+        );
+      });
+    }
+  }
 }

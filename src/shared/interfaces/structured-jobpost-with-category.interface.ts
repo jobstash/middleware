@@ -26,7 +26,9 @@ export class StructuredJobpostWithCategory extends StructuredJobpost {
     this.category = category;
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        throw new Error(
+          `structured jobpost instance with id ${this.shortUUID} failed validation with error '${x}'`,
+        );
       });
     }
   }

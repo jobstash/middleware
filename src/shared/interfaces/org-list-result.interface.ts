@@ -42,7 +42,9 @@ export class OrgListResult extends Organization {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        throw new Error(
+          `org list result instance with id ${this.orgId} failed validation with error '${x}'`,
+        );
       });
     }
   }

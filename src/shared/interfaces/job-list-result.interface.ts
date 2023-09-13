@@ -52,7 +52,9 @@ export class JobListResult extends StructuredJobpost {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        throw new Error(
+          `job list result instance with id ${this.shortUUID} failed validation with error '${x}'`,
+        );
       });
     }
   }

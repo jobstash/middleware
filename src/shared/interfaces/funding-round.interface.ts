@@ -45,7 +45,9 @@ export class FundingRound {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        throw new Error(
+          `funding round instance with id ${this.id} failed validation with error '${x}'`,
+        );
       });
     }
   }

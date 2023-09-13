@@ -48,7 +48,9 @@ export class Audit {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        throw new Error(
+          `audit instance with id ${this.id} failed validation with error '${x}'`,
+        );
       });
     }
   }

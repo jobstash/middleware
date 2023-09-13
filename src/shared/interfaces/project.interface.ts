@@ -99,7 +99,9 @@ export class ProjectProperties {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        throw new Error(
+          `project instance with id ${this.id} failed validation with error '${x}'`,
+        );
       });
     }
   }
@@ -144,7 +146,9 @@ export class Project extends ProjectProperties {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        throw new Error(
+          `project instance with id ${this.id} failed validation with error '${x}'`,
+        );
       });
     }
   }

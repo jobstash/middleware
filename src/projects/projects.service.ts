@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import {
   PaginatedData,
   ProjectFilterConfigs,
@@ -17,43 +17,16 @@ import { createNewSortInstance } from "fast-sort";
 import { ModelService } from "src/model/model.service";
 import { InjectConnection } from "nest-neogma";
 import { Neogma } from "neogma";
-import { Cache } from "cache-manager";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import {
-  PROJECTS_LIST_CACHE_KEY,
-  PROJECTS_LIST_FILTER_CONFIGS_CACHE_KEY,
-} from "src/shared/constants";
-import { IN_MEM_CACHE_EXPIRY } from "src/shared/presets/cache-control";
 import { ProjectProps } from "src/shared/models";
 
 @Injectable()
 export class ProjectsService {
   logger = new CustomLogger(ProjectsService.name);
   constructor(
-    @Inject(CACHE_MANAGER)
-    private cacheManager: Cache,
     @InjectConnection()
     private neogma: Neogma,
     private models: ModelService,
   ) {}
-
-  getCachedProjects = async <K>(
-    cacheKey: string = PROJECTS_LIST_CACHE_KEY,
-  ): Promise<K[]> => {
-    const cachedJobsString =
-      (await this.cacheManager.get<string>(cacheKey)) ?? "[]";
-    const cachedJobs = JSON.parse(cachedJobsString) as K[];
-    return cachedJobs;
-  };
-
-  getCachedFilterConfigs = async <FC>(
-    cacheKey: string = PROJECTS_LIST_FILTER_CONFIGS_CACHE_KEY,
-  ): Promise<FC> => {
-    const cachedFilterConfigsString =
-      (await this.cacheManager.get<string>(cacheKey)) ?? "{}";
-    const cachedFilterConfigs = JSON.parse(cachedFilterConfigsString) as FC;
-    return cachedFilterConfigs;
-  };
 
   async getProjectsListWithSearch(
     params: ProjectListParams,
@@ -90,47 +63,31 @@ export class ProjectsService {
       limit,
     } = paramsPassed;
 
-    await this.models.validateCache();
+    const results: (Project & { orgName: string })[] = [];
 
-    const cachedProjects = await this.getCachedProjects<
-      Project & { orgName: string }
-    >();
-
-    const results: (Project & { orgName: string })[] = cachedProjects;
-
-    if (cachedProjects.length !== 0) {
-      this.logger.log("Found cached projects.");
-    } else {
-      this.logger.log("No cached projects found, retrieving from db.");
-      try {
-        const projects = await this.models.Projects.getProjectsData();
-        for (const project of projects) {
-          results.push(project);
-        }
-        await this.cacheManager.set(
-          PROJECTS_LIST_CACHE_KEY,
-          JSON.stringify(results),
-          IN_MEM_CACHE_EXPIRY,
-        );
-      } catch (err) {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "projects.service",
-          });
-          scope.setExtra("input", params);
-          Sentry.captureException(err);
-        });
-        this.logger.error(
-          `ProjectsService::getProjectsListWithSearch ${err.message}`,
-        );
-        return {
-          page: -1,
-          count: 0,
-          total: 0,
-          data: [],
-        };
+    try {
+      const projects = await this.models.Projects.getProjectsData();
+      for (const project of projects) {
+        results.push(project);
       }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", params);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `ProjectsService::getProjectsListWithSearch ${err.message}`,
+      );
+      return {
+        page: -1,
+        count: 0,
+        total: 0,
+        data: [],
+      };
     }
 
     const projectFilters = (
@@ -223,13 +180,9 @@ export class ProjectsService {
 
   async getFilterConfigs(): Promise<ProjectFilterConfigs> {
     try {
-      const result = await this.getCachedFilterConfigs<ProjectFilterConfigs>();
-      if (result?.audits) {
-        return result;
-      } else {
-        const freshResult = await this.neogma.queryRunner
-          .run(
-            `
+      return await this.neogma.queryRunner
+        .run(
+          `
         MATCH (p:Project)-[:HAS_CATEGORY]->(cat:ProjectCategory)
         MATCH (o:Organization)-[:HAS_PROJECT]->(project)
         OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(c:Chain)
@@ -252,21 +205,14 @@ export class ProjectsService {
             organizations: COLLECT(DISTINCT o.name)
         } as res
       `,
-          )
-          .then(res =>
-            res.records.length
-              ? new ProjectFilterConfigsEntity(
-                  res.records[0].get("res"),
-                ).getProperties()
-              : undefined,
-          );
-        await this.cacheManager.set(
-          PROJECTS_LIST_FILTER_CONFIGS_CACHE_KEY,
-          JSON.stringify(freshResult),
-          IN_MEM_CACHE_EXPIRY,
+        )
+        .then(res =>
+          res.records.length
+            ? new ProjectFilterConfigsEntity(
+                res.records[0].get("res"),
+              ).getProperties()
+            : undefined,
         );
-        return freshResult;
-      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -303,16 +249,9 @@ export class ProjectsService {
   async getProjectsByOrgId(
     id: string,
   ): Promise<ProjectProperties[] | undefined> {
-    await this.models.validateCache();
-
-    const cachedProjects = await this.getCachedProjects<
-      Project & { orgName: string }
-    >();
-
-    const results: (Project & { orgName: string })[] = cachedProjects;
-    if (cachedProjects.length !== 0) {
-      this.logger.log("Found cached projects.");
-      return results
+    try {
+      const projects = await this.models.Projects.getProjectsData();
+      return projects
         .filter(project => project.orgId === id)
         .map(project => ({
           id: project.id,
@@ -330,85 +269,34 @@ export class ProjectsService {
           monthlyRevenue: project.monthlyRevenue,
           monthlyActiveUsers: project.monthlyActiveUsers,
         }));
-    } else {
-      this.logger.log("No cached projects found, retrieving from db.");
-      try {
-        const projects = await this.models.Projects.getProjectsData();
-        return projects
-          .filter(project => project.orgId === id)
-          .map(project => ({
-            id: project.id,
-            url: project.url,
-            name: project.name,
-            orgId: project.orgId,
-            isMainnet: project.isMainnet,
-            tvl: project.tvl,
-            logo: project.logo,
-            teamSize: project.teamSize,
-            category: project.category,
-            tokenSymbol: project.tokenSymbol,
-            monthlyFees: project.monthlyFees,
-            monthlyVolume: project.monthlyVolume,
-            monthlyRevenue: project.monthlyRevenue,
-            monthlyActiveUsers: project.monthlyActiveUsers,
-          }));
-      } catch (err) {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "projects.service",
-          });
-          scope.setExtra("input", id);
-          Sentry.captureException(err);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
         });
-        this.logger.error(`ProjectsService::getProjectByOrgId ${err.message}`);
-        return undefined;
-      }
+        scope.setExtra("input", id);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProjectsService::getProjectByOrgId ${err.message}`);
+      return undefined;
     }
   }
 
   async getProjects(): Promise<ProjectProperties[]> {
-    await this.models.validateCache();
-
-    const cachedProjects = await this.getCachedProjects<
-      Project & { orgName: string }
-    >();
-
-    const results: (Project & { orgName: string })[] = cachedProjects;
-    if (cachedProjects.length !== 0) {
-      this.logger.log("Found cached projects.");
-      return results.map(project => ({
-        id: project.id,
-        url: project.url,
-        name: project.name,
-        orgId: project.orgId,
-        isMainnet: project.isMainnet,
-        tvl: project.tvl,
-        logo: project.logo,
-        teamSize: project.teamSize,
-        category: project.category,
-        tokenSymbol: project.tokenSymbol,
-        monthlyFees: project.monthlyFees,
-        monthlyVolume: project.monthlyVolume,
-        monthlyRevenue: project.monthlyRevenue,
-        monthlyActiveUsers: project.monthlyActiveUsers,
-      }));
-    } else {
-      this.logger.log("No cached projects found, retrieving from db.");
-      try {
-        const projects = await this.models.Projects.findMany();
-        return projects.map(project => project.getBaseProperties());
-      } catch (err) {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "projects.service",
-          });
-          Sentry.captureException(err);
+    try {
+      const projects = await this.models.Projects.findMany();
+      return projects.map(project => project.getBaseProperties());
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
         });
-        this.logger.error(`ProjectsService::getProjects ${err.message}`);
-        return undefined;
-      }
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProjectsService::getProjects ${err.message}`);
+      return undefined;
     }
   }
 

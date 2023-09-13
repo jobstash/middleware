@@ -1,18 +1,6 @@
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Inject, Injectable, OnModuleInit } from "@nestjs/common";
-import * as Sentry from "@sentry/node";
-import { Cache } from "cache-manager";
+import { Injectable, OnModuleInit } from "@nestjs/common";
 import { Neogma, NeogmaModel, QueryBuilder } from "neogma";
 import { InjectConnection } from "nest-neogma";
-import {
-  ALL_JOBS_CACHE_KEY,
-  ALL_JOBS_FILTER_CONFIGS_CACHE_KEY,
-  JOBS_LIST_CACHE_KEY,
-  JOBS_LIST_FILTER_CONFIGS_CACHE_KEY,
-  PROJECTS_LIST_CACHE_KEY,
-  PROJECTS_LIST_FILTER_CONFIGS_CACHE_KEY,
-  PUBLIC_JOBS_LIST_CACHE_KEY,
-} from "src/shared/constants";
 import {
   AuditProps,
   Audits,
@@ -67,8 +55,6 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 export class ModelService implements OnModuleInit {
   logger = new CustomLogger(ModelService.name);
   constructor(
-    @Inject(CACHE_MANAGER)
-    private cacheManager: Cache,
     @InjectConnection()
     private neogma: Neogma,
   ) {}
@@ -133,37 +119,5 @@ export class ModelService implements OnModuleInit {
     this.Audits = Audits(this.neogma);
     this.Hacks = Hacks(this.neogma);
     this.Chains = Chains(this.neogma);
-  };
-
-  validateCache = async (): Promise<void> => {
-    try {
-      const res = await this.neogma.queryRunner.run(
-        `
-          MATCH (node: DirtyNode)
-          WITH node.dirty as isDirty, node
-          SET (CASE WHEN isDirty = true THEN node END).dirty = false 
-          RETURN isDirty
-      `.replace(/^\s*$(?:\r\n?|\n)/gm, ""),
-      );
-      const isDirty = (res.records[0]?.get("isDirty") as boolean) ?? false;
-      if (isDirty) {
-        await this.cacheManager.del(ALL_JOBS_CACHE_KEY);
-        await this.cacheManager.del(JOBS_LIST_CACHE_KEY);
-        await this.cacheManager.del(PROJECTS_LIST_CACHE_KEY);
-        await this.cacheManager.del(PUBLIC_JOBS_LIST_CACHE_KEY);
-        await this.cacheManager.del(JOBS_LIST_FILTER_CONFIGS_CACHE_KEY);
-        await this.cacheManager.del(ALL_JOBS_FILTER_CONFIGS_CACHE_KEY);
-        await this.cacheManager.del(PROJECTS_LIST_FILTER_CONFIGS_CACHE_KEY);
-      }
-    } catch (error) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "models.service",
-        });
-        Sentry.captureException(error);
-      });
-      this.logger.error(`ModelService::shouldClearCache ${error.message}`);
-    }
   };
 }

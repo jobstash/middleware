@@ -1,6 +1,7 @@
 export * from "./user.entity";
 export * from "./user-role.entity";
 export * from "./user-flow.entity";
+export * from "./repository.entity";
 export * from "./organization.entity";
 export * from "./job-list-result.entity";
 export * from "./org-list-result.entity";

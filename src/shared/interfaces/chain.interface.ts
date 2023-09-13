@@ -23,7 +23,9 @@ export class Chain {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        throw new Error(
+          `chain instance with id ${this.id} failed validation with error '${x}'`,
+        );
       });
     }
   }

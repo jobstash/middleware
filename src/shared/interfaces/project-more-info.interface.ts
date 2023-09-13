@@ -92,7 +92,9 @@ export class ProjectMoreInfo extends Project {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        throw new Error(
+          `project more info instance with id ${this.id} failed validation with error '${x}'`,
+        );
       });
     }
   }

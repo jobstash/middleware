@@ -18,7 +18,6 @@ import { report } from "io-ts-human-reporter";
 import { Response } from "express";
 import { ModelService } from "src/model/model.service";
 import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
-import { CacheModule } from "@nestjs/cache-manager";
 
 describe("ProjectsController", () => {
   let controller: ProjectsController;
@@ -72,7 +71,6 @@ describe("ProjectsController", () => {
               database: configService.get<string>("NEO4J_DATABASE"),
             } as NeogmaModuleOptions),
         }),
-        CacheModule.register({ isGlobal: true }),
       ],
       controllers: [ProjectsController],
       providers: [

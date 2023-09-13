@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import {
   ShortOrgEntity,
   ShortOrg,
@@ -13,18 +13,11 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { OrgListParams } from "./dto/org-list.input";
 import { intConverter, toShortOrg } from "src/shared/helpers";
-import { RepositoryEntity } from "src/shared/entities/repository.entity";
+import { RepositoryEntity } from "src/shared/entities";
 import { createNewSortInstance, sort } from "fast-sort";
 import { ModelService } from "src/model/model.service";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
-import {
-  ORGS_LIST_CACHE_KEY,
-  ORGS_LIST_FILTER_CONFIGS_CACHE_KEY,
-} from "src/shared/constants";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Cache } from "cache-manager";
-import { IN_MEM_CACHE_EXPIRY } from "src/shared/presets/cache-control";
 
 @Injectable()
 export class OrganizationsService {
@@ -32,28 +25,8 @@ export class OrganizationsService {
   constructor(
     @InjectConnection()
     private neogma: Neogma,
-    @Inject(CACHE_MANAGER)
-    private readonly cacheManager: Cache,
     private models: ModelService,
   ) {}
-
-  getCachedOrgs = async <K>(
-    cacheKey: string = ORGS_LIST_CACHE_KEY,
-  ): Promise<K[]> => {
-    const cachedOrgsString =
-      (await this.cacheManager.get<string>(cacheKey)) ?? "[]";
-    const cachedOrgs = JSON.parse(cachedOrgsString) as K[];
-    return cachedOrgs;
-  };
-
-  getCachedFilterConfigs = async <FC>(
-    cacheKey: string = ORGS_LIST_FILTER_CONFIGS_CACHE_KEY,
-  ): Promise<FC> => {
-    const cachedFilterConfigsString =
-      (await this.cacheManager.get<string>(cacheKey)) ?? "{}";
-    const cachedFilterConfigs = JSON.parse(cachedFilterConfigsString) as FC;
-    return cachedFilterConfigs;
-  };
 
   getOrgListResults = async (): Promise<OrgListResult[]> => {
     const results: OrgListResult[] = [];
@@ -177,43 +150,29 @@ export class OrganizationsService {
       limit,
     } = paramsPassed;
 
-    await this.models.validateCache();
+    const results: OrgListResult[] = [];
 
-    const cachedOrgs = await this.getCachedOrgs<OrgListResult>();
-
-    const results: OrgListResult[] = cachedOrgs;
-
-    if (cachedOrgs.length !== 0) {
-      this.logger.log("Found cached orgs");
-    } else {
-      this.logger.log("No cached orgs found, retrieving from db.");
-      try {
-        const result = await this.getOrgListResults();
-        results.push(...result);
-        await this.cacheManager.set(
-          ORGS_LIST_CACHE_KEY,
-          JSON.stringify(results),
-          IN_MEM_CACHE_EXPIRY,
-        );
-      } catch (err) {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "organizations.service",
-          });
-          scope.setExtra("input", params);
-          Sentry.captureException(err);
+    try {
+      const result = await this.getOrgListResults();
+      results.push(...result);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "organizations.service",
         });
-        this.logger.error(
-          `OrganizationsService::getOrgsListWithSearch ${err.message}`,
-        );
-        return {
-          page: -1,
-          count: 0,
-          total: 0,
-          data: [],
-        };
-      }
+        scope.setExtra("input", params);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::getOrgsListWithSearch ${err.message}`,
+      );
+      return {
+        page: -1,
+        count: 0,
+        total: 0,
+        data: [],
+      };
     }
 
     const orgFilters = (org: OrgListResult): boolean => {
@@ -287,13 +246,9 @@ export class OrganizationsService {
 
   async getFilterConfigs(): Promise<OrgFilterConfigs> {
     try {
-      const result = await this.getCachedFilterConfigs<OrgFilterConfigs>();
-      if (result?.fundingRounds) {
-        return result;
-      } else {
-        const freshResult = await this.neogma.queryRunner
-          .run(
-            `
+      return await this.neogma.queryRunner
+        .run(
+          `
               MATCH (o:Organization)
               OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)
               OPTIONAL MATCH (f)-[:INVESTED_BY]->(i:Investor)
@@ -306,21 +261,14 @@ export class OrganizationsService {
                   locations: COLLECT(DISTINCT o.location)
               } AS res
       `,
-          )
-          .then(res =>
-            res.records.length
-              ? new OrgFilterConfigsEntity(
-                  res.records[0].get("res"),
-                ).getProperties()
-              : undefined,
-          );
-        await this.cacheManager.set(
-          ORGS_LIST_FILTER_CONFIGS_CACHE_KEY,
-          JSON.stringify(freshResult),
-          IN_MEM_CACHE_EXPIRY,
+        )
+        .then(res =>
+          res.records.length
+            ? new OrgFilterConfigsEntity(
+                res.records[0].get("res"),
+              ).getProperties()
+            : undefined,
         );
-        return freshResult;
-      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -338,15 +286,7 @@ export class OrganizationsService {
 
   async getOrgDetailsById(id: string): Promise<OrgListResult | undefined> {
     try {
-      await this.models.validateCache();
-
-      const cachedOrgs = await this.getCachedOrgs<OrgListResult>();
-
-      if (cachedOrgs.length === 0) {
-        return (await this.getOrgListResults()).find(org => org.orgId === id);
-      } else {
-        return cachedOrgs.find(org => org.orgId === id);
-      }
+      return (await this.getOrgListResults()).find(org => org.orgId === id);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -365,28 +305,9 @@ export class OrganizationsService {
 
   async getAll(): Promise<ShortOrg[]> {
     try {
-      await this.models.validateCache();
-
-      const cachedOrgs = await this.getCachedOrgs<OrgListResult>();
-
-      const results: ShortOrg[] = cachedOrgs.map(org =>
+      return (await this.getOrgListResults()).map(org =>
         new ShortOrgEntity(toShortOrg(org)).getProperties(),
       );
-
-      if (
-        cachedOrgs === null ||
-        cachedOrgs === undefined ||
-        cachedOrgs.length === 0
-      ) {
-        results.push(
-          ...(await this.getOrgListResults()).map(org =>
-            new ShortOrgEntity(toShortOrg(org)).getProperties(),
-          ),
-        );
-        return results;
-      } else {
-        return results;
-      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({

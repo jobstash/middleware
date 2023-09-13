@@ -7,7 +7,6 @@ import {
   NeogmaModuleOptions,
   getConnectionToken,
 } from "nest-neogma";
-import { CacheModule } from "@nestjs/cache-manager";
 import { ModelModule } from "./model.module";
 import { Neogma } from "neogma";
 
@@ -39,7 +38,6 @@ describe("ModelsService", () => {
               database: configService.get<string>("NEO4J_DATABASE"),
             } as NeogmaModuleOptions),
         }),
-        CacheModule.register({ isGlobal: true }),
         ModelModule,
       ],
       providers: [ModelService],

@@ -88,7 +88,9 @@ export class Jobpost {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        throw new Error(
+          `jobpost instance with id ${this.shortUUID} failed validation with error '${x}'`,
+        );
       });
     }
   }

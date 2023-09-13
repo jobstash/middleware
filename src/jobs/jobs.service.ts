@@ -1,17 +1,9 @@
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Inject, Injectable } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import * as Sentry from "@sentry/node";
-import { Cache } from "cache-manager";
 import { sort } from "fast-sort";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import { ModelService } from "src/model/model.service";
-import {
-  ALL_JOBS_CACHE_KEY,
-  ALL_JOBS_FILTER_CONFIGS_CACHE_KEY,
-  JOBS_LIST_CACHE_KEY,
-  JOBS_LIST_FILTER_CONFIGS_CACHE_KEY,
-} from "src/shared/constants";
 import {
   AllJobListResultEntity,
   AllJobsFilterConfigsEntity,
@@ -34,36 +26,15 @@ import {
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { AllJobsParams } from "./dto/all-jobs.input";
 import { JobListParams } from "./dto/job-list.input";
-import { IN_MEM_CACHE_EXPIRY } from "src/shared/presets/cache-control";
 
 @Injectable()
 export class JobsService {
   logger = new CustomLogger(JobsService.name);
   constructor(
-    @Inject(CACHE_MANAGER)
-    private cacheManager: Cache,
     @InjectConnection()
     private neogma: Neogma,
     private models: ModelService,
   ) {}
-
-  getCachedJobs = async <K>(
-    cacheKey: string = JOBS_LIST_CACHE_KEY,
-  ): Promise<K[]> => {
-    const cachedJobsString =
-      (await this.cacheManager.get<string>(cacheKey)) ?? "[]";
-    const cachedJobs = JSON.parse(cachedJobsString) as K[];
-    return cachedJobs;
-  };
-
-  getCachedFilterConfigs = async <FC>(
-    cacheKey: string = JOBS_LIST_FILTER_CONFIGS_CACHE_KEY,
-  ): Promise<FC> => {
-    const cachedFilterConfigsString =
-      (await this.cacheManager.get<string>(cacheKey)) ?? "{}";
-    const cachedFilterConfigs = JSON.parse(cachedFilterConfigsString) as FC;
-    return cachedFilterConfigs;
-  };
 
   getJobsListResults = async (): Promise<JobListResult[]> => {
     const results: JobListResult[] = [];
@@ -302,41 +273,27 @@ export class JobsService {
       limit,
     } = paramsPassed;
 
-    await this.models.validateCache();
+    const results: JobListResult[] = [];
 
-    const cachedJobs = await this.getCachedJobs<JobListResult>();
-
-    const results: JobListResult[] = cachedJobs;
-
-    if (cachedJobs.length !== 0) {
-      this.logger.log("Found cached jobs");
-    } else {
-      this.logger.log("No cached jobs found, retrieving from db.");
-      try {
-        const orgJobs = await this.getJobsListResults();
-        results.push(...orgJobs);
-        await this.cacheManager.set(
-          JOBS_LIST_CACHE_KEY,
-          JSON.stringify(results),
-          IN_MEM_CACHE_EXPIRY,
-        );
-      } catch (err) {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "jobs.service",
-          });
-          scope.setExtra("input", params);
-          Sentry.captureException(err);
+    try {
+      const orgJobs = await this.getJobsListResults();
+      results.push(...orgJobs);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
         });
-        this.logger.error(`JobsService::getJobsListWithSearch ${err.message}`);
-        return {
-          page: -1,
-          count: 0,
-          total: 0,
-          data: [],
-        };
-      }
+        scope.setExtra("input", params);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getJobsListWithSearch ${err.message}`);
+      return {
+        page: -1,
+        count: 0,
+        total: 0,
+        data: [],
+      };
     }
 
     const jobFilters = (jlr: JobListResult): boolean => {
@@ -489,16 +446,9 @@ export class JobsService {
 
   async getFilterConfigs(): Promise<JobFilterConfigs> {
     try {
-      await this.models.validateCache();
-
-      const result = await this.getCachedFilterConfigs<JobFilterConfigs>();
-
-      if (result?.audits) {
-        return result;
-      } else {
-        const freshResult = await this.neogma.queryRunner
-          .run(
-            `
+      return await this.neogma.queryRunner
+        .run(
+          `
         MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)
         MATCH (jp)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
         MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
@@ -540,21 +490,14 @@ export class JobsService {
             seniority: COLLECT(DISTINCT j.seniority)
         } as res
       `,
-          )
-          .then(res =>
-            res.records.length
-              ? new JobFilterConfigsEntity(
-                  res.records[0].get("res"),
-                ).getProperties()
-              : undefined,
-          );
-        await this.cacheManager.set(
-          JOBS_LIST_FILTER_CONFIGS_CACHE_KEY,
-          JSON.stringify(freshResult),
-          IN_MEM_CACHE_EXPIRY,
+        )
+        .then(res =>
+          res.records.length
+            ? new JobFilterConfigsEntity(
+                res.records[0].get("res"),
+              ).getProperties()
+            : undefined,
         );
-        return freshResult;
-      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -570,17 +513,9 @@ export class JobsService {
 
   async getJobDetailsByUuid(uuid: string): Promise<JobListResult | undefined> {
     try {
-      await this.models.validateCache();
-
-      const cachedJobs = await this.getCachedJobs<JobListResult>();
-
-      if (cachedJobs.length === 0) {
-        return (await this.getJobsListResults()).find(
-          job => job.shortUUID === uuid,
-        );
-      } else {
-        return cachedJobs.find(job => job.shortUUID === uuid);
-      }
+      return (await this.getJobsListResults()).find(
+        job => job.shortUUID === uuid,
+      );
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -597,28 +532,9 @@ export class JobsService {
 
   async getJobsByOrgId(id: string): Promise<JobListResult[] | undefined> {
     try {
-      await this.models.validateCache();
-
-      const cachedJobs = await this.getCachedJobs<JobListResult>();
-
-      const results: JobListResult[] = cachedJobs.filter(
-        job => job.organization.orgId === id,
-      );
-
-      if (
-        cachedJobs === null ||
-        cachedJobs === undefined ||
-        cachedJobs.length === 0
-      ) {
-        results.push(
-          ...(await this.getJobsListResults())
-            .filter(x => x.organization.orgId === id)
-            .map(orgJob => new JobListResultEntity(orgJob).getProperties()),
-        );
-        return results;
-      } else {
-        return results;
-      }
+      return (await this.getJobsListResults())
+        .filter(x => x.organization.orgId === id)
+        .map(orgJob => new JobListResultEntity(orgJob).getProperties());
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -651,43 +567,28 @@ export class JobsService {
       limit,
     } = paramsPassed;
 
-    await this.models.validateCache();
+    const results: AllJobsListResult[] = [];
 
-    const cachedJobs = await this.getCachedJobs<AllJobsListResult>(
-      ALL_JOBS_CACHE_KEY,
-    );
-
-    const results: AllJobsListResult[] = cachedJobs;
-
-    if (cachedJobs.length !== 0) {
-      this.logger.log("Found cached jobs");
-    } else {
-      try {
-        this.logger.log("No cached jobs found, retrieving from db.");
-        const orgJobs = await this.getAllJobsListResults();
-        results.push(...orgJobs);
-        await this.cacheManager.set(
-          ALL_JOBS_CACHE_KEY,
-          JSON.stringify(results),
-          IN_MEM_CACHE_EXPIRY,
-        );
-      } catch (err) {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "jobs.service",
-          });
-          scope.setExtra("input", params);
-          Sentry.captureException(err);
+    try {
+      this.logger.log("No cached jobs found, retrieving from db.");
+      const orgJobs = await this.getAllJobsListResults();
+      results.push(...orgJobs);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
         });
-        this.logger.error(`JobsService::getAllJobsWithSearch ${err.message}`);
-        return {
-          page: -1,
-          count: 0,
-          total: 0,
-          data: [],
-        };
-      }
+        scope.setExtra("input", params);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getAllJobsWithSearch ${err.message}`);
+      return {
+        page: -1,
+        count: 0,
+        total: 0,
+        data: [],
+      };
     }
 
     const jobFilters = (jlr: AllJobsListResult): boolean => {
@@ -728,18 +629,9 @@ export class JobsService {
 
   async getAllJobsFilterConfigs(): Promise<AllJobsFilterConfigs> {
     try {
-      await this.models.validateCache();
-
-      const result = await this.getCachedFilterConfigs<AllJobsFilterConfigs>(
-        ALL_JOBS_FILTER_CONFIGS_CACHE_KEY,
-      );
-
-      if (result?.categories) {
-        return result;
-      } else {
-        const freshResult = await this.neogma.queryRunner
-          .run(
-            `
+      return await this.neogma.queryRunner
+        .run(
+          `
         MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)
         MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
         MATCH (jp)-[:IS_CATEGORIZED_AS]-(cat:JobpostCategory)
@@ -749,21 +641,14 @@ export class JobsService {
             organizations: COLLECT(DISTINCT o.name)
         } as res
       `,
-          )
-          .then(res =>
-            res.records.length
-              ? new AllJobsFilterConfigsEntity(
-                  res.records[0].get("res"),
-                ).getProperties()
-              : undefined,
-          );
-        await this.cacheManager.set(
-          ALL_JOBS_FILTER_CONFIGS_CACHE_KEY,
-          JSON.stringify(freshResult),
-          IN_MEM_CACHE_EXPIRY,
+        )
+        .then(res =>
+          res.records.length
+            ? new AllJobsFilterConfigsEntity(
+                res.records[0].get("res"),
+              ).getProperties()
+            : undefined,
         );
-        return freshResult;
-      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({

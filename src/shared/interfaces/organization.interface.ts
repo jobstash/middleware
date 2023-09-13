@@ -135,7 +135,9 @@ export class OrganizationProperties {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        throw new Error(
+          `organization properties instance with id ${this.orgId} failed validation with error '${x}'`,
+        );
       });
     }
   }
@@ -181,7 +183,9 @@ export class Organization extends OrganizationProperties {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        throw new Error(
+          `organization instance with id ${this.orgId} failed validation with error '${x}'`,
+        );
       });
     }
   }
@@ -271,7 +275,9 @@ export class ShortOrg {
 
     if (isLeft(result)) {
       report(result).forEach(x => {
-        throw new Error(x);
+        throw new Error(
+          `short org instance with id ${this.orgId} failed validation with error '${x}'`,
+        );
       });
     }
   }

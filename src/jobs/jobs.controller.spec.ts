@@ -20,7 +20,6 @@ import {
 } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
-import { CacheModule } from "@nestjs/cache-manager";
 import { Response } from "express";
 import { ModelModule } from "src/model/model.module";
 import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
@@ -132,7 +131,6 @@ describe("JobsController", () => {
               database: configService.get<string>("NEO4J_DATABASE"),
             } as NeogmaModuleOptions),
         }),
-        CacheModule.register({ isGlobal: true }),
         ModelModule,
       ],
       controllers: [JobsController],
