@@ -1,4 +1,4 @@
-import { CacheModule, Module } from "@nestjs/common";
+import { Module } from "@nestjs/common";
 import { SiweController } from "./siwe.controller";
 import { BackendModule } from "src/backend/backend.module";
 import { BackendService } from "src/backend/backend.service";
@@ -7,6 +7,10 @@ import { AuthService } from "../auth.service";
 import { JwtModule, JwtService } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { UserService } from "../user/user.service";
+import { GithubUserService } from "../github/github-user.service";
+import { UserRoleService } from "../user/user-role.service";
+import { UserFlowService } from "../user/user-flow.service";
+import { CacheModule } from "@nestjs/cache-manager";
 
 @Module({
   imports: [
@@ -25,6 +29,14 @@ import { UserService } from "../user/user.service";
     CacheModule.register(),
   ],
   controllers: [SiweController],
-  providers: [BackendService, AuthService, JwtService, UserService],
+  providers: [
+    BackendService,
+    AuthService,
+    JwtService,
+    UserService,
+    UserRoleService,
+    UserFlowService,
+    GithubUserService,
+  ],
 })
 export class SiweModule {}

@@ -9,7 +9,6 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { BackendService } from "../../backend/backend.service";
-import { AuthService } from "../auth.service";
 import { ConfigService } from "@nestjs/config";
 import {
   CheckWalletRoles,
@@ -33,11 +32,10 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 @Controller("github")
 @ApiExtraModels(User)
 export class GithubController {
-  logger = new CustomLogger(GithubController.name);
+  private readonly logger = new CustomLogger(GithubController.name);
   private readonly ghConfig: GithubConfig;
   constructor(
     private readonly backendService: BackendService,
-    private readonly authService: AuthService,
     private readonly configService: ConfigService,
     private readonly userService: UserService,
   ) {

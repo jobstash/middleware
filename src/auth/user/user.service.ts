@@ -1,21 +1,33 @@
 import { UserRoleEntity } from "./../../shared/entities/user-role.entity";
 import { Injectable } from "@nestjs/common";
-import { User, UserEntity, UserFlowEntity } from "src/shared/types";
+import {
+  GithubUserEntity,
+  GithubUserProperties,
+  User,
+  UserEntity,
+  UserFlowEntity,
+} from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
+import { UserFlowService } from "./user-flow.service";
+import { UserRoleService } from "./user-role.service";
+import { CreateUserDto } from "./dto/create-user.dto";
+import { UpdateUserDto } from "./dto/update-user.dto";
 
 @Injectable()
 export class UserService {
-  logger = new CustomLogger(UserService.name);
+  private readonly logger = new CustomLogger(UserService.name);
   constructor(
     @InjectConnection()
     private readonly neogma: Neogma,
+    private readonly userFlowService: UserFlowService,
+    private readonly userRoleService: UserRoleService,
   ) {}
 
   async validateUser(id: string): Promise<User | undefined> {
-    const user = await this.find(id);
+    const user = await this.findById(id);
 
     if (user) {
       return user.getProperties();
@@ -24,7 +36,7 @@ export class UserService {
     return undefined;
   }
 
-  async find(id: string): Promise<UserEntity | undefined> {
+  async findById(id: string): Promise<UserEntity | undefined> {
     return this.neogma.queryRunner
       .run(
         `
@@ -78,7 +90,7 @@ export class UserService {
       });
   }
 
-  async findByNodeId(nodeId: string): Promise<UserEntity | undefined> {
+  async findByGithubNodeId(nodeId: string): Promise<UserEntity | undefined> {
     return this.neogma.queryRunner
       .run(
         `
@@ -103,6 +115,164 @@ export class UserService {
         this.logger.error(`UserService::findByNodeId ${err.message}`);
         return undefined;
       });
+  }
+
+  async findByGithubLogin(githubLogin: string): Promise<User | undefined> {
+    const res = await this.neogma.queryRunner.run(
+      `
+            MATCH (u:User {githubLogin: $githubLogin})
+            RETURN u
+        `,
+      { githubLogin },
+    );
+    return res.records.length
+      ? new UserEntity(res.records[0].get("u")).getProperties()
+      : undefined;
+  }
+
+  async create(dto: CreateUserDto): Promise<UserEntity> {
+    return this.neogma.queryRunner
+      .run(
+        `
+                CREATE (u:User { id: randomUUID() })
+                SET u += $properties
+                RETURN u
+            `,
+        {
+          properties: {
+            ...dto,
+          },
+        },
+      )
+      .then(res => new UserEntity(res.records[0].get("u")));
+  }
+
+  async update(id: string, properties: UpdateUserDto): Promise<User> {
+    return this.neogma.queryRunner
+      .run(
+        `
+                MATCH (u:User { id: $id })
+                SET u += $properties
+                RETURN u
+            `,
+        { id, properties },
+      )
+      .then(res => new UserEntity(res.records[0].get("u")).getProperties());
+  }
+
+  async setFlow(flow: string, storedUser: UserEntity): Promise<void> {
+    // Flow
+    // Find a flow node
+    let storedFlowNode = await this.userFlowService.find(flow);
+
+    // If its not there, create it
+    if (!storedFlowNode) {
+      this.logger.log(`No user flow node for ${flow} found. Creating one...`);
+      storedFlowNode = await this.userFlowService.create({
+        name: flow,
+      });
+    }
+
+    // Check current flow association of user
+    const currentFlow = await this.userFlowService.getFlowForWallet(
+      storedUser.getWallet(),
+    );
+    // If user already has the desired flow, return
+    if (currentFlow && currentFlow.getName() === flow) {
+      return;
+    }
+
+    // If user has a different flow, unrelate it
+    if (currentFlow && currentFlow.getName()) {
+      await this.userFlowService.unrelateUserFromUserFlow(
+        storedUser.getId(),
+        currentFlow.getId(),
+      );
+    }
+
+    // Relate user to desired flow
+    await this.userFlowService.relateUserToUserFlow(
+      storedUser.getId(),
+      storedFlowNode.getId(),
+    );
+
+    // log the flow
+    this.logger.log(`Flow ${flow} set for wallet ${storedUser.getWallet()}.`);
+  }
+
+  async setRole(role: string, storedUser: UserEntity): Promise<void> {
+    // Find a role node
+    let storedRoleNode = await this.userRoleService.find(role);
+
+    // If its not there, create it
+    if (!storedRoleNode) {
+      this.logger.log(`No user role node for ${role} found. Creating one...`);
+      storedRoleNode = await this.userRoleService.create({
+        name: role,
+      });
+    }
+
+    // Check current role association of user
+    const currentRole = await this.userRoleService.getRoleForWallet(
+      storedUser.getWallet(),
+    );
+    // If user already has the desired role, return
+    if (currentRole && currentRole.getName() === role) {
+      return;
+    }
+
+    // If user has a different role, unrelate it
+    if (currentRole && currentRole.getName()) {
+      await this.userRoleService.unrelateUserFromUserRole(
+        storedUser.getId(),
+        currentRole.getId(),
+      );
+    }
+
+    // Relate user to desired role
+    await this.userRoleService.relateUserToUserRole(
+      storedUser.getId(),
+      storedRoleNode.getId(),
+    );
+
+    // log the role
+    this.logger.log(`Role ${role} set for wallet ${storedUser.getWallet()}.`);
+  }
+
+  async addGithubUser(
+    userId: string,
+    githubUserId: number,
+  ): Promise<GithubUserProperties | undefined> {
+    const res = await this.neogma.queryRunner.run(
+      `
+            MATCH (u:User {id: $userId}), (gu:GithubUser {id: $githubUserId})
+            MERGE (u)-[:HAS_GITHUB_USER]->(gu)
+            RETURN gu
+        `,
+      { userId, githubUserId },
+    );
+
+    return res.records.length
+      ? new GithubUserEntity(res.records[0].get("u")).getProperties()
+      : undefined;
+  }
+
+  async removeGithubUser(
+    userId: string,
+    githubUserId: string,
+  ): Promise<GithubUserProperties | undefined> {
+    const res = await this.neogma.queryRunner.run(
+      `
+            MATCH (u:User {id: $userId})-[r:HAS_GITHUB_USER]->(gu:GithubUser {id: $githubUserId})
+            DELETE r
+            RETURN gu
+        `,
+      { userId, githubUserId },
+    );
+
+    return res.records.length
+      ? new GithubUserEntity(res.records[0].get("u")).getProperties()
+      : undefined;
   }
 
   async getRoleForWallet(wallet: string): Promise<UserRoleEntity | undefined> {

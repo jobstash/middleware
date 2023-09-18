@@ -11,7 +11,7 @@ import { CACHE_MANAGER } from "@nestjs/cache-manager";
 @Injectable()
 export class AuthService {
   private readonly jwtConfig: object;
-  logger = new CustomLogger(AuthService.name);
+  private readonly logger = new CustomLogger(AuthService.name);
   constructor(
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,

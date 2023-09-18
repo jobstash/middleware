@@ -53,7 +53,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Injectable()
 export class ModelService implements OnModuleInit {
-  logger = new CustomLogger(ModelService.name);
+  private readonly logger = new CustomLogger(ModelService.name);
   constructor(
     @InjectConnection()
     private neogma: Neogma,

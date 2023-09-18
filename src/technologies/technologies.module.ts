@@ -1,19 +1,14 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { TechnologiesService } from "./technologies.service";
 import { TechnologiesController } from "./technologies.controller";
-import { BackendService } from "src/backend/backend.service";
 import { AuthService } from "src/auth/auth.service";
 import { JwtService } from "@nestjs/jwt";
 import { ModelService } from "src/model/model.service";
+import { BackendModule } from "src/backend/backend.module";
 
 @Module({
+  imports: [forwardRef(() => BackendModule)],
   controllers: [TechnologiesController],
-  providers: [
-    TechnologiesService,
-    BackendService,
-    AuthService,
-    JwtService,
-    ModelService,
-  ],
+  providers: [TechnologiesService, AuthService, JwtService, ModelService],
 })
 export class TechnologiesModule {}

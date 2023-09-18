@@ -1,19 +1,12 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { ProjectsService } from "./projects.service";
 import { ProjectsController } from "./projects.controller";
-import { BackendService } from "src/backend/backend.service";
-import { AuthService } from "src/auth/auth.service";
-import { JwtService } from "@nestjs/jwt";
 import { ModelService } from "src/model/model.service";
+import { BackendModule } from "src/backend/backend.module";
 
 @Module({
+  imports: [forwardRef(() => BackendModule)],
   controllers: [ProjectsController],
-  providers: [
-    ProjectsService,
-    BackendService,
-    AuthService,
-    JwtService,
-    ModelService,
-  ],
+  providers: [ProjectsService, ModelService],
 })
 export class ProjectsModule {}

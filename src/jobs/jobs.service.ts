@@ -29,7 +29,7 @@ import { JobListParams } from "./dto/job-list.input";
 
 @Injectable()
 export class JobsService {
-  logger = new CustomLogger(JobsService.name);
+  private readonly logger = new CustomLogger(JobsService.name);
   constructor(
     @InjectConnection()
     private neogma: Neogma,

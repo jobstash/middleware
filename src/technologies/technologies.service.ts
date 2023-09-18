@@ -7,7 +7,7 @@ import { ModelService } from "src/model/model.service";
 
 @Injectable()
 export class TechnologiesService {
-  logger = new CustomLogger(TechnologiesService.name);
+  private readonly logger = new CustomLogger(TechnologiesService.name);
   constructor(private models: ModelService) {}
 
   async getAll(): Promise<Technology[]> {

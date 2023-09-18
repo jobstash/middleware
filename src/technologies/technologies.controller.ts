@@ -23,7 +23,7 @@ import * as Sentry from "@sentry/node";
 @Controller("technologies")
 @ApiExtraModels(TechnologyPreferredTerm, PreferredTerm)
 export class TechnologiesController {
-  logger = new CustomLogger(TechnologiesController.name);
+  private readonly logger = new CustomLogger(TechnologiesController.name);
   constructor(
     private readonly technologiesService: TechnologiesService,
     private readonly backendService: BackendService,

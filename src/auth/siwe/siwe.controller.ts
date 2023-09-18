@@ -41,7 +41,7 @@ import { NO_CACHE } from "src/shared/presets/cache-control";
 @Controller("siwe")
 @ApiExtraModels(SessionObject, User)
 export class SiweController {
-  logger = new CustomLogger(SiweController.name);
+  private readonly logger = new CustomLogger(SiweController.name);
   private readonly sessionConfig: IronSessionOptions;
   constructor(
     private readonly backendService: BackendService,

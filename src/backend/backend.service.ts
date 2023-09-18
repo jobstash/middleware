@@ -1,47 +1,44 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import * as Sentry from "@sentry/node";
 import axios, { AxiosInstance } from "axios";
 import { AuthService } from "src/auth/auth.service";
+import { SetFlowStateInput } from "src/auth/dto/set-flow-state.input";
+import { SetRoleInput } from "src/auth/dto/set-role.input";
+import { GithubUserService } from "src/auth/github/github-user.service";
+import { UserService } from "src/auth/user/user.service";
+import { GithubLoginInput } from "src/backend/dto/github-login.input";
 import { CreateOrganizationInput } from "src/organizations/dto/create-organization.input";
 import { UpdateOrganizationInput } from "src/organizations/dto/update-organization.input";
 import { CreateProjectInput } from "src/projects/dto/create-project.input";
 import { UpdateProjectInput } from "src/projects/dto/update-project.input";
+import { USER_FLOWS, USER_ROLES } from "src/shared/constants";
+import { propertiesMatch } from "src/shared/helpers";
 import {
+  GithubUserEntity,
+  GithubUserProperties,
   OrganizationProperties,
-  ProjectProperties,
-  User,
   PreferredTerm,
+  ProjectProperties,
   Response,
   ResponseWithNoData,
+  User,
 } from "src/shared/types";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 import { CreatePairedTermsInput } from "src/technologies/dto/create-paired-terms.input";
 import { CreatePreferredTermInput } from "src/technologies/dto/create-preferred-term.input";
 import { DeletePreferredTermInput } from "src/technologies/dto/delete-preferred-term.input";
 import { BlockedTermsInput } from "src/technologies/dto/set-blocked-term.input";
-import { CustomLogger } from "src/shared/utils/custom-logger";
-import * as Sentry from "@sentry/node";
-import { SetFlowStateInput } from "src/auth/dto/set-flow-state.input";
-import { SetRoleInput } from "src/auth/dto/set-role.input";
-
-export interface GithubLoginInput {
-  githubAccessToken: string;
-  githubRefreshToken: string;
-  githubLogin: string;
-  githubId: number;
-  githubNodeId: string;
-  githubGravatarId?: string | undefined;
-  githubAvatarUrl: string;
-  wallet: string;
-  role: string;
-}
 
 @Injectable()
 export class BackendService {
-  logger = new CustomLogger(BackendService.name);
+  private readonly logger = new CustomLogger(BackendService.name);
 
   constructor(
     private readonly authService: AuthService,
+    private readonly userService: UserService,
     private readonly configService: ConfigService,
+    private readonly githubUserService: GithubUserService,
   ) {}
 
   private async getOrRefreshClient(): Promise<AxiosInstance> {
@@ -62,137 +59,164 @@ export class BackendService {
   async addGithubInfoToUser(
     args: GithubLoginInput,
   ): Promise<Response<User> | ResponseWithNoData> {
-    const client = await this.getOrRefreshClient();
     const logInfo = {
       ...args,
       githubAccessToken: "[REDACTED]",
       githubRefreshToken: "[REDACTED]",
     };
-    this.logger.log(`/user/addGithubInfoToUser: ${logInfo}`);
+    this.logger.log(
+      `/user/addGithubInfoToUser: Assigning ${args.githubId} github account to wallet ${args.wallet}`,
+    );
 
-    return client
-      .post("/user/addGithubInfoToUser", args)
-      .then(res => {
-        const data = res.data;
-        if (data.success) {
-          return {
-            success: true,
-            message: "Github profile added to user account successfully",
-            data: data as User,
-          };
-        } else {
-          return {
-            success: false,
-            message: "Error adding github info to user",
-          };
+    const { wallet, ...updateObject } = args;
+
+    try {
+      const storedUserNode = await this.userService.findByWallet(wallet);
+      if (!storedUserNode) {
+        return { success: false, message: "User not found" };
+      }
+      const githubUserNode = await this.githubUserService.findById(
+        updateObject.githubId,
+      );
+
+      let persistedGithubNode: GithubUserEntity;
+
+      const payload = {
+        id: updateObject.githubId,
+        login: updateObject.githubLogin,
+        nodeId: updateObject.githubNodeId,
+        gravatarId: updateObject.githubGravatarId,
+        avatarUrl: updateObject.githubAvatarUrl,
+        accessToken: updateObject.githubAccessToken,
+        refreshToken: updateObject.githubRefreshToken,
+      };
+
+      if (githubUserNode) {
+        const githubUserNodeData: GithubUserProperties =
+          githubUserNode.getProperties();
+        if (propertiesMatch(githubUserNodeData, updateObject)) {
+          return { success: false, message: "Github data is identical" };
         }
-      })
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "service-request-pipeline",
-            source: "backend.service",
-          });
-          scope.setExtra("input", logInfo);
-          Sentry.captureException(err);
+
+        persistedGithubNode = await this.githubUserService.update(
+          githubUserNode.getId(),
+          payload,
+        );
+      } else {
+        persistedGithubNode = await this.githubUserService.create(payload);
+        await this.userService.addGithubUser(
+          storedUserNode.getId(),
+          persistedGithubNode.getId(),
+        );
+      }
+
+      return {
+        success: true,
+        message: "Github data persisted",
+        data: storedUserNode.getProperties(),
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-request-pipeline",
+          source: "backend.service",
         });
-        this.logger.error(`BackendService::addGithubInfoToUser ${err.message}`);
-        return {
-          success: false,
-          message: "Error adding github info to user",
-        };
+        scope.setExtra("input", logInfo);
+        Sentry.captureException(err);
       });
+      this.logger.error(`BackendService::addGithubInfoToUser ${err.message}`);
+      return {
+        success: false,
+        message: "Error adding github info to user",
+      };
+    }
   }
 
-  async createSIWEUser(address: string): Promise<User | undefined> {
-    const client = await this.getOrRefreshClient();
-    this.logger.log(`/user/createUser: ${address}`);
-    return client
-      .post("/user/createUser", { wallet: address })
-      .then(res => {
-        const data = res.data;
-        if (data.success === true) {
-          return data as User;
-        } else {
-          return undefined;
-        }
-      })
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "service-request-pipeline",
-            source: "backend.service",
-          });
-          scope.setExtra("input", address);
-          Sentry.captureException(err);
+  async createSIWEUser(wallet: string): Promise<User | undefined> {
+    try {
+      this.logger.log(`/user/createUser: Creating user with wallet ${wallet}`);
+      const storedUser = await this.userService.findByWallet(wallet);
+
+      if (storedUser) {
+        return storedUser.getProperties();
+      }
+
+      const newUserDto = {
+        wallet: wallet,
+      };
+
+      const newUser = await this.userService.create(newUserDto);
+
+      await this.userService.setRole(USER_ROLES.ANON, newUser);
+      await this.userService.setFlow(USER_FLOWS.PICK_ROLE, newUser);
+
+      return newUser.getProperties();
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-request-pipeline",
+          source: "backend.service",
         });
-        this.logger.error(`BackendService::createSIWEUser ${err.message}`);
-        return undefined;
+        scope.setExtra("input", wallet);
+        Sentry.captureException(err);
       });
+      this.logger.error(`BackendService::createSIWEUser ${err.message}`);
+      return undefined;
+    }
   }
 
   async setFlowState(
     input: SetFlowStateInput,
   ): Promise<Response<string> | ResponseWithNoData> {
-    const client = await this.getOrRefreshClient();
     this.logger.log(`/user/setFlowState: ${JSON.stringify(input)}`);
 
-    return client
-      .post("/user/setFlow", input)
-      .then(res => {
-        const data = res.data;
-        if (data.success) {
-          return data as Response<string>;
-        } else {
-          this.logger.error(
-            `Error setting user signup flow state ${JSON.stringify(data)}`,
-          );
-          return data as ResponseWithNoData;
-        }
-      })
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "service-request-pipeline",
-            source: "backend.service",
-          });
-          scope.setExtra("input", input);
-          Sentry.captureException(err);
+    try {
+      const { wallet, flow } = input;
+      const user = await this.userService.findByWallet(wallet);
+      if (!user) {
+        this.logger.log(`User with wallet ${wallet} not found!`);
+        return {
+          success: false,
+          message: "Flow not set because wallet could not be found",
+        };
+      }
+
+      await this.userService.setFlow(flow, user);
+
+      this.logger.log(`Flow ${flow} set for wallet ${wallet}.`);
+      return { success: true, message: "Flow set" };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-request-pipeline",
+          source: "backend.service",
         });
-        this.logger.error(`BackendService::setFlowState ${err.message}`);
-        return undefined;
+        scope.setExtra("input", input);
+        Sentry.captureException(err);
       });
+      this.logger.error(`BackendService::setFlowState ${err.message}`);
+      return undefined;
+    }
   }
 
   async setRole(
     input: SetRoleInput,
   ): Promise<Response<string> | ResponseWithNoData> {
-    const client = await this.getOrRefreshClient();
-    this.logger.log(`/user/setRole: ${JSON.stringify(input)}`);
+    const { wallet, role } = input;
+    this.logger.log(`/user/setRole: Setting ${role} role for ${wallet}`);
+    const user = await this.userService.findByWallet(wallet);
+    if (!user) {
+      this.logger.log(`User with wallet ${wallet} not found!`);
+      return {
+        success: false,
+        message: "Role not set because wallet could not be found",
+      };
+    }
 
-    return client
-      .post("/user/setRole", input)
-      .then(res => {
-        const data = res.data;
-        if (data.success) {
-          return data as Response<string>;
-        } else {
-          this.logger.error(`Error setting user role ${JSON.stringify(data)}`);
-          return data as ResponseWithNoData;
-        }
-      })
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "service-request-pipeline",
-            source: "backend.service",
-          });
-          scope.setExtra("input", input);
-          Sentry.captureException(err);
-        });
-        this.logger.error(`BackendService::setRole ${err.message}`);
-        return undefined;
-      });
+    await this.userService.setRole(role, user);
+
+    this.logger.log(`Role ${role} set for wallet ${wallet}.`);
+    return { success: true, message: "Role set" };
   }
 
   async createOrganization(

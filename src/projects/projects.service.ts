@@ -21,7 +21,7 @@ import { ProjectProps } from "src/shared/models";
 
 @Injectable()
 export class ProjectsService {
-  logger = new CustomLogger(ProjectsService.name);
+  private readonly logger = new CustomLogger(ProjectsService.name);
   constructor(
     @InjectConnection()
     private neogma: Neogma,

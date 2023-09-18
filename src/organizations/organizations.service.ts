@@ -21,7 +21,7 @@ import { InjectConnection } from "nest-neogma";
 
 @Injectable()
 export class OrganizationsService {
-  logger = new CustomLogger(OrganizationsService.name);
+  private readonly logger = new CustomLogger(OrganizationsService.name);
   constructor(
     @InjectConnection()
     private neogma: Neogma,

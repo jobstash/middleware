@@ -62,7 +62,7 @@ const mime = require("mime");
 export class OrganizationsController {
   private readonly NFT_STORAGE_API_KEY;
   private readonly nftStorageClient: NFTStorage;
-  logger = new CustomLogger(OrganizationsController.name);
+  private readonly logger = new CustomLogger(OrganizationsController.name);
 
   constructor(
     private readonly organizationsService: OrganizationsService,

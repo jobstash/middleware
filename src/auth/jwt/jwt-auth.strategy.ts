@@ -9,7 +9,7 @@ import * as Sentry from "@sentry/node";
 
 @Injectable()
 export class JwtAuthStrategy extends PassportStrategy(Strategy) {
-  logger = new CustomLogger(JwtAuthStrategy.name);
+  private readonly logger = new CustomLogger(JwtAuthStrategy.name);
   constructor(
     private readonly configService: ConfigService,
     private readonly userService: UserService,
@@ -23,7 +23,7 @@ export class JwtAuthStrategy extends PassportStrategy(Strategy) {
   }
   async validate(payload: string): Promise<User | null> {
     return this.userService
-      .findByNodeId(payload)
+      .findByGithubNodeId(payload)
       .then(user => {
         if (user !== undefined) {
           return user.getProperties();
