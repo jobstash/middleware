@@ -21,11 +21,11 @@ export class ProjectProperties {
     url: t.string,
     name: t.string,
     orgId: t.string,
-    isMainnet: t.boolean,
     tvl: t.union([t.number, t.null]),
     logo: t.union([t.string, t.null]),
     teamSize: t.union([t.number, t.null]),
     category: t.union([t.string, t.null]),
+    isMainnet: t.union([t.boolean, t.null]),
     tokenSymbol: t.union([t.string, t.null]),
     monthlyFees: t.union([t.number, t.null]),
     monthlyVolume: t.union([t.number, t.null]),
@@ -54,7 +54,7 @@ export class ProjectProperties {
   @ApiPropertyOptional()
   monthlyActiveUsers: number | null;
   @ApiProperty()
-  isMainnet: boolean;
+  isMainnet: boolean | null;
   @ApiProperty()
   orgId: string;
   @ApiPropertyOptional()
