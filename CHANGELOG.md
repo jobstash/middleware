@@ -1,3 +1,10 @@
+## [1.37.4](https://github.com/jobstash/middleware/compare/v1.37.3...v1.37.4) (2023-09-20)
+
+
+### Bug Fixes
+
+* **projects:** fixed isMainnet nullable bug ([daaadce](https://github.com/jobstash/middleware/commit/daaadce40d26d20a863668c037fa5c716bcdfb6c))
+
 ## [1.37.3](https://github.com/jobstash/middleware/compare/v1.37.2...v1.37.3) (2023-09-12)
 
 
