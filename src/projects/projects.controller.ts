@@ -26,7 +26,6 @@ import {
 } from "@nestjs/swagger";
 import { Response as ExpressResponse } from "express";
 import { RBACGuard } from "src/auth/rbac.guard";
-import { BackendService } from "src/backend/backend.service";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { btoa, responseSchemaWrapper } from "src/shared/helpers";
 import {
@@ -39,7 +38,6 @@ import {
   Project,
 } from "src/shared/types";
 import { CreateProjectInput } from "./dto/create-project.input";
-import { UpdateProjectInput } from "./dto/update-project.input";
 import { ProjectsService } from "./projects.service";
 import { CheckWalletRoles } from "src/shared/types";
 import { NFTStorage, File } from "nft.storage";
@@ -54,6 +52,8 @@ import {
 import { ValidationError } from "class-validator";
 import { ProjectListParams } from "./dto/project-list.input";
 import { ProjectProps } from "src/shared/models";
+import { OrganizationsService } from "src/organizations/organizations.service";
+import { ProjectCategoryService } from "./project-category.service";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -66,7 +66,8 @@ export class ProjectsController {
 
   constructor(
     private readonly projectsService: ProjectsService,
-    private readonly backendService: BackendService,
+    private readonly projectCategoryService: ProjectCategoryService,
+    private readonly organizationsService: OrganizationsService,
     private readonly configService: ConfigService,
   ) {
     (this.NFT_STORAGE_API_KEY = this.configService.get<string>(
@@ -467,25 +468,96 @@ export class ProjectsController {
     @Body() body: CreateProjectInput,
   ): Promise<Response<ProjectProperties> | ResponseWithNoData> {
     this.logger.log(`/projects/create ${JSON.stringify(body)}`);
-    return this.backendService.createProject(body);
+    const existingProject = await this.projectsService.find(body.name);
+
+    if (existingProject) {
+      return {
+        message: `Project ${body.name} already exists`,
+        success: false,
+      };
+    }
+
+    const storedOrganization = await this.organizationsService.findByOrgId(
+      body.orgId,
+    );
+
+    if (!storedOrganization) {
+      return {
+        message: `Could not find organization with id: ${body.orgId} to match with project: ${body.name}`,
+        success: false,
+      };
+    }
+
+    let storedCategory = await this.projectCategoryService.find(body.category);
+    if (!storedCategory) {
+      storedCategory = await this.projectCategoryService.create({
+        name: body.category,
+      });
+    }
+
+    this.logger.log(`Project ${body.name} ready for creation`);
+    const storedProject = await this.projectsService.create(body);
+
+    const projectCategoryRelationshipExists =
+      await this.projectsService.hasRelationshipToCategory(
+        storedProject.getId(),
+        storedCategory.getId(),
+      );
+
+    if (projectCategoryRelationshipExists === false) {
+      this.logger.log(
+        `Relating ${storedProject.getName()} to ${storedCategory.getName()}`,
+      );
+      await this.projectsService.relateToCategory(
+        storedProject.getId(),
+        storedCategory.getId(),
+      );
+      this.logger.log(
+        `Created relationship between ${storedProject.getName()} and ${storedCategory.getName()}`,
+      );
+    }
+
+    const organizationProjectRelationshipExists =
+      await this.organizationsService.hasProjectRelationship(
+        storedOrganization.getId(),
+        storedProject.getId(),
+      );
+
+    if (organizationProjectRelationshipExists === false) {
+      await this.organizationsService.relateToProject(
+        storedOrganization.getId(),
+        storedProject.getId(),
+      );
+      this.logger.log(
+        `Related project ${
+          body.name
+        } to organization ${storedOrganization.getName()}`,
+      );
+    }
+
+    return {
+      success: true,
+      message: `Successfully created ${body.name}`,
+      data: storedProject.getProperties(),
+    };
   }
 
-  @Post("/update")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
-  @ApiOkResponse({
-    description: "Updates an existing project",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),
-  })
-  @ApiUnprocessableEntityResponse({
-    description:
-      "Something went wrong updating the project on the destination service",
-    schema: responseSchemaWrapper({ type: "string" }),
-  })
-  async updateProject(
-    @Body() body: UpdateProjectInput,
-  ): Promise<Response<ProjectProperties> | ResponseWithNoData> {
-    this.logger.log(`/projects/update ${JSON.stringify(body)}`);
-    return this.backendService.updateProject(body);
-  }
+  // @Post("/update")
+  // @UseGuards(RBACGuard)
+  // @Roles(CheckWalletRoles.ADMIN)
+  // @ApiOkResponse({
+  //   description: "Updates an existing project",
+  //   schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),
+  // })
+  // @ApiUnprocessableEntityResponse({
+  //   description:
+  //     "Something went wrong updating the project on the destination service",
+  //   schema: responseSchemaWrapper({ type: "string" }),
+  // })
+  // async updateProject(
+  //   @Body() body: UpdateProjectInput,
+  // ): Promise<Response<ProjectProperties> | ResponseWithNoData> {
+  //   this.logger.log(`/projects/update ${JSON.stringify(body)}`);
+  //   return this.backendService.updateProject(body);
+  // }
 }

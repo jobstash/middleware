@@ -14,12 +14,14 @@ import {
 } from "src/shared/types";
 import { hasDuplicates, printDuplicateItems } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
-import { BackendService } from "src/backend/backend.service";
-import { createMock } from "@golevelup/ts-jest";
 import { report } from "io-ts-human-reporter";
 import { Response } from "express";
 import { ModelService } from "src/model/model.service";
 import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
+import { AuthService } from "src/auth/auth.service";
+import { JwtService } from "@nestjs/jwt";
+import { forwardRef } from "@nestjs/common";
+import { UserModule } from "src/auth/user/user.module";
 
 describe("OrganizationsController", () => {
   let controller: OrganizationsController;
@@ -101,6 +103,7 @@ describe("OrganizationsController", () => {
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
+        forwardRef(() => UserModule),
         ConfigModule.forRoot({
           isGlobal: true,
           validationSchema: envSchema,
@@ -123,11 +126,7 @@ describe("OrganizationsController", () => {
         }),
       ],
       controllers: [OrganizationsController],
-      providers: [
-        OrganizationsService,
-        { provide: BackendService, useValue: createMock<BackendService>() },
-        ModelService,
-      ],
+      providers: [OrganizationsService, AuthService, JwtService, ModelService],
     }).compile();
 
     await module.init();

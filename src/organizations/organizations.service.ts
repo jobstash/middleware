@@ -21,6 +21,7 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
+import NotFoundError from "src/shared/errors/not-found-error";
 
 @Injectable()
 export class OrganizationsService {
@@ -432,7 +433,7 @@ export class OrganizationsService {
       : undefined;
   }
 
-  async findByOrgId(orgId: string): Promise<Organization | undefined> {
+  async findByOrgId(orgId: string): Promise<OrganizationEntity | undefined> {
     const res = await this.neogma.queryRunner.run(
       `
         MATCH (o:Organization {orgId: $orgId})
@@ -441,7 +442,7 @@ export class OrganizationsService {
       { orgId },
     );
     return res.records.length
-      ? new Organization(res.records[0].get("o"))
+      ? new OrganizationEntity(res.records[0].get("o"))
       : undefined;
   }
 
@@ -478,5 +479,57 @@ export class OrganizationsService {
         { id, properties },
       )
       .then(res => new OrganizationEntity(res.records[0].get("o")));
+  }
+
+  async hasProjectRelationship(
+    organizationId: string,
+    projectId: string,
+  ): Promise<boolean> {
+    const res = await this.neogma.queryRunner.run(
+      `
+        MATCH (o:Organization {id: $organizationId})
+        MATCH (p:Project {id: $organizationId})
+        WITH o, p
+        RETURN EXISTS( (o)-[:HAS_PROJECT]->(p) ) AS result
+        `,
+      { organizationId, projectId },
+    );
+
+    if (!res.records?.length) {
+      return false;
+    }
+
+    return res.records[0].get("result");
+  }
+
+  async relateToProject(
+    organizationId: string,
+    projectId: string,
+  ): Promise<unknown> {
+    const res = await this.neogma.queryRunner.run(
+      `
+        MATCH (o:Organization {id: $organizationId})
+        MATCH (p:Project {id: $projectId})
+
+        MERGE (o)-[r:HAS_PROJECT]->(p)
+        SET r.timestamp = timestamp()
+
+        RETURN o {
+          .*,
+          relationshipTimestamp: r.timestamp
+        } AS organization
+        `,
+      { organizationId, projectId },
+    );
+
+    if (res.records.length === 0) {
+      throw new NotFoundError(
+        `Could not create relationship between Organization ${organizationId} to Project ${projectId}`,
+      );
+    }
+
+    const [first] = res.records;
+    const organization = first.get("organization");
+    return new Organization(organization);
   }
 }

@@ -12,12 +12,18 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { ProjectListParams } from "./dto/project-list.input";
 import { intConverter, notStringOrNull } from "src/shared/helpers";
-import { ProjectEntity } from "src/shared/entities/project.entity";
+import {
+  ProjectEntity,
+  ProjectMoreInfoEntity,
+} from "src/shared/entities/project.entity";
 import { createNewSortInstance } from "fast-sort";
 import { ModelService } from "src/model/model.service";
 import { InjectConnection } from "nest-neogma";
 import { Neogma } from "neogma";
 import { ProjectProps } from "src/shared/models";
+import { UpdateProjectInput } from "./dto/update-project.input";
+import { CreateProjectInput } from "./dto/create-project.input";
+import NotFoundError from "src/shared/errors/not-found-error";
 
 @Injectable()
 export class ProjectsService {
@@ -127,7 +133,7 @@ export class ProjectsService {
 
     const filtered = results
       .filter(projectFilters)
-      .map(x => new ProjectEntity(x).getProperties());
+      .map(x => new ProjectMoreInfoEntity(x).getProperties());
 
     const getSortParam = (p1: Project): number | null => {
       switch (params.orderBy) {
@@ -370,5 +376,137 @@ export class ProjectsService {
       this.logger.error(`ProjectsService::getProjectById ${err.message}`);
       return undefined;
     }
+  }
+
+  async find(name: string): Promise<ProjectEntity | undefined> {
+    const res = await this.neogma.queryRunner.run(
+      `
+        MATCH (p:Project {name: $name})
+        RETURN p
+      `,
+      { name },
+    );
+    return res.records.length
+      ? new ProjectEntity(res.records[0].get("p"))
+      : undefined;
+  }
+
+  async findByDefiLlamaId(
+    defiLlamaId: string,
+  ): Promise<ProjectEntity | undefined> {
+    const res = await this.neogma.queryRunner.run(
+      `
+        MATCH (p:Project {name: $defiLlamaId})
+        RETURN p
+      `,
+      { defiLlamaId },
+    );
+    return res.records.length
+      ? new ProjectEntity(res.records[0].get("p"))
+      : undefined;
+  }
+
+  async findAll(): Promise<ProjectEntity[] | undefined> {
+    return this.neogma.queryRunner
+      .run(
+        `
+          MATCH (p:Project)
+          RETURN p
+        `,
+      )
+      .then(res =>
+        res.records.length
+          ? res.records.map(record => {
+              return new ProjectEntity(record.get("p"));
+            })
+          : undefined,
+      );
+  }
+
+  async create(project: CreateProjectInput): Promise<ProjectEntity> {
+    return this.neogma.queryRunner
+      .run(
+        `
+            CREATE (p:Project { id: randomUUID() })
+            SET p += $properties
+            RETURN p
+        `,
+        {
+          properties: {
+            ...project,
+            createdTimestamp: new Date().getTime(),
+          },
+        },
+      )
+      .then(res => new ProjectEntity(res.records[0].get("p")));
+  }
+
+  async update(
+    id: string,
+    project: UpdateProjectInput,
+  ): Promise<ProjectEntity> {
+    const res = await this.neogma.queryRunner.run(
+      `
+            MATCH (p:Project { id: $id })
+            SET p += $properties
+            RETURN p
+        `,
+      {
+        id,
+        properties: {
+          ...project,
+          updatedTimestamp: new Date().getTime(),
+        },
+      },
+    );
+    return new ProjectEntity(res.records[0].get("p"));
+  }
+
+  async hasRelationshipToCategory(
+    projectId: string,
+    projectCategoryId: string,
+  ): Promise<boolean> {
+    const res = await this.neogma.queryRunner.run(
+      `
+        MATCH (p:Project {id: $projectId})
+        MATCH (c:ProjectCategory {id: $projectCategoryId})
+        WITH p, c
+        RETURN EXISTS( (p)-[:HAS_CATEGORY]->(c) ) AS result
+        `,
+      { projectId, projectCategoryId },
+    );
+
+    return res.records[0]?.get("result") ?? false;
+  }
+
+  async relateToCategory(
+    projectId: string,
+    projectCategoryId: string,
+  ): Promise<unknown> {
+    const res = await this.neogma.queryRunner.run(
+      `
+        MATCH (p:Project {id: $projectId})
+        MATCH (c:ProjectCategory {id: $projectCategoryId})
+
+        MERGE (p)-[r:HAS_CATEGORY]->(c)
+        SET r.timestamp = timestamp()
+
+        RETURN p {
+          .*,
+          relationshipTimestamp: r.timestamp
+        } AS project
+        `,
+      { projectId, projectCategoryId },
+    );
+
+    if (res.records.length === 0) {
+      throw new NotFoundError(
+        `Could not create relationship between Project ${projectId} to Project Category ${projectCategoryId}`,
+      );
+    }
+
+    const [first] = res.records;
+    const project = first.get("project");
+    return new Project(project);
   }
 }

@@ -11,13 +11,13 @@ import {
   ProjectProperties,
 } from "src/shared/interfaces";
 import { hasDuplicates, printDuplicateItems } from "src/shared/helpers";
-import { BackendService } from "src/backend/backend.service";
-import { createMock } from "@golevelup/ts-jest";
 import { isRight } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
 import { Response } from "express";
 import { ModelService } from "src/model/model.service";
 import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
+import { OrganizationsService } from "src/organizations/organizations.service";
+import { ProjectCategoryService } from "./project-category.service";
 
 describe("ProjectsController", () => {
   let controller: ProjectsController;
@@ -75,7 +75,8 @@ describe("ProjectsController", () => {
       controllers: [ProjectsController],
       providers: [
         ProjectsService,
-        { provide: BackendService, useValue: createMock<BackendService>() },
+        ProjectCategoryService,
+        OrganizationsService,
         ModelService,
       ],
     }).compile();

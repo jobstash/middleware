@@ -1,12 +1,18 @@
-import { Module, forwardRef } from "@nestjs/common";
+import { Module } from "@nestjs/common";
 import { ProjectsService } from "./projects.service";
 import { ProjectsController } from "./projects.controller";
 import { ModelService } from "src/model/model.service";
-import { BackendModule } from "src/backend/backend.module";
+import { ProjectCategoryService } from "./project-category.service";
+import { OrganizationsService } from "src/organizations/organizations.service";
 
 @Module({
-  imports: [forwardRef(() => BackendModule)],
+  imports: [],
   controllers: [ProjectsController],
-  providers: [ProjectsService, ModelService],
+  providers: [
+    ProjectsService,
+    ProjectCategoryService,
+    OrganizationsService,
+    ModelService,
+  ],
 })
 export class ProjectsModule {}
