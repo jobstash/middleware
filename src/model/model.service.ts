@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
-import { Neogma, NeogmaModel, QueryBuilder } from "neogma";
+import { Neogma, NeogmaModel } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import {
   AuditProps,
@@ -40,8 +40,8 @@ import {
   StructuredJobpostProps,
   StructuredJobpostRelations,
   StructuredJobposts,
-  TechnolgyBlockedTermProps,
-  TechnolgyBlockedTerms,
+  TechnologyBlockedTermProps,
+  TechnologyBlockedTerms,
   Technologies,
   TechnologyMethods,
   TechnologyProps,
@@ -90,7 +90,7 @@ export class ModelService implements OnModuleInit {
   public FundingRounds: NeogmaModel<FundingRoundProps, FundingRoundRelations>;
   public Investors: NeogmaModel<InvestorProps, NoRelations>;
   public TechnologyBlockedTerms: NeogmaModel<
-    TechnolgyBlockedTermProps,
+    TechnologyBlockedTermProps,
     NoRelations
   >;
   public Audits: NeogmaModel<AuditProps, NoRelations>;
@@ -103,7 +103,6 @@ export class ModelService implements OnModuleInit {
     } catch (e) {
       this.logger.error(e);
     }
-    QueryBuilder.queryRunner = this.neogma.queryRunner;
     this.StructuredJobposts = StructuredJobposts(this.neogma);
     this.Jobposts = Jobposts(this.neogma);
     this.Jobsites = Jobsites(this.neogma);
@@ -115,7 +114,7 @@ export class ModelService implements OnModuleInit {
     this.JobpostStatuses = JobpostStatuses(this.neogma);
     this.FundingRounds = FundingRounds(this.neogma);
     this.Investors = Investors(this.neogma);
-    this.TechnologyBlockedTerms = TechnolgyBlockedTerms(this.neogma);
+    this.TechnologyBlockedTerms = TechnologyBlockedTerms(this.neogma);
     this.Audits = Audits(this.neogma);
     this.Hacks = Hacks(this.neogma);
     this.Chains = Chains(this.neogma);

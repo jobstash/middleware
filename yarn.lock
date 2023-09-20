@@ -7227,22 +7227,10 @@ neo4j-driver@^5.8.0:
     neo4j-driver-core "^5.8.0"
     rxjs "^7.8.0"
 
-neogma@^1.12.1:
-  version "1.12.1"
-  resolved "https://registry.yarnpkg.com/neogma/-/neogma-1.12.1.tgz#b23fe5d1268bf7d5d315217f93cdd1331e4fc369"
-  integrity sha512-tMrX6e0eAgvh8++rW9GQ8V1yLtL+S4TkhnpSmnAoKJH1E69lcSUK41kbdMNhjQHzLxsPjG9i3yWwNi3pTzJ6gg==
-  dependencies:
-    "@types/revalidator" "^0.3.8"
-    clone "^2.1.2"
-    dotenv "^16.3.1"
-    neo4j-driver "^5.11.0"
-    revalidator "^0.3.1"
-    uuid "^9.0.0"
-
-neogma@^1.12.2:
-  version "1.12.2"
-  resolved "https://registry.yarnpkg.com/neogma/-/neogma-1.12.2.tgz#14fa11d11c4e865df25c16ba6aa6b842afef6c9f"
-  integrity sha512-W/H94CwEjN++KobkRv81jAmlk7Jrglh9ctgWRjI/UaZPEoBc/blq/ywp4GAvpALoF2ElqaRBrme6zRJUUKxnOw==
+neogma@^1.12.3:
+  version "1.12.3"
+  resolved "https://registry.yarnpkg.com/neogma/-/neogma-1.12.3.tgz#82a54395a78b1a683ee486742e3edc9385750bc6"
+  integrity sha512-pvlUCYoxgloUpSzfYvo+hhpiVSNRQQNC+FRD0zhYiCkunMwY93y71RqYGFvGoVn7ogofeqIBU7kS3eg9qdrQKQ==
   dependencies:
     "@types/revalidator" "^0.3.8"
     clone "^2.1.2"
@@ -7256,13 +7244,13 @@ nerf-dart@^1.0.0:
   resolved "https://registry.yarnpkg.com/nerf-dart/-/nerf-dart-1.0.0.tgz#e6dab7febf5ad816ea81cf5c629c5a0ebde72c1a"
   integrity sha512-EZSPZB70jiVsivaBLYDCyntd5eH8NTSMOn3rB+HxwdmKThGELLdYv8qVIMWvZEFy9w8ZZpW9h9OB32l1rGtj7g==
 
-nest-neogma@^0.4.2:
-  version "0.4.2"
-  resolved "https://registry.yarnpkg.com/nest-neogma/-/nest-neogma-0.4.2.tgz#f262253c3b1611882819b405dc01bd05c1526880"
-  integrity sha512-QFPtAtun0D5PNYaahqIpUrrZlblY704dakSXSsMmXE6Ghg1Neewg7pHkgzQiuqZcyE1n9Eq+a22wDXndUH1mzw==
+nest-neogma@^0.4.3:
+  version "0.4.3"
+  resolved "https://registry.yarnpkg.com/nest-neogma/-/nest-neogma-0.4.3.tgz#4582d35c0521678452da593053a2216d309ceb0d"
+  integrity sha512-ce85008H1MWrjHFCOjjHqFSAnDfP156aNRb82wn7jTP2+I1dbs2M+Z04CmeR06BsGdJcBKkgVx+pynsUizJfBw==
   dependencies:
     neo4j-driver "^5.10.0"
-    neogma "^1.12.1"
+    neogma "^1.12.3"
     rxjs "^7.8.1"
 
 nft.storage@^7.0.3:
