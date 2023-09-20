@@ -2,12 +2,9 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as Sentry from "@sentry/node";
 import axios, { AxiosInstance } from "axios";
-import { CreateOrganizationInput } from "src/organizations/dto/create-organization.input";
-import { UpdateOrganizationInput } from "src/organizations/dto/update-organization.input";
 import { CreateProjectInput } from "src/projects/dto/create-project.input";
 import { UpdateProjectInput } from "src/projects/dto/update-project.input";
 import {
-  OrganizationProperties,
   ProjectProperties,
   Response,
   ResponseWithNoData,
@@ -32,72 +29,6 @@ export class BackendService {
       },
       withCredentials: true,
     });
-  }
-
-  async createOrganization(
-    input: CreateOrganizationInput,
-  ): Promise<Response<OrganizationProperties> | ResponseWithNoData> {
-    const client = await this.getOrRefreshClient();
-    this.logger.log(`/organization/create: ${JSON.stringify(input)}`);
-
-    return client
-      .post("/organization/create", input)
-      .then(res => {
-        const data = res.data;
-        if (data.success) {
-          return data as Response<OrganizationProperties>;
-        } else {
-          this.logger.error(
-            `Error creating organization ${JSON.stringify(data)}`,
-          );
-          return data as ResponseWithNoData;
-        }
-      })
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "service-request-pipeline",
-            source: "backend.service",
-          });
-          scope.setExtra("input", input);
-          Sentry.captureException(err);
-        });
-        this.logger.error(`BackendService::createOrganization ${err.message}`);
-        return undefined;
-      });
-  }
-
-  async updateOrganization(
-    input: UpdateOrganizationInput,
-  ): Promise<Response<OrganizationProperties> | ResponseWithNoData> {
-    const client = await this.getOrRefreshClient();
-    this.logger.log(`/organization/update: ${JSON.stringify(input)}`);
-
-    return client
-      .post("/organization/update", input)
-      .then(res => {
-        const data = res.data;
-        if (data.success) {
-          return data as Response<OrganizationProperties>;
-        } else {
-          this.logger.error(
-            `Error updating organization ${JSON.stringify(data)}`,
-          );
-          return data as ResponseWithNoData;
-        }
-      })
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "service-request-pipeline",
-            source: "backend.service",
-          });
-          scope.setExtra("input", input);
-          Sentry.captureException(err);
-        });
-        this.logger.error(`BackendService::updateOrganization ${err.message}`);
-        return undefined;
-      });
   }
 
   async createProject(

@@ -1,3 +1,4 @@
+import { Node } from "neo4j-driver";
 import { intConverter, nonZeroOrNull, notStringOrNull } from "../helpers";
 import { ShortOrg, OrganizationProperties } from "../interfaces";
 
@@ -18,22 +19,91 @@ export class ShortOrgEntity {
 }
 
 export class OrganizationEntity {
-  constructor(private readonly raw: OrganizationProperties) {}
+  constructor(private readonly node: Node) {}
+
+  getId(): string {
+    return (<Record<string, string>>this.node.properties).id;
+  }
+
+  getOrgId(): string {
+    return (<Record<string, string>>this.node.properties).orgId;
+  }
+
+  getLogoUrl(): string {
+    return (<Record<string, string>>this.node.properties).logoUrl;
+  }
+
+  getName(): string {
+    return (<Record<string, string>>this.node.properties).name;
+  }
+
+  getAltName(): string {
+    return (<Record<string, string>>this.node.properties).altName;
+  }
+
+  getLocation(): string {
+    return (<Record<string, string>>this.node.properties).location;
+  }
+
+  getSummary(): string {
+    return (<Record<string, string>>this.node.properties).summary;
+  }
+
+  getDescription(): string {
+    return (<Record<string, string>>this.node.properties).description;
+  }
+
+  getUrl(): string {
+    return (<Record<string, string>>this.node.properties).url;
+  }
+
+  getGithubOrganization(): string | undefined {
+    return (<Record<string, string>>this.node.properties).githubOrganization;
+  }
+
+  getHeadCount(): string | undefined {
+    return (<Record<string, string>>this.node.properties).headCount;
+  }
+
+  getTwitter(): string | undefined {
+    return (<Record<string, string>>this.node.properties).twitter;
+  }
+
+  getDiscord(): string | undefined {
+    return (<Record<string, string>>this.node.properties).discord;
+  }
+
+  getDocs(): string | undefined {
+    return (<Record<string, string>>this.node.properties).docs;
+  }
+
+  getTelegram(): string | undefined {
+    return (<Record<string, string>>this.node.properties).telegram;
+  }
+
+  getCreatedTimestamp(): number {
+    return (<Record<string, number>>this.node.properties).createdTimestamp;
+  }
+
+  getUpdatedTimestamp(): number | undefined {
+    return (<Record<string, number>>this.node.properties).updatedTimestamp;
+  }
 
   getProperties(): OrganizationProperties {
-    const organization = this.raw;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { ...properties } = <Record<string, any>>this.node.properties;
     return {
-      ...this.raw,
-      logo: notStringOrNull(organization?.logo),
-      docs: notStringOrNull(organization?.docs),
-      altName: notStringOrNull(organization?.altName),
-      headCount: nonZeroOrNull(organization?.headCount),
-      github: notStringOrNull(organization?.github),
-      twitter: notStringOrNull(organization?.twitter),
-      discord: notStringOrNull(organization?.discord),
-      telegram: notStringOrNull(organization?.telegram),
-      createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
-      updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
-    };
+      ...properties,
+      logo: notStringOrNull(properties?.logo),
+      docs: notStringOrNull(properties?.docs),
+      altName: notStringOrNull(properties?.altName),
+      headCount: nonZeroOrNull(properties?.headCount),
+      github: notStringOrNull(properties?.github),
+      twitter: notStringOrNull(properties?.twitter),
+      discord: notStringOrNull(properties?.discord),
+      telegram: notStringOrNull(properties?.telegram),
+      createdTimestamp: nonZeroOrNull(properties?.createdTimestamp),
+      updatedTimestamp: nonZeroOrNull(properties?.updatedTimestamp),
+    } as OrganizationProperties;
   }
 }
