@@ -27,6 +27,7 @@ export * from "./job-filter-configs.interface";
 export * from "./org-filter-configs.interface";
 export * from "./project-details.interface";
 export * from "./project-more-info.interface";
+export * from "./authorization-result.interface";
 export * from "./all-jobs-list-result.interface";
 export * from "./github-user-properties.interface";
 export * from "./project-filter-configs.interface";

@@ -3,6 +3,8 @@ import { Injectable } from "@nestjs/common";
 import {
   GithubUserEntity,
   GithubUserProperties,
+  Response,
+  ResponseWithNoData,
   User,
   UserEntity,
   UserFlowEntity,
@@ -15,6 +17,9 @@ import { UserFlowService } from "./user-flow.service";
 import { UserRoleService } from "./user-role.service";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
+import { SetRoleInput } from "../dto/set-role.input";
+import { SetFlowStateInput } from "../dto/set-flow-state.input";
+import { USER_FLOWS, USER_ROLES } from "src/shared/constants";
 
 @Injectable()
 export class UserService {
@@ -237,6 +242,93 @@ export class UserService {
 
     // log the role
     this.logger.log(`Role ${role} set for wallet ${storedUser.getWallet()}.`);
+  }
+
+  async createSIWEUser(wallet: string): Promise<User | undefined> {
+    try {
+      this.logger.log(`/user/createUser: Creating user with wallet ${wallet}`);
+      const storedUser = await this.findByWallet(wallet);
+
+      if (storedUser) {
+        return storedUser.getProperties();
+      }
+
+      const newUserDto = {
+        wallet: wallet,
+      };
+
+      const newUser = await this.create(newUserDto);
+
+      await this.setRole(USER_ROLES.ANON, newUser);
+      await this.setFlow(USER_FLOWS.PICK_ROLE, newUser);
+
+      return newUser.getProperties();
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "user.service",
+        });
+        scope.setExtra("input", wallet);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`UserService::createSIWEUser ${err.message}`);
+      return undefined;
+    }
+  }
+
+  async setFlowState(
+    input: SetFlowStateInput,
+  ): Promise<Response<string> | ResponseWithNoData> {
+    this.logger.log(`/user/setFlowState: ${JSON.stringify(input)}`);
+
+    try {
+      const { wallet, flow } = input;
+      const user = await this.findByWallet(wallet);
+      if (!user) {
+        this.logger.log(`User with wallet ${wallet} not found!`);
+        return {
+          success: false,
+          message: "Flow not set because wallet could not be found",
+        };
+      }
+
+      await this.setFlow(flow, user);
+
+      this.logger.log(`Flow ${flow} set for wallet ${wallet}.`);
+      return { success: true, message: "Flow set" };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "user.service",
+        });
+        scope.setExtra("input", input);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`UserService::setFlowState ${err.message}`);
+      return undefined;
+    }
+  }
+
+  async setRoleState(
+    input: SetRoleInput,
+  ): Promise<Response<string> | ResponseWithNoData> {
+    const { wallet, role } = input;
+    this.logger.log(`/user/setRole: Setting ${role} role for ${wallet}`);
+    const user = await this.findByWallet(wallet);
+    if (!user) {
+      this.logger.log(`User with wallet ${wallet} not found!`);
+      return {
+        success: false,
+        message: "Role not set because wallet could not be found",
+      };
+    }
+
+    await this.setRole(role, user);
+
+    this.logger.log(`Role ${role} set for wallet ${wallet}.`);
+    return { success: true, message: "Role set" };
   }
 
   async addGithubUser(

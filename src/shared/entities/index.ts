@@ -10,6 +10,8 @@ export * from "./project-details.entity";
 export * from "./structured-jobpost.entity";
 export * from "./job-filter-configs.entity";
 export * from "./org-filter-configs.entity";
+export * from "./technology-blocked-term.entity";
+export * from "./technology-preferred-term.entity";
 export * from "./github-organization.entity";
 export * from "./all-jobs-list-result.entity";
 export * from "./project-filter-configs.entity";

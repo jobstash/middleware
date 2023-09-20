@@ -11,6 +11,18 @@ type RawTechnologyPreferredTerm = {
 export class TechnologyPreferredTermEntity {
   constructor(private readonly raw: RawTechnologyPreferredTerm) {}
 
+  getId(): string {
+    return this.raw.id;
+  }
+
+  getNormalizedName(): string {
+    return this.raw.normalizedName;
+  }
+
+  getName(): string {
+    return this.raw.name;
+  }
+
   getProperties(): TechnologyPreferredTerm {
     return {
       ...this.raw,

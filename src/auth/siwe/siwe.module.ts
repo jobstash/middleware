@@ -1,7 +1,5 @@
 import { Module } from "@nestjs/common";
 import { SiweController } from "./siwe.controller";
-import { BackendModule } from "src/backend/backend.module";
-import { BackendService } from "src/backend/backend.service";
 import { AuthModule } from "../auth.module";
 import { AuthService } from "../auth.service";
 import { JwtModule, JwtService } from "@nestjs/jwt";
@@ -14,7 +12,6 @@ import { CacheModule } from "@nestjs/cache-manager";
 
 @Module({
   imports: [
-    BackendModule,
     AuthModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -30,7 +27,6 @@ import { CacheModule } from "@nestjs/cache-manager";
   ],
   controllers: [SiweController],
   providers: [
-    BackendService,
     AuthService,
     JwtService,
     UserService,

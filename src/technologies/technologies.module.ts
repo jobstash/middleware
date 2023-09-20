@@ -4,10 +4,10 @@ import { TechnologiesController } from "./technologies.controller";
 import { AuthService } from "src/auth/auth.service";
 import { JwtService } from "@nestjs/jwt";
 import { ModelService } from "src/model/model.service";
-import { BackendModule } from "src/backend/backend.module";
+import { UserModule } from "src/auth/user/user.module";
 
 @Module({
-  imports: [forwardRef(() => BackendModule)],
+  imports: [forwardRef(() => UserModule)],
   controllers: [TechnologiesController],
   providers: [TechnologiesService, AuthService, JwtService, ModelService],
 })

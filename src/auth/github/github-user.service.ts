@@ -1,16 +1,23 @@
 import { Injectable } from "@nestjs/common";
-import { RepositoryEntity } from "../../shared/entities";
+import { GithubUserEntity, RepositoryEntity } from "../../shared/entities";
 import { CustomLogger } from "../../shared/utils/custom-logger";
 import {
   GithubUserEntity as GithubUserNode,
   GithubUserProperties,
   Repository,
+  Response,
+  ResponseWithNoData,
+  User,
 } from "../../shared/types";
 import { CreateGithubUserDto } from "./dto/user/create-github-user.dto";
 import { UpdateGithubUserDto } from "./dto/user/update-github-user.dto";
 import NotFoundError from "../../shared/errors/not-found-error";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
+import { propertiesMatch } from "src/shared/helpers";
+import * as Sentry from "@sentry/node";
+import { GithubLoginInput } from "./dto/github-login.input";
+import { UserService } from "../user/user.service";
 
 @Injectable()
 export class GithubUserService {
@@ -19,7 +26,82 @@ export class GithubUserService {
   constructor(
     @InjectConnection()
     private neogma: Neogma,
+    private readonly userService: UserService,
   ) {}
+
+  async addGithubInfoToUser(
+    args: GithubLoginInput,
+  ): Promise<Response<User> | ResponseWithNoData> {
+    const logInfo = {
+      ...args,
+      githubAccessToken: "[REDACTED]",
+      githubRefreshToken: "[REDACTED]",
+    };
+    this.logger.log(
+      `/user/addGithubInfoToUser: Assigning ${args.githubId} github account to wallet ${args.wallet}`,
+    );
+
+    const { wallet, ...updateObject } = args;
+
+    try {
+      const storedUserNode = await this.userService.findByWallet(wallet);
+      if (!storedUserNode) {
+        return { success: false, message: "User not found" };
+      }
+      const githubUserNode = await this.findById(updateObject.githubId);
+
+      let persistedGithubNode: GithubUserEntity;
+
+      const payload = {
+        id: updateObject.githubId,
+        login: updateObject.githubLogin,
+        nodeId: updateObject.githubNodeId,
+        gravatarId: updateObject.githubGravatarId,
+        avatarUrl: updateObject.githubAvatarUrl,
+        accessToken: updateObject.githubAccessToken,
+        refreshToken: updateObject.githubRefreshToken,
+      };
+
+      if (githubUserNode) {
+        const githubUserNodeData: GithubUserProperties =
+          githubUserNode.getProperties();
+        if (propertiesMatch(githubUserNodeData, updateObject)) {
+          return { success: false, message: "Github data is identical" };
+        }
+
+        persistedGithubNode = await this.update(
+          githubUserNode.getId(),
+          payload,
+        );
+      } else {
+        persistedGithubNode = await this.create(payload);
+        await this.userService.addGithubUser(
+          storedUserNode.getId(),
+          persistedGithubNode.getId(),
+        );
+      }
+
+      return {
+        success: true,
+        message: "Github data persisted",
+        data: storedUserNode.getProperties(),
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-request-pipeline",
+          source: "backend.service",
+        });
+        scope.setExtra("input", logInfo);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`BackendService::addGithubInfoToUser ${err.message}`);
+      return {
+        success: false,
+        message: "Error adding github info to user",
+      };
+    }
+  }
 
   async findById(id: number): Promise<GithubUserNode | undefined> {
     const res = await this.neogma.queryRunner.run(
