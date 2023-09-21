@@ -1,11 +1,4 @@
-import {
-  IsOptional,
-  IsString,
-  IsBoolean,
-  IsNumber,
-  IsUrl,
-  IsEthereumAddress,
-} from "class-validator";
+import { IsOptional, IsBoolean, IsEthereumAddress } from "class-validator";
 
 export class UpdateUserDto {
   @IsOptional()
