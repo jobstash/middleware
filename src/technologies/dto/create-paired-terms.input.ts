@@ -1,10 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import {
-  IsArray,
-  IsEthereumAddress,
-  IsNotEmpty,
-  IsString,
-} from "class-validator";
+import { IsArray, IsNotEmpty, IsString } from "class-validator";
 
 export class CreatePairedTermsInput {
   @ApiProperty()
@@ -16,9 +11,4 @@ export class CreatePairedTermsInput {
   @IsNotEmpty()
   @IsArray()
   pairedTermList: string[];
-
-  @ApiProperty()
-  @IsNotEmpty()
-  @IsEthereumAddress()
-  creatorWallet: string;
 }

@@ -1,16 +1,16 @@
-import { CacheModule, Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { GithubController } from "./github.controller";
-import { BackendModule } from "src/backend/backend.module";
-import { BackendService } from "src/backend/backend.service";
 import { AuthModule } from "../auth.module";
-import { AuthService } from "../auth.service";
-import { JwtModule, JwtService } from "@nestjs/jwt";
+import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
+import { CacheModule } from "@nestjs/cache-manager";
+import { UserModule } from "../user/user.module";
 import { UserService } from "../user/user.service";
+import { GithubUserService } from "./github-user.service";
 
 @Module({
   imports: [
-    BackendModule,
+    forwardRef(() => UserModule),
     AuthModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -25,6 +25,6 @@ import { UserService } from "../user/user.service";
     CacheModule.register(),
   ],
   controllers: [GithubController],
-  providers: [BackendService, AuthService, JwtService, UserService],
+  providers: [UserService, GithubUserService],
 })
 export class GithubModule {}

@@ -6,7 +6,6 @@ import { AuthModule } from "./auth/auth.module";
 import * as Sentry from "@sentry/node";
 import * as Tracing from "@sentry/tracing";
 import { JobsModule } from "./jobs/jobs.module";
-import { BackendModule } from "./backend/backend.module";
 import { SiweModule } from "./auth/siwe/siwe.module";
 import { TechnologiesModule } from "./technologies/technologies.module";
 import { GithubModule } from "./auth/github/github.module";
@@ -43,7 +42,6 @@ import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
     CacheModule.register({ isGlobal: true }),
     AuthModule,
     JobsModule,
-    BackendModule,
     SiweModule,
     TechnologiesModule,
     GithubModule,

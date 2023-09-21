@@ -10,8 +10,6 @@ import {
   Header,
 } from "@nestjs/common";
 import { Request, Response as ExpressResponse } from "express";
-import { getIronSession, IronSession, IronSessionOptions } from "iron-session";
-import { BackendService } from "../../backend/backend.service";
 import { AuthService } from "../auth.service";
 import { VerifyMessageInput } from "../dto/verify-message.input";
 import { generateNonce, SiweMessage } from "siwe";
@@ -41,67 +39,12 @@ import { NO_CACHE } from "src/shared/presets/cache-control";
 @Controller("siwe")
 @ApiExtraModels(SessionObject, User)
 export class SiweController {
-  logger = new CustomLogger(SiweController.name);
-  private readonly sessionConfig: IronSessionOptions;
+  private readonly logger = new CustomLogger(SiweController.name);
   constructor(
-    private readonly backendService: BackendService,
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
     private readonly userService: UserService,
-  ) {
-    this.sessionConfig = {
-      cookieName:
-        configService.get<string>("COOKIE_NAME") || "connectkit-next-siwe",
-      password: configService.get<string>("SESSION_SECRET"),
-      cookieOptions: {
-        secure: configService.get<string>("NODE_ENV") === "production",
-        sameSite: "none",
-      },
-    };
-  }
-
-  private async getSession<
-    TSessionData extends Record<string, unknown> = Record<string, unknown>,
-  >(
-    req: Request,
-    res: ExpressResponse,
-    sessionConfig: IronSessionOptions,
-  ): Promise<IronSession & TSessionData> {
-    const session = (await getIronSession(
-      req,
-      res,
-      sessionConfig,
-    )) as IronSession &
-      TSessionData & {
-        nonce?: string;
-        address?: string;
-        token?: string;
-        role?: string;
-        flow?: string;
-        chainId?: number;
-      };
-    return session;
-  }
-
-  private getLoggableSession<
-    TSessionData extends Record<string, unknown> = Record<string, unknown>,
-  >(
-    session: IronSession &
-      TSessionData & {
-        nonce?: string;
-        address?: string;
-        token?: string;
-        role?: string;
-        flow?: string;
-        chainId?: number;
-      },
-  ): IronSession & TSessionData {
-    return {
-      ...session,
-      nonce: "[REDACTED]",
-      token: "[REDACTED]",
-    };
-  }
+  ) {}
 
   @Get("nonce")
   @Header("Cache-Control", NO_CACHE)
@@ -114,9 +57,11 @@ export class SiweController {
     @Req() req: Request,
     @Res() res: ExpressResponse,
   ): Promise<void> {
-    const session = await this.getSession(req, res, this.sessionConfig);
+    const session = await this.authService.getSession(req, res);
     this.logger.log(
-      `/siwe/nonce: ${JSON.stringify(this.getLoggableSession(session))}`,
+      `/siwe/nonce: ${JSON.stringify(
+        this.authService.getLoggableSession(session),
+      )}`,
     );
 
     if (!session.nonce) {
@@ -145,10 +90,9 @@ export class SiweController {
     @Req() req: Request,
     @Res() res: ExpressResponse,
   ): Promise<void> {
-    const { address, chainId, role } = await this.getSession(
+    const { address, chainId, role } = await this.authService.getSession(
       req,
       res,
-      this.sessionConfig,
     );
     this.logger.log(`/siwe/nonce: ${address}, ${chainId}, ${role}`);
     res.send({
@@ -172,9 +116,11 @@ export class SiweController {
     @Req() req: Request,
     @Res() res: ExpressResponse,
   ): Promise<void> {
-    const session = await this.getSession(req, res, this.sessionConfig);
+    const session = await this.authService.getSession(req, res);
     this.logger.log(
-      `/siwe/logout: ${JSON.stringify(this.getLoggableSession(session))}`,
+      `/siwe/logout: ${JSON.stringify(
+        this.authService.getLoggableSession(session),
+      )}`,
     );
     session.destroy();
     res.status(HttpStatus.OK).end();
@@ -210,9 +156,11 @@ export class SiweController {
         this.configService.get<string>("ALCHEMY_API_KEY"),
       );
 
-      const session = await this.getSession(req, res, this.sessionConfig);
+      const session = await this.authService.getSession(req, res);
       this.logger.log(
-        `/siwe/verify ${JSON.stringify(this.getLoggableSession(session))}`,
+        `/siwe/verify ${JSON.stringify(
+          this.authService.getLoggableSession(session),
+        )}`,
       );
       const { message, signature } = body;
       const siweMessage = new SiweMessage(message);
@@ -225,7 +173,7 @@ export class SiweController {
         };
       }
 
-      await this.backendService.createSIWEUser(siweMessage.address);
+      await this.userService.createSIWEUser(siweMessage.address);
 
       session.token = this.authService.createToken(fields.address);
       session.address = fields.address;
@@ -274,10 +222,10 @@ export class SiweController {
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<void> {
     try {
-      const session = await this.getSession(req, res, this.sessionConfig);
+      const session = await this.authService.getSession(req, res);
       this.logger.log(
         `/siwe/check-wallet ${JSON.stringify(
-          this.getLoggableSession(session),
+          this.authService.getLoggableSession(session),
         )}`,
       );
 
@@ -366,9 +314,11 @@ export class SiweController {
     @Body() body: { flow: string },
   ): Promise<void> {
     try {
-      const session = await this.getSession(req, res, this.sessionConfig);
+      const session = await this.authService.getSession(req, res);
       this.logger.log(
-        `/siwe/update-flow ${JSON.stringify(this.getLoggableSession(session))}`,
+        `/siwe/update-flow ${JSON.stringify(
+          this.authService.getLoggableSession(session),
+        )}`,
       );
       const { role, address } = session;
       const { flow } = body;
@@ -388,7 +338,7 @@ export class SiweController {
             (role !== undefined || role !== null) &&
             (role === CheckWalletRoles.DEV || role === CheckWalletRoles.ORG)
           ) {
-            await this.backendService.setFlowState({
+            await this.userService.setFlowState({
               wallet: address as string,
               flow: flow,
             });

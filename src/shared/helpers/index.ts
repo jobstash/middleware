@@ -370,3 +370,20 @@ export const toShortOrg = (org: OrgListResult): ShortOrg => {
     lastFundingDate: lastFundingRound?.date ?? 0,
   };
 };
+
+export function propertiesMatch<T extends object, U extends object>(
+  existingNode: T,
+  updateObject: U,
+): boolean {
+  for (const key in updateObject) {
+    if (updateObject[key] !== undefined) {
+      if (
+        (existingNode[key as unknown as keyof T] as unknown) !==
+        (updateObject[key as unknown as keyof U] as unknown)
+      ) {
+        return false;
+      }
+    }
+  }
+  return true;
+}

@@ -26,7 +26,6 @@ import {
 } from "@nestjs/swagger";
 import { Response as ExpressResponse } from "express";
 import { RBACGuard } from "src/auth/rbac.guard";
-import { BackendService } from "src/backend/backend.service";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { btoa, responseSchemaWrapper } from "src/shared/helpers";
 import {
@@ -62,11 +61,10 @@ const mime = require("mime");
 export class OrganizationsController {
   private readonly NFT_STORAGE_API_KEY;
   private readonly nftStorageClient: NFTStorage;
-  logger = new CustomLogger(OrganizationsController.name);
+  private readonly logger = new CustomLogger(OrganizationsController.name);
 
   constructor(
     private readonly organizationsService: OrganizationsService,
-    private readonly backendService: BackendService,
     private readonly configService: ConfigService,
   ) {
     (this.NFT_STORAGE_API_KEY = this.configService.get<string>(
@@ -371,7 +369,30 @@ export class OrganizationsController {
     @Body() body: CreateOrganizationInput,
   ): Promise<Response<OrganizationProperties> | ResponseWithNoData> {
     this.logger.log(`/organizations/create ${JSON.stringify(body)}`);
-    return this.backendService.createOrganization(body);
+    let organization = await this.organizationsService.find(body.name);
+
+    if (organization)
+      return {
+        success: false,
+        message: `Organization ${body.name} already exists, returning existing organization`,
+        data: organization.getProperties(),
+      };
+
+    try {
+      organization = await this.organizationsService.create(body);
+
+      return {
+        success: true,
+        data: organization.getProperties(),
+        message: "Organization created",
+      };
+    } catch (error) {
+      this.logger.error(error);
+      return {
+        success: false,
+        message: `An unexpected error occured`,
+      };
+    }
   }
 
   @Post("/update")
@@ -392,7 +413,35 @@ export class OrganizationsController {
     @Body() body: UpdateOrganizationInput,
   ): Promise<Response<OrganizationProperties> | ResponseWithNoData> {
     this.logger.log(`/organizations/update ${JSON.stringify(body)}`);
-    return this.backendService.updateOrganization(body);
+    const storedOrganization = await this.organizationsService.find(body.name);
+
+    if (!storedOrganization) {
+      return new Promise(resolve => {
+        resolve({
+          success: false,
+          message: `Organization ${body.name} not found, but trying to edit it`,
+        });
+      });
+    }
+
+    try {
+      const updatedOrganization = await this.organizationsService.update(
+        storedOrganization.getId(),
+        body,
+      );
+
+      return {
+        success: true,
+        data: updatedOrganization.getProperties(),
+        message: "Organization already exists, returning existing organization",
+      };
+    } catch (error) {
+      this.logger.error(error);
+      return {
+        success: false,
+        message: `An unexpected error occured`,
+      };
+    }
   }
 
   @Get("/repositories/:id")

@@ -8,8 +8,6 @@ import {
   Redirect,
   NotFoundException,
 } from "@nestjs/common";
-import { BackendService } from "../../backend/backend.service";
-import { AuthService } from "../auth.service";
 import { ConfigService } from "@nestjs/config";
 import {
   CheckWalletRoles,
@@ -29,15 +27,15 @@ import { UserService } from "../user/user.service";
 import axios from "axios";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import { GithubUserService } from "./github-user.service";
 
 @Controller("github")
 @ApiExtraModels(User)
 export class GithubController {
-  logger = new CustomLogger(GithubController.name);
+  private readonly logger = new CustomLogger(GithubController.name);
   private readonly ghConfig: GithubConfig;
   constructor(
-    private readonly backendService: BackendService,
-    private readonly authService: AuthService,
+    private readonly githubUserService: GithubUserService,
     private readonly configService: ConfigService,
     private readonly userService: UserService,
   ) {
@@ -142,8 +140,9 @@ export class GithubController {
 
     const profileData = data.data;
 
-    await this.backendService.addGithubInfoToUser({
+    await this.githubUserService.addGithubInfoToUser({
       githubAccessToken: accessToken,
+      code: code,
       githubRefreshToken: "",
       githubLogin: profileData.login,
       githubId: profileData.id,
@@ -155,12 +154,12 @@ export class GithubController {
       role: role,
     });
 
-    await this.backendService.setFlowState({
+    await this.userService.setFlowState({
       flow: CheckWalletFlows.ONBOARD_REPO,
       wallet: wallet,
     });
 
-    await this.backendService.setRole({
+    await this.userService.setRoleState({
       role: CheckWalletRoles.DEV,
       wallet: wallet,
     });

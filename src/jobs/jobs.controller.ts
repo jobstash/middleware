@@ -43,7 +43,7 @@ import { Response } from "express";
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
 export class JobsController {
-  logger = new CustomLogger(JobsController.name);
+  private readonly logger = new CustomLogger(JobsController.name);
   constructor(private readonly jobsService: JobsService) {}
 
   @Get("/list")

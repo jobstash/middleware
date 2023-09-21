@@ -14,8 +14,6 @@ import {
 } from "src/shared/types";
 import { hasDuplicates, printDuplicateItems } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
-import { BackendService } from "src/backend/backend.service";
-import { createMock } from "@golevelup/ts-jest";
 import { report } from "io-ts-human-reporter";
 import { Response } from "express";
 import { ModelService } from "src/model/model.service";
@@ -123,11 +121,7 @@ describe("OrganizationsController", () => {
         }),
       ],
       controllers: [OrganizationsController],
-      providers: [
-        OrganizationsService,
-        { provide: BackendService, useValue: createMock<BackendService>() },
-        ModelService,
-      ],
+      providers: [OrganizationsService, ModelService],
     }).compile();
 
     await module.init();

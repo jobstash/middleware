@@ -15,7 +15,7 @@ import { AllJobsInput } from "./dto/all-jobs.input";
 @ApiBearerAuth()
 @Controller("public")
 export class PublicController {
-  logger = new CustomLogger(PublicController.name);
+  private readonly logger = new CustomLogger(PublicController.name);
   constructor(private readonly publicService: PublicService) {}
 
   @Get("/all-jobs")

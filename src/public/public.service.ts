@@ -11,7 +11,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Injectable()
 export class PublicService {
-  logger = new CustomLogger(PublicService.name);
+  private readonly logger = new CustomLogger(PublicService.name);
   constructor(
     @InjectConnection()
     private neogma: Neogma,

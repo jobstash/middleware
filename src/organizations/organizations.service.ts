@@ -8,20 +8,24 @@ import {
   OrgFilterConfigsEntity,
   OrgListResult,
   OrgListResultEntity,
+  Organization,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { OrgListParams } from "./dto/org-list.input";
 import { intConverter, toShortOrg } from "src/shared/helpers";
-import { RepositoryEntity } from "src/shared/entities";
+import { OrganizationEntity, RepositoryEntity } from "src/shared/entities";
 import { createNewSortInstance, sort } from "fast-sort";
 import { ModelService } from "src/model/model.service";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
+import { CreateOrganizationInput } from "./dto/create-organization.input";
+import { UpdateOrganizationInput } from "./dto/update-organization.input";
+import NotFoundError from "src/shared/errors/not-found-error";
 
 @Injectable()
 export class OrganizationsService {
-  logger = new CustomLogger(OrganizationsService.name);
+  private readonly logger = new CustomLogger(OrganizationsService.name);
   constructor(
     @InjectConnection()
     private neogma: Neogma,
@@ -131,7 +135,7 @@ export class OrganizationsService {
   ): Promise<PaginatedData<ShortOrg>> {
     const paramsPassed = {
       ...params,
-      query: params.query ? `/${params.query}/g` : null,
+      query: params.query ? new RegExp(params.query, "gi") : null,
       limit: params.limit ?? 10,
       page: params.page ?? 1,
     };
@@ -322,10 +326,10 @@ export class OrganizationsService {
   }
 
   async searchOrganizations(query: string): Promise<ShortOrg[]> {
-    const parsedQuery = `/${query}/g`;
+    const parsedQuery = new RegExp(query, "gi");
     try {
       const all = await this.getAll();
-      return all.filter(x => parsedQuery.match(x.name));
+      return all.filter(x => x.name.match(parsedQuery));
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -389,5 +393,143 @@ export class OrganizationsService {
         );
         return undefined;
       });
+  }
+
+  async find(name: string): Promise<OrganizationEntity | undefined> {
+    const res = await this.neogma.queryRunner.run(
+      `
+        MATCH (o:Organization {name: $name})
+        RETURN o
+      `,
+      { name },
+    );
+    return res.records.length
+      ? new OrganizationEntity(res.records[0].get("o"))
+      : undefined;
+  }
+
+  async findById(id: string): Promise<Organization | undefined> {
+    const res = await this.neogma.queryRunner.run(
+      `
+        MATCH (o:Organization {id: $id})
+        RETURN o
+      `,
+      { id },
+    );
+    return res.records.length
+      ? new Organization(res.records[0].get("o"))
+      : undefined;
+  }
+
+  async findAll(): Promise<Organization[] | undefined> {
+    const res = await this.neogma.queryRunner.run(
+      `
+        MATCH (o:Organization)
+        RETURN o
+      `,
+    );
+    return res.records.length
+      ? res.records.map(resource => new Organization(resource.get("o")))
+      : undefined;
+  }
+
+  async findByOrgId(orgId: string): Promise<OrganizationEntity | undefined> {
+    const res = await this.neogma.queryRunner.run(
+      `
+        MATCH (o:Organization {orgId: $orgId})
+        RETURN o
+      `,
+      { orgId },
+    );
+    return res.records.length
+      ? new OrganizationEntity(res.records[0].get("o"))
+      : undefined;
+  }
+
+  async create(
+    organization: CreateOrganizationInput,
+  ): Promise<OrganizationEntity> {
+    return this.neogma.queryRunner
+      .run(
+        `
+            CREATE (o:Organization { id: randomUUID() })
+            SET o += $properties
+            RETURN o
+        `,
+        {
+          properties: {
+            ...organization,
+          },
+        },
+      )
+      .then(res => new OrganizationEntity(res.records[0].get("o")));
+  }
+
+  async update(
+    id: string,
+    properties: UpdateOrganizationInput,
+  ): Promise<OrganizationEntity> {
+    return this.neogma.queryRunner
+      .run(
+        `
+            MATCH (o:Organization { id: $id })
+            SET o += $properties
+            RETURN o
+        `,
+        { id, properties },
+      )
+      .then(res => new OrganizationEntity(res.records[0].get("o")));
+  }
+
+  async hasProjectRelationship(
+    organizationId: string,
+    projectId: string,
+  ): Promise<boolean> {
+    const res = await this.neogma.queryRunner.run(
+      `
+        MATCH (o:Organization {id: $organizationId})
+        MATCH (p:Project {id: $organizationId})
+        WITH o, p
+        RETURN EXISTS( (o)-[:HAS_PROJECT]->(p) ) AS result
+        `,
+      { organizationId, projectId },
+    );
+
+    if (!res.records?.length) {
+      return false;
+    }
+
+    return res.records[0].get("result");
+  }
+
+  async relateToProject(
+    organizationId: string,
+    projectId: string,
+  ): Promise<unknown> {
+    const res = await this.neogma.queryRunner.run(
+      `
+        MATCH (o:Organization {id: $organizationId})
+        MATCH (p:Project {id: $projectId})
+
+        MERGE (o)-[r:HAS_PROJECT]->(p)
+        SET r.timestamp = timestamp()
+
+        RETURN o {
+          .*,
+          relationshipTimestamp: r.timestamp
+        } AS organization
+        `,
+      { organizationId, projectId },
+    );
+
+    if (res.records.length === 0) {
+      throw new NotFoundError(
+        `Could not create relationship between Organization ${organizationId} to Project ${projectId}`,
+      );
+    }
+
+    const [first] = res.records;
+    const organization = first.get("organization");
+    return new Organization(organization);
   }
 }
