@@ -232,7 +232,7 @@ export class JobsService {
     const paramsPassed = {
       ...publicationDateRangeGenerator(params.publicationDate as DateRange),
       ...params,
-      query: params.query ? `/${params.query}/g` : null,
+      query: params.query ? new RegExp(params.query, "gi") : null,
       limit: params.limit ?? 10,
       page: params.page ?? 1,
     };
@@ -315,6 +315,12 @@ export class JobsService {
       const anchorProject = projects.sort(
         (a, b) => b.monthlyVolume - a.monthlyVolume,
       )[0];
+      const matchesQuery =
+        orgName.match(query) ||
+        jobTitle.match(query) ||
+        technologies.filter(technology => technology.name.match(query)).length >
+          0 ||
+        projects.filter(project => project.name.match(query)).length > 0;
       return (
         (!organizationFilterList || organizationFilterList.includes(orgName)) &&
         (!seniorityFilterList || seniorityFilterList.includes(seniority)) &&
@@ -323,7 +329,7 @@ export class JobsService {
         (!maxHeadCount || (headCount ?? 0) < maxHeadCount) &&
         (!minSalaryRange || (medianSalary ?? 0) >= minSalaryRange) &&
         (!maxSalaryRange || (medianSalary ?? 0) < maxSalaryRange) &&
-        (!startDate || jobCreatedTimestamp >= endDate) &&
+        (!startDate || jobCreatedTimestamp >= startDate) &&
         (!endDate || jobCreatedTimestamp < endDate) &&
         (!projectFilterList ||
           projects.filter(x => projectFilterList.includes(x.name)).length >
@@ -371,14 +377,7 @@ export class JobsService {
           fundingRounds.filter(fundingRound =>
             fundingRoundFilterList.includes(fundingRound.roundName),
           ).length > 0) &&
-        (!query ||
-          (technologies.length > 0 &&
-            (orgName.match(query) ||
-              jobTitle.match(query) ||
-              technologies.filter(technology => technology.name.match(query))
-                .length > 0 ||
-              projects.filter(project => project.name.match(query)).length >
-                0))) &&
+        (!query || matchesQuery) &&
         (!technologyFilterList ||
           technologies.filter(technology =>
             technologyFilterList.includes(technology.name),
@@ -394,27 +393,28 @@ export class JobsService {
       )[0];
       switch (orderBy) {
         case "audits":
-          return p1.audits.length;
+          return p1?.audits.length ?? 0;
         case "hacks":
-          return p1.hacks.length;
+          return p1?.hacks.length ?? 0;
         case "chains":
-          return p1.chains.length;
+          return p1?.chains.length ?? 0;
         case "teamSize":
-          return p1.teamSize;
+          return p1?.teamSize ?? 0;
         case "tvl":
-          return p1.tvl;
+          return p1?.tvl ?? 0;
         case "monthlyVolume":
-          return p1.monthlyVolume;
+          return p1?.monthlyVolume ?? 0;
         case "monthlyFees":
-          return p1.monthlyFees;
+          return p1?.monthlyFees ?? 0;
         case "monthlyRevenue":
-          return p1.monthlyRevenue;
+          return p1?.monthlyRevenue ?? 0;
         case "fundingDate":
-          return jlr.organization.fundingRounds.sort(
-            (a, b) => b.date - a.date,
-          )[0].date;
+          return (
+            jlr.organization.fundingRounds.sort((a, b) => b.date - a.date)[0]
+              ?.date ?? 0
+          );
         case "headCount":
-          return jlr.organization.headCount;
+          return jlr.organization?.headCount ?? 0;
         case "publicationDate":
           return jlr.jobCreatedTimestamp;
         case "salary":
@@ -554,7 +554,7 @@ export class JobsService {
   ): Promise<PaginatedData<AllJobsListResult>> {
     const paramsPassed = {
       ...params,
-      query: params.query ? `/${params.query}/g` : null,
+      query: params.query ? new RegExp(params.query, "gi") : null,
       limit: params.limit ?? 10,
       page: params.page ?? 1,
     };
@@ -595,15 +595,16 @@ export class JobsService {
       const { name: orgName } = jlr.organization;
       const { jobTitle, technologies } = jlr;
 
+      const matchesQuery =
+        orgName.match(query) ||
+        jobTitle.match(query) ||
+        technologies.filter(technology => technology.name.match(query)).length >
+          0;
+
       return (
         (!categoryFilterList ||
           categoryFilterList.includes(jlr.category.name)) &&
-        (!query ||
-          (technologies.length > 0 &&
-            (orgName.match(query) ||
-              jobTitle.match(query) ||
-              technologies.filter(technology => technology.name.match(query))
-                .length > 0))) &&
+        (!query || matchesQuery) &&
         (!organizationFilterList || organizationFilterList.includes(orgName))
       );
     };

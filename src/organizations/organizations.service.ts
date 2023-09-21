@@ -135,7 +135,7 @@ export class OrganizationsService {
   ): Promise<PaginatedData<ShortOrg>> {
     const paramsPassed = {
       ...params,
-      query: params.query ? `/${params.query}/g` : null,
+      query: params.query ? new RegExp(params.query, "gi") : null,
       limit: params.limit ?? 10,
       page: params.page ?? 1,
     };
@@ -326,10 +326,10 @@ export class OrganizationsService {
   }
 
   async searchOrganizations(query: string): Promise<ShortOrg[]> {
-    const parsedQuery = `/${query}/g`;
+    const parsedQuery = new RegExp(query, "gi");
     try {
       const all = await this.getAll();
-      return all.filter(x => parsedQuery.match(x.name));
+      return all.filter(x => x.name.match(parsedQuery));
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
