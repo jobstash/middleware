@@ -1,93 +1,45 @@
+import { ApiExtraModels, ApiProperty } from "@nestjs/swagger";
+import * as t from "io-ts";
+import { isLeft } from "fp-ts/lib/Either";
 import {
-  ApiExtraModels,
-  ApiProperty,
-  ApiPropertyOptional,
-  getSchemaPath,
-  OmitType,
-} from "@nestjs/swagger";
-
-class FilterConfigField {
-  @ApiProperty()
-  position: number;
-  @ApiProperty()
-  label: string;
-  @ApiProperty()
-  show: boolean;
-  @ApiPropertyOptional()
-  googleAnalyticsEventName?: string;
-  @ApiPropertyOptional()
-  googleAnalyticsEventId?: string;
-}
-
-class FilterConfigLabel {
-  @ApiProperty()
-  label: string;
-  @ApiProperty()
-  value: string;
-}
-
-class NumberWithParamKey {
-  @ApiProperty()
-  paramKey: string;
-  @ApiPropertyOptional()
-  value?: number;
-}
-
-class Range {
-  @ApiProperty()
-  lowest: NumberWithParamKey;
-  @ApiProperty()
-  highest: NumberWithParamKey;
-}
-
-class FilterConfigLabeledValues extends OmitType(FilterConfigField, [
-  "label",
-] as const) {
-  @ApiPropertyOptional({
-    type: "array",
-    items: {
-      $ref: getSchemaPath(FilterConfigLabel),
-      properties: {
-        label: {
-          type: "string",
-        },
-        value: {
-          type: "string",
-        },
-      },
-    },
-  })
-  options?: FilterConfigLabel[];
-  @ApiProperty()
-  paramKey: string;
-}
-
-class SingleSelectFilter extends FilterConfigLabeledValues {
-  @ApiProperty()
-  kind: string;
-}
-
-class MultiSelectFilter extends FilterConfigLabeledValues {
-  @ApiProperty()
-  kind: string;
-}
-
-class MultiSelectSearchFilter extends FilterConfigLabeledValues {
-  @ApiProperty()
-  kind: string;
-}
-
-class RangeFilter extends FilterConfigField {
-  @ApiProperty()
-  kind: string;
-  @ApiProperty()
-  stepSize: number;
-  @ApiProperty()
-  value: Range;
-}
+  FilterConfigField,
+  FilterConfigLabel,
+  FilterConfigLabeledValues,
+  MultiSelectFilter,
+  MultiSelectSearchFilter,
+  RangeFilter,
+  SingleSelectFilter,
+} from "./filters.interface";
+import { report } from "io-ts-human-reporter";
 
 @ApiExtraModels(FilterConfigLabel, FilterConfigField, FilterConfigLabeledValues)
 export class JobFilterConfigs {
+  public static readonly JobFilterConfigsType = t.strict({
+    tvl: RangeFilter.RangeFilterType,
+    salary: RangeFilter.RangeFilterType,
+    teamSize: RangeFilter.RangeFilterType,
+    headCount: RangeFilter.RangeFilterType,
+    monthlyFees: RangeFilter.RangeFilterType,
+    monthlyVolume: RangeFilter.RangeFilterType,
+    monthlyRevenue: RangeFilter.RangeFilterType,
+    hacks: SingleSelectFilter.SingleSelectFilterType,
+    token: SingleSelectFilter.SingleSelectFilterType,
+    order: SingleSelectFilter.SingleSelectFilterType,
+    seniority: MultiSelectFilter.MultiSelectFilterType,
+    locations: MultiSelectFilter.MultiSelectFilterType,
+    mainNet: SingleSelectFilter.SingleSelectFilterType,
+    orderBy: SingleSelectFilter.SingleSelectFilterType,
+    tech: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+    publicationDate: SingleSelectFilter.SingleSelectFilterType,
+    audits: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+    chains: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+    projects: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+    investors: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+    categories: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+    fundingRounds: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+    organizations: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+  });
+
   @ApiProperty()
   publicationDate: SingleSelectFilter;
   @ApiProperty()
@@ -123,7 +75,7 @@ export class JobFilterConfigs {
   @ApiProperty()
   monthlyRevenue: RangeFilter;
   @ApiProperty()
-  audits: RangeFilter;
+  audits: MultiSelectSearchFilter;
   @ApiProperty()
   hacks: SingleSelectFilter;
   @ApiProperty()
@@ -134,4 +86,64 @@ export class JobFilterConfigs {
   order: SingleSelectFilter;
   @ApiProperty()
   orderBy: SingleSelectFilter;
+
+  constructor(raw: JobFilterConfigs) {
+    const {
+      tvl,
+      tech,
+      hacks,
+      token,
+      order,
+      salary,
+      chains,
+      audits,
+      mainNet,
+      orderBy,
+      teamSize,
+      projects,
+      seniority,
+      locations,
+      headCount,
+      investors,
+      categories,
+      monthlyFees,
+      fundingRounds,
+      organizations,
+      monthlyVolume,
+      monthlyRevenue,
+      publicationDate,
+    } = raw;
+
+    const result = JobFilterConfigs.JobFilterConfigsType.decode(raw);
+
+    this.tvl = tvl;
+    this.tech = tech;
+    this.hacks = hacks;
+    this.token = token;
+    this.order = order;
+    this.salary = salary;
+    this.chains = chains;
+    this.audits = audits;
+    this.mainNet = mainNet;
+    this.orderBy = orderBy;
+    this.teamSize = teamSize;
+    this.projects = projects;
+    this.seniority = seniority;
+    this.locations = locations;
+    this.headCount = headCount;
+    this.investors = investors;
+    this.categories = categories;
+    this.monthlyFees = monthlyFees;
+    this.fundingRounds = fundingRounds;
+    this.organizations = organizations;
+    this.monthlyVolume = monthlyVolume;
+    this.monthlyRevenue = monthlyRevenue;
+    this.publicationDate = publicationDate;
+
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(x);
+      });
+    }
+  }
 }

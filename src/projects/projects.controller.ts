@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpStatus,
   Param,
   ParseFilePipeBuilder,
@@ -11,11 +12,14 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  ValidationPipe,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import {
+  ApiBadRequestResponse,
   ApiExtraModels,
   ApiInternalServerErrorResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiUnprocessableEntityResponse,
   getSchemaPath,
@@ -24,8 +28,16 @@ import { Response as ExpressResponse } from "express";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { BackendService } from "src/backend/backend.service";
 import { Roles } from "src/shared/decorators/role.decorator";
-import { responseSchemaWrapper } from "src/shared/helpers";
-import { OldProject, Response, ResponseWithNoData } from "src/shared/types";
+import { btoa, responseSchemaWrapper } from "src/shared/helpers";
+import {
+  PaginatedData,
+  ProjectFilterConfigs,
+  ProjectProperties,
+  ProjectDetails,
+  Response,
+  ResponseWithNoData,
+  Project,
+} from "src/shared/types";
 import { CreateProjectInput } from "./dto/create-project.input";
 import { UpdateProjectInput } from "./dto/update-project.input";
 import { ProjectsService } from "./projects.service";
@@ -34,11 +46,18 @@ import { NFTStorage, File } from "nft.storage";
 import { ConfigService } from "@nestjs/config";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
+import {
+  CACHE_CONTROL_HEADER,
+  CACHE_DURATION,
+  CACHE_EXPIRY,
+} from "src/shared/presets/cache-control";
+import { ValidationError } from "class-validator";
+import { ProjectListParams } from "./dto/project-list.input";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
 @Controller("projects")
-@ApiExtraModels(OldProject)
+@ApiExtraModels(ProjectProperties)
 export class ProjectsController {
   private readonly NFT_STORAGE_API_KEY;
   private readonly nftStorageClient: NFTStorage;
@@ -62,9 +81,11 @@ export class ProjectsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldProject) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),
   })
-  async getProjects(): Promise<Response<OldProject[]> | ResponseWithNoData> {
+  async getProjects(): Promise<
+    Response<ProjectProperties[]> | ResponseWithNoData
+  > {
     this.logger.log(`/projects`);
     return this.projectsService
       .getProjects()
@@ -89,16 +110,122 @@ export class ProjectsController {
       });
   }
 
+  @Get("/list")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiOkResponse({
+    description:
+      "Returns a paginated sorted list of projects that satisfy the search and filter predicate",
+    type: PaginatedData<Project>,
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(PaginatedData),
+          properties: {
+            page: {
+              type: "number",
+            },
+            count: {
+              type: "number",
+            },
+            data: {
+              type: "array",
+              items: { $ref: getSchemaPath(Project) },
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ValidationError),
+        },
+      ],
+    },
+  })
+  async getProjectsListWithSearch(
+    @Query(new ValidationPipe({ transform: true }))
+    params: ProjectListParams,
+  ): Promise<PaginatedData<Project>> {
+    const paramsParsed = {
+      ...params,
+      query: btoa(params.query),
+    };
+    this.logger.log(`/projects/list ${JSON.stringify(paramsParsed)}`);
+    return this.projectsService.getProjectsListWithSearch(paramsParsed);
+  }
+
+  @Get("/filters")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiOkResponse({
+    description: "Returns the configuration data for the ui filters",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ProjectFilterConfigs),
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  async getFilterConfigs(): Promise<ProjectFilterConfigs> {
+    this.logger.log(`/projects/filters`);
+    return this.projectsService.getFilterConfigs();
+  }
+
+  @Get("details/:id")
+  @ApiOkResponse({
+    description: "Returns the project details for the provided id",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ProjectDetails),
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  @ApiNotFoundResponse({
+    description:
+      "Returns that no job details were found for the specified uuid",
+    type: ResponseWithNoData,
+  })
+  async getProjectDetailsById(
+    @Param("id") id: string,
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ): Promise<ProjectDetails | undefined> {
+    this.logger.log(`/projects/details/${id}`);
+    const result = this.projectsService.getProjectDetailsById(id);
+    if (result === undefined) {
+      res.status(HttpStatus.NOT_FOUND);
+    }
+    return result;
+  }
+
   @Get("/category/:category")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects under the speccified category",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldProject) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
   })
   async getProjectsByCategory(
     @Param("category") category: string,
-  ): Promise<Response<OldProject[]> | ResponseWithNoData> {
+  ): Promise<Response<Project[]> | ResponseWithNoData> {
     this.logger.log(`/projects/category/${category}`);
     return this.projectsService
       .getProjectsByCategory(category)
@@ -127,11 +254,11 @@ export class ProjectsController {
   @ApiOkResponse({
     description:
       "Returns a list of competing projects for the specified project",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldProject) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
   })
   async getProjectCompetitors(
     @Param("id") id: string,
-  ): Promise<Response<OldProject[]> | ResponseWithNoData> {
+  ): Promise<Response<Project[]> | ResponseWithNoData> {
     this.logger.log(`/projects/competitors/${id}`);
     return this.projectsService
       .getProjectCompetitors(id)
@@ -161,11 +288,11 @@ export class ProjectsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects for an organization",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldProject) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
   })
   async getProjectsByOrgId(
     @Param("id") id: string,
-  ): Promise<Response<OldProject[]> | ResponseWithNoData> {
+  ): Promise<Response<Project[]> | ResponseWithNoData> {
     this.logger.log(`/projects/all/${id}`);
     return this.projectsService
       .getProjectsByOrgId(id)
@@ -195,11 +322,11 @@ export class ProjectsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects with names matching the query",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldProject) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
   })
   async searchProjects(
     @Query("query") query: string,
-  ): Promise<Response<OldProject[]> | ResponseWithNoData> {
+  ): Promise<Response<Project[]> | ResponseWithNoData> {
     this.logger.log(`/projects/search?query=${query}`);
     return this.projectsService
       .searchProjects(query)
@@ -233,7 +360,7 @@ export class ProjectsController {
   async getProjectDetails(
     @Param("id") id: string,
     @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<Response<OldProject> | ResponseWithNoData> {
+  ): Promise<Response<Project> | ResponseWithNoData> {
     this.logger.log(`/projects/${id}`);
     const result = await this.projectsService.getProjectById(id);
 
@@ -324,11 +451,11 @@ export class ProjectsController {
   }
 
   @Post("/create")
-  // @UseGuards(RBACGuard)
-  // @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Creates a new project",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldProject) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),
   })
   @ApiUnprocessableEntityResponse({
     description:
@@ -337,7 +464,7 @@ export class ProjectsController {
   })
   async createProject(
     @Body() body: CreateProjectInput,
-  ): Promise<Response<OldProject> | ResponseWithNoData> {
+  ): Promise<Response<ProjectProperties> | ResponseWithNoData> {
     this.logger.log(`/projects/create ${JSON.stringify(body)}`);
     return this.backendService.createProject(body);
   }
@@ -347,7 +474,7 @@ export class ProjectsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Updates an existing project",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldProject) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),
   })
   @ApiUnprocessableEntityResponse({
     description:
@@ -356,7 +483,7 @@ export class ProjectsController {
   })
   async updateProject(
     @Body() body: UpdateProjectInput,
-  ): Promise<Response<OldProject> | ResponseWithNoData> {
+  ): Promise<Response<ProjectProperties> | ResponseWithNoData> {
     this.logger.log(`/projects/update ${JSON.stringify(body)}`);
     return this.backendService.updateProject(body);
   }

@@ -1,7 +1,7 @@
 import { Node } from "neo4j-driver";
-import { Repository as RepositoryProperties } from "src/shared/types";
+import { Repository as RepositoryProperties } from "../interfaces";
 
-export class Repository {
+export class RepositoryEntity {
   constructor(private readonly node: Node) {}
 
   getId(): number {

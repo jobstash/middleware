@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpStatus,
   Param,
   ParseFilePipeBuilder,
@@ -11,11 +12,14 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  ValidationPipe,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import {
+  ApiBadRequestResponse,
   ApiExtraModels,
   ApiInternalServerErrorResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiUnprocessableEntityResponse,
   getSchemaPath,
@@ -24,13 +28,16 @@ import { Response as ExpressResponse } from "express";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { BackendService } from "src/backend/backend.service";
 import { Roles } from "src/shared/decorators/role.decorator";
-import { responseSchemaWrapper } from "src/shared/helpers";
+import { btoa, responseSchemaWrapper } from "src/shared/helpers";
 import {
   Repository,
-  OldOrganization,
+  OrganizationProperties,
   Response,
   ResponseWithNoData,
   ShortOrg,
+  PaginatedData,
+  OrgFilterConfigs,
+  OrgListResult,
 } from "src/shared/types";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
@@ -40,12 +47,19 @@ import { NFTStorage, File } from "nft.storage";
 import { ConfigService } from "@nestjs/config";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
+import {
+  CACHE_CONTROL_HEADER,
+  CACHE_DURATION,
+  CACHE_EXPIRY,
+} from "src/shared/presets/cache-control";
+import { ValidationError } from "class-validator";
+import { OrgListParams } from "./dto/org-list.input";
 // import mime from "mime";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
 @Controller("organizations")
-@ApiExtraModels(ShortOrg, OldOrganization)
+@ApiExtraModels(ShortOrg, OrganizationProperties)
 export class OrganizationsController {
   private readonly NFT_STORAGE_API_KEY;
   private readonly nftStorageClient: NFTStorage;
@@ -96,6 +110,79 @@ export class OrganizationsController {
       });
   }
 
+  @Get("/list")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiOkResponse({
+    description:
+      "Returns a paginated sorted list of organizations that satisfy the search and filter predicate",
+    type: PaginatedData<OrganizationProperties>,
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(PaginatedData),
+          properties: {
+            page: {
+              type: "number",
+            },
+            count: {
+              type: "number",
+            },
+            data: {
+              type: "array",
+              items: { $ref: getSchemaPath(OrganizationProperties) },
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ValidationError),
+        },
+      ],
+    },
+  })
+  async getOrgsListWithSearch(
+    @Query(new ValidationPipe({ transform: true }))
+    params: OrgListParams,
+  ): Promise<PaginatedData<ShortOrg>> {
+    const paramsParsed = {
+      ...params,
+      query: btoa(params.query),
+    };
+    this.logger.log(`/organizations/list ${JSON.stringify(paramsParsed)}`);
+    return this.organizationsService.getOrgsListWithSearch(paramsParsed);
+  }
+
+  @Get("/filters")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiOkResponse({
+    description: "Returns the configuration data for the ui filters",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(OrgFilterConfigs),
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  async getFilterConfigs(): Promise<OrgFilterConfigs> {
+    this.logger.log(`/jobs/filters`);
+    return this.organizationsService.getFilterConfigs();
+  }
+
   @Get("/search")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
@@ -131,6 +218,39 @@ export class OrganizationsController {
           message: `Error retrieving organizations for query!`,
         };
       });
+  }
+
+  @Get("details/:id")
+  @ApiOkResponse({
+    description: "Returns the organization details for the provided id",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(OrgListResult),
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  @ApiNotFoundResponse({
+    description:
+      "Returns that no organization details were found for the provided id",
+    type: ResponseWithNoData,
+  })
+  async getOrgDetailsById(
+    @Param("id") id: string,
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ): Promise<OrgListResult | undefined> {
+    this.logger.log(`/organizations/details/${id}`);
+    const result = await this.organizationsService.getOrgDetailsById(id);
+    if (result === undefined) {
+      res.status(HttpStatus.NOT_FOUND);
+    }
+    return result;
   }
 
   @Get("/:id")
@@ -241,7 +361,9 @@ export class OrganizationsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Creates a new organization",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldOrganization) }),
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(OrganizationProperties),
+    }),
   })
   @ApiUnprocessableEntityResponse({
     description:
@@ -250,7 +372,7 @@ export class OrganizationsController {
   })
   async createOrganization(
     @Body() body: CreateOrganizationInput,
-  ): Promise<Response<OldOrganization> | ResponseWithNoData> {
+  ): Promise<Response<OrganizationProperties> | ResponseWithNoData> {
     this.logger.log(`/organizations/create ${JSON.stringify(body)}`);
     return this.backendService.createOrganization(body);
   }
@@ -260,7 +382,9 @@ export class OrganizationsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Updates an existing organization",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(OldOrganization) }),
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(OrganizationProperties),
+    }),
   })
   @ApiUnprocessableEntityResponse({
     description:
@@ -269,7 +393,7 @@ export class OrganizationsController {
   })
   async updateOrganization(
     @Body() body: UpdateOrganizationInput,
-  ): Promise<Response<OldOrganization> | ResponseWithNoData> {
+  ): Promise<Response<OrganizationProperties> | ResponseWithNoData> {
     this.logger.log(`/organizations/update ${JSON.stringify(body)}`);
     return this.backendService.updateOrganization(body);
   }

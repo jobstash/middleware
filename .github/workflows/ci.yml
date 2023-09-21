@@ -5,7 +5,7 @@ name: Continous Integration
 ################################
 on:
   push:
-    branches: [dev, "feature/rip-**", "fix/rip-**"]
+    branches: [dev, "feature/job-**", "fix/job-**"]
     paths:
       - "src/**.js"
       - "src/**.ts"
@@ -53,16 +53,29 @@ jobs:
       # Run Linter against code base #
       ################################
       - name: Lint Code Base
-        uses: github/super-linter/slim@v5.0.0
+        run: yarn lint
+      ##################
+      # Run prod tests #
+      ##################
+      - name: Run Prod Tests
+        run: yarn test --detectOpenHandles --forceExit
         env:
-          VALIDATE_ALL_CODEBASE: false
-          DEFAULT_BRANCH: main
-          LINTER_RULES_PATH: /
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          JAVASCRIPT_ES_CONFIG_FILE: .eslintrc.js
-          TYPESCRIPT_ES_CONFIG_FILE: .eslintrc.js
-          TYPESCRIPT_DEFAULT_STYLE: prettier
-          JAVASCRIPT_DEFAULT_STYLE: prettier
-          VALIDATE_JAVASCRIPT_ES: true
-          VALIDATE_TYPESCRIPT_ES: true
-          FILTER_REGEX_INCLUDE: .*src/.*
+          NEO4J_HOST: ${{ secrets.NEO4J_HOST_PROD }}
+          NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD_PROD }}
+          NEO4J_PORT: ${{ secrets.NEO4J_PORT_PROD }}
+          NEO4J_SCHEME: ${{ secrets.NEO4J_SCHEME_PROD }}
+          NEO4J_USERNAME: ${{ secrets.NEO4J_USERNAME_PROD }}
+          NEO4J_DATABASE: ${{ secrets.NEO4J_DATABASE_PROD }}
+
+      #####################
+      # Run staging tests #
+      #####################
+      - name: Run Staging Tests
+        run: yarn test --detectOpenHandles --forceExit
+        env:
+          NEO4J_HOST: ${{ secrets.NEO4J_HOST_STAGING }}
+          NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD_STAGING }}
+          NEO4J_PORT: ${{ secrets.NEO4J_PORT_STAGING }}
+          NEO4J_SCHEME: ${{ secrets.NEO4J_SCHEME_STAGING }}
+          NEO4J_USERNAME: ${{ secrets.NEO4J_USERNAME_STAGING }}
+          NEO4J_DATABASE: ${{ secrets.NEO4J_DATABASE_STAGING }}

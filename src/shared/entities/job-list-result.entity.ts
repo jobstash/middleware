@@ -1,78 +1,113 @@
 import {
-  OldJobListResult,
-  OldOrganization,
-  OldProject,
-  ProjectCategory,
+  JobListResult,
+  Organization,
   StructuredJobpost,
   Technology,
-} from "src/shared/types";
-import { notStringOrNull } from "../helpers";
-import { OldFundingRound } from "../interfaces/funding-round.interface";
-import { Investor } from "../interfaces/investor.interface";
+} from "../interfaces";
+import { nonZeroOrNull, notStringOrNull } from "../helpers";
 
-type RawJobPost = {
-  organization?: OldOrganization | null;
-  project?: OldProject | null;
-  jobpost?: StructuredJobpost | null;
-  fundingRounds?: [object & { properties: OldFundingRound }] | null;
-  investors?: [object & { properties: Investor }] | null;
-  technologies?: [object & { properties: Technology }] | null;
-  categories?: [object & { properties: ProjectCategory }] | null;
+type RawJobPost = StructuredJobpost & {
+  organization?: Organization | null;
+  technologies?: Technology[] | null;
 };
 
 export class JobListResultEntity {
   constructor(private readonly raw: RawJobPost) {}
 
-  getProperties(): OldJobListResult {
-    // eslint-disable-next-line
-    const {
-      organization,
-      project,
-      jobpost,
-      fundingRounds,
-      investors,
-      technologies,
-      categories,
-    } = this.raw;
+  getProperties(): JobListResult {
+    const jobpost = this.raw;
+    const { organization, technologies } = jobpost;
 
-    return {
+    return new JobListResult({
+      ...jobpost,
+      minSalaryRange: nonZeroOrNull(jobpost?.minSalaryRange),
+      maxSalaryRange: nonZeroOrNull(jobpost?.maxSalaryRange),
+      medianSalary: nonZeroOrNull(jobpost?.medianSalary),
+      seniority: notStringOrNull(jobpost?.seniority, ["", "undefined"]),
+      jobLocation: notStringOrNull(jobpost?.jobLocation, [
+        "",
+        "undefined",
+        "unspecified",
+      ]),
+      jobCommitment: notStringOrNull(jobpost?.jobCommitment, ["", "undefined"]),
+      role: notStringOrNull(jobpost?.role, ["", "undefined"]),
+      team: notStringOrNull(jobpost?.team, ["", "undefined"]),
+      benefits: notStringOrNull(jobpost?.benefits, ["", "undefined"]),
+      culture: notStringOrNull(jobpost?.culture, ["", "undefined"]),
+      salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
+      paysInCrypto: jobpost?.paysInCrypto ?? null,
+      offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
+      jobPageUrl: notStringOrNull(jobpost?.jobPageUrl),
+      jobTitle: notStringOrNull(jobpost?.jobTitle),
+      aiDetectedTechnologies: notStringOrNull(jobpost?.aiDetectedTechnologies),
       organization: {
         ...organization,
-        teamSize: notStringOrNull(organization.teamSize, ["", "undefined"]),
+        docs: notStringOrNull(organization?.docs),
+        logo: notStringOrNull(organization?.logo),
+        altName: notStringOrNull(organization?.altName),
+        headCount: nonZeroOrNull(organization?.headCount),
+        github: notStringOrNull(organization?.github),
+        twitter: notStringOrNull(organization?.twitter),
+        discord: notStringOrNull(organization?.discord),
+        telegram: notStringOrNull(organization?.telegram),
+        createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
+        updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
+        projects:
+          organization.projects.map(project => ({
+            ...project,
+            defiLlamaId: notStringOrNull(project?.defiLlamaId),
+            cmcId: notStringOrNull(project?.cmcId),
+            defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug),
+            defiLlamaParent: notStringOrNull(project?.defiLlamaParent),
+            tokenAddress: notStringOrNull(project?.tokenAddress),
+            tokenSymbol: notStringOrNull(project?.tokenSymbol, ["-"]),
+            isInConstruction: project?.isInConstruction ?? null,
+            tvl: nonZeroOrNull(project?.tvl),
+            monthlyVolume: nonZeroOrNull(project?.monthlyVolume),
+            monthlyFees: nonZeroOrNull(project?.monthlyFees),
+            monthlyRevenue: nonZeroOrNull(project?.monthlyRevenue),
+            telegram: notStringOrNull(project?.telegram),
+            logo: notStringOrNull(project?.logo),
+            twitter: notStringOrNull(project?.twitter),
+            discord: notStringOrNull(project?.discord),
+            docs: notStringOrNull(project?.docs),
+            teamSize: nonZeroOrNull(project?.teamSize),
+            category: notStringOrNull(project?.category),
+            githubOrganization: notStringOrNull(project?.githubOrganization),
+            updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
+            hacks:
+              project?.hacks.map(hack => ({
+                ...hack,
+                fundsLost: hack.fundsLost,
+                date: notStringOrNull(hack.date),
+                description: notStringOrNull(hack.description),
+                fundsReturned: nonZeroOrNull(hack.fundsReturned),
+              })) ?? [],
+            audits:
+              project?.audits.map(audit => ({
+                ...audit,
+                auditor: notStringOrNull(audit?.auditor) ?? null,
+                id: notStringOrNull(audit?.id),
+                name: notStringOrNull(audit?.name),
+                defiId: notStringOrNull(audit?.defiId),
+                date: nonZeroOrNull(audit?.date),
+                techIssues: nonZeroOrNull(audit?.techIssues),
+                link: notStringOrNull(audit?.link),
+              })) ?? [],
+            chains: project?.chains ?? [],
+          })) ?? [],
+        fundingRounds:
+          organization?.fundingRounds
+            .map(fr => ({
+              ...fr,
+              raisedAmount: nonZeroOrNull(fr?.raisedAmount),
+              roundName: notStringOrNull(fr?.roundName),
+              sourceLink: notStringOrNull(fr?.sourceLink),
+            }))
+            .sort((a, b) => b.date - a.date) ?? [],
+        investors: organization?.investors ?? [],
       },
-      project:
-        project !== null
-          ? {
-              ...project,
-              tokenSymbol: notStringOrNull(project.tokenSymbol, ["-"]),
-              hacks: project.hacks?.map(h => h["properties"]) ?? project.hacks,
-              chains:
-                project.chains?.map(c => c["properties"]) ?? project.chains,
-              audits:
-                project.audits?.map(a => a["properties"]) ?? project.audits,
-            }
-          : project,
-      jobpost: {
-        ...jobpost,
-        seniority: notStringOrNull(jobpost.seniority, ["", "undefined"]),
-        jobLocation: notStringOrNull(jobpost.jobLocation, [
-          "",
-          "undefined",
-          "unspecified",
-        ]),
-        jobCommitment: notStringOrNull(jobpost.jobCommitment, [
-          "",
-          "undefined",
-        ]),
-        role: notStringOrNull(jobpost.role, ["", "undefined"]),
-        team: notStringOrNull(jobpost.team, ["", "undefined"]),
-        benefits: notStringOrNull(jobpost.benefits, ["", "undefined"]),
-        culture: notStringOrNull(jobpost.culture, ["", "undefined"]),
-      },
-      fundingRounds: fundingRounds?.map(round => round.properties),
-      investors: investors?.map(investor => investor.properties),
-      technologies: technologies?.map(technology => technology.properties),
-      categories: categories?.map(category => category.properties),
-    } as OldJobListResult;
+      technologies: technologies ?? [],
+    });
   }
 }

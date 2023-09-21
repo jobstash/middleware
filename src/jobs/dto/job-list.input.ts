@@ -8,8 +8,8 @@ import {
   IsString,
   Min,
 } from "class-validator";
-import { JobListOrder, JobListOrderBy } from "src/shared/types";
-import { btoaList } from "src/shared/utils/helpers";
+import { DateRange, ListOrder, JobListOrderBy } from "src/shared/types";
+import { btoaList } from "src/shared/helpers";
 import { Compare } from "src/shared/validators";
 
 export class JobListParams {
@@ -35,7 +35,7 @@ export class JobListParams {
     "past-6-months",
   ])
   @Type(() => String)
-  publicationDate?: string;
+  publicationDate?: DateRange | null = null;
 
   @ApiPropertyOptional({
     example: 90000,
@@ -44,7 +44,7 @@ export class JobListParams {
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  minSalaryRange?: number;
+  minSalaryRange?: number | null = null;
 
   @ApiPropertyOptional({
     example: 150000,
@@ -54,7 +54,7 @@ export class JobListParams {
   @Min(0)
   @Compare("minSalaryRange", ">=")
   @Type(() => Number)
-  maxSalaryRange?: number;
+  maxSalaryRange?: number | null = null;
 
   @ApiPropertyOptional({
     example: 10,
@@ -63,7 +63,7 @@ export class JobListParams {
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  minHeadCount?: number;
+  minHeadCount?: number | null = null;
 
   @ApiPropertyOptional({
     example: 100,
@@ -73,7 +73,7 @@ export class JobListParams {
   @Min(0)
   @Compare("minHeadCount", ">=")
   @Type(() => Number)
-  maxHeadCount?: number;
+  maxHeadCount?: number | null = null;
 
   @ApiPropertyOptional({
     example: 10,
@@ -82,7 +82,7 @@ export class JobListParams {
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  minTeamSize?: number;
+  minTeamSize?: number | null = null;
 
   @ApiPropertyOptional({
     example: 100,
@@ -92,7 +92,7 @@ export class JobListParams {
   @Min(0)
   @Compare("minTeamSize", ">=")
   @Type(() => Number)
-  maxTeamSize?: number;
+  maxTeamSize?: number | null = null;
 
   @ApiPropertyOptional({
     example: 1890503.6980031824,
@@ -101,7 +101,7 @@ export class JobListParams {
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  minTvl?: number;
+  minTvl?: number | null = null;
 
   @ApiPropertyOptional({
     example: 5000503.698003182,
@@ -111,7 +111,7 @@ export class JobListParams {
   @Min(0)
   @Compare("minTvl", ">=")
   @Type(() => Number)
-  maxTvl?: number;
+  maxTvl?: number | null = null;
 
   @ApiPropertyOptional({
     example: 1000000,
@@ -120,7 +120,7 @@ export class JobListParams {
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  minMonthlyVolume?: number;
+  minMonthlyVolume?: number | null = null;
 
   @ApiPropertyOptional({
     example: 1000000000,
@@ -130,7 +130,7 @@ export class JobListParams {
   @Min(0)
   @Compare("minMonthlyVolume", ">=")
   @Type(() => Number)
-  maxMonthlyVolume?: number;
+  maxMonthlyVolume?: number | null = null;
 
   @ApiPropertyOptional({
     example: 50000,
@@ -139,7 +139,7 @@ export class JobListParams {
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  minMonthlyFees?: number;
+  minMonthlyFees?: number | null = null;
 
   @ApiPropertyOptional({
     example: 3000000,
@@ -149,7 +149,7 @@ export class JobListParams {
   @Min(0)
   @Compare("minMonthlyFees", ">=")
   @Type(() => Number)
-  maxMonthlyFees?: number;
+  maxMonthlyFees?: number | null = null;
 
   @ApiPropertyOptional({
     example: 1000000,
@@ -158,7 +158,7 @@ export class JobListParams {
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  minMonthlyRevenue?: number;
+  minMonthlyRevenue?: number | null = null;
 
   @ApiPropertyOptional({
     example: 5000000,
@@ -168,58 +168,7 @@ export class JobListParams {
   @Min(0)
   @Compare("minMonthlyRevenue", ">=")
   @Type(() => Number)
-  maxMonthlyRevenue?: number;
-
-  @ApiPropertyOptional({
-    example: 2,
-  })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  minAudits?: number;
-
-  @ApiPropertyOptional({
-    example: 100,
-  })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Compare("minAudits", ">=")
-  @Type(() => Number)
-  maxAudits?: number;
-
-  @ApiPropertyOptional({
-    example: true,
-  })
-  @IsOptional()
-  @IsBoolean()
-  @Type(() => Boolean)
-  hacks?: boolean;
-
-  @ApiPropertyOptional({
-    example: "U3RyaW5n,Qysr",
-  })
-  @IsOptional()
-  @Type(() => String)
-  @Transform(btoaList)
-  tech?: string[];
-
-  @ApiPropertyOptional({
-    example: "T3BlblNlYQ==,SmV0",
-  })
-  @IsOptional()
-  @Type(() => String)
-  @Transform(btoaList)
-  organizations?: string[];
-
-  @ApiPropertyOptional({
-    example: "N/A",
-  })
-  @IsOptional()
-  @Type(() => String)
-  @Transform(btoaList)
-  chains?: string[];
+  maxMonthlyRevenue?: number | null = null;
 
   @ApiPropertyOptional({
     example: "T3BlbnNlYQ==,QWNyb3Nz",
@@ -227,7 +176,47 @@ export class JobListParams {
   @IsOptional()
   @Type(() => String)
   @Transform(btoaList)
-  projects?: string[];
+  audits?: string[] | null = null;
+
+  @ApiPropertyOptional({
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  hacks?: boolean | null = null;
+
+  @ApiPropertyOptional({
+    example: "U3RyaW5n,Qysr",
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(btoaList)
+  tech?: string[] | null = null;
+
+  @ApiPropertyOptional({
+    example: "T3BlblNlYQ==,SmV0",
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(btoaList)
+  organizations?: string[] | null = null;
+
+  @ApiPropertyOptional({
+    example: "N/A",
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(btoaList)
+  chains?: string[] | null = null;
+
+  @ApiPropertyOptional({
+    example: "T3BlbnNlYQ==,QWNyb3Nz",
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(btoaList)
+  projects?: string[] | null = null;
 
   @ApiPropertyOptional({
     example: "T3B0aW9ucw==,WWllbGQ=",
@@ -235,7 +224,7 @@ export class JobListParams {
   @IsOptional()
   @Type(() => String)
   @Transform(btoaList)
-  categories?: string[];
+  categories?: string[] | null = null;
 
   @ApiPropertyOptional({
     example: "U2VlZA==,U2VyaWVzIEE=",
@@ -243,7 +232,7 @@ export class JobListParams {
   @IsOptional()
   @Type(() => String)
   @Transform(btoaList)
-  fundingRounds?: string[];
+  fundingRounds?: string[] | null = null;
 
   @ApiPropertyOptional({
     example: "TGVtbmlzY2Fw,M0FD",
@@ -251,7 +240,7 @@ export class JobListParams {
   @IsOptional()
   @Type(() => String)
   @Transform(btoaList)
-  investors?: string[];
+  investors?: string[] | null = null;
 
   @ApiPropertyOptional({
     example: "MQ==,Mg==",
@@ -259,7 +248,7 @@ export class JobListParams {
   @IsOptional()
   @Type(() => String)
   @Transform(btoaList)
-  seniority?: string[];
+  seniority?: string[] | null = null;
 
   @ApiPropertyOptional({
     example: "UmVtb3Rl,T25zaXRl",
@@ -267,7 +256,7 @@ export class JobListParams {
   @IsOptional()
   @Type(() => String)
   @Transform(btoaList)
-  locations?: string[];
+  locations?: string[] | null = null;
 
   @ApiPropertyOptional({
     example: true,
@@ -275,7 +264,7 @@ export class JobListParams {
   @IsOptional()
   @IsBoolean()
   @Type(() => Boolean)
-  token?: boolean;
+  token?: boolean | null = null;
 
   @ApiPropertyOptional({
     example: true,
@@ -283,7 +272,7 @@ export class JobListParams {
   @IsOptional()
   @IsBoolean()
   @Type(() => Boolean)
-  mainNet?: boolean;
+  mainNet?: boolean | null = null;
 
   @ApiPropertyOptional({
     enum: ["asc", "desc"],
@@ -291,7 +280,7 @@ export class JobListParams {
   @IsOptional()
   @IsIn(["asc", "desc"])
   @IsString()
-  order?: JobListOrder;
+  order?: ListOrder | null = null;
 
   @ApiPropertyOptional({
     enum: [
@@ -325,7 +314,7 @@ export class JobListParams {
     "teamSize",
   ])
   @IsString()
-  orderBy?: JobListOrderBy;
+  orderBy?: JobListOrderBy | null = null;
 
   @ApiPropertyOptional({
     example: 500,
@@ -333,8 +322,7 @@ export class JobListParams {
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
-  @Transform(({ value }) => Number(value))
-  page?: number;
+  page?: number | null = null;
 
   @ApiPropertyOptional({
     example: 100,
@@ -342,8 +330,7 @@ export class JobListParams {
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
-  @Transform(({ value }) => Number(value))
-  limit?: number;
+  limit?: number | null = null;
 
   @ApiPropertyOptional({
     example: "C++",
@@ -351,5 +338,5 @@ export class JobListParams {
   @IsOptional()
   @IsString()
   @Type(() => String)
-  query: string;
+  query: string | null = null;
 }

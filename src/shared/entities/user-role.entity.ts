@@ -1,5 +1,5 @@
 import { Node } from "neo4j-driver";
-import { UserRole } from "src/shared/types";
+import { UserRole } from "../interfaces";
 
 export class UserRoleEntity {
   constructor(private readonly node: Node) {}

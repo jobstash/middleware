@@ -27,8 +27,8 @@ export const SINGLE_SELECT_OPTIONS = {
     { label: "Has No Token", value: false },
   ],
   order: [
-    { label: "Ascending", value: "asc" },
-    { label: "Descending", value: "desc" },
+    { label: "A-Z", value: "asc" },
+    { label: "Z-A", value: "desc" },
   ],
   orderBy: [
     { label: "Funding Date", value: "fundingDate" },
@@ -46,7 +46,7 @@ export const SINGLE_SELECT_OPTIONS = {
   ],
 };
 
-export const JOB_FILTER_CONFIG_PRESETS = {
+export const FILTER_CONFIG_PRESETS = {
   publicationDate: {
     position: 0,
     label: "Publication Date",
@@ -63,7 +63,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "FILTER_BY_SALARY",
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 1000,
+    prefix: "$",
   },
   seniority: {
     position: 2,
@@ -88,16 +88,16 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "FILTER_BY_TEAM_SIZE",
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 1,
+    prefix: null,
   },
   headCount: {
     position: 5,
-    label: "Headcount",
-    show: false,
+    label: "Head Count",
+    show: true,
     googleAnalyticsEventName: "FILTER_BY_HEADCOUNT",
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 1,
+    prefix: null,
   },
   tech: {
     position: 6,
@@ -134,7 +134,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
   chains: {
     position: 10,
     label: "Chains",
-    show: true,
+    show: false,
     googleAnalyticsEventName: "FILTER_BY_CHAINS",
     googleAnalyticsEventId: null,
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
@@ -162,7 +162,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "FILTER_BY_TVL",
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 100000,
+    prefix: "$",
   },
   monthlyVolume: {
     position: 14,
@@ -171,7 +171,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "FILTER_BY_MONTHLY_VOLUME",
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 100000,
+    prefix: "$",
   },
   monthlyFees: {
     position: 15,
@@ -180,7 +180,7 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "FILTER_BY_MONTHLY_FEES",
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 100,
+    prefix: "$",
   },
   monthlyRevenue: {
     position: 16,
@@ -189,16 +189,15 @@ export const JOB_FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "FILTER_BY_MONTHLY_REVENUE",
     googleAnalyticsEventId: null,
     kind: FilterKind.RANGE,
-    stepSize: 100000,
+    prefix: "$",
   },
   audits: {
     position: 17,
     label: "Audits",
-    show: false,
+    show: true,
     googleAnalyticsEventName: "FILTER_BY_AUDITS",
     googleAnalyticsEventId: null,
-    kind: FilterKind.RANGE,
-    stepSize: 5,
+    kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   hacks: {
     position: 18,
@@ -286,10 +285,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
     lowest: "minMonthlyRevenue",
     highest: "maxMonthlyRevenue",
   },
-  audits: {
-    lowest: "minAudits",
-    highest: "maxAudits",
-  },
+  audits: "audits",
   hacks: "hacks",
   mainNet: "mainNet",
   token: "token",

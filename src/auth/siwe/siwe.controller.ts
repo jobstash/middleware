@@ -225,7 +225,7 @@ export class SiweController {
         };
       }
 
-      this.backendService.createSIWEUser(siweMessage.address);
+      await this.backendService.createSIWEUser(siweMessage.address);
 
       session.token = this.authService.createToken(fields.address);
       session.address = fields.address;
