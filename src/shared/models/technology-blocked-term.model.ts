@@ -1,17 +1,17 @@
 import { ModelFactory, Neogma, NeogmaInstance, NeogmaModel } from "neogma";
 import { ExtractProps, NoRelations, TechnologyBlockedTerm } from "../types";
 
-export type TechnolgyBlockedTermProps = ExtractProps<TechnologyBlockedTerm>;
+export type TechnologyBlockedTermProps = ExtractProps<TechnologyBlockedTerm>;
 
 export type TechnolgyBlockedTermInstance = NeogmaInstance<
-  TechnolgyBlockedTermProps,
+  TechnologyBlockedTermProps,
   NoRelations
 >;
 
-export const TechnolgyBlockedTerms = (
+export const TechnologyBlockedTerms = (
   neogma: Neogma,
-): NeogmaModel<TechnolgyBlockedTermProps, NoRelations> =>
-  ModelFactory<TechnolgyBlockedTermProps, NoRelations>(
+): NeogmaModel<TechnologyBlockedTermProps, NoRelations> =>
+  ModelFactory<TechnologyBlockedTermProps, NoRelations>(
     {
       label: "TechnologyBlockedTerm",
       schema: {

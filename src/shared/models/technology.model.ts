@@ -14,7 +14,7 @@ import {
 } from "../types";
 import {
   TechnolgyBlockedTermInstance,
-  TechnolgyBlockedTerms,
+  TechnologyBlockedTerms,
 } from "./technology-blocked-term.model";
 import { TechnologyPreferredTermEntity } from "../entities/technology-preferred-term.entity";
 
@@ -28,7 +28,7 @@ export type TechnologyInstance = NeogmaInstance<
 
 export interface TechnologyRelations {
   blocked: ModelRelatedNodesI<
-    ReturnType<typeof TechnolgyBlockedTerms>,
+    ReturnType<typeof TechnologyBlockedTerms>,
     TechnolgyBlockedTermInstance
   >;
 }
@@ -79,7 +79,7 @@ export const Technologies = (
       primaryKeyField: "id",
       relationships: {
         blocked: {
-          model: TechnolgyBlockedTerms(neogma),
+          model: TechnologyBlockedTerms(neogma),
           name: "IS_BLOCKED_TERM",
           direction: "in",
         },

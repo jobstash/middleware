@@ -235,7 +235,9 @@ export class ProjectsService {
   async getProjectDetailsById(id: string): Promise<ProjectDetails | undefined> {
     try {
       const details = await this.models.Projects.getProjectDetailsById(id);
-      return new ProjectDetailsEntity(details).getProperties();
+      return details
+        ? new ProjectDetailsEntity(details).getProperties()
+        : undefined;
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
