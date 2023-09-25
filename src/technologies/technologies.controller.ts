@@ -325,7 +325,7 @@ export class TechnologiesController {
       req,
       res,
     );
-    for (const technologyName in input.technologyNameList) {
+    for (const technologyName of input.technologyNameList) {
       this.logger.debug(`Attempting to block term: ${technologyName}`);
       this.logger.debug(`Authenticating with wallet: ${creatorWallet}`);
       try {
@@ -440,7 +440,7 @@ export class TechnologiesController {
       req,
       res,
     );
-    for (const technologyName in input.technologyNameList) {
+    for (const technologyName of input.technologyNameList) {
       this.logger.debug(`Attempting to unblock term: ${technologyName}`);
       this.logger.debug(`Authenticating with wallet: ${creatorWallet}`);
       try {
