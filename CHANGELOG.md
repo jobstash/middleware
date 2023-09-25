@@ -1,3 +1,10 @@
+## [1.37.6](https://github.com/jobstash/middleware/compare/v1.37.5...v1.37.6) (2023-09-25)
+
+
+### Bug Fixes
+
+* **technologies:** fixed create paired terms bug ([e954149](https://github.com/jobstash/middleware/commit/e95414943e5aa2de5c509c4b36a1388248c35ee9))
+
 ## [1.37.5](https://github.com/jobstash/middleware/compare/v1.37.4...v1.37.5) (2023-09-25)
 
 
