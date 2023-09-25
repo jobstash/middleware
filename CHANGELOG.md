@@ -1,3 +1,10 @@
+## [1.37.7](https://github.com/jobstash/middleware/compare/v1.37.6...v1.37.7) (2023-09-25)
+
+
+### Bug Fixes
+
+* add return clause for paired terms endpoint ([cd9a711](https://github.com/jobstash/middleware/commit/cd9a71142e350c7df6ad8653c19f190000f7f329))
+
 ## [1.37.6](https://github.com/jobstash/middleware/compare/v1.37.5...v1.37.6) (2023-09-25)
 
 
