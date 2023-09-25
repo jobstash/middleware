@@ -601,6 +601,11 @@ export class TechnologiesController {
         normalizedPairTermListNodesIds,
         creatorWallet as string,
       );
+
+      return {
+        success: true,
+        message: "Technologies paired successfully",
+      };
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
