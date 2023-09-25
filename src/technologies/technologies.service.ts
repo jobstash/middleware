@@ -317,8 +317,9 @@ export class TechnologiesService {
     normalizedPairTermListNodesIds: string[],
     creatorWallet: string,
   ): Promise<boolean> {
-    const res = await this.neogma.queryRunner.run(
-      `
+    try {
+      await this.neogma.queryRunner.run(
+        `
     MATCH (t1:Technology {id: $normalizedOriginTermNameNodeId})
     MATCH (u:User {wallet: $creatorWallet})
     UNWIND $normalizedPairTermListNodesIds AS pairTermNodeId
@@ -329,14 +330,26 @@ export class TechnologiesService {
 
     CREATE (u)-[:CREATED_PAIRING]->(tp)
   `,
-      {
-        normalizedOriginTermNameNodeId,
-        normalizedPairTermListNodesIds,
-        creatorWallet,
-      },
-    );
-
-    return res.records[0].get("result");
+        {
+          normalizedOriginTermNameNodeId,
+          normalizedPairTermListNodesIds,
+          creatorWallet,
+        },
+      );
+      return true;
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "technologies.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `TechnologiesService::relatePairedTerms ${err.message}`,
+      );
+      return false;
+    }
   }
 
   async relateBlockedTermToTechnologyTerm(
