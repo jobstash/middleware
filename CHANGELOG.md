@@ -1,3 +1,10 @@
+## [1.37.5](https://github.com/jobstash/middleware/compare/v1.37.4...v1.37.5) (2023-09-25)
+
+
+### Bug Fixes
+
+* **technologies:** fixed bugs in create blocked and paired terms endpoints ([098704b](https://github.com/jobstash/middleware/commit/098704bfec3202292d6673b58e14e119ba6076c5))
+
 ## [1.37.4](https://github.com/jobstash/middleware/compare/v1.37.3...v1.37.4) (2023-09-20)
 
 
