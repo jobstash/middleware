@@ -8,25 +8,26 @@ import { Investor } from "./investor.interface";
 import { Organization } from "./organization.interface";
 import { ProjectCategory } from "./project-category.interface";
 import { StructuredJobpost } from "./structured-jobpost.interface";
-import { Technology } from "./technology.interface";
+import { Tag } from "./tag.interface";
 import * as t from "io-ts";
 import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
+import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relations.interface";
 
 @ApiExtraModels(
   StructuredJobpost,
-  Technology,
+  Tag,
   ProjectCategory,
   FundingRound,
   Investor,
   Organization,
 )
-export class JobListResult extends StructuredJobpost {
+export class JobListResult extends StructuredJobpostWithRelations {
   public static readonly JobListResultType = t.intersection([
-    StructuredJobpost.StructuredJobpostType,
+    StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
     t.strict({
       organization: Organization.OrganizationType,
-      technologies: t.array(Technology.TechnologyType),
+      technologies: t.array(Tag.TagType),
     }),
   ]);
 
@@ -38,9 +39,9 @@ export class JobListResult extends StructuredJobpost {
 
   @ApiPropertyOptional({
     type: "array",
-    items: { $ref: getSchemaPath(Technology) },
+    items: { $ref: getSchemaPath(Tag) },
   })
-  technologies: Technology[];
+  technologies: Tag[];
 
   constructor(raw: JobListResult) {
     const { organization, technologies, ...jobpostProperties } = raw;

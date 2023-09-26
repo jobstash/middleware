@@ -1,9 +1,9 @@
-import { Organization, Technology } from "../interfaces";
+import { Organization, Tag } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { ProjectDetails } from "../interfaces/project-details.interface";
 
 type RawProject = ProjectDetails & {
-  organization?: (Organization & { technologies: Technology[] }) | null;
+  organization?: (Organization & { technologies: Tag[] }) | null;
 };
 
 export class ProjectDetailsEntity {
@@ -43,7 +43,6 @@ export class ProjectDetailsEntity {
       audits:
         project?.audits.map(audit => ({
           ...audit,
-          auditor: notStringOrNull(audit?.auditor),
           id: notStringOrNull(audit?.id),
           name: notStringOrNull(audit?.name),
           defiId: notStringOrNull(audit?.defiId),

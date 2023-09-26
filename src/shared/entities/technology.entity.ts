@@ -1,5 +1,5 @@
 import { Node } from "neo4j-driver";
-import { Technology } from "../interfaces";
+import { Tag } from "../interfaces";
 
 export class TechnologyEntity {
   constructor(private readonly node: Node) {}
@@ -15,10 +15,10 @@ export class TechnologyEntity {
   getName(): string {
     return (<Record<string, string>>this.node.properties).name;
   }
-  getProperties(): Technology {
+  getProperties(): Tag {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { ...properties } = <Record<string, any>>this.node.properties;
 
-    return properties as Technology;
+    return properties as Tag;
   }
 }

@@ -11,14 +11,10 @@ export class Audit {
     date: t.union([t.number, t.null]),
     techIssues: t.union([t.number, t.null]),
     link: t.union([t.string, t.null]),
-    auditor: t.union([t.string, t.null, t.undefined]),
   });
 
   @ApiProperty()
   id: string | null;
-
-  @ApiPropertyOptional()
-  auditor: string | null;
 
   @ApiPropertyOptional()
   link: string | null;
@@ -36,9 +32,8 @@ export class Audit {
   techIssues: number | null;
 
   constructor(raw: Audit) {
-    const { auditor, link, id, name, defiId, date, techIssues } = raw;
+    const { link, id, name, defiId, date, techIssues } = raw;
     const result = Audit.AuditType.decode(raw);
-    this.auditor = auditor;
     this.link = link;
     this.id = id;
     this.name = name;

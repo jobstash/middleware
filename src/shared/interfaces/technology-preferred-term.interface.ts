@@ -1,19 +1,19 @@
 import { ApiProperty } from "@nestjs/swagger";
 import * as t from "io-ts";
 // import { inferObjectType } from "../helpers";
-import { Technology } from "./technology.interface";
+import { Tag } from "./tag.interface";
 // import { isLeft } from "fp-ts/lib/Either";
 
-export class TechnologyPreferredTerm extends Technology {
+export class TechnologyPreferredTerm extends Tag {
   public static readonly TechnologyPreferredTermType = t.strict({
-    technology: Technology.TechnologyType,
-    synonyms: t.array(Technology.TechnologyType),
+    technology: Tag.TagType,
+    synonyms: t.array(Tag.TagType),
   });
 
   @ApiProperty()
-  technology: Technology;
+  technology: Tag;
   @ApiProperty()
-  synonyms: Technology[];
+  synonyms: Tag[];
 
   // constructor(raw: TechnologyPreferredTerm) {
   //   super(raw);

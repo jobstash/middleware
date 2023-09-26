@@ -1,12 +1,25 @@
-import { ModelFactory, Neogma, NeogmaInstance, NeogmaModel } from "neogma";
-import { ExtractProps, Audit, NoRelations } from "../types";
+import {
+  ModelFactory,
+  ModelRelatedNodesI,
+  Neogma,
+  NeogmaInstance,
+  NeogmaModel,
+} from "neogma";
+import { ExtractProps, Audit } from "../types";
+import { AuditorInstance, Auditors } from "./auditor.model";
 
 export type AuditProps = ExtractProps<Audit>;
 
-export type AuditInstance = NeogmaInstance<AuditProps, NoRelations>;
+export interface AuditRelations {
+  auditor: ModelRelatedNodesI<ReturnType<typeof Auditors>, AuditorInstance>;
+}
 
-export const Audits = (neogma: Neogma): NeogmaModel<AuditProps, NoRelations> =>
-  ModelFactory<AuditProps, NoRelations>(
+export type AuditInstance = NeogmaInstance<AuditProps, AuditRelations>;
+
+export const Audits = (
+  neogma: Neogma,
+): NeogmaModel<AuditProps, AuditRelations> =>
+  ModelFactory<AuditProps, AuditRelations>(
     {
       label: "Audit",
       schema: {
@@ -19,8 +32,14 @@ export const Audits = (neogma: Neogma): NeogmaModel<AuditProps, NoRelations> =>
         defiId: { type: "string", allowEmpty: true, required: false },
         techIssues: { type: "number", allowEmpty: true, required: false },
         link: { type: "string", allowEmpty: true, required: false },
-        auditor: { type: "string", allowEmpty: true, required: false },
         date: { type: "number", allowEmpty: true, required: false },
+      },
+      relationships: {
+        auditor: {
+          name: "HAS_AUDITOR",
+          direction: "out",
+          model: Auditors(neogma),
+        },
       },
     },
     neogma,

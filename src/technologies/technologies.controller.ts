@@ -16,7 +16,7 @@ import {
   PreferredTerm,
   Response,
   ResponseWithNoData,
-  Technology,
+  Tag,
 } from "src/shared/types";
 import { TechnologiesService } from "./technologies.service";
 import { CheckWalletRoles } from "src/shared/types";
@@ -45,11 +45,9 @@ export class TechnologiesController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all technologies",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(Technology) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Tag) }),
   })
-  async getTechnologies(): Promise<
-    Response<Technology[]> | ResponseWithNoData
-  > {
+  async getTechnologies(): Promise<Response<Tag[]> | ResponseWithNoData> {
     this.logger.log(`/technologies`);
     return this.technologiesService
       .getAllUnblockedTerms()
@@ -79,11 +77,9 @@ export class TechnologiesController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all blocked terms",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(Technology) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Tag) }),
   })
-  async getBlockedTerms(): Promise<
-    Response<Technology[]> | ResponseWithNoData
-  > {
+  async getBlockedTerms(): Promise<Response<Tag[]> | ResponseWithNoData> {
     this.logger.log(`/technologies/blocked-terms`);
     return this.technologiesService
       .getBlockedTerms()
@@ -183,13 +179,13 @@ export class TechnologiesController {
   @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
   @ApiOkResponse({
     description: "Create a new technology",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(Technology) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Tag) }),
   })
   async create(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body() createTechnologyDto: CreateTechnologyDto,
-  ): Promise<Response<Technology> | ResponseWithNoData> {
+  ): Promise<Response<Tag> | ResponseWithNoData> {
     try {
       const { address: creatorWallet } = await this.authService.getSession(
         req,
@@ -248,13 +244,13 @@ export class TechnologiesController {
   @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
   @ApiOkResponse({
     description: "Link one technology as a synonym of another",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(Array<Technology>) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Array<Tag>) }),
   })
   async linkSynonym(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body() linkTechnologySynonymDto: LinkTechnologySynonymDto,
-  ): Promise<Response<Technology[]> | ResponseWithNoData> {
+  ): Promise<Response<Tag[]> | ResponseWithNoData> {
     try {
       const { address: creatorWallet } = await this.authService.getSession(
         req,
@@ -546,7 +542,7 @@ export class TechnologiesController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body() input: CreatePairedTermsInput,
-  ): Promise<Response<Technology[]> | ResponseWithNoData> {
+  ): Promise<Response<Tag[]> | ResponseWithNoData> {
     this.logger.log(
       `/technologies/create-paired-terms ${JSON.stringify(input)}`,
     );

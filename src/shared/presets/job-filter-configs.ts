@@ -70,11 +70,11 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "filter_joblist_seniority",
     kind: FilterKind.MULTI_SELECT,
   },
-  locations: {
+  location: {
     position: 3,
-    label: "Locations",
+    label: "Location",
     show: true,
-    googleAnalyticsEventName: "filter_joblist_locations",
+    googleAnalyticsEventName: "filter_joblist_location",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   teamSize: {
@@ -230,7 +230,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
     highest: "maxSalaryRange",
   },
   seniority: "seniority",
-  locations: "locations",
+  location: "location",
   teamSize: {
     lowest: "minTeamSize",
     highest: "maxTeamSize",

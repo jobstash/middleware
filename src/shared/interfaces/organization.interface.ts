@@ -5,7 +5,7 @@ import {
   getSchemaPath,
 } from "@nestjs/swagger";
 import * as t from "io-ts";
-import { Technology } from "./technology.interface";
+import { Tag } from "./tag.interface";
 import { FundingRound } from "./funding-round.interface";
 import { Project } from "./project.interface";
 import { Investor } from "./investor.interface";
@@ -203,7 +203,7 @@ export class ShortOrg {
     lastFundingDate: t.number,
     lastFundingAmount: t.number,
     logo: t.union([t.string, t.null]),
-    technologies: t.array(Technology.TechnologyType),
+    technologies: t.array(Tag.TagType),
   });
 
   @ApiProperty()
@@ -239,8 +239,8 @@ export class ShortOrg {
   @ApiProperty()
   description: string;
 
-  @ApiProperty({ type: "array", items: { $ref: getSchemaPath(Technology) } })
-  technologies: Technology[];
+  @ApiProperty({ type: "array", items: { $ref: getSchemaPath(Tag) } })
+  technologies: Tag[];
 
   constructor(raw: ShortOrg) {
     const {

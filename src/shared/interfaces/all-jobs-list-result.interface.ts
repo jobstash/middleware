@@ -1,22 +1,22 @@
-import { Organization, OrganizationProperties } from "./organization.interface";
-import { StructuredJobpostWithCategory } from "./structured-jobpost-with-category.interface";
-import * as t from "io-ts";
-import { Technology } from "./technology.interface";
 import {
   ApiExtraModels,
   ApiPropertyOptional,
   getSchemaPath,
 } from "@nestjs/swagger";
 import { isLeft } from "fp-ts/lib/Either";
+import * as t from "io-ts";
 import { report } from "io-ts-human-reporter";
+import { Organization, OrganizationProperties } from "./organization.interface";
+import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relations.interface";
+import { Tag } from "./tag.interface";
 
-@ApiExtraModels(StructuredJobpostWithCategory, OrganizationProperties)
-export class AllJobsListResult extends StructuredJobpostWithCategory {
+@ApiExtraModels(StructuredJobpostWithRelations, OrganizationProperties)
+export class AllJobsListResult extends StructuredJobpostWithRelations {
   public static readonly AllJobsListResultType = t.intersection([
-    StructuredJobpostWithCategory.StructuredJobpostWithCategoryType,
+    StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
     t.strict({
       organization: Organization.OrganizationPropertiesType,
-      technologies: t.array(Technology.TechnologyType),
+      technologies: t.array(Tag.TagType),
     }),
   ]);
 
@@ -28,9 +28,9 @@ export class AllJobsListResult extends StructuredJobpostWithCategory {
 
   @ApiPropertyOptional({
     type: "array",
-    items: { $ref: getSchemaPath(Technology) },
+    items: { $ref: getSchemaPath(Tag) },
   })
-  technologies: Technology[];
+  technologies: Tag[];
 
   constructor(raw: AllJobsListResult) {
     const { organization, technologies, ...jobpostProperties } = raw;

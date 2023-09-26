@@ -5,8 +5,8 @@ import { report } from "io-ts-human-reporter";
 // import { inferObjectType } from "../helpers";
 // import { isLeft } from "fp-ts/lib/Either";
 
-export class Technology {
-  public static readonly TechnologyType = t.strict({
+export class Tag {
+  public static readonly TagType = t.strict({
     id: t.string,
     name: t.string,
     normalizedName: t.string,
@@ -19,9 +19,9 @@ export class Technology {
   @ApiProperty()
   normalizedName: string;
 
-  constructor(raw: Technology) {
+  constructor(raw: Tag) {
     const { id, name, normalizedName } = raw;
-    const result = Technology.TechnologyType.decode(raw);
+    const result = Tag.TagType.decode(raw);
 
     this.id = id;
     this.name = name;
@@ -30,7 +30,7 @@ export class Technology {
     if (isLeft(result)) {
       report(result).forEach(x => {
         throw new Error(
-          `technology instance with id ${this.id} failed validation with error '${x}'`,
+          `tag instance with id ${this.id} failed validation with error '${x}'`,
         );
       });
     }

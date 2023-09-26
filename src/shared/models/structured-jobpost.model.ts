@@ -18,8 +18,19 @@ import {
   JobpostCategories,
   JobpostCategoryInstance,
 } from "./jobpost-category.model";
+import {
+  JobpostCommitmentInstance,
+  JobpostCommitments,
+} from "./jobpost-commitment.model";
+import { JobpostClassifications } from "./jobpost-classification.model";
+import {
+  JobpostLocationTypeInstance,
+  JobpostLocationTypes,
+} from "./jobpost-location-type.model";
 
-export type StructuredJobpostProps = ExtractProps<StructuredJobpost>;
+export type StructuredJobpostProps = ExtractProps<
+  Omit<StructuredJobpost, "tags">
+>;
 
 export type StructuredJobpostInstance = NeogmaInstance<
   StructuredJobpostProps,
@@ -41,6 +52,18 @@ export interface StructuredJobpostRelations {
   technologies: ModelRelatedNodesI<
     ReturnType<typeof Technologies>,
     TechnologyInstance
+  >;
+  commitment: ModelRelatedNodesI<
+    ReturnType<typeof JobpostCommitments>,
+    JobpostCommitmentInstance
+  >;
+  locationType: ModelRelatedNodesI<
+    ReturnType<typeof JobpostLocationTypes>,
+    JobpostLocationTypeInstance
+  >;
+  classification: ModelRelatedNodesI<
+    ReturnType<typeof JobpostClassifications>,
+    JobpostCommitmentInstance
   >;
 }
 
@@ -71,12 +94,22 @@ export const StructuredJobposts = (
           allowEmpty: false,
           required: true,
         },
-        jobApplyPageUrl: {
+        url: {
           type: "number",
           allowEmpty: false,
           required: true,
         },
-        jobFoundTimestamp: {
+        firstFoundAtTimestamp: {
+          type: "number",
+          allowEmpty: false,
+          required: true,
+        },
+        extractedMaximumSalary: {
+          type: "number",
+          allowEmpty: false,
+          required: true,
+        },
+        extractedMinimumSalary: {
           type: "number",
           allowEmpty: false,
           required: true,
@@ -86,32 +119,22 @@ export const StructuredJobposts = (
           allowEmpty: false,
           required: true,
         },
-        jobCreatedTimestamp: {
-          type: "number",
-          allowEmpty: false,
-          required: true,
-        },
-        role: {
-          type: "string",
-          allowEmpty: true,
-          required: false,
-        },
-        team: {
-          type: "string",
-          allowEmpty: true,
-          required: false,
-        },
         culture: {
           type: "string",
           allowEmpty: true,
           required: false,
         },
         benefits: {
+          type: "array",
+          allowEmpty: true,
+          required: false,
+        },
+        location: {
           type: "string",
           allowEmpty: true,
           required: false,
         },
-        jobTitle: {
+        title: {
           type: "string",
           allowEmpty: true,
           required: false,
@@ -121,17 +144,22 @@ export const StructuredJobposts = (
           allowEmpty: true,
           required: false,
         },
-        jobPageUrl: {
+        summary: {
           type: "string",
           allowEmpty: true,
           required: false,
         },
-        jobLocation: {
-          type: "string",
-          allowEmpty: true,
-          required: false,
+        requirements: {
+          type: "array",
+          allowEmpty: false,
+          required: true,
         },
-        medianSalary: {
+        responsibilities: {
+          type: "array",
+          allowEmpty: false,
+          required: true,
+        },
+        salary: {
           type: "number",
           allowEmpty: true,
           required: false,
@@ -141,17 +169,12 @@ export const StructuredJobposts = (
           allowEmpty: true,
           required: false,
         },
-        jobCommitment: {
-          type: "string",
-          allowEmpty: true,
-          required: false,
-        },
-        minSalaryRange: {
+        minimumSalary: {
           type: "number",
           allowEmpty: true,
           required: false,
         },
-        maxSalaryRange: {
+        maximumSalary: {
           type: "number",
           allowEmpty: true,
           required: false,
@@ -166,11 +189,6 @@ export const StructuredJobposts = (
           allowEmpty: true,
           required: false,
         },
-        aiDetectedTechnologies: {
-          type: "string",
-          allowEmpty: true,
-          required: false,
-        },
       },
       primaryKeyField: "id",
       relationships: {
@@ -178,6 +196,21 @@ export const StructuredJobposts = (
           model: Technologies(neogma),
           direction: "out",
           name: "USES_TECHNOLOGY",
+        },
+        commitment: {
+          model: JobpostCommitments(neogma),
+          direction: "out",
+          name: "HAS_COMMITMENT",
+        },
+        locationType: {
+          model: JobpostLocationTypes(neogma),
+          direction: "out",
+          name: "HAS_LOCATION_TYPE",
+        },
+        classification: {
+          model: JobpostClassifications(neogma),
+          direction: "out",
+          name: "HAS_CLASSIFICATION",
         },
       },
       methods: {

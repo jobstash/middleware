@@ -41,12 +41,12 @@ export class JobsService {
     const generatedQuery = `
       MATCH (organization: Organization)
 
-      MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
-      MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
-      MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
-                
-      OPTIONAL MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
-      WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()
+      MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)
+      // MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
+      MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)-[:HAS_CLASSIFICATION]->(jobpost_classification:JobpostClassification)
+
+      OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag:JobpostTag)
+      // WHERE NOT (tag)<-[:IS_BLOCKED_TERM]-()
       
       OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
       OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
@@ -305,12 +305,12 @@ export class JobsService {
         headCount,
       } = jlr.organization;
       const {
-        jobTitle,
+        title: jobTitle,
         technologies,
         seniority,
-        jobLocation,
-        medianSalary,
-        jobCreatedTimestamp,
+        locationType,
+        salary: medianSalary,
+        extractedTimestamp,
       } = jlr;
       const anchorProject = projects.sort(
         (a, b) => b.monthlyVolume - a.monthlyVolume,
@@ -324,13 +324,13 @@ export class JobsService {
       return (
         (!organizationFilterList || organizationFilterList.includes(orgName)) &&
         (!seniorityFilterList || seniorityFilterList.includes(seniority)) &&
-        (!locationFilterList || locationFilterList.includes(jobLocation)) &&
+        (!locationFilterList || locationFilterList.includes(locationType)) &&
         (!minHeadCount || (headCount ?? 0) >= minHeadCount) &&
         (!maxHeadCount || (headCount ?? 0) < maxHeadCount) &&
         (!minSalaryRange || (medianSalary ?? 0) >= minSalaryRange) &&
         (!maxSalaryRange || (medianSalary ?? 0) < maxSalaryRange) &&
-        (!startDate || jobCreatedTimestamp >= startDate) &&
-        (!endDate || jobCreatedTimestamp < endDate) &&
+        (!startDate || extractedTimestamp >= startDate) &&
+        (!endDate || extractedTimestamp < endDate) &&
         (!projectFilterList ||
           projects.filter(x => projectFilterList.includes(x.name)).length >
             0) &&
@@ -416,11 +416,11 @@ export class JobsService {
         case "headCount":
           return jlr.organization?.headCount ?? 0;
         case "publicationDate":
-          return jlr.jobCreatedTimestamp;
+          return jlr.extractedTimestamp;
         case "salary":
-          return jlr.medianSalary;
+          return jlr.salary;
         default:
-          return jlr.jobCreatedTimestamp;
+          return jlr.extractedTimestamp;
       }
     };
 
@@ -593,7 +593,7 @@ export class JobsService {
 
     const jobFilters = (jlr: AllJobsListResult): boolean => {
       const { name: orgName } = jlr.organization;
-      const { jobTitle, technologies } = jlr;
+      const { title: jobTitle, technologies } = jlr;
 
       const matchesQuery =
         orgName.match(query) ||
@@ -602,8 +602,7 @@ export class JobsService {
           0;
 
       return (
-        (!categoryFilterList ||
-          categoryFilterList.includes(jlr.category.name)) &&
+        (!categoryFilterList || categoryFilterList.includes(jlr.category)) &&
         (!query || matchesQuery) &&
         (!organizationFilterList || organizationFilterList.includes(orgName))
       );
@@ -612,7 +611,7 @@ export class JobsService {
     const filtered = results.filter(jobFilters);
 
     const final = sort<AllJobsListResult>(filtered).desc(
-      job => job.jobCreatedTimestamp,
+      job => job.extractedTimestamp,
     );
 
     return {

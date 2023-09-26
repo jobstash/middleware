@@ -16,6 +16,11 @@ import {
   FundingRoundProps,
 } from "./funding-round.model";
 import { InvestorProps, Investors } from "./investor.model";
+import { DiscordInstance, Discords } from "./discord.model";
+import { DocsiteInstance, Docsites } from "./docsite.model";
+import { TelegramInstance, Telegrams } from "./telegram.model";
+import { TwitterInstance, Twitters } from "./twitter.model";
+import { WebsiteInstance, Websites } from "./website.model";
 
 export type OrganizationProps = ExtractProps<OrganizationProperties>;
 
@@ -46,6 +51,11 @@ export interface OrganizationRelations {
     ReturnType<typeof FundingRounds>,
     FundingRoundInstance
   >;
+  discord: ModelRelatedNodesI<ReturnType<typeof Discords>, DiscordInstance>;
+  docsite: ModelRelatedNodesI<ReturnType<typeof Docsites>, DocsiteInstance>;
+  twitter: ModelRelatedNodesI<ReturnType<typeof Twitters>, TwitterInstance>;
+  telegram: ModelRelatedNodesI<ReturnType<typeof Telegrams>, TelegramInstance>;
+  website: ModelRelatedNodesI<ReturnType<typeof Websites>, WebsiteInstance>;
 }
 
 export const Organizations = (
@@ -172,6 +182,31 @@ export const Organizations = (
           model: FundingRounds(neogma),
           direction: "out",
           name: "HAS_FUNDING_ROUND",
+        },
+        discord: {
+          model: Discords(neogma),
+          direction: "out",
+          name: "HAS_DISCORD",
+        },
+        docsite: {
+          model: Docsites(neogma),
+          direction: "out",
+          name: "HAS_DOCSITE",
+        },
+        telegram: {
+          model: Telegrams(neogma),
+          direction: "out",
+          name: "HAS_TELEGRAM",
+        },
+        twitter: {
+          model: Twitters(neogma),
+          direction: "out",
+          name: "HAS_TWITTER",
+        },
+        website: {
+          model: Websites(neogma),
+          direction: "out",
+          name: "HAS_WEBSITE",
         },
       },
       methods: {

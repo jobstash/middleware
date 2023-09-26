@@ -157,7 +157,7 @@ export class PublicService {
     }
 
     const final = sort<JobListResult>(results).desc(
-      job => job.jobCreatedTimestamp,
+      job => job.extractedTimestamp,
     );
 
     return {

@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { TechnologyPreferredTerm } from "src/shared/interfaces/technology-preferred-term.interface";
 import {
   PairedTerm,
-  Technology,
+  Tag,
   TechnologyBlockedTermEntity,
   TechnologyPreferredTermEntity,
 } from "src/shared/types";
@@ -26,14 +26,14 @@ export class TechnologiesService {
     private models: ModelService,
   ) {}
 
-  async findAll(): Promise<Technology[]> {
+  async findAll(): Promise<Tag[]> {
     const res = await this.neogma.queryRunner.run(`
       MATCH (t:Technology)
       RETURN t
     `);
 
     return res.records.length
-      ? res.records.map(resource => new Technology(resource.get("t")))
+      ? res.records.map(resource => new Tag(resource.get("t")))
       : [];
   }
 
@@ -98,7 +98,7 @@ export class TechnologiesService {
       : null;
   }
 
-  async getAllUnblockedTerms(): Promise<Technology[]> {
+  async getAllUnblockedTerms(): Promise<Tag[]> {
     try {
       return this.models.Technologies.getAllowedTerms();
     } catch (err) {
@@ -114,7 +114,7 @@ export class TechnologiesService {
     }
   }
 
-  async getBlockedTerms(): Promise<Technology[]> {
+  async getBlockedTerms(): Promise<Tag[]> {
     try {
       return this.models.Technologies.getBlockedTerms();
     } catch (err) {
@@ -426,7 +426,7 @@ export class TechnologiesService {
   async relateTechnologyToStructuredJobpost(
     technologyId: string,
     structuredJobpostId: string,
-  ): Promise<Technology> {
+  ): Promise<Tag> {
     const technology = await this.neogma.queryRunner.run(
       `
             MATCH (t:Technology { id: $technologyId })
@@ -473,7 +473,7 @@ export class TechnologiesService {
 
     const [first] = res.records;
     const technologyData = first.get("Technology");
-    return new Technology(technologyData);
+    return new Tag(technologyData);
   }
 
   async relateTechnologyToCreator(
@@ -590,7 +590,7 @@ export class TechnologiesService {
     firstTermNodeId: string,
     secondTermNodeId: string,
     synonymSuggesterWallet: string,
-  ): Promise<Technology[]> {
+  ): Promise<Tag[]> {
     const res = await this.neogma.queryRunner.run(
       `
       MATCH (t1:Technology {id: $firstTermNodeId})
@@ -615,8 +615,8 @@ export class TechnologiesService {
     }
 
     const [first, second] = res.records;
-    const firstNode = new Technology(first.get("Technology"));
-    const secondNode = new Technology(second.get("Technology"));
+    const firstNode = new Tag(first.get("Technology"));
+    const secondNode = new Tag(second.get("Technology"));
 
     return [firstNode, secondNode];
   }
@@ -625,7 +625,7 @@ export class TechnologiesService {
     firstTermNodeId: string,
     secondTermNodeId: string,
     creatorWallet: string,
-  ): Promise<Technology[]> {
+  ): Promise<Tag[]> {
     await this.neogma.queryRunner.run(
       `
         MATCH (u:User {wallet: $userWallet})
@@ -643,10 +643,7 @@ export class TechnologiesService {
     return;
   }
 
-  async update(
-    id: string,
-    properties: UpdateTechnologyDto,
-  ): Promise<Technology> {
+  async update(id: string, properties: UpdateTechnologyDto): Promise<Tag> {
     return this.neogma.queryRunner
       .run(
         `
@@ -656,10 +653,10 @@ export class TechnologiesService {
         `,
         { id, properties },
       )
-      .then(res => new Technology(res.records[0].get("t")));
+      .then(res => new Tag(res.records[0].get("t")));
   }
 
-  async deleteById(id: string): Promise<Technology> {
+  async deleteById(id: string): Promise<Tag> {
     const res = await this.neogma.queryRunner.run(
       `
       MATCH (t:Technology {id: $id})
@@ -670,7 +667,7 @@ export class TechnologiesService {
       },
     );
 
-    return res.records.length ? new Technology(res.records[0].get("t")) : null;
+    return res.records.length ? new Tag(res.records[0].get("t")) : null;
   }
 
   normalizeTechnologyName(name: string): string {

@@ -1,11 +1,14 @@
-import { OrganizationProperties, Technology } from "../interfaces";
+import {
+  OrganizationProperties,
+  StructuredJobpostWithRelations,
+  Tag,
+} from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
-import { StructuredJobpostWithCategory } from "../interfaces/structured-jobpost-with-category.interface";
 import { AllJobsListResult } from "../interfaces/all-jobs-list-result.interface";
 
-type RawJobPost = StructuredJobpostWithCategory & {
+type RawJobPost = StructuredJobpostWithRelations & {
   organization?: OrganizationProperties | null;
-  technologies?: Technology[] | null;
+  technologies?: Tag[] | null;
 };
 
 export class AllJobListResultEntity {
@@ -13,34 +16,20 @@ export class AllJobListResultEntity {
 
   getProperties(): AllJobsListResult {
     const jobpost = this.raw;
-    const { organization, technologies, category } = jobpost;
+    const { organization, technologies } = jobpost;
 
     return new AllJobsListResult({
       ...jobpost,
-      minSalaryRange: nonZeroOrNull(jobpost?.minSalaryRange),
-      maxSalaryRange: nonZeroOrNull(jobpost?.maxSalaryRange),
-      medianSalary: nonZeroOrNull(jobpost?.medianSalary),
+      minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
+      maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
+      salary: nonZeroOrNull(jobpost?.salary),
       seniority: notStringOrNull(jobpost?.seniority, ["", "undefined"]),
-      jobLocation: notStringOrNull(jobpost?.jobLocation, [
-        "",
-        "undefined",
-        "unspecified",
-      ]),
-      jobCommitment: notStringOrNull(jobpost?.jobCommitment, ["", "undefined"]),
-      role: notStringOrNull(jobpost?.role, ["", "undefined"]),
-      team: notStringOrNull(jobpost?.team, ["", "undefined"]),
-      benefits: notStringOrNull(jobpost?.benefits, ["", "undefined"]),
       culture: notStringOrNull(jobpost?.culture, ["", "undefined"]),
       salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
       paysInCrypto: jobpost?.paysInCrypto ?? null,
       offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
-      jobPageUrl: notStringOrNull(jobpost?.jobPageUrl),
-      jobTitle: notStringOrNull(jobpost?.jobTitle),
-      aiDetectedTechnologies: notStringOrNull(jobpost?.aiDetectedTechnologies),
-      category: {
-        id: category.id,
-        name: category.name,
-      },
+      url: notStringOrNull(jobpost?.url),
+      title: notStringOrNull(jobpost?.title),
       organization: {
         ...organization,
         docs: notStringOrNull(organization?.docs),

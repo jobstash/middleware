@@ -6,145 +6,136 @@ import { report } from "io-ts-human-reporter";
 export class StructuredJobpost {
   public static readonly StructuredJobpostType = t.strict({
     id: t.string,
+    url: t.string,
     shortUUID: t.string,
-    jobApplyPageUrl: t.string,
-    jobFoundTimestamp: t.number,
     extractedTimestamp: t.number,
-    jobCreatedTimestamp: t.number,
-    role: t.union([t.string, t.null]),
-    team: t.union([t.string, t.null]),
+    firstFoundAtTimestamp: t.number,
+    benefits: t.array(t.string),
+    requirements: t.array(t.string),
+    responsibilites: t.array(t.string),
+    title: t.union([t.string, t.null]),
+    salary: t.union([t.number, t.null]),
+    payRate: t.union([t.number, t.null]),
+    summary: t.union([t.string, t.null]),
     culture: t.union([t.string, t.null]),
-    benefits: t.union([t.string, t.null]),
-    jobTitle: t.union([t.string, t.null]),
+    location: t.union([t.string, t.null]),
     seniority: t.union([t.string, t.null]),
-    jobPageUrl: t.union([t.string, t.null]),
-    jobLocation: t.union([t.string, t.null]),
-    medianSalary: t.union([t.number, t.null]),
     paysInCrypto: t.union([t.boolean, t.null]),
-    jobCommitment: t.union([t.string, t.null]),
-    minSalaryRange: t.union([t.number, t.null]),
-    maxSalaryRange: t.union([t.number, t.null]),
+    minimumSalary: t.union([t.number, t.null]),
+    maximumSalary: t.union([t.number, t.null]),
     salaryCurrency: t.union([t.string, t.null]),
+    extractedMinimumSalary: t.union([t.number, t.null]),
+    extractedMaximumSalary: t.union([t.number, t.null]),
     offersTokenAllocation: t.union([t.boolean, t.null]),
-    aiDetectedTechnologies: t.union([t.string, t.null]),
   });
 
   @ApiProperty()
   id: string;
 
   @ApiProperty()
+  url: string;
+
+  @ApiProperty()
+  title: string | null;
+
+  @ApiPropertyOptional()
+  summary: string | null;
+
+  @ApiProperty()
+  requirements: string[];
+
+  @ApiProperty()
+  responsibilities: string[];
+
+  @ApiProperty()
   shortUUID: string;
 
-  @ApiProperty()
-  minSalaryRange: number | null;
+  @ApiPropertyOptional()
+  extractedMinimumSalary: number | null;
 
-  @ApiProperty()
-  maxSalaryRange: number | null;
+  @ApiPropertyOptional()
+  extractedMaximumSalary: number | null;
 
-  @ApiProperty()
-  medianSalary: number | null;
+  @ApiPropertyOptional()
+  minimumSalary: number | null;
 
-  @ApiProperty()
-  role: string | null;
+  @ApiPropertyOptional()
+  maximumSalary: number | null;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  salary: number | null;
+
+  @ApiPropertyOptional()
   seniority: string | null;
 
   @ApiProperty()
-  team: string | null;
-
-  @ApiProperty()
-  benefits: string | null;
-
-  @ApiProperty()
-  culture: string | null;
-
-  @ApiProperty()
-  salaryCurrency: string | null;
-
-  @ApiProperty()
-  paysInCrypto: boolean | null;
-
-  @ApiProperty()
-  offersTokenAllocation: boolean | null;
-
-  @ApiProperty()
-  jobApplyPageUrl: string;
+  benefits: string[];
 
   @ApiPropertyOptional()
-  jobCommitment: string | null;
+  culture: string | null;
 
-  @ApiProperty()
-  jobCreatedTimestamp: number;
+  @ApiPropertyOptional()
+  location: string | null;
 
-  @ApiProperty()
-  jobFoundTimestamp: number;
+  @ApiPropertyOptional()
+  salaryCurrency: string | null;
 
-  @ApiProperty()
-  jobPageUrl: string | null;
+  @ApiPropertyOptional()
+  paysInCrypto: boolean | null;
 
-  @ApiProperty()
-  jobLocation: string | null;
-
-  @ApiProperty()
-  jobTitle: string | null;
-
-  @ApiProperty()
-  aiDetectedTechnologies: string | null;
+  @ApiPropertyOptional()
+  offersTokenAllocation: boolean | null;
 
   @ApiProperty()
   extractedTimestamp: number;
 
+  @ApiProperty()
+  firstFoundAtTimestamp: number;
+
   constructor(raw: StructuredJobpost) {
     const {
       id,
-      role,
-      team,
+      url,
+      title,
+      salary,
       culture,
+      location,
+      summary,
       benefits,
-      jobTitle,
       shortUUID,
       seniority,
-      jobPageUrl,
-      jobLocation,
-      medianSalary,
       paysInCrypto,
-      jobCommitment,
-      minSalaryRange,
-      maxSalaryRange,
+      requirements,
+      minimumSalary,
+      maximumSalary,
       salaryCurrency,
-      jobApplyPageUrl,
-      jobFoundTimestamp,
+      responsibilities,
       extractedTimestamp,
-      jobCreatedTimestamp,
+      firstFoundAtTimestamp,
       offersTokenAllocation,
-      aiDetectedTechnologies,
     } = raw;
 
     const result = StructuredJobpost.StructuredJobpostType.decode(raw);
 
     this.id = id;
-    this.role = role;
-    this.team = team;
+    this.url = url;
+    this.title = title;
+    this.salary = salary;
     this.culture = culture;
+    this.location = location;
+    this.summary = summary;
     this.benefits = benefits;
-    this.jobTitle = jobTitle;
     this.shortUUID = shortUUID;
     this.seniority = seniority;
-    this.jobPageUrl = jobPageUrl;
-    this.jobLocation = jobLocation;
-    this.medianSalary = medianSalary;
+    this.requirements = requirements;
     this.paysInCrypto = paysInCrypto;
-    this.jobCommitment = jobCommitment;
-    this.minSalaryRange = minSalaryRange;
-    this.maxSalaryRange = maxSalaryRange;
+    this.minimumSalary = minimumSalary;
+    this.maximumSalary = maximumSalary;
     this.salaryCurrency = salaryCurrency;
-    this.jobApplyPageUrl = jobApplyPageUrl;
-    this.jobFoundTimestamp = jobFoundTimestamp;
+    this.responsibilities = responsibilities;
     this.extractedTimestamp = extractedTimestamp;
-    this.jobCreatedTimestamp = jobCreatedTimestamp;
+    this.firstFoundAtTimestamp = firstFoundAtTimestamp;
     this.offersTokenAllocation = offersTokenAllocation;
-    this.aiDetectedTechnologies = aiDetectedTechnologies;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

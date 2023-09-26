@@ -4,7 +4,7 @@ import * as t from "io-ts";
 import { isLeft } from "fp-ts/lib/Either";
 import { Project } from "./project.interface";
 import { report } from "io-ts-human-reporter";
-import { Technology } from "./technology.interface";
+import { Tag } from "./tag.interface";
 import { ProjectMoreInfo } from "./project-more-info.interface";
 
 @ApiExtraModels(Project, ProjectDetails)
@@ -14,13 +14,13 @@ export class ProjectDetails extends ProjectMoreInfo {
     t.strict({
       organization: t.intersection([
         Organization.OrganizationType,
-        t.strict({ technologies: t.array(Technology.TechnologyType) }),
+        t.strict({ technologies: t.array(Tag.TagType) }),
       ]),
     }),
   ]);
 
   @ApiPropertyOptional()
-  organization: Organization & { technologies: Technology[] };
+  organization: Organization & { technologies: Tag[] };
 
   constructor(raw: ProjectDetails) {
     const { organization, ...projectProps } = raw;

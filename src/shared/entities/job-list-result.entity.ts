@@ -1,14 +1,14 @@
 import {
   JobListResult,
   Organization,
-  StructuredJobpost,
-  Technology,
+  StructuredJobpostWithRelations,
+  Tag,
 } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 
-type RawJobPost = StructuredJobpost & {
+type RawJobPost = StructuredJobpostWithRelations & {
   organization?: Organization | null;
-  technologies?: Technology[] | null;
+  technologies?: Tag[] | null;
 };
 
 export class JobListResultEntity {
@@ -20,26 +20,16 @@ export class JobListResultEntity {
 
     return new JobListResult({
       ...jobpost,
-      minSalaryRange: nonZeroOrNull(jobpost?.minSalaryRange),
-      maxSalaryRange: nonZeroOrNull(jobpost?.maxSalaryRange),
-      medianSalary: nonZeroOrNull(jobpost?.medianSalary),
+      minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
+      maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
+      salary: nonZeroOrNull(jobpost?.salary),
       seniority: notStringOrNull(jobpost?.seniority, ["", "undefined"]),
-      jobLocation: notStringOrNull(jobpost?.jobLocation, [
-        "",
-        "undefined",
-        "unspecified",
-      ]),
-      jobCommitment: notStringOrNull(jobpost?.jobCommitment, ["", "undefined"]),
-      role: notStringOrNull(jobpost?.role, ["", "undefined"]),
-      team: notStringOrNull(jobpost?.team, ["", "undefined"]),
-      benefits: notStringOrNull(jobpost?.benefits, ["", "undefined"]),
       culture: notStringOrNull(jobpost?.culture, ["", "undefined"]),
       salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
       paysInCrypto: jobpost?.paysInCrypto ?? null,
       offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
-      jobPageUrl: notStringOrNull(jobpost?.jobPageUrl),
-      jobTitle: notStringOrNull(jobpost?.jobTitle),
-      aiDetectedTechnologies: notStringOrNull(jobpost?.aiDetectedTechnologies),
+      url: notStringOrNull(jobpost?.url),
+      title: notStringOrNull(jobpost?.title),
       organization: {
         ...organization,
         docs: notStringOrNull(organization?.docs),
@@ -91,7 +81,6 @@ export class JobListResultEntity {
             audits:
               project?.audits.map(audit => ({
                 ...audit,
-                auditor: notStringOrNull(audit?.auditor) ?? null,
                 id: notStringOrNull(audit?.id),
                 name: notStringOrNull(audit?.name),
                 defiId: notStringOrNull(audit?.defiId),

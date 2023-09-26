@@ -2,16 +2,16 @@ import {
   FundingRound,
   Organization,
   ProjectMoreInfo,
-  StructuredJobpost,
-  Technology,
+  StructuredJobpostWithRelations,
+  Tag,
 } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { OrgListResult } from "../interfaces/org-list-result.interface";
 import { Investor } from "../interfaces/investor.interface";
 
 type RawOrg = Organization & {
-  jobs?: StructuredJobpost[] | null;
-  technologies: Technology[];
+  jobs?: StructuredJobpostWithRelations[] | null;
+  technologies: Tag[];
   projects?: ProjectMoreInfo[] | null;
   investors?: Investor[] | null;
   fundingRounds?: FundingRound[] | null;
@@ -68,7 +68,6 @@ export class OrgListResultEntity {
           audits:
             project?.audits.map(audit => ({
               ...audit,
-              auditor: notStringOrNull(audit?.auditor),
               id: notStringOrNull(audit?.id),
               name: notStringOrNull(audit?.name),
               defiId: notStringOrNull(audit?.defiId),
@@ -89,31 +88,16 @@ export class OrgListResultEntity {
       investors: investors ?? [],
       jobs: jobs.map(jobpost => ({
         ...jobpost,
-        minSalaryRange: nonZeroOrNull(jobpost?.minSalaryRange),
-        maxSalaryRange: nonZeroOrNull(jobpost?.maxSalaryRange),
-        medianSalary: nonZeroOrNull(jobpost?.medianSalary),
+        minSalaryRange: nonZeroOrNull(jobpost?.minimumSalary),
+        maxSalaryRange: nonZeroOrNull(jobpost?.maximumSalary),
+        medianSalary: nonZeroOrNull(jobpost?.salary),
         seniority: notStringOrNull(jobpost?.seniority, ["", "undefined"]),
-        jobLocation: notStringOrNull(jobpost?.jobLocation, [
-          "",
-          "undefined",
-          "unspecified",
-        ]),
-        jobCommitment: notStringOrNull(jobpost?.jobCommitment, [
-          "",
-          "undefined",
-        ]),
-        role: notStringOrNull(jobpost?.role, ["", "undefined"]),
-        team: notStringOrNull(jobpost?.team, ["", "undefined"]),
-        benefits: notStringOrNull(jobpost?.benefits, ["", "undefined"]),
         culture: notStringOrNull(jobpost?.culture, ["", "undefined"]),
         salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
         paysInCrypto: jobpost?.paysInCrypto ?? null,
         offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
-        jobPageUrl: notStringOrNull(jobpost?.jobPageUrl),
-        jobTitle: notStringOrNull(jobpost?.jobTitle),
-        aiDetectedTechnologies: notStringOrNull(
-          jobpost?.aiDetectedTechnologies,
-        ),
+        url: notStringOrNull(jobpost?.url),
+        jobTitle: notStringOrNull(jobpost?.title),
       })),
       technologies: technologies ?? [],
     });

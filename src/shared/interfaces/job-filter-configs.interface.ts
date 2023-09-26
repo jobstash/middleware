@@ -26,7 +26,7 @@ export class JobFilterConfigs {
     token: SingleSelectFilter.SingleSelectFilterType,
     order: SingleSelectFilter.SingleSelectFilterType,
     seniority: MultiSelectFilter.MultiSelectFilterType,
-    locations: MultiSelectFilter.MultiSelectFilterType,
+    location: MultiSelectFilter.MultiSelectFilterType,
     mainNet: SingleSelectFilter.SingleSelectFilterType,
     orderBy: SingleSelectFilter.SingleSelectFilterType,
     tech: MultiSelectSearchFilter.MultiSelectSearchFilterType,
@@ -47,7 +47,7 @@ export class JobFilterConfigs {
   @ApiProperty()
   seniority: MultiSelectFilter;
   @ApiProperty()
-  locations: MultiSelectFilter;
+  location: MultiSelectFilter;
   @ApiProperty()
   teamSize: RangeFilter;
   @ApiProperty()
@@ -102,7 +102,7 @@ export class JobFilterConfigs {
       teamSize,
       projects,
       seniority,
-      locations,
+      location,
       headCount,
       investors,
       categories,
@@ -129,7 +129,7 @@ export class JobFilterConfigs {
     this.teamSize = teamSize;
     this.projects = projects;
     this.seniority = seniority;
-    this.locations = locations;
+    this.location = location;
     this.headCount = headCount;
     this.investors = investors;
     this.categories = categories;

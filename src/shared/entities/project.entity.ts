@@ -28,7 +28,6 @@ export class ProjectMoreInfoEntity {
       audits:
         project?.audits.map(audit => ({
           ...audit,
-          auditor: notStringOrNull(audit?.auditor),
           id: notStringOrNull(audit?.id),
           name: notStringOrNull(audit?.name),
           defiId: notStringOrNull(audit?.defiId),

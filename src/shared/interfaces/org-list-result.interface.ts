@@ -7,16 +7,19 @@ import { Organization } from "./organization.interface";
 import { StructuredJobpost } from "./structured-jobpost.interface";
 import * as t from "io-ts";
 import { isLeft } from "fp-ts/lib/Either";
-import { Technology } from "./technology.interface";
+import { Tag } from "./tag.interface";
 import { report } from "io-ts-human-reporter";
+import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relations.interface";
 
 @ApiExtraModels(Organization, OrgListResult)
 export class OrgListResult extends Organization {
   public static readonly OrgListResultType = t.intersection([
     Organization.OrganizationType,
     t.strict({
-      jobs: t.array(StructuredJobpost.StructuredJobpostType),
-      technologies: t.array(Technology.TechnologyType),
+      jobs: t.array(
+        StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
+      ),
+      technologies: t.array(Tag.TagType),
     }),
   ]);
 
@@ -24,13 +27,13 @@ export class OrgListResult extends Organization {
     type: "array",
     items: { $ref: getSchemaPath(StructuredJobpost) },
   })
-  jobs: StructuredJobpost[];
+  jobs: StructuredJobpostWithRelations[];
 
   @ApiPropertyOptional({
     type: "array",
-    items: { $ref: getSchemaPath(Technology) },
+    items: { $ref: getSchemaPath(Tag) },
   })
-  technologies: Technology[];
+  technologies: Tag[];
 
   constructor(raw: OrgListResult) {
     const { jobs, technologies, ...orgProperties } = raw;

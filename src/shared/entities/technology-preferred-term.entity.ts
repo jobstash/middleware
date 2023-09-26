@@ -1,11 +1,11 @@
-import { TechnologyPreferredTerm, Technology } from "../interfaces";
+import { TechnologyPreferredTerm, Tag } from "../interfaces";
 
 type RawTechnologyPreferredTerm = {
   id: string;
   name: string;
   normalizedName: string;
-  technology: object & { properties: Technology };
-  synonyms: [object & { properties: Technology }];
+  technology: object & { properties: Tag };
+  synonyms: [object & { properties: Tag }];
 };
 
 export class TechnologyPreferredTermEntity {

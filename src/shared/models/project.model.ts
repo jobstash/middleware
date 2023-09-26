@@ -22,6 +22,11 @@ import {
   ProjectCategories,
   ProjectCategoryInstance,
 } from "./project-category.model";
+import { DiscordInstance, Discords } from "./discord.model";
+import { DocsiteInstance, Docsites } from "./docsite.model";
+import { TwitterInstance, Twitters } from "./twitter.model";
+import { TelegramInstance, Telegrams } from "./telegram.model";
+import { WebsiteInstance, Websites } from "./website.model";
 
 export type ProjectProps = ExtractProps<
   Omit<ProjectMoreInfo, "audits" | "hacks" | "chains">
@@ -41,6 +46,11 @@ export interface ProjectRelations {
     ReturnType<typeof ProjectCategories>,
     ProjectCategoryInstance
   >;
+  discord: ModelRelatedNodesI<ReturnType<typeof Discords>, DiscordInstance>;
+  docsite: ModelRelatedNodesI<ReturnType<typeof Docsites>, DocsiteInstance>;
+  twitter: ModelRelatedNodesI<ReturnType<typeof Twitters>, TwitterInstance>;
+  telegram: ModelRelatedNodesI<ReturnType<typeof Telegrams>, TelegramInstance>;
+  website: ModelRelatedNodesI<ReturnType<typeof Websites>, WebsiteInstance>;
 }
 
 export interface ProjectMethods {
@@ -239,6 +249,31 @@ export const Projects = (
           model: ProjectCategories(neogma),
           direction: "out",
           name: "HAS_CATEGORY",
+        },
+        discord: {
+          model: Discords(neogma),
+          direction: "out",
+          name: "HAS_DISCORD",
+        },
+        docsite: {
+          model: Docsites(neogma),
+          direction: "out",
+          name: "HAS_DOCSITE",
+        },
+        telegram: {
+          model: Telegrams(neogma),
+          direction: "out",
+          name: "HAS_TELEGRAM",
+        },
+        twitter: {
+          model: Twitters(neogma),
+          direction: "out",
+          name: "HAS_TWITTER",
+        },
+        website: {
+          model: Websites(neogma),
+          direction: "out",
+          name: "HAS_WEBSITE",
         },
       },
       methods: {
