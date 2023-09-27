@@ -94,7 +94,7 @@ export class OrganizationEntity {
     const { ...properties } = <Record<string, any>>this.node.properties;
     return {
       ...properties,
-      logo: notStringOrNull(properties?.logo),
+      logoUrl: notStringOrNull(properties?.logo),
       docs: notStringOrNull(properties?.docs),
       altName: notStringOrNull(properties?.altName),
       headCount: nonZeroOrNull(properties?.headCount),

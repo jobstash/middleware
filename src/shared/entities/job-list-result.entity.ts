@@ -2,13 +2,11 @@ import {
   JobListResult,
   Organization,
   StructuredJobpostWithRelations,
-  Tag,
 } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 
 type RawJobPost = StructuredJobpostWithRelations & {
   organization?: Organization | null;
-  technologies?: Tag[] | null;
 };
 
 export class JobListResultEntity {
@@ -16,7 +14,7 @@ export class JobListResultEntity {
 
   getProperties(): JobListResult {
     const jobpost = this.raw;
-    const { organization, technologies } = jobpost;
+    const { organization, tags } = jobpost;
 
     return new JobListResult({
       ...jobpost,
@@ -33,7 +31,7 @@ export class JobListResultEntity {
       organization: {
         ...organization,
         docs: notStringOrNull(organization?.docs),
-        logo: notStringOrNull(organization?.logo),
+        logoUrl: notStringOrNull(organization?.logoUrl),
         altName: notStringOrNull(organization?.altName),
         headCount: nonZeroOrNull(organization?.headCount),
         github: notStringOrNull(organization?.github),
@@ -106,7 +104,7 @@ export class JobListResultEntity {
             .sort((a, b) => b.date - a.date) ?? [],
         investors: organization?.investors ?? [],
       },
-      technologies: technologies ?? [],
+      tags: tags ?? [],
     });
   }
 }

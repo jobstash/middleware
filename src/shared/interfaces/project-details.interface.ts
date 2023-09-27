@@ -14,13 +14,13 @@ export class ProjectDetails extends ProjectMoreInfo {
     t.strict({
       organization: t.intersection([
         Organization.OrganizationType,
-        t.strict({ technologies: t.array(Tag.TagType) }),
+        t.strict({ tags: t.array(Tag.TagType) }),
       ]),
     }),
   ]);
 
   @ApiPropertyOptional()
-  organization: Organization & { technologies: Tag[] };
+  organization: Organization & { tags: Tag[] };
 
   constructor(raw: ProjectDetails) {
     const { organization, ...projectProps } = raw;

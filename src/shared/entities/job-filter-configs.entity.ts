@@ -27,7 +27,7 @@ type RawJobFilters = {
   maxHeadCount?: number | null;
   minTeamSize?: number | null;
   maxTeamSize?: number | null;
-  tech?: string[] | null;
+  tags?: string[] | null;
   fundingRounds?: string[] | null;
   projects?: string[] | null;
   categories?: string[] | null;
@@ -110,7 +110,7 @@ export class JobFilterConfigsEntity {
       hacks: this.getSingleSelectPresets("hacks"),
       fundingRounds: this.getMultiValuePresets("fundingRounds"),
       investors: this.getMultiValuePresets("investors"),
-      tech: this.getMultiValuePresets("tech"),
+      tags: this.getMultiValuePresets("tags"),
       organizations: this.getMultiValuePresets("organizations"),
       chains: this.getMultiValuePresets("chains"),
       projects: this.getMultiValuePresets("projects"),

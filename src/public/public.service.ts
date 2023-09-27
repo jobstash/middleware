@@ -27,8 +27,8 @@ export class PublicService {
       MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
       MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
                 
-      OPTIONAL MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
-      WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()
+      OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag:Tag)
+      WHERE NOT (tag)<-[:IS_BLOCKED_TERM]-()
       
       OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
       OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
@@ -36,7 +36,7 @@ export class PublicService {
       WITH structured_jobpost, organization, 
       COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
       COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
-      COLLECT(DISTINCT PROPERTIES(technology)) AS technologies
+      COLLECT(DISTINCT PROPERTIES(tag)) AS tags
 
       WITH {
           id: structured_jobpost.id,
@@ -83,7 +83,7 @@ export class PublicService {
               fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
               investors: [investor in investors WHERE investor.id IS NOT NULL]
           },
-          technologies: [technology in technologies WHERE technology.id IS NOT NULL]
+          tags: [tag in tags WHERE tag.id IS NOT NULL]
       } AS result
 
       RETURN COLLECT(result) as results

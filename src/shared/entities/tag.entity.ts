@@ -1,21 +1,24 @@
 import { Node } from "neo4j-driver";
-import { TechnologyBlockedTerm } from "../interfaces";
+import { Tag } from "../interfaces";
 
-export class TechnologyBlockedTermEntity {
+export class TagEntity {
   constructor(private readonly node: Node) {}
 
   getId(): string {
     return (<Record<string, string>>this.node.properties).id;
   }
 
-  getStatus(): boolean {
-    return (<Record<string, boolean>>this.node.properties).status;
+  getNormalizedName(): string {
+    return (<Record<string, string>>this.node.properties).normalizedName;
   }
 
-  getProperties(): TechnologyBlockedTerm {
+  getName(): string {
+    return (<Record<string, string>>this.node.properties).name;
+  }
+  getProperties(): Tag {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { ...properties } = <Record<string, any>>this.node.properties;
 
-    return properties as TechnologyBlockedTerm;
+    return properties as Tag;
   }
 }

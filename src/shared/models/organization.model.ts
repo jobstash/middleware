@@ -110,48 +110,13 @@ export const Organizations = (
           allowEmpty: false,
           required: true,
         },
-        docs: {
-          type: "string",
-          allowEmpty: true,
-          required: false,
-        },
-        logo: {
-          type: "string",
-          allowEmpty: true,
-          required: false,
-        },
-        github: {
-          type: "string",
-          allowEmpty: true,
-          required: false,
-        },
-        altName: {
-          type: "string",
-          allowEmpty: true,
-          required: false,
-        },
-        discord: {
-          type: "string",
-          allowEmpty: true,
-          required: false,
-        },
-        twitter: {
-          type: "string",
-          allowEmpty: true,
-          required: false,
-        },
-        telegram: {
+        logoUrl: {
           type: "string",
           allowEmpty: true,
           required: false,
         },
         headCount: {
           type: "number",
-          allowEmpty: true,
-          required: false,
-        },
-        jobsiteLink: {
-          type: "string",
           allowEmpty: true,
           required: false,
         },

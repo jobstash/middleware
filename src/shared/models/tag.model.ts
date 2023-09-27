@@ -6,59 +6,37 @@ import {
   NeogmaModel,
   QueryBuilder,
 } from "neogma";
-import {
-  ExtractProps,
-  PairedTerm,
-  Tag,
-  TechnologyPreferredTerm,
-} from "../types";
-import {
-  TechnolgyBlockedTermInstance,
-  TechnologyBlockedTerms,
-} from "./technology-blocked-term.model";
-import { TechnologyPreferredTermEntity } from "../entities/technology-preferred-term.entity";
+import { ExtractProps, PairedTag, Tag, PreferredTag } from "../types";
+import { BlockedTagInstance, BlockedTags } from "./blocked-tag.model";
+import { PreferredTagEntity } from "../entities/preferred-tag.entity";
 
-export type TechnologyProps = ExtractProps<Tag>;
+export type TagProps = ExtractProps<Tag>;
 
-export type TechnologyInstance = NeogmaInstance<
-  TechnologyProps,
-  TechnologyRelations,
-  TechnologyMethods
->;
+export type TagInstance = NeogmaInstance<TagProps, TagRelations, TagMethods>;
 
-export interface TechnologyRelations {
+export interface TagRelations {
   blocked: ModelRelatedNodesI<
-    ReturnType<typeof TechnologyBlockedTerms>,
-    TechnolgyBlockedTermInstance
+    ReturnType<typeof BlockedTags>,
+    BlockedTagInstance
   >;
 }
-export interface TechnologyMethods {
-  isBlockedTerm: () => Promise<boolean>;
+export interface TagMethods {
+  isBlockedTag: () => Promise<boolean>;
 }
 
-export interface TechnologyStatics {
-  getPreferredTerms: () => Promise<TechnologyPreferredTerm[]>;
-  getBlockedTerms: () => Promise<Tag[]>;
-  getAllowedTerms: () => Promise<Tag[]>;
-  getPairedTerms: () => Promise<PairedTerm[]>;
+export interface TagStatics {
+  getPreferredTags: () => Promise<PreferredTag[]>;
+  getBlockedTags: () => Promise<Tag[]>;
+  getAllowedTags: () => Promise<Tag[]>;
+  getPairedTags: () => Promise<PairedTag[]>;
 }
 
-export const Technologies = (
+export const Tags = (
   neogma: Neogma,
-): NeogmaModel<
-  TechnologyProps,
-  TechnologyRelations,
-  TechnologyMethods,
-  TechnologyStatics
-> =>
-  ModelFactory<
-    TechnologyProps,
-    TechnologyRelations,
-    TechnologyStatics,
-    TechnologyMethods
-  >(
+): NeogmaModel<TagProps, TagRelations, TagMethods, TagStatics> =>
+  ModelFactory<TagProps, TagRelations, TagStatics, TagMethods>(
     {
-      label: "Technology",
+      label: "JobpostTag",
       schema: {
         id: {
           type: "string",
@@ -79,15 +57,13 @@ export const Technologies = (
       primaryKeyField: "id",
       relationships: {
         blocked: {
-          model: TechnologyBlockedTerms(neogma),
-          name: "IS_BLOCKED_TERM",
+          model: BlockedTags(neogma),
+          name: "IS_BLOCKED_TAG",
           direction: "in",
         },
       },
       methods: {
-        isBlockedTerm: async function (
-          this: TechnologyInstance,
-        ): Promise<boolean> {
+        isBlockedTag: async function (this: TagInstance): Promise<boolean> {
           const blocked = await this.findRelationships({
             alias: "blocked",
             limit: 1,
@@ -96,12 +72,10 @@ export const Technologies = (
         },
       },
       statics: {
-        getPreferredTerms: async function (): Promise<
-          TechnologyPreferredTerm[]
-        > {
+        getPreferredTags: async function (): Promise<PreferredTag[]> {
           const query = new QueryBuilder()
             .match({
-              label: "PreferredTerm",
+              label: "PreferredTag",
               identifier: "pt",
             })
             .match({
@@ -109,7 +83,7 @@ export const Technologies = (
               related: [
                 { identifier: "pt" },
                 { name: "IS_PREFERRED_TERM_OF", direction: "none" },
-                { label: "Technology", identifier: "t" },
+                { label: "Tag", identifier: "t" },
               ],
             })
             .match({
@@ -117,70 +91,68 @@ export const Technologies = (
               related: [
                 { identifier: "t" },
                 { name: "IS_SYNONYM_OF*", direction: "in" },
-                { label: "Technology", identifier: "syn" },
+                { label: "Tag", identifier: "syn" },
               ],
             })
             .with(["pt", "COLLECT(syn) as synonyms", "t"]).return(`
               pt {
                 .*,
-                technology: t,
+                tag: t,
                 synonyms: synonyms
               } as res
             `);
           const result = await query.run(neogma.queryRunner);
           return result.records.map(record =>
-            new TechnologyPreferredTermEntity(
-              record.get("res"),
-            ).getProperties(),
+            new PreferredTagEntity(record.get("res")).getProperties(),
           );
         },
-        getPairedTerms: async function (): Promise<PairedTerm[]> {
+        getPairedTags: async function (): Promise<PairedTag[]> {
           const query = new QueryBuilder()
             .match({
               related: [
-                { label: "Technology", identifier: "t1" },
+                { label: "Tag", identifier: "t1" },
                 { name: "IS_PAIRED_WITH", direction: "out" },
-                { label: "TechnologyPairing" },
+                { label: "TagPairing" },
                 { name: "IS_PAIRED_WITH", direction: "out" },
-                { label: "Technology", identifier: "t2" },
+                { label: "Tag", identifier: "t2" },
               ],
             })
             .with(["t1", "COLLECT(DISTINCT PROPERTIES(t2)) as pairings"])
             .return(`
               {
-                technology: PROPERTIES(t1),
+                tag: PROPERTIES(t1),
                 pairings: pairings
               } as res
             `);
           const result = await query.run(neogma.queryRunner);
-          return result.records.map(record => record.get("res") as PairedTerm);
+          return result.records.map(record => record.get("res") as PairedTag);
         },
-        getAllowedTerms: async function (): Promise<Tag[]> {
+        getAllowedTags: async function (): Promise<Tag[]> {
           const results: Tag[] = [];
           const query = new QueryBuilder()
             .match({
-              label: "Technology",
-              identifier: "technology",
+              label: "Tag",
+              identifier: "tag",
             })
-            .raw("WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()")
-            .return("technology");
+            .raw("WHERE NOT (tag)<-[:IS_BLOCKED_TERM]-()")
+            .return("tag");
           const result = await query.run(neogma.queryRunner);
           result.records.forEach(record =>
             results.push(
-              this.buildFromRecord(record.get("technology")).getDataValues(),
+              this.buildFromRecord(record.get("tag")).getDataValues(),
             ),
           );
           return results;
         },
-        getBlockedTerms: async function (): Promise<Tag[]> {
+        getBlockedTags: async function (): Promise<Tag[]> {
           const results: Tag[] = [];
           const allTechnologies = await this.findRelationships({
             alias: "blocked",
           });
-          for (const technology of allTechnologies) {
-            const isBlockedTerm = technology.target.__existsInDatabase;
-            if (isBlockedTerm) {
-              results.push(technology.source.getDataValues());
+          for (const tag of allTechnologies) {
+            const isBlockedTag = tag.target.__existsInDatabase;
+            if (isBlockedTag) {
+              results.push(tag.source.getDataValues());
             }
           }
           return results;

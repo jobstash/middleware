@@ -8,7 +8,6 @@ import * as t from "io-ts";
 import { report } from "io-ts-human-reporter";
 import { Organization, OrganizationProperties } from "./organization.interface";
 import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relations.interface";
-import { Tag } from "./tag.interface";
 
 @ApiExtraModels(StructuredJobpostWithRelations, OrganizationProperties)
 export class AllJobsListResult extends StructuredJobpostWithRelations {
@@ -16,7 +15,6 @@ export class AllJobsListResult extends StructuredJobpostWithRelations {
     StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
     t.strict({
       organization: Organization.OrganizationPropertiesType,
-      technologies: t.array(Tag.TagType),
     }),
   ]);
 
@@ -26,19 +24,12 @@ export class AllJobsListResult extends StructuredJobpostWithRelations {
   })
   organization: OrganizationProperties;
 
-  @ApiPropertyOptional({
-    type: "array",
-    items: { $ref: getSchemaPath(Tag) },
-  })
-  technologies: Tag[];
-
   constructor(raw: AllJobsListResult) {
-    const { organization, technologies, ...jobpostProperties } = raw;
+    const { organization, ...jobpostProperties } = raw;
     super(jobpostProperties);
     const result = AllJobsListResult.AllJobsListResultType.decode(raw);
 
     this.organization = organization;
-    this.technologies = technologies;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

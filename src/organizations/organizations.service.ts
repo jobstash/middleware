@@ -40,8 +40,8 @@ export class OrganizationsService {
         OPTIONAL MATCH (organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
         OPTIONAL MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
         WHERE (jp)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
-        OPTIONAL MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
-        WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()
+        OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag:Tag)
+        WHERE NOT (tag)<-[:IS_BLOCKED_TERM]-()
 
         OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
         OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
@@ -72,7 +72,7 @@ export class OrganizationsService {
           }) as jobs,
           COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
           COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
-          COLLECT(DISTINCT PROPERTIES(technology)) AS technologies
+          COLLECT(DISTINCT PROPERTIES(tag)) AS tags
 
         WITH {
           id: organization.id,
@@ -96,7 +96,7 @@ export class OrganizationsService {
           fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
           investors: [investor in investors WHERE investor.id IS NOT NULL],
           jobs: [job in jobs WHERE job.id IS NOT NULL],
-          technologies: [technology in technologies WHERE technology.id IS NOT NULL]
+          tags: [tag in tags WHERE tag.id IS NOT NULL]
         } as res
         RETURN res
         `;

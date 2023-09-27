@@ -744,15 +744,15 @@ export const Projects = (
                 },
                 {
                   direction: "out",
-                  name: "USES_TECHNOLOGY",
+                  name: "HAS_TAG",
                 },
                 {
-                  label: "Technology",
-                  identifier: "technology",
+                  label: "Tag",
+                  identifier: "tag",
                 },
               ],
             })
-            .raw("WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()")
+            .raw("WHERE NOT (tag)<-[:IS_BLOCKED_TERM]-()")
             .match({
               optional: true,
               related: [
@@ -790,7 +790,7 @@ export const Projects = (
               "organization",
               "project_category",
               "COLLECT(DISTINCT PROPERTIES(investor)) AS investors",
-              "COLLECT(DISTINCT PROPERTIES(technology)) AS technologies",
+              "COLLECT(DISTINCT PROPERTIES(tag)) AS tags",
               "COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds",
               "COLLECT(DISTINCT PROPERTIES(hack)) as hacks",
               "COLLECT(DISTINCT PROPERTIES(audit)) as audits",
@@ -845,7 +845,7 @@ export const Projects = (
                   updatedTimestamp: organization.updatedTimestamp,
                   fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
                   investors: [investor in investors WHERE investor.id IS NOT NULL],
-                  technologies: [technology in technologies WHERE technology.id IS NOT NULL]
+                  tags: [tag in tags WHERE tag.id IS NOT NULL]
                 },
                 hacks: [hack in hacks WHERE hack.id IS NOT NULL],
                 audits: [audit in audits WHERE audit.id IS NOT NULL],

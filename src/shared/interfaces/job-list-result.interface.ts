@@ -27,7 +27,6 @@ export class JobListResult extends StructuredJobpostWithRelations {
     StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
     t.strict({
       organization: Organization.OrganizationType,
-      technologies: t.array(Tag.TagType),
     }),
   ]);
 
@@ -37,19 +36,12 @@ export class JobListResult extends StructuredJobpostWithRelations {
   })
   organization: Organization;
 
-  @ApiPropertyOptional({
-    type: "array",
-    items: { $ref: getSchemaPath(Tag) },
-  })
-  technologies: Tag[];
-
   constructor(raw: JobListResult) {
-    const { organization, technologies, ...jobpostProperties } = raw;
+    const { organization, ...jobpostProperties } = raw;
     super(jobpostProperties);
     const result = JobListResult.JobListResultType.decode(raw);
 
     this.organization = organization;
-    this.technologies = technologies;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

@@ -1,6 +1,6 @@
 export * from "./structured-jobpost.model";
 export * from "./organization.model";
-export * from "./technology.model";
+export * from "./tag.model";
 export * from "./jobsite.model";
 export * from "./auditor.model";
 export * from "./discord.model";
@@ -20,4 +20,4 @@ export * from "./investor.model";
 export * from "./hack.model";
 export * from "./audit.model";
 export * from "./chain.model";
-export * from "./technology-blocked-term.model";
+export * from "./blocked-tag.model";

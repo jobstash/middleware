@@ -1,7 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsNotEmpty, IsString } from "class-validator";
 
-export class CreatePreferredTermInput {
+export class CreatePreferredTagInput {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
@@ -10,5 +10,5 @@ export class CreatePreferredTermInput {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
-  technologyName: string;
+  tagName: string;
 }

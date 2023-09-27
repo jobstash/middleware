@@ -1,9 +1,9 @@
 import { IsNotEmpty, IsString } from "class-validator";
 
-export class LinkTechnologySynonymDto {
+export class LinkTagSynonymDto {
   @IsNotEmpty()
   @IsString()
-  technologyName: string;
+  tagName: string;
 
   @IsNotEmpty()
   @IsString()

@@ -63,7 +63,7 @@ describe("JobsController", () => {
       `Org Projects for Jobpost ${jobListResult.shortUUID}`,
     );
     const hasDuplicateTechs = hasDuplicates(
-      jobListResult.technologies,
+      jobListResult.tags,
       x => x.id,
       `Technologies for Jobpost ${jobListResult.shortUUID}`,
     );
@@ -100,7 +100,7 @@ describe("JobsController", () => {
     jobListResult: AllJobsListResult,
   ): boolean => {
     const hasDuplicateTechs = hasDuplicates(
-      jobListResult.technologies,
+      jobListResult.tags,
       x => x.id,
       `Technologies for Jobpost ${jobListResult.shortUUID}`,
     );

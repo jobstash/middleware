@@ -40,13 +40,13 @@ import {
   StructuredJobpostProps,
   StructuredJobpostRelations,
   StructuredJobposts,
-  TechnologyBlockedTermProps,
-  TechnologyBlockedTerms,
-  Technologies,
-  TechnologyMethods,
-  TechnologyProps,
-  TechnologyRelations,
-  TechnologyStatics,
+  BlockedTagProps,
+  BlockedTags,
+  Tags,
+  TagMethods,
+  TagProps,
+  TagRelations,
+  TagStatics,
 } from "src/shared/models";
 import { NoRelations } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -78,21 +78,13 @@ export class ModelService implements OnModuleInit {
     ProjectMethods,
     ProjectStatics
   >;
-  public Technologies: NeogmaModel<
-    TechnologyProps,
-    TechnologyRelations,
-    TechnologyMethods,
-    TechnologyStatics
-  >;
+  public Tags: NeogmaModel<TagProps, TagRelations, TagMethods, TagStatics>;
   public JobpostCategories: NeogmaModel<JobpostCategoryProps, NoRelations>;
   public ProjectCategories: NeogmaModel<ProjectCategoryProps, NoRelations>;
   public JobpostStatuses: NeogmaModel<JobpostStatusProps, NoRelations>;
   public FundingRounds: NeogmaModel<FundingRoundProps, FundingRoundRelations>;
   public Investors: NeogmaModel<InvestorProps, NoRelations>;
-  public TechnologyBlockedTerms: NeogmaModel<
-    TechnologyBlockedTermProps,
-    NoRelations
-  >;
+  public BlockedTags: NeogmaModel<BlockedTagProps, NoRelations>;
   public Audits: NeogmaModel<AuditProps, NoRelations>;
   public Hacks: NeogmaModel<HackProps, NoRelations>;
   public Chains: NeogmaModel<ChainProps, NoRelations>;
@@ -108,13 +100,13 @@ export class ModelService implements OnModuleInit {
     this.Jobsites = Jobsites(this.neogma);
     this.Organizations = Organizations(this.neogma);
     this.Projects = Projects(this.neogma);
-    this.Technologies = Technologies(this.neogma);
+    this.Tags = Tags(this.neogma);
     this.JobpostCategories = JobpostCategories(this.neogma);
     this.ProjectCategories = ProjectCategories(this.neogma);
     this.JobpostStatuses = JobpostStatuses(this.neogma);
     this.FundingRounds = FundingRounds(this.neogma);
     this.Investors = Investors(this.neogma);
-    this.TechnologyBlockedTerms = TechnologyBlockedTerms(this.neogma);
+    this.BlockedTags = BlockedTags(this.neogma);
     this.Audits = Audits(this.neogma);
     this.Hacks = Hacks(this.neogma);
     this.Chains = Chains(this.neogma);

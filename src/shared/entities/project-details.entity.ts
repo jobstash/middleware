@@ -3,7 +3,7 @@ import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { ProjectDetails } from "../interfaces/project-details.interface";
 
 type RawProject = ProjectDetails & {
-  organization?: (Organization & { technologies: Tag[] }) | null;
+  organization?: (Organization & { tags: Tag[] }) | null;
 };
 
 export class ProjectDetailsEntity {
@@ -54,7 +54,7 @@ export class ProjectDetailsEntity {
       organization: {
         ...organization,
         docs: notStringOrNull(organization?.docs),
-        logo: notStringOrNull(organization?.logo),
+        logoUrl: notStringOrNull(organization?.logoUrl),
         altName: notStringOrNull(organization?.altName),
         headCount: nonZeroOrNull(organization?.headCount),
         github: notStringOrNull(organization?.github),
@@ -71,7 +71,7 @@ export class ProjectDetailsEntity {
             sourceLink: notStringOrNull(fr?.sourceLink),
           })) ?? [],
         investors: organization?.investors ?? [],
-        technologies: organization?.technologies ?? [],
+        tags: organization?.tags ?? [],
         projects: [],
       },
     });

@@ -19,7 +19,7 @@ export class OrgListResult extends Organization {
       jobs: t.array(
         StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
       ),
-      technologies: t.array(Tag.TagType),
+      tags: t.array(Tag.TagType),
     }),
   ]);
 
@@ -33,15 +33,15 @@ export class OrgListResult extends Organization {
     type: "array",
     items: { $ref: getSchemaPath(Tag) },
   })
-  technologies: Tag[];
+  tags: Tag[];
 
   constructor(raw: OrgListResult) {
-    const { jobs, technologies, ...orgProperties } = raw;
+    const { jobs, tags, ...orgProperties } = raw;
     super(orgProperties);
     const result = OrgListResult.OrgListResultType.decode(raw);
 
     this.jobs = jobs;
-    this.technologies = technologies;
+    this.tags = tags;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

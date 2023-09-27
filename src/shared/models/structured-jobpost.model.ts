@@ -8,11 +8,7 @@ import {
 } from "neogma";
 import { StructuredJobpost } from "../interfaces";
 import { ExtractProps } from "../types";
-import {
-  TechnologyInstance,
-  Technologies,
-  TechnologyProps,
-} from "./technology.model";
+import { TagInstance, Tags, TagProps } from "./tag.model";
 import { OrganizationInstance, Organizations } from "./organization.model";
 import {
   JobpostCategories,
@@ -39,8 +35,8 @@ export type StructuredJobpostInstance = NeogmaInstance<
 >;
 
 export interface StructuredJobpostMethods {
-  getUnblockedTechnologies: () => Promise<TechnologyInstance[]>;
-  getUnblockedTechnologiesData: () => Promise<TechnologyProps[]>;
+  getUnblockedTags: () => Promise<TagInstance[]>;
+  getUnblockedTagsData: () => Promise<TagProps[]>;
   getJobpostCategory: () => Promise<JobpostCategoryInstance>;
 }
 
@@ -49,10 +45,7 @@ export interface StructuredJobposStatics {
 }
 
 export interface StructuredJobpostRelations {
-  technologies: ModelRelatedNodesI<
-    ReturnType<typeof Technologies>,
-    TechnologyInstance
-  >;
+  tags: ModelRelatedNodesI<ReturnType<typeof Tags>, TagInstance>;
   commitment: ModelRelatedNodesI<
     ReturnType<typeof JobpostCommitments>,
     JobpostCommitmentInstance
@@ -192,10 +185,10 @@ export const StructuredJobposts = (
       },
       primaryKeyField: "id",
       relationships: {
-        technologies: {
-          model: Technologies(neogma),
+        tags: {
+          model: Tags(neogma),
           direction: "out",
-          name: "USES_TECHNOLOGY",
+          name: "HAS_TAG",
         },
         commitment: {
           model: JobpostCommitments(neogma),
@@ -214,24 +207,20 @@ export const StructuredJobposts = (
         },
       },
       methods: {
-        getUnblockedTechnologies: async function (): Promise<
-          TechnologyInstance[]
-        > {
-          const technologies: TechnologyInstance[] = [];
-          const allTechnologies = await this.findRelationships({
-            alias: "technologies",
+        getUnblockedTags: async function (): Promise<TagInstance[]> {
+          const tags: TagInstance[] = [];
+          const allTags = await this.findRelationships({
+            alias: "tags",
           });
-          for (const technology of allTechnologies) {
-            const isBlockedTerm = await technology.target.isBlockedTerm();
-            if (!isBlockedTerm) {
-              technologies.push(technology.target);
+          for (const tag of allTags) {
+            const isBlockedTag = await tag.target.isBlockedTag();
+            if (!isBlockedTag) {
+              tags.push(tag.target);
             }
           }
-          return technologies;
+          return tags;
         },
-        getUnblockedTechnologiesData: async function (): Promise<
-          TechnologyProps[]
-        > {
+        getUnblockedTagsData: async function (): Promise<TagProps[]> {
           const query = new QueryBuilder()
             .match({
               optional: true,
@@ -244,22 +233,22 @@ export const StructuredJobposts = (
                 },
                 {
                   direction: "out",
-                  name: "USES_TECHNOLOGY",
+                  name: "HAS_TAG",
                 },
                 {
-                  label: "Technology",
-                  identifier: "technology",
+                  label: "Tag",
+                  identifier: "tag",
                 },
               ],
             })
-            .raw("WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()")
-            .with("COLLECT(DISTINCT PROPERTIES(technology)) as technologies")
-            .return("technologies");
+            .raw("WHERE NOT (tag)<-[:IS_BLOCKED_TAG]-()")
+            .with("COLLECT(DISTINCT PROPERTIES(tag)) as tags")
+            .return("tags");
           const result = await query.run(neogma.queryRunner);
-          const technologies: TechnologyProps[] = result?.records[0]
-            ?.get("technologies")
-            ?.map(record => record as TechnologyProps);
-          return technologies;
+          const tags: TagProps[] = result?.records[0]
+            ?.get("tags")
+            ?.map(record => record as TagProps);
+          return tags;
         },
         getJobpostCategory:
           async function (): Promise<JobpostCategoryInstance> {

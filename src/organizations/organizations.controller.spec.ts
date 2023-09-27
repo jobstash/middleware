@@ -62,7 +62,7 @@ describe("OrganizationsController", () => {
       `Jobs for Org ${orgListResult.orgId}`,
     );
     const hasDuplicateTechs = hasDuplicates(
-      orgListResult.technologies,
+      orgListResult.tags,
       x => x.id,
       `Technologies for Org ${orgListResult.orgId}`,
     );

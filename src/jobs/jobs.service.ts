@@ -54,7 +54,7 @@ export class JobsService {
       WITH structured_jobpost, organization, 
       COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
       COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
-      COLLECT(DISTINCT PROPERTIES(technology)) AS technologies
+      COLLECT(DISTINCT PROPERTIES(tag)) AS tags
 
       WITH {
           id: structured_jobpost.id,
@@ -101,7 +101,7 @@ export class JobsService {
               fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
               investors: [investor in investors WHERE investor.id IS NOT NULL]
           },
-          technologies: [technology in technologies WHERE technology.id IS NOT NULL]
+          tags: [tag in tags WHERE tag.id IS NOT NULL]
       } AS result
 
       RETURN COLLECT(result) as results
@@ -148,10 +148,10 @@ export class JobsService {
           MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
           MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
 
-          OPTIONAL MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
-          WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()
+          OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag:Tag)
+          WHERE NOT (tag)<-[:IS_BLOCKED_TERM]-()
 
-          WITH structured_jobpost, organization, jobpost_category, COLLECT(DISTINCT PROPERTIES(technology)) as technologies
+          WITH structured_jobpost, organization, jobpost_category, COLLECT(DISTINCT PROPERTIES(tag)) as tags
 
           WITH {
               id: structured_jobpost.id,
@@ -200,7 +200,7 @@ export class JobsService {
                   updatedTimestamp: organization.updatedTimestamp,
                   teamSize: organization.teamSize
               },
-              technologies: [technology in technologies WHERE technology.id IS NOT NULL]
+              tags: [tag in tags WHERE tag.id IS NOT NULL]
           } AS result
           
           RETURN COLLECT(result) as results
@@ -255,7 +255,7 @@ export class JobsService {
       endDate,
       seniority: seniorityFilterList,
       locations: locationFilterList,
-      tech: technologyFilterList,
+      tags: tagFilterList,
       audits: auditFilterList,
       hacks: hackFilterList,
       chains: chainFilterList,
@@ -306,7 +306,7 @@ export class JobsService {
       } = jlr.organization;
       const {
         title: jobTitle,
-        technologies,
+        tags,
         seniority,
         locationType,
         salary: medianSalary,
@@ -318,8 +318,7 @@ export class JobsService {
       const matchesQuery =
         orgName.match(query) ||
         jobTitle.match(query) ||
-        technologies.filter(technology => technology.name.match(query)).length >
-          0 ||
+        tags.filter(tag => tag.name.match(query)).length > 0 ||
         projects.filter(project => project.name.match(query)).length > 0;
       return (
         (!organizationFilterList || organizationFilterList.includes(orgName)) &&
@@ -378,10 +377,8 @@ export class JobsService {
             fundingRoundFilterList.includes(fundingRound.roundName),
           ).length > 0) &&
         (!query || matchesQuery) &&
-        (!technologyFilterList ||
-          technologies.filter(technology =>
-            technologyFilterList.includes(technology.name),
-          ).length > 0)
+        (!tagFilterList ||
+          tags.filter(tag => tagFilterList.includes(tag.name)).length > 0)
       );
     };
 
@@ -454,10 +451,10 @@ export class JobsService {
         MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
         MATCH (jp)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
         OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(cat:ProjectCategory)
-        OPTIONAL MATCH (j)-[:USES_TECHNOLOGY]->(t:Technology)
+        OPTIONAL MATCH (j)-[:HAS_TAG]->(t:Tag)
         WHERE NOT (t)<-[:IS_BLOCKED_TERM]-()
-        OPTIONAL MATCH (t)<-[:IS_PREFERRED_TERM_OF]-(:PreferredTerm)
-        OPTIONAL MATCH (t)<-[:IS_PAIRED_WITH]-(:TechnologyPairing)-[:IS_PAIRED_WITH]->(:Technology)
+        OPTIONAL MATCH (t)<-[:IS_PREFERRED_TERM_OF]-(:PreferredTag)
+        OPTIONAL MATCH (t)<-[:IS_PAIRED_WITH]-(:TagPairing)-[:IS_PAIRED_WITH]->(:Tag)
         OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)
         OPTIONAL MATCH (f)-[:INVESTED_BY]->(i:Investor)
         OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(c:Chain)
@@ -478,7 +475,7 @@ export class JobsService {
             maxHeadCount: MAX(CASE WHEN NOT o.headCount IS NULL AND isNaN(o.headCount) = false THEN toFloat(o.headCount) END),
             minTeamSize: MIN(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
             maxTeamSize: MAX(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
-            tech: COLLECT(DISTINCT t.name),
+            tags: COLLECT(DISTINCT t.name),
             fundingRounds: COLLECT(DISTINCT f.roundName),
             investors: COLLECT(DISTINCT i.name),
             projects: COLLECT(DISTINCT p.name),
@@ -593,13 +590,12 @@ export class JobsService {
 
     const jobFilters = (jlr: AllJobsListResult): boolean => {
       const { name: orgName } = jlr.organization;
-      const { title: jobTitle, technologies } = jlr;
+      const { title: jobTitle, tags } = jlr;
 
       const matchesQuery =
         orgName.match(query) ||
         jobTitle.match(query) ||
-        technologies.filter(technology => technology.name.match(query)).length >
-          0;
+        tags.filter(tag => tag.name.match(query)).length > 0;
 
       return (
         (!categoryFilterList || categoryFilterList.includes(jlr.category)) &&

@@ -23,7 +23,7 @@ export class OrganizationProperties {
     location: t.string,
     description: t.string,
     docs: t.union([t.string, t.null]),
-    logo: t.union([t.string, t.null]),
+    logoUrl: t.union([t.string, t.null]),
     github: t.union([t.string, t.null]),
     altName: t.union([t.string, t.null]),
     discord: t.union([t.string, t.null]),
@@ -57,31 +57,10 @@ export class OrganizationProperties {
   url: string;
 
   @ApiProperty()
-  jobsiteLink: string;
-
-  @ApiProperty()
-  docs: string | null;
-
-  @ApiProperty()
-  logo: string | null;
-
-  @ApiProperty()
-  altName: string | null;
+  logoUrl: string | null;
 
   @ApiProperty()
   headCount: number | null;
-
-  @ApiPropertyOptional()
-  github: string | null;
-
-  @ApiPropertyOptional()
-  twitter: string | null;
-
-  @ApiPropertyOptional()
-  discord: string | null;
-
-  @ApiPropertyOptional()
-  telegram: string | null;
 
   @ApiPropertyOptional()
   createdTimestamp: number | null;
@@ -94,19 +73,12 @@ export class OrganizationProperties {
       id,
       url,
       name,
-      docs,
-      logo,
+      logoUrl,
       orgId,
-      github,
       summary,
-      altName,
-      twitter,
-      discord,
       location,
-      telegram,
       headCount,
       description,
-      jobsiteLink,
       createdTimestamp,
       updatedTimestamp,
     } = raw;
@@ -117,19 +89,12 @@ export class OrganizationProperties {
     this.id = id;
     this.url = url;
     this.name = name;
-    this.docs = docs;
-    this.logo = logo;
+    this.logoUrl = logoUrl;
     this.orgId = orgId;
-    this.github = github;
     this.summary = summary;
-    this.altName = altName;
-    this.twitter = twitter;
-    this.discord = discord;
     this.location = location;
-    this.telegram = telegram;
     this.headCount = headCount;
     this.description = description;
-    this.jobsiteLink = jobsiteLink;
     this.createdTimestamp = createdTimestamp;
     this.updatedTimestamp = updatedTimestamp;
 
@@ -148,11 +113,31 @@ export class Organization extends OrganizationProperties {
   public static readonly OrganizationType = t.intersection([
     OrganizationProperties.OrganizationPropertiesType,
     t.strict({
+      discord: t.union([t.string, t.null]),
+      website: t.union([t.string, t.null]),
+      telegram: t.union([t.string, t.null]),
+      twitter: t.union([t.string, t.null]),
+      docs: t.union([t.string, t.null]),
       projects: t.array(ProjectMoreInfo.ProjectMoreInfoType),
       fundingRounds: t.array(FundingRound.FundingRoundType),
       investors: t.array(Investor.InvestorType),
     }),
   ]);
+
+  @ApiPropertyOptional()
+  discord: string | null;
+
+  @ApiPropertyOptional()
+  website: string | null;
+
+  @ApiPropertyOptional()
+  telegram: string | null;
+
+  @ApiPropertyOptional()
+  twitter: string | null;
+
+  @ApiPropertyOptional()
+  docs: string | null;
 
   @ApiPropertyOptional({
     type: "array",
@@ -203,7 +188,7 @@ export class ShortOrg {
     lastFundingDate: t.number,
     lastFundingAmount: t.number,
     logo: t.union([t.string, t.null]),
-    technologies: t.array(Tag.TagType),
+    tags: t.array(Tag.TagType),
   });
 
   @ApiProperty()
@@ -240,7 +225,7 @@ export class ShortOrg {
   description: string;
 
   @ApiProperty({ type: "array", items: { $ref: getSchemaPath(Tag) } })
-  technologies: Tag[];
+  tags: Tag[];
 
   constructor(raw: ShortOrg) {
     const {
@@ -253,7 +238,7 @@ export class ShortOrg {
       headCount,
       description,
       projectCount,
-      technologies,
+      tags,
       lastFundingDate,
       lastFundingAmount,
     } = raw;
@@ -269,7 +254,7 @@ export class ShortOrg {
     this.headCount = headCount;
     this.description = description;
     this.projectCount = projectCount;
-    this.technologies = technologies;
+    this.tags = tags;
     this.lastFundingDate = lastFundingDate;
     this.lastFundingAmount = lastFundingAmount;
 

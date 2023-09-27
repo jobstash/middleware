@@ -348,11 +348,11 @@ export const toShortOrg = (org: OrgListResult): ShortOrg => {
     orgId,
     url,
     name,
-    logo,
+    logoUrl: logo,
     location,
     headCount,
     description,
-    technologies,
+    tags,
   } = org;
   const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
   return {
@@ -363,7 +363,7 @@ export const toShortOrg = (org: OrgListResult): ShortOrg => {
     location,
     headCount,
     description,
-    technologies,
+    tags,
     jobCount: org.jobs.length,
     projectCount: org.projects.length,
     lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,

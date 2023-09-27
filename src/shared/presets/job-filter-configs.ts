@@ -93,11 +93,11 @@ export const FILTER_CONFIG_PRESETS = {
     kind: FilterKind.RANGE,
     prefix: null,
   },
-  tech: {
+  tags: {
     position: 6,
     label: "Technologies",
     show: true,
-    googleAnalyticsEventName: "filter_joblist_technologies",
+    googleAnalyticsEventName: "filter_joblist_tags",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   fundingRounds: {
@@ -239,7 +239,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
     lowest: "minHeadCount",
     highest: "maxHeadCount",
   },
-  tech: "tech",
+  tags: "tags",
   fundingRounds: "fundingRounds",
   investors: "investors",
   organizations: "organizations",

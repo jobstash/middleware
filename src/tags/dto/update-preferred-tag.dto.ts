@@ -1,6 +1,6 @@
 import { IsNotEmpty } from "class-validator";
 
-export class UpdateTechnologyPreferredTermDto {
+export class UpdatePreferredTagDto {
   @IsNotEmpty()
   name: string;
 

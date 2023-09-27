@@ -1,14 +1,12 @@
 import {
   OrganizationProperties,
   StructuredJobpostWithRelations,
-  Tag,
 } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { AllJobsListResult } from "../interfaces/all-jobs-list-result.interface";
 
 type RawJobPost = StructuredJobpostWithRelations & {
   organization?: OrganizationProperties | null;
-  technologies?: Tag[] | null;
 };
 
 export class AllJobListResultEntity {
@@ -16,7 +14,7 @@ export class AllJobListResultEntity {
 
   getProperties(): AllJobsListResult {
     const jobpost = this.raw;
-    const { organization, technologies } = jobpost;
+    const { organization, tags } = jobpost;
 
     return new AllJobsListResult({
       ...jobpost,
@@ -33,7 +31,7 @@ export class AllJobListResultEntity {
       organization: {
         ...organization,
         docs: notStringOrNull(organization?.docs),
-        logo: notStringOrNull(organization?.logo),
+        logoUrl: notStringOrNull(organization?.logoUrl),
         altName: notStringOrNull(organization?.altName),
         headCount: nonZeroOrNull(organization?.headCount),
         github: notStringOrNull(organization?.github),
@@ -44,7 +42,7 @@ export class AllJobListResultEntity {
         createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
         updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
       },
-      technologies: technologies ?? [],
+      tags: tags ?? [],
     });
   }
 }

@@ -7,7 +7,7 @@ import * as Sentry from "@sentry/node";
 import * as Tracing from "@sentry/tracing";
 import { JobsModule } from "./jobs/jobs.module";
 import { SiweModule } from "./auth/siwe/siwe.module";
-import { TechnologiesModule } from "./technologies/technologies.module";
+import { TagsModule } from "./tags/tags.module";
 import { GithubModule } from "./auth/github/github.module";
 import { OrganizationsModule } from "./organizations/organizations.module";
 import envSchema from "./env-schema";
@@ -43,7 +43,7 @@ import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
     AuthModule,
     JobsModule,
     SiweModule,
-    TechnologiesModule,
+    TagsModule,
     GithubModule,
     OrganizationsModule,
     ProjectsModule,

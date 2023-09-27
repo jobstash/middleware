@@ -11,7 +11,7 @@ import { Investor } from "../interfaces/investor.interface";
 
 type RawOrg = Organization & {
   jobs?: StructuredJobpostWithRelations[] | null;
-  technologies: Tag[];
+  tags: Tag[];
   projects?: ProjectMoreInfo[] | null;
   investors?: Investor[] | null;
   fundingRounds?: FundingRound[] | null;
@@ -22,8 +22,7 @@ export class OrgListResultEntity {
 
   getProperties(): OrgListResult {
     const organization = this.raw;
-    const { jobs, investors, fundingRounds, projects, technologies } =
-      organization;
+    const { jobs, investors, fundingRounds, projects, tags } = organization;
 
     return new OrgListResult({
       ...organization,
@@ -99,7 +98,7 @@ export class OrgListResultEntity {
         url: notStringOrNull(jobpost?.url),
         jobTitle: notStringOrNull(jobpost?.title),
       })),
-      technologies: technologies ?? [],
+      tags: tags ?? [],
     });
   }
 }

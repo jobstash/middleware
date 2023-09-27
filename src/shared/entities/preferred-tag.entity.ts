@@ -1,15 +1,15 @@
-import { TechnologyPreferredTerm, Tag } from "../interfaces";
+import { PreferredTag, Tag } from "../interfaces";
 
-type RawTechnologyPreferredTerm = {
+type RawPreferredTag = {
   id: string;
   name: string;
   normalizedName: string;
-  technology: object & { properties: Tag };
+  tag: object & { properties: Tag };
   synonyms: [object & { properties: Tag }];
 };
 
-export class TechnologyPreferredTermEntity {
-  constructor(private readonly raw: RawTechnologyPreferredTerm) {}
+export class PreferredTagEntity {
+  constructor(private readonly raw: RawPreferredTag) {}
 
   getId(): string {
     return this.raw.id;
@@ -23,10 +23,10 @@ export class TechnologyPreferredTermEntity {
     return this.raw.name;
   }
 
-  getProperties(): TechnologyPreferredTerm {
+  getProperties(): PreferredTag {
     return {
       ...this.raw,
-      technology: this.raw?.technology.properties,
+      tag: this.raw?.tag.properties,
       synonyms: this.raw?.synonyms.map(syn => syn.properties),
     };
   }

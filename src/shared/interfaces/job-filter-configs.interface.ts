@@ -29,7 +29,7 @@ export class JobFilterConfigs {
     location: MultiSelectFilter.MultiSelectFilterType,
     mainNet: SingleSelectFilter.SingleSelectFilterType,
     orderBy: SingleSelectFilter.SingleSelectFilterType,
-    tech: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+    tags: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     publicationDate: SingleSelectFilter.SingleSelectFilterType,
     audits: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     chains: MultiSelectSearchFilter.MultiSelectSearchFilterType,
@@ -53,7 +53,7 @@ export class JobFilterConfigs {
   @ApiProperty()
   headCount: RangeFilter;
   @ApiProperty()
-  tech: MultiSelectSearchFilter;
+  tags: MultiSelectSearchFilter;
   @ApiProperty()
   fundingRounds: MultiSelectSearchFilter;
   @ApiProperty()
@@ -90,7 +90,7 @@ export class JobFilterConfigs {
   constructor(raw: JobFilterConfigs) {
     const {
       tvl,
-      tech,
+      tags,
       hacks,
       token,
       order,
@@ -117,7 +117,7 @@ export class JobFilterConfigs {
     const result = JobFilterConfigs.JobFilterConfigsType.decode(raw);
 
     this.tvl = tvl;
-    this.tech = tech;
+    this.tags = tags;
     this.hacks = hacks;
     this.token = token;
     this.order = order;

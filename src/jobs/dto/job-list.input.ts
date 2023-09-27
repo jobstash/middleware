@@ -192,7 +192,7 @@ export class JobListParams {
   @IsOptional()
   @Type(() => String)
   @Transform(btoaList)
-  tech?: string[] | null = null;
+  tags?: string[] | null = null;
 
   @ApiPropertyOptional({
     example: "T3BlblNlYQ==,SmV0",

@@ -1,25 +1,25 @@
 import { Injectable } from "@nestjs/common";
-import { TechnologyPreferredTerm } from "src/shared/interfaces/technology-preferred-term.interface";
 import {
-  PairedTerm,
+  PairedTag,
   Tag,
-  TechnologyBlockedTermEntity,
-  TechnologyPreferredTermEntity,
+  PreferredTag,
+  BlockedTagEntity,
+  PreferredTagEntity,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { ModelService } from "src/model/model.service";
-import { CreateTechnologyDto } from "./dto/create-technology.dto";
+import { CreateTagDto } from "./dto/create-tag.dto";
 import { InjectConnection } from "nest-neogma";
 import { Neogma } from "neogma";
-import { UpdateTechnologyDto } from "./dto/update-technology.dto";
-import { TechnologyEntity } from "src/shared/entities/technology.entity";
+import { UpdateTagDto } from "./dto/update-tag.dto";
+import { TagEntity } from "src/shared/entities/tag.entity";
 import NotFoundError from "src/shared/errors/not-found-error";
-import { CreateTechnologyPreferredTermDto } from "./dto/create-technology-preferred-term.dto";
+import { CreatePreferredTagDto } from "./dto/create-preferred-tag.dto";
 
 @Injectable()
-export class TechnologiesService {
-  private readonly logger = new CustomLogger(TechnologiesService.name);
+export class TagsService {
+  private readonly logger = new CustomLogger(TagsService.name);
   constructor(
     @InjectConnection()
     private neogma: Neogma,
@@ -28,7 +28,7 @@ export class TechnologiesService {
 
   async findAll(): Promise<Tag[]> {
     const res = await this.neogma.queryRunner.run(`
-      MATCH (t:Technology)
+      MATCH (t:Tag)
       RETURN t
     `);
 
@@ -37,10 +37,10 @@ export class TechnologiesService {
       : [];
   }
 
-  async findById(id: string): Promise<TechnologyEntity> {
+  async findById(id: string): Promise<TagEntity> {
     const res = await this.neogma.queryRunner.run(
       `
-      MATCH (t:Technology {id: $id})
+      MATCH (t:Tag {id: $id})
       RETURN t
       `,
       {
@@ -48,127 +48,121 @@ export class TechnologiesService {
       },
     );
 
-    return res.records.length
-      ? new TechnologyEntity(res.records[0].get("t"))
-      : null;
+    return res.records.length ? new TagEntity(res.records[0].get("t")) : null;
   }
 
   async findByNormalizedName(
     normalizedName: string,
-  ): Promise<TechnologyEntity | null> {
+  ): Promise<TagEntity | null> {
     const res = await this.neogma.queryRunner.run(
       `
-            MATCH (t:Technology {normalizedName: $normalizedName})
+            MATCH (t:Tag {normalizedName: $normalizedName})
             RETURN t
         `,
       { normalizedName },
     );
-    return res.records.length
-      ? new TechnologyEntity(res.records[0].get("t"))
-      : null;
+    return res.records.length ? new TagEntity(res.records[0].get("t")) : null;
   }
 
-  async findPreferredTermByNormalizedName(
+  async findPreferredTagByNormalizedName(
     normalizedPreferredName: string,
-  ): Promise<TechnologyPreferredTermEntity | null> {
+  ): Promise<PreferredTagEntity | null> {
     const res = await this.neogma.queryRunner.run(
       `
-              MATCH (pt:PreferredTerm {normalizedName: $normalizedPreferredName})
+              MATCH (pt:PreferredTag {normalizedName: $normalizedPreferredName})
               RETURN pt
           `,
       { normalizedPreferredName },
     );
     return res.records.length
-      ? new TechnologyPreferredTermEntity(res.records[0].get("pt"))
+      ? new PreferredTagEntity(res.records[0].get("pt"))
       : null;
   }
 
-  async findBlockedTermNodeByName(
+  async findBlockedTagNodeByName(
     name: string,
-  ): Promise<TechnologyBlockedTermEntity | null> {
+  ): Promise<BlockedTagEntity | null> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (bt:TechnologyBlockedTerm {name: $name})
+        MATCH (bt:TagBlockedTag {name: $name})
         RETURN bt
       `,
       { name },
     );
     return res.records.length
-      ? new TechnologyBlockedTermEntity(res.records[0].get("bt"))
+      ? new BlockedTagEntity(res.records[0].get("bt"))
       : null;
   }
 
-  async getAllUnblockedTerms(): Promise<Tag[]> {
+  async getAllUnblockedTags(): Promise<Tag[]> {
     try {
-      return this.models.Technologies.getAllowedTerms();
+      return this.models.Tags.getAllowedTags();
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "technologies.service",
+          source: "tags.service",
         });
         Sentry.captureException(err);
       });
-      this.logger.error(`TechnologiesService::getAll ${err.message}`);
+      this.logger.error(`TagsService::getAll ${err.message}`);
       return undefined;
     }
   }
 
-  async getBlockedTerms(): Promise<Tag[]> {
+  async getBlockedTags(): Promise<Tag[]> {
     try {
-      return this.models.Technologies.getBlockedTerms();
+      return this.models.Tags.getBlockedTags();
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "technologies.service",
+          source: "tags.service",
         });
         Sentry.captureException(err);
       });
-      this.logger.error(`TechnologiesService::getBlockedTerms ${err.message}`);
+      this.logger.error(`TagsService::getBlockedTags ${err.message}`);
       return undefined;
     }
   }
 
-  async getPreferredTerms(): Promise<TechnologyPreferredTerm[]> {
+  async getPreferredTags(): Promise<PreferredTag[]> {
     try {
-      return this.models.Technologies.getPreferredTerms();
+      return this.models.Tags.getPreferredTags();
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "technologies.service",
+          source: "tags.service",
         });
         Sentry.captureException(err);
       });
-      this.logger.error(
-        `TechnologiesService::getPreferredTerms ${err.message}`,
-      );
+      this.logger.error(`TagsService::getPreferredTags ${err.message}`);
       return undefined;
     }
   }
 
-  async getPairedTerms(): Promise<PairedTerm[]> {
+  async getPairedTags(): Promise<PairedTag[]> {
     try {
-      return this.models.Technologies.getPairedTerms();
+      return this.models.Tags.getPairedTags();
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "technologies.service",
+          source: "tags.service",
         });
         Sentry.captureException(err);
       });
-      this.logger.error(`TechnologiesService::getPairedTerms ${err.message}`);
+      this.logger.error(`TagsService::getPairedTags ${err.message}`);
       return undefined;
     }
   }
 
-  async create(dto: CreateTechnologyDto): Promise<TechnologyEntity> {
+  async create(dto: CreateTagDto): Promise<TagEntity> {
     return this.neogma.queryRunner
       .run(
         `
-            CREATE (t:Technology { id: randomUUID() })
+            CREATE (t:Tag { id: randomUUID() })
             SET t += $properties
             RETURN t
         `,
@@ -178,16 +172,14 @@ export class TechnologiesService {
           },
         },
       )
-      .then(res => new TechnologyEntity(res.records[0].get("t")));
+      .then(res => new TagEntity(res.records[0].get("t")));
   }
 
-  async createBlockedTermNode(
-    name: string,
-  ): Promise<TechnologyBlockedTermEntity> {
+  async createBlockedTagNode(name: string): Promise<BlockedTagEntity> {
     return this.neogma.queryRunner
       .run(
         `
-              CREATE (bt:TechnologyBlockedTerm { id: randomUUID() })
+              CREATE (bt:TagBlockedTag { id: randomUUID() })
               SET bt += $properties
               RETURN bt
           `,
@@ -197,16 +189,16 @@ export class TechnologiesService {
           },
         },
       )
-      .then(res => new TechnologyBlockedTermEntity(res.records[0].get("bt")));
+      .then(res => new BlockedTagEntity(res.records[0].get("bt")));
   }
 
-  async createTechnologyPreferredTerm(
-    dto: CreateTechnologyPreferredTermDto,
-  ): Promise<TechnologyPreferredTermEntity> {
+  async createPreferredTag(
+    dto: CreatePreferredTagDto,
+  ): Promise<PreferredTagEntity> {
     return this.neogma.queryRunner
       .run(
         `
-              CREATE (pt:PreferredTerm { id: randomUUID() })
+              CREATE (pt:PreferredTag { id: randomUUID() })
               SET pt += $properties
               RETURN pt
           `,
@@ -216,85 +208,85 @@ export class TechnologiesService {
           },
         },
       )
-      .then(res => new TechnologyPreferredTermEntity(res.records[0].get("pt")));
+      .then(res => new PreferredTagEntity(res.records[0].get("pt")));
   }
 
-  async hasBlockedTermRelationship(
-    blockedTermNodeId: string,
-    technologyNodeId: string,
+  async hasBlockedTagRelationship(
+    blockedTagNodeId: string,
+    tagNodeId: string,
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (bt:TechnologyBlockedTerm {id: $blockedTermNodeId})
-        MATCH (t:Technology {id: $technologyNodeId})
+        MATCH (bt:TagBlockedTag {id: $blockedTagNodeId})
+        MATCH (t:Tag {id: $tagNodeId})
         WITH bt, t
         RETURN EXISTS( (bt)-[:IS_BLOCKED_TERM]->(t) ) AS result
         `,
-      { blockedTermNodeId, technologyNodeId },
+      { blockedTagNodeId, tagNodeId },
     );
 
     return res.records[0]?.get("result") ?? false;
   }
 
-  async hasPreferredTermRelationship(
-    preferredTermNodeId: string,
-    technologyNodeId: string,
+  async hasPreferredTagRelationship(
+    preferredTagNodeId: string,
+    tagNodeId: string,
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (pt:PreferredTerm {id: $preferredTermNodeId})
-        MATCH (t:Technology {id: $technologyNodeId})
+        MATCH (pt:PreferredTag {id: $preferredTagNodeId})
+        MATCH (t:Tag {id: $tagNodeId})
         WITH pt, t
         RETURN EXISTS( (pt)-[:IS_PREFERRED_TERM_OF]->(t) ) AS result
         `,
-      { preferredTermNodeId, technologyNodeId },
+      { preferredTagNodeId, tagNodeId },
     );
 
     return res.records[0]?.get("result") ?? false;
   }
 
-  async hasPreferredTermCreatorRelationship(
-    preferredTermNodeId: string,
+  async hasPreferredTagCreatorRelationship(
+    preferredTagNodeId: string,
     wallet: string,
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (pt:PreferredTerm {id: $preferredTermNodeId})
+        MATCH (pt:PreferredTag {id: $preferredTagNodeId})
         MATCH (u:User {wallet: $wallet})
         WITH pt, u
         RETURN EXISTS( (u)-[:CREATED_PREFERRED_TERM]->(pt) ) AS result
         `,
-      { preferredTermNodeId, wallet },
+      { preferredTagNodeId, wallet },
     );
 
     return res.records[0]?.get("result") ?? false;
   }
 
-  async hasBlockedTermCreatorRelationship(
-    blockedTermNodeId: string,
+  async hasBlockedTagCreatorRelationship(
+    blockedTagNodeId: string,
     wallet: string,
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (bt:TechnologyBlockedTerm {id: $blockedTermNodeId})
+        MATCH (bt:TagBlockedTag {id: $blockedTagNodeId})
         MATCH (u:User {wallet: $wallet})
         WITH bt, u
         RETURN EXISTS( (u)-[:CREATED_BLOCKED_TERM]->(bt) ) AS result
         `,
-      { blockedTermNodeId, wallet },
+      { blockedTagNodeId, wallet },
     );
 
     return res.records[0]?.get("result") ?? false;
   }
 
-  async relatePreferredTermToTechnologyTerm(
-    preferredTermNodeId: string,
-    technologyNodeId: string,
+  async relatePreferredTagToTagTag(
+    preferredTagNodeId: string,
+    tagNodeId: string,
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (pt:PreferredTerm {id: $preferredTermNodeId})
-        MATCH (t:Technology {id: $technologyNodeId})
+        MATCH (pt:PreferredTag {id: $preferredTagNodeId})
+        MATCH (t:Tag {id: $tagNodeId})
 
         MERGE (pt)-[r:IS_PREFERRED_TERM_OF]->(t)
         SET r.timestamp = timestamp()
@@ -306,33 +298,33 @@ export class TechnologiesService {
 
 
         `,
-      { preferredTermNodeId, technologyNodeId },
+      { preferredTagNodeId, tagNodeId },
     );
 
     return res.records[0].get("result");
   }
 
-  async relatePairedTerms(
-    normalizedOriginTermNameNodeId: string,
-    normalizedPairTermListNodesIds: string[],
+  async relatePairedTags(
+    normalizedOriginTagNameNodeId: string,
+    normalizedPairTagListNodesIds: string[],
     creatorWallet: string,
   ): Promise<boolean> {
     try {
       await this.neogma.queryRunner.run(
         `
-    MATCH (t1:Technology {id: $normalizedOriginTermNameNodeId})
+    MATCH (t1:Tag {id: $normalizedOriginTagNameNodeId})
     MATCH (u:User {wallet: $creatorWallet})
-    UNWIND $normalizedPairTermListNodesIds AS pairTermNodeId
-    MATCH (t2:Technology {id: pairTermNodeId})
+    UNWIND $normalizedPairTagListNodesIds AS pairTagNodeId
+    MATCH (t2:Tag {id: pairTagNodeId})
 
-    CREATE (t1)-[:IS_PAIRED_WITH]->(tp:TechnologyPairing)-[:IS_PAIRED_WITH]->(t2)
+    CREATE (t1)-[:IS_PAIRED_WITH]->(tp:TagPairing)-[:IS_PAIRED_WITH]->(t2)
     SET tp.timestamp = timestamp()
 
     CREATE (u)-[:CREATED_PAIRING]->(tp)
   `,
         {
-          normalizedOriginTermNameNodeId,
-          normalizedPairTermListNodesIds,
+          normalizedOriginTagNameNodeId,
+          normalizedPairTagListNodesIds,
           creatorWallet,
         },
       );
@@ -341,25 +333,23 @@ export class TechnologiesService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "technologies.service",
+          source: "tags.service",
         });
         Sentry.captureException(err);
       });
-      this.logger.error(
-        `TechnologiesService::relatePairedTerms ${err.message}`,
-      );
+      this.logger.error(`TagsService::relatePairedTags ${err.message}`);
       return false;
     }
   }
 
-  async relateBlockedTermToTechnologyTerm(
-    blockedTermNodeId: string,
-    technologyNodeId: string,
+  async relateBlockedTagToTagTag(
+    blockedTagNodeId: string,
+    tagNodeId: string,
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (bt:TechnologyBlockedTerm {id: $blockedTermNodeId})
-        MATCH (t:Technology {id: $technologyNodeId})
+        MATCH (bt:TagBlockedTag {id: $blockedTagNodeId})
+        MATCH (t:Tag {id: $tagNodeId})
 
         MERGE (bt)-[r:IS_BLOCKED_TERM]->(t)
         SET r.timestamp = timestamp()
@@ -371,19 +361,19 @@ export class TechnologiesService {
 
 
         `,
-      { blockedTermNodeId, technologyNodeId },
+      { blockedTagNodeId, tagNodeId },
     );
 
     return res.records[0].get("result");
   }
 
-  async relateTechnologyPreferredTermToCreator(
-    preferredTermNodeId: string,
+  async relatePreferredTagToCreator(
+    preferredTagNodeId: string,
     wallet: string,
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (pt:PreferredTerm {id: $preferredTermNodeId})
+        MATCH (pt:PreferredTag {id: $preferredTagNodeId})
         MATCH (u:User {wallet: $wallet})
 
         MERGE (pt)-[r:CREATED_PREFERRED_TERM_OF]->(u)
@@ -394,19 +384,19 @@ export class TechnologiesService {
           relationshipTimestamp: r.timestamp
         } AS result
         `,
-      { preferredTermNodeId, wallet },
+      { preferredTagNodeId, wallet },
     );
 
     return res.records[0].get("result");
   }
 
-  async relateTechnologyBlockedTermToCreator(
-    blockedTermNodeId: string,
+  async relateTagBlockedTagToCreator(
+    blockedTagNodeId: string,
     wallet: string,
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (bt:TechnologyBlockedTerm {id: $blockedTermNodeId})
+        MATCH (bt:TagBlockedTag {id: $blockedTagNodeId})
         MATCH (u:User {wallet: $wallet})
 
         MERGE (u)-[r:CREATED_BLOCKED_TERM]->(bt)
@@ -417,25 +407,25 @@ export class TechnologiesService {
           relationshipTimestamp: r.timestamp
         } AS result
         `,
-      { blockedTermNodeId, wallet },
+      { blockedTagNodeId, wallet },
     );
 
     return res.records[0].get("result");
   }
 
-  async relateTechnologyToStructuredJobpost(
-    technologyId: string,
+  async relateTagToStructuredJobpost(
+    tagId: string,
     structuredJobpostId: string,
   ): Promise<Tag> {
-    const technology = await this.neogma.queryRunner.run(
+    const tag = await this.neogma.queryRunner.run(
       `
-            MATCH (t:Technology { id: $technologyId })
+            MATCH (t:Tag { id: $tagId })
             RETURN t
         `,
-      { technologyId },
+      { tagId },
     );
-    if (!technology.records.length) {
-      throw new NotFoundError("Technology not found");
+    if (!tag.records.length) {
+      throw new NotFoundError("Tag not found");
     }
     const structuredJobpost = await this.neogma.queryRunner.run(
       `
@@ -449,10 +439,10 @@ export class TechnologiesService {
     }
     const res = await this.neogma.queryRunner.run(
       `
-          MATCH (t:Technology { id: $technologyId })
+          MATCH (t:Tag { id: $tagId })
           MATCH (sj:StructuredJobpost { id: $structuredJobpostId })
           
-          MERGE (sj)-[r:USES_TECHNOLOGY]->(t)
+          MERGE (sj)-[r:HAS_TAG]->(t)
           
           SET r.timestamp = timestamp()
           SET r.originatingJobpostId = $structuredJobpostId
@@ -460,35 +450,35 @@ export class TechnologiesService {
           RETURN t {
             .*,
             relationshipTimestamp: r.timestamp
-          } AS Technology
+          } AS Tag
       `,
-      { technologyId, structuredJobpostId },
+      { tagId, structuredJobpostId },
     );
 
     if (res.records.length === 0) {
       throw new NotFoundError(
-        `Could not create relationship between StructuredJobpost ${structuredJobpostId} to Technology ${technologyId}`,
+        `Could not create relationship between StructuredJobpost ${structuredJobpostId} to Tag ${tagId}`,
       );
     }
 
     const [first] = res.records;
-    const technologyData = first.get("Technology");
-    return new Tag(technologyData);
+    const tagData = first.get("Tag");
+    return new Tag(tagData);
   }
 
-  async relateTechnologyToCreator(
-    technologyId: string,
+  async relateTagToCreator(
+    tagId: string,
     walletAddress: string,
   ): Promise<void> {
-    const technology = await this.neogma.queryRunner.run(
+    const tag = await this.neogma.queryRunner.run(
       `
-            MATCH (t:Technology { id: $technologyId })
+            MATCH (t:Tag { id: $tagId })
             RETURN t
         `,
-      { technologyId },
+      { tagId },
     );
-    if (!technology.records.length) {
-      throw new NotFoundError("Technology not found");
+    if (!tag.records.length) {
+      throw new NotFoundError("Tag not found");
     }
     const user = await this.neogma.queryRunner.run(
       `
@@ -503,7 +493,7 @@ export class TechnologiesService {
 
     const res = await this.neogma.queryRunner.run(
       `
-          MATCH (t:Technology { id: $technologyId })
+          MATCH (t:Tag { id: $tagId })
           MATCH (u:User { wallet: $walletAddress })
           MERGE (u)-[r:CREATED_TECHNOLOGY]->(t)
           SET r.timestamp = timestamp()
@@ -511,143 +501,143 @@ export class TechnologiesService {
           RETURN t {
             .*,
             relationshipTimestamp: r.timestamp
-          } AS Technology
+          } AS Tag
       `,
-      { technologyId, walletAddress },
+      { tagId, walletAddress },
     );
 
     if (res.records.length === 0) {
       throw new NotFoundError(
-        `Could not create relationship between User ${walletAddress} to Technology ${technologyId}`,
+        `Could not create relationship between User ${walletAddress} to Tag ${tagId}`,
       );
     }
   }
 
-  async unrelatePreferredTermToTechnologyTerm(
-    preferredTermNodeId: string,
-    technologyNodeId: string,
+  async unrelatePreferredTagToTagTag(
+    preferredTagNodeId: string,
+    tagNodeId: string,
   ): Promise<void> {
     await this.neogma.queryRunner.run(
       `
-      MATCH (pt:PreferredTerm {id: $preferredTermNodeId})-[r:IS_PREFERRED_TERM_OF]-(t:Technology {id: $technologyNodeId})
+      MATCH (pt:PreferredTag {id: $preferredTagNodeId})-[r:IS_PREFERRED_TERM_OF]-(t:Tag {id: $tagNodeId})
 
       DETACH DELETE r
       `,
-      { preferredTermNodeId, technologyNodeId },
+      { preferredTagNodeId, tagNodeId },
     );
 
     return;
   }
 
-  async unrelateBlockedTermFromTechnologyTerm(
-    blockedTermNodeId: string,
-    technologyNodeId: string,
+  async unrelateBlockedTagFromTagTag(
+    blockedTagNodeId: string,
+    tagNodeId: string,
   ): Promise<boolean> {
     await this.neogma.queryRunner.run(
       `
-        MATCH (bt:TechnologyBlockedTerm {id: $blockedTermNodeId})-[r:IS_BLOCKED_TERM]->(t:Technology {id: $technologyNodeId})
+        MATCH (bt:TagBlockedTag {id: $blockedTagNodeId})-[r:IS_BLOCKED_TERM]->(t:Tag {id: $tagNodeId})
         DETACH DELETE r
       `,
-      { blockedTermNodeId, technologyNodeId },
+      { blockedTagNodeId, tagNodeId },
     );
 
     return;
   }
 
-  async unrelateTechnologyBlockedTermFromCreator(
-    blockedTermNodeId: string,
+  async unrelateTagBlockedTagFromCreator(
+    blockedTagNodeId: string,
     wallet: string,
   ): Promise<void> {
     await this.neogma.queryRunner.run(
       `
-      MATCH (pt:TechnologyBlockedTerm {id: $blockedTermNodeId})-[r:CREATED_BLOCKED_TERM]-(u:User {wallet: $wallet})
+      MATCH (pt:TagBlockedTag {id: $blockedTagNodeId})-[r:CREATED_BLOCKED_TERM]-(u:User {wallet: $wallet})
 
       DETACH DELETE r
       `,
-      { blockedTermNodeId, wallet },
+      { blockedTagNodeId, wallet },
     );
 
     return;
   }
 
-  async unrelateTechnologyPreferredTermFromCreator(
-    preferredTermNodeId: string,
+  async unrelatePreferredTagFromCreator(
+    preferredTagNodeId: string,
     wallet: string,
   ): Promise<void> {
     await this.neogma.queryRunner.run(
       `
-      MATCH (pt:PreferredTerm {id: $preferredTermNodeId})-[r:CREATED_PREFERRED_TERM_OF]-(u:User {wallet: $wallet})
+      MATCH (pt:PreferredTag {id: $preferredTagNodeId})-[r:CREATED_PREFERRED_TERM_OF]-(u:User {wallet: $wallet})
 
       DETACH DELETE r
       `,
-      { preferredTermNodeId, wallet },
+      { preferredTagNodeId, wallet },
     );
 
     return;
   }
 
   async linkSynonyms(
-    firstTermNodeId: string,
-    secondTermNodeId: string,
+    firstTagNodeId: string,
+    secondTagNodeId: string,
     synonymSuggesterWallet: string,
   ): Promise<Tag[]> {
     const res = await this.neogma.queryRunner.run(
       `
-      MATCH (t1:Technology {id: $firstTermNodeId})
-      MATCH (t2:Technology {id: $secondTermNodeId})
+      MATCH (t1:Tag {id: $firstTagNodeId})
+      MATCH (t2:Tag {id: $secondTagNodeId})
       MATCH (u:User {wallet: $synonymSuggesterWallet})
       
       MERGE (t1)-[:IS_SYNONYM_OF]->(t2)
       
-      CREATE (u)-[:SUGGESTED]->(ts:TechnologySynonym)-[:FOR]->(t1)
+      CREATE (u)-[:SUGGESTED]->(ts:TagSynonym)-[:FOR]->(t1)
       SET ts.timestamp = timestamp()
-      SET ts.synonymNodeId = $secondTermNodeId
+      SET ts.synonymNodeId = $secondTagNodeId
 
       RETURN t1, t2
       `,
-      { firstTermNodeId, secondTermNodeId, synonymSuggesterWallet },
+      { firstTagNodeId, secondTagNodeId, synonymSuggesterWallet },
     );
 
     if (res.records.length === 0) {
       throw new NotFoundError(
-        `Could not link synonym Technologies ${firstTermNodeId} and ${secondTermNodeId}`,
+        `Could not link synonym Tags ${firstTagNodeId} and ${secondTagNodeId}`,
       );
     }
 
     const [first, second] = res.records;
-    const firstNode = new Tag(first.get("Technology"));
-    const secondNode = new Tag(second.get("Technology"));
+    const firstNode = new Tag(first.get("Tag"));
+    const secondNode = new Tag(second.get("Tag"));
 
     return [firstNode, secondNode];
   }
 
   async unlinkSynonyms(
-    firstTermNodeId: string,
-    secondTermNodeId: string,
+    firstTagNodeId: string,
+    secondTagNodeId: string,
     creatorWallet: string,
   ): Promise<Tag[]> {
     await this.neogma.queryRunner.run(
       `
         MATCH (u:User {wallet: $userWallet})
-        MATCH (t1:Technology {id: $firstTermNodeId})-[syn:IS_SYNONYM_OF]-(t2:Technology {id: $secondTermNodeId})
+        MATCH (t1:Tag {id: $firstTagNodeId})-[syn:IS_SYNONYM_OF]-(t2:Tag {id: $secondTagNodeId})
 
-        CREATE (u)-[:DELETED]->(tds:TechnologyDeletedSynonym)-[:FOR]->(t1)
-        SET tds.synonymNodeId = $secondTermNodeId
+        CREATE (u)-[:DELETED]->(tds:TagDeletedSynonym)-[:FOR]->(t1)
+        SET tds.synonymNodeId = $secondTagNodeId
         SET tds.timestamp = timestamp()
 
         DETACH DELETE syn
       `,
-      { firstTermNodeId, secondTermNodeId, creatorWallet },
+      { firstTagNodeId, secondTagNodeId, creatorWallet },
     );
 
     return;
   }
 
-  async update(id: string, properties: UpdateTechnologyDto): Promise<Tag> {
+  async update(id: string, properties: UpdateTagDto): Promise<Tag> {
     return this.neogma.queryRunner
       .run(
         `
-            MATCH (t:Technology { id: $id })
+            MATCH (t:Tag { id: $id })
             SET t += $properties
             RETURN t
         `,
@@ -659,7 +649,7 @@ export class TechnologiesService {
   async deleteById(id: string): Promise<Tag> {
     const res = await this.neogma.queryRunner.run(
       `
-      MATCH (t:Technology {id: $id})
+      MATCH (t:Tag {id: $id})
       DETACH DELETE t
     `,
       {
@@ -670,10 +660,10 @@ export class TechnologiesService {
     return res.records.length ? new Tag(res.records[0].get("t")) : null;
   }
 
-  normalizeTechnologyName(name: string): string {
+  normalizeTagName(name: string): string {
     // Remove all spaces and punctuation from the name and lowercase the string
     if (!name) {
-      throw new Error("Technology name is required");
+      throw new Error("Tag name is required");
     }
     return name.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
   }
