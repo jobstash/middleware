@@ -10,7 +10,7 @@ export const Docsites = (
 ): NeogmaModel<DocsiteProps, NoRelations> =>
   ModelFactory<DocsiteProps, NoRelations>(
     {
-      label: "Docsite",
+      label: "DocSite",
       schema: {
         id: {
           type: "string",

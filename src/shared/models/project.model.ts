@@ -9,11 +9,10 @@ import {
 } from "neogma";
 import {
   ExtractProps,
-  Project,
   ProjectCategory,
   ProjectDetails,
   ProjectMoreInfo,
-  ProjectProperties,
+  Project,
 } from "../types";
 import { AuditInstance, AuditProps, Audits } from "./audit.model";
 import { HackInstance, HackProps, Hacks } from "./hack.model";
@@ -27,6 +26,11 @@ import { DocsiteInstance, Docsites } from "./docsite.model";
 import { TwitterInstance, Twitters } from "./twitter.model";
 import { TelegramInstance, Telegrams } from "./telegram.model";
 import { WebsiteInstance, Websites } from "./website.model";
+import {
+  GithubOrganizationInstance,
+  GithubOrganizations,
+} from "./github-organization.model";
+import { ProjectWithRelations } from "../interfaces/project-with-relations.interface";
 
 export type ProjectProps = ExtractProps<
   Omit<ProjectMoreInfo, "audits" | "hacks" | "chains">
@@ -48,13 +52,17 @@ export interface ProjectRelations {
   >;
   discord: ModelRelatedNodesI<ReturnType<typeof Discords>, DiscordInstance>;
   docsite: ModelRelatedNodesI<ReturnType<typeof Docsites>, DocsiteInstance>;
+  github: ModelRelatedNodesI<
+    ReturnType<typeof GithubOrganizations>,
+    GithubOrganizationInstance
+  >;
   twitter: ModelRelatedNodesI<ReturnType<typeof Twitters>, TwitterInstance>;
   telegram: ModelRelatedNodesI<ReturnType<typeof Telegrams>, TelegramInstance>;
   website: ModelRelatedNodesI<ReturnType<typeof Websites>, WebsiteInstance>;
 }
 
 export interface ProjectMethods {
-  getBaseProperties: () => ProjectProperties;
+  getBaseProperties: () => Project;
   getAudits: () => Promise<AuditInstance[]>;
   getAuditsData: () => Promise<AuditProps[]>;
   getHacks: () => Promise<HackInstance[]>;
@@ -66,8 +74,10 @@ export interface ProjectMethods {
 }
 
 export interface ProjectStatics {
-  getProjectsData: () => Promise<(Project & { orgName: string })[]>;
-  getProjectsMoreInfoData: () => Promise<ProjectMoreInfo[]>;
+  getProjectsData: () => Promise<
+    (ProjectWithRelations & { orgName: string })[]
+  >;
+  getProjectsMoreInfoData: () => Promise<ProjectWithRelations[]>;
   getProjectDetailsById: (id: string) => Promise<ProjectDetails | undefined>;
   getProjectsByCategory: (category: string) => Promise<ProjectProps[]>;
   getProjectCompetitors: (id: string) => Promise<ProjectProps[]>;
@@ -132,11 +142,6 @@ export const Projects = (
           allowEmpty: true,
           required: false,
         },
-        category: {
-          type: "string",
-          allowEmpty: true,
-          required: false,
-        },
         tokenSymbol: {
           type: "string",
           allowEmpty: true,
@@ -159,26 +164,6 @@ export const Projects = (
         },
         monthlyActiveUsers: {
           type: "number",
-          allowEmpty: true,
-          required: false,
-        },
-        docs: {
-          type: "string",
-          allowEmpty: true,
-          required: false,
-        },
-        twitter: {
-          type: "string",
-          allowEmpty: true,
-          required: false,
-        },
-        discord: {
-          type: "string",
-          allowEmpty: true,
-          required: false,
-        },
-        telegram: {
-          type: "string",
           allowEmpty: true,
           required: false,
         },
@@ -217,16 +202,6 @@ export const Projects = (
           allowEmpty: true,
           required: false,
         },
-        isInConstruction: {
-          type: "boolean",
-          allowEmpty: true,
-          required: false,
-        },
-        githubOrganization: {
-          type: "string",
-          allowEmpty: true,
-          required: false,
-        },
       },
       primaryKeyField: "id",
       relationships: {
@@ -260,6 +235,11 @@ export const Projects = (
           direction: "out",
           name: "HAS_DOCSITE",
         },
+        github: {
+          model: GithubOrganizations(neogma),
+          direction: "out",
+          name: "HAS_GITHUB",
+        },
         telegram: {
           model: Telegrams(neogma),
           direction: "out",
@@ -277,7 +257,7 @@ export const Projects = (
         },
       },
       methods: {
-        getBaseProperties: function (): ProjectProperties {
+        getBaseProperties: function (): Project {
           return {
             id: this.id,
             url: this.url,
@@ -287,7 +267,6 @@ export const Projects = (
             tvl: this.tvl,
             logo: this.logo,
             teamSize: this.teamSize,
-            category: this.category,
             tokenSymbol: this.tokenSymbol,
             monthlyFees: this.monthlyFees,
             monthlyVolume: this.monthlyVolume,
@@ -452,9 +431,12 @@ export const Projects = (
             `,
             );
           const result = await query.run(neogma.queryRunner);
-          const projects: (Project & { orgName: string })[] = result?.records[0]
-            .get("projects")
-            .map(record => record as Project & { orgName: string });
+          const projects: (ProjectWithRelations & { orgName: string })[] =
+            result?.records[0]
+              .get("projects")
+              .map(
+                record => record as ProjectWithRelations & { orgName: string },
+              );
           return projects;
         },
         getProjectsMoreInfoData: async function () {
@@ -584,9 +566,9 @@ export const Projects = (
             `,
             );
           const result = await query.run(neogma.queryRunner);
-          const projects: ProjectMoreInfo[] = result?.records[0]
+          const projects: ProjectWithRelations[] = result?.records[0]
             .get("projects")
-            .map(record => record as ProjectMoreInfo);
+            .map(record => record as ProjectWithRelations);
           return projects;
         },
         getProjectDetailsById: async function (id: string) {

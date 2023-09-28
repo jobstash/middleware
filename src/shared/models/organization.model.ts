@@ -6,7 +6,7 @@ import {
   NeogmaModel,
   QueryBuilder,
 } from "neogma";
-import { OrganizationProperties, ProjectMoreInfo } from "../types";
+import { Organization, ProjectMoreInfo } from "../types";
 import { ExtractProps } from "../types";
 import { Jobsites, JobsiteInstance, JobsiteProps } from "./jobsite.model";
 import { Projects, ProjectInstance, ProjectProps } from "./project.model";
@@ -21,8 +21,16 @@ import { DocsiteInstance, Docsites } from "./docsite.model";
 import { TelegramInstance, Telegrams } from "./telegram.model";
 import { TwitterInstance, Twitters } from "./twitter.model";
 import { WebsiteInstance, Websites } from "./website.model";
+import {
+  GithubOrganizationInstance,
+  GithubOrganizations,
+} from "./github-organization.model";
+import {
+  OrganizationAliasInstance,
+  OrganizationAliases,
+} from "./organization-alias.model";
 
-export type OrganizationProps = ExtractProps<OrganizationProperties>;
+export type OrganizationProps = ExtractProps<Organization>;
 
 export type OrganizationInstance = NeogmaInstance<
   OrganizationProps,
@@ -52,7 +60,15 @@ export interface OrganizationRelations {
     FundingRoundInstance
   >;
   discord: ModelRelatedNodesI<ReturnType<typeof Discords>, DiscordInstance>;
-  docsite: ModelRelatedNodesI<ReturnType<typeof Docsites>, DocsiteInstance>;
+  alias: ModelRelatedNodesI<
+    ReturnType<typeof OrganizationAliases>,
+    OrganizationAliasInstance
+  >;
+  docs: ModelRelatedNodesI<ReturnType<typeof Docsites>, DocsiteInstance>;
+  github: ModelRelatedNodesI<
+    ReturnType<typeof GithubOrganizations>,
+    GithubOrganizationInstance
+  >;
   twitter: ModelRelatedNodesI<ReturnType<typeof Twitters>, TwitterInstance>;
   telegram: ModelRelatedNodesI<ReturnType<typeof Telegrams>, TelegramInstance>;
   website: ModelRelatedNodesI<ReturnType<typeof Websites>, WebsiteInstance>;
@@ -76,11 +92,6 @@ export const Organizations = (
       label: "Organization",
       schema: {
         id: {
-          type: "string",
-          allowEmpty: false,
-          required: true,
-        },
-        url: {
           type: "string",
           allowEmpty: false,
           required: true,
@@ -153,7 +164,7 @@ export const Organizations = (
           direction: "out",
           name: "HAS_DISCORD",
         },
-        docsite: {
+        docs: {
           model: Docsites(neogma),
           direction: "out",
           name: "HAS_DOCSITE",
@@ -162,6 +173,16 @@ export const Organizations = (
           model: Telegrams(neogma),
           direction: "out",
           name: "HAS_TELEGRAM",
+        },
+        github: {
+          model: GithubOrganizations(neogma),
+          direction: "out",
+          name: "HAS_GITHUB",
+        },
+        alias: {
+          model: OrganizationAliases(neogma),
+          direction: "out",
+          name: "HAS_ORGANIZATION_ALIAS",
         },
         twitter: {
           model: Twitters(neogma),

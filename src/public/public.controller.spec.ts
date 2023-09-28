@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { PublicController } from "./public.controller";
 import { PublicService } from "./public.service";
 import { Integer } from "neo4j-driver";
-import { JobListResult, Project } from "src/shared/interfaces";
+import { JobListResult, ProjectWithRelations } from "src/shared/interfaces";
 import { hasDuplicates, printDuplicateItems } from "src/shared/helpers";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { CacheModule } from "@nestjs/cache-manager";
@@ -16,7 +16,7 @@ describe("PublicController", () => {
   let models: ModelService;
 
   const projectHasArrayPropsDuplication = (
-    project: Project,
+    project: ProjectWithRelations,
     jobPostUUID: string,
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(

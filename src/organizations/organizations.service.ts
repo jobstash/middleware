@@ -8,7 +8,7 @@ import {
   OrgFilterConfigsEntity,
   OrgListResult,
   OrgListResultEntity,
-  Organization,
+  OrganizationWithRelations,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -408,7 +408,7 @@ export class OrganizationsService {
       : undefined;
   }
 
-  async findById(id: string): Promise<Organization | undefined> {
+  async findById(id: string): Promise<OrganizationWithRelations | undefined> {
     const res = await this.neogma.queryRunner.run(
       `
         MATCH (o:Organization {id: $id})
@@ -417,11 +417,11 @@ export class OrganizationsService {
       { id },
     );
     return res.records.length
-      ? new Organization(res.records[0].get("o"))
+      ? new OrganizationWithRelations(res.records[0].get("o"))
       : undefined;
   }
 
-  async findAll(): Promise<Organization[] | undefined> {
+  async findAll(): Promise<OrganizationWithRelations[] | undefined> {
     const res = await this.neogma.queryRunner.run(
       `
         MATCH (o:Organization)
@@ -429,7 +429,9 @@ export class OrganizationsService {
       `,
     );
     return res.records.length
-      ? res.records.map(resource => new Organization(resource.get("o")))
+      ? res.records.map(
+          resource => new OrganizationWithRelations(resource.get("o")),
+        )
       : undefined;
   }
 
@@ -530,6 +532,6 @@ export class OrganizationsService {
 
     const [first] = res.records;
     const organization = first.get("organization");
-    return new Organization(organization);
+    return new OrganizationWithRelations(organization);
   }
 }

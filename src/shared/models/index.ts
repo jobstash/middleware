@@ -1,5 +1,7 @@
 export * from "./structured-jobpost.model";
 export * from "./organization.model";
+export * from "./organization-alias.model";
+export * from "./github-organization.model";
 export * from "./tag.model";
 export * from "./jobsite.model";
 export * from "./auditor.model";
@@ -14,7 +16,8 @@ export * from "./jobpost-category.model";
 export * from "./jobpost-classification.model";
 export * from "./jobpost-commitment.model";
 export * from "./project-category.model";
-export * from "./jobpost-status.model";
+export * from "./jobpost-offline-status.model";
+export * from "./jobpost-online-status.model";
 export * from "./funding-round.model";
 export * from "./investor.model";
 export * from "./hack.model";

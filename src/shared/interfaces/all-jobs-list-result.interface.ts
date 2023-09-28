@@ -6,23 +6,26 @@ import {
 import { isLeft } from "fp-ts/lib/Either";
 import * as t from "io-ts";
 import { report } from "io-ts-human-reporter";
-import { Organization, OrganizationProperties } from "./organization.interface";
+import {
+  OrganizationWithRelations,
+  Organization,
+} from "./organization.interface";
 import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relations.interface";
 
-@ApiExtraModels(StructuredJobpostWithRelations, OrganizationProperties)
+@ApiExtraModels(StructuredJobpostWithRelations, Organization)
 export class AllJobsListResult extends StructuredJobpostWithRelations {
   public static readonly AllJobsListResultType = t.intersection([
     StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
     t.strict({
-      organization: Organization.OrganizationPropertiesType,
+      organization: OrganizationWithRelations.OrganizationWithRelationsType,
     }),
   ]);
 
   @ApiPropertyOptional({
     type: "array",
-    items: { $ref: getSchemaPath(OrganizationProperties) },
+    items: { $ref: getSchemaPath(Organization) },
   })
-  organization: OrganizationProperties;
+  organization: OrganizationWithRelations;
 
   constructor(raw: AllJobsListResult) {
     const { organization, ...jobpostProperties } = raw;

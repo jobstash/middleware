@@ -17,8 +17,6 @@ import {
   JobpostCategoryProps,
   JobpostProps,
   JobpostRelations,
-  JobpostStatusProps,
-  JobpostStatuses,
   Jobposts,
   JobsiteMethods,
   JobsiteProps,
@@ -47,6 +45,10 @@ import {
   TagProps,
   TagRelations,
   TagStatics,
+  JobpostOnlineStatusProps,
+  JobpostOfflineStatusProps,
+  JobpostOnlineStatuses,
+  JobpostOfflineStatuses,
 } from "src/shared/models";
 import { NoRelations } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -81,7 +83,14 @@ export class ModelService implements OnModuleInit {
   public Tags: NeogmaModel<TagProps, TagRelations, TagMethods, TagStatics>;
   public JobpostCategories: NeogmaModel<JobpostCategoryProps, NoRelations>;
   public ProjectCategories: NeogmaModel<ProjectCategoryProps, NoRelations>;
-  public JobpostStatuses: NeogmaModel<JobpostStatusProps, NoRelations>;
+  public JobpostOnlineStatuses: NeogmaModel<
+    JobpostOnlineStatusProps,
+    NoRelations
+  >;
+  public JobpostOfflineStatuses: NeogmaModel<
+    JobpostOfflineStatusProps,
+    NoRelations
+  >;
   public FundingRounds: NeogmaModel<FundingRoundProps, FundingRoundRelations>;
   public Investors: NeogmaModel<InvestorProps, NoRelations>;
   public BlockedTags: NeogmaModel<BlockedTagProps, NoRelations>;
@@ -103,7 +112,8 @@ export class ModelService implements OnModuleInit {
     this.Tags = Tags(this.neogma);
     this.JobpostCategories = JobpostCategories(this.neogma);
     this.ProjectCategories = ProjectCategories(this.neogma);
-    this.JobpostStatuses = JobpostStatuses(this.neogma);
+    this.JobpostOnlineStatuses = JobpostOnlineStatuses(this.neogma);
+    this.JobpostOfflineStatuses = JobpostOfflineStatuses(this.neogma);
     this.FundingRounds = FundingRounds(this.neogma);
     this.Investors = Investors(this.neogma);
     this.BlockedTags = BlockedTags(this.neogma);

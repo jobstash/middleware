@@ -1,6 +1,6 @@
 import { Node } from "neo4j-driver";
 import { intConverter, nonZeroOrNull, notStringOrNull } from "../helpers";
-import { ShortOrg, OrganizationProperties } from "../interfaces";
+import { ShortOrg, Organization } from "../interfaces";
 
 export class ShortOrgEntity {
   constructor(private readonly raw: ShortOrg) {}
@@ -89,21 +89,15 @@ export class OrganizationEntity {
     return (<Record<string, number>>this.node.properties).updatedTimestamp;
   }
 
-  getProperties(): OrganizationProperties {
+  getProperties(): Organization {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { ...properties } = <Record<string, any>>this.node.properties;
     return {
       ...properties,
       logoUrl: notStringOrNull(properties?.logo),
-      docs: notStringOrNull(properties?.docs),
-      altName: notStringOrNull(properties?.altName),
       headCount: nonZeroOrNull(properties?.headCount),
-      github: notStringOrNull(properties?.github),
-      twitter: notStringOrNull(properties?.twitter),
-      discord: notStringOrNull(properties?.discord),
-      telegram: notStringOrNull(properties?.telegram),
       createdTimestamp: nonZeroOrNull(properties?.createdTimestamp),
       updatedTimestamp: nonZeroOrNull(properties?.updatedTimestamp),
-    } as OrganizationProperties;
+    } as Organization;
   }
 }

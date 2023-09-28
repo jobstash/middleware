@@ -5,8 +5,8 @@ import {
   ProjectFilterConfigsEntity,
   ProjectDetails,
   ProjectDetailsEntity,
-  ProjectProperties,
   Project,
+  ProjectWithRelations,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -14,7 +14,7 @@ import { ProjectListParams } from "./dto/project-list.input";
 import { intConverter, notStringOrNull } from "src/shared/helpers";
 import {
   ProjectEntity,
-  ProjectMoreInfoEntity,
+  ProjectWithRelationsEntity,
 } from "src/shared/entities/project.entity";
 import { createNewSortInstance } from "fast-sort";
 import { ModelService } from "src/model/model.service";
@@ -36,7 +36,7 @@ export class ProjectsService {
 
   async getProjectsListWithSearch(
     params: ProjectListParams,
-  ): Promise<PaginatedData<Project>> {
+  ): Promise<PaginatedData<ProjectWithRelations>> {
     const paramsPassed = {
       ...params,
       query: params.query ? `(?i).*${params.query}.*` : null,
@@ -69,7 +69,7 @@ export class ProjectsService {
       limit,
     } = paramsPassed;
 
-    const results: (Project & { orgName: string })[] = [];
+    const results: (ProjectWithRelations & { orgName: string })[] = [];
 
     try {
       const projects = await this.models.Projects.getProjectsData();
@@ -97,7 +97,7 @@ export class ProjectsService {
     }
 
     const projectFilters = (
-      project: Project & { orgName: string },
+      project: ProjectWithRelations & { orgName: string },
     ): boolean => {
       return (
         (!query || project.name.match(query)) &&
@@ -133,9 +133,9 @@ export class ProjectsService {
 
     const filtered = results
       .filter(projectFilters)
-      .map(x => new ProjectMoreInfoEntity(x).getProperties());
+      .map(x => new ProjectWithRelationsEntity(x).getProperties());
 
-    const getSortParam = (p1: Project): number | null => {
+    const getSortParam = (p1: ProjectWithRelations): number | null => {
       switch (params.orderBy) {
         case "audits":
           return p1.audits.length;
@@ -156,7 +156,7 @@ export class ProjectsService {
       }
     };
 
-    let final: Project[] = [];
+    let final: ProjectWithRelations[] = [];
     const naturalSort = createNewSortInstance({
       comparer: new Intl.Collator(undefined, {
         numeric: true,
@@ -164,11 +164,11 @@ export class ProjectsService {
       }).compare,
     });
     if (!order || order === "asc") {
-      final = naturalSort<Project>(filtered).asc(x =>
+      final = naturalSort<ProjectWithRelations>(filtered).asc(x =>
         orderBy ? getSortParam(x) : x.name,
       );
     } else {
-      final = naturalSort<Project>(filtered).desc(x =>
+      final = naturalSort<ProjectWithRelations>(filtered).desc(x =>
         orderBy ? getSortParam(x) : x.name,
       );
     }
@@ -254,9 +254,7 @@ export class ProjectsService {
     }
   }
 
-  async getProjectsByOrgId(
-    id: string,
-  ): Promise<ProjectProperties[] | undefined> {
+  async getProjectsByOrgId(id: string): Promise<Project[] | undefined> {
     try {
       const projects = await this.models.Projects.getProjectsData();
       return projects
@@ -291,7 +289,7 @@ export class ProjectsService {
     }
   }
 
-  async getProjects(): Promise<ProjectProperties[]> {
+  async getProjects(): Promise<Project[]> {
     try {
       const projects = await this.models.Projects.findMany();
       return projects.map(project => project.getBaseProperties());
@@ -509,6 +507,6 @@ export class ProjectsService {
 
     const [first] = res.records;
     const project = first.get("project");
-    return new Project(project);
+    return new ProjectWithRelations(project);
   }
 }

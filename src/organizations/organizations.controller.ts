@@ -30,7 +30,7 @@ import { Roles } from "src/shared/decorators/role.decorator";
 import { btoa, responseSchemaWrapper } from "src/shared/helpers";
 import {
   Repository,
-  OrganizationProperties,
+  Organization,
   Response,
   ResponseWithNoData,
   ShortOrg,
@@ -57,7 +57,7 @@ import { OrgListParams } from "./dto/org-list.input";
 const mime = require("mime");
 
 @Controller("organizations")
-@ApiExtraModels(ShortOrg, OrganizationProperties)
+@ApiExtraModels(ShortOrg, Organization)
 export class OrganizationsController {
   private readonly NFT_STORAGE_API_KEY;
   private readonly nftStorageClient: NFTStorage;
@@ -113,7 +113,7 @@ export class OrganizationsController {
   @ApiOkResponse({
     description:
       "Returns a paginated sorted list of organizations that satisfy the search and filter predicate",
-    type: PaginatedData<OrganizationProperties>,
+    type: PaginatedData<Organization>,
     schema: {
       allOf: [
         {
@@ -127,7 +127,7 @@ export class OrganizationsController {
             },
             data: {
               type: "array",
-              items: { $ref: getSchemaPath(OrganizationProperties) },
+              items: { $ref: getSchemaPath(Organization) },
             },
           },
         },
@@ -357,7 +357,7 @@ export class OrganizationsController {
   @ApiOkResponse({
     description: "Creates a new organization",
     schema: responseSchemaWrapper({
-      $ref: getSchemaPath(OrganizationProperties),
+      $ref: getSchemaPath(Organization),
     }),
   })
   @ApiUnprocessableEntityResponse({
@@ -367,7 +367,7 @@ export class OrganizationsController {
   })
   async createOrganization(
     @Body() body: CreateOrganizationInput,
-  ): Promise<Response<OrganizationProperties> | ResponseWithNoData> {
+  ): Promise<Response<Organization> | ResponseWithNoData> {
     this.logger.log(`/organizations/create ${JSON.stringify(body)}`);
     let organization = await this.organizationsService.find(body.name);
 
@@ -401,7 +401,7 @@ export class OrganizationsController {
   @ApiOkResponse({
     description: "Updates an existing organization",
     schema: responseSchemaWrapper({
-      $ref: getSchemaPath(OrganizationProperties),
+      $ref: getSchemaPath(Organization),
     }),
   })
   @ApiUnprocessableEntityResponse({
@@ -411,7 +411,7 @@ export class OrganizationsController {
   })
   async updateOrganization(
     @Body() body: UpdateOrganizationInput,
-  ): Promise<Response<OrganizationProperties> | ResponseWithNoData> {
+  ): Promise<Response<Organization> | ResponseWithNoData> {
     this.logger.log(`/organizations/update ${JSON.stringify(body)}`);
     const storedOrganization = await this.organizationsService.find(body.name);
 

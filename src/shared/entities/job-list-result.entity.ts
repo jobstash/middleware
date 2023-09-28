@@ -1,12 +1,12 @@
 import {
   JobListResult,
-  Organization,
+  OrganizationWithRelations,
   StructuredJobpostWithRelations,
 } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 
 type RawJobPost = StructuredJobpostWithRelations & {
-  organization?: Organization | null;
+  organization?: OrganizationWithRelations | null;
 };
 
 export class JobListResultEntity {
@@ -32,13 +32,13 @@ export class JobListResultEntity {
         ...organization,
         docs: notStringOrNull(organization?.docs),
         logoUrl: notStringOrNull(organization?.logoUrl),
-        altName: notStringOrNull(organization?.altName),
         headCount: nonZeroOrNull(organization?.headCount),
         github: notStringOrNull(organization?.github),
         twitter: notStringOrNull(organization?.twitter),
         discord: notStringOrNull(organization?.discord),
         telegram: notStringOrNull(organization?.telegram),
-        jobsiteLink: notStringOrNull(organization?.jobsiteLink),
+        website: notStringOrNull(organization?.website),
+        alias: notStringOrNull(organization?.alias),
         createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
         updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
         projects:
@@ -50,7 +50,6 @@ export class JobListResultEntity {
             defiLlamaParent: notStringOrNull(project?.defiLlamaParent),
             tokenAddress: notStringOrNull(project?.tokenAddress),
             tokenSymbol: notStringOrNull(project?.tokenSymbol, ["-"]),
-            isInConstruction: project?.isInConstruction ?? null,
             tvl: nonZeroOrNull(project?.tvl),
             monthlyVolume: nonZeroOrNull(project?.monthlyVolume),
             monthlyFees: nonZeroOrNull(project?.monthlyFees),
@@ -62,7 +61,7 @@ export class JobListResultEntity {
             docs: notStringOrNull(project?.docs),
             teamSize: nonZeroOrNull(project?.teamSize),
             category: notStringOrNull(project?.category),
-            githubOrganization: notStringOrNull(project?.githubOrganization),
+            github: notStringOrNull(project?.github),
             updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
             hacks:
               project?.hacks.map(hack => ({

@@ -8,8 +8,8 @@ import { Integer } from "neo4j-driver";
 import {
   OrgFilterConfigs,
   OrgListResult,
-  OrganizationProperties,
-  Project,
+  Organization,
+  ProjectWithRelations,
   ShortOrg,
 } from "src/shared/types";
 import { hasDuplicates, printDuplicateItems } from "src/shared/helpers";
@@ -24,7 +24,7 @@ describe("OrganizationsController", () => {
   let models: ModelService;
 
   const projectHasArrayPropsDuplication = (
-    project: Project,
+    project: ProjectWithRelations,
     orgId: string,
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
@@ -156,7 +156,7 @@ describe("OrganizationsController", () => {
       page: 1,
       count: expect.any(Number),
       total: expect.any(Number),
-      data: expect.any(Array<OrganizationProperties>),
+      data: expect.any(Array<Organization>),
     });
 
     printDuplicateItems(setOfUuids, uuids, "Organization with orgId");

@@ -10,7 +10,7 @@ import {
   JobFilterConfigs,
   JobListResult,
   AllJobsListResult,
-  Project,
+  ProjectWithRelations,
 } from "src/shared/types";
 import { Integer } from "neo4j-driver";
 import {
@@ -30,7 +30,7 @@ describe("JobsController", () => {
   let models: ModelService;
 
   const projectHasArrayPropsDuplication = (
-    project: Project,
+    project: ProjectWithRelations,
     jobPostUUID: string,
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(

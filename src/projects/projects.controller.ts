@@ -31,11 +31,11 @@ import { btoa, responseSchemaWrapper } from "src/shared/helpers";
 import {
   PaginatedData,
   ProjectFilterConfigs,
-  ProjectProperties,
+  Project,
   ProjectDetails,
   Response,
   ResponseWithNoData,
-  Project,
+  ProjectWithRelations,
 } from "src/shared/types";
 import { CreateProjectInput } from "./dto/create-project.input";
 import { ProjectsService } from "./projects.service";
@@ -58,7 +58,7 @@ import { ProjectCategoryService } from "./project-category.service";
 const mime = require("mime");
 
 @Controller("projects")
-@ApiExtraModels(ProjectProperties)
+@ApiExtraModels(Project)
 export class ProjectsController {
   private readonly NFT_STORAGE_API_KEY;
   private readonly nftStorageClient: NFTStorage;
@@ -83,11 +83,9 @@ export class ProjectsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
   })
-  async getProjects(): Promise<
-    Response<ProjectProperties[]> | ResponseWithNoData
-  > {
+  async getProjects(): Promise<Response<Project[]> | ResponseWithNoData> {
     this.logger.log(`/projects`);
     return this.projectsService
       .getProjects()
@@ -118,7 +116,7 @@ export class ProjectsController {
   @ApiOkResponse({
     description:
       "Returns a paginated sorted list of projects that satisfy the search and filter predicate",
-    type: PaginatedData<Project>,
+    type: PaginatedData<ProjectWithRelations>,
     schema: {
       allOf: [
         {
@@ -132,7 +130,7 @@ export class ProjectsController {
             },
             data: {
               type: "array",
-              items: { $ref: getSchemaPath(Project) },
+              items: { $ref: getSchemaPath(ProjectWithRelations) },
             },
           },
         },
@@ -153,7 +151,7 @@ export class ProjectsController {
   async getProjectsListWithSearch(
     @Query(new ValidationPipe({ transform: true }))
     params: ProjectListParams,
-  ): Promise<PaginatedData<Project>> {
+  ): Promise<PaginatedData<ProjectWithRelations>> {
     const paramsParsed = {
       ...params,
       query: btoa(params.query),
@@ -223,7 +221,9 @@ export class ProjectsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects under the speccified category",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(ProjectWithRelations),
+    }),
   })
   async getProjectsByCategory(
     @Param("category") category: string,
@@ -256,7 +256,9 @@ export class ProjectsController {
   @ApiOkResponse({
     description:
       "Returns a list of competing projects for the specified project",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(ProjectWithRelations),
+    }),
   })
   async getProjectCompetitors(
     @Param("id") id: string,
@@ -290,7 +292,9 @@ export class ProjectsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects for an organization",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(ProjectWithRelations),
+    }),
   })
   async getProjectsByOrgId(
     @Param("id") id: string,
@@ -324,7 +328,9 @@ export class ProjectsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects with names matching the query",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(ProjectWithRelations),
+    }),
   })
   async searchProjects(
     @Query("query") query: string,
@@ -457,7 +463,7 @@ export class ProjectsController {
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Creates a new project",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(ProjectProperties) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
   })
   @ApiUnprocessableEntityResponse({
     description:
@@ -466,7 +472,7 @@ export class ProjectsController {
   })
   async createProject(
     @Body() body: CreateProjectInput,
-  ): Promise<Response<ProjectProperties> | ResponseWithNoData> {
+  ): Promise<Response<Project> | ResponseWithNoData> {
     this.logger.log(`/projects/create ${JSON.stringify(body)}`);
     const existingProject = await this.projectsService.find(body.name);
 

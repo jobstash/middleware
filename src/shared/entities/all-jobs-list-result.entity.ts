@@ -1,12 +1,12 @@
 import {
-  OrganizationProperties,
+  OrganizationWithRelations,
   StructuredJobpostWithRelations,
 } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { AllJobsListResult } from "../interfaces/all-jobs-list-result.interface";
 
 type RawJobPost = StructuredJobpostWithRelations & {
-  organization?: OrganizationProperties | null;
+  organization?: OrganizationWithRelations | null;
 };
 
 export class AllJobListResultEntity {
@@ -32,13 +32,13 @@ export class AllJobListResultEntity {
         ...organization,
         docs: notStringOrNull(organization?.docs),
         logoUrl: notStringOrNull(organization?.logoUrl),
-        altName: notStringOrNull(organization?.altName),
         headCount: nonZeroOrNull(organization?.headCount),
         github: notStringOrNull(organization?.github),
         twitter: notStringOrNull(organization?.twitter),
         discord: notStringOrNull(organization?.discord),
         telegram: notStringOrNull(organization?.telegram),
-        jobsiteLink: notStringOrNull(organization?.jobsiteLink),
+        alias: notStringOrNull(organization?.alias),
+        website: notStringOrNull(organization?.website),
         createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
         updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
       },

@@ -1,6 +1,6 @@
 import {
   FundingRound,
-  Organization,
+  OrganizationWithRelations,
   ProjectMoreInfo,
   StructuredJobpostWithRelations,
   Tag,
@@ -9,7 +9,7 @@ import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { OrgListResult } from "../interfaces/org-list-result.interface";
 import { Investor } from "../interfaces/investor.interface";
 
-type RawOrg = Organization & {
+type RawOrg = OrganizationWithRelations & {
   jobs?: StructuredJobpostWithRelations[] | null;
   tags: Tag[];
   projects?: ProjectMoreInfo[] | null;
@@ -27,7 +27,6 @@ export class OrgListResultEntity {
     return new OrgListResult({
       ...organization,
       docs: notStringOrNull(organization?.docs),
-      altName: notStringOrNull(organization?.altName),
       headCount: nonZeroOrNull(organization?.headCount),
       github: notStringOrNull(organization?.github),
       twitter: notStringOrNull(organization?.twitter),
@@ -43,7 +42,6 @@ export class OrgListResultEntity {
           defiLlamaParent: notStringOrNull(project?.defiLlamaParent),
           tokenAddress: notStringOrNull(project?.tokenAddress),
           tokenSymbol: notStringOrNull(project?.tokenSymbol, ["-"]),
-          isInConstruction: project?.isInConstruction ?? null,
           tvl: nonZeroOrNull(project?.tvl),
           monthlyVolume: nonZeroOrNull(project?.monthlyVolume),
           monthlyFees: nonZeroOrNull(project?.monthlyFees),
@@ -54,7 +52,7 @@ export class OrgListResultEntity {
           discord: notStringOrNull(project?.discord),
           docs: notStringOrNull(project?.docs),
           teamSize: nonZeroOrNull(project?.teamSize),
-          githubOrganization: notStringOrNull(project?.githubOrganization),
+          github: notStringOrNull(project?.github),
           updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
           hacks:
             project?.hacks.map(hack => ({

@@ -5,7 +5,7 @@ import {
 } from "@nestjs/swagger";
 import { FundingRound } from "./funding-round.interface";
 import { Investor } from "./investor.interface";
-import { Organization } from "./organization.interface";
+import { OrganizationWithRelations } from "./organization.interface";
 import { ProjectCategory } from "./project-category.interface";
 import { StructuredJobpost } from "./structured-jobpost.interface";
 import { Tag } from "./tag.interface";
@@ -20,21 +20,21 @@ import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relati
   ProjectCategory,
   FundingRound,
   Investor,
-  Organization,
+  OrganizationWithRelations,
 )
 export class JobListResult extends StructuredJobpostWithRelations {
   public static readonly JobListResultType = t.intersection([
     StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
     t.strict({
-      organization: Organization.OrganizationType,
+      organization: OrganizationWithRelations.OrganizationWithRelationsType,
     }),
   ]);
 
   @ApiPropertyOptional({
     type: "array",
-    items: { $ref: getSchemaPath(Organization) },
+    items: { $ref: getSchemaPath(OrganizationWithRelations) },
   })
-  organization: Organization;
+  organization: OrganizationWithRelations;
 
   constructor(raw: JobListResult) {
     const { organization, ...jobpostProperties } = raw;

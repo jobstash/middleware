@@ -3,25 +3,25 @@ import * as t from "io-ts";
 import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
 
-export class JobpostStatus {
-  public static readonly JobpostStatusType = t.strict({
+export class JobpostOfflineStatus {
+  public static readonly JobpostOfflineStatusType = t.strict({
     id: t.string,
-    status: t.string,
+    name: t.string,
   });
 
   @ApiProperty()
   id: string;
 
   @ApiProperty()
-  status: string;
+  name: string;
 
-  constructor(raw: JobpostStatus) {
-    const { id, status } = raw;
+  constructor(raw: JobpostOfflineStatus) {
+    const { id, name } = raw;
 
-    const result = JobpostStatus.JobpostStatusType.decode(raw);
+    const result = JobpostOfflineStatus.JobpostOfflineStatusType.decode(raw);
 
     this.id = id;
-    this.status = status;
+    this.name = name;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

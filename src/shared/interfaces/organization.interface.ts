@@ -7,30 +7,21 @@ import {
 import * as t from "io-ts";
 import { Tag } from "./tag.interface";
 import { FundingRound } from "./funding-round.interface";
-import { Project } from "./project.interface";
 import { Investor } from "./investor.interface";
 import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
-import { ProjectMoreInfo } from "./project-more-info.interface";
+import { ProjectWithRelations } from "./project-with-relations.interface";
 
-export class OrganizationProperties {
-  public static readonly OrganizationPropertiesType = t.strict({
+export class Organization {
+  public static readonly OrganizationType = t.strict({
     id: t.string,
-    url: t.string,
     name: t.string,
     orgId: t.string,
     summary: t.string,
     location: t.string,
     description: t.string,
-    docs: t.union([t.string, t.null]),
     logoUrl: t.union([t.string, t.null]),
-    github: t.union([t.string, t.null]),
-    altName: t.union([t.string, t.null]),
-    discord: t.union([t.string, t.null]),
-    twitter: t.union([t.string, t.null]),
-    telegram: t.union([t.string, t.null]),
     headCount: t.union([t.number, t.null]),
-    jobsiteLink: t.union([t.string, t.null]),
     createdTimestamp: t.union([t.number, t.null]),
     updatedTimestamp: t.union([t.number, t.null]),
   });
@@ -54,9 +45,6 @@ export class OrganizationProperties {
   location: string;
 
   @ApiProperty()
-  url: string;
-
-  @ApiProperty()
   logoUrl: string | null;
 
   @ApiProperty()
@@ -68,10 +56,9 @@ export class OrganizationProperties {
   @ApiPropertyOptional()
   updatedTimestamp: number | null;
 
-  constructor(raw: OrganizationProperties) {
+  constructor(raw: Organization) {
     const {
       id,
-      url,
       name,
       logoUrl,
       orgId,
@@ -83,11 +70,9 @@ export class OrganizationProperties {
       updatedTimestamp,
     } = raw;
 
-    const result =
-      OrganizationProperties.OrganizationPropertiesType.decode(raw);
+    const result = Organization.OrganizationType.decode(raw);
 
     this.id = id;
-    this.url = url;
     this.name = name;
     this.logoUrl = logoUrl;
     this.orgId = orgId;
@@ -108,17 +93,19 @@ export class OrganizationProperties {
   }
 }
 
-@ApiExtraModels(Project, FundingRound)
-export class Organization extends OrganizationProperties {
-  public static readonly OrganizationType = t.intersection([
-    OrganizationProperties.OrganizationPropertiesType,
+@ApiExtraModels(ProjectWithRelations, FundingRound)
+export class OrganizationWithRelations extends Organization {
+  public static readonly OrganizationWithRelationsType = t.intersection([
+    Organization.OrganizationType,
     t.strict({
       discord: t.union([t.string, t.null]),
       website: t.union([t.string, t.null]),
       telegram: t.union([t.string, t.null]),
+      github: t.union([t.string, t.null]),
+      alias: t.union([t.string, t.null]),
       twitter: t.union([t.string, t.null]),
       docs: t.union([t.string, t.null]),
-      projects: t.array(ProjectMoreInfo.ProjectMoreInfoType),
+      projects: t.array(ProjectWithRelations.ProjectWithRelationsType),
       fundingRounds: t.array(FundingRound.FundingRoundType),
       investors: t.array(Investor.InvestorType),
     }),
@@ -134,6 +121,12 @@ export class Organization extends OrganizationProperties {
   telegram: string | null;
 
   @ApiPropertyOptional()
+  github: string | null;
+
+  @ApiPropertyOptional()
+  alias: string | null;
+
+  @ApiPropertyOptional()
   twitter: string | null;
 
   @ApiPropertyOptional()
@@ -141,9 +134,9 @@ export class Organization extends OrganizationProperties {
 
   @ApiPropertyOptional({
     type: "array",
-    items: { $ref: getSchemaPath(Project) },
+    items: { $ref: getSchemaPath(ProjectWithRelations) },
   })
-  projects: ProjectMoreInfo[];
+  projects: ProjectWithRelations[];
 
   @ApiPropertyOptional({
     type: "array",
@@ -157,11 +150,31 @@ export class Organization extends OrganizationProperties {
   })
   investors: Investor[];
 
-  constructor(raw: Organization) {
-    const { projects, fundingRounds, investors, ...orgProperties } = raw;
+  constructor(raw: OrganizationWithRelations) {
+    const {
+      discord,
+      website,
+      telegram,
+      github,
+      twitter,
+      docs,
+      alias,
+      projects,
+      fundingRounds,
+      investors,
+      ...orgProperties
+    } = raw;
     super(orgProperties);
-    const result = Organization.OrganizationType.decode(raw);
+    const result =
+      OrganizationWithRelations.OrganizationWithRelationsType.decode(raw);
 
+    this.discord = discord;
+    this.website = website;
+    this.telegram = telegram;
+    this.github = github;
+    this.alias = alias;
+    this.twitter = twitter;
+    this.docs = docs;
     this.projects = projects;
     this.fundingRounds = fundingRounds;
     this.investors = investors;

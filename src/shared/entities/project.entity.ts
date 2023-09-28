@@ -1,13 +1,13 @@
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
-import { Project } from "../interfaces";
+import { ProjectWithRelations } from "../interfaces";
 import { Node } from "neo4j-driver";
 
-export class ProjectMoreInfoEntity {
-  constructor(private readonly raw: Project) {}
+export class ProjectWithRelationsEntity {
+  constructor(private readonly raw: ProjectWithRelations) {}
 
-  getProperties(): Project {
+  getProperties(): ProjectWithRelations {
     const project = this.raw;
-    return new Project({
+    return new ProjectWithRelations({
       ...project,
       category: notStringOrNull(project.category),
       tokenSymbol: notStringOrNull(project?.tokenSymbol, ["-"]),
@@ -139,9 +139,9 @@ export class ProjectEntity {
     return (<Record<string, number>>this.node.properties).updatedTimestamp;
   }
 
-  getProperties(): Project {
+  getProperties(): ProjectWithRelations {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { ...properties } = <Record<string, any>>this.node.properties;
-    return properties as Project;
+    return properties as ProjectWithRelations;
   }
 }

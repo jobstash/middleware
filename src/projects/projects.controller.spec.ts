@@ -8,7 +8,7 @@ import { Integer } from "neo4j-driver";
 import {
   ProjectFilterConfigs,
   ProjectDetails,
-  ProjectProperties,
+  Project,
 } from "src/shared/interfaces";
 import { hasDuplicates, printDuplicateItems } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
@@ -113,7 +113,7 @@ describe("ProjectsController", () => {
       page: 1,
       count: expect.any(Number),
       total: expect.any(Number),
-      data: expect.any(Array<ProjectProperties>),
+      data: expect.any(Array<Project>),
     });
 
     printDuplicateItems(setOfUuids, uuids, "Project with ID");

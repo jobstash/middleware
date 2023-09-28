@@ -14,7 +14,14 @@ import {
   JobpostCategories,
   JobpostCategoryInstance,
 } from "./jobpost-category.model";
-import { JobpostStatuses, JobpostStatusInstance } from "./jobpost-status.model";
+import {
+  JobpostOnlineStatusInstance,
+  JobpostOnlineStatuses,
+} from "./jobpost-online-status.model";
+import {
+  JobpostOfflineStatusInstance,
+  JobpostOfflineStatuses,
+} from "./jobpost-offline-status.model";
 
 export type JobpostProps = ExtractProps<Jobpost>;
 
@@ -29,9 +36,13 @@ export interface JobpostRelations {
     ReturnType<typeof JobpostCategories>,
     JobpostCategoryInstance
   >;
-  status: ModelRelatedNodesI<
-    ReturnType<typeof JobpostStatuses>,
-    JobpostStatusInstance
+  online: ModelRelatedNodesI<
+    ReturnType<typeof JobpostOnlineStatuses>,
+    JobpostOnlineStatusInstance
+  >;
+  offline: ModelRelatedNodesI<
+    ReturnType<typeof JobpostOfflineStatuses>,
+    JobpostOfflineStatusInstance
   >;
 }
 
@@ -115,8 +126,13 @@ export const Jobposts = (
           direction: "in",
           name: "IS_CATEGORIZED_AS",
         },
-        status: {
-          model: JobpostStatuses(neogma),
+        online: {
+          model: JobpostOnlineStatuses(neogma),
+          direction: "out",
+          name: "HAS_STATUS",
+        },
+        offline: {
+          model: JobpostOfflineStatuses(neogma),
           direction: "out",
           name: "HAS_STATUS",
         },

@@ -3,7 +3,7 @@ import {
   ApiPropertyOptional,
   getSchemaPath,
 } from "@nestjs/swagger";
-import { Organization } from "./organization.interface";
+import { OrganizationWithRelations } from "./organization.interface";
 import { StructuredJobpost } from "./structured-jobpost.interface";
 import * as t from "io-ts";
 import { isLeft } from "fp-ts/lib/Either";
@@ -11,10 +11,10 @@ import { Tag } from "./tag.interface";
 import { report } from "io-ts-human-reporter";
 import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relations.interface";
 
-@ApiExtraModels(Organization, OrgListResult)
-export class OrgListResult extends Organization {
+@ApiExtraModels(OrganizationWithRelations, OrgListResult)
+export class OrgListResult extends OrganizationWithRelations {
   public static readonly OrgListResultType = t.intersection([
-    Organization.OrganizationType,
+    OrganizationWithRelations.OrganizationWithRelationsType,
     t.strict({
       jobs: t.array(
         StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,

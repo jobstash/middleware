@@ -1,9 +1,9 @@
-import { Organization, Tag } from "../interfaces";
+import { OrganizationWithRelations, Tag } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { ProjectDetails } from "../interfaces/project-details.interface";
 
 type RawProject = ProjectDetails & {
-  organization?: (Organization & { tags: Tag[] }) | null;
+  organization?: (OrganizationWithRelations & { tags: Tag[] }) | null;
 };
 
 export class ProjectDetailsEntity {
@@ -19,7 +19,6 @@ export class ProjectDetailsEntity {
       defiLlamaParent: notStringOrNull(project?.defiLlamaParent),
       tokenAddress: notStringOrNull(project?.tokenAddress),
       tokenSymbol: notStringOrNull(project?.tokenSymbol, ["-"]),
-      isInConstruction: project?.isInConstruction ?? null,
       tvl: nonZeroOrNull(project?.tvl),
       monthlyVolume: nonZeroOrNull(project?.monthlyVolume),
       monthlyFees: nonZeroOrNull(project?.monthlyFees),
@@ -30,7 +29,7 @@ export class ProjectDetailsEntity {
       discord: notStringOrNull(project?.discord),
       docs: notStringOrNull(project?.docs),
       teamSize: nonZeroOrNull(project?.teamSize),
-      githubOrganization: notStringOrNull(project?.githubOrganization),
+      github: notStringOrNull(project?.github),
       updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
       hacks:
         project?.hacks.map(hack => ({
@@ -55,7 +54,6 @@ export class ProjectDetailsEntity {
         ...organization,
         docs: notStringOrNull(organization?.docs),
         logoUrl: notStringOrNull(organization?.logoUrl),
-        altName: notStringOrNull(organization?.altName),
         headCount: nonZeroOrNull(organization?.headCount),
         github: notStringOrNull(organization?.github),
         twitter: notStringOrNull(organization?.twitter),
