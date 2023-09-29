@@ -1,3 +1,11 @@
+## [1.37.8](https://github.com/jobstash/middleware/compare/v1.37.7...v1.37.8) (2023-09-29)
+
+
+### Bug Fixes
+
+* **jobs:** fixed issues with jobs endpoints queries ([715c34c](https://github.com/jobstash/middleware/commit/715c34c6c3f3e9929c9cfc4087ef5a50e7ea846a))
+* **projects:** fixed issues with projects queries ([86129af](https://github.com/jobstash/middleware/commit/86129af6770ebc1dbd46cfca047ce7577a773078))
+
 ## [1.37.7](https://github.com/jobstash/middleware/compare/v1.37.6...v1.37.7) (2023-09-25)
 
 
