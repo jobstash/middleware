@@ -15,6 +15,9 @@ export class ProjectWithRelationsEntity {
       monthlyVolume: nonZeroOrNull(project?.monthlyVolume),
       monthlyFees: nonZeroOrNull(project?.monthlyFees),
       monthlyRevenue: nonZeroOrNull(project?.monthlyRevenue),
+      monthlyActiveUsers: nonZeroOrNull(project?.monthlyActiveUsers),
+      createdTimestamp: nonZeroOrNull(project?.createdTimestamp),
+      updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
       logo: notStringOrNull(project?.logo),
       teamSize: nonZeroOrNull(project?.teamSize),
       hacks:

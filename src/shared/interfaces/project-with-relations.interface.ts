@@ -16,6 +16,7 @@ export class ProjectWithRelations extends ProjectMoreInfo {
     ProjectMoreInfo.ProjectMoreInfoType,
     t.strict({
       github: t.union([t.string, t.null]),
+      website: t.union([t.string, t.null]),
       docs: t.union([t.string, t.null]),
       category: t.union([t.string, t.null]),
       twitter: t.union([t.string, t.null]),
@@ -29,6 +30,9 @@ export class ProjectWithRelations extends ProjectMoreInfo {
 
   @ApiProperty()
   category: string | null;
+
+  @ApiProperty()
+  website: string | null;
 
   @ApiProperty()
   github: string | null;
@@ -69,6 +73,7 @@ export class ProjectWithRelations extends ProjectMoreInfo {
       docs,
       category,
       twitter,
+      website,
       discord,
       telegram,
       hacks,
@@ -83,6 +88,7 @@ export class ProjectWithRelations extends ProjectMoreInfo {
     this.docs = docs;
     this.category = category;
     this.twitter = twitter;
+    this.website = website;
     this.discord = discord;
     this.telegram = telegram;
     this.hacks = hacks;

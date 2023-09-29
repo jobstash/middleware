@@ -9,7 +9,6 @@ export class ProjectMoreInfo extends Project {
     Project.ProjectType,
     t.strict({
       description: t.string,
-      cmcId: t.union([t.string, t.null]),
       defiLlamaId: t.union([t.string, t.null]),
       tokenAddress: t.union([t.string, t.null]),
       defiLlamaSlug: t.union([t.string, t.null]),
@@ -29,8 +28,6 @@ export class ProjectMoreInfo extends Project {
   defiLlamaParent: string | null;
   @ApiPropertyOptional()
   tokenAddress: string | null;
-  @ApiPropertyOptional()
-  cmcId: string | null;
   @ApiProperty()
   createdTimestamp: number | null;
   @ApiPropertyOptional()
@@ -38,7 +35,6 @@ export class ProjectMoreInfo extends Project {
 
   constructor(raw: ProjectMoreInfo) {
     const {
-      cmcId,
       defiLlamaId,
       description,
       tokenAddress,
@@ -52,7 +48,6 @@ export class ProjectMoreInfo extends Project {
 
     const result = ProjectMoreInfo.ProjectMoreInfoType.decode(raw);
 
-    this.cmcId = cmcId;
     this.defiLlamaId = defiLlamaId;
     this.description = description;
     this.tokenAddress = tokenAddress;

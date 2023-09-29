@@ -102,11 +102,6 @@ export const Projects = (
           allowEmpty: false,
           required: true,
         },
-        url: {
-          type: "string",
-          allowEmpty: false,
-          required: true,
-        },
         description: {
           type: "string",
           allowEmpty: false,
@@ -164,11 +159,6 @@ export const Projects = (
         },
         monthlyActiveUsers: {
           type: "number",
-          allowEmpty: true,
-          required: false,
-        },
-        cmcId: {
-          type: "string",
           allowEmpty: true,
           required: false,
         },
@@ -260,7 +250,6 @@ export const Projects = (
         getBaseProperties: function (): Project {
           return {
             id: this.id,
-            url: this.url,
             name: this.name,
             orgId: this.orgId,
             isMainnet: this.isMainnet,
@@ -550,7 +539,6 @@ export const Projects = (
                 isMainnet: project.isMainnet,
                 telegram: project.telegram,
                 orgId: project.orgId,
-                cmcId: project.cmcId,
                 twitter: project.twitter,
                 discord: project.discord,
                 docs: project.docs,
@@ -800,7 +788,6 @@ export const Projects = (
                 isMainnet: project.isMainnet,
                 telegram: project.telegram,
                 orgId: project.orgId,
-                cmcId: project.cmcId,
                 twitter: project.twitter,
                 discord: project.discord,
                 docs: project.docs,

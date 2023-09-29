@@ -15,7 +15,6 @@ import { report } from "io-ts-human-reporter";
 export class Project {
   public static readonly ProjectType = t.strict({
     id: t.string,
-    url: t.string,
     name: t.string,
     orgId: t.string,
     tvl: t.union([t.number, t.null]),
@@ -33,8 +32,6 @@ export class Project {
   id: string;
   @ApiProperty()
   name: string;
-  @ApiProperty()
-  url: string;
   @ApiProperty()
   logo: string | null;
   @ApiPropertyOptional()
@@ -59,7 +56,6 @@ export class Project {
   constructor(raw: Project) {
     const {
       id,
-      url,
       tvl,
       name,
       logo,
@@ -76,7 +72,6 @@ export class Project {
     const result = Project.ProjectType.decode(raw);
 
     this.id = id;
-    this.url = url;
     this.tvl = tvl;
     this.name = name;
     this.logo = logo;

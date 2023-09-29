@@ -45,7 +45,6 @@ export class JobListResultEntity {
           organization.projects.map(project => ({
             ...project,
             defiLlamaId: notStringOrNull(project?.defiLlamaId),
-            cmcId: notStringOrNull(project?.cmcId),
             defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug),
             defiLlamaParent: notStringOrNull(project?.defiLlamaParent),
             tokenAddress: notStringOrNull(project?.tokenAddress),
@@ -54,6 +53,7 @@ export class JobListResultEntity {
             monthlyVolume: nonZeroOrNull(project?.monthlyVolume),
             monthlyFees: nonZeroOrNull(project?.monthlyFees),
             monthlyRevenue: nonZeroOrNull(project?.monthlyRevenue),
+            monthlyActiveUsers: nonZeroOrNull(project?.monthlyActiveUsers),
             telegram: notStringOrNull(project?.telegram),
             logo: notStringOrNull(project?.logo),
             twitter: notStringOrNull(project?.twitter),
@@ -63,6 +63,7 @@ export class JobListResultEntity {
             category: notStringOrNull(project?.category),
             github: notStringOrNull(project?.github),
             updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
+            createdTimestamp: nonZeroOrNull(project?.createdTimestamp),
             hacks:
               project?.hacks.map(hack => ({
                 ...hack,

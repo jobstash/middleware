@@ -149,7 +149,7 @@ export class JobsService {
                     }
                   ],
                   fundingRounds: [
-                    (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+                    (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round {.*}
                   ],
                   investors: [
                     (organization)-[:HAS_FUNDING_ROUND|INVESTED_BY*2]->(investor) | investor { .* }

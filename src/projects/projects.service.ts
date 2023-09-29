@@ -261,7 +261,6 @@ export class ProjectsService {
         .filter(project => project.orgId === id)
         .map(project => ({
           id: project.id,
-          url: project.url,
           name: project.name,
           orgId: project.orgId,
           isMainnet: project.isMainnet,

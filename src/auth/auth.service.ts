@@ -98,49 +98,6 @@ export class AuthService {
     }
   }
 
-  // async getBackendCredentialsGrantToken(): Promise<TokenResponse | undefined> {
-  //   try {
-  //     const cacheValue = await this.cacheManager.get<TokenResponse>(
-  //       "client-credentials-token",
-  //     );
-  //     if (cacheValue !== null && cacheValue !== undefined) {
-  //       this.logger.log("Found cached backend token");
-  //       return cacheValue;
-  //     } else {
-  //       this.logger.log("Requesting new backend token");
-  //       const newToken = await this.authClient
-  //         .clientCredentialsGrant({
-  //           audience: this.configService.get<string>("AUTH0_AUDIENCE"),
-  //           scope: "middleware:admin",
-  //         })
-  //         .catch(err => {
-  //           this.logger.error(
-  //             `Error retrieving backend token from Auth0: ${err.message}`,
-  //           );
-  //           return null;
-  //         });
-  //       await this.cacheManager.set(
-  //         "client-credentials-token",
-  //         newToken,
-  //         newToken.expires_in * 1000,
-  //       );
-  //       return newToken;
-  //     }
-  //   } catch (err) {
-  //     Sentry.withScope(scope => {
-  //       scope.setTags({
-  //         action: "token-retrieval",
-  //         source: "auth.service",
-  //       });
-  //       Sentry.captureException(err);
-  //     });
-  //     this.logger.error(
-  //       `AuthService::getBackendCredentialsGrantToken ${err.message}`,
-  //     );
-  //     return undefined;
-  //   }
-  // }
-
   async isWalletAuthorized(
     walletAuthorizationDto: WalletAuthorizationDto,
   ): Promise<AuthorizationResult> {

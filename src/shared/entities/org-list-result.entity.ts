@@ -27,6 +27,7 @@ export class OrgListResultEntity {
     return new OrgListResult({
       ...organization,
       docs: notStringOrNull(organization?.docs),
+      logoUrl: notStringOrNull(organization?.logoUrl),
       headCount: nonZeroOrNull(organization?.headCount),
       github: notStringOrNull(organization?.github),
       twitter: notStringOrNull(organization?.twitter),
@@ -46,6 +47,7 @@ export class OrgListResultEntity {
           monthlyVolume: nonZeroOrNull(project?.monthlyVolume),
           monthlyFees: nonZeroOrNull(project?.monthlyFees),
           monthlyRevenue: nonZeroOrNull(project?.monthlyRevenue),
+          monthlyActiveUsers: nonZeroOrNull(project?.monthlyActiveUsers),
           telegram: notStringOrNull(project?.telegram),
           logo: notStringOrNull(project?.logo),
           twitter: notStringOrNull(project?.twitter),
@@ -53,6 +55,7 @@ export class OrgListResultEntity {
           docs: notStringOrNull(project?.docs),
           teamSize: nonZeroOrNull(project?.teamSize),
           github: notStringOrNull(project?.github),
+          createdTimestamp: nonZeroOrNull(project?.createdTimestamp),
           updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
           hacks:
             project?.hacks.map(hack => ({

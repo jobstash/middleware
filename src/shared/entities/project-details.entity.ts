@@ -23,6 +23,7 @@ export class ProjectDetailsEntity {
       monthlyVolume: nonZeroOrNull(project?.monthlyVolume),
       monthlyFees: nonZeroOrNull(project?.monthlyFees),
       monthlyRevenue: nonZeroOrNull(project?.monthlyRevenue),
+      monthlyActiveUsers: nonZeroOrNull(project?.monthlyActiveUsers),
       telegram: notStringOrNull(project?.telegram),
       logo: notStringOrNull(project?.logo),
       twitter: notStringOrNull(project?.twitter),
@@ -30,6 +31,7 @@ export class ProjectDetailsEntity {
       docs: notStringOrNull(project?.docs),
       teamSize: nonZeroOrNull(project?.teamSize),
       github: notStringOrNull(project?.github),
+      createdTimestamp: nonZeroOrNull(project?.createdTimestamp),
       updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
       hacks:
         project?.hacks.map(hack => ({

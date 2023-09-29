@@ -339,7 +339,6 @@ export const Organizations = (
                 isMainnet: project.isMainnet,
                 telegram: project.telegram,
                 orgId: project.orgId,
-                cmcId: project.cmcId,
                 twitter: project.twitter,
                 discord: project.discord,
                 docs: project.docs,
