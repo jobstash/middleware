@@ -13,16 +13,16 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "filter_alljobslist_organizations",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
-  categories: {
+  classifications: {
     position: 2,
-    label: "Categories",
+    label: "Classifications",
     show: true,
-    googleAnalyticsEventName: "filter_alljobslist_categories",
+    googleAnalyticsEventName: "filter_alljobslist_classifications",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
 };
 
 export const FILTER_PARAM_KEY_PRESETS = {
   organizations: "organizations",
-  categories: "categories",
+  classifications: "classifications",
 };

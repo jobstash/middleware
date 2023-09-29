@@ -224,7 +224,7 @@ export class JobListParams {
   @IsOptional()
   @Type(() => String)
   @Transform(btoaList)
-  categories?: string[] | null = null;
+  classifications?: string[] | null = null;
 
   @ApiPropertyOptional({
     example: "U2VlZA==,U2VyaWVzIEE=",

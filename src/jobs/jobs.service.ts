@@ -39,91 +39,61 @@ export class JobsService {
   getJobsListResults = async (): Promise<JobListResult[]> => {
     const results: JobListResult[] = [];
     const generatedQuery = `
-      MATCH (organization: Organization)
-
-      MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)
-      // MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
-      MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)-[:HAS_CLASSIFICATION]->(jobpost_classification:JobpostClassification)
-
-      OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag:JobpostTag)
-      // WHERE NOT (tag)<-[:IS_BLOCKED_TERM]-()
-      
-      OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
-      OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
-      
-      WITH structured_jobpost, organization, 
-      COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
-      COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
-      COLLECT(DISTINCT PROPERTIES(tag)) AS tags
-
-      WITH {
-          id: structured_jobpost.id,
-          jobTitle: structured_jobpost.jobTitle,
-          role: structured_jobpost.role,
-          jobLocation: structured_jobpost.jobLocation,
-          jobApplyPageUrl: structured_jobpost.jobApplyPageUrl,
-          jobPageUrl: structured_jobpost.jobPageUrl,
-          shortUUID: structured_jobpost.shortUUID,
-          seniority: structured_jobpost.seniority,
-          jobCreatedTimestamp: structured_jobpost.jobCreatedTimestamp,
-          jobFoundTimestamp: structured_jobpost.jobFoundTimestamp,
-          minSalaryRange: structured_jobpost.minSalaryRange,
-          maxSalaryRange: structured_jobpost.maxSalaryRange,
-          medianSalary: structured_jobpost.medianSalary,
-          salaryCurrency: structured_jobpost.salaryCurrency,
-          aiDetectedTechnologies: structured_jobpost.aiDetectedTechnologies,
-          extractedTimestamp: structured_jobpost.extractedTimestamp,
-          team: structured_jobpost.team,
-          benefits: structured_jobpost.benefits,
-          culture: structured_jobpost.culture,
-          paysInCrypto: structured_jobpost.paysInCrypto,
-          offersTokenAllocation: structured_jobpost.offersTokenAllocation,
-          jobCommitment: structured_jobpost.jobCommitment,
-          organization: {
-              id: organization.id,
-              orgId: organization.orgId,
-              name: organization.name,
-              description: organization.description,
-              summary: organization.summary,
-              location: organization.location,
-              url: organization.url,
-              logo: organization.logo,
-              headCount: organization.headCount,
-              twitter: organization.twitter,
-              discord: organization.discord,
-              github: organization.github,
-              telegram: organization.telegram,
-              docs: organization.docs,
-              jobsiteLink: organization.jobsiteLink,
-              createdTimestamp: organization.createdTimestamp,
-              updatedTimestamp: organization.updatedTimestamp,
-              teamSize: organization.teamSize,
-              fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
-              investors: [investor in investors WHERE investor.id IS NOT NULL]
-          },
-          tags: [tag in tags WHERE tag.id IS NOT NULL]
+      MATCH (structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+      RETURN structured_jobpost {
+          .*,
+          classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
+          commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
+          locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
+          organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization) | organization {
+              .*,
+              discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
+              alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
+              twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+              projects: [
+                (organization)-[:HAS_PROJECT]->(project) | project {
+                  .*,
+                  discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                  website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                  docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                  telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                  github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
+                  category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                  twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                  hacks: [
+                    (project)-[:HAS_HACK]->(hack) | hack { .* }
+                  ],
+                  audits: [
+                    (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                  ],
+                  chains: [
+                    (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain) | chain { .* }
+                  ]
+                }
+              ],
+              fundingRounds: [
+                (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+              ],
+              investors: [
+                (organization)-[:HAS_FUNDING_ROUND|INVESTED_BY*2]->(investor) | investor { .* }
+              ]
+          }][0],
+          tags: [
+            (structured_jobpost)-[:HAS_TAG]->(tag) | tag { .* }
+          ]
       } AS result
-
-      RETURN COLLECT(result) as results
     `;
 
     try {
-      const projects = await this.models.Projects.getProjectsMoreInfoData();
       const resultSet = (
         await this.neogma.queryRunner.run(generatedQuery)
-      ).records[0]?.get("results") as JobListResult[];
+      ).records.map(record => record.get("result") as JobListResult);
       for (const result of resultSet) {
-        const projectList = projects.filter(
-          x => x.orgId === result.organization.orgId,
-        );
-        const updatedResult: JobListResult = {
-          ...result,
-          organization: {
-            ...result.organization,
-            projects: projectList,
-          },
-        };
-        results.push(new JobListResultEntity(updatedResult).getProperties());
+        results.push(new JobListResultEntity(result).getProperties());
       }
     } catch (err) {
       Sentry.withScope(scope => {
@@ -142,74 +112,56 @@ export class JobsService {
   getAllJobsListResults = async (): Promise<AllJobsListResult[]> => {
     const results: AllJobsListResult[] = [];
     const generatedQuery = `
-          MATCH (organization: Organization)
-
-          MATCH (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite)-[:HAS_JOBPOST]->(raw_jobpost:Jobpost)-[:IS_CATEGORIZED_AS]-(jobpost_category:JobpostCategory)
-          MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
-          MATCH (raw_jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
-
-          OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag:Tag)
-          WHERE NOT (tag)<-[:IS_BLOCKED_TERM]-()
-
-          WITH structured_jobpost, organization, jobpost_category, COLLECT(DISTINCT PROPERTIES(tag)) as tags
-
-          WITH {
-              id: structured_jobpost.id,
-              jobTitle: structured_jobpost.jobTitle,
-              role: structured_jobpost.role,
-              jobLocation: structured_jobpost.jobLocation,
-              jobApplyPageUrl: structured_jobpost.jobApplyPageUrl,
-              jobPageUrl: structured_jobpost.jobPageUrl,
-              shortUUID: structured_jobpost.shortUUID,
-              seniority: structured_jobpost.seniority,
-              jobCreatedTimestamp: structured_jobpost.jobCreatedTimestamp,
-              jobFoundTimestamp: structured_jobpost.jobFoundTimestamp,
-              minSalaryRange: structured_jobpost.minSalaryRange,
-              maxSalaryRange: structured_jobpost.maxSalaryRange,
-              medianSalary: structured_jobpost.medianSalary,
-              salaryCurrency: structured_jobpost.salaryCurrency,
-              aiDetectedTechnologies: structured_jobpost.aiDetectedTechnologies,
-              extractedTimestamp: structured_jobpost.extractedTimestamp,
-              team: structured_jobpost.team,
-              benefits: structured_jobpost.benefits,
-              culture: structured_jobpost.culture,
-              paysInCrypto: structured_jobpost.paysInCrypto,
-              offersTokenAllocation: structured_jobpost.offersTokenAllocation,
-              jobCommitment: structured_jobpost.jobCommitment,
-              category: {
-                id: jobpost_category.id,
-                name: jobpost_category.name
-              },
-              organization: {
-                  id: organization.id,
-                  orgId: organization.orgId,
-                  name: organization.name,
-                  description: organization.description,
-                  summary: organization.summary,
-                  location: organization.location,
-                  url: organization.url,
-                  logo: organization.logo,
-                  headcount: organization.headcount,
-                  twitter: organization.twitter,
-                  discord: organization.discord,
-                  github: organization.github,
-                  telegram: organization.telegram,
-                  docs: organization.docs,
-                  jobsiteLink: organization.jobsiteLink,
-                  createdTimestamp: organization.createdTimestamp,
-                  updatedTimestamp: organization.updatedTimestamp,
-                  teamSize: organization.teamSize
-              },
-              tags: [tag in tags WHERE tag.id IS NOT NULL]
+          MATCH (structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+          RETURN structured_jobpost {
+              .*,
+              classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
+              commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
+              locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
+              organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization) | organization {
+                  .*,
+                  discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                  website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+                  docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                  telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                  github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
+                  alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
+                  twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                  projects: [
+                    (organization)-[:HAS_PROJECT]->(project) | project {
+                      .*,
+                      discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                      website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                      docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                      telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                      github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
+                      category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                      twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                      hacks: [
+                        (project)-[:HAS_HACK]->(hack) | hack { .* }
+                      ],
+                      audits: [
+                        (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                      ],
+                      chains: [
+                        (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain) | chain { .* }
+                      ]
+                    }
+                  ],
+                  fundingRounds: [
+                    (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+                  ],
+                  investors: [
+                    (organization)-[:HAS_FUNDING_ROUND|INVESTED_BY*2]->(investor) | investor { .* }
+                  ]
+              }][0]
           } AS result
-          
-          RETURN COLLECT(result) as results
         `;
 
     try {
       const resultSet = (
         await this.neogma.queryRunner.run(generatedQuery)
-      ).records[0]?.get("results") as AllJobsListResult[];
+      ).records.map(record => record.get("results") as AllJobsListResult);
       for (const result of resultSet) {
         results.push(new AllJobListResultEntity(result).getProperties());
       }
@@ -263,7 +215,7 @@ export class JobsService {
       organizations: organizationFilterList,
       investors: investorFilterList,
       fundingRounds: fundingRoundFilterList,
-      categories: categoryFilterList,
+      classifications: classificationFilterList,
       token,
       mainNet,
       query,
@@ -309,7 +261,7 @@ export class JobsService {
         tags,
         seniority,
         locationType,
-        salary: medianSalary,
+        salary: salary,
         extractedTimestamp,
       } = jlr;
       const anchorProject = projects.sort(
@@ -326,16 +278,16 @@ export class JobsService {
         (!locationFilterList || locationFilterList.includes(locationType)) &&
         (!minHeadCount || (headCount ?? 0) >= minHeadCount) &&
         (!maxHeadCount || (headCount ?? 0) < maxHeadCount) &&
-        (!minSalaryRange || (medianSalary ?? 0) >= minSalaryRange) &&
-        (!maxSalaryRange || (medianSalary ?? 0) < maxSalaryRange) &&
+        (!minSalaryRange || (salary ?? 0) >= minSalaryRange) &&
+        (!maxSalaryRange || (salary ?? 0) < maxSalaryRange) &&
         (!startDate || extractedTimestamp >= startDate) &&
         (!endDate || extractedTimestamp < endDate) &&
         (!projectFilterList ||
           projects.filter(x => projectFilterList.includes(x.name)).length >
             0) &&
-        (!categoryFilterList ||
-          projects.filter(x => categoryFilterList.includes(x.category)).length >
-            0) &&
+        (!classificationFilterList ||
+          projects.filter(x => classificationFilterList.includes(x.category))
+            .length > 0) &&
         (!token ||
           projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
             .length > 0) &&
@@ -446,47 +398,42 @@ export class JobsService {
       return await this.neogma.queryRunner
         .run(
           `
-        MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)
-        MATCH (jp)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
-        MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
-        MATCH (jp)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
-        OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)-[:HAS_CATEGORY]->(cat:ProjectCategory)
-        OPTIONAL MATCH (j)-[:HAS_TAG]->(t:Tag)
-        WHERE NOT (t)<-[:IS_BLOCKED_TERM]-()
-        OPTIONAL MATCH (t)<-[:IS_PREFERRED_TERM_OF]-(:PreferredTag)
-        OPTIONAL MATCH (t)<-[:IS_PAIRED_WITH]-(:TagPairing)-[:IS_PAIRED_WITH]->(:Tag)
-        OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)
-        OPTIONAL MATCH (f)-[:INVESTED_BY]->(i:Investor)
-        OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(c:Chain)
-        OPTIONAL MATCH (p)-[:HAS_AUDIT]->(a:Audit)
-        WITH o, p, j, t, f, a, i, c, cat
-        RETURN {
-            minSalaryRange: MIN(CASE WHEN NOT j.medianSalary IS NULL AND isNaN(j.medianSalary) = false THEN toFloat(j.medianSalary) END),
-            maxSalaryRange: MAX(CASE WHEN NOT j.medianSalary IS NULL AND isNaN(j.medianSalary) = false THEN toFloat(j.medianSalary) END),
-            minTvl: MIN(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
-            maxTvl: MAX(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
-            minMonthlyVolume: MIN(CASE WHEN NOT p.monthlyVolume IS NULL AND isNaN(p.monthlyVolume) = false THEN toFloat(p.monthlyVolume) END),
-            maxMonthlyVolume: MAX(CASE WHEN NOT p.monthlyVolume IS NULL AND isNaN(p.monthlyVolume) = false THEN toFloat(p.monthlyVolume) END),
-            minMonthlyFees: MIN(CASE WHEN NOT p.monthlyFees IS NULL AND isNaN(p.monthlyFees) = false THEN toFloat(p.monthlyFees) END),
-            maxMonthlyFees: MAX(CASE WHEN NOT p.monthlyFees IS NULL AND isNaN(p.monthlyFees) = false THEN toFloat(p.monthlyFees) END),
-            minMonthlyRevenue: MIN(CASE WHEN NOT p.monthlyRevenue IS NULL AND isNaN(p.monthlyRevenue) = false THEN toFloat(p.monthlyRevenue) END),
-            maxMonthlyRevenue: MAX(CASE WHEN NOT p.monthlyRevenue IS NULL AND isNaN(p.monthlyRevenue) = false THEN toFloat(p.monthlyRevenue) END),
-            minHeadCount: MIN(CASE WHEN NOT o.headCount IS NULL AND isNaN(o.headCount) = false THEN toFloat(o.headCount) END),
-            maxHeadCount: MAX(CASE WHEN NOT o.headCount IS NULL AND isNaN(o.headCount) = false THEN toFloat(o.headCount) END),
-            minTeamSize: MIN(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
-            maxTeamSize: MAX(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
-            tags: COLLECT(DISTINCT t.name),
-            fundingRounds: COLLECT(DISTINCT f.roundName),
-            investors: COLLECT(DISTINCT i.name),
-            projects: COLLECT(DISTINCT p.name),
-            audits: COLLECT(DISTINCT a.name),
-            categories: COLLECT(DISTINCT cat.name),
-            chains: COLLECT(DISTINCT c.name),
-            locations: COLLECT(DISTINCT j.jobLocation),
-            organizations: COLLECT(DISTINCT o.name),
-            seniority: COLLECT(DISTINCT j.seniority)
-        } as res
-      `,
+            MATCH (o:Organization)-[:HAS_JOBSITE|HAS_JOBPOST*2]->(jp:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
+            MATCH (jp)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+            MATCH (j)-[:HAS_CLASSIFICATION]-(cat:JobpostClassification)
+            MATCH (j)-[:HAS_LOCATION_TYPE]-(l:JobpostLocationType)
+            OPTIONAL MATCH (j)-[:HAS_TAG]->(t:JobpostTag)
+            OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)-[:INVESTED_BY]->(i:Investor)
+            OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)
+            OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(c:Chain)
+            OPTIONAL MATCH (p)-[:HAS_AUDIT]->(a:Audit)
+            RETURN {
+              minSalaryRange: MIN(CASE WHEN NOT j.salary IS NULL AND isNaN(j.salary) = false THEN toFloat(j.salary) END),
+              maxSalaryRange: MAX(CASE WHEN NOT j.salary IS NULL AND isNaN(j.salary) = false THEN toFloat(j.salary) END),
+              minTvl: MIN(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
+              maxTvl: MAX(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
+              minMonthlyVolume: MIN(CASE WHEN NOT p.monthlyVolume IS NULL AND isNaN(p.monthlyVolume) = false THEN toFloat(p.monthlyVolume) END),
+              maxMonthlyVolume: MAX(CASE WHEN NOT p.monthlyVolume IS NULL AND isNaN(p.monthlyVolume) = false THEN toFloat(p.monthlyVolume) END),
+              minMonthlyFees: MIN(CASE WHEN NOT p.monthlyFees IS NULL AND isNaN(p.monthlyFees) = false THEN toFloat(p.monthlyFees) END),
+              maxMonthlyFees: MAX(CASE WHEN NOT p.monthlyFees IS NULL AND isNaN(p.monthlyFees) = false THEN toFloat(p.monthlyFees) END),
+              minMonthlyRevenue: MIN(CASE WHEN NOT p.monthlyRevenue IS NULL AND isNaN(p.monthlyRevenue) = false THEN toFloat(p.monthlyRevenue) END),
+              maxMonthlyRevenue: MAX(CASE WHEN NOT p.monthlyRevenue IS NULL AND isNaN(p.monthlyRevenue) = false THEN toFloat(p.monthlyRevenue) END),
+              minHeadCount: MIN(CASE WHEN NOT o.headCount IS NULL AND isNaN(o.headCount) = false THEN toFloat(o.headCount) END),
+              maxHeadCount: MAX(CASE WHEN NOT o.headCount IS NULL AND isNaN(o.headCount) = false THEN toFloat(o.headCount) END),
+              minTeamSize: MIN(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
+              maxTeamSize: MAX(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
+              tags: COLLECT(DISTINCT t.name),
+              fundingRounds: COLLECT(DISTINCT f.roundName),
+              investors: COLLECT(DISTINCT i.name),
+              projects: COLLECT(DISTINCT p.name),
+              audits: COLLECT(DISTINCT a.name),
+              classifications: COLLECT(DISTINCT cat.name),
+              chains: COLLECT(DISTINCT c.name),
+              location: COLLECT(DISTINCT l.name),
+              organizations: COLLECT(DISTINCT o.name),
+              seniority: COLLECT(DISTINCT j.seniority)
+            } as res
+          `,
         )
         .then(res =>
           res.records.length
@@ -558,7 +505,7 @@ export class JobsService {
 
     const {
       organizations: organizationFilterList,
-      categories: categoryFilterList,
+      classifications: classificationFilterList,
       query,
       page,
       limit,
@@ -598,7 +545,8 @@ export class JobsService {
         tags.filter(tag => tag.name.match(query)).length > 0;
 
       return (
-        (!categoryFilterList || categoryFilterList.includes(jlr.category)) &&
+        (!classificationFilterList ||
+          classificationFilterList.includes(jlr.classification)) &&
         (!query || matchesQuery) &&
         (!organizationFilterList || organizationFilterList.includes(orgName))
       );
@@ -628,15 +576,15 @@ export class JobsService {
       return await this.neogma.queryRunner
         .run(
           `
-        MATCH (o:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)
-        MATCH (raw_jobpost)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
-        MATCH (jp)-[:IS_CATEGORIZED_AS]-(cat:JobpostCategory)
-        WITH o, cat
-        RETURN {
-            categories: COLLECT(DISTINCT cat.name),
-            organizations: COLLECT(DISTINCT o.name)
-        } as res
-      `,
+            MATCH (o:Organization)-[:HAS_JOBSITE|HAS_JOBPOST*2]->(jp:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
+            MATCH (jp)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+            MATCH (j)-[:HAS_CLASSIFICATION]-(cat:JobpostClassification)
+            WITH o, cat
+            RETURN {
+                classifications: COLLECT(DISTINCT cat.name),
+                organizations: COLLECT(DISTINCT o.name)
+            } as res
+          `,
         )
         .then(res =>
           res.records.length

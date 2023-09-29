@@ -181,6 +181,7 @@ export class JobsController {
     this.logger.log(`/jobs/org/${id}`);
     return this.jobsService.getJobsByOrgId(id);
   }
+
   @Get("/all")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)

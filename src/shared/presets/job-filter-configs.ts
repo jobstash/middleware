@@ -135,11 +135,11 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "filter_joblist_projects",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
-  categories: {
+  classifications: {
     position: 12,
-    label: "Categories",
+    label: "Classifications",
     show: true,
-    googleAnalyticsEventName: "filter_joblist_categories",
+    googleAnalyticsEventName: "filter_joblist_classifications",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   tvl: {
@@ -245,7 +245,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
   organizations: "organizations",
   chains: "chains",
   projects: "projects",
-  categories: "categories",
+  classifications: "classifications",
   tvl: {
     lowest: "minTvl",
     highest: "maxTvl",

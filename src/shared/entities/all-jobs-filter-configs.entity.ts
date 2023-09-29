@@ -13,7 +13,7 @@ import { intConverter } from "../helpers";
 import { createNewSortInstance } from "fast-sort";
 
 type RawJobFilters = {
-  categories?: string[] | null;
+  classifications?: string[] | null;
   organizations?: string[] | null;
 };
 
@@ -78,7 +78,7 @@ export class AllJobsFilterConfigsEntity {
   getProperties(): AllJobsFilterConfigs {
     return new AllJobsFilterConfigs({
       organizations: this.getMultiValuePresets("organizations"),
-      categories: this.getMultiValuePresets("categories"),
+      classifications: this.getMultiValuePresets("classifications"),
     });
   }
 }

@@ -30,7 +30,7 @@ type RawJobFilters = {
   tags?: string[] | null;
   fundingRounds?: string[] | null;
   projects?: string[] | null;
-  categories?: string[] | null;
+  classifications?: string[] | null;
   chains?: string[] | null;
   audits?: string[] | null;
   location?: string[] | null;
@@ -114,9 +114,9 @@ export class JobFilterConfigsEntity {
       organizations: this.getMultiValuePresets("organizations"),
       chains: this.getMultiValuePresets("chains"),
       projects: this.getMultiValuePresets("projects"),
-      categories: this.getMultiValuePresets("categories"),
+      classifications: this.getMultiValuePresets("classifications"),
       seniority: this.getMultiValuePresets("seniority"),
-      location: this.getMultiValuePresets("locations"),
+      location: this.getMultiValuePresets("location"),
       mainNet: this.getSingleSelectPresets("mainNet"),
       token: this.getSingleSelectPresets("token"),
       order: this.getSingleSelectPresets("order"),

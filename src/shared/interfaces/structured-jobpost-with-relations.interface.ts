@@ -9,7 +9,6 @@ export class StructuredJobpostWithRelations extends StructuredJobpost {
   public static readonly StructuredJobpostWithRelationsType = t.intersection([
     StructuredJobpost.StructuredJobpostType,
     t.strict({
-      category: t.string,
       commitment: t.string,
       classification: t.string,
       tags: t.array(t.strict({ name: t.string, normalizedName: t.string })),
@@ -18,10 +17,7 @@ export class StructuredJobpostWithRelations extends StructuredJobpost {
   ]);
 
   @ApiProperty()
-  tags: Omit<Tag, "id">[];
-
-  @ApiProperty()
-  category: string;
+  tags: Tag[];
 
   @ApiProperty()
   commitment: string;
@@ -33,14 +29,7 @@ export class StructuredJobpostWithRelations extends StructuredJobpost {
   classification: string;
 
   constructor(raw: StructuredJobpostWithRelations) {
-    const {
-      tags,
-      category,
-      commitment,
-      locationType,
-      classification,
-      ...jobProps
-    } = raw;
+    const { tags, commitment, locationType, classification, ...jobProps } = raw;
     super(jobProps);
     this.tags = tags;
     this.commitment = commitment;
@@ -51,7 +40,7 @@ export class StructuredJobpostWithRelations extends StructuredJobpost {
       StructuredJobpostWithRelations.StructuredJobpostWithRelationsType.decode(
         raw,
       );
-    this.category = category;
+
     if (isLeft(result)) {
       report(result).forEach(x => {
         throw new Error(

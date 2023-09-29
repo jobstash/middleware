@@ -23,7 +23,7 @@ export class AllJobsListResult extends StructuredJobpostWithRelations {
 
   @ApiPropertyOptional({
     type: "array",
-    items: { $ref: getSchemaPath(Organization) },
+    items: { $ref: getSchemaPath(OrganizationWithRelations) },
   })
   organization: OrganizationWithRelations;
 

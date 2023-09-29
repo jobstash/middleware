@@ -12,21 +12,21 @@ import { report } from "io-ts-human-reporter";
 @ApiExtraModels(FilterConfigLabel, FilterConfigField, FilterConfigLabeledValues)
 export class AllJobsFilterConfigs {
   public static readonly AllJobsFilterConfigsType = t.strict({
-    categories: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+    classifications: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     organizations: MultiSelectSearchFilter.MultiSelectSearchFilterType,
   });
 
   @ApiProperty()
   organizations: MultiSelectSearchFilter;
   @ApiProperty()
-  categories: MultiSelectSearchFilter;
+  classifications: MultiSelectSearchFilter;
 
   constructor(raw: AllJobsFilterConfigs) {
-    const { categories, organizations } = raw;
+    const { classifications, organizations } = raw;
 
     const result = AllJobsFilterConfigs.AllJobsFilterConfigsType.decode(raw);
 
-    this.categories = categories;
+    this.classifications = classifications;
     this.organizations = organizations;
 
     if (isLeft(result)) {
