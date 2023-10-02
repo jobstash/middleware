@@ -13,8 +13,6 @@ import {
   Hacks,
   InvestorProps,
   Investors,
-  JobpostCategories,
-  JobpostCategoryProps,
   JobpostProps,
   JobpostRelations,
   Jobposts,
@@ -81,7 +79,6 @@ export class ModelService implements OnModuleInit {
     ProjectStatics
   >;
   public Tags: NeogmaModel<TagProps, TagRelations, TagMethods, TagStatics>;
-  public JobpostCategories: NeogmaModel<JobpostCategoryProps, NoRelations>;
   public ProjectCategories: NeogmaModel<ProjectCategoryProps, NoRelations>;
   public JobpostOnlineStatuses: NeogmaModel<
     JobpostOnlineStatusProps,
@@ -110,7 +107,6 @@ export class ModelService implements OnModuleInit {
     this.Organizations = Organizations(this.neogma);
     this.Projects = Projects(this.neogma);
     this.Tags = Tags(this.neogma);
-    this.JobpostCategories = JobpostCategories(this.neogma);
     this.ProjectCategories = ProjectCategories(this.neogma);
     this.JobpostOnlineStatuses = JobpostOnlineStatuses(this.neogma);
     this.JobpostOfflineStatuses = JobpostOfflineStatuses(this.neogma);

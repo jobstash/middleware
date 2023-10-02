@@ -6,7 +6,7 @@ import {
   NeogmaModel,
   QueryBuilder,
 } from "neogma";
-import { Organization, ProjectMoreInfo } from "../types";
+import { Organization, ProjectWithRelations } from "../types";
 import { ExtractProps } from "../types";
 import { Jobsites, JobsiteInstance, JobsiteProps } from "./jobsite.model";
 import { Projects, ProjectInstance, ProjectProps } from "./project.model";
@@ -48,7 +48,7 @@ export interface OrganizationMethods {
   getInvestorsData: () => Promise<InvestorProps[]>;
   getJobsitesData: () => Promise<JobsiteProps[]>;
   getProjectsData: () => Promise<ProjectProps[]>;
-  getProjectsMoreInfoData: () => Promise<ProjectMoreInfo[]>;
+  getProjectsMoreInfoData: () => Promise<ProjectWithRelations[]>;
   getFundingRoundsData: () => Promise<FundingRoundProps[]>;
 }
 
@@ -232,6 +232,7 @@ export const Organizations = (
               related: [
                 {
                   label: "Organization",
+                  identifier: "organization",
                   where: {
                     orgId: this.orgId,
                   },
@@ -246,117 +247,34 @@ export const Organizations = (
                 },
               ],
             })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "project",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_CATEGORY",
-                },
-                {
-                  label: "ProjectCategory",
-                  identifier: "project_category",
-                },
-              ],
-            })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "project",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_AUDIT",
-                },
-                {
-                  label: "Audit",
-                  identifier: "audit",
-                },
-              ],
-            })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "project",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_HACK",
-                },
-                {
-                  label: "Hack",
-                  identifier: "hack",
-                },
-              ],
-            })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "project",
-                },
-                {
-                  direction: "out",
-                  name: "IS_DEPLOYED_ON_CHAIN",
-                },
-                {
-                  label: "Chain",
-                  identifier: "chain",
-                },
-              ],
-            })
-            .with([
-              "project_category",
-              "project",
-              "COLLECT(DISTINCT PROPERTIES(hack)) as hacks",
-              "COLLECT(DISTINCT PROPERTIES(audit)) as audits",
-              "COLLECT(DISTINCT PROPERTIES(chain)) as chains",
-            ])
             .return(
               `
-              COLLECT(DISTINCT {
-                id: project.id,
-                defiLlamaId: project.defiLlamaId,
-                defiLlamaSlug: project.defiLlamaSlug,
-                defiLlamaParent: project.defiLlamaParent,
-                name: project.name,
-                description: project.description,
-                url: project.url,
-                logo: project.logo,
-                tokenAddress: project.tokenAddress,
-                tokenSymbol: project.tokenSymbol,
-                isInConstruction: project.isInConstruction,
-                tvl: project.tvl,
-                monthlyVolume: project.monthlyVolume,
-                monthlyFees: project.monthlyFees,
-                monthlyRevenue: project.monthlyRevenue,
-                monthlyActiveUsers: project.monthlyActiveUsers,
-                isMainnet: project.isMainnet,
-                telegram: project.telegram,
-                orgId: project.orgId,
-                twitter: project.twitter,
-                discord: project.discord,
-                docs: project.docs,
-                teamSize: project.teamSize,
-                githubOrganization: project.githubOrganization,
-                category: project_category.name,
-                createdTimestamp: project.createdTimestamp,
-                updatedTimestamp: project.updatedTimestamp,
-                hacks: [hack in hacks WHERE hack.id IS NOT NULL],
-                audits: [audit in audits WHERE audit.id IS NOT NULL],
-                chains: [chain in chains WHERE chain.id IS NOT NULL]
-              }) AS projects
+              project {
+                  .*,
+                  orgId: organization.orgId,
+                  discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                  website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                  docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                  telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                  github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
+                  category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                  twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                  hacks: [
+                    (project)-[:HAS_HACK]->(hack) | hack { .* }
+                  ],
+                  audits: [
+                    (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                  ],
+                  chains: [
+                    (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain) | chain { .* }
+                  ]
+                } as result
             `,
             );
           const result = await query.run(neogma.queryRunner);
-          const projects: ProjectMoreInfo[] = result?.records[0]
-            .get("projects")
-            .map(record => record as ProjectMoreInfo);
+          const projects: ProjectWithRelations[] = result?.records.map(
+            record => record.get("result") as ProjectWithRelations,
+          );
           return projects;
         },
         getInvestorsData: async function () {
@@ -383,14 +301,13 @@ export const Organizations = (
                 { label: "Investor", identifier: "investor" },
               ],
             })
-            .return("COLLECT(DISTINCT investor) as investors")
+            .return("investor")
             .run(neogma.queryRunner);
-          const investors: InvestorProps[] = [];
-          for (const record of result.records[0].get("investors") as []) {
-            investors.push(
-              Investors(neogma).buildFromRecord(record).getDataValues(),
-            );
-          }
+          const investors: InvestorProps[] = result.records.map(record =>
+            Investors(neogma)
+              .buildFromRecord(record?.get("investor"))
+              .getDataValues(),
+          );
           return investors;
         },
       },

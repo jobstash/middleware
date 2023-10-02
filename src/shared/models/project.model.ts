@@ -31,6 +31,7 @@ import {
   GithubOrganizations,
 } from "./github-organization.model";
 import { ProjectWithRelations } from "../interfaces/project-with-relations.interface";
+import { ProjectEntity } from "../entities/project.entity";
 
 export type ProjectProps = ExtractProps<
   Omit<ProjectMoreInfo, "audits" | "hacks" | "chains">
@@ -415,257 +416,48 @@ export const Projects = (
                 id: id,
               },
             })
-            .match({
-              optional: true,
-              related: [
-                {
-                  label: "Organization",
-                  identifier: "organization",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_PROJECT",
-                },
-                {
-                  identifier: "project",
-                },
-              ],
-            })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "project",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_CATEGORY",
-                },
-                {
-                  label: "ProjectCategory",
-                  identifier: "project_category",
-                },
-              ],
-            })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "project",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_AUDIT",
-                },
-                {
-                  label: "Audit",
-                  identifier: "audit",
-                },
-              ],
-            })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "project",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_HACK",
-                },
-                {
-                  label: "Hack",
-                  identifier: "hack",
-                },
-              ],
-            })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "project",
-                },
-                {
-                  direction: "out",
-                  name: "IS_DEPLOYED_ON_CHAIN",
-                },
-                {
-                  label: "Chain",
-                  identifier: "chain",
-                },
-              ],
-            })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "organization",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_JOBSITE",
-                },
-                {
-                  label: "Jobsite",
-                  identifier: "jobsite",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_JOBPOST",
-                },
-                {
-                  label: "Jobpost",
-                  identifier: "raw_jobpost",
-                },
-                {
-                  direction: "none",
-                  name: "IS_CATEGORIZED_AS",
-                },
-                { label: "JobpostCategory", where: { name: "technical" } },
-              ],
-            })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "raw_jobpost",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_STATUS",
-                },
-                { label: "JobpostStatus", where: { status: "active" } },
-              ],
-            })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "raw_jobpost",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_STRUCTURED_JOBPOST",
-                },
-                {
-                  label: "StructuredJobpost",
-                  identifier: "structured_jobpost",
-                },
-              ],
-            })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "structured_jobpost",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_TAG",
-                },
-                {
-                  label: "Tag",
-                  identifier: "tag",
-                },
-              ],
-            })
-            .raw("WHERE NOT (tag)<-[:IS_BLOCKED_TERM]-()")
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "organization",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_FUNDING_ROUND",
-                },
-                {
-                  label: "FundingRound",
-                  identifier: "funding_round",
-                },
-              ],
-            })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "funding_round",
-                },
-                {
-                  direction: "out",
-                  name: "INVESTED_BY",
-                },
-                {
-                  label: "Investor",
-                  identifier: "investor",
-                },
-              ],
-            })
-            .with([
-              "project",
-              "organization",
-              "project_category",
-              "COLLECT(DISTINCT PROPERTIES(investor)) AS investors",
-              "COLLECT(DISTINCT PROPERTIES(tag)) AS tags",
-              "COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds",
-              "COLLECT(DISTINCT PROPERTIES(hack)) as hacks",
-              "COLLECT(DISTINCT PROPERTIES(audit)) as audits",
-              "COLLECT(DISTINCT PROPERTIES(chain)) as chains",
-            ])
             .return(
               `
-              {
-                id: project.id,
-                defiLlamaId: project.defiLlamaId,
-                defiLlamaSlug: project.defiLlamaSlug,
-                defiLlamaParent: project.defiLlamaParent,
-                name: project.name,
-                description: project.description,
-                url: project.url,
-                logo: project.logo,
-                tokenAddress: project.tokenAddress,
-                tokenSymbol: project.tokenSymbol,
-                isInConstruction: project.isInConstruction,
-                tvl: project.tvl,
-                monthlyVolume: project.monthlyVolume,
-                monthlyFees: project.monthlyFees,
-                monthlyRevenue: project.monthlyRevenue,
-                monthlyActiveUsers: project.monthlyActiveUsers,
-                isMainnet: project.isMainnet,
-                telegram: project.telegram,
-                orgId: project.orgId,
-                twitter: project.twitter,
-                discord: project.discord,
-                docs: project.docs,
-                teamSize: project.teamSize,
-                githubOrganization: project.githubOrganization,
-                category: project_category.name,
-                createdTimestamp: project.createdTimestamp,
-                updatedTimestamp: project.updatedTimestamp,
-                organization: {
-                  id: organization.id,
-                  orgId: organization.orgId,
-                  name: organization.name,
-                  description: organization.description,
-                  summary: organization.summary,
-                  location: organization.location,
-                  url: organization.url,
-                  twitter: organization.twitter,
-                  discord: organization.discord,
-                  github: organization.github,
-                  telegram: organization.telegram,
-                  docs: organization.docs,
-                  jobsiteLink: organization.jobsiteLink,
-                  createdTimestamp: organization.createdTimestamp,
-                  updatedTimestamp: organization.updatedTimestamp,
-                  fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
-                  investors: [investor in investors WHERE investor.id IS NOT NULL],
-                  tags: [tag in tags WHERE tag.id IS NOT NULL]
+              project {
+                .*,
+                orgId: organization.orgId,
+                discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
+                category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                (organization)-[:HAS_PROJECT]->(project) | organization {
+                  .*,
+                  discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                  website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+                  docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                  telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                  github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
+                  alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
+                  twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                  fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
+                  investors: [(organization)-[:HAS_FUNDING_ROUND|INVESTED_BY*2]->(investor) | investor { .* }],
+                  jobs: [
+                    (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost) | structured_jobpost {
+                      .*,
+                      classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
+                      commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
+                      locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0]
+                    }
+                  ],
+                  tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: JobpostTag) WHERE NOT (tag)<-[:IS_BLOCKED_TERM]-() | tag { .* }]
                 },
-                hacks: [hack in hacks WHERE hack.id IS NOT NULL],
-                audits: [audit in audits WHERE audit.id IS NOT NULL],
-                chains: [chain in chains WHERE chain.id IS NOT NULL]
+                hacks: [
+                (project)-[:HAS_HACK]->(hack) | hack { .* }
+                ],
+                audits: [
+                  (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                ],
+                chains: [
+                  (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain) | chain { .* }
+                ]
               } AS project
             `,
             );
@@ -714,10 +506,11 @@ export const Projects = (
               ],
             })
             .raw("WHERE project.id <> $id")
-            .return("PROPERTIES(project) as result");
+            .return("project");
           const result = await query.run(neogma.queryRunner);
           return result.records.map(
-            record => record.get("result") as ProjectMoreInfo,
+            record =>
+              new ProjectMoreInfo(record.get("project") as ProjectMoreInfo),
           );
         },
         getProjectById: async function (id: string) {
@@ -731,9 +524,11 @@ export const Projects = (
                 },
               ],
             })
-            .return("PROPERTIES(project) as result");
+            .return("project");
           const result = await query.run(neogma.queryRunner);
-          return result?.records[0]?.get("result") as ProjectProps;
+          return new ProjectEntity(
+            result?.records[0]?.get("project"),
+          ).getProperties();
         },
         searchProjects: async function (query: string) {
           const params = new BindParam({ query: `(?i).*${query}.*` });
@@ -747,10 +542,11 @@ export const Projects = (
               ],
             })
             .raw("WHERE project.name =~ $query")
-            .return("PROPERTIES(project) as result");
+            .return("project");
           const result = await searchQuery.run(neogma.queryRunner);
           return result.records.map(
-            record => record.get("result") as ProjectMoreInfo,
+            record =>
+              new ProjectMoreInfo(record.get("project") as ProjectMoreInfo),
           );
         },
       },

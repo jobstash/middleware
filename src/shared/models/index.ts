@@ -12,7 +12,6 @@ export * from "./twitter.model";
 export * from "./telegram.model";
 export * from "./jobpost.model";
 export * from "./project.model";
-export * from "./jobpost-category.model";
 export * from "./jobpost-classification.model";
 export * from "./jobpost-commitment.model";
 export * from "./project-category.model";

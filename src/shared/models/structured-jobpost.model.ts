@@ -11,14 +11,13 @@ import { ExtractProps } from "../types";
 import { TagInstance, Tags, TagProps } from "./tag.model";
 import { OrganizationInstance, Organizations } from "./organization.model";
 import {
-  JobpostCategories,
-  JobpostCategoryInstance,
-} from "./jobpost-category.model";
-import {
   JobpostCommitmentInstance,
   JobpostCommitments,
 } from "./jobpost-commitment.model";
-import { JobpostClassifications } from "./jobpost-classification.model";
+import {
+  JobpostClassificationInstance,
+  JobpostClassifications,
+} from "./jobpost-classification.model";
 import {
   JobpostLocationTypeInstance,
   JobpostLocationTypes,
@@ -37,7 +36,7 @@ export type StructuredJobpostInstance = NeogmaInstance<
 export interface StructuredJobpostMethods {
   getUnblockedTags: () => Promise<TagInstance[]>;
   getUnblockedTagsData: () => Promise<TagProps[]>;
-  getJobpostCategory: () => Promise<JobpostCategoryInstance>;
+  getJobpostClassification: () => Promise<JobpostClassificationInstance>;
 }
 
 export interface StructuredJobposStatics {
@@ -255,8 +254,8 @@ export const StructuredJobposts = (
             ?.map(record => record as TagProps);
           return tags;
         },
-        getJobpostCategory:
-          async function (): Promise<JobpostCategoryInstance> {
+        getJobpostClassification:
+          async function (): Promise<JobpostClassificationInstance> {
             const query = new QueryBuilder()
               .match({
                 related: [
@@ -295,7 +294,7 @@ export const StructuredJobposts = (
             const result = (
               await query.run(neogma.queryRunner)
             ).records[0]?.get("category");
-            return JobpostCategories(neogma).buildFromRecord(result);
+            return JobpostClassifications(neogma).buildFromRecord(result);
           },
       },
       statics: {

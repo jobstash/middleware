@@ -11,10 +11,6 @@ import {
   StructuredJobpostInstance,
 } from "./structured-jobpost.model";
 import {
-  JobpostCategories,
-  JobpostCategoryInstance,
-} from "./jobpost-category.model";
-import {
   JobpostOnlineStatusInstance,
   JobpostOnlineStatuses,
 } from "./jobpost-online-status.model";
@@ -31,10 +27,6 @@ export interface JobpostRelations {
   structuredJobpost: ModelRelatedNodesI<
     ReturnType<typeof StructuredJobposts>,
     StructuredJobpostInstance
-  >;
-  category: ModelRelatedNodesI<
-    ReturnType<typeof JobpostCategories>,
-    JobpostCategoryInstance
   >;
   online: ModelRelatedNodesI<
     ReturnType<typeof JobpostOnlineStatuses>,
@@ -120,11 +112,6 @@ export const Jobposts = (
           model: StructuredJobposts(neogma),
           direction: "out",
           name: "HAS_STRUCTURED_JOBPOST",
-        },
-        category: {
-          model: JobpostCategories(neogma),
-          direction: "in",
-          name: "IS_CATEGORIZED_AS",
         },
         online: {
           model: JobpostOnlineStatuses(neogma),
