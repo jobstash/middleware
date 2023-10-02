@@ -1,3 +1,10 @@
+## [1.37.10](https://github.com/jobstash/middleware/compare/v1.37.9...v1.37.10) (2023-10-02)
+
+
+### Bug Fixes
+
+* **models:** refactored models to follow new query structure and fixed some bugs ([081f83f](https://github.com/jobstash/middleware/commit/081f83f10e19683fa91ff35609f603c91d6f7050))
+
 ## [1.37.9](https://github.com/jobstash/middleware/compare/v1.37.8...v1.37.9) (2023-10-02)
 
 
