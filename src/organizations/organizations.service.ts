@@ -179,12 +179,12 @@ export class OrganizationsService {
 
     const getSortParam = (org: OrgListResult): number | null => {
       const shortOrg = toShortOrg(org);
-      const lastJob = sort(org.jobs).desc(x => x.extractedTimestamp)[0];
+      const lastJob = sort(org.jobs).desc(x => x.lastSeenTimestamp)[0];
       switch (orderBy) {
         case "recentFundingDate":
           return shortOrg?.lastFundingDate ?? 0;
         case "recentJobDate":
-          return lastJob?.extractedTimestamp ?? 0;
+          return lastJob?.lastSeenTimestamp ?? 0;
         case "headCount":
           return org?.headCount ?? 0;
         default:

@@ -36,7 +36,7 @@ export const Tags = (
 ): NeogmaModel<TagProps, TagRelations, TagMethods, TagStatics> =>
   ModelFactory<TagProps, TagRelations, TagStatics, TagMethods>(
     {
-      label: "JobpostTag",
+      label: "Tag",
       schema: {
         id: {
           type: "string",

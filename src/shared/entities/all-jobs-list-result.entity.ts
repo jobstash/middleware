@@ -18,9 +18,12 @@ export class AllJobListResultEntity {
 
     return new AllJobsListResult({
       ...jobpost,
+      payRate: nonZeroOrNull(jobpost?.payRate),
+      salary: nonZeroOrNull(jobpost?.salary),
       minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
       maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
-      salary: nonZeroOrNull(jobpost?.salary),
+      extractedMaximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
+      extractedMinimumSalary: nonZeroOrNull(jobpost?.maximumSalary),
       seniority: notStringOrNull(jobpost?.seniority, ["", "undefined"]),
       culture: notStringOrNull(jobpost?.culture, ["", "undefined"]),
       salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),

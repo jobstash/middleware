@@ -8,8 +8,8 @@ export class StructuredJobpost {
     id: t.string,
     url: t.string,
     shortUUID: t.string,
-    extractedTimestamp: t.number,
-    firstFoundAtTimestamp: t.number,
+    lastSeenTimestamp: t.number,
+    firstSeenTimestamp: t.number,
     benefits: t.array(t.string),
     requirements: t.array(t.string),
     responsibilites: t.array(t.string),
@@ -40,6 +40,9 @@ export class StructuredJobpost {
 
   @ApiPropertyOptional()
   summary: string | null;
+
+  @ApiPropertyOptional()
+  payRate: number | null;
 
   @ApiProperty()
   requirements: string[];
@@ -87,10 +90,10 @@ export class StructuredJobpost {
   offersTokenAllocation: boolean | null;
 
   @ApiProperty()
-  extractedTimestamp: number;
+  lastSeenTimestamp: number;
 
   @ApiProperty()
-  firstFoundAtTimestamp: number;
+  firstSeenTimestamp: number;
 
   constructor(raw: StructuredJobpost) {
     const {
@@ -110,8 +113,8 @@ export class StructuredJobpost {
       maximumSalary,
       salaryCurrency,
       responsibilities,
-      extractedTimestamp,
-      firstFoundAtTimestamp,
+      lastSeenTimestamp,
+      firstSeenTimestamp,
       offersTokenAllocation,
     } = raw;
 
@@ -133,8 +136,8 @@ export class StructuredJobpost {
     this.maximumSalary = maximumSalary;
     this.salaryCurrency = salaryCurrency;
     this.responsibilities = responsibilities;
-    this.extractedTimestamp = extractedTimestamp;
-    this.firstFoundAtTimestamp = firstFoundAtTimestamp;
+    this.lastSeenTimestamp = lastSeenTimestamp;
+    this.firstSeenTimestamp = firstSeenTimestamp;
     this.offersTokenAllocation = offersTokenAllocation;
 
     if (isLeft(result)) {

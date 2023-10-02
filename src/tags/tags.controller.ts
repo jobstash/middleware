@@ -383,7 +383,7 @@ export class TagsController {
           };
         }
 
-        await this.tagsService.relateTagBlockedTagToCreator(
+        await this.tagsService.relateBlockedTagToCreator(
           existingBlockedTagNameNode.getId(),
           creatorWallet as string,
         );
@@ -492,7 +492,7 @@ export class TagsController {
           };
         }
 
-        await this.tagsService.unrelateTagBlockedTagFromCreator(
+        await this.tagsService.unrelateBlockedTagFromCreator(
           existingBlockedTagNameNode.getId(),
           creatorWallet as string,
         );

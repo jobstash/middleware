@@ -57,6 +57,7 @@ export class JobsService {
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
+                  orgId: organization.orgId,
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -130,6 +131,7 @@ export class JobsService {
                   projects: [
                     (organization)-[:HAS_PROJECT]->(project) | project {
                       .*,
+                      orgId: organization.orgId,
                       discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                       website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                       docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -262,7 +264,7 @@ export class JobsService {
         seniority,
         locationType,
         salary: salary,
-        extractedTimestamp,
+        lastSeenTimestamp: extractedTimestamp,
       } = jlr;
       const anchorProject = projects.sort(
         (a, b) => b.monthlyVolume - a.monthlyVolume,
@@ -365,11 +367,11 @@ export class JobsService {
         case "headCount":
           return jlr.organization?.headCount ?? 0;
         case "publicationDate":
-          return jlr.extractedTimestamp;
+          return jlr.lastSeenTimestamp;
         case "salary":
           return jlr.salary;
         default:
-          return jlr.extractedTimestamp;
+          return jlr.lastSeenTimestamp;
       }
     };
 
@@ -555,7 +557,7 @@ export class JobsService {
     const filtered = results.filter(jobFilters);
 
     const final = sort<AllJobsListResult>(filtered).desc(
-      job => job.extractedTimestamp,
+      job => job.lastSeenTimestamp,
     );
 
     return {

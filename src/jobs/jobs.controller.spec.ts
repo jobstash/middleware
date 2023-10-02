@@ -254,8 +254,8 @@ describe("JobsController", () => {
     ): boolean => {
       const { startDate, endDate } = publicationDateRangeGenerator(dateRange);
       return (
-        startDate <= jobListResult.extractedTimestamp &&
-        jobListResult.extractedTimestamp <= endDate
+        startDate <= jobListResult.lastSeenTimestamp &&
+        jobListResult.lastSeenTimestamp <= endDate
       );
     };
 

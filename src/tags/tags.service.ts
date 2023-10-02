@@ -84,7 +84,7 @@ export class TagsService {
   ): Promise<BlockedTagEntity | null> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (bt:TagBlockedTag {name: $name})
+        MATCH (bt:BlockedTag {name: $name})
         RETURN bt
       `,
       { name },
@@ -179,7 +179,7 @@ export class TagsService {
     return this.neogma.queryRunner
       .run(
         `
-              CREATE (bt:TagBlockedTag { id: randomUUID() })
+              CREATE (bt:BlockedTag { id: randomUUID() })
               SET bt += $properties
               RETURN bt
           `,
@@ -217,7 +217,7 @@ export class TagsService {
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (bt:TagBlockedTag {id: $blockedTagNodeId})
+        MATCH (bt:BlockedTag {id: $blockedTagNodeId})
         MATCH (t:Tag {id: $tagNodeId})
         WITH bt, t
         RETURN EXISTS( (bt)-[:IS_BLOCKED_TERM]->(t) ) AS result
@@ -268,7 +268,7 @@ export class TagsService {
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (bt:TagBlockedTag {id: $blockedTagNodeId})
+        MATCH (bt:BlockedTag {id: $blockedTagNodeId})
         MATCH (u:User {wallet: $wallet})
         WITH bt, u
         RETURN EXISTS( (u)-[:CREATED_BLOCKED_TERM]->(bt) ) AS result
@@ -348,7 +348,7 @@ export class TagsService {
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (bt:TagBlockedTag {id: $blockedTagNodeId})
+        MATCH (bt:BlockedTag {id: $blockedTagNodeId})
         MATCH (t:Tag {id: $tagNodeId})
 
         MERGE (bt)-[r:IS_BLOCKED_TERM]->(t)
@@ -390,13 +390,13 @@ export class TagsService {
     return res.records[0].get("result");
   }
 
-  async relateTagBlockedTagToCreator(
+  async relateBlockedTagToCreator(
     blockedTagNodeId: string,
     wallet: string,
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (bt:TagBlockedTag {id: $blockedTagNodeId})
+        MATCH (bt:BlockedTag {id: $blockedTagNodeId})
         MATCH (u:User {wallet: $wallet})
 
         MERGE (u)-[r:CREATED_BLOCKED_TERM]->(bt)
@@ -535,7 +535,7 @@ export class TagsService {
   ): Promise<boolean> {
     await this.neogma.queryRunner.run(
       `
-        MATCH (bt:TagBlockedTag {id: $blockedTagNodeId})-[r:IS_BLOCKED_TERM]->(t:Tag {id: $tagNodeId})
+        MATCH (bt:BlockedTag {id: $blockedTagNodeId})-[r:IS_BLOCKED_TERM]->(t:Tag {id: $tagNodeId})
         DETACH DELETE r
       `,
       { blockedTagNodeId, tagNodeId },
@@ -544,13 +544,13 @@ export class TagsService {
     return;
   }
 
-  async unrelateTagBlockedTagFromCreator(
+  async unrelateBlockedTagFromCreator(
     blockedTagNodeId: string,
     wallet: string,
   ): Promise<void> {
     await this.neogma.queryRunner.run(
       `
-      MATCH (pt:TagBlockedTag {id: $blockedTagNodeId})-[r:CREATED_BLOCKED_TERM]-(u:User {wallet: $wallet})
+      MATCH (pt:BlockedTag {id: $blockedTagNodeId})-[r:CREATED_BLOCKED_TERM]-(u:User {wallet: $wallet})
 
       DETACH DELETE r
       `,

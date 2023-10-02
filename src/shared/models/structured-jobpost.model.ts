@@ -92,7 +92,7 @@ export const StructuredJobposts = (
           allowEmpty: false,
           required: true,
         },
-        firstFoundAtTimestamp: {
+        firstSeenTimestamp: {
           type: "number",
           allowEmpty: false,
           required: true,
@@ -107,7 +107,7 @@ export const StructuredJobposts = (
           allowEmpty: false,
           required: true,
         },
-        extractedTimestamp: {
+        lastSeenTimestamp: {
           type: "number",
           allowEmpty: false,
           required: true,
@@ -151,6 +151,11 @@ export const StructuredJobposts = (
           type: "array",
           allowEmpty: false,
           required: true,
+        },
+        payRate: {
+          type: "number",
+          allowEmpty: true,
+          required: false,
         },
         salary: {
           type: "number",

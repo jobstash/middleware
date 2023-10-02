@@ -323,109 +323,39 @@ export const Projects = (
                 },
               ],
             })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "project",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_CATEGORY",
-                },
-                {
-                  label: "ProjectCategory",
-                  identifier: "project_category",
-                },
-              ],
-            })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "project",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_AUDIT",
-                },
-                {
-                  label: "Audit",
-                  identifier: "audit",
-                },
-              ],
-            })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "project",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_HACK",
-                },
-                {
-                  label: "Hack",
-                  identifier: "hack",
-                },
-              ],
-            })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "project",
-                },
-                {
-                  direction: "out",
-                  name: "IS_DEPLOYED_ON_CHAIN",
-                },
-                {
-                  label: "Chain",
-                  identifier: "chain",
-                },
-              ],
-            })
-            .with([
-              "project_category",
-              "project",
-              "organization",
-              "COLLECT(DISTINCT PROPERTIES(hack)) as hacks",
-              "COLLECT(DISTINCT PROPERTIES(audit)) as audits",
-              "COLLECT(DISTINCT PROPERTIES(chain)) as chains",
-            ])
             .return(
               `
-              COLLECT(DISTINCT {
-                id: project.id,
-                name: project.name,
-                url: project.url,
-                logo: project.logo,
-                tokenSymbol: project.tokenSymbol,
-                tvl: project.tvl,
-                monthlyVolume: project.monthlyVolume,
-                monthlyFees: project.monthlyFees,
-                monthlyRevenue: project.monthlyRevenue,
-                monthlyActiveUsers: project.monthlyActiveUsers,
-                isMainnet: project.isMainnet,
-                orgName: organization.name,
-                orgId: project.orgId,
-                teamSize: project.teamSize,
-                category: project_category.name,
-                hacks: [hack in hacks WHERE hack.id IS NOT NULL],
-                audits: [audit in audits WHERE audit.id IS NOT NULL],
-                chains: [chain in chains WHERE chain.id IS NOT NULL]
-              }) AS projects
+              project {
+                  .*,
+                  orgId: organization.orgId,
+                  orgName: organization.name,
+                  discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                  website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                  docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                  telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                  github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
+                  category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                  twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                  hacks: [
+                    (project)-[:HAS_HACK]->(hack) | hack { .* }
+                  ],
+                  audits: [
+                    (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                  ],
+                  chains: [
+                    (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain) | chain { .* }
+                  ]
+                } as result
             `,
             );
           const result = await query.run(neogma.queryRunner);
           const projects: (ProjectWithRelations & { orgName: string })[] =
-            result?.records[0]
-              .get("projects")
-              .map(
-                record => record as ProjectWithRelations & { orgName: string },
-              );
+            result?.records.map(
+              record =>
+                record.get("result") as ProjectWithRelations & {
+                  orgName: string;
+                },
+            );
           return projects;
         },
         getProjectsMoreInfoData: async function () {
@@ -446,117 +376,34 @@ export const Projects = (
                 },
               ],
             })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "project",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_CATEGORY",
-                },
-                {
-                  label: "ProjectCategory",
-                  identifier: "project_category",
-                },
-              ],
-            })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "project",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_AUDIT",
-                },
-                {
-                  label: "Audit",
-                  identifier: "audit",
-                },
-              ],
-            })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "project",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_HACK",
-                },
-                {
-                  label: "Hack",
-                  identifier: "hack",
-                },
-              ],
-            })
-            .match({
-              optional: true,
-              related: [
-                {
-                  identifier: "project",
-                },
-                {
-                  direction: "out",
-                  name: "IS_DEPLOYED_ON_CHAIN",
-                },
-                {
-                  label: "Chain",
-                  identifier: "chain",
-                },
-              ],
-            })
-            .with([
-              "project_category",
-              "project",
-              "COLLECT(DISTINCT PROPERTIES(hack)) as hacks",
-              "COLLECT(DISTINCT PROPERTIES(audit)) as audits",
-              "COLLECT(DISTINCT PROPERTIES(chain)) as chains",
-            ])
             .return(
               `
-              COLLECT(DISTINCT {
-                id: project.id,
-                defiLlamaId: project.defiLlamaId,
-                defiLlamaSlug: project.defiLlamaSlug,
-                defiLlamaParent: project.defiLlamaParent,
-                name: project.name,
-                description: project.description,
-                url: project.url,
-                logo: project.logo,
-                tokenAddress: project.tokenAddress,
-                tokenSymbol: project.tokenSymbol,
-                isInConstruction: project.isInConstruction,
-                tvl: project.tvl,
-                monthlyVolume: project.monthlyVolume,
-                monthlyFees: project.monthlyFees,
-                monthlyRevenue: project.monthlyRevenue,
-                monthlyActiveUsers: project.monthlyActiveUsers,
-                isMainnet: project.isMainnet,
-                telegram: project.telegram,
-                orgId: project.orgId,
-                twitter: project.twitter,
-                discord: project.discord,
-                docs: project.docs,
-                teamSize: project.teamSize,
-                githubOrganization: project.githubOrganization,
-                category: project_category.name,
-                createdTimestamp: project.createdTimestamp,
-                updatedTimestamp: project.updatedTimestamp,
-                hacks: [hack in hacks WHERE hack.id IS NOT NULL],
-                audits: [audit in audits WHERE audit.id IS NOT NULL],
-                chains: [chain in chains WHERE chain.id IS NOT NULL]
-              }) AS projects
+              project {
+                  .*,
+                  orgId: organization.orgId,
+                  discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                  website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                  docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                  telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                  github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
+                  category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                  twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                  hacks: [
+                    (project)-[:HAS_HACK]->(hack) | hack { .* }
+                  ],
+                  audits: [
+                    (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                  ],
+                  chains: [
+                    (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain) | chain { .* }
+                  ]
+                } as result
             `,
             );
           const result = await query.run(neogma.queryRunner);
-          const projects: ProjectWithRelations[] = result?.records[0]
-            .get("projects")
-            .map(record => record as ProjectWithRelations);
+          const projects: ProjectWithRelations[] = result?.records.map(
+            record => record.get("result") as ProjectWithRelations,
+          );
           return projects;
         },
         getProjectDetailsById: async function (id: string) {
