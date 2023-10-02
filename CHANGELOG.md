@@ -1,3 +1,10 @@
+## [1.37.9](https://github.com/jobstash/middleware/compare/v1.37.8...v1.37.9) (2023-10-02)
+
+
+### Bug Fixes
+
+* **techs:** fixed issues with tech queries and service calls ([03b66c3](https://github.com/jobstash/middleware/commit/03b66c356d6f348cac0c11eddeefce417611fe89))
+
 ## [1.37.8](https://github.com/jobstash/middleware/compare/v1.37.7...v1.37.8) (2023-09-29)
 
 
