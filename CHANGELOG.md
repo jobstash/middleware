@@ -1,3 +1,10 @@
+## [1.37.13](https://github.com/jobstash/middleware/compare/v1.37.12...v1.37.13) (2023-10-03)
+
+
+### Bug Fixes
+
+* fixed projects list interface ([84c3fd3](https://github.com/jobstash/middleware/commit/84c3fd3a6e6a848decbe8190cdbd60f293af8185))
+
 ## [1.37.12](https://github.com/jobstash/middleware/compare/v1.37.11...v1.37.12) (2023-10-03)
 
 
