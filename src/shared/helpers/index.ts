@@ -344,16 +344,7 @@ export const hasDuplicates = <A, B>(
 };
 
 export const toShortOrg = (org: OrgListResult): ShortOrg => {
-  const {
-    orgId,
-    website,
-    name,
-    logoUrl: logo,
-    location,
-    headCount,
-    description,
-    tags,
-  } = org;
+  const { orgId, website, name, logoUrl: logo, location, headCount } = org;
   const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
   return {
     orgId,
@@ -362,8 +353,6 @@ export const toShortOrg = (org: OrgListResult): ShortOrg => {
     logo,
     location,
     headCount,
-    description,
-    tags,
     jobCount: org.jobs.length,
     projectCount: org.projects.length,
     lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,

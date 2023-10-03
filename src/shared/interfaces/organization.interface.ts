@@ -5,7 +5,6 @@ import {
   getSchemaPath,
 } from "@nestjs/swagger";
 import * as t from "io-ts";
-import { Tag } from "./tag.interface";
 import { FundingRound } from "./funding-round.interface";
 import { Investor } from "./investor.interface";
 import { isLeft } from "fp-ts/lib/Either";
@@ -201,7 +200,6 @@ export class ShortOrg {
     lastFundingDate: t.number,
     lastFundingAmount: t.number,
     logo: t.union([t.string, t.null]),
-    tags: t.array(Tag.TagType),
   });
 
   @ApiProperty()
@@ -234,12 +232,6 @@ export class ShortOrg {
   @ApiProperty()
   url: string;
 
-  @ApiProperty()
-  description: string;
-
-  @ApiProperty({ type: "array", items: { $ref: getSchemaPath(Tag) } })
-  tags: Tag[];
-
   constructor(raw: ShortOrg) {
     const {
       orgId,
@@ -249,9 +241,7 @@ export class ShortOrg {
       location,
       jobCount,
       headCount,
-      description,
       projectCount,
-      tags,
       lastFundingDate,
       lastFundingAmount,
     } = raw;
@@ -265,9 +255,7 @@ export class ShortOrg {
     this.location = location;
     this.jobCount = jobCount;
     this.headCount = headCount;
-    this.description = description;
     this.projectCount = projectCount;
-    this.tags = tags;
     this.lastFundingDate = lastFundingDate;
     this.lastFundingAmount = lastFundingAmount;
 
