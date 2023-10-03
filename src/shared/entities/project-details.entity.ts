@@ -31,6 +31,7 @@ export class ProjectDetailsEntity {
       docs: notStringOrNull(project?.docs),
       teamSize: nonZeroOrNull(project?.teamSize),
       github: notStringOrNull(project?.github),
+      isMainnet: project?.isMainnet ?? null,
       createdTimestamp: nonZeroOrNull(project?.createdTimestamp),
       updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
       hacks:
