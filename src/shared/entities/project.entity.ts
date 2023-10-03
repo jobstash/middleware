@@ -9,7 +9,6 @@ export class ProjectWithRelationsEntity {
     const project = this.raw;
     return new ProjectWithRelations({
       ...project,
-      category: notStringOrNull(project.category),
       tokenSymbol: notStringOrNull(project?.tokenSymbol, ["-"]),
       tokenAddress: notStringOrNull(project?.tokenAddress, ["-"]),
       defiLlamaId: notStringOrNull(project?.defiLlamaId, ["-"]),
@@ -25,6 +24,13 @@ export class ProjectWithRelationsEntity {
       isMainnet: project?.isMainnet ?? null,
       logo: notStringOrNull(project?.logo),
       teamSize: nonZeroOrNull(project?.teamSize),
+      website: notStringOrNull(project?.category),
+      github: notStringOrNull(project?.website),
+      twitter: notStringOrNull(project?.github),
+      telegram: notStringOrNull(project?.twitter),
+      discord: notStringOrNull(project?.telegram),
+      docs: notStringOrNull(project?.discord),
+      category: notStringOrNull(project?.docs),
       hacks:
         project?.hacks.map(hack => ({
           ...hack,
@@ -75,8 +81,8 @@ export class ProjectEntity {
     return (<Record<string, string>>this.node.properties).description;
   }
 
-  getUrl(): string {
-    return (<Record<string, string>>this.node.properties).url;
+  getWebsite(): string {
+    return (<Record<string, string>>this.node.properties).website;
   }
 
   getLogo(): string {
