@@ -46,6 +46,7 @@ export * from "./preferred-tag.interface";
 export * from "./github-repository-properties.interface";
 export * from "./github-organization-properties.interface";
 export * from "./github-organization.interface";
+export * from "./project-list-result.interface";
 export * from "./organization-alias.interface";
 export * from "./structured-jobpost-with-relations.interface";
 export * from "./project-with-relations.interface";

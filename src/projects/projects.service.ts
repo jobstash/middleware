@@ -7,15 +7,14 @@ import {
   ProjectDetailsEntity,
   Project,
   ProjectWithRelations,
+  ProjectListResult,
+  ProjectListResultEntity,
+  ProjectEntity,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { ProjectListParams } from "./dto/project-list.input";
 import { intConverter, notStringOrNull } from "src/shared/helpers";
-import {
-  ProjectEntity,
-  ProjectWithRelationsEntity,
-} from "src/shared/entities/project.entity";
 import { createNewSortInstance } from "fast-sort";
 import { ModelService } from "src/model/model.service";
 import { InjectConnection } from "nest-neogma";
@@ -36,7 +35,7 @@ export class ProjectsService {
 
   async getProjectsListWithSearch(
     params: ProjectListParams,
-  ): Promise<PaginatedData<ProjectWithRelations>> {
+  ): Promise<PaginatedData<ProjectListResult>> {
     const paramsPassed = {
       ...params,
       query: params.query ? `(?i).*${params.query}.*` : null,
@@ -133,9 +132,9 @@ export class ProjectsService {
 
     const filtered = results
       .filter(projectFilters)
-      .map(x => new ProjectWithRelationsEntity(x).getProperties());
+      .map(x => new ProjectListResultEntity(x).getProperties());
 
-    const getSortParam = (p1: ProjectWithRelations): number | null => {
+    const getSortParam = (p1: ProjectListResult): number | null => {
       switch (params.orderBy) {
         case "audits":
           return p1.audits.length;
@@ -156,7 +155,7 @@ export class ProjectsService {
       }
     };
 
-    let final: ProjectWithRelations[] = [];
+    let final: ProjectListResult[] = [];
     const naturalSort = createNewSortInstance({
       comparer: new Intl.Collator(undefined, {
         numeric: true,
@@ -164,11 +163,11 @@ export class ProjectsService {
       }).compare,
     });
     if (!order || order === "asc") {
-      final = naturalSort<ProjectWithRelations>(filtered).asc(x =>
+      final = naturalSort<ProjectListResult>(filtered).asc(x =>
         orderBy ? getSortParam(x) : x.name,
       );
     } else {
-      final = naturalSort<ProjectWithRelations>(filtered).desc(x =>
+      final = naturalSort<ProjectListResult>(filtered).desc(x =>
         orderBy ? getSortParam(x) : x.name,
       );
     }

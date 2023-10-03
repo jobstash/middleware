@@ -28,40 +28,40 @@ export class ProjectWithRelations extends ProjectMoreInfo {
     }),
   ]);
 
-  @ApiProperty()
+  @ApiPropertyOptional()
   category: string | null;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
   website: string | null;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
   github: string | null;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
   twitter: string | null;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
   telegram: string | null;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
   discord: string | null;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
   docs: string | null;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     type: "array",
     items: { $ref: getSchemaPath(Hack) },
   })
   hacks: Hack[];
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     type: "array",
     items: { $ref: getSchemaPath(Audit) },
   })
   audits: Audit[];
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     type: "array",
     items: { $ref: getSchemaPath(Chain) },
   })

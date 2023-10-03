@@ -36,6 +36,7 @@ import {
   Response,
   ResponseWithNoData,
   ProjectWithRelations,
+  ProjectListResult,
 } from "src/shared/types";
 import { CreateProjectInput } from "./dto/create-project.input";
 import { ProjectsService } from "./projects.service";
@@ -130,7 +131,7 @@ export class ProjectsController {
             },
             data: {
               type: "array",
-              items: { $ref: getSchemaPath(ProjectWithRelations) },
+              items: { $ref: getSchemaPath(ProjectListResult) },
             },
           },
         },
@@ -151,7 +152,7 @@ export class ProjectsController {
   async getProjectsListWithSearch(
     @Query(new ValidationPipe({ transform: true }))
     params: ProjectListParams,
-  ): Promise<PaginatedData<ProjectWithRelations>> {
+  ): Promise<PaginatedData<ProjectListResult>> {
     const paramsParsed = {
       ...params,
       query: btoa(params.query),
