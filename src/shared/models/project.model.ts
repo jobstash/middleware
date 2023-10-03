@@ -447,7 +447,7 @@ export const Projects = (
                       locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0]
                     }
                   ],
-                  tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: JobpostTag) WHERE NOT (tag)<-[:IS_BLOCKED_TERM]-() | tag { .* }]
+                  tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:IS_BLOCKED_TERM]-() | tag { .* }]
                 },
                 hacks: [
                 (project)-[:HAS_HACK]->(hack) | hack { .* }

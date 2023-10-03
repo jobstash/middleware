@@ -404,7 +404,7 @@ export class JobsService {
             MATCH (jp)-[:HAS_STATUS]->(:JobpostOnlineStatus)
             MATCH (j)-[:HAS_CLASSIFICATION]-(cat:JobpostClassification)
             MATCH (j)-[:HAS_LOCATION_TYPE]-(l:JobpostLocationType)
-            OPTIONAL MATCH (j)-[:HAS_TAG]->(t:JobpostTag)
+            OPTIONAL MATCH (j)-[:HAS_TAG]->(t:Tag)
             OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)-[:INVESTED_BY]->(i:Investor)
             OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)
             OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(c:Chain)
