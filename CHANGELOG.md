@@ -1,3 +1,10 @@
+## [1.37.15](https://github.com/jobstash/middleware/compare/v1.37.14...v1.37.15) (2023-10-04)
+
+
+### Bug Fixes
+
+* fixed org list isMainnet bug ([db9f670](https://github.com/jobstash/middleware/commit/db9f6707c4646e565088fd2b935a1d810cea9e0f))
+
 ## [1.37.14](https://github.com/jobstash/middleware/compare/v1.37.13...v1.37.14) (2023-10-04)
 
 
