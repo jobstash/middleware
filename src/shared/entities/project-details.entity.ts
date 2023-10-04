@@ -70,6 +70,7 @@ export class ProjectDetailsEntity {
             raisedAmount: nonZeroOrNull(fr?.raisedAmount),
             roundName: notStringOrNull(fr?.roundName),
             sourceLink: notStringOrNull(fr?.sourceLink),
+            createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
           })) ?? [],
         investors: organization?.investors ?? [],
         tags: organization?.tags ?? [],
