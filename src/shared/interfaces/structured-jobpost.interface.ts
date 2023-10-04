@@ -12,7 +12,7 @@ export class StructuredJobpost {
     firstSeenTimestamp: t.number,
     benefits: t.array(t.string),
     requirements: t.array(t.string),
-    responsibilites: t.array(t.string),
+    responsibilities: t.array(t.string),
     title: t.union([t.string, t.null]),
     salary: t.union([t.number, t.null]),
     payRate: t.union([t.number, t.null]),

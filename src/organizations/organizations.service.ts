@@ -52,7 +52,8 @@ export class OrganizationsService {
               .*,
               classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
               commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
-              locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0]
+              locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
+              tags: [(structured_jobpost)-[:HAS_TAG]->(tag: Tag) WHERE NOT (tag)<-[:IS_BLOCKED_TERM]-() | tag { .* }]
             }
           ],
           projects: [
