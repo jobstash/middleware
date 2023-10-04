@@ -1,3 +1,10 @@
+## [1.37.18](https://github.com/jobstash/middleware/compare/v1.37.17...v1.37.18) (2023-10-04)
+
+
+### Bug Fixes
+
+* fixed bugs on orgs and jobs lists ([3007477](https://github.com/jobstash/middleware/commit/300747798f73e7cd2374d445676c21365993a6b4))
+
 ## [1.37.17](https://github.com/jobstash/middleware/compare/v1.37.16...v1.37.17) (2023-10-04)
 
 
