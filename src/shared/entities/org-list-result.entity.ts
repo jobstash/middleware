@@ -52,6 +52,7 @@ export class OrgListResultEntity {
           logo: notStringOrNull(project?.logo),
           twitter: notStringOrNull(project?.twitter),
           discord: notStringOrNull(project?.discord),
+          isMainnet: project?.isMainnet ?? null,
           docs: notStringOrNull(project?.docs),
           teamSize: nonZeroOrNull(project?.teamSize),
           github: notStringOrNull(project?.github),
