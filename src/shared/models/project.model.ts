@@ -410,11 +410,20 @@ export const Projects = (
         getProjectDetailsById: async function (id: string) {
           const query = new QueryBuilder()
             .match({
-              label: "Project",
-              identifier: "project",
-              where: {
-                id: id,
-              },
+              related: [
+                {
+                  label: "Organization",
+                  identifier: "organization",
+                },
+                { direction: "out", name: "HAS_PROJECT" },
+                {
+                  label: "Project",
+                  identifier: "project",
+                  where: {
+                    id: id,
+                  },
+                },
+              ],
             })
             .return(
               `
@@ -428,7 +437,7 @@ export const Projects = (
                 github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
                 category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
                 twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
-                (organization)-[:HAS_PROJECT]->(project) | organization {
+                organization: [(organization)-[:HAS_PROJECT]->(project) | organization {
                   .*,
                   discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
