@@ -10,6 +10,10 @@ export const SINGLE_SELECT_OPTIONS = {
     { label: "Has been hacked", value: true },
     { label: "Has not been hacked", value: false },
   ],
+  audits: [
+    { label: "Has Audits", value: true },
+    { label: "Has No Audits", value: false },
+  ],
   mainNet: [
     { label: "Deployed on Mainnet", value: true },
     { label: "Not Deployed on Mainnet", value: false },
@@ -101,7 +105,8 @@ export const FILTER_CONFIG_PRESETS = {
     label: "Audits",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_audits",
-    kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
+    kind: FilterKind.SINGLE_SELECT,
+    options: SINGLE_SELECT_OPTIONS.audits,
   },
   hacks: {
     position: 10,

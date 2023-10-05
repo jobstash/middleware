@@ -94,7 +94,7 @@ export class ProjectFilterConfigsEntity {
       monthlyVolume: this.getRangePresets("monthlyVolume"),
       monthlyFees: this.getRangePresets("monthlyFees"),
       monthlyRevenue: this.getRangePresets("monthlyRevenue"),
-      audits: this.getMultiValuePresets("audits"),
+      audits: this.getSingleSelectPresets("audits"),
       hacks: this.getSingleSelectPresets("hacks"),
       organizations: this.getMultiValuePresets("organizations"),
       chains: this.getMultiValuePresets("chains"),

@@ -206,7 +206,6 @@ export class ProjectsService {
             maxTeamSize: MAX(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
             categories: COLLECT(DISTINCT cat.name),
             chains: COLLECT(DISTINCT c.name),
-            audits: COLLECT(DISTINCT a.name),
             organizations: COLLECT(DISTINCT o.name)
         } as res
       `,

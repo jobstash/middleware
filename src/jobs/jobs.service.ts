@@ -210,8 +210,8 @@ export class JobsService {
       seniority: seniorityFilterList,
       locations: locationFilterList,
       tags: tagFilterList,
-      audits: auditFilterList,
-      hacks: hackFilterList,
+      audits: auditFilter,
+      hacks: hackFilter,
       chains: chainFilterList,
       projects: projectFilterList,
       organizations: organizationFilterList,
@@ -310,13 +310,10 @@ export class JobsService {
           (anchorProject?.monthlyRevenue ?? 0) >= minMonthlyRevenue) &&
         (!maxMonthlyRevenue ||
           (anchorProject?.monthlyRevenue ?? 0) < maxMonthlyRevenue) &&
-        (!auditFilterList ||
-          projects.some(
-            x =>
-              x.audits.filter(x => auditFilterList.includes(x.name)).length > 0,
-          )) &&
-        (!hackFilterList ||
-          (anchorProject?.hacks.length ?? 0) > 0 === hackFilterList) &&
+        (!auditFilter ||
+          (anchorProject?.audits.length ?? 0) > 0 === auditFilter) &&
+        (!hackFilter ||
+          (anchorProject?.hacks.length ?? 0) > 0 === hackFilter) &&
         (!chainFilterList ||
           (anchorProject?.chains
             ?.map(x => x.name)
@@ -428,7 +425,6 @@ export class JobsService {
               fundingRounds: COLLECT(DISTINCT f.roundName),
               investors: COLLECT(DISTINCT i.name),
               projects: COLLECT(DISTINCT p.name),
-              audits: COLLECT(DISTINCT a.name),
               classifications: COLLECT(DISTINCT cat.name),
               chains: COLLECT(DISTINCT c.name),
               location: COLLECT(DISTINCT l.name),
