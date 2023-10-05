@@ -17,6 +17,7 @@ export class StructuredJobpost {
     salary: t.union([t.number, t.null]),
     payRate: t.union([t.number, t.null]),
     summary: t.union([t.string, t.null]),
+    description: t.union([t.string, t.null]),
     culture: t.union([t.string, t.null]),
     location: t.union([t.string, t.null]),
     seniority: t.union([t.string, t.null]),
@@ -40,6 +41,9 @@ export class StructuredJobpost {
 
   @ApiPropertyOptional()
   summary: string | null;
+
+  @ApiPropertyOptional()
+  description: string | null;
 
   @ApiPropertyOptional()
   payRate: number | null;
@@ -104,6 +108,7 @@ export class StructuredJobpost {
       culture,
       location,
       summary,
+      description,
       benefits,
       shortUUID,
       seniority,
@@ -130,6 +135,7 @@ export class StructuredJobpost {
     this.benefits = benefits;
     this.shortUUID = shortUUID;
     this.seniority = seniority;
+    this.description = description;
     this.requirements = requirements;
     this.paysInCrypto = paysInCrypto;
     this.minimumSalary = minimumSalary;

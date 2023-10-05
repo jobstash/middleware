@@ -31,6 +31,8 @@ export class JobListResultEntity {
       offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
       url: notStringOrNull(jobpost?.url),
       title: notStringOrNull(jobpost?.title),
+      summary: notStringOrNull(jobpost?.summary),
+      description: notStringOrNull(jobpost?.description),
       organization: {
         ...organization,
         docs: notStringOrNull(organization?.docs),

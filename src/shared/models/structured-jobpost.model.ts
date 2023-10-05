@@ -116,6 +116,11 @@ export const StructuredJobposts = (
           allowEmpty: true,
           required: false,
         },
+        description: {
+          type: "string",
+          allowEmpty: true,
+          required: false,
+        },
         benefits: {
           type: "array",
           allowEmpty: true,
