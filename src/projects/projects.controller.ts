@@ -373,7 +373,7 @@ export class ProjectsController {
     this.logger.log(`/projects/${id}`);
     const result = await this.projectsService.getProjectById(id);
 
-    if (result === undefined) {
+    if (result === null) {
       res.status(HttpStatus.NOT_FOUND);
       return { success: true, message: "No project found for id " + id };
     } else {

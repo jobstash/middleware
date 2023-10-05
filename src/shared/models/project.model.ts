@@ -13,6 +13,8 @@ import {
   ProjectDetails,
   ProjectMoreInfo,
   Project,
+  ProjectDetailsEntity,
+  ProjectMoreInfoEntity,
 } from "../types";
 import { AuditInstance, AuditProps, Audits } from "./audit.model";
 import { HackInstance, HackProps, Hacks } from "./hack.model";
@@ -79,11 +81,11 @@ export interface ProjectStatics {
     (ProjectWithRelations & { orgName: string })[]
   >;
   getProjectsMoreInfoData: () => Promise<ProjectWithRelations[]>;
-  getProjectDetailsById: (id: string) => Promise<ProjectDetails | undefined>;
+  getProjectDetailsById: (id: string) => Promise<ProjectDetails | null>;
   getProjectsByCategory: (category: string) => Promise<ProjectProps[]>;
   getProjectCompetitors: (id: string) => Promise<ProjectProps[]>;
   searchProjects: (query: string) => Promise<ProjectProps[]>;
-  getProjectById: (id: string) => Promise<ProjectProps | undefined>;
+  getProjectById: (id: string) => Promise<ProjectProps | null>;
 }
 
 export const Projects = (
@@ -471,32 +473,42 @@ export const Projects = (
             `,
             );
           const result = await query.run(neogma.queryRunner);
-          const project: ProjectDetails = result?.records[0]?.get(
-            "project",
-          ) as ProjectDetails;
+          const project: ProjectDetails = result?.records[0]?.get("project")
+            ? new ProjectDetailsEntity(
+                result?.records[0]?.get("project"),
+              ).getProperties()
+            : null;
           return project;
         },
         getProjectsByCategory: async function (category: string) {
-          const query = new QueryBuilder()
-            .match({
-              related: [
-                {
-                  label: "Project",
-                  identifier: "project",
+          const query = new QueryBuilder().match({
+            related: [
+              {
+                label: "Organization",
+                identifier: "organization",
+              },
+              { direction: "out", name: "HAS_PROJECT" },
+              {
+                label: "Project",
+                identifier: "project",
+              },
+              { name: "HAS_CATEGORY", direction: "out" },
+              {
+                label: "ProjectCategory",
+                where: {
+                  name: category,
                 },
-                { name: "HAS_CATEGORY", direction: "out" },
-                {
-                  label: "ProjectCategory",
-                  where: {
-                    name: category,
-                  },
-                },
-              ],
-            })
-            .return("PROPERTIES(project) as result");
+              },
+            ],
+          }).return(`
+            project {
+                .*,
+                orgId: organization.orgId
+            }
+          `);
           const result = await query.run(neogma.queryRunner);
-          return result.records.map(
-            record => record.get("result") as ProjectMoreInfo,
+          return result.records.map(record =>
+            new ProjectMoreInfoEntity(record.get("project")).getProperties(),
           );
         },
         getProjectCompetitors: async function (id: string) {
@@ -505,6 +517,11 @@ export const Projects = (
             .match({
               related: [
                 {
+                  label: "Organization",
+                  identifier: "organization",
+                },
+                { direction: "out", name: "HAS_PROJECT" },
+                {
                   label: "Project",
                   identifier: "project",
                 },
@@ -514,30 +531,43 @@ export const Projects = (
                 },
               ],
             })
-            .raw("WHERE project.id <> $id")
-            .return("project");
+            .raw("WHERE project.id <> $id").return(`
+              project {
+                .*,
+                orgId: organization.orgId
+              }
+            `);
           const result = await query.run(neogma.queryRunner);
-          return result.records.map(
-            record =>
-              new ProjectMoreInfo(record.get("project") as ProjectMoreInfo),
+          return result.records.map(record =>
+            new ProjectMoreInfoEntity(record.get("project")).getProperties(),
           );
         },
         getProjectById: async function (id: string) {
-          const query = new QueryBuilder()
-            .match({
-              related: [
-                {
-                  label: "Project",
-                  identifier: "project",
-                  where: { id: id },
-                },
-              ],
-            })
-            .return("project");
+          const query = new QueryBuilder().match({
+            related: [
+              {
+                label: "Organization",
+                identifier: "organization",
+              },
+              { direction: "out", name: "HAS_PROJECT" },
+              {
+                label: "Project",
+                identifier: "project",
+                where: { id: id },
+              },
+            ],
+          }).return(`
+              project {
+                  .*,
+                  orgId: organization.orgId
+              }
+            `);
           const result = await query.run(neogma.queryRunner);
-          return new ProjectEntity(
-            result?.records[0]?.get("project"),
-          ).getProperties();
+          return result?.records[0]?.get("project")
+            ? new ProjectEntity(
+                result?.records[0]?.get("project"),
+              ).getProperties()
+            : null;
         },
         searchProjects: async function (query: string) {
           const params = new BindParam({ query: `(?i).*${query}.*` });
@@ -545,17 +575,25 @@ export const Projects = (
             .match({
               related: [
                 {
+                  label: "Organization",
+                  identifier: "organization",
+                },
+                { direction: "out", name: "HAS_PROJECT" },
+                {
                   label: "Project",
                   identifier: "project",
                 },
               ],
             })
-            .raw("WHERE project.name =~ $query")
-            .return("project");
+            .raw("WHERE project.name =~ $query").return(`
+              project {
+                  .*,
+                  orgId: organization.orgId
+              }
+            `);
           const result = await searchQuery.run(neogma.queryRunner);
-          return result.records.map(
-            record =>
-              new ProjectMoreInfo(record.get("project") as ProjectMoreInfo),
+          return result.records.map(record =>
+            new ProjectMoreInfoEntity(record.get("project")).getProperties(),
           );
         },
       },

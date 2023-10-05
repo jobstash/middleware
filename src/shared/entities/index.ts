@@ -17,5 +17,6 @@ export * from "./preferred-tag.entity";
 export * from "./github-organization.entity";
 export * from "./all-jobs-list-result.entity";
 export * from "./project-filter-configs.entity";
+export * from "./project-more-info.entity";
 export * from "./project-list-result.entity";
 export * from "./all-jobs-filter-configs.entity";

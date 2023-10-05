@@ -231,7 +231,7 @@ export class ProjectsService {
     }
   }
 
-  async getProjectDetailsById(id: string): Promise<ProjectDetails | undefined> {
+  async getProjectDetailsById(id: string): Promise<ProjectDetails | null> {
     try {
       const details = await this.models.Projects.getProjectDetailsById(id);
       return details
@@ -253,7 +253,7 @@ export class ProjectsService {
     }
   }
 
-  async getProjectsByOrgId(id: string): Promise<Project[] | undefined> {
+  async getProjectsByOrgId(id: string): Promise<Project[] | null> {
     try {
       const projects = await this.models.Projects.getProjectsData();
       return projects
@@ -359,7 +359,7 @@ export class ProjectsService {
     }
   }
 
-  async getProjectById(id: string): Promise<ProjectProps | undefined> {
+  async getProjectById(id: string): Promise<ProjectProps | null> {
     try {
       return this.models.Projects.getProjectById(id);
     } catch (err) {
@@ -376,7 +376,7 @@ export class ProjectsService {
     }
   }
 
-  async find(name: string): Promise<ProjectEntity | undefined> {
+  async find(name: string): Promise<ProjectEntity | null> {
     const res = await this.neogma.queryRunner.run(
       `
         MATCH (p:Project {name: $name})
@@ -389,9 +389,7 @@ export class ProjectsService {
       : undefined;
   }
 
-  async findByDefiLlamaId(
-    defiLlamaId: string,
-  ): Promise<ProjectEntity | undefined> {
+  async findByDefiLlamaId(defiLlamaId: string): Promise<ProjectEntity | null> {
     const res = await this.neogma.queryRunner.run(
       `
         MATCH (p:Project {name: $defiLlamaId})
@@ -404,7 +402,7 @@ export class ProjectsService {
       : undefined;
   }
 
-  async findAll(): Promise<ProjectEntity[] | undefined> {
+  async findAll(): Promise<ProjectEntity[] | null> {
     return this.neogma.queryRunner
       .run(
         `
