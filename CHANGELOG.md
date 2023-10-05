@@ -1,3 +1,11 @@
+## [1.37.19](https://github.com/jobstash/middleware/compare/v1.37.18...v1.37.19) (2023-10-05)
+
+
+### Bug Fixes
+
+* **jobs:** fixed borkage with jobs list ([a592dc1](https://github.com/jobstash/middleware/commit/a592dc1672b4f4efd5e081500768086cb4c5fb85))
+* **projects:** fixed bugs with projects endpoints ([199e502](https://github.com/jobstash/middleware/commit/199e50258dfb14a5a915760f39e8c8d97fb3a878))
+
 ## [1.37.18](https://github.com/jobstash/middleware/compare/v1.37.17...v1.37.18) (2023-10-04)
 
 
