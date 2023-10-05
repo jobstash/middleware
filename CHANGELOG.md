@@ -1,3 +1,10 @@
+## [1.37.20](https://github.com/jobstash/middleware/compare/v1.37.19...v1.37.20) (2023-10-05)
+
+
+### Bug Fixes
+
+* **jobs:** restored description field for jobposts ([2e74440](https://github.com/jobstash/middleware/commit/2e74440b4d43cd4b18896aa1e5cf11938e50ea67))
+
 ## [1.37.19](https://github.com/jobstash/middleware/compare/v1.37.18...v1.37.19) (2023-10-05)
 
 
