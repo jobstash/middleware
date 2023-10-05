@@ -401,7 +401,7 @@ export class JobsService {
         .run(
           `
             MATCH (o:Organization)-[:HAS_JOBSITE|HAS_JOBPOST*2]->(jp:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
-            MATCH (jp)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+            MATCH (j)-[:HAS_STATUS]->(:JobpostOnlineStatus)
             MATCH (j)-[:HAS_CLASSIFICATION]-(cat:JobpostClassification)
             MATCH (j)-[:HAS_LOCATION_TYPE]-(l:JobpostLocationType)
             OPTIONAL MATCH (j)-[:HAS_TAG]->(t:Tag)
@@ -579,7 +579,7 @@ export class JobsService {
         .run(
           `
             MATCH (o:Organization)-[:HAS_JOBSITE|HAS_JOBPOST*2]->(jp:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
-            MATCH (jp)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+            MATCH (j)-[:HAS_STATUS]->(:JobpostOnlineStatus)
             MATCH (j)-[:HAS_CLASSIFICATION]-(cat:JobpostClassification)
             WITH o, cat
             RETURN {
