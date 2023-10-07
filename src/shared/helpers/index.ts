@@ -94,8 +94,8 @@ export const jobListOrderBySelector = (args: {
     case "chains":
       return chainsVar;
 
-    case "headCount":
-      return `${orgVar}.headCount`;
+    case "headcountEstimate":
+      return `${orgVar}.headcountEstimate`;
 
     case "teamSize":
       return `${jobVar}.jobCreatedTimestamp`;
@@ -344,7 +344,14 @@ export const hasDuplicates = <A, B>(
 };
 
 export const toShortOrg = (org: OrgListResult): ShortOrg => {
-  const { orgId, website, name, logoUrl: logo, location, headCount } = org;
+  const {
+    orgId,
+    website,
+    name,
+    logoUrl: logo,
+    location,
+    headcountEstimate,
+  } = org;
   const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
   return {
     orgId,
@@ -352,7 +359,7 @@ export const toShortOrg = (org: OrgListResult): ShortOrg => {
     name,
     logo,
     location,
-    headCount,
+    headcountEstimate,
     jobCount: org.jobs.length,
     projectCount: org.projects.length,
     lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,

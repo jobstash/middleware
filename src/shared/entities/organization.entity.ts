@@ -11,7 +11,7 @@ export class ShortOrgEntity {
       logo: notStringOrNull(this.raw.logo),
       jobCount: intConverter(this.raw.jobCount),
       projectCount: intConverter(this.raw.projectCount),
-      headCount: intConverter(this.raw.headCount),
+      headcountEstimate: intConverter(this.raw.headcountEstimate),
       lastFundingAmount: intConverter(this.raw.lastFundingAmount),
       lastFundingDate: intConverter(this.raw.lastFundingDate),
     };
@@ -62,7 +62,7 @@ export class OrganizationEntity {
   }
 
   getHeadCount(): string | undefined {
-    return (<Record<string, string>>this.node.properties).headCount;
+    return (<Record<string, string>>this.node.properties).headcountEstimate;
   }
 
   getTwitter(): string | undefined {
@@ -95,7 +95,7 @@ export class OrganizationEntity {
     return {
       ...properties,
       logoUrl: notStringOrNull(properties?.logo),
-      headCount: nonZeroOrNull(properties?.headCount),
+      headcountEstimate: nonZeroOrNull(properties?.headcountEstimate),
       createdTimestamp: nonZeroOrNull(properties?.createdTimestamp),
       updatedTimestamp: nonZeroOrNull(properties?.updatedTimestamp),
     } as Organization;

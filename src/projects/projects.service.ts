@@ -44,8 +44,6 @@ export class ProjectsService {
     };
 
     const {
-      minTeamSize,
-      maxTeamSize,
       minTvl,
       maxTvl,
       minMonthlyVolume,
@@ -105,8 +103,6 @@ export class ProjectsService {
         (!organizationFilterList ||
           organizationFilterList.includes(project.orgName)) &&
         (!mainNet || project.isMainnet) &&
-        (!minTeamSize || (project?.teamSize ?? 0) >= minTeamSize) &&
-        (!maxTeamSize || (project?.teamSize ?? 0) < maxTeamSize) &&
         (!minTvl || (project?.tvl ?? 0) >= minTvl) &&
         (!maxTvl || (project?.tvl ?? 0) < maxTvl) &&
         (!minMonthlyVolume ||
@@ -142,8 +138,6 @@ export class ProjectsService {
           return p1.hacks.length;
         case "chains":
           return p1.chains.length;
-        case "teamSize":
-          return p1.teamSize;
         case "monthlyVolume":
           return p1.monthlyVolume;
         case "monthlyFees":
@@ -194,16 +188,14 @@ export class ProjectsService {
         OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
         WITH o, p, c, a, cat
         RETURN {
-            minTvl: MIN(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
-            maxTvl: MAX(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
-            minMonthlyVolume: MIN(CASE WHEN NOT p.monthlyVolume IS NULL AND isNaN(p.monthlyVolume) = false THEN toFloat(p.monthlyVolume) END),
-            maxMonthlyVolume: MAX(CASE WHEN NOT p.monthlyVolume IS NULL AND isNaN(p.monthlyVolume) = false THEN toFloat(p.monthlyVolume) END),
-            minMonthlyFees: MIN(CASE WHEN NOT p.monthlyFees IS NULL AND isNaN(p.monthlyFees) = false THEN toFloat(p.monthlyFees) END),
-            maxMonthlyFees: MAX(CASE WHEN NOT p.monthlyFees IS NULL AND isNaN(p.monthlyFees) = false THEN toFloat(p.monthlyFees) END),
-            minMonthlyRevenue: MIN(CASE WHEN NOT p.monthlyRevenue IS NULL AND isNaN(p.monthlyRevenue) = false THEN toFloat(p.monthlyRevenue) END),
-            maxMonthlyRevenue: MAX(CASE WHEN NOT p.monthlyRevenue IS NULL AND isNaN(p.monthlyRevenue) = false THEN toFloat(p.monthlyRevenue) END),
-            minTeamSize: MIN(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
-            maxTeamSize: MAX(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
+            minTvl: apoc.coll.min(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
+            maxTvl: apoc.coll.max(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
+            minMonthlyVolume: apoc.coll.min(CASE WHEN NOT p.monthlyVolume IS NULL AND isNaN(p.monthlyVolume) = false THEN toFloat(p.monthlyVolume) END),
+            maxMonthlyVolume: apoc.coll.max(CASE WHEN NOT p.monthlyVolume IS NULL AND isNaN(p.monthlyVolume) = false THEN toFloat(p.monthlyVolume) END),
+            minMonthlyFees: apoc.coll.min(CASE WHEN NOT p.monthlyFees IS NULL AND isNaN(p.monthlyFees) = false THEN toFloat(p.monthlyFees) END),
+            maxMonthlyFees: apoc.coll.max(CASE WHEN NOT p.monthlyFees IS NULL AND isNaN(p.monthlyFees) = false THEN toFloat(p.monthlyFees) END),
+            minMonthlyRevenue: apoc.coll.min(CASE WHEN NOT p.monthlyRevenue IS NULL AND isNaN(p.monthlyRevenue) = false THEN toFloat(p.monthlyRevenue) END),
+            maxMonthlyRevenue: apoc.coll.max(CASE WHEN NOT p.monthlyRevenue IS NULL AND isNaN(p.monthlyRevenue) = false THEN toFloat(p.monthlyRevenue) END),
             categories: COLLECT(DISTINCT cat.name),
             chains: COLLECT(DISTINCT c.name),
             organizations: COLLECT(DISTINCT o.name)
@@ -264,7 +256,6 @@ export class ProjectsService {
           isMainnet: project.isMainnet,
           tvl: project.tvl,
           logo: project.logo,
-          teamSize: project.teamSize,
           category: project.category,
           tokenSymbol: project.tokenSymbol,
           monthlyFees: project.monthlyFees,

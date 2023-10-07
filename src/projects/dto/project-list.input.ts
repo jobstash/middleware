@@ -14,25 +14,6 @@ import { Compare } from "src/shared/validators";
 
 export class ProjectListParams {
   @ApiPropertyOptional({
-    example: 10,
-  })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  minTeamSize?: number | null = null;
-
-  @ApiPropertyOptional({
-    example: 100,
-  })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Compare("minTeamSize", ">=")
-  @Type(() => Number)
-  maxTeamSize?: number | null = null;
-
-  @ApiPropertyOptional({
     example: 1890503.6980031824,
   })
   @IsOptional()

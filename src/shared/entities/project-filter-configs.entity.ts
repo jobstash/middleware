@@ -21,8 +21,6 @@ type RawProjectFilters = {
   maxMonthlyFees?: number | null;
   minMonthlyRevenue?: number | null;
   maxMonthlyRevenue?: number | null;
-  minTeamSize?: number | null;
-  maxTeamSize?: number | null;
   categories?: string[] | null;
   chains?: string[] | null;
   audits?: string[] | null;
@@ -89,7 +87,6 @@ export class ProjectFilterConfigsEntity {
 
   getProperties(): ProjectFilterConfigs {
     return new ProjectFilterConfigs({
-      teamSize: this.getRangePresets("teamSize"),
       tvl: this.getRangePresets("tvl"),
       monthlyVolume: this.getRangePresets("monthlyVolume"),
       monthlyFees: this.getRangePresets("monthlyFees"),

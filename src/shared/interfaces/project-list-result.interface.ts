@@ -16,7 +16,6 @@ export class ProjectListResult {
     name: t.string,
     website: t.union([t.string, t.null]),
     logo: t.union([t.string, t.null]),
-    teamSize: t.union([t.number, t.null]),
     category: t.union([t.string, t.null]),
     isMainnet: t.union([t.boolean, t.null]),
     tokenSymbol: t.union([t.string, t.null]),
@@ -41,9 +40,6 @@ export class ProjectListResult {
 
   @ApiPropertyOptional()
   logo: string | null;
-
-  @ApiPropertyOptional()
-  teamSize: number | null;
 
   @ApiPropertyOptional()
   category: string | null;
@@ -93,7 +89,6 @@ export class ProjectListResult {
       name,
       website,
       logo,
-      teamSize,
       category,
       isMainnet,
       tokenSymbol,
@@ -118,7 +113,6 @@ export class ProjectListResult {
     this.chains = chains;
     this.website = website;
     this.category = category;
-    this.teamSize = teamSize;
     this.isMainnet = isMainnet;
     this.tokenSymbol = tokenSymbol;
     this.monthlyFees = monthlyFees;

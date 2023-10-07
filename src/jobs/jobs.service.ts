@@ -80,7 +80,7 @@ export class JobsService {
                 (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
               ],
               investors: [
-                (organization)-[:HAS_FUNDING_ROUND|INVESTED_BY*2]->(investor) | investor { .* }
+                (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]
           }][0],
           tags: [
@@ -154,7 +154,7 @@ export class JobsService {
                     (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round {.*}
                   ],
                   investors: [
-                    (organization)-[:HAS_FUNDING_ROUND|INVESTED_BY*2]->(investor) | investor { .* }
+                    (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
                   ]
               }][0]
           } AS result
@@ -191,8 +191,6 @@ export class JobsService {
       page: params.page ?? 1,
     };
     const {
-      minTeamSize,
-      maxTeamSize,
       minTvl,
       maxTvl,
       minMonthlyVolume,
@@ -256,7 +254,7 @@ export class JobsService {
         investors,
         fundingRounds,
         name: orgName,
-        headCount,
+        headcountEstimate,
       } = jlr.organization;
       const {
         title: jobTitle,
@@ -278,8 +276,8 @@ export class JobsService {
         (!organizationFilterList || organizationFilterList.includes(orgName)) &&
         (!seniorityFilterList || seniorityFilterList.includes(seniority)) &&
         (!locationFilterList || locationFilterList.includes(locationType)) &&
-        (!minHeadCount || (headCount ?? 0) >= minHeadCount) &&
-        (!maxHeadCount || (headCount ?? 0) < maxHeadCount) &&
+        (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
+        (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
         (!minSalaryRange || (salary ?? 0) >= minSalaryRange) &&
         (!maxSalaryRange || (salary ?? 0) < maxSalaryRange) &&
         (!startDate || extractedTimestamp >= startDate) &&
@@ -294,8 +292,6 @@ export class JobsService {
           projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
             .length > 0) &&
         (!mainNet || projects.filter(x => x.isMainnet).length > 0) &&
-        (!minTeamSize || (anchorProject?.teamSize ?? 0) >= minTeamSize) &&
-        (!maxTeamSize || (anchorProject?.teamSize ?? 0) < maxTeamSize) &&
         (!minTvl || (anchorProject?.tvl ?? 0) >= minTvl) &&
         (!maxTvl || (anchorProject?.tvl ?? 0) < maxTvl) &&
         (!minMonthlyVolume ||
@@ -346,8 +342,6 @@ export class JobsService {
           return p1?.hacks.length ?? 0;
         case "chains":
           return p1?.chains.length ?? 0;
-        case "teamSize":
-          return p1?.teamSize ?? 0;
         case "tvl":
           return p1?.tvl ?? 0;
         case "monthlyVolume":
@@ -361,8 +355,8 @@ export class JobsService {
             jlr.organization.fundingRounds.sort((a, b) => b.date - a.date)[0]
               ?.date ?? 0
           );
-        case "headCount":
-          return jlr.organization?.headCount ?? 0;
+        case "headcountEstimate":
+          return jlr.organization?.headcountEstimate ?? 0;
         case "publicationDate":
           return jlr.lastSeenTimestamp;
         case "salary":
@@ -402,7 +396,7 @@ export class JobsService {
             MATCH (j)-[:HAS_CLASSIFICATION]-(cat:JobpostClassification)
             MATCH (j)-[:HAS_LOCATION_TYPE]-(l:JobpostLocationType)
             OPTIONAL MATCH (j)-[:HAS_TAG]->(t:Tag)
-            OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)-[:INVESTED_BY]->(i:Investor)
+            OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)-[:HAS_INVESTOR]->(i:Investor)
             OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)
             OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(c:Chain)
             OPTIONAL MATCH (p)-[:HAS_AUDIT]->(a:Audit)

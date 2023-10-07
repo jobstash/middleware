@@ -135,11 +135,6 @@ export const Projects = (
           allowEmpty: true,
           required: false,
         },
-        teamSize: {
-          type: "string",
-          allowEmpty: true,
-          required: false,
-        },
         tokenSymbol: {
           type: "string",
           allowEmpty: true,
@@ -258,7 +253,6 @@ export const Projects = (
             isMainnet: this.isMainnet,
             tvl: this.tvl,
             logo: this.logo,
-            teamSize: this.teamSize,
             tokenSymbol: this.tokenSymbol,
             monthlyFees: this.monthlyFees,
             monthlyVolume: this.monthlyVolume,
@@ -449,7 +443,7 @@ export const Projects = (
                   alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
                   twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
                   fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
-                  investors: [(organization)-[:HAS_FUNDING_ROUND|INVESTED_BY*2]->(investor) | investor { .* }],
+                  investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   jobs: [
                     (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost) | structured_jobpost {
                       .*,
@@ -517,6 +511,21 @@ export const Projects = (
             .match({
               related: [
                 {
+                  label: "Project",
+                  where: {
+                    id: id,
+                  },
+                },
+                { name: "HAS_CATEGORY", direction: "out" },
+                {
+                  label: "ProjectCategory",
+                  identifier: "category",
+                },
+              ],
+            })
+            .match({
+              related: [
+                {
                   label: "Organization",
                   identifier: "organization",
                 },
@@ -527,7 +536,7 @@ export const Projects = (
                 },
                 { name: "HAS_CATEGORY", direction: "out" },
                 {
-                  label: "ProjectCategory",
+                  identifier: "category",
                 },
               ],
             })

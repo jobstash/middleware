@@ -19,7 +19,7 @@ export const SINGLE_SELECT_OPTIONS = {
     { label: "Descending", value: "desc" },
   ],
   orderBy: [
-    { label: "Head Count", value: "headCount" },
+    { label: "Head Count", value: "headcountEstimate" },
     { label: "Most Recent Jobpost", value: "recentJobDate" },
     { label: "Most Recent Funding Date", value: "recentFundingDate" },
   ],
@@ -33,7 +33,7 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "filter_orglist_locations",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
-  headCount: {
+  headcountEstimate: {
     position: 2,
     label: "Head Count",
     show: false,
@@ -91,7 +91,7 @@ export const FILTER_CONFIG_PRESETS = {
 
 export const FILTER_PARAM_KEY_PRESETS = {
   locations: "locations",
-  headCount: {
+  headcountEstimate: {
     lowest: "minHeadCount",
     highest: "maxHeadCount",
   },

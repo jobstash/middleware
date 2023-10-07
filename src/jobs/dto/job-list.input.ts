@@ -76,25 +76,6 @@ export class JobListParams {
   maxHeadCount?: number | null = null;
 
   @ApiPropertyOptional({
-    example: 10,
-  })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  minTeamSize?: number | null = null;
-
-  @ApiPropertyOptional({
-    example: 100,
-  })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Compare("minTeamSize", ">=")
-  @Type(() => Number)
-  maxTeamSize?: number | null = null;
-
-  @ApiPropertyOptional({
     example: 1890503.6980031824,
   })
   @IsOptional()
@@ -294,7 +275,7 @@ export class JobListParams {
       "audits",
       "hacks",
       "chains",
-      "headCount",
+      "headcountEstimate",
       "teamSize",
     ],
   })
@@ -310,7 +291,7 @@ export class JobListParams {
     "audits",
     "hacks",
     "chains",
-    "headCount",
+    "headcountEstimate",
     "teamSize",
   ])
   @IsString()

@@ -31,7 +31,7 @@ export class PublicService {
       WHERE NOT (tag)<-[:IS_BLOCKED_TERM]-()
       
       OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
-      OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
+      OPTIONAL MATCH (funding_round)-[:HAS_INVESTOR]->(investor:Investor)
       
       WITH structured_jobpost, organization, 
       COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
@@ -70,7 +70,7 @@ export class PublicService {
               location: organization.location,
               url: organization.url,
               logo: organization.logo,
-              headCount: organization.headCount,
+              headcountEstimate: organization.headcountEstimate,
               twitter: organization.twitter,
               discord: organization.discord,
               github: organization.github,

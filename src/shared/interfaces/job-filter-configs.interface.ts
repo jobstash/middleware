@@ -17,8 +17,7 @@ export class JobFilterConfigs {
   public static readonly JobFilterConfigsType = t.strict({
     tvl: RangeFilter.RangeFilterType,
     salary: RangeFilter.RangeFilterType,
-    teamSize: RangeFilter.RangeFilterType,
-    headCount: RangeFilter.RangeFilterType,
+    headcountEstimate: RangeFilter.RangeFilterType,
     monthlyFees: RangeFilter.RangeFilterType,
     monthlyVolume: RangeFilter.RangeFilterType,
     monthlyRevenue: RangeFilter.RangeFilterType,
@@ -49,9 +48,7 @@ export class JobFilterConfigs {
   @ApiProperty()
   location: MultiSelectFilter;
   @ApiProperty()
-  teamSize: RangeFilter;
-  @ApiProperty()
-  headCount: RangeFilter;
+  headcountEstimate: RangeFilter;
   @ApiProperty()
   tags: MultiSelectSearchFilter;
   @ApiProperty()
@@ -99,11 +96,10 @@ export class JobFilterConfigs {
       audits,
       mainNet,
       orderBy,
-      teamSize,
       projects,
       seniority,
       location,
-      headCount,
+      headcountEstimate,
       investors,
       classifications,
       monthlyFees,
@@ -126,11 +122,10 @@ export class JobFilterConfigs {
     this.audits = audits;
     this.mainNet = mainNet;
     this.orderBy = orderBy;
-    this.teamSize = teamSize;
     this.projects = projects;
     this.seniority = seniority;
     this.location = location;
-    this.headCount = headCount;
+    this.headcountEstimate = headcountEstimate;
     this.investors = investors;
     this.monthlyFees = monthlyFees;
     this.fundingRounds = fundingRounds;

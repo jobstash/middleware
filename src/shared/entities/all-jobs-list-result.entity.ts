@@ -35,7 +35,7 @@ export class AllJobListResultEntity {
         ...organization,
         docs: notStringOrNull(organization?.docs),
         logoUrl: notStringOrNull(organization?.logoUrl),
-        headCount: nonZeroOrNull(organization?.headCount),
+        headcountEstimate: nonZeroOrNull(organization?.headcountEstimate),
         github: notStringOrNull(organization?.github),
         twitter: notStringOrNull(organization?.twitter),
         discord: notStringOrNull(organization?.discord),

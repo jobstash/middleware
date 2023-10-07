@@ -11,7 +11,7 @@ export type JobListOrderBy =
   | "hacks"
   | "chains"
   | "teamSize"
-  | "headCount";
+  | "headcountEstimate";
 
 export type ProjectListOrderBy =
   | "tvl"
@@ -25,7 +25,7 @@ export type ProjectListOrderBy =
 
 export type OrgListOrderBy =
   | "recentFundingDate"
-  | "headCount"
+  | "headcountEstimate"
   | "recentJobDate";
 export type DateRange =
   | "today"

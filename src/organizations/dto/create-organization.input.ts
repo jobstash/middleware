@@ -50,7 +50,7 @@ export class CreateOrganizationInput {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  headCount?: string;
+  headcountEstimate?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

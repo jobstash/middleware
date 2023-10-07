@@ -80,7 +80,7 @@ export class OrgFilterConfigsEntity {
 
   getProperties(): OrgFilterConfigs {
     return new OrgFilterConfigs({
-      headCount: this.getRangePresets("headCount"),
+      headcountEstimate: this.getRangePresets("headcountEstimate"),
       fundingRounds: this.getMultiValuePresets("fundingRounds"),
       investors: this.getMultiValuePresets("investors"),
       locations: this.getMultiValuePresets("locations"),

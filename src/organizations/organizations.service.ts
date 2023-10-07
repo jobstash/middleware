@@ -46,7 +46,7 @@ export class OrganizationsService {
           alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
           twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
           fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
-          investors: [(organization)-[:HAS_FUNDING_ROUND|INVESTED_BY*2]->(investor) | investor { .* }],
+          investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
           jobs: [
             (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | structured_jobpost {
               .*,
@@ -155,15 +155,15 @@ export class OrganizationsService {
     }
 
     const orgFilters = (org: OrgListResult): boolean => {
-      const { headCount, jobCount, projectCount, location, name } =
+      const { headcountEstimate, jobCount, projectCount, location, name } =
         toShortOrg(org);
       const { fundingRounds, investors } = org;
       return (
         (!query || name.match(query)) &&
         (!hasJobs || jobCount > 0) &&
         (!hasProjects || projectCount > 0) &&
-        (!minHeadCount || (headCount ?? 0) >= minHeadCount) &&
-        (!maxHeadCount || (headCount ?? 0) < maxHeadCount) &&
+        (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
+        (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
         (!locationFilterList || locationFilterList.includes(location)) &&
         (!investorFilterList ||
           investors.filter(investor =>
@@ -186,8 +186,8 @@ export class OrganizationsService {
           return shortOrg?.lastFundingDate ?? 0;
         case "recentJobDate":
           return lastJob?.lastSeenTimestamp ?? 0;
-        case "headCount":
-          return org?.headCount ?? 0;
+        case "headcountEstimate":
+          return org?.headcountEstimate ?? 0;
         default:
           return null;
       }
@@ -230,11 +230,11 @@ export class OrganizationsService {
           `
               MATCH (o:Organization)
               OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)
-              OPTIONAL MATCH (f)-[:INVESTED_BY]->(i:Investor)
+              OPTIONAL MATCH (f)-[:HAS_INVESTOR]->(i:Investor)
               WITH o, f, i
               RETURN {
-                  minHeadCount: MIN(CASE WHEN NOT o.headCount IS NULL AND isNaN(o.headCount) = false THEN o.headCount END),
-                  maxHeadCount: MAX(CASE WHEN NOT o.headCount IS NULL AND isNaN(o.headCount) = false THEN o.headCount END),
+                  minHeadCount: apoc.coll.min(CASE WHEN NOT o.headcountEstimate IS NULL AND isNaN(o.headcountEstimate) = false THEN o.headcountEstimate END),
+                  maxHeadCount: apoc.coll.max(CASE WHEN NOT o.headcountEstimate IS NULL AND isNaN(o.headcountEstimate) = false THEN o.headcountEstimate END),
                   fundingRounds: COLLECT(DISTINCT f.roundName),
                   investors: COLLECT(DISTINCT i.name),
                   locations: COLLECT(DISTINCT o.location)

@@ -25,8 +25,6 @@ type RawJobFilters = {
   maxMonthlyRevenue?: number | null;
   minHeadCount?: number | null;
   maxHeadCount?: number | null;
-  minTeamSize?: number | null;
-  maxTeamSize?: number | null;
   tags?: string[] | null;
   fundingRounds?: string[] | null;
   projects?: string[] | null;
@@ -100,8 +98,7 @@ export class JobFilterConfigsEntity {
     return new JobFilterConfigs({
       publicationDate: this.getSingleSelectPresets("publicationDate"),
       salary: this.getRangePresets("salary"),
-      teamSize: this.getRangePresets("teamSize"),
-      headCount: this.getRangePresets("headCount"),
+      headcountEstimate: this.getRangePresets("headcountEstimate"),
       tvl: this.getRangePresets("tvl"),
       monthlyVolume: this.getRangePresets("monthlyVolume"),
       monthlyFees: this.getRangePresets("monthlyFees"),

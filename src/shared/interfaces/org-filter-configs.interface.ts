@@ -15,7 +15,7 @@ import { report } from "io-ts-human-reporter";
 @ApiExtraModels(FilterConfigLabel, FilterConfigField, FilterConfigLabeledValues)
 export class OrgFilterConfigs {
   public static readonly OrgFilterConfigsType = t.strict({
-    headCount: RangeFilter.RangeFilterType,
+    headcountEstimate: RangeFilter.RangeFilterType,
     order: SingleSelectFilter.SingleSelectFilterType,
     locations: MultiSelectFilter.MultiSelectFilterType,
     hasJobs: SingleSelectFilter.SingleSelectFilterType,
@@ -28,7 +28,7 @@ export class OrgFilterConfigs {
   @ApiProperty()
   locations: MultiSelectFilter;
   @ApiProperty()
-  headCount: RangeFilter;
+  headcountEstimate: RangeFilter;
   @ApiProperty()
   fundingRounds: MultiSelectSearchFilter;
   @ApiProperty()
@@ -47,7 +47,7 @@ export class OrgFilterConfigs {
       order,
       orderBy,
       locations,
-      headCount,
+      headcountEstimate,
       investors,
       fundingRounds,
       hasJobs,
@@ -59,7 +59,7 @@ export class OrgFilterConfigs {
     this.order = order;
     this.orderBy = orderBy;
     this.locations = locations;
-    this.headCount = headCount;
+    this.headcountEstimate = headcountEstimate;
     this.investors = investors;
     this.fundingRounds = fundingRounds;
     this.hasJobs = hasJobs;

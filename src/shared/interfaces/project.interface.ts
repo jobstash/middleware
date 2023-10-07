@@ -19,7 +19,6 @@ export class Project {
     orgId: t.string,
     tvl: t.union([t.number, t.null]),
     logo: t.union([t.string, t.null]),
-    teamSize: t.union([t.number, t.null]),
     isMainnet: t.union([t.boolean, t.null]),
     tokenSymbol: t.union([t.string, t.null]),
     monthlyFees: t.union([t.number, t.null]),
@@ -50,8 +49,6 @@ export class Project {
   isMainnet: boolean | null;
   @ApiProperty()
   orgId: string;
-  @ApiPropertyOptional()
-  teamSize: number | null;
 
   constructor(raw: Project) {
     const {
@@ -60,7 +57,6 @@ export class Project {
       name,
       logo,
       orgId,
-      teamSize,
       isMainnet,
       tokenSymbol,
       monthlyFees,
@@ -76,7 +72,6 @@ export class Project {
     this.name = name;
     this.logo = logo;
     this.orgId = orgId;
-    this.teamSize = teamSize;
     this.isMainnet = isMainnet;
     this.tokenSymbol = tokenSymbol;
     this.monthlyFees = monthlyFees;

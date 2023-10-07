@@ -20,7 +20,7 @@ export class Organization {
     location: t.string,
     description: t.string,
     logoUrl: t.union([t.string, t.null]),
-    headCount: t.union([t.number, t.null]),
+    headcountEstimate: t.union([t.number, t.null]),
     createdTimestamp: t.union([t.number, t.null]),
     updatedTimestamp: t.union([t.number, t.null]),
   });
@@ -47,7 +47,7 @@ export class Organization {
   logoUrl: string | null;
 
   @ApiProperty()
-  headCount: number | null;
+  headcountEstimate: number | null;
 
   @ApiPropertyOptional()
   createdTimestamp: number | null;
@@ -63,7 +63,7 @@ export class Organization {
       orgId,
       summary,
       location,
-      headCount,
+      headcountEstimate,
       description,
       createdTimestamp,
       updatedTimestamp,
@@ -77,7 +77,7 @@ export class Organization {
     this.orgId = orgId;
     this.summary = summary;
     this.location = location;
-    this.headCount = headCount;
+    this.headcountEstimate = headcountEstimate;
     this.description = description;
     this.createdTimestamp = createdTimestamp;
     this.updatedTimestamp = updatedTimestamp;
@@ -195,7 +195,7 @@ export class ShortOrg {
     name: t.string,
     location: t.string,
     jobCount: t.number,
-    headCount: t.number,
+    headcountEstimate: t.number,
     projectCount: t.number,
     lastFundingDate: t.number,
     lastFundingAmount: t.number,
@@ -221,7 +221,7 @@ export class ShortOrg {
   projectCount: number;
 
   @ApiProperty()
-  headCount: number;
+  headcountEstimate: number;
 
   @ApiProperty()
   lastFundingAmount: number;
@@ -240,7 +240,7 @@ export class ShortOrg {
       logo,
       location,
       jobCount,
-      headCount,
+      headcountEstimate,
       projectCount,
       lastFundingDate,
       lastFundingAmount,
@@ -254,7 +254,7 @@ export class ShortOrg {
     this.logo = logo;
     this.location = location;
     this.jobCount = jobCount;
-    this.headCount = headCount;
+    this.headcountEstimate = headcountEstimate;
     this.projectCount = projectCount;
     this.lastFundingDate = lastFundingDate;
     this.lastFundingAmount = lastFundingAmount;

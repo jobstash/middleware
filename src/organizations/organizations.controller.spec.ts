@@ -210,14 +210,14 @@ describe("OrganizationsController", () => {
       page: 1,
       limit: Number(Integer.MAX_VALUE),
       order: "asc",
-      orderBy: "headCount",
+      orderBy: "headcountEstimate",
     };
 
     const matchesHeadCountRange = (orgListResult: ShortOrg): boolean => {
-      if (typeof orgListResult.headCount === "number") {
+      if (typeof orgListResult.headcountEstimate === "number") {
         return (
-          minHeadCount <= orgListResult.headCount &&
-          orgListResult.headCount <= maxHeadCount
+          minHeadCount <= orgListResult.headcountEstimate &&
+          orgListResult.headcountEstimate <= maxHeadCount
         );
       } else {
         return true;

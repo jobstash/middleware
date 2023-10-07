@@ -126,7 +126,7 @@ export const Organizations = (
           allowEmpty: true,
           required: false,
         },
-        headCount: {
+        headcountEstimate: {
           type: "number",
           allowEmpty: true,
           required: false,
@@ -296,7 +296,7 @@ export const Organizations = (
                 },
                 {
                   direction: "out",
-                  name: "INVESTED_BY",
+                  name: "HAS_INVESTOR",
                 },
                 { label: "Investor", identifier: "investor" },
               ],

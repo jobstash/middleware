@@ -23,7 +23,6 @@ export class ProjectWithRelationsEntity {
       updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
       isMainnet: project?.isMainnet ?? null,
       logo: notStringOrNull(project?.logo),
-      teamSize: nonZeroOrNull(project?.teamSize),
       website: notStringOrNull(project?.category),
       github: notStringOrNull(project?.website),
       twitter: notStringOrNull(project?.github),

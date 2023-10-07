@@ -46,7 +46,7 @@ export const FundingRounds = (
         investors: {
           model: Investors(neogma),
           direction: "out",
-          name: "INVESTED_BY",
+          name: "HAS_INVESTOR",
         },
       },
     },

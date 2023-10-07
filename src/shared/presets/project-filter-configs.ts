@@ -39,37 +39,29 @@ export const SINGLE_SELECT_OPTIONS = {
 };
 
 export const FILTER_CONFIG_PRESETS = {
-  teamSize: {
-    position: 1,
-    label: "Team Size",
-    show: false,
-    googleAnalyticsEventName: "filter_projectlist_team_size",
-    kind: FilterKind.RANGE,
-    prefix: null,
-  },
   organizations: {
-    position: 2,
+    position: 1,
     label: "Organizations",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_organizations",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   chains: {
-    position: 3,
+    position: 2,
     label: "Chains",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_chains",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   categories: {
-    position: 4,
+    position: 3,
     label: "Categories",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_categories",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   tvl: {
-    position: 5,
+    position: 4,
     label: "TVL",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_tvl",
@@ -77,7 +69,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   monthlyVolume: {
-    position: 6,
+    position: 5,
     label: "Volume/mo",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_monthly_volume",
@@ -85,7 +77,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   monthlyFees: {
-    position: 7,
+    position: 6,
     label: "Fees/mo",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_monthly_fees",
@@ -93,7 +85,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   monthlyRevenue: {
-    position: 8,
+    position: 7,
     label: "Revenue/mo",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_monthly_revenue",
@@ -101,7 +93,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   audits: {
-    position: 9,
+    position: 8,
     label: "Audits",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_audits",
@@ -109,7 +101,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.audits,
   },
   hacks: {
-    position: 10,
+    position: 9,
     label: "Hacks",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_hacks",
@@ -117,7 +109,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.hacks,
   },
   mainNet: {
-    position: 11,
+    position: 10,
     label: "Mainnet",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_is_mainnet",
@@ -125,7 +117,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.mainNet,
   },
   token: {
-    position: 12,
+    position: 11,
     label: "Has Token",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_has_token",
@@ -133,7 +125,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.token,
   },
   order: {
-    position: 13,
+    position: 12,
     label: "Order",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_order",
@@ -141,7 +133,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.order,
   },
   orderBy: {
-    position: 14,
+    position: 13,
     label: "Order By",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_order_by",
@@ -151,10 +143,6 @@ export const FILTER_CONFIG_PRESETS = {
 };
 
 export const FILTER_PARAM_KEY_PRESETS = {
-  teamSize: {
-    lowest: "minTeamSize",
-    highest: "maxTeamSize",
-  },
   organizations: "organizations",
   chains: "chains",
   categories: "categories",
