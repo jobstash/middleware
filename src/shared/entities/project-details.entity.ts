@@ -70,8 +70,13 @@ export class ProjectDetailsEntity {
             roundName: notStringOrNull(fr?.roundName),
             sourceLink: notStringOrNull(fr?.sourceLink),
             createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
+            updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
           })) ?? [],
-        investors: organization?.investors ?? [],
+        investors:
+          organization?.investors.map(investor => ({
+            id: investor.id,
+            name: investor.name,
+          })) ?? [],
         tags: organization?.tags ?? [],
         projects: [],
       },

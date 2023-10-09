@@ -86,7 +86,11 @@ export class OrgListResultEntity {
           createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
           updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
         })) ?? [],
-      investors: investors ?? [],
+      investors:
+        investors.map(investor => ({
+          id: investor.id,
+          name: investor.name,
+        })) ?? [],
       jobs: jobs.map(jobpost => ({
         ...jobpost,
         payRate: nonZeroOrNull(jobpost?.payRate),
