@@ -1,3 +1,10 @@
+## [1.37.22](https://github.com/jobstash/middleware/compare/v1.37.21...v1.37.22) (2023-10-09)
+
+
+### Bug Fixes
+
+* fixed data leak on investors interfaces ([dd4abc2](https://github.com/jobstash/middleware/commit/dd4abc29fea5495a29211df338756fba0e323c0d))
+
 ## [1.37.21](https://github.com/jobstash/middleware/compare/v1.37.20...v1.37.21) (2023-10-07)
 
 
