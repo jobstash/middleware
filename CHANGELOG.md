@@ -1,3 +1,10 @@
+## [1.37.25](https://github.com/jobstash/middleware/compare/v1.37.24...v1.37.25) (2023-10-09)
+
+
+### Bug Fixes
+
+* **funding rounds:** fixed updatedTimestamp bug ([9a5cb01](https://github.com/jobstash/middleware/commit/9a5cb014ca9075bfd325b89000d2902e7b56de7c))
+
 ## [1.37.24](https://github.com/jobstash/middleware/compare/v1.37.23...v1.37.24) (2023-10-09)
 
 
