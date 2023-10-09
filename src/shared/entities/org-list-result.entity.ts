@@ -84,6 +84,7 @@ export class OrgListResultEntity {
           roundName: notStringOrNull(fr?.roundName),
           sourceLink: notStringOrNull(fr?.sourceLink),
           createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
+          updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
         })) ?? [],
       investors: investors ?? [],
       jobs: jobs.map(jobpost => ({

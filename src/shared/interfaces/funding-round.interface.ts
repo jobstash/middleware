@@ -8,6 +8,7 @@ export class FundingRound {
     id: t.string,
     date: t.number,
     createdTimestamp: t.number,
+    updatedTimestamp: t.number,
     roundName: t.union([t.string, t.null]),
     sourceLink: t.union([t.string, t.null]),
     raisedAmount: t.union([t.number, t.null]),
@@ -30,9 +31,19 @@ export class FundingRound {
   @ApiProperty()
   createdTimestamp: number;
 
+  @ApiProperty()
+  updatedTimestamp: number;
+
   constructor(raw: FundingRound) {
-    const { id, raisedAmount, roundName, date, sourceLink, createdTimestamp } =
-      raw;
+    const {
+      id,
+      raisedAmount,
+      roundName,
+      date,
+      sourceLink,
+      createdTimestamp,
+      updatedTimestamp,
+    } = raw;
 
     const result = FundingRound.FundingRoundType.decode(raw);
 
@@ -42,6 +53,7 @@ export class FundingRound {
     this.sourceLink = sourceLink;
     this.raisedAmount = raisedAmount;
     this.createdTimestamp = createdTimestamp;
+    this.updatedTimestamp = updatedTimestamp;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

@@ -102,6 +102,7 @@ export class JobListResultEntity {
               ...fr,
               raisedAmount: nonZeroOrNull(fr?.raisedAmount),
               createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
+              updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
               roundName: notStringOrNull(fr?.roundName),
               sourceLink: notStringOrNull(fr?.sourceLink),
             }))
