@@ -1,3 +1,10 @@
+## [1.37.24](https://github.com/jobstash/middleware/compare/v1.37.23...v1.37.24) (2023-10-09)
+
+
+### Bug Fixes
+
+* fixed some bugs in the mw services and tests ([73d35de](https://github.com/jobstash/middleware/commit/73d35de61709bb1fcebceb5f12d3031a04ec240b))
+
 ## [1.37.23](https://github.com/jobstash/middleware/compare/v1.37.22...v1.37.23) (2023-10-09)
 
 
