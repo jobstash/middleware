@@ -233,11 +233,11 @@ export class OrganizationsService {
               OPTIONAL MATCH (f)-[:HAS_INVESTOR]->(i:Investor)
               WITH o, f, i
               RETURN {
-                  minHeadCount: apoc.coll.min(CASE WHEN NOT o.headcountEstimate IS NULL AND isNaN(o.headcountEstimate) = false THEN o.headcountEstimate END),
-                  maxHeadCount: apoc.coll.max(CASE WHEN NOT o.headcountEstimate IS NULL AND isNaN(o.headcountEstimate) = false THEN o.headcountEstimate END),
-                  fundingRounds: COLLECT(DISTINCT f.roundName),
-                  investors: COLLECT(DISTINCT i.name),
-                  locations: COLLECT(DISTINCT o.location)
+                  minHeadCount: apoc.coll.min([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | org.headcountEstimate]),
+                  maxHeadCount: apoc.coll.max([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | org.headcountEstimate]),
+                  fundingRounds: apoc.coll.toSet([(org: Organization)-[:HAS_FUNDING_ROUND]->(round: FundingRound) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)) | round.roundName]),
+                  investors: apoc.coll.toSet([(org: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)) | investor.name]),
+                  locations: apoc.coll.toSet([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | org.location])
               } AS res
       `,
         )

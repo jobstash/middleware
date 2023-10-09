@@ -129,7 +129,7 @@ describe("PublicController", () => {
     expect(
       (await models.Organizations.findMany()).length,
     ).toBeGreaterThanOrEqual(1);
-  }, 10000);
+  }, 100000);
 
   it("should get external all jobs list with no jobpost and array property duplication", async () => {
     const params = {

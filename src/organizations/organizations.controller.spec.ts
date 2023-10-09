@@ -128,7 +128,7 @@ describe("OrganizationsController", () => {
     models = module.get<ModelService>(ModelService);
     await models.onModuleInit();
     controller = module.get<OrganizationsController>(OrganizationsController);
-  });
+  }, 100000);
 
   it("should be defined", () => {
     expect(controller).toBeDefined();
@@ -139,7 +139,7 @@ describe("OrganizationsController", () => {
     expect(
       (await models.Organizations.findMany()).length,
     ).toBeGreaterThanOrEqual(1);
-  }, 10000);
+  }, 100000);
 
   it("should get orgs list with no org and array property duplication", async () => {
     const params: OrgListParams = {

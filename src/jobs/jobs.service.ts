@@ -163,7 +163,7 @@ export class JobsService {
     try {
       const resultSet = (
         await this.neogma.queryRunner.run(generatedQuery)
-      ).records.map(record => record.get("results") as AllJobsListResult);
+      ).records.map(record => record.get("result") as AllJobsListResult);
       for (const result of resultSet) {
         results.push(new AllJobListResultEntity(result).getProperties());
       }
@@ -559,7 +559,7 @@ export class JobsService {
           `
             RETURN {
                 classifications: apoc.coll.toSet([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification) WHERE (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | classification.name]),
-                organizations: apoc.coll.toSet([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | org.name]),
+                organizations: apoc.coll.toSet([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | org.name])
             } as res
           `,
         )
