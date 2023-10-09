@@ -44,6 +44,21 @@ export class AllJobListResultEntity {
         website: notStringOrNull(organization?.website),
         createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
         updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
+        investors:
+          organization?.investors.map(investor => ({
+            id: investor.id,
+            name: investor.name,
+          })) ?? [],
+        fundingRounds:
+          organization?.fundingRounds
+            .map(fr => ({
+              ...fr,
+              raisedAmount: nonZeroOrNull(fr?.raisedAmount),
+              createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
+              roundName: notStringOrNull(fr?.roundName),
+              sourceLink: notStringOrNull(fr?.sourceLink),
+            }))
+            .sort((a, b) => b.date - a.date) ?? [],
       },
       tags: tags ?? [],
     });
