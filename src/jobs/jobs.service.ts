@@ -391,39 +391,28 @@ export class JobsService {
       return await this.neogma.queryRunner
         .run(
           `
-            MATCH (o:Organization)-[:HAS_JOBSITE|HAS_JOBPOST*2]->(jp:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
-            MATCH (j)-[:HAS_STATUS]->(:JobpostOnlineStatus)
-            MATCH (j)-[:HAS_CLASSIFICATION]-(cat:JobpostClassification)
-            MATCH (j)-[:HAS_LOCATION_TYPE]-(l:JobpostLocationType)
-            OPTIONAL MATCH (j)-[:HAS_TAG]->(t:Tag)
-            OPTIONAL MATCH (o)-[:HAS_FUNDING_ROUND]->(f:FundingRound)-[:HAS_INVESTOR]->(i:Investor)
-            OPTIONAL MATCH (o)-[:HAS_PROJECT]->(p:Project)
-            OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(c:Chain)
-            OPTIONAL MATCH (p)-[:HAS_AUDIT]->(a:Audit)
             RETURN {
-              minSalaryRange: MIN(CASE WHEN NOT j.salary IS NULL AND isNaN(j.salary) = false THEN toFloat(j.salary) END),
-              maxSalaryRange: MAX(CASE WHEN NOT j.salary IS NULL AND isNaN(j.salary) = false THEN toFloat(j.salary) END),
-              minTvl: MIN(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
-              maxTvl: MAX(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
-              minMonthlyVolume: MIN(CASE WHEN NOT p.monthlyVolume IS NULL AND isNaN(p.monthlyVolume) = false THEN toFloat(p.monthlyVolume) END),
-              maxMonthlyVolume: MAX(CASE WHEN NOT p.monthlyVolume IS NULL AND isNaN(p.monthlyVolume) = false THEN toFloat(p.monthlyVolume) END),
-              minMonthlyFees: MIN(CASE WHEN NOT p.monthlyFees IS NULL AND isNaN(p.monthlyFees) = false THEN toFloat(p.monthlyFees) END),
-              maxMonthlyFees: MAX(CASE WHEN NOT p.monthlyFees IS NULL AND isNaN(p.monthlyFees) = false THEN toFloat(p.monthlyFees) END),
-              minMonthlyRevenue: MIN(CASE WHEN NOT p.monthlyRevenue IS NULL AND isNaN(p.monthlyRevenue) = false THEN toFloat(p.monthlyRevenue) END),
-              maxMonthlyRevenue: MAX(CASE WHEN NOT p.monthlyRevenue IS NULL AND isNaN(p.monthlyRevenue) = false THEN toFloat(p.monthlyRevenue) END),
-              minHeadCount: MIN(CASE WHEN NOT o.headCount IS NULL AND isNaN(o.headCount) = false THEN toFloat(o.headCount) END),
-              maxHeadCount: MAX(CASE WHEN NOT o.headCount IS NULL AND isNaN(o.headCount) = false THEN toFloat(o.headCount) END),
-              minTeamSize: MIN(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
-              maxTeamSize: MAX(CASE WHEN NOT p.teamSize IS NULL AND isNaN(p.teamSize) = false THEN toFloat(p.teamSize) END),
-              tags: COLLECT(DISTINCT t.name),
-              fundingRounds: COLLECT(DISTINCT f.roundName),
-              investors: COLLECT(DISTINCT i.name),
-              projects: COLLECT(DISTINCT p.name),
-              classifications: COLLECT(DISTINCT cat.name),
-              chains: COLLECT(DISTINCT c.name),
-              location: COLLECT(DISTINCT l.name),
-              organizations: COLLECT(DISTINCT o.name),
-              seniority: COLLECT(DISTINCT j.seniority)
+              maxTvl: apoc.coll.max([(org)-[:HAS_PROJECT]->(project:Project) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)) | project.tvl]),
+              minTvl: apoc.coll.min([(org)-[:HAS_PROJECT]->(project:Project) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)) | project.tvl]),
+              minMonthlyVolume: apoc.coll.min([(org)-[:HAS_PROJECT]->(project:Project) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)) | project.monthlyVolume]),
+              maxMonthlyVolume: apoc.coll.max([(org)-[:HAS_PROJECT]->(project:Project) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)) | project.monthlyVolume]),
+              minMonthlyFees: apoc.coll.max([(org)-[:HAS_PROJECT]->(project:Project) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)) | project.monthlyFees]),
+              maxMonthlyFees: apoc.coll.max([(org)-[:HAS_PROJECT]->(project:Project) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)) | project.monthlyFees]),
+              minMonthlyRevenue: apoc.coll.max([(org)-[:HAS_PROJECT]->(project:Project) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)) | project.monthlyRevenue]),
+              maxMonthlyRevenue: apoc.coll.max([(org)-[:HAS_PROJECT]->(project:Project) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)) | project.monthlyRevenue]),
+              minSalaryRange: apoc.coll.min([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | j.salary]),
+              maxSalaryRange: apoc.coll.max([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | j.salary]),
+              minHeadCount: apoc.coll.min([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | org.headcountEstimate]),
+              maxHeadCount: apoc.coll.max([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | org.headcountEstimate]),
+              tags: apoc.coll.toSet([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_TAG]->(tag:Tag) WHERE (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag.name ]),
+              fundingRounds: apoc.coll.toSet([(org: Organization)-[:HAS_FUNDING_ROUND]->(round: FundingRound) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)) | round.roundName]),
+              investors: apoc.coll.toSet([(org: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)) | investor.name]),
+              projects: apoc.coll.toSet([(org)-[:HAS_PROJECT]->(project:Project) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)) | project.name]),
+              classifications: apoc.coll.toSet([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification) WHERE (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | classification.name]),
+              chains: apoc.coll.toSet([(org)-[:HAS_PROJECT|IS_DEPLOYED_ON_CHAIN*2]->(chain: Chain) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)) | chain.name]),
+              location: apoc.coll.toSet([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_LOCATION_TYPE]->(location: JobpostLocationType) WHERE (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | location.name]),
+              organizations: apoc.coll.toSet([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | org.name]),
+              seniority: apoc.coll.toSet([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | j.seniority])
             } as res
           `,
         )
@@ -568,13 +557,9 @@ export class JobsService {
       return await this.neogma.queryRunner
         .run(
           `
-            MATCH (o:Organization)-[:HAS_JOBSITE|HAS_JOBPOST*2]->(jp:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(j:StructuredJobpost)
-            MATCH (j)-[:HAS_STATUS]->(:JobpostOnlineStatus)
-            MATCH (j)-[:HAS_CLASSIFICATION]-(cat:JobpostClassification)
-            WITH o, cat
             RETURN {
-                classifications: COLLECT(DISTINCT cat.name),
-                organizations: COLLECT(DISTINCT o.name)
+                classifications: apoc.coll.toSet([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification) WHERE (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | classification.name]),
+                organizations: apoc.coll.toSet([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | org.name]),
             } as res
           `,
         )

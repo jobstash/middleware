@@ -182,24 +182,19 @@ export class ProjectsService {
       return await this.neogma.queryRunner
         .run(
           `
-        MATCH (p:Project)-[:HAS_CATEGORY]->(cat:ProjectCategory)
-        MATCH (o:Organization)-[:HAS_PROJECT]->(project)
-        OPTIONAL MATCH (p)-[:IS_DEPLOYED_ON_CHAIN]->(c:Chain)
-        OPTIONAL MATCH (p)-[:HAS_AUDIT]-(a:Audit)
-        WITH o, p, c, a, cat
-        RETURN {
-            minTvl: apoc.coll.min(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
-            maxTvl: apoc.coll.max(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
-            minMonthlyVolume: apoc.coll.min(CASE WHEN NOT p.monthlyVolume IS NULL AND isNaN(p.monthlyVolume) = false THEN toFloat(p.monthlyVolume) END),
-            maxMonthlyVolume: apoc.coll.max(CASE WHEN NOT p.monthlyVolume IS NULL AND isNaN(p.monthlyVolume) = false THEN toFloat(p.monthlyVolume) END),
-            minMonthlyFees: apoc.coll.min(CASE WHEN NOT p.monthlyFees IS NULL AND isNaN(p.monthlyFees) = false THEN toFloat(p.monthlyFees) END),
-            maxMonthlyFees: apoc.coll.max(CASE WHEN NOT p.monthlyFees IS NULL AND isNaN(p.monthlyFees) = false THEN toFloat(p.monthlyFees) END),
-            minMonthlyRevenue: apoc.coll.min(CASE WHEN NOT p.monthlyRevenue IS NULL AND isNaN(p.monthlyRevenue) = false THEN toFloat(p.monthlyRevenue) END),
-            maxMonthlyRevenue: apoc.coll.max(CASE WHEN NOT p.monthlyRevenue IS NULL AND isNaN(p.monthlyRevenue) = false THEN toFloat(p.monthlyRevenue) END),
-            categories: COLLECT(DISTINCT cat.name),
-            chains: COLLECT(DISTINCT c.name),
-            organizations: COLLECT(DISTINCT o.name)
-        } as res
+          RETURN {
+              minTvl: apoc.coll.min(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
+              maxTvl: apoc.coll.max(CASE WHEN NOT p.tvl IS NULL AND isNaN(p.tvl) = false THEN toFloat(p.tvl) END),
+              minMonthlyVolume: apoc.coll.min(CASE WHEN NOT p.monthlyVolume IS NULL AND isNaN(p.monthlyVolume) = false THEN toFloat(p.monthlyVolume) END),
+              maxMonthlyVolume: apoc.coll.max(CASE WHEN NOT p.monthlyVolume IS NULL AND isNaN(p.monthlyVolume) = false THEN toFloat(p.monthlyVolume) END),
+              minMonthlyFees: apoc.coll.min(CASE WHEN NOT p.monthlyFees IS NULL AND isNaN(p.monthlyFees) = false THEN toFloat(p.monthlyFees) END),
+              maxMonthlyFees: apoc.coll.max(CASE WHEN NOT p.monthlyFees IS NULL AND isNaN(p.monthlyFees) = false THEN toFloat(p.monthlyFees) END),
+              minMonthlyRevenue: apoc.coll.min(CASE WHEN NOT p.monthlyRevenue IS NULL AND isNaN(p.monthlyRevenue) = false THEN toFloat(p.monthlyRevenue) END),
+              maxMonthlyRevenue: apoc.coll.max(CASE WHEN NOT p.monthlyRevenue IS NULL AND isNaN(p.monthlyRevenue) = false THEN toFloat(p.monthlyRevenue) END),
+              categories: apoc.coll.toSet([(org)-[:HAS_PROJECT|HAS_CATEGORY*2]->(category: ProjectCategory) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)) | category.name]),
+              chains: apoc.coll.toSet([(org)-[:HAS_PROJECT|IS_DEPLOYED_ON_CHAIN*2]->(chain: Chain) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)) | chain.name]),
+              organizations: apoc.coll.toSet([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | org.name])
+          } as res
       `,
         )
         .then(res =>
