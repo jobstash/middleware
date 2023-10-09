@@ -1,3 +1,10 @@
+## [1.37.26](https://github.com/jobstash/middleware/compare/v1.37.25...v1.37.26) (2023-10-09)
+
+
+### Bug Fixes
+
+* removed redundant investors data ([7d2054a](https://github.com/jobstash/middleware/commit/7d2054af5957f323e5bcaeb51b3ca16d0506b524))
+
 ## [1.37.25](https://github.com/jobstash/middleware/compare/v1.37.24...v1.37.25) (2023-10-09)
 
 
