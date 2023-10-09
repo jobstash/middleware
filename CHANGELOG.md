@@ -1,3 +1,10 @@
+## [1.37.23](https://github.com/jobstash/middleware/compare/v1.37.22...v1.37.23) (2023-10-09)
+
+
+### Bug Fixes
+
+* **filters:** fixed the queries for filter configs ([3f1c12d](https://github.com/jobstash/middleware/commit/3f1c12dee694c76b4f0288e8cae215d81562a17f))
+
 ## [1.37.22](https://github.com/jobstash/middleware/compare/v1.37.21...v1.37.22) (2023-10-09)
 
 
