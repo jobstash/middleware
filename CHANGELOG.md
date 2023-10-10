@@ -1,3 +1,10 @@
+## [1.37.28](https://github.com/jobstash/middleware/compare/v1.37.27...v1.37.28) (2023-10-10)
+
+
+### Bug Fixes
+
+* **tags:** fixed bug in create preferred tag endpoint body. ([62eac6c](https://github.com/jobstash/middleware/commit/62eac6c8769cf1716243438f7771f6ac9d817f60))
+
 ## [1.37.27](https://github.com/jobstash/middleware/compare/v1.37.26...v1.37.27) (2023-10-10)
 
 
