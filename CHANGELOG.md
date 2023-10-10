@@ -1,3 +1,10 @@
+## [1.37.29](https://github.com/jobstash/middleware/compare/v1.37.28...v1.37.29) (2023-10-10)
+
+
+### Bug Fixes
+
+* **tags:** fixed bug with create preferred terms endpoint ([77ca748](https://github.com/jobstash/middleware/commit/77ca748b42eb672555d1dc69e75929b059c09646))
+
 ## [1.37.28](https://github.com/jobstash/middleware/compare/v1.37.27...v1.37.28) (2023-10-10)
 
 
