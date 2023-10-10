@@ -279,7 +279,7 @@ export class TagsService {
     return res.records[0]?.get("result") ?? false;
   }
 
-  async relatePreferredTagToTagTag(
+  async relatePreferredTagToTag(
     preferredTagNodeId: string,
     tagNodeId: string,
   ): Promise<boolean> {
@@ -342,7 +342,7 @@ export class TagsService {
     }
   }
 
-  async relateBlockedTagToTagTag(
+  async relateBlockedTagToTag(
     blockedTagNodeId: string,
     tagNodeId: string,
   ): Promise<boolean> {
