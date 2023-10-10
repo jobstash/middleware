@@ -1,3 +1,10 @@
+## [1.37.30](https://github.com/jobstash/middleware/compare/v1.37.29...v1.37.30) (2023-10-10)
+
+
+### Bug Fixes
+
+* removed validation for redundant ([c4fd007](https://github.com/jobstash/middleware/commit/c4fd007c500d8ce74809e5582577451e83a7ff47))
+
 ## [1.37.29](https://github.com/jobstash/middleware/compare/v1.37.28...v1.37.29) (2023-10-10)
 
 
