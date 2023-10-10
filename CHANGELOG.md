@@ -1,3 +1,10 @@
+## [1.37.27](https://github.com/jobstash/middleware/compare/v1.37.26...v1.37.27) (2023-10-10)
+
+
+### Bug Fixes
+
+* removed redundant data from jobs list results ([2c57e9b](https://github.com/jobstash/middleware/commit/2c57e9be148b72eb815819fe09b5ff944afc7a36))
+
 ## [1.37.26](https://github.com/jobstash/middleware/compare/v1.37.25...v1.37.26) (2023-10-09)
 
 
