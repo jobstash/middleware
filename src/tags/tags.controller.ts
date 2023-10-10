@@ -16,8 +16,8 @@ import { Roles } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
   CheckWalletRoles,
-  PairedTag,
-  PreferredTag,
+  TagPair,
+  TagPreference,
   Response,
   ResponseWithNoData,
   Tag,
@@ -31,7 +31,7 @@ import { DeletePreferredTagInput } from "./dto/delete-preferred-tag.input";
 import { LinkTagSynonymDto } from "./dto/link-tag-synonym.dto";
 import { TagsService } from "./tags.service";
 @Controller("tags")
-@ApiExtraModels(PreferredTag, PreferredTag)
+@ApiExtraModels(TagPreference, TagPreference)
 export class TagsController {
   private readonly logger = new CustomLogger(TagsController.name);
   constructor(
@@ -109,11 +109,11 @@ export class TagsController {
   @ApiOkResponse({
     description: "Retrieve a list of preferred tags and their synonym chains",
     schema: responseSchemaWrapper({
-      $ref: getSchemaPath(PreferredTag),
+      $ref: getSchemaPath(TagPreference),
     }),
   })
   async getPreferredTags(): Promise<
-    Response<PreferredTag[]> | ResponseWithNoData
+    Response<TagPreference[]> | ResponseWithNoData
   > {
     this.logger.log(`/tags/preferred`);
     return this.tagsService
@@ -145,10 +145,10 @@ export class TagsController {
   @ApiOkResponse({
     description: "Retrieve a list of paired tags and their pairings",
     schema: responseSchemaWrapper({
-      $ref: getSchemaPath(PairedTag),
+      $ref: getSchemaPath(TagPair),
     }),
   })
-  async getPairedTags(): Promise<Response<PairedTag[]> | ResponseWithNoData> {
+  async getPairedTags(): Promise<Response<TagPair[]> | ResponseWithNoData> {
     this.logger.log(`/tags/paired`);
     return this.tagsService
       .getPairedTags()
@@ -347,13 +347,13 @@ export class TagsController {
           };
         }
 
-        const hasBlockedTagRelationship =
-          await this.tagsService.hasBlockedTagRelationship(
+        const hasBlockedNoRelationship =
+          await this.tagsService.hasBlockedNoRelationship(
             existingBlockedTagNameNode.getId(),
             storedTagNode.getId(),
           );
 
-        if (hasBlockedTagRelationship) {
+        if (hasBlockedNoRelationship) {
           this.logger.error(`Already has a blocked tag relation`);
           return {
             success: false,
@@ -457,13 +457,13 @@ export class TagsController {
           };
         }
 
-        const hasBlockedTagRelationship =
-          await this.tagsService.hasBlockedTagRelationship(
+        const hasBlockedNoRelationship =
+          await this.tagsService.hasBlockedNoRelationship(
             existingBlockedTagNameNode.getId(),
             storedTagNode.getId(),
           );
 
-        if (!hasBlockedTagRelationship) {
+        if (!hasBlockedNoRelationship) {
           this.logger.error(`No blocked tag relation`);
           return {
             success: false,
@@ -471,7 +471,7 @@ export class TagsController {
           };
         }
 
-        await this.tagsService.unrelateBlockedTagFromTagTag(
+        await this.tagsService.unrelateBlockedTagFromTag(
           existingBlockedTagNameNode.getId(),
           storedTagNode.getId(),
         );
@@ -524,8 +524,8 @@ export class TagsController {
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
   @ApiOkResponse({
-    description: "Create a new tag pairing",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(PreferredTag) }),
+    description: "Create a new tag pairing or sync an old one",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(TagPreference) }),
   })
   async createPairedTags(
     @Req() req: Request,
@@ -579,7 +579,8 @@ export class TagsController {
       await this.tagsService.relatePairedTags(
         normalizedOriginTagNameNodeId,
         normalizedPairTagListNodesIds,
-        creatorWallet as string,
+        (creatorWallet as string) ??
+          "0x921f80499A00aC6E95AAE0DAa411D338f41D5Da2",
       );
 
       return {
@@ -608,14 +609,14 @@ export class TagsController {
   @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
   @ApiOkResponse({
     description: "Create a new preferred tag",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(PreferredTag) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(TagPreference) }),
   })
   async createPreferredTag(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body() input: CreatePreferredTagInput,
   ): Promise<
-    | Response<{ preferredName: string; synonyms: PreferredTag[] }>
+    | Response<{ preferredName: string; synonyms: TagPreference[] }>
     | ResponseWithNoData
   > {
     this.logger.log(`/tags/create-preference ${JSON.stringify(input)}`);
@@ -660,13 +661,13 @@ export class TagsController {
           };
         }
 
-        const hasPreferredTagRelationship =
-          await this.tagsService.hasPreferredTagRelationship(
+        const hasPreferredNoRelationship =
+          await this.tagsService.hasPreferredNoRelationship(
             createdPreferredTag.getId(),
             storedTagNode.getId(),
           );
 
-        if (hasPreferredTagRelationship) {
+        if (hasPreferredNoRelationship) {
           return {
             success: false,
             message: `Already has existing preferred tag relation`,
@@ -725,13 +726,13 @@ export class TagsController {
   @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
   @ApiOkResponse({
     description: "Delete a preferred tag",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(PreferredTag) }),
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(TagPreference) }),
   })
   async deletePreferredTag(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body() input: DeletePreferredTagInput,
-  ): Promise<Response<PreferredTag> | ResponseWithNoData> {
+  ): Promise<Response<TagPreference> | ResponseWithNoData> {
     this.logger.log(`/tags/delete-preference ${JSON.stringify(input)}`);
     const { address: creatorWallet } = await this.authService.getSession(
       req,
@@ -767,13 +768,13 @@ export class TagsController {
           };
         }
 
-        const hasPreferredTagRelationship =
-          await this.tagsService.hasPreferredTagRelationship(
+        const hasPreferredNoRelationship =
+          await this.tagsService.hasPreferredNoRelationship(
             existingPreferredTagNameNode.getId(),
             storedTagNode.getId(),
           );
 
-        if (!hasPreferredTagRelationship) {
+        if (!hasPreferredNoRelationship) {
           return {
             success: false,
             message: `Preferred tag relation not found`,
@@ -793,7 +794,7 @@ export class TagsController {
           };
         }
 
-        await this.tagsService.unrelatePreferredTagToTagTag(
+        await this.tagsService.unrelatePreferredTagToTag(
           existingPreferredTagNameNode.getId(),
           storedTagNode.getId(),
         );

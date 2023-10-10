@@ -36,12 +36,9 @@ import {
   StructuredJobpostProps,
   StructuredJobpostRelations,
   StructuredJobposts,
-  BlockedTagProps,
-  BlockedTags,
   Tags,
   TagMethods,
   TagProps,
-  TagRelations,
   TagStatics,
   JobpostOnlineStatusProps,
   JobpostOfflineStatusProps,
@@ -78,7 +75,7 @@ export class ModelService implements OnModuleInit {
     ProjectMethods,
     ProjectStatics
   >;
-  public Tags: NeogmaModel<TagProps, TagRelations, TagMethods, TagStatics>;
+  public Tags: NeogmaModel<TagProps, NoRelations, TagMethods, TagStatics>;
   public ProjectCategories: NeogmaModel<ProjectCategoryProps, NoRelations>;
   public JobpostOnlineStatuses: NeogmaModel<
     JobpostOnlineStatusProps,
@@ -90,7 +87,6 @@ export class ModelService implements OnModuleInit {
   >;
   public FundingRounds: NeogmaModel<FundingRoundProps, FundingRoundRelations>;
   public Investors: NeogmaModel<InvestorProps, NoRelations>;
-  public BlockedTags: NeogmaModel<BlockedTagProps, NoRelations>;
   public Audits: NeogmaModel<AuditProps, NoRelations>;
   public Hacks: NeogmaModel<HackProps, NoRelations>;
   public Chains: NeogmaModel<ChainProps, NoRelations>;
@@ -112,7 +108,6 @@ export class ModelService implements OnModuleInit {
     this.JobpostOfflineStatuses = JobpostOfflineStatuses(this.neogma);
     this.FundingRounds = FundingRounds(this.neogma);
     this.Investors = Investors(this.neogma);
-    this.BlockedTags = BlockedTags(this.neogma);
     this.Audits = Audits(this.neogma);
     this.Hacks = Hacks(this.neogma);
     this.Chains = Chains(this.neogma);

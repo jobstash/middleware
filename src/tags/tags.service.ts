@@ -1,11 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import {
-  PairedTag,
-  Tag,
-  PreferredTag,
-  BlockedTagEntity,
-  PreferredTagEntity,
-} from "src/shared/types";
+import { TagPair, Tag, TagPreference } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { ModelService } from "src/model/model.service";
@@ -126,7 +120,7 @@ export class TagsService {
     }
   }
 
-  async getPreferredTags(): Promise<PreferredTag[]> {
+  async getPreferredTags(): Promise<TagPreference[]> {
     try {
       return this.models.Tags.getPreferredTags();
     } catch (err) {
@@ -142,7 +136,7 @@ export class TagsService {
     }
   }
 
-  async getPairedTags(): Promise<PairedTag[]> {
+  async getPairedTags(): Promise<TagPair[]> {
     try {
       return this.models.Tags.getPairedTags();
     } catch (err) {
@@ -211,7 +205,7 @@ export class TagsService {
       .then(res => new PreferredTagEntity(res.records[0].get("pt")));
   }
 
-  async hasBlockedTagRelationship(
+  async hasBlockedNoRelationship(
     blockedTagNodeId: string,
     tagNodeId: string,
   ): Promise<boolean> {
@@ -220,7 +214,7 @@ export class TagsService {
         MATCH (bt:BlockedTag {id: $blockedTagNodeId})
         MATCH (t:Tag {id: $tagNodeId})
         WITH bt, t
-        RETURN EXISTS( (bt)-[:IS_BLOCKED_TERM]->(t) ) AS result
+        RETURN EXISTS( (bt)-[:HAS_TAG_DESIGNATION]->(t) ) AS result
         `,
       { blockedTagNodeId, tagNodeId },
     );
@@ -228,7 +222,7 @@ export class TagsService {
     return res.records[0]?.get("result") ?? false;
   }
 
-  async hasPreferredTagRelationship(
+  async hasPreferredNoRelationship(
     preferredTagNodeId: string,
     tagNodeId: string,
   ): Promise<boolean> {
@@ -312,16 +306,20 @@ export class TagsService {
     try {
       await this.neogma.queryRunner.run(
         `
-    MATCH (t1:Tag {id: $normalizedOriginTagNameNodeId})
-    MATCH (u:User {wallet: $creatorWallet})
-    UNWIND $normalizedPairTagListNodesIds AS pairTagNodeId
-    MATCH (t2:Tag {id: pairTagNodeId})
+          MATCH (t1:Tag {id: $normalizedOriginTagNameNodeId})
 
-    CREATE (t1)-[:IS_PAIRED_WITH]->(tp:TagPairing)-[:IS_PAIRED_WITH]->(t2)
-    SET tp.timestamp = timestamp()
+          OPTIONAL MATCH (t1)-[r:IS_PAIRED_WITH]->(t2)
+          DETACH DELETE r1
 
-    CREATE (u)-[:CREATED_PAIRING]->(tp)
-  `,
+          WITH t1
+          
+          UNWIND $normalizedPairTagListNodesIds AS pairTagNodeId
+          MATCH (t2:Tag {id: pairTagNodeId})
+
+          CREATE (t1)-[:IS_PAIRED_WITH]->(t2)
+          SET tp.timestamp = timestamp()
+          SET tp.creator = $creatorWallet
+        `,
         {
           normalizedOriginTagNameNodeId,
           normalizedPairTagListNodesIds,
@@ -351,7 +349,7 @@ export class TagsService {
         MATCH (bt:BlockedTag {id: $blockedTagNodeId})
         MATCH (t:Tag {id: $tagNodeId})
 
-        MERGE (bt)-[r:IS_BLOCKED_TERM]->(t)
+        MERGE (bt)-[r:HAS_TAG_DESIGNATION]->(t)
         SET r.timestamp = timestamp()
 
         RETURN bt {
@@ -513,7 +511,7 @@ export class TagsService {
     }
   }
 
-  async unrelatePreferredTagToTagTag(
+  async unrelatePreferredTagToTag(
     preferredTagNodeId: string,
     tagNodeId: string,
   ): Promise<void> {
@@ -529,13 +527,13 @@ export class TagsService {
     return;
   }
 
-  async unrelateBlockedTagFromTagTag(
+  async unrelateBlockedTagFromTag(
     blockedTagNodeId: string,
     tagNodeId: string,
   ): Promise<boolean> {
     await this.neogma.queryRunner.run(
       `
-        MATCH (bt:BlockedTag {id: $blockedTagNodeId})-[r:IS_BLOCKED_TERM]->(t:Tag {id: $tagNodeId})
+        MATCH (bt:BlockedTag {id: $blockedTagNodeId})-[r:HAS_TAG_DESIGNATION]->(t:Tag {id: $tagNodeId})
         DETACH DELETE r
       `,
       { blockedTagNodeId, tagNodeId },

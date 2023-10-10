@@ -1,40 +1,39 @@
 import {
   ModelFactory,
-  ModelRelatedNodesI,
   Neogma,
   NeogmaInstance,
   NeogmaModel,
   QueryBuilder,
 } from "neogma";
-import { ExtractProps, PairedTag, Tag, PreferredTag } from "../types";
-import { BlockedTagInstance, BlockedTags } from "./blocked-tag.model";
-import { PreferredTagEntity } from "../entities/preferred-tag.entity";
+import {
+  ExtractProps,
+  TagPair,
+  Tag,
+  TagPreference,
+  NoRelations,
+} from "../types";
+import { boolean } from "fp-ts";
 
 export type TagProps = ExtractProps<Tag>;
 
-export type TagInstance = NeogmaInstance<TagProps, TagRelations, TagMethods>;
+export type TagInstance = NeogmaInstance<TagProps, NoRelations, TagMethods>;
 
-export interface TagRelations {
-  blocked: ModelRelatedNodesI<
-    ReturnType<typeof BlockedTags>,
-    BlockedTagInstance
-  >;
-}
+// export interface NoRelations {}
 export interface TagMethods {
   isBlockedTag: () => Promise<boolean>;
 }
 
 export interface TagStatics {
-  getPreferredTags: () => Promise<PreferredTag[]>;
+  getPreferredTags: () => Promise<TagPreference[]>;
   getBlockedTags: () => Promise<Tag[]>;
   getAllowedTags: () => Promise<Tag[]>;
-  getPairedTags: () => Promise<PairedTag[]>;
+  getPairedTags: () => Promise<TagPair[]>;
 }
 
 export const Tags = (
   neogma: Neogma,
-): NeogmaModel<TagProps, TagRelations, TagMethods, TagStatics> =>
-  ModelFactory<TagProps, TagRelations, TagStatics, TagMethods>(
+): NeogmaModel<TagProps, NoRelations, TagMethods, TagStatics> =>
+  ModelFactory<TagProps, NoRelations, TagStatics, TagMethods>(
     {
       label: "Tag",
       schema: {
@@ -55,24 +54,18 @@ export const Tags = (
         },
       },
       primaryKeyField: "id",
-      relationships: {
-        blocked: {
-          model: BlockedTags(neogma),
-          name: "IS_BLOCKED_TAG",
-          direction: "in",
-        },
-      },
+
       methods: {
-        isBlockedTag: async function (this: TagInstance): Promise<boolean> {
-          const blocked = await this.findRelationships({
-            alias: "blocked",
-            limit: 1,
-          });
-          return blocked[0].target.__existsInDatabase;
+        isBlockedTag: async function (): Promise<boolean> {
+          const query = `
+            RETURN EXISTS( (:Tag {id: $id})-[:HAS_TAG_DESIGNATION]->(:BlockedTag) )
+          `;
+          const result = await neogma.queryRunner.run(query, { id: this.id });
+          return result.records[0]?.get("blocked") as boolean;
         },
       },
       statics: {
-        getPreferredTags: async function (): Promise<PreferredTag[]> {
+        getPreferredTags: async function (): Promise<TagPreference[]> {
           const query = new QueryBuilder()
             .match({
               label: "PreferredTag",
@@ -102,11 +95,11 @@ export const Tags = (
               } as res
             `);
           const result = await query.run(neogma.queryRunner);
-          return result.records.map(record =>
-            new PreferredTagEntity(record.get("res")).getProperties(),
+          return result.records.map(
+            record => new TagPreference(record.get("res")),
           );
         },
-        getPairedTags: async function (): Promise<PairedTag[]> {
+        getPairedTags: async function (): Promise<TagPair[]> {
           const query = new QueryBuilder()
             .match({
               related: [
@@ -125,7 +118,7 @@ export const Tags = (
               } as res
             `);
           const result = await query.run(neogma.queryRunner);
-          return result.records.map(record => record.get("res") as PairedTag);
+          return result.records.map(record => record.get("res") as TagPair);
         },
         getAllowedTags: async function (): Promise<Tag[]> {
           const results: Tag[] = [];
@@ -134,7 +127,7 @@ export const Tags = (
               label: "Tag",
               identifier: "tag",
             })
-            .raw("WHERE NOT (tag)<-[:IS_BLOCKED_TERM]-()")
+            .raw("WHERE NOT (tag)<-[:HAS_TAG_DESIGNATION]-()")
             .return("tag");
           const result = await query.run(neogma.queryRunner);
           result.records.forEach(record =>

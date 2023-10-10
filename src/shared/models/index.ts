@@ -22,4 +22,3 @@ export * from "./investor.model";
 export * from "./hack.model";
 export * from "./audit.model";
 export * from "./chain.model";
-export * from "./blocked-tag.model";
