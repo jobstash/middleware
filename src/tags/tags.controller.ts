@@ -8,28 +8,28 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { ApiExtraModels, ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
+import * as Sentry from "@sentry/node";
+import { Response as ExpressResponse, Request } from "express";
+import { AuthService } from "src/auth/auth.service";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
+  CheckWalletRoles,
   PairedTag,
   PreferredTag,
   Response,
   ResponseWithNoData,
   Tag,
 } from "src/shared/types";
-import { TagsService } from "./tags.service";
-import { CheckWalletRoles } from "src/shared/types";
-import { CreateBlockedTagsInput } from "./dto/create-blocked-tags.input";
-import { CreatePreferredTagInput } from "./dto/create-preferred-tag.input";
-import { DeletePreferredTagInput } from "./dto/delete-preferred-tag.input";
-import { CreatePairedTagsInput } from "./dto/create-paired-tags.input";
 import { CustomLogger } from "src/shared/utils/custom-logger";
-import * as Sentry from "@sentry/node";
+import { CreateBlockedTagsInput } from "./dto/create-blocked-tags.input";
+import { CreatePairedTagsInput } from "./dto/create-paired-tags.input";
+import { CreatePreferredTagInput } from "./dto/create-preferred-tag.input";
 import { CreateTagDto } from "./dto/create-tag.dto";
-import { AuthService } from "src/auth/auth.service";
+import { DeletePreferredTagInput } from "./dto/delete-preferred-tag.input";
 import { LinkTagSynonymDto } from "./dto/link-tag-synonym.dto";
-import { Request, Response as ExpressResponse } from "express";
+import { TagsService } from "./tags.service";
 @Controller("tags")
 @ApiExtraModels(PreferredTag, PreferredTag)
 export class TagsController {
@@ -628,15 +628,27 @@ export class TagsController {
 
       const results = [];
 
+      const normalizedPreferredName =
+        this.tagsService.normalizeTagName(preferredName);
+
+      const existingPreferredTagNameNode =
+        await this.tagsService.findPreferredTagByNormalizedName(
+          normalizedPreferredName,
+        );
+
+      const createdPreferredTag = await this.tagsService.createPreferredTag({
+        name: preferredName,
+        normalizedName: normalizedPreferredName,
+      });
+
+      if (existingPreferredTagNameNode) {
+        return {
+          success: false,
+          message: "Preferred Tag Name already exists",
+        };
+      }
+
       for (const tagName of synonyms) {
-        const normalizedPreferredName =
-          this.tagsService.normalizeTagName(preferredName);
-
-        const existingPreferredTagNameNode =
-          await this.tagsService.findPreferredTagByNormalizedName(
-            normalizedPreferredName,
-          );
-
         const storedTagNode = await this.tagsService.findByNormalizedName(
           this.tagsService.normalizeTagName(tagName),
         );
@@ -647,18 +659,6 @@ export class TagsController {
             message: `Could not find Tag ${tagName} to set as preferred`,
           };
         }
-
-        if (existingPreferredTagNameNode) {
-          return {
-            success: false,
-            message: "Preferred Tag Name already exists",
-          };
-        }
-
-        const createdPreferredTag = await this.tagsService.createPreferredTag({
-          name: preferredName,
-          normalizedName: normalizedPreferredName,
-        });
 
         const hasPreferredTagRelationship =
           await this.tagsService.hasPreferredTagRelationship(

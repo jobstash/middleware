@@ -1,33 +1,24 @@
-import { PreferredTag, Tag } from "../interfaces";
-
-type RawPreferredTag = {
-  id: string;
-  name: string;
-  normalizedName: string;
-  tag: object & { properties: Tag };
-  synonyms: [object & { properties: Tag }];
-};
+import { Node } from "neo4j-driver";
+import { PreferredTag } from "../interfaces";
 
 export class PreferredTagEntity {
-  constructor(private readonly raw: RawPreferredTag) {}
+  constructor(private readonly node: Node) {}
 
   getId(): string {
-    return this.raw.id;
+    return (<Record<string, string>>this.node.properties).id;
   }
 
   getNormalizedName(): string {
-    return this.raw.normalizedName;
+    return (<Record<string, string>>this.node.properties).normalizedName;
   }
 
   getName(): string {
-    return this.raw.name;
+    return (<Record<string, string>>this.node.properties).name;
   }
 
   getProperties(): PreferredTag {
     return {
-      ...this.raw,
-      tag: this.raw?.tag.properties,
-      synonyms: this.raw?.synonyms.map(syn => syn.properties),
-    };
+      ...this.node.properties,
+    } as PreferredTag;
   }
 }
