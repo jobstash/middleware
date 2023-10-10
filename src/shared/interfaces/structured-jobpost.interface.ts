@@ -15,7 +15,6 @@ export class StructuredJobpost {
     responsibilities: t.array(t.string),
     title: t.union([t.string, t.null]),
     salary: t.union([t.number, t.null]),
-    payRate: t.union([t.number, t.null]),
     summary: t.union([t.string, t.null]),
     description: t.union([t.string, t.null]),
     culture: t.union([t.string, t.null]),
@@ -45,9 +44,6 @@ export class StructuredJobpost {
   @ApiPropertyOptional()
   description: string | null;
 
-  @ApiPropertyOptional()
-  payRate: number | null;
-
   @ApiProperty()
   requirements: string[];
 
@@ -56,12 +52,6 @@ export class StructuredJobpost {
 
   @ApiProperty()
   shortUUID: string;
-
-  @ApiPropertyOptional()
-  extractedMinimumSalary: number | null;
-
-  @ApiPropertyOptional()
-  extractedMaximumSalary: number | null;
 
   @ApiPropertyOptional()
   minimumSalary: number | null;

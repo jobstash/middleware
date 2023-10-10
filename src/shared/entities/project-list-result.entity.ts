@@ -15,7 +15,7 @@ export class ProjectListResultEntity {
       monthlyFees: nonZeroOrNull(project?.monthlyFees),
       monthlyRevenue: nonZeroOrNull(project?.monthlyRevenue),
       monthlyActiveUsers: nonZeroOrNull(project?.monthlyActiveUsers),
-      logo: notStringOrNull(project?.logo),
+      logo: notStringOrNull(project?.logo) ?? notStringOrNull(project?.website),
       isMainnet: project?.isMainnet ?? null,
       website: notStringOrNull(project?.website),
       category: notStringOrNull(project?.category),
