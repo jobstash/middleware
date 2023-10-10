@@ -24,8 +24,6 @@ export class StructuredJobpost {
     minimumSalary: t.union([t.number, t.null]),
     maximumSalary: t.union([t.number, t.null]),
     salaryCurrency: t.union([t.string, t.null]),
-    extractedMinimumSalary: t.union([t.number, t.null]),
-    extractedMaximumSalary: t.union([t.number, t.null]),
     offersTokenAllocation: t.union([t.boolean, t.null]),
   });
 
