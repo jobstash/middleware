@@ -8,10 +8,10 @@ export class FundingRound {
     id: t.string,
     date: t.number,
     createdTimestamp: t.number,
-    updatedTimestamp: t.number,
     roundName: t.union([t.string, t.null]),
     sourceLink: t.union([t.string, t.null]),
     raisedAmount: t.union([t.number, t.null]),
+    updatedTimestamp: t.union([t.number, t.null]),
   });
   @ApiProperty()
   id: string;
@@ -32,7 +32,7 @@ export class FundingRound {
   createdTimestamp: number;
 
   @ApiProperty()
-  updatedTimestamp: number;
+  updatedTimestamp: number | null;
 
   constructor(raw: FundingRound) {
     const {
