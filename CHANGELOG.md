@@ -1,3 +1,10 @@
+## [1.37.31](https://github.com/jobstash/middleware/compare/v1.37.30...v1.37.31) (2023-10-11)
+
+
+### Bug Fixes
+
+* fixed error with funding round validation ([8b3f85a](https://github.com/jobstash/middleware/commit/8b3f85a113021f1131f740cd33d5efdd7eaac642))
+
 ## [1.37.30](https://github.com/jobstash/middleware/compare/v1.37.29...v1.37.30) (2023-10-10)
 
 
