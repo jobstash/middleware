@@ -33,7 +33,7 @@ export const FundingRounds = (
         },
         date: { type: "number", allowEmpty: false, required: true },
         createdTimestamp: { type: "number", allowEmpty: false, required: true },
-        updatedTimestamp: { type: "number", allowEmpty: false, required: true },
+        updatedTimestamp: { type: "number", allowEmpty: true, required: false },
         roundName: {
           type: "string",
           allowEmpty: true,
