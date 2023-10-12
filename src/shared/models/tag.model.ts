@@ -12,7 +12,6 @@ import {
   TagPreference,
   NoRelations,
 } from "../types";
-import { boolean } from "fp-ts";
 
 export type TagProps = ExtractProps<Tag>;
 
@@ -58,7 +57,7 @@ export const Tags = (
       methods: {
         isBlockedTag: async function (): Promise<boolean> {
           const query = `
-            RETURN EXISTS( (:Tag {id: $id})-[:HAS_TAG_DESIGNATION]->(:BlockedTag) )
+            RETURN EXISTS( (:Tag {id: $id})-[:HAS_TAG_DESIGNATION]->(:Blocked) ) as blocked
           `;
           const result = await neogma.queryRunner.run(query, { id: this.id });
           return result.records[0]?.get("blocked") as boolean;
@@ -68,30 +67,17 @@ export const Tags = (
         getPreferredTags: async function (): Promise<TagPreference[]> {
           const query = new QueryBuilder()
             .match({
-              label: "PreferredTag",
-              identifier: "pt",
-            })
-            .match({
               optional: true,
               related: [
-                { identifier: "pt" },
-                { name: "IS_PREFERRED_TERM_OF", direction: "none" },
-                { label: "Tag", identifier: "t" },
+                { label: "Tag", identifier: "pt" },
+                { name: "HAS_TAG_DESIGNATION", direction: "out" },
+                { label: "Preferred" },
               ],
             })
-            .match({
-              optional: true,
-              related: [
-                { identifier: "t" },
-                { name: "IS_SYNONYM_OF*", direction: "in" },
-                { label: "Tag", identifier: "syn" },
-              ],
-            })
-            .with(["pt", "COLLECT(syn) as synonyms", "t"]).return(`
+            .with(["pt"]).return(`
               pt {
-                .*,
-                tag: t,
-                synonyms: synonyms
+                tag: pt { .* },
+                synonyms: [(t1)<-[:IS_SYNONYM_OF*]-(t2) | t2 { .* }]
               } as res
             `);
           const result = await query.run(neogma.queryRunner);
@@ -104,51 +90,44 @@ export const Tags = (
             .match({
               related: [
                 { label: "Tag", identifier: "t1" },
-                { name: "IS_PAIRED_WITH", direction: "out" },
-                { label: "TagPairing" },
-                { name: "IS_PAIRED_WITH", direction: "out" },
-                { label: "Tag", identifier: "t2" },
+                { name: "IS_PAIR_OF", direction: "out" },
+                { label: "Tag" },
               ],
             })
-            .with(["t1", "COLLECT(DISTINCT PROPERTIES(t2)) as pairings"])
-            .return(`
-              {
-                tag: PROPERTIES(t1),
-                pairings: pairings
+            .with(["t1"]).return(`
+              t1 {
+                tag: t1 { .* },
+                pairings: [(t1)-[:IS_PAIR_OF]->(t2) | t2 { .* }]
               } as res
             `);
           const result = await query.run(neogma.queryRunner);
           return result.records.map(record => record.get("res") as TagPair);
         },
         getAllowedTags: async function (): Promise<Tag[]> {
-          const results: Tag[] = [];
           const query = new QueryBuilder()
             .match({
               label: "Tag",
               identifier: "tag",
             })
-            .raw("WHERE NOT (tag)<-[:HAS_TAG_DESIGNATION]-()")
+            .raw("WHERE (tag)-[:HAS_TAG_DESIGNATION]->(:Allowed)")
             .return("tag");
           const result = await query.run(neogma.queryRunner);
-          result.records.forEach(record =>
-            results.push(
-              this.buildFromRecord(record.get("tag")).getDataValues(),
-            ),
+          return result.records.map(record =>
+            this.buildFromRecord(record.get("tag")).getDataValues(),
           );
-          return results;
         },
         getBlockedTags: async function (): Promise<Tag[]> {
-          const results: Tag[] = [];
-          const allTechnologies = await this.findRelationships({
-            alias: "blocked",
-          });
-          for (const tag of allTechnologies) {
-            const isBlockedTag = tag.target.__existsInDatabase;
-            if (isBlockedTag) {
-              results.push(tag.source.getDataValues());
-            }
-          }
-          return results;
+          const query = new QueryBuilder()
+            .match({
+              label: "Tag",
+              identifier: "tag",
+            })
+            .raw("WHERE (tag)-[:HAS_TAG_DESIGNATION]->(:Blocked)")
+            .return("tag");
+          const result = await query.run(neogma.queryRunner);
+          return result.records.map(record =>
+            this.buildFromRecord(record.get("tag")).getDataValues(),
+          );
         },
       },
     },

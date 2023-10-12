@@ -72,7 +72,7 @@ export class OrganizationsService {
               classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
               commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
               locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
-              tags: [(structured_jobpost)-[:HAS_TAG]->(tag: Tag) WHERE NOT (tag)<-[:HAS_TAG_DESIGNATION]-() | tag { .* }]
+              tags: [(structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:Allowed) | tag { .* }]
             }
           ],
           projects: [
@@ -97,7 +97,7 @@ export class OrganizationsService {
               ]
             }
           ],
-          tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:HAS_TAG_DESIGNATION]-() | tag { .* }]
+          tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:Allowed) | tag { .* }]
         } as res
         `;
 
@@ -483,11 +483,8 @@ export class OrganizationsService {
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (o:Organization {id: $organizationId})
-        MATCH (p:Project {id: $organizationId})
-        WITH o, p
-        RETURN EXISTS( (o)-[:HAS_PROJECT]->(p) ) AS result
-        `,
+        RETURN EXISTS( (o:Organization {id: $organizationId})-[:HAS_PROJECT]->(p:Project {id: $projectId}) ) AS result
+      `,
       { organizationId, projectId },
     );
 
@@ -504,15 +501,11 @@ export class OrganizationsService {
   ): Promise<unknown> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (o:Organization {id: $organizationId})
-        MATCH (p:Project {id: $projectId})
-
-        MERGE (o)-[r:HAS_PROJECT]->(p)
+        MERGE (o:Organization {id: $organizationId})-[r:HAS_PROJECT]->(p:Project {id: $projectId})
         SET r.timestamp = timestamp()
 
         RETURN o {
           .*,
-          relationshipTimestamp: r.timestamp
         } AS organization
         `,
       { organizationId, projectId },

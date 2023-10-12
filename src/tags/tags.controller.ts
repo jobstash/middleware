@@ -206,13 +206,11 @@ export class TagsController {
         };
       }
 
-      const createdTag = await this.tagsService.create({
-        name,
-        normalizedName,
-      });
-
-      await this.tagsService.relateTagToCreator(
-        createdTag.getId(),
+      const createdTag = await this.tagsService.create(
+        {
+          name,
+          normalizedName,
+        },
         creatorWallet as string,
       );
 
@@ -319,76 +317,27 @@ export class TagsController {
       res,
     );
     for (const tagName of input.tagNameList) {
-      this.logger.debug(`Attempting to block tag: ${tagName}`);
-      this.logger.debug(`Authenticating with wallet: ${creatorWallet}`);
       try {
-        let existingBlockedTagNameNode =
-          await this.tagsService.findBlockedTagNodeByName(
-            this.tagsService.normalizeTagName(tagName),
-          );
-
-        if (!existingBlockedTagNameNode) {
-          this.logger.log(`Creating initial blocked tag node`);
-          existingBlockedTagNameNode =
-            await this.tagsService.createBlockedTagNode(
-              this.tagsService.normalizeTagName(tagName),
-            );
-        }
-
-        const storedTagNode = await this.tagsService.findByNormalizedName(
+        const tag = await this.tagsService.findByNormalizedName(
           this.tagsService.normalizeTagName(tagName),
         );
-
-        if (!storedTagNode) {
-          this.logger.error(`Could not find stored tag node`);
+        if (!tag) {
           return {
             success: false,
-            message: `Could not find Tag ${tagName} to block`,
+            message: `Could not block tag ${tagName} because it does not exist.`,
           };
         }
-
-        const hasBlockedNoRelationship =
-          await this.tagsService.hasBlockedNoRelationship(
-            existingBlockedTagNameNode.getId(),
-            storedTagNode.getId(),
-          );
-
-        if (hasBlockedNoRelationship) {
-          this.logger.error(`Already has a blocked tag relation`);
-          return {
-            success: false,
-            message: `${storedTagNode.getName()} already has blocked tag relation`,
-          };
-        }
-
-        await this.tagsService.relateBlockedTagToTag(
-          existingBlockedTagNameNode.getId(),
-          storedTagNode.getId(),
+        const existingBlockedTag = await this.tagsService.findBlockedTagByName(
+          tagName,
         );
-
-        this.logger.debug(`Related blocked tag to tag`);
-
-        const hasBlockedTagCreatorRelationship =
-          await this.tagsService.hasBlockedTagCreatorRelationship(
-            existingBlockedTagNameNode.getId(),
-            creatorWallet as string,
-          );
-
-        if (hasBlockedTagCreatorRelationship) {
-          this.logger.error(`Already has a blocked tag relation`);
-
+        if (existingBlockedTag) {
           return {
             success: false,
-            message: `Already has existing blocked tag relation`,
+            message: `Tag ${tagName} is already blocked`,
           };
         }
 
-        await this.tagsService.relateBlockedTagToCreator(
-          existingBlockedTagNameNode.getId(),
-          creatorWallet as string,
-        );
-
-        this.logger.log(`Related blocked tag to creator`);
+        await this.tagsService.blockTag(tagName, creatorWallet as string);
       } catch (err) {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -429,75 +378,30 @@ export class TagsController {
       res,
     );
     for (const tagName of input.tagNameList) {
-      this.logger.debug(`Attempting to unblock tag: ${tagName}`);
-      this.logger.debug(`Authenticating with wallet: ${creatorWallet}`);
       try {
-        const existingBlockedTagNameNode =
-          await this.tagsService.findBlockedTagNodeByName(
-            this.tagsService.normalizeTagName(tagName),
-          );
-
-        if (!existingBlockedTagNameNode) {
-          this.logger.debug(`Could not find blocked tag node`);
-          return {
-            success: false,
-            message: `Could not find blocked tag node`,
-          };
-        }
-
-        const storedTagNode = await this.tagsService.findByNormalizedName(
+        const tag = await this.tagsService.findByNormalizedName(
           this.tagsService.normalizeTagName(tagName),
         );
-
-        if (!storedTagNode) {
-          this.logger.error(`Could not find stored tag node`);
+        if (!tag) {
           return {
             success: false,
-            message: `Could not find Tag ${tagName} to block`,
+            message: `Could not unblock tag ${tagName} because it does not exist.`,
           };
         }
-
-        const hasBlockedNoRelationship =
-          await this.tagsService.hasBlockedNoRelationship(
-            existingBlockedTagNameNode.getId(),
-            storedTagNode.getId(),
-          );
-
-        if (!hasBlockedNoRelationship) {
-          this.logger.error(`No blocked tag relation`);
-          return {
-            success: false,
-            message: `${storedTagNode.getName()} has no blocked tag relation`,
-          };
-        }
-
-        await this.tagsService.unrelateBlockedTagFromTag(
-          existingBlockedTagNameNode.getId(),
-          storedTagNode.getId(),
+        const existingBlockedTag = await this.tagsService.findBlockedTagByName(
+          tagName,
         );
-
-        this.logger.debug(`Unrelated blocked tag from tag`);
-
-        const hasBlockedTagCreatorRelationship =
-          await this.tagsService.hasBlockedTagCreatorRelationship(
-            existingBlockedTagNameNode.getId(),
-            creatorWallet as string,
-          );
-
-        if (!hasBlockedTagCreatorRelationship) {
-          this.logger.error(`No existing blocked tag relation`);
+        if (!existingBlockedTag) {
           return {
             success: false,
-            message: `Missing existing blocked tag relation`,
+            message: `Tag ${tagName} is already unblocked`,
           };
         }
 
-        await this.tagsService.unrelateBlockedTagFromCreator(
-          existingBlockedTagNameNode.getId(),
+        await this.tagsService.unblockTag(
+          existingBlockedTag.getId(),
           creatorWallet as string,
         );
-
-        this.logger.log(`Unrelated blocked tag from creator`);
       } catch (err) {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -507,7 +411,7 @@ export class TagsController {
           scope.setExtra("input", input);
           Sentry.captureException(err);
         });
-        this.logger.error(`TagsController::unsetBlockedTags ${err.message}`);
+        this.logger.error(`TagsController::unblockTags ${err.message}`);
         return {
           success: false,
           message: `Failed to unblock tag ${tagName}`,
@@ -579,8 +483,7 @@ export class TagsController {
       await this.tagsService.relatePairedTags(
         normalizedOriginTagNameNodeId,
         normalizedPairTagListNodesIds,
-        (creatorWallet as string) ??
-          "0x921f80499A00aC6E95AAE0DAa411D338f41D5Da2",
+        creatorWallet as string,
       );
 
       return {
@@ -632,21 +535,26 @@ export class TagsController {
       const normalizedPreferredName =
         this.tagsService.normalizeTagName(preferredName);
 
-      const existingPreferredTagNameNode =
-        await this.tagsService.findPreferredTagByNormalizedName(
-          normalizedPreferredName,
-        );
+      const preferredTag = await this.tagsService.findByNormalizedName(
+        normalizedPreferredName,
+      );
 
-      const createdPreferredTag = await this.tagsService.createPreferredTag({
-        name: preferredName,
-        normalizedName: normalizedPreferredName,
-      });
-
-      if (existingPreferredTagNameNode) {
+      if (!preferredTag) {
         return {
           success: false,
-          message: "Preferred Tag Name already exists",
+          message: `Could not set tag ${preferredName} as preferred because it does not exist`,
         };
+      }
+
+      const isPreferred = this.tagsService.hasPreferredRelation(
+        preferredTag.getId(),
+      );
+
+      if (!isPreferred) {
+        await this.tagsService.preferTag(
+          preferredName,
+          creatorWallet as string,
+        );
       }
 
       for (const tagName of synonyms) {
@@ -657,46 +565,29 @@ export class TagsController {
         if (!storedTagNode) {
           return {
             success: false,
-            message: `Could not find Tag ${tagName} to set as preferred`,
+            message: `Could not find Tag ${tagName} to set as a synonym`,
           };
         }
 
-        const hasPreferredNoRelationship =
-          await this.tagsService.hasPreferredNoRelationship(
-            createdPreferredTag.getId(),
-            storedTagNode.getId(),
-          );
+        // TODO: Confirm that this check is needed @duckdegen
+        // const hasPreferredNoRelationship =
+        //   await this.tagsService.hasPreferredRelation(
+        //     createdPreferredTag.getId(),
+        //   );
 
-        if (hasPreferredNoRelationship) {
-          return {
-            success: false,
-            message: `Already has existing preferred tag relation`,
-          };
-        }
+        // if (hasPreferredNoRelationship) {
+        //   return {
+        //     success: false,
+        //     message: `Already has existing relation to a preferred tag`,
+        //   };
+        // }
 
         await this.tagsService.relatePreferredTagToTag(
-          createdPreferredTag.getId(),
+          preferredTag.getId(),
           storedTagNode.getId(),
         );
 
-        const hasPreferredTagCreatorRelationship =
-          await this.tagsService.hasPreferredTagCreatorRelationship(
-            createdPreferredTag.getId(),
-            creatorWallet as string,
-          );
-
-        if (hasPreferredTagCreatorRelationship) {
-          return {
-            success: false,
-            message: `Already has existing preferred tag creator relation`,
-          };
-        }
-
-        await this.tagsService.relatePreferredTagToCreator(
-          createdPreferredTag.getId(),
-          creatorWallet as string,
-        );
-        results.push(createdPreferredTag.getProperties());
+        results.push(preferredTag.getProperties());
       }
 
       return {
@@ -734,10 +625,10 @@ export class TagsController {
     @Body() input: DeletePreferredTagInput,
   ): Promise<Response<TagPreference> | ResponseWithNoData> {
     this.logger.log(`/tags/delete-preference ${JSON.stringify(input)}`);
-    const { address: creatorWallet } = await this.authService.getSession(
-      req,
-      res,
-    );
+    // const { address: creatorWallet } = await this.authService.getSession(
+    //   req,
+    //   res,
+    // );
     try {
       const { preferredName, synonyms } = input;
 
@@ -768,46 +659,42 @@ export class TagsController {
           };
         }
 
-        const hasPreferredNoRelationship =
-          await this.tagsService.hasPreferredNoRelationship(
-            existingPreferredTagNameNode.getId(),
+        const hasPreferredRelationship =
+          await this.tagsService.hasRelationToPreferredTag(
+            existingPreferredTagNameNode.tag.id,
             storedTagNode.getId(),
           );
 
-        if (!hasPreferredNoRelationship) {
+        if (!hasPreferredRelationship) {
           return {
             success: false,
             message: `Preferred tag relation not found`,
           };
         }
 
-        const hasPreferredTagCreatorRelationship =
-          await this.tagsService.hasPreferredTagCreatorRelationship(
-            existingPreferredTagNameNode.getId(),
-            creatorWallet as string,
-          );
+        // TODO: Confirm that check is needed @duckdegen
+        // const hasPreferredTagCreatorRelationship =
+        //   await this.tagsService.hasPreferredTagCreatorRelationship(
+        //     existingPreferredTagNameNode.tag.id,
+        //     creatorWallet as string,
+        //   );
 
-        if (!hasPreferredTagCreatorRelationship) {
-          return {
-            success: false,
-            message: `Missing existing preferred tag relation to creator`,
-          };
-        }
+        // if (!hasPreferredTagCreatorRelationship) {
+        //   return {
+        //     success: false,
+        //     message: `Missing existing preferred tag relation to creator`,
+        //   };
+        // }
 
         await this.tagsService.unrelatePreferredTagToTag(
-          existingPreferredTagNameNode.getId(),
+          existingPreferredTagNameNode.tag.id,
           storedTagNode.getId(),
-        );
-
-        await this.tagsService.unrelatePreferredTagFromCreator(
-          existingPreferredTagNameNode.getId(),
-          creatorWallet as string,
         );
       }
 
       return {
         success: true,
-        data: existingPreferredTagNameNode.getProperties(),
+        data: existingPreferredTagNameNode,
         message: "Tag preference deleted successfully",
       };
     } catch (err) {
