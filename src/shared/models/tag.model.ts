@@ -90,8 +90,8 @@ export const Tags = (
             .match({
               related: [
                 { label: "Tag", identifier: "t1" },
-                { name: "IS_PAIR_OF", direction: "out" },
-                { label: "Tag" },
+                { name: "HAS_TAG_DESIGNATION", direction: "out" },
+                { label: "Paired" },
               ],
             })
             .with(["t1"]).return(`
