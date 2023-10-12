@@ -16,6 +16,7 @@ import { CacheModule } from "@nestjs/cache-manager";
 import { PublicModule } from "./public/public.module";
 import { ModelModule } from "./model/model.module";
 import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
+import { ProfileModule } from "./auth/profile/profile.module";
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
     ProjectsModule,
     PublicModule,
     ModelModule,
+    ProfileModule,
   ],
   controllers: [AppController],
   providers: [AppService],
