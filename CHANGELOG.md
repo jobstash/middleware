@@ -1,3 +1,10 @@
+# [1.38.0](https://github.com/jobstash/middleware/compare/v1.37.34...v1.38.0) (2023-10-12)
+
+
+### Features
+
+* **users:** implemented fetch user profile endpoint ([daf9102](https://github.com/jobstash/middleware/commit/daf910275d844ba57e829d8e6fe64c307aab51d2))
+
 ## [1.37.34](https://github.com/jobstash/middleware/compare/v1.37.33...v1.37.34) (2023-10-12)
 
 
