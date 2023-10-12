@@ -1,3 +1,11 @@
+## [1.37.33](https://github.com/jobstash/middleware/compare/v1.37.32...v1.37.33) (2023-10-12)
+
+
+### Bug Fixes
+
+* **github:** fixed issue with github auth ([d94e241](https://github.com/jobstash/middleware/commit/d94e24144ac402d30a243d85e9d92a35391bffc2))
+* **tags:** overhauled tags data models to a more flexible architecture ([#131](https://github.com/jobstash/middleware/issues/131)) ([743c3b2](https://github.com/jobstash/middleware/commit/743c3b21e5581a69fc7e8c7d40c93fcd033e42cd))
+
 ## [1.37.32](https://github.com/jobstash/middleware/compare/v1.37.31...v1.37.32) (2023-10-12)
 
 
