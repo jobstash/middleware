@@ -1,3 +1,10 @@
+## [1.37.34](https://github.com/jobstash/middleware/compare/v1.37.33...v1.37.34) (2023-10-12)
+
+
+### Bug Fixes
+
+* **github:** fixed bug in github auth flow ([b927529](https://github.com/jobstash/middleware/commit/b927529095c6018eaa5049ae1296014b3301e19a))
+
 ## [1.37.33](https://github.com/jobstash/middleware/compare/v1.37.32...v1.37.33) (2023-10-12)
 
 
