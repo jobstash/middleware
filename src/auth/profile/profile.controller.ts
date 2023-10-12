@@ -1,7 +1,9 @@
 import {
+  Body,
   Controller,
   Get,
   HttpStatus,
+  Post,
   Req,
   Res,
   UseGuards,
@@ -19,9 +21,12 @@ import {
   ResponseWithNoData,
   UserProfile,
 } from "src/shared/interfaces";
+import { UpdateUserProfileInput } from "./dto/update-profile.input";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Controller("profile")
 export class ProfileController {
+  private logger = new CustomLogger(ProfileController.name);
   constructor(
     private readonly profileService: ProfileService,
     private readonly authService: AuthService,
@@ -32,15 +37,45 @@ export class ProfileController {
   @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns the profile of the currently logged in user",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(String) }),
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Response<UserProfile>),
+    }),
   })
   async getUserProfile(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<Response<UserProfile> | ResponseWithNoData> {
+    this.logger.log(`/profile/info`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       return this.profileService.getUserProfile(address as string);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Post("info")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Returns the profile of the currently logged in user",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Response<UserProfile>),
+    }),
+  })
+  async setUserProfile(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Body() body: UpdateUserProfileInput,
+  ): Promise<Response<UserProfile> | ResponseWithNoData> {
+    this.logger.log(`/profile/info ${JSON.stringify(body)}`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.profileService.updateUserProfile(address as string, body);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
