@@ -65,16 +65,14 @@ export const Tags = (
       },
       statics: {
         getPreferredTags: async function (): Promise<TagPreference[]> {
-          const query = new QueryBuilder()
-            .match({
-              optional: true,
-              related: [
-                { label: "Tag", identifier: "pt" },
-                { name: "HAS_TAG_DESIGNATION", direction: "out" },
-                { label: "Preferred" },
-              ],
-            })
-            .with(["pt"]).return(`
+          const query = new QueryBuilder().match({
+            optional: true,
+            related: [
+              { label: "Tag", identifier: "pt" },
+              { name: "HAS_TAG_DESIGNATION", direction: "out" },
+              { label: "Preferred" },
+            ],
+          }).return(`
               pt {
                 tag: pt { .* },
                 synonyms: [(t1)<-[:IS_SYNONYM_OF*]-(t2) | t2 { .* }]
@@ -86,15 +84,13 @@ export const Tags = (
           );
         },
         getPairedTags: async function (): Promise<TagPair[]> {
-          const query = new QueryBuilder()
-            .match({
-              related: [
-                { label: "Tag", identifier: "t1" },
-                { name: "HAS_TAG_DESIGNATION", direction: "out" },
-                { label: "Paired" },
-              ],
-            })
-            .with(["t1"]).return(`
+          const query = new QueryBuilder().match({
+            related: [
+              { label: "Tag", identifier: "t1" },
+              { name: "HAS_TAG_DESIGNATION", direction: "out" },
+              { label: "Paired" },
+            ],
+          }).return(`
               t1 {
                 tag: t1 { .* },
                 pairings: [(t1)-[:IS_PAIR_OF]->(t2) | t2 { .* }]
