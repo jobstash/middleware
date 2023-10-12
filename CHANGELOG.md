@@ -1,3 +1,10 @@
+# [1.39.0](https://github.com/jobstash/middleware/compare/v1.38.0...v1.39.0) (2023-10-12)
+
+
+### Features
+
+* **users:** implemented update user profile endpoint ([a98a2dc](https://github.com/jobstash/middleware/commit/a98a2dcc48a86f33a3b67435ea3fc93aa6546aa6))
+
 # [1.38.0](https://github.com/jobstash/middleware/compare/v1.37.34...v1.38.0) (2023-10-12)
 
 
