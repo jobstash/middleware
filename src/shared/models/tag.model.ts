@@ -102,10 +102,15 @@ export const Tags = (
         getAllowedTags: async function (): Promise<Tag[]> {
           const query = new QueryBuilder()
             .match({
-              label: "Tag",
-              identifier: "tag",
+              related: [
+                {
+                  label: "Tag",
+                  identifier: "tag",
+                },
+                { name: "HAS_TAG_DESIGNATION", direction: "out" },
+                { label: "Allowed" },
+              ],
             })
-            .raw("WHERE (tag)-[:HAS_TAG_DESIGNATION]->(:Allowed)")
             .return("tag");
           const result = await query.run(neogma.queryRunner);
           return result.records.map(record =>
@@ -115,10 +120,15 @@ export const Tags = (
         getBlockedTags: async function (): Promise<Tag[]> {
           const query = new QueryBuilder()
             .match({
-              label: "Tag",
-              identifier: "tag",
+              related: [
+                {
+                  label: "Tag",
+                  identifier: "tag",
+                },
+                { name: "HAS_TAG_DESIGNATION", direction: "out" },
+                { label: "Blocked" },
+              ],
             })
-            .raw("WHERE (tag)-[:HAS_TAG_DESIGNATION]->(:Blocked)")
             .return("tag");
           const result = await query.run(neogma.queryRunner);
           return result.records.map(record =>
