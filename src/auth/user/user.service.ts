@@ -345,7 +345,7 @@ export class UserService {
     );
 
     return res.records.length
-      ? new GithubUserEntity(res.records[0].get("u")).getProperties()
+      ? new GithubUserEntity(res.records[0].get("gu")).getProperties()
       : undefined;
   }
 
@@ -363,7 +363,7 @@ export class UserService {
     );
 
     return res.records.length
-      ? new GithubUserEntity(res.records[0].get("u")).getProperties()
+      ? new GithubUserEntity(res.records[0].get("gu")).getProperties()
       : undefined;
   }
 
