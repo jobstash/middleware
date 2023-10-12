@@ -449,11 +449,8 @@ export class ProjectsService {
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (p:Project {id: $projectId})
-        MATCH (c:ProjectCategory {id: $projectCategoryId})
-        WITH p, c
-        RETURN EXISTS( (p)-[:HAS_CATEGORY]->(c) ) AS result
-        `,
+        RETURN EXISTS( (p:Project {id: $projectId})-[:HAS_CATEGORY]->(c:ProjectCategory {id: $projectCategoryId}) ) AS result
+      `,
       { projectId, projectCategoryId },
     );
 
@@ -466,15 +463,11 @@ export class ProjectsService {
   ): Promise<unknown> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (p:Project {id: $projectId})
-        MATCH (c:ProjectCategory {id: $projectCategoryId})
-
-        MERGE (p)-[r:HAS_CATEGORY]->(c)
+        MERGE (p:Project {id: $projectId})-[r:HAS_CATEGORY]->(c:ProjectCategory {id: $projectCategoryId})
         SET r.timestamp = timestamp()
 
         RETURN p {
           .*,
-          relationshipTimestamp: r.timestamp
         } AS project
         `,
       { projectId, projectCategoryId },

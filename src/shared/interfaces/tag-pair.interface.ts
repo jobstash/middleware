@@ -3,7 +3,7 @@ import { isLeft } from "fp-ts/lib/Either";
 import * as t from "io-ts";
 import { report } from "io-ts-human-reporter";
 
-export class PairedTag {
+export class TagPair {
   public static readonly PairedTagType = t.strict({
     tag: t.string,
     pairings: t.array(t.string),
@@ -15,9 +15,9 @@ export class PairedTag {
   @ApiProperty()
   pairings: string[];
 
-  constructor(raw: PairedTag) {
+  constructor(raw: TagPair) {
     const { tag, pairings } = raw;
-    const result = PairedTag.PairedTagType.decode(raw);
+    const result = TagPair.PairedTagType.decode(raw);
 
     this.tag = tag;
     this.pairings = pairings;
