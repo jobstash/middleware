@@ -16,8 +16,8 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import { propertiesMatch } from "src/shared/helpers";
 import * as Sentry from "@sentry/node";
-import { GithubLoginInput } from "./dto/github-login.input";
 import { UserService } from "../user/user.service";
+import { GithubInfo } from "./dto/github-info.input";
 
 @Injectable()
 export class GithubUserService {
@@ -30,7 +30,7 @@ export class GithubUserService {
   ) {}
 
   async addGithubInfoToUser(
-    args: GithubLoginInput,
+    args: GithubInfo,
   ): Promise<Response<User> | ResponseWithNoData> {
     const logInfo = {
       ...args,

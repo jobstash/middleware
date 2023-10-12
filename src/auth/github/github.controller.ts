@@ -142,7 +142,6 @@ export class GithubController {
 
     await this.githubUserService.addGithubInfoToUser({
       githubAccessToken: accessToken,
-      code: code,
       githubRefreshToken: "",
       githubLogin: profileData.login,
       githubId: profileData.id,
@@ -150,8 +149,7 @@ export class GithubController {
       githubGravatarId:
         profileData.gravatar_id === "" ? undefined : profileData.gravatar_id,
       githubAvatarUrl: profileData.avatar_url,
-      wallet: wallet,
-      role: role,
+      wallet,
     });
 
     await this.userService.setFlowState({
