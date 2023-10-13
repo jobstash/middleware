@@ -15,12 +15,12 @@ export class ProfileService {
   async getUserProfile(wallet: string): Promise<Response<UserProfile>> {
     const result = await this.neogma.queryRunner.run(
       `
-        RETURN (user:User {wallet: $wallet})-[:HAS_PROFILE]->(profile:UserProfile) | profile {
+        RETURN [(user:User {wallet: $wallet})-[:HAS_PROFILE]->(profile:UserProfile) | profile {
           .*,
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
           contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0]
-        }
+        }][0] as profile
 
       `,
       { wallet },
