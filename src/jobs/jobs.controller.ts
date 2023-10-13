@@ -208,7 +208,7 @@ export class JobsController {
     },
   })
   async getOrgJobsListById(
-    @Param("orgId") orgId: string,
+    @Param("id") orgId: string,
   ): Promise<JobListResult[]> {
     this.logger.log(`/jobs/orgId/${orgId}`);
     return this.jobsService.getJobsByOrgId(orgId);
