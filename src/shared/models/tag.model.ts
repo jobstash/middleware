@@ -57,7 +57,7 @@ export const Tags = (
       methods: {
         isBlockedTag: async function (): Promise<boolean> {
           const query = `
-            RETURN EXISTS( (:Tag {id: $id})-[:HAS_TAG_DESIGNATION]->(:Blocked) ) as blocked
+            RETURN EXISTS( (:Tag {id: $id})-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation) ) as blocked
           `;
           const result = await neogma.queryRunner.run(query, { id: this.id });
           return result.records[0]?.get("blocked") as boolean;
@@ -70,7 +70,7 @@ export const Tags = (
             related: [
               { label: "Tag", identifier: "pt" },
               { name: "HAS_TAG_DESIGNATION", direction: "out" },
-              { label: "Preferred" },
+              { label: "PreferredDesignation" },
             ],
           }).return(`
               pt {
@@ -88,7 +88,7 @@ export const Tags = (
             related: [
               { label: "Tag", identifier: "t1" },
               { name: "HAS_TAG_DESIGNATION", direction: "out" },
-              { label: "Paired" },
+              { label: "PairedDesignation" },
             ],
           }).return(`
               t1 {
@@ -108,7 +108,7 @@ export const Tags = (
                   identifier: "tag",
                 },
                 { name: "HAS_TAG_DESIGNATION", direction: "out" },
-                { label: "Allowed|Default" },
+                { label: "AllowedDesignation|DefaultDesignation" },
               ],
             })
             .return("tag");
@@ -126,7 +126,7 @@ export const Tags = (
                   identifier: "tag",
                 },
                 { name: "HAS_TAG_DESIGNATION", direction: "out" },
-                { label: "Blocked" },
+                { label: "BlockedDesignation" },
               ],
             })
             .return("tag");
