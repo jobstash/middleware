@@ -1,3 +1,10 @@
+## [1.39.1](https://github.com/jobstash/middleware/compare/v1.39.0...v1.39.1) (2023-10-13)
+
+
+### Bug Fixes
+
+* **user:** fixed bug in get user profile query ([43a79a3](https://github.com/jobstash/middleware/commit/43a79a34a72ab0b13d4594d8e66e67864a8ac6a4))
+
 # [1.39.0](https://github.com/jobstash/middleware/compare/v1.38.0...v1.39.0) (2023-10-12)
 
 
