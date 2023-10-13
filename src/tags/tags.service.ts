@@ -88,7 +88,7 @@ export class TagsService {
 
   async getAllUnblockedTags(): Promise<Tag[]> {
     try {
-      return this.models.Tags.getAllowedTags();
+      return this.models.Tags.getUnblockedTags();
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -174,7 +174,7 @@ export class TagsService {
     return this.neogma.queryRunner
       .run(
         `
-          MATCH (:Tag {name: $name})-[r:HAS_TAG_DESIGNATION]->(:Allowed)
+          MATCH (:Tag {name: $name})-[r:HAS_TAG_DESIGNATION]->(:Allowed|Default)
           DETACH DELETE r
 
           CREATE (bt:Tag {name: $name})-[r:HAS_TAG_DESIGNATION]->(:Blocked)

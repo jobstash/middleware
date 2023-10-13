@@ -25,7 +25,7 @@ export interface TagMethods {
 export interface TagStatics {
   getPreferredTags: () => Promise<TagPreference[]>;
   getBlockedTags: () => Promise<Tag[]>;
-  getAllowedTags: () => Promise<Tag[]>;
+  getUnblockedTags: () => Promise<Tag[]>;
   getPairedTags: () => Promise<TagPair[]>;
 }
 
@@ -99,7 +99,7 @@ export const Tags = (
           const result = await query.run(neogma.queryRunner);
           return result.records.map(record => record.get("res") as TagPair);
         },
-        getAllowedTags: async function (): Promise<Tag[]> {
+        getUnblockedTags: async function (): Promise<Tag[]> {
           const query = new QueryBuilder()
             .match({
               related: [
@@ -108,7 +108,7 @@ export const Tags = (
                   identifier: "tag",
                 },
                 { name: "HAS_TAG_DESIGNATION", direction: "out" },
-                { label: "Allowed" },
+                { label: "Allowed|Default" },
               ],
             })
             .return("tag");
