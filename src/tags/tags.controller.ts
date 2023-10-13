@@ -71,7 +71,7 @@ export class TagsController {
 
   @Get("blocked")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
   @ApiOkResponse({
     description: "Returns a list of all blocked tags",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Tag) }),
@@ -103,7 +103,7 @@ export class TagsController {
 
   @Get("preferred")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
   @ApiOkResponse({
     description: "Retrieve a list of preferred tags and their synonym chains",
     schema: responseSchemaWrapper({
@@ -139,7 +139,7 @@ export class TagsController {
 
   @Get("paired")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
   @ApiOkResponse({
     description: "Retrieve a list of paired tags and their pairings",
     schema: responseSchemaWrapper({
