@@ -181,6 +181,39 @@ export class JobsController {
     this.logger.log(`/jobs/org/${uuid}`);
     return this.jobsService.getJobsByOrgUuid(uuid);
   }
+
+  @Get("/orgId/:id")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiOkResponse({
+    description: "Returns a list of jobs posted by an org",
+    schema: {
+      allOf: [
+        {
+          type: "array",
+          items: { $ref: getSchemaPath(JobListResult) },
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ValidationError),
+        },
+      ],
+    },
+  })
+  async getOrgJobsListById(
+    @Param("orgId") orgId: string,
+  ): Promise<JobListResult[]> {
+    this.logger.log(`/jobs/orgId/${orgId}`);
+    return this.jobsService.getJobsByOrgId(orgId);
+  }
+
   @Get("/all")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)

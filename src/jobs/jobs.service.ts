@@ -843,6 +843,141 @@ export class JobsService {
       });
   }
 
+  async getJobsByOrgId(orgId: string): Promise<JobListResult[] | undefined> {
+    return this.neo4jService
+      .read(
+        `
+        MATCH (organization:Organization {orgId: $orgId})-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(jp:Jobpost)-[:IS_CATEGORIZED_AS]-(:JobpostCategory {name: "technical"})
+        MATCH (jp)-[:HAS_STATUS]->(:JobpostStatus {status: "active"})
+        MATCH (jp)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost:StructuredJobpost)
+        OPTIONAL MATCH (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound)
+        OPTIONAL MATCH (funding_round)-[:INVESTED_BY]->(investor:Investor)
+        OPTIONAL MATCH (organization)-[:HAS_PROJECT]->(project:Project)-[:HAS_CATEGORY]->(project_category:ProjectCategory)
+        OPTIONAL MATCH (structured_jobpost)-[:USES_TECHNOLOGY]->(technology:Technology)
+        WHERE NOT (technology)<-[:IS_BLOCKED_TERM]-()
+        OPTIONAL MATCH (technology)<-[:IS_PREFERRED_TERM_OF]-(:PreferredTerm)
+        OPTIONAL MATCH (technology)<-[:IS_PAIRED_WITH]-(:TechnologyPairing)-[:IS_PAIRED_WITH]->(:Technology)
+        OPTIONAL MATCH (project)-[:HAS_AUDIT]-(audit:Audit)
+        OPTIONAL MATCH (project)-[:HAS_HACK]-(hack:Hack)
+        OPTIONAL MATCH (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain:Chain)
+        WITH structured_jobpost, organization, project, project_category, funding_round, investor, technology, audit, hack, chain
+        WITH structured_jobpost, organization, project,
+          project_category, 
+          COLLECT(DISTINCT PROPERTIES(investor)) AS investors,
+          COLLECT(DISTINCT PROPERTIES(funding_round)) AS funding_rounds, 
+          COLLECT(DISTINCT PROPERTIES(technology)) AS technologies,
+          COLLECT(DISTINCT PROPERTIES(audit)) AS audits,
+          COLLECT(DISTINCT PROPERTIES(hack)) AS hacks,
+          COLLECT(DISTINCT PROPERTIES(chain)) AS chains
+
+        WITH structured_jobpost, organization, funding_rounds, technologies,
+          COLLECT({
+            id: project.id,
+            defiLlamaId: project.defiLlamaId,
+            defiLlamaSlug: project.defiLlamaSlug,
+            defiLlamaParent: project.defiLlamaParent,
+            name: project.name,
+            description: project.description,
+            url: project.url,
+            logo: project.logo,
+            tokenAddress: project.tokenAddress,
+            tokenSymbol: project.tokenSymbol,
+            isInConstruction: project.isInConstruction,
+            tvl: project.tvl,
+            monthlyVolume: project.monthlyVolume,
+            monthlyFees: project.monthlyFees,
+            monthlyRevenue: project.monthlyRevenue,
+            monthlyActiveUsers: project.monthlyActiveUsers,
+            isMainnet: project.isMainnet,
+            telegram: project.telegram,
+            orgId: project.orgId,
+            cmcId: project.cmcId,
+            twitter: project.twitter,
+            discord: project.discord,
+            docs: project.docs,
+            teamSize: project.teamSize,
+            githubOrganization: project.githubOrganization,
+            category: project_category.name,
+            createdTimestamp: project.createdTimestamp,
+            updatedTimestamp: project.updatedTimestamp,
+            hacks: [hack in hacks WHERE hack.id IS NOT NULL],
+            audits: [audit in audits WHERE audit.id IS NOT NULL],
+            chains: [chain in chains WHERE chain.id IS NOT NULL]
+          }) AS projects
+        
+        WITH {
+          id: structured_jobpost.id,
+          jobTitle: structured_jobpost.jobTitle,
+          role: structured_jobpost.role,
+          jobLocation: structured_jobpost.jobLocation,
+          jobApplyPageUrl: structured_jobpost.jobApplyPageUrl,
+          jobPageUrl: structured_jobpost.jobPageUrl,
+          shortUUID: structured_jobpost.shortUUID,
+          seniority: structured_jobpost.seniority,
+          jobCreatedTimestamp: structured_jobpost.jobCreatedTimestamp,
+          jobFoundTimestamp: structured_jobpost.jobFoundTimestamp,
+          minSalaryRange: structured_jobpost.minSalaryRange,
+          maxSalaryRange: structured_jobpost.maxSalaryRange,
+          medianSalary: structured_jobpost.medianSalary,
+          salaryCurrency: structured_jobpost.salaryCurrency,
+          aiDetectedTechnologies: structured_jobpost.aiDetectedTechnologies,
+          extractedTimestamp: structured_jobpost.extractedTimestamp,
+          team: structured_jobpost.team,
+          benefits: structured_jobpost.benefits,
+          culture: structured_jobpost.culture,
+          paysInCrypto: structured_jobpost.paysInCrypto,
+          offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+          jobCommitment: structured_jobpost.jobCommitment,
+          organization: {
+              id: organization.id,
+              orgId: organization.orgId,
+              name: organization.name,
+              description: organization.description,
+              summary: organization.summary,
+              location: organization.location,
+              url: organization.url,
+              logo: organization.logo,
+              headcount: organization.headcount,
+              twitter: organization.twitter,
+              discord: organization.discord,
+              github: organization.github,
+              telegram: organization.telegram,
+              docs: organization.docs,
+              jobsiteLink: organization.jobsiteLink,
+              createdTimestamp: organization.createdTimestamp,
+              updatedTimestamp: organization.updatedTimestamp,
+              teamSize: organization.teamSize,
+              projects: [project in projects WHERE project.id IS NOT NULL],
+              fundingRounds: [funding_round in funding_rounds WHERE funding_round.id IS NOT NULL],
+              investors: [investor in investors WHERE investor.id IS NOT NULL],
+          },
+          technologies: [technology in technologies WHERE technology.id IS NOT NULL]
+        } as res
+        RETURN res
+        `,
+        { orgId },
+      )
+      .then(res =>
+        res.records.length
+          ? res.records.map(record =>
+              new JobListResultEntity(record.get("res")).getProperties(),
+            )
+          : undefined,
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "jobs.service",
+          });
+          scope.setExtra("input", orgId);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`JobsService::getJobsByOrgUuid ${err.message}`);
+        return undefined;
+      });
+  }
+
   async getAllJobsWithSearch(
     params: AllJobsParams,
   ): Promise<PaginatedData<AllJobsListResult>> {
