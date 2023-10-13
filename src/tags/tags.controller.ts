@@ -40,8 +40,6 @@ export class TagsController {
   ) {}
 
   @Get("/")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all tags",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Tag) }),
