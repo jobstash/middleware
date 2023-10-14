@@ -1,3 +1,10 @@
+# [1.40.0](https://github.com/jobstash/middleware/compare/v1.39.1...v1.40.0) (2023-10-14)
+
+
+### Features
+
+* **categories:** add new category cybersecurity ([a2a8496](https://github.com/jobstash/middleware/commit/a2a84962f834dcea3794705d5c72c0c054fe6e05))
+
 ## [1.39.1](https://github.com/jobstash/middleware/compare/v1.39.0...v1.39.1) (2023-10-13)
 
 
