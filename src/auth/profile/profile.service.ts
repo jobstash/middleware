@@ -291,4 +291,19 @@ export class ProfileService {
       };
     }
   }
+
+  async getUserRepos(
+    wallet: string,
+  ): Promise<Response<PaginatedData<UserRepo>>> {
+    return {
+      success: true,
+      message: "",
+      data: {
+        page: 1,
+        count: 100,
+        data: [],
+        total: 100,
+      },
+    };
+  }
 }
