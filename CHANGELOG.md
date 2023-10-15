@@ -1,3 +1,10 @@
+## [1.40.3](https://github.com/jobstash/middleware/compare/v1.40.2...v1.40.3) (2023-10-15)
+
+
+### Bug Fixes
+
+* **user:** fixed issues with get user profile info endpoint ([bd9133c](https://github.com/jobstash/middleware/commit/bd9133c29ff0b9fee558dcb9178282363e9d0a39))
+
 ## [1.40.2](https://github.com/jobstash/middleware/compare/v1.40.1...v1.40.2) (2023-10-15)
 
 
