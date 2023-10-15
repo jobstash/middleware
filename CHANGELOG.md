@@ -1,3 +1,10 @@
+## [1.40.2](https://github.com/jobstash/middleware/compare/v1.40.1...v1.40.2) (2023-10-15)
+
+
+### Bug Fixes
+
+* **orgs:** renamed logo property to logoUrl ([44b2a77](https://github.com/jobstash/middleware/commit/44b2a7718840c90d848e5c0c1556087a88c54726))
+
 ## [1.40.1](https://github.com/jobstash/middleware/compare/v1.40.0...v1.40.1) (2023-10-15)
 
 
