@@ -4,24 +4,24 @@ import { report } from "io-ts-human-reporter";
 
 export class UserProfile {
   public static readonly UserProfileType = t.strict({
-    avatar: t.string,
-    username: t.string,
+    avatar: t.union([t.string, t.null]),
+    username: t.union([t.string, t.null]),
     contact: t.strict({
       options: t.array(t.string),
       value: t.union([t.string, t.null]),
       preferred: t.union([t.string, t.null]),
     }),
-    availableForWork: t.boolean,
+    availableForWork: t.union([t.boolean, t.null]),
   });
 
-  avatar: string;
-  username: string;
+  avatar: string | null;
+  username: string | null;
   contact: {
     options: string[];
     value: string | null;
     preferred: string | null;
   };
-  availableForWork: boolean;
+  availableForWork: boolean | null;
 
   constructor(raw: UserProfile) {
     const { avatar, username, availableForWork, contact } = raw;

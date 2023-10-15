@@ -7,9 +7,11 @@ export class UserProfileEntity {
   getProperties(): UserProfile {
     return new UserProfile({
       ...this.raw,
-      avatar: notStringOrNull(this.raw.avatar),
+      avatar: notStringOrNull(this.raw?.avatar),
+      username: notStringOrNull(this.raw?.username),
+      availableForWork: this.raw?.availableForWork ?? null,
       contact: {
-        ...this.raw?.contact,
+        options: this.raw?.contact.options ?? [],
         value: notStringOrNull(this.raw?.contact?.value),
         preferred: notStringOrNull(this.raw?.contact?.preferred),
       },

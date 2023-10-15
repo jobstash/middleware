@@ -28,7 +28,7 @@ export class ProfileService {
 
     return {
       success: true,
-      message: "",
+      message: "User Profile retrieved successfully",
       data: new UserProfileEntity(
         result.records[0]?.get("profile"),
       ).getProperties(),
