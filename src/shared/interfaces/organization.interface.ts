@@ -199,7 +199,7 @@ export class ShortOrg {
     projectCount: t.number,
     lastFundingDate: t.number,
     lastFundingAmount: t.number,
-    logo: t.union([t.string, t.null]),
+    logoUrl: t.union([t.string, t.null]),
   });
 
   @ApiProperty()
@@ -209,7 +209,7 @@ export class ShortOrg {
   name: string;
 
   @ApiPropertyOptional()
-  logo: string | null;
+  logoUrl: string | null;
 
   @ApiProperty()
   location: string;
@@ -237,7 +237,7 @@ export class ShortOrg {
       orgId,
       url,
       name,
-      logo,
+      logoUrl,
       location,
       jobCount,
       headcountEstimate,
@@ -251,7 +251,7 @@ export class ShortOrg {
     this.orgId = orgId;
     this.url = url;
     this.name = name;
-    this.logo = logo;
+    this.logoUrl = logoUrl;
     this.location = location;
     this.jobCount = jobCount;
     this.headcountEstimate = headcountEstimate;

@@ -344,20 +344,13 @@ export const hasDuplicates = <A, B>(
 };
 
 export const toShortOrg = (org: OrgListResult): ShortOrg => {
-  const {
-    orgId,
-    website,
-    name,
-    logoUrl: logo,
-    location,
-    headcountEstimate,
-  } = org;
+  const { orgId, website, name, logoUrl, location, headcountEstimate } = org;
   const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
   return {
     orgId,
     url: website,
     name,
-    logo,
+    logoUrl,
     location,
     headcountEstimate,
     jobCount: org.jobs.length,

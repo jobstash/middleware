@@ -8,7 +8,7 @@ export class ShortOrgEntity {
   getProperties(): ShortOrg {
     return {
       ...this.raw,
-      logo: notStringOrNull(this.raw.logo),
+      logoUrl: notStringOrNull(this.raw.logoUrl),
       jobCount: intConverter(this.raw.jobCount),
       projectCount: intConverter(this.raw.projectCount),
       headcountEstimate: intConverter(this.raw.headcountEstimate),
