@@ -1,3 +1,10 @@
+# [1.42.0](https://github.com/jobstash/middleware/compare/v1.41.0...v1.42.0) (2023-10-16)
+
+
+### Features
+
+* **profile:** implemented org review endpoints ([52e3ddf](https://github.com/jobstash/middleware/commit/52e3ddffcb5b72760450578e80e991cf99b84135))
+
 # [1.41.0](https://github.com/jobstash/middleware/compare/v1.40.3...v1.41.0) (2023-10-16)
 
 
