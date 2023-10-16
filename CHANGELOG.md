@@ -1,3 +1,15 @@
+# [1.41.0](https://github.com/jobstash/middleware/compare/v1.40.3...v1.41.0) (2023-10-16)
+
+
+### Bug Fixes
+
+* **users:** added null handlers for org review service call ([cbf466e](https://github.com/jobstash/middleware/commit/cbf466eb7d4d0bbf608c51e5d3eff6f8540034d2))
+
+
+### Features
+
+* **profile:** implemented endpoint to get org reviews for a users profile ([511c37f](https://github.com/jobstash/middleware/commit/511c37fba6fd0261753d531fd8409eacaaf17595))
+
 ## [1.40.3](https://github.com/jobstash/middleware/compare/v1.40.2...v1.40.3) (2023-10-15)
 
 
