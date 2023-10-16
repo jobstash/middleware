@@ -31,16 +31,9 @@ export class OrgReviewEntity {
       endDate: nonZeroOrNull(endDate),
       commitCount: nonZeroOrNull(commitCount),
       salary: {
-        currency: {
-          options: salary?.currency?.options ?? [],
-          value: notStringOrNull(salary?.currency?.value),
-        },
+        selectedCurrency: notStringOrNull(salary?.selectedCurrency),
         amount: nonZeroOrNull(salary?.amount),
-        token: {
-          options: salary?.token?.options ?? [],
-          value: notStringOrNull(salary?.token?.value),
-          noAllocation: salary?.token?.noAllocation ?? false,
-        },
+        offersTokenAllocation: salary?.offersTokenAllocation ?? false,
       },
       rating: {
         benefits: nonZeroOrNull(rating?.benefits),

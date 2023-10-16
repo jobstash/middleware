@@ -4,37 +4,23 @@ import { report } from "io-ts-human-reporter";
 
 export class OrgSalaryReview {
   public static readonly OrgSalaryReviewType = t.strict({
-    currency: t.strict({
-      value: t.union([t.string, t.null]),
-      options: t.array(t.string),
-    }),
+    offersTokenAllocation: t.boolean,
     amount: t.union([t.number, t.null]),
-    token: t.strict({
-      value: t.union([t.string, t.null]),
-      options: t.array(t.string),
-      noAllocation: t.boolean,
-    }),
+    selectedCurrency: t.union([t.string, t.null]),
   });
 
-  currency: {
-    value: string | null;
-    options: string[];
-  };
+  selectedCurrency: string | null;
   amount: number | null;
-  token: {
-    value: string | null;
-    options: string[];
-    noAllocation: boolean;
-  };
+  offersTokenAllocation: boolean;
 
   constructor(raw: OrgSalaryReview) {
-    const { currency, amount, token } = raw;
+    const { selectedCurrency, amount, offersTokenAllocation } = raw;
 
     const result = OrgSalaryReview.OrgSalaryReviewType.decode(raw);
 
-    this.token = token;
     this.amount = amount;
-    this.currency = currency;
+    this.selectedCurrency = selectedCurrency;
+    this.offersTokenAllocation = offersTokenAllocation;
 
     if (isLeft(result)) {
       report(result).forEach(x => {
