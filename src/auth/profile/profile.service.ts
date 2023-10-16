@@ -1,9 +1,16 @@
 import { Injectable } from "@nestjs/common";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
-import { UserProfileEntity } from "src/shared/entities";
-import { Response, UserProfile } from "src/shared/interfaces";
+import { OrgReviewEntity, UserProfileEntity } from "src/shared/entities";
+import {
+  OrgReview,
+  PaginatedData,
+  Response,
+  UserProfile,
+} from "src/shared/interfaces";
 import { UpdateUserProfileInput } from "./dto/update-profile.input";
+import { ReviewListParams } from "./dto/review-list.input";
+import { intConverter } from "src/shared/helpers";
 
 @Injectable()
 export class ProfileService {
@@ -32,6 +39,62 @@ export class ProfileService {
       data: new UserProfileEntity(
         result.records[0]?.get("profile"),
       ).getProperties(),
+    };
+  }
+
+  async getOrgReviews(
+    wallet: string,
+    params: ReviewListParams,
+  ): Promise<Response<PaginatedData<OrgReview>>> {
+    const result = await this.neogma.queryRunner.run(
+      `
+        MATCH (user:User {wallet: $wallet})-[:LEFT_REVIEW]->(review:OrgReview)
+        RETURN review {
+          .*,
+          org: [(organization: Organization)-[:HAS_REVIEW]->(review) | organization {
+            id: organization.id,
+            url: organization.url,
+            name: organization.name,
+            logo: organization.logo,
+            summary: organization.summary,
+            altName: organization.altName,
+            location: organization.location,
+            headCount: organization.headCount,
+            description: organization.description,
+            jobsiteLink: organization.jobsiteLink,
+            organizationId: organization.organizationId,
+            updatedTimestamp: organization.updatedTimestamp,
+            docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+            github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
+            website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+            discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+            telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0]
+            twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+          }][0]
+        }
+        ORDER BY review.reviewedTimestamp DESC
+      `,
+      { wallet },
+    );
+
+    const final = result.records.map(record =>
+      new OrgReviewEntity(record?.get("review")).getProperties(),
+    );
+
+    const { page, limit } = params;
+
+    return {
+      success: true,
+      message: "User Profile retrieved successfully",
+      data: {
+        page: (final.length > 0 ? page ?? 1 : -1) ?? -1,
+        count: limit > final.length ? final.length : limit,
+        total: final.length ? intConverter(final.length) : 0,
+        data: final.slice(
+          page > 1 ? page * limit : 0,
+          page === 1 ? limit : (page + 1) * limit,
+        ),
+      },
     };
   }
 
