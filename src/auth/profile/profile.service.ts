@@ -14,6 +14,9 @@ import { ReviewListParams } from "./dto/review-list.input";
 import { intConverter } from "src/shared/helpers";
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import { ReviewOrgSalaryInput } from "./dto/review-org-salary.input";
+import { RateOrgInput } from "./dto/rate-org.input";
+import { ReviewOrgInput } from "./dto/review-org.input";
 
 @Injectable()
 export class ProfileService {
@@ -176,6 +179,115 @@ export class ProfileService {
       return {
         success: false,
         message: "Error updating user profile",
+      };
+    }
+  }
+
+  async reviewOrgSalary(
+    wallet: string,
+    dto: ReviewOrgSalaryInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MERGE (:User {wallet: $wallet})-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(:Organization {orgId: $orgId})
+        SET review.salary = {
+          amount: $salaryAmount,
+          selectedCurrency: $selectedCurrency,
+          offersTokenAllocation: $offersTokenAllocation
+        }
+        SET review.reviewedTimestamp = timestamp()
+      `,
+        { wallet, ...dto },
+      );
+      return { success: true, message: "Org salary reviewed successfully" };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::updateUserProfile ${err.message}`);
+      return {
+        success: false,
+        message: "Error reviewing org salary",
+      };
+    }
+  }
+
+  async rateOrg(
+    wallet: string,
+    dto: RateOrgInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MERGE (:User {wallet: $wallet})-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(:Organization {orgId: $orgId})
+        SET review.rating = {
+          management: $management,
+          careerGrowth: $careerGrowth,
+          benefits: $benefits,
+          workLifeBalance: $workLifeBalance,
+          cultureValues: $cultureValues,
+          diversityInclusion: $diversityInclusion,
+          interviewProcess: $interviewProcess
+        }
+        SET review.reviewedTimestamp = timestamp()
+      `,
+        { wallet, ...dto },
+      );
+      return { success: true, message: "Org salary reviewed successfully" };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::updateUserProfile ${err.message}`);
+      return {
+        success: false,
+        message: "Error reviewing org salary",
+      };
+    }
+  }
+
+  async reviewOrg(
+    wallet: string,
+    dto: ReviewOrgInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MERGE (:User {wallet: $wallet})-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(:Organization {orgId: $orgId})
+        SET review.review = {
+          headline: $headline,
+          pros: $pros,
+          cons: $cons
+        }
+        SET review.reviewedTimestamp = timestamp()
+      `,
+        { wallet, ...dto },
+      );
+      return { success: true, message: "Org salary reviewed successfully" };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::updateUserProfile ${err.message}`);
+      return {
+        success: false,
+        message: "Error reviewing org salary",
       };
     }
   }
