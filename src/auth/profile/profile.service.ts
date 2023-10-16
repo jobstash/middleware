@@ -68,7 +68,7 @@ export class ProfileService {
   async getOrgReviews(
     wallet: string,
     params: ReviewListParams,
-  ): Promise<Response<PaginatedData<OrgReview>> | ResponseWithNoData> {
+  ): Promise<PaginatedData<OrgReview> | ResponseWithNoData> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
@@ -106,19 +106,14 @@ export class ProfileService {
       );
 
       const { page, limit } = params;
-
       return {
-        success: true,
-        message: "User Org Reviews retrieved successfully",
-        data: {
-          page: (final.length > 0 ? page ?? 1 : -1) ?? -1,
-          count: (limit > final.length ? final.length : limit) ?? 0,
-          total: final.length ? intConverter(final.length) : 0,
-          data: final.slice(
-            page > 1 ? page * limit : 0,
-            page === 1 ? limit : (page + 1) * limit,
-          ),
-        },
+        page: (final.length > 0 ? page ?? 1 : -1) ?? -1,
+        count: (limit > final.length ? final.length : limit) ?? 0,
+        total: final.length ? intConverter(final.length) : 0,
+        data: final.slice(
+          page > 1 ? page * limit : 0,
+          page === 1 ? limit : (page + 1) * limit,
+        ),
       };
     } catch (err) {
       Sentry.withScope(scope => {

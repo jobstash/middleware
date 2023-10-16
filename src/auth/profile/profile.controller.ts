@@ -76,7 +76,7 @@ export class ProfileController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Query(new ValidationPipe({ transform: true })) params: ReviewListParams,
-  ): Promise<Response<PaginatedData<OrgReview>> | ResponseWithNoData> {
+  ): Promise<PaginatedData<OrgReview> | ResponseWithNoData> {
     this.logger.log(`/profile/reviews`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
