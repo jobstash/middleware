@@ -24,6 +24,7 @@ import {
   Response,
   ResponseWithNoData,
   UserProfile,
+  UserRepo,
 } from "src/shared/interfaces";
 import { UpdateUserProfileInput } from "./dto/update-profile.input";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -31,6 +32,7 @@ import { ReviewListParams } from "./dto/review-list.input";
 import { ReviewOrgSalaryInput } from "./dto/review-org-salary.input";
 import { RateOrgInput } from "./dto/rate-org.input";
 import { ReviewOrgInput } from "./dto/review-org.input";
+import { RepoListParams } from "./dto/repo-list.input";
 
 @Controller("profile")
 export class ProfileController {
@@ -84,6 +86,33 @@ export class ProfileController {
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       return this.profileService.getOrgReviews(address as string, params);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Get("repositories")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Returns the repos of the currently logged in user",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Response<UserProfile>),
+    }),
+  })
+  async getUserRepos(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Query(new ValidationPipe({ transform: true })) params: RepoListParams,
+  ): Promise<PaginatedData<UserRepo> | ResponseWithNoData> {
+    this.logger.log(`/profile/repositories`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.profileService.getUserRepos(address as string, params);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {

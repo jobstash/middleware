@@ -1,13 +1,18 @@
 import { Injectable } from "@nestjs/common";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
-import { OrgReviewEntity, UserProfileEntity } from "src/shared/entities";
+import {
+  OrgReviewEntity,
+  UserProfileEntity,
+  UserRepoEntity,
+} from "src/shared/entities";
 import {
   OrgReview,
   PaginatedData,
   Response,
   ResponseWithNoData,
   UserProfile,
+  UserRepo,
 } from "src/shared/interfaces";
 import { UpdateUserProfileInput } from "./dto/update-profile.input";
 import { ReviewListParams } from "./dto/review-list.input";
@@ -17,6 +22,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { ReviewOrgSalaryInput } from "./dto/review-org-salary.input";
 import { RateOrgInput } from "./dto/rate-org.input";
 import { ReviewOrgInput } from "./dto/review-org.input";
+import { RepoListParams } from "./dto/repo-list.input";
 
 @Injectable()
 export class ProfileService {
@@ -131,6 +137,68 @@ export class ProfileService {
       return {
         success: false,
         message: "Error retrieving user org reviews",
+      };
+    }
+  }
+
+  async getUserRepos(
+    wallet: string,
+    params: RepoListParams,
+  ): Promise<PaginatedData<UserRepo> | ResponseWithNoData> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(:GithubUser)-[r:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository)
+        RETURN repo {
+          id: repo.id,
+          name: repo.fullName,
+          description: repo.description,
+          timestamp: repo.timestamp,
+          projectName: r.projectName,
+          committers: apoc.coll.sum([(:GithubUser)-[:HISTORICALLY_CONTRIBUTED_TO]->(repo) | 1]),
+          org: [(organization: Organization)-[:HAS_GITHUB|HAS_REPOSITORY*2]->(repo) | organization {
+            url: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+            name: organization.name,
+            logo: organization.logo
+          }][0],
+          tags: r.tags,
+          contribution: {
+            summary: r.summary,
+            count: r.commits
+          }
+        }
+        ORDER BY repo.timestamp DESC
+      `,
+        { wallet },
+      );
+
+      const final = result.records.map(record =>
+        new UserRepoEntity(record?.get("repo")).getProperties(),
+      );
+
+      const { page, limit } = params;
+      return {
+        page: (final.length > 0 ? page ?? 1 : -1) ?? -1,
+        count: (limit > final.length ? final.length : limit) ?? 0,
+        total: final.length ? intConverter(final.length) : 0,
+        data: final.slice(
+          page > 1 ? page * limit : 0,
+          page === 1 ? limit : (page + 1) * limit,
+        ),
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, ...params });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::getUserRepos ${err.message}`);
+      return {
+        success: false,
+        message: "Error retrieving user repos",
       };
     }
   }
@@ -290,20 +358,5 @@ export class ProfileService {
         message: "Error reviewing org salary",
       };
     }
-  }
-
-  async getUserRepos(
-    wallet: string,
-  ): Promise<Response<PaginatedData<UserRepo>>> {
-    return {
-      success: true,
-      message: "",
-      data: {
-        page: 1,
-        count: 100,
-        data: [],
-        total: 100,
-      },
-    };
   }
 }
