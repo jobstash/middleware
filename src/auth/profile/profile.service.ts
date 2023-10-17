@@ -24,6 +24,7 @@ import { RateOrgInput } from "./dto/rate-org.input";
 import { ReviewOrgInput } from "./dto/review-org.input";
 import { RepoListParams } from "./dto/repo-list.input";
 import { UpdateRepoContributionInput } from "./dto/update-repo-contribution.input";
+import { UpdateRepoTagsUsedInput } from "./dto/update-repo-tags-used.input";
 
 @Injectable()
 export class ProfileService {
@@ -360,6 +361,7 @@ export class ProfileService {
       };
     }
   }
+
   async updateRepoContribution(
     wallet: string,
     dto: UpdateRepoContributionInput,
@@ -392,6 +394,42 @@ export class ProfileService {
       return {
         success: false,
         message: "Error updating user repo contribution",
+      };
+    }
+  }
+
+  async updateRepoTagsUsed(
+    wallet: string,
+    dto: UpdateRepoTagsUsedInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(:GithubUser)-[r:HISTORICALLY_CONTRIBUTED_TO]->(:GithubRepository {id: $id})
+        SET r.tags = $tagsUsed
+      `,
+        { wallet, ...dto },
+      );
+
+      return {
+        success: true,
+        message: "User repo tags used updated successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `ProfileService::updateRepoContribution ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Error updating user repo tags used",
       };
     }
   }

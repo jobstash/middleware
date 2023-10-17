@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsOptional, IsString } from "class-validator";
+import { IsNotEmpty, IsString } from "class-validator";
 
 export class UpdateRepoContributionInput {
   @ApiProperty()
@@ -9,6 +9,5 @@ export class UpdateRepoContributionInput {
 
   @ApiProperty()
   @IsString()
-  @IsOptional()
   contribution: string;
 }
