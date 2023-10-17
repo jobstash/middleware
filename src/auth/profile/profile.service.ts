@@ -153,7 +153,7 @@ export class ProfileService {
           id: repo.id,
           name: repo.fullName,
           description: repo.description,
-          timestamp: repo.timestamp,
+          timestamp: repo.updatedAt.epochMillis,
           projectName: r.projectName,
           committers: apoc.coll.sum([(:GithubUser)-[:HISTORICALLY_CONTRIBUTED_TO]->(repo) | 1]),
           org: [(organization: Organization)-[:HAS_GITHUB|HAS_REPOSITORY*2]->(repo) | organization {
@@ -167,7 +167,7 @@ export class ProfileService {
             count: r.commits
           }
         }
-        ORDER BY repo.timestamp DESC
+        ORDER BY repo.updatedAt DESC
       `,
         { wallet },
       );
