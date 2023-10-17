@@ -1,3 +1,10 @@
+# [1.44.0](https://github.com/jobstash/middleware/compare/v1.43.0...v1.44.0) (2023-10-17)
+
+
+### Features
+
+* **jobs:** implemented change job classification endpoint ([4787c9f](https://github.com/jobstash/middleware/commit/4787c9f561462267703ff10fe4eb06e38db28bbd))
+
 # [1.43.0](https://github.com/jobstash/middleware/compare/v1.42.0...v1.43.0) (2023-10-17)
 
 
