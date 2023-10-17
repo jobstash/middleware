@@ -1,3 +1,17 @@
+# [1.43.0](https://github.com/jobstash/middleware/compare/v1.42.0...v1.43.0) (2023-10-17)
+
+
+### Bug Fixes
+
+* **profile:** add datetime sorter fix ([53bc98c](https://github.com/jobstash/middleware/commit/53bc98c2a3ad1e664f0d2463c83f88209a9f051f))
+
+
+### Features
+
+* **profile:** implemented get user repos endpoint ([53877e7](https://github.com/jobstash/middleware/commit/53877e7beb433fa266c0df25b23f5f2cb443d57a))
+* **profile:** implemented update repo contribution endpoint ([b16f2b6](https://github.com/jobstash/middleware/commit/b16f2b62fa256c5796805f6ee46300a8bee956ef))
+* **profile:** implemented update repo tags used endpoint ([79dc8a0](https://github.com/jobstash/middleware/commit/79dc8a08b2409bd437034c4a6fa805f2e78fe6a0))
+
 # [1.42.0](https://github.com/jobstash/middleware/compare/v1.41.0...v1.42.0) (2023-10-16)
 
 
