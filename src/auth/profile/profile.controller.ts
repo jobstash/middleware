@@ -33,6 +33,7 @@ import { ReviewOrgSalaryInput } from "./dto/review-org-salary.input";
 import { RateOrgInput } from "./dto/rate-org.input";
 import { ReviewOrgInput } from "./dto/review-org.input";
 import { RepoListParams } from "./dto/repo-list.input";
+import { UpdateRepoContributionInput } from "./dto/update-repo-contribution.input";
 
 @Controller("profile")
 export class ProfileController {
@@ -220,6 +221,36 @@ export class ProfileController {
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       return this.profileService.reviewOrg(address as string, params);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Post("repositories/contribution")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Returns the org reviews of the currently logged in user",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Response<UserProfile>),
+    }),
+  })
+  async updateRepoContribution(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Body() params: UpdateRepoContributionInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/profile/reviews/review`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.profileService.updateRepoContribution(
+        address as string,
+        params,
+      );
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {

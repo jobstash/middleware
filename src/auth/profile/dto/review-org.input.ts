@@ -15,10 +15,10 @@ export class ReviewOrgInput {
   @ApiProperty()
   @IsString()
   @IsOptional()
-  pros: number | null;
+  pros: string | null;
 
   @ApiProperty()
   @IsString()
   @IsOptional()
-  cons: string;
+  cons: string | null;
 }
