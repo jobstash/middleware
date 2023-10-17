@@ -22,10 +22,12 @@ import {
   AllJobsListResult,
   JobListResultEntity,
   PaginatedData,
+  ResponseWithNoData,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { AllJobsParams } from "./dto/all-jobs.input";
 import { JobListParams } from "./dto/job-list.input";
+import { ChangeJobClassificationInput } from "./dto/change-classification.input";
 
 @Injectable()
 export class JobsService {
@@ -617,6 +619,45 @@ export class JobsService {
       });
       this.logger.error(`JobsService::getAllJobsFilterConfigs ${err.message}`);
       return undefined;
+    }
+  }
+
+  async changeJobClassification(
+    wallet: string,
+    dto: ChangeJobClassificationInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (structured_jobpost:StructuredJobpost WHERE structured_jobpost.shortUUID IN $shortUUIDs)-[c:HAS_CLASSIFICATION]->(:JobpostClassification)
+        DETACH DELETE c
+        
+        CREATE (structured_jobpost)-[nc:HAS_CLASSIFICATION]->(:JobpostClassification {name: $classification})
+        SET nc.creator = $wallet
+      `,
+        { wallet, ...dto },
+      );
+
+      return {
+        success: true,
+        message: "User repo tags used updated successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `ProfileService::updateRepoContribution ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Error updating user repo tags used",
+      };
     }
   }
 }

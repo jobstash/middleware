@@ -1,10 +1,13 @@
 import {
+  Body,
   Controller,
   Get,
   Header,
   HttpStatus,
   Param,
+  Post,
   Query,
+  Req,
   Res,
   UseGuards,
   ValidationPipe,
@@ -27,6 +30,7 @@ import {
   ApiOkResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
+import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { JobListParams } from "./dto/job-list.input";
 import { AllJobsParams } from "./dto/all-jobs.input";
@@ -38,13 +42,18 @@ import {
 import { btoa } from "src/shared/helpers";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { Roles } from "src/shared/decorators/role.decorator";
-import { Response } from "express";
+import { Response as ExpressResponse, Request } from "express";
+import { AuthService } from "src/auth/auth.service";
+import { ChangeJobClassificationInput } from "./dto/change-classification.input";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
 export class JobsController {
   private readonly logger = new CustomLogger(JobsController.name);
-  constructor(private readonly jobsService: JobsService) {}
+  constructor(
+    private readonly jobsService: JobsService,
+    private readonly authService: AuthService,
+  ) {}
 
   @Get("/list")
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
@@ -142,7 +151,7 @@ export class JobsController {
   })
   async getJobDetailsByUuid(
     @Param("uuid") uuid: string,
-    @Res({ passthrough: true }) res: Response,
+    @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<JobListResult | undefined> {
     this.logger.log(`/jobs/details/${uuid}`);
     const result = await this.jobsService.getJobDetailsByUuid(uuid);
@@ -244,5 +253,39 @@ export class JobsController {
   async getAllJobsListFilterConfigs(): Promise<AllJobsFilterConfigs> {
     this.logger.log(`/jobs/all/filters`);
     return this.jobsService.getAllJobsFilterConfigs();
+  }
+
+  @Post("/change-classification")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Changes the classification of a list of jobs",
+    schema: {
+      $ref: getSchemaPath(ResponseWithNoData),
+    },
+  })
+  async changeClassification(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Body() dto: ChangeJobClassificationInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      const { address } = await this.authService.getSession(req, res);
+      return this.jobsService.changeJobClassification(address as string, dto);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "jobs.controller",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsController::changeClassification ${err.message}`);
+      return {
+        success: false,
+        message: `Failed to change job classification`,
+      };
+    }
   }
 }
