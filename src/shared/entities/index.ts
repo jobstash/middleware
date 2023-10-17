@@ -8,6 +8,7 @@ export * from "./github-user.entity";
 export * from "./job-list-result.entity";
 export * from "./org-list-result.entity";
 export * from "./org-review.entity";
+export * from "./user-repo.entity";
 export * from "./project-details.entity";
 export * from "./project-category.entity";
 export * from "./project.entity";
