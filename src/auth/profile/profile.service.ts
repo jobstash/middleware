@@ -25,6 +25,7 @@ import { ReviewOrgInput } from "./dto/review-org.input";
 import { RepoListParams } from "./dto/repo-list.input";
 import { UpdateRepoContributionInput } from "./dto/update-repo-contribution.input";
 import { UpdateRepoTagsUsedInput } from "./dto/update-repo-tags-used.input";
+import { UpdateUserWorksInput } from "./dto/update-user-works.input";
 
 @Injectable()
 export class ProfileService {
@@ -205,6 +206,40 @@ export class ProfileService {
     }
   }
 
+  async getUserWorks(
+    wallet: string,
+  ): Promise<Response<{ label: string; url: string }[]> | ResponseWithNoData> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $wallet})-[:HAS_WORKS]->(works:UserWorks)
+        RETURN works.data as works
+      `,
+        { wallet },
+      );
+
+      return {
+        success: true,
+        message: "User works retrieved successfully",
+        data: result.records[0]?.get("works"),
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::getUserWorks ${err.message}`);
+      return {
+        success: false,
+        message: "Error getting user works",
+      };
+    }
+  }
+
   async updateUserProfile(
     wallet: string,
     dto: UpdateUserProfileInput,
@@ -249,6 +284,44 @@ export class ProfileService {
       return {
         success: false,
         message: "Error updating user profile",
+      };
+    }
+  }
+
+  async updateUserWorks(
+    wallet: string,
+    dto: UpdateUserWorksInput,
+  ): Promise<Response<UserProfile> | ResponseWithNoData> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $wallet})-[:HAS_WORKS]->(works:UserWorks)
+        SET works.data = $works
+
+      `,
+        { wallet, ...dto },
+      );
+
+      return {
+        success: true,
+        message: "User works updated successfully",
+        data: new UserProfileEntity(
+          result.records[0]?.get("profile"),
+        ).getProperties(),
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::updateUserWorks ${err.message}`);
+      return {
+        success: false,
+        message: "Error updating user works",
       };
     }
   }
