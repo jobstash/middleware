@@ -35,6 +35,7 @@ import { ReviewOrgInput } from "./dto/review-org.input";
 import { RepoListParams } from "./dto/repo-list.input";
 import { UpdateRepoContributionInput } from "./dto/update-repo-contribution.input";
 import { UpdateRepoTagsUsedInput } from "./dto/update-repo-tags-used.input";
+import { UpdateUserWorksInput } from "./dto/update-user-works.input";
 
 @Controller("profile")
 export class ProfileController {
@@ -124,11 +125,37 @@ export class ProfileController {
     }
   }
 
+  @Get("works")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Returns the repos of the currently logged in user",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Response<UserProfile>),
+    }),
+  })
+  async getUserWorks(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ): Promise<Response<{ label: string; url: string }[]> | ResponseWithNoData> {
+    this.logger.log(`/profile/works`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.profileService.getUserWorks(address as string);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
   @Post("info")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
   @ApiOkResponse({
-    description: "Returns the profile of the currently logged in user",
+    description: "Updates the profile of the currently logged in user",
     schema: responseSchemaWrapper({
       $ref: getSchemaPath(Response<UserProfile>),
     }),
@@ -150,6 +177,34 @@ export class ProfileController {
       };
     }
   }
+
+  @Post("works")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Updates the work credentials of the currently logged in user",
+    schema: {
+      $ref: getSchemaPath(ResponseWithNoData),
+    },
+  })
+  async updateUserWorks(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Body() body: UpdateUserWorksInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/profile/works ${JSON.stringify(body)}`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.profileService.updateUserWorks(address as string, body);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
   @Post("reviews/salary")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
