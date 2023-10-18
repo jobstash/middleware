@@ -26,6 +26,7 @@ import { RepoListParams } from "./dto/repo-list.input";
 import { UpdateRepoContributionInput } from "./dto/update-repo-contribution.input";
 import { UpdateRepoTagsUsedInput } from "./dto/update-repo-tags-used.input";
 import { UpdateUserWorksInput } from "./dto/update-user-works.input";
+import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
 
 @Injectable()
 export class ProfileService {
@@ -240,6 +241,43 @@ export class ProfileService {
     }
   }
 
+  async getUserSkills(
+    wallet: string,
+  ): Promise<
+    | Response<{ id: string; name: string; canTeach: boolean }[]>
+    | ResponseWithNoData
+  > {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $wallet})-[:HAS_SKILLS]->(skills:UserSkills)
+        RETURN skills.data as works
+      `,
+        { wallet },
+      );
+
+      return {
+        success: true,
+        message: "User skills retrieved successfully",
+        data: result.records[0]?.get("works"),
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::getUserSkills ${err.message}`);
+      return {
+        success: false,
+        message: "Error getting user skills",
+      };
+    }
+  }
+
   async updateUserProfile(
     wallet: string,
     dto: UpdateUserProfileInput,
@@ -291,9 +329,9 @@ export class ProfileService {
   async updateUserWorks(
     wallet: string,
     dto: UpdateUserWorksInput,
-  ): Promise<Response<UserProfile> | ResponseWithNoData> {
+  ): Promise<ResponseWithNoData> {
     try {
-      const result = await this.neogma.queryRunner.run(
+      await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})-[:HAS_WORKS]->(works:UserWorks)
         SET works.data = $works
@@ -305,9 +343,6 @@ export class ProfileService {
       return {
         success: true,
         message: "User works updated successfully",
-        data: new UserProfileEntity(
-          result.records[0]?.get("profile"),
-        ).getProperties(),
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -322,6 +357,41 @@ export class ProfileService {
       return {
         success: false,
         message: "Error updating user works",
+      };
+    }
+  }
+
+  async updateUserSkills(
+    wallet: string,
+    dto: UpdateUserSkillsInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $wallet})-[:HAS_SKILLS]->(skills:UserSkills)
+        SET skills.data = $skills
+
+      `,
+        { wallet, ...dto },
+      );
+
+      return {
+        success: true,
+        message: "User skills updated successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::updateUserSkills ${err.message}`);
+      return {
+        success: false,
+        message: "Error updating user skills",
       };
     }
   }
