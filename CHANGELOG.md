@@ -1,3 +1,10 @@
+# [1.46.0](https://github.com/jobstash/middleware/compare/v1.45.0...v1.46.0) (2023-10-18)
+
+
+### Features
+
+* **profile:** implemented delete account endpoint ([33b1ce3](https://github.com/jobstash/middleware/commit/33b1ce33c0554e6c800b63fdce32c5bf9911ac33))
+
 # [1.45.0](https://github.com/jobstash/middleware/compare/v1.44.0...v1.45.0) (2023-10-18)
 
 
