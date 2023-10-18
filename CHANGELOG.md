@@ -1,3 +1,11 @@
+# [1.45.0](https://github.com/jobstash/middleware/compare/v1.44.0...v1.45.0) (2023-10-18)
+
+
+### Features
+
+* **profile:** implemented get and set user profile skills endpoints ([bb816d7](https://github.com/jobstash/middleware/commit/bb816d7af314f9ee7db3c91c066ef7d61c4f89cc))
+* **profile:** implemented get and set user profile works endpoints ([96f7348](https://github.com/jobstash/middleware/commit/96f73483dc42dca0db12192e9aaba529c03935f8))
+
 # [1.44.0](https://github.com/jobstash/middleware/compare/v1.43.0...v1.44.0) (2023-10-17)
 
 
