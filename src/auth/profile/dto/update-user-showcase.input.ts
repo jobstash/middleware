@@ -1,9 +1,9 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsArray, IsNotEmpty } from "class-validator";
 
-export class UpdateUserWorksInput {
+export class UpdateUserShowCaseInput {
   @ApiProperty()
   @IsArray()
   @IsNotEmpty()
-  works: { label: string; url: string }[];
+  showcase: { label: string; url: string }[];
 }
