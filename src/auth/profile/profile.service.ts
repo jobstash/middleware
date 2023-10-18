@@ -25,7 +25,7 @@ import { ReviewOrgInput } from "./dto/review-org.input";
 import { RepoListParams } from "./dto/repo-list.input";
 import { UpdateRepoContributionInput } from "./dto/update-repo-contribution.input";
 import { UpdateRepoTagsUsedInput } from "./dto/update-repo-tags-used.input";
-import { UpdateUserWorksInput } from "./dto/update-user-works.input";
+import { UpdateUserShowCaseInput } from "./dto/update-user-showcase.input";
 import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
 
 @Injectable()
@@ -207,22 +207,22 @@ export class ProfileService {
     }
   }
 
-  async getUserWorks(
+  async getUserShowCase(
     wallet: string,
   ): Promise<Response<{ label: string; url: string }[]> | ResponseWithNoData> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        MATCH (user:User {wallet: $wallet})-[:HAS_WORKS]->(works:UserWorks)
-        RETURN works.data as works
+        MATCH (user:User {wallet: $wallet})-[:HAS_SHOWCASE]->(showcase:UserShowCase)
+        RETURN showcase.data as showcase
       `,
         { wallet },
       );
 
       return {
         success: true,
-        message: "User works retrieved successfully",
-        data: result.records[0]?.get("works"),
+        message: "User showcase retrieved successfully",
+        data: result.records[0]?.get("showcase"),
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -233,10 +233,10 @@ export class ProfileService {
         scope.setExtra("input", { wallet });
         Sentry.captureException(err);
       });
-      this.logger.error(`ProfileService::getUserWorks ${err.message}`);
+      this.logger.error(`ProfileService::getUserShowCase ${err.message}`);
       return {
         success: false,
-        message: "Error getting user works",
+        message: "Error getting user showcase",
       };
     }
   }
@@ -251,7 +251,7 @@ export class ProfileService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})-[:HAS_SKILLS]->(skills:UserSkills)
-        RETURN skills.data as works
+        RETURN skills.data as showcase
       `,
         { wallet },
       );
@@ -259,7 +259,7 @@ export class ProfileService {
       return {
         success: true,
         message: "User skills retrieved successfully",
-        data: result.records[0]?.get("works"),
+        data: result.records[0]?.get("showcase"),
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -326,15 +326,51 @@ export class ProfileService {
     }
   }
 
-  async updateUserWorks(
+  async deleteUserAccount(wallet: string): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $wallet})-[pr:HAS_PROFILE]->(profile:UserProfile)
+        MATCH (user)-[cr:HAS_CONTACT_INFO]->(contact: UserContactInfo)
+        MATCH (user)-[rr:LEFT_REVIEW]->(:OrgReview)
+        MATCH (user)-[gr:HAS_GITHUB_USER]->(:GithubUser)
+        MATCH (user)-[scr:HAS_SHOWCASE]->(showcase:UserShowCase)
+        MATCH (user)-[sr:HAS_SKILLS]->(skills:UserSkills)
+        DETACH DELETE user, pr, profile, cr, contact, rr, gr, scr, showcase, sr, skills
+      `,
+        { wallet },
+      );
+
+      return {
+        success: true,
+        message: "User account deleted successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::deleteUserAccount ${err.message}`);
+      return {
+        success: false,
+        message: "Error deleting user account",
+      };
+    }
+  }
+
+  async updateUserShowCase(
     wallet: string,
-    dto: UpdateUserWorksInput,
+    dto: UpdateUserShowCaseInput,
   ): Promise<ResponseWithNoData> {
     try {
       await this.neogma.queryRunner.run(
         `
-        MATCH (user:User {wallet: $wallet})-[:HAS_WORKS]->(works:UserWorks)
-        SET works.data = $works
+        MATCH (user:User {wallet: $wallet})-[:HAS_SHOWCASE]->(showcase:UserShowCase)
+        SET showcase.data = $showcase
 
       `,
         { wallet, ...dto },
@@ -342,7 +378,7 @@ export class ProfileService {
 
       return {
         success: true,
-        message: "User works updated successfully",
+        message: "User showcase updated successfully",
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -353,10 +389,10 @@ export class ProfileService {
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
       });
-      this.logger.error(`ProfileService::updateUserWorks ${err.message}`);
+      this.logger.error(`ProfileService::updateUserShowCase ${err.message}`);
       return {
         success: false,
-        message: "Error updating user works",
+        message: "Error updating user showcase",
       };
     }
   }
