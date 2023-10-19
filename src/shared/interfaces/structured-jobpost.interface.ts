@@ -10,7 +10,7 @@ export class StructuredJobpost {
     shortUUID: t.string,
     lastSeenTimestamp: t.number,
     firstSeenTimestamp: t.number,
-    publishedTimestamp: t.number,
+    publishedTimestamp: t.union([t.number, t.null]),
     benefits: t.array(t.string),
     requirements: t.array(t.string),
     responsibilities: t.array(t.string),
@@ -89,7 +89,7 @@ export class StructuredJobpost {
   firstSeenTimestamp: number;
 
   @ApiProperty()
-  publishedTimestamp: number;
+  publishedTimestamp: number | null;
 
   constructor(raw: StructuredJobpost) {
     const {

@@ -297,7 +297,7 @@ export class JobsService {
         headcountEstimate,
       } = jlr.organization;
       const {
-        title: jobTitle,
+        title,
         tags,
         seniority,
         locationType,
@@ -309,7 +309,7 @@ export class JobsService {
       )[0];
       const matchesQuery =
         orgName.match(query) ||
-        jobTitle.match(query) ||
+        title.match(query) ||
         tags.filter(tag => tag.name.match(query)).length > 0 ||
         projects.filter(project => project.name.match(query)).length > 0;
       return (

@@ -9,8 +9,8 @@ export class StructuredJobpostWithRelations extends StructuredJobpost {
   public static readonly StructuredJobpostWithRelationsType = t.intersection([
     StructuredJobpost.StructuredJobpostType,
     t.strict({
-      commitment: t.string,
       classification: t.string,
+      commitment: t.union([t.string, t.null]),
       tags: t.array(t.strict({ name: t.string, normalizedName: t.string })),
       locationType: t.union([t.string, t.null]),
     }),

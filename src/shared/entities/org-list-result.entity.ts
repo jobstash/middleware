@@ -104,8 +104,9 @@ export class OrgListResultEntity {
         commitment: notStringOrNull(jobpost?.commitment),
         firstSeenTimestamp: nonZeroOrNull(jobpost?.firstSeenTimestamp),
         lastSeenTimestamp: nonZeroOrNull(jobpost?.lastSeenTimestamp),
-        publishedTimestamp: nonZeroOrNull(jobpost?.publishedTimestamp),
-
+        publishedTimestamp:
+          nonZeroOrNull(jobpost?.publishedTimestamp) ??
+          nonZeroOrNull(jobpost?.firstSeenTimestamp),
         url: notStringOrNull(jobpost?.url),
         title: notStringOrNull(jobpost?.title),
       })),
