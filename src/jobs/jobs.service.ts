@@ -302,7 +302,7 @@ export class JobsService {
         seniority,
         locationType,
         salary: salary,
-        lastSeenTimestamp: extractedTimestamp,
+        lastSeenTimestamp: publishedTimestamp,
       } = jlr;
       const anchorProject = projects.sort(
         (a, b) => b.monthlyVolume - a.monthlyVolume,
@@ -320,8 +320,8 @@ export class JobsService {
         (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
         (!minSalaryRange || (salary ?? 0) >= minSalaryRange) &&
         (!maxSalaryRange || (salary ?? 0) < maxSalaryRange) &&
-        (!startDate || extractedTimestamp >= startDate) &&
-        (!endDate || extractedTimestamp < endDate) &&
+        (!startDate || publishedTimestamp >= startDate) &&
+        (!endDate || publishedTimestamp < endDate) &&
         (!projectFilterList ||
           projects.filter(x => projectFilterList.includes(x.name)).length >
             0) &&

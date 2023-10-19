@@ -10,6 +10,7 @@ export class StructuredJobpost {
     shortUUID: t.string,
     lastSeenTimestamp: t.number,
     firstSeenTimestamp: t.number,
+    publishedTimestamp: t.number,
     benefits: t.array(t.string),
     requirements: t.array(t.string),
     responsibilities: t.array(t.string),
@@ -87,6 +88,9 @@ export class StructuredJobpost {
   @ApiProperty()
   firstSeenTimestamp: number;
 
+  @ApiProperty()
+  publishedTimestamp: number;
+
   constructor(raw: StructuredJobpost) {
     const {
       id,
@@ -108,6 +112,7 @@ export class StructuredJobpost {
       responsibilities,
       lastSeenTimestamp,
       firstSeenTimestamp,
+      publishedTimestamp,
       offersTokenAllocation,
     } = raw;
 
@@ -132,6 +137,7 @@ export class StructuredJobpost {
     this.responsibilities = responsibilities;
     this.lastSeenTimestamp = lastSeenTimestamp;
     this.firstSeenTimestamp = firstSeenTimestamp;
+    this.publishedTimestamp = publishedTimestamp;
     this.offersTokenAllocation = offersTokenAllocation;
 
     if (isLeft(result)) {
