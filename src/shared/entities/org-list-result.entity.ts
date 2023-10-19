@@ -101,6 +101,7 @@ export class OrgListResultEntity {
         salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
         paysInCrypto: jobpost?.paysInCrypto ?? null,
         offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
+        commitment: notStringOrNull(jobpost?.commitment),
         firstSeenTimestamp: nonZeroOrNull(jobpost?.firstSeenTimestamp),
         lastSeenTimestamp: nonZeroOrNull(jobpost?.lastSeenTimestamp),
         url: notStringOrNull(jobpost?.url),

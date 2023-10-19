@@ -24,6 +24,7 @@ export class AllJobListResultEntity {
       seniority: notStringOrNull(jobpost?.seniority, ["", "undefined"]),
       culture: notStringOrNull(jobpost?.culture, ["", "undefined"]),
       salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
+      commitment: notStringOrNull(jobpost?.commitment),
       paysInCrypto: jobpost?.paysInCrypto ?? null,
       offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
       firstSeenTimestamp: nonZeroOrNull(jobpost?.firstSeenTimestamp),
