@@ -1,3 +1,11 @@
+## [1.46.3](https://github.com/jobstash/middleware/compare/v1.46.2...v1.46.3) (2023-10-19)
+
+
+### Bug Fixes
+
+* **jobs:** fixed validation bugs on jobs list results ([49e7bdd](https://github.com/jobstash/middleware/commit/49e7bdd2fe353e302fdad6fb60c8e6d0a1203147))
+* **jobs:** fixed yet another validation bug on jobs list results ([8e1e2dc](https://github.com/jobstash/middleware/commit/8e1e2dca46d76874c13a85ef4e67fdcd8e5e59cc))
+
 ## [1.46.2](https://github.com/jobstash/middleware/compare/v1.46.1...v1.46.2) (2023-10-19)
 
 
