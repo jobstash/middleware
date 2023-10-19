@@ -3,7 +3,8 @@ import * as Joi from "joi";
 const envSchema = Joi.object({
   ALLOWED_ORIGINS: Joi.string(),
   ALCHEMY_API_KEY: Joi.string(),
-  PORT: Joi.number().default(8080),
+  APP_PORT: Joi.number().default(8080),
+  EMAIL: Joi.string(),
   VCDATA_API_KEY: Joi.string(),
   GITHUB_OAUTH_CLIENT_ID: Joi.string(),
   GITHUB_OAUTH_CLIENT_SECRET: Joi.string(),
@@ -26,6 +27,7 @@ const envSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid("development", "production", "test", "staging")
     .default("development"),
+  SENDGRID_API_KEY: Joi.string(),
   SENTRY_DSN: Joi.string(),
   SENTRY_TRACES_SAMPLE_RATE: Joi.number(),
   SESSION_SECRET: Joi.string(),
