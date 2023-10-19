@@ -1,3 +1,10 @@
+## [1.46.2](https://github.com/jobstash/middleware/compare/v1.46.1...v1.46.2) (2023-10-19)
+
+
+### Bug Fixes
+
+* **categories:** added devops ([1abf0ba](https://github.com/jobstash/middleware/commit/1abf0ba40271c6ea14f03fb71a1bbde8c1aa9e53))
+
 ## [1.46.1](https://github.com/jobstash/middleware/compare/v1.46.0...v1.46.1) (2023-10-19)
 
 
