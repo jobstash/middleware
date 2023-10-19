@@ -1,6 +1,5 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { GithubController } from "./github.controller";
-import { AuthModule } from "../auth.module";
 import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { CacheModule } from "@nestjs/cache-manager";
@@ -11,7 +10,6 @@ import { GithubUserService } from "./github-user.service";
 @Module({
   imports: [
     forwardRef(() => UserModule),
-    AuthModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

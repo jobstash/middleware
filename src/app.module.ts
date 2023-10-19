@@ -17,6 +17,7 @@ import { PublicModule } from "./public/public.module";
 import { ModelModule } from "./model/model.module";
 import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
 import { ProfileModule } from "./auth/profile/profile.module";
+import { MailModule } from "./mail/mail.module";
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { ProfileModule } from "./auth/profile/profile.module";
     PublicModule,
     ModelModule,
     ProfileModule,
+    MailModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -95,6 +95,66 @@ export class UserService {
       });
   }
 
+  async addUserEmail(
+    wallet: string,
+    email: string,
+  ): Promise<UserEntity | undefined> {
+    return this.neogma.queryRunner
+      .run(
+        `
+          CREATE (u:User {wallet: $wallet})-[:HAS_EMAIL]->(email:UserEmail)
+          SET email.verified = false
+          SET email.email = $email
+          RETURN u
+        `,
+        { wallet, email },
+      )
+      .then(res =>
+        res.records.length
+          ? new UserEntity(res.records[0].get("u"))
+          : undefined,
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`UserService::addUserEmail ${err.message}`);
+        return undefined;
+      });
+  }
+
+  async verifyUserEmail(email: string): Promise<UserEntity | undefined> {
+    return this.neogma.queryRunner
+      .run(
+        `
+          MATCH (u:User)-[:HAS_EMAIL]->(email:UserEmail {email: $email})
+          SET email.verified = true
+          RETURN u
+        `,
+        { email },
+      )
+      .then(res =>
+        res.records.length
+          ? new UserEntity(res.records[0].get("u"))
+          : undefined,
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`UserService::addUserEmail ${err.message}`);
+        return undefined;
+      });
+  }
+
   async findByGithubNodeId(nodeId: string): Promise<UserEntity | undefined> {
     return this.neogma.queryRunner
       .run(

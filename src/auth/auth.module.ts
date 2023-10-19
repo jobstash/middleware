@@ -1,13 +1,20 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { AuthController } from "./auth.controller";
 import { JwtAuthModule } from "./jwt/jwt-auth.module";
 import { JwtModule, JwtService } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
+import { AuthService } from "./auth.service";
+import { UserModule } from "./user/user.module";
+import { MailModule } from "src/mail/mail.module";
+import { MagicAuthModule } from "./magic/magic-auth.module";
 
 @Module({
   imports: [
+    forwardRef(() => UserModule),
     JwtAuthModule,
     ConfigModule,
+    MailModule,
+    MagicAuthModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -20,6 +27,6 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
     }),
   ],
   controllers: [AuthController],
-  providers: [JwtService, ConfigService],
+  providers: [JwtService, ConfigService, AuthService],
 })
 export class AuthModule {}
