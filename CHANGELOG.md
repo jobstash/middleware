@@ -12,6 +12,22 @@
 
 * **jobs:** added published timestamp to jobs lists ([a6fa77f](https://github.com/jobstash/middleware/commit/a6fa77fb791f2cadbe12339bc393e8a0c9baa082))
 * **jobs:** added published timestamp to jobs lists ([08bf1ff](https://github.com/jobstash/middleware/commit/08bf1ff51eca4e160fc2b9f23bff3ce343a1b397))
+* **profile:** implemented magic link endpoint ([7893161](https://github.com/jobstash/middleware/commit/7893161831b5f7b9d02a7268eb013502d315fc1a))
+
+# [1.47.0](https://github.com/jobstash/middleware/compare/v1.46.2...v1.47.0) (2023-10-19)
+
+
+### Bug Fixes
+
+* **jobs:** fixed bugs borking jobs list ([378c01b](https://github.com/jobstash/middleware/commit/378c01b8f7db48311ef45c7095d32cd30c79ceea))
+* **jobs:** fixed validation bugs on jobs list results ([49e7bdd](https://github.com/jobstash/middleware/commit/49e7bdd2fe353e302fdad6fb60c8e6d0a1203147))
+* **jobs:** fixed yet another validation bug on jobs list results ([8e1e2dc](https://github.com/jobstash/middleware/commit/8e1e2dca46d76874c13a85ef4e67fdcd8e5e59cc))
+
+
+### Features
+
+* **jobs:** added published timestamp to jobs lists ([a6fa77f](https://github.com/jobstash/middleware/commit/a6fa77fb791f2cadbe12339bc393e8a0c9baa082))
+* **jobs:** added published timestamp to jobs lists ([08bf1ff](https://github.com/jobstash/middleware/commit/08bf1ff51eca4e160fc2b9f23bff3ce343a1b397))
 
 # [1.47.0](https://github.com/jobstash/middleware/compare/v1.46.2...v1.47.0) (2023-10-19)
 
