@@ -32,6 +32,7 @@ export const JobpostClassifications = (
             "CYBERSECURITY",
             "DESIGN",
             "DEVREL",
+            "DEVOPS",
             "ENGINEERING",
             "EVENTS",
             "FINANCE",
