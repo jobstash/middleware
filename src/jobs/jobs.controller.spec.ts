@@ -24,6 +24,10 @@ import { Response } from "express";
 import { ModelModule } from "src/model/model.module";
 import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
 import { ModelService } from "src/model/model.service";
+import { AuthService } from "src/auth/auth.service";
+import { JwtService } from "@nestjs/jwt";
+import { forwardRef } from "@nestjs/common";
+import { UserModule } from "src/auth/user/user.module";
 
 describe("JobsController", () => {
   let controller: JobsController;
@@ -111,6 +115,7 @@ describe("JobsController", () => {
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
+        forwardRef(() => UserModule),
         ConfigModule.forRoot({
           isGlobal: true,
           validationSchema: envSchema,
@@ -134,7 +139,7 @@ describe("JobsController", () => {
         ModelModule,
       ],
       controllers: [JobsController],
-      providers: [JobsService, ModelService],
+      providers: [JobsService, AuthService, JwtService, ModelService],
     }).compile();
 
     await module.init();

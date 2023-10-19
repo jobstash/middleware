@@ -171,7 +171,7 @@ export class ProfileController {
     this.logger.log(`/profile/skills`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.getUserShowCase(address as string);
+      return this.profileService.getUserSkills(address as string);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {

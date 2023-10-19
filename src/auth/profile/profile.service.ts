@@ -222,7 +222,7 @@ export class ProfileService {
       return {
         success: true,
         message: "User showcase retrieved successfully",
-        data: result.records[0]?.get("showcase"),
+        data: result.records[0]?.get("showcase") ?? [],
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -251,7 +251,7 @@ export class ProfileService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})-[:HAS_SKILLS]->(skills:UserSkills)
-        RETURN skills.data as showcase
+        RETURN skills.data as skills
       `,
         { wallet },
       );
@@ -259,7 +259,7 @@ export class ProfileService {
       return {
         success: true,
         message: "User skills retrieved successfully",
-        data: result.records[0]?.get("showcase"),
+        data: result.records[0]?.get("skills") ?? [],
       };
     } catch (err) {
       Sentry.withScope(scope => {
