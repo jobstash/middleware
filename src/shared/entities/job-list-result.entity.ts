@@ -31,7 +31,7 @@ export class JobListResultEntity {
       summary: notStringOrNull(jobpost?.summary),
       description: notStringOrNull(jobpost?.description),
       commitment: notStringOrNull(jobpost?.commitment),
-      publishedTimestamp: nonZeroOrNull(jobpost?.publishedTimestamp),
+      firstSeenTimestamp: nonZeroOrNull(jobpost?.firstSeenTimestamp),
       organization: {
         ...organization,
         docs: notStringOrNull(organization?.docs),

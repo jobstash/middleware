@@ -41,7 +41,7 @@ export class PublicService {
           salaryCurrency: structured_jobpost.salaryCurrency,
           responsibilities: structured_jobpost.responsibilities,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
-          publishedTimestamp: CASE WHEN structured_jobpost.publishedTimestamp = NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+          firstSeenTimestamp: CASE WHEN structured_jobpost.publishedTimestamp = NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
           commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
           locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
@@ -154,7 +154,7 @@ export class PublicService {
     }
 
     const final = sort<JobListResult>(results).desc(
-      job => job.publishedTimestamp,
+      job => job.firstSeenTimestamp,
     );
 
     return {

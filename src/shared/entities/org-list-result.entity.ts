@@ -102,7 +102,7 @@ export class OrgListResultEntity {
         paysInCrypto: jobpost?.paysInCrypto ?? null,
         offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
         commitment: notStringOrNull(jobpost?.commitment),
-        publishedTimestamp: nonZeroOrNull(jobpost?.publishedTimestamp),
+        firstSeenTimestamp: nonZeroOrNull(jobpost?.firstSeenTimestamp),
         url: notStringOrNull(jobpost?.url),
         title: notStringOrNull(jobpost?.title),
       })),

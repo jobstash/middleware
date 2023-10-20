@@ -91,7 +91,7 @@ export const StructuredJobposts = (
           allowEmpty: false,
           required: true,
         },
-        publishedTimestamp: {
+        firstSeenTimestamp: {
           type: "number",
           allowEmpty: false,
           required: true,

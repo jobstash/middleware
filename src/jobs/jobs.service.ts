@@ -62,7 +62,7 @@ export class JobsService {
           maximumSalary: structured_jobpost.maximumSalary,
           salaryCurrency: structured_jobpost.salaryCurrency,
           responsibilities: structured_jobpost.responsibilities,
-          publishedTimestamp: CASE WHEN structured_jobpost.publishedTimestamp = NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+          firstSeenTimestamp: CASE WHEN structured_jobpost.publishedTimestamp = NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
           commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -155,7 +155,7 @@ export class JobsService {
               salaryCurrency: structured_jobpost.salaryCurrency,
               responsibilities: structured_jobpost.responsibilities,
               offersTokenAllocation: structured_jobpost.offersTokenAllocation,
-              publishedTimestamp: CASE WHEN structured_jobpost.publishedTimestamp = NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+              firstSeenTimestamp: CASE WHEN structured_jobpost.publishedTimestamp = NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
               classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
               commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
               locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
@@ -302,7 +302,7 @@ export class JobsService {
         seniority,
         locationType,
         salary: salary,
-        publishedTimestamp,
+        firstSeenTimestamp,
       } = jlr;
       const anchorProject = projects.sort(
         (a, b) => b.monthlyVolume - a.monthlyVolume,
@@ -320,8 +320,8 @@ export class JobsService {
         (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
         (!minSalaryRange || (salary ?? 0) >= minSalaryRange) &&
         (!maxSalaryRange || (salary ?? 0) < maxSalaryRange) &&
-        (!startDate || publishedTimestamp >= startDate) &&
-        (!endDate || publishedTimestamp < endDate) &&
+        (!startDate || firstSeenTimestamp >= startDate) &&
+        (!endDate || firstSeenTimestamp < endDate) &&
         (!projectFilterList ||
           projects.filter(x => projectFilterList.includes(x.name)).length >
             0) &&
@@ -398,11 +398,11 @@ export class JobsService {
         case "headcountEstimate":
           return jlr.organization?.headcountEstimate ?? 0;
         case "publicationDate":
-          return jlr.publishedTimestamp;
+          return jlr.firstSeenTimestamp;
         case "salary":
           return jlr.salary;
         default:
-          return jlr.publishedTimestamp;
+          return jlr.firstSeenTimestamp;
       }
     };
 
@@ -620,7 +620,7 @@ export class JobsService {
     const filtered = results.filter(jobFilters);
 
     const final = sort<AllJobsListResult>(filtered).desc(
-      job => job.publishedTimestamp,
+      job => job.firstSeenTimestamp,
     );
 
     return {
