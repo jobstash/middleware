@@ -27,11 +27,7 @@ export class AllJobListResultEntity {
       commitment: notStringOrNull(jobpost?.commitment),
       paysInCrypto: jobpost?.paysInCrypto ?? null,
       offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
-      firstSeenTimestamp: nonZeroOrNull(jobpost?.firstSeenTimestamp),
-      lastSeenTimestamp: nonZeroOrNull(jobpost?.lastSeenTimestamp),
-      publishedTimestamp:
-        nonZeroOrNull(jobpost?.publishedTimestamp) ??
-        nonZeroOrNull(jobpost?.firstSeenTimestamp),
+      publishedTimestamp: nonZeroOrNull(jobpost?.publishedTimestamp),
       url: notStringOrNull(jobpost?.url),
       title: notStringOrNull(jobpost?.title),
       organization: {

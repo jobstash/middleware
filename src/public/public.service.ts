@@ -23,7 +23,25 @@ export class PublicService {
     const generatedQuery = `
       MATCH (structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
       RETURN structured_jobpost {
-          .*,
+          id: structured_jobpost.id,
+          url: structured_jobpost.url,
+          title: structured_jobpost.title,
+          salary: structured_jobpost.salary,
+          culture: structured_jobpost.culture,
+          location: structured_jobpost.location,
+          summary: structured_jobpost.summary,
+          benefits: structured_jobpost.benefits,
+          shortUUID: structured_jobpost.shortUUID,
+          seniority: structured_jobpost.seniority,
+          description: structured_jobpost.description,
+          requirements: structured_jobpost.requirements,
+          paysInCrypto: structured_jobpost.paysInCrypto,
+          minimumSalary: structured_jobpost.minimumSalary,
+          maximumSalary: structured_jobpost.maximumSalary,
+          salaryCurrency: structured_jobpost.salaryCurrency,
+          responsibilities: structured_jobpost.responsibilities,
+          offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+          publishedTimestamp: CASE WHEN structured_jobpost.publishedTimestamp = NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
           commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
           locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
@@ -136,7 +154,7 @@ export class PublicService {
     }
 
     const final = sort<JobListResult>(results).desc(
-      job => job.lastSeenTimestamp,
+      job => job.publishedTimestamp,
     );
 
     return {
