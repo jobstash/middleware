@@ -45,6 +45,7 @@ import { Roles } from "src/shared/decorators/role.decorator";
 import { Response as ExpressResponse, Request } from "express";
 import { AuthService } from "src/auth/auth.service";
 import { ChangeJobClassificationInput } from "./dto/change-classification.input";
+import { BlockJobsInput } from "./dto/block-jobs.input";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
@@ -285,6 +286,74 @@ export class JobsController {
       return {
         success: false,
         message: `Failed to change job classification`,
+      };
+    }
+  }
+
+  @Post("/block")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Blocks a list of jobs",
+    schema: {
+      $ref: getSchemaPath(ResponseWithNoData),
+    },
+  })
+  async blockJobs(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Body() dto: BlockJobsInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      const { address } = await this.authService.getSession(req, res);
+      return this.jobsService.blockJobs(address as string, dto);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "jobs.controller",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsController::blockJobs ${err.message}`);
+      return {
+        success: false,
+        message: `Failed to block jobs`,
+      };
+    }
+  }
+
+  @Post("/unblock")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Unblocks a list of jobs",
+    schema: {
+      $ref: getSchemaPath(ResponseWithNoData),
+    },
+  })
+  async unblockJobs(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Body() dto: BlockJobsInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      const { address } = await this.authService.getSession(req, res);
+      return this.jobsService.unblockJobs(address as string, dto);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "jobs.controller",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsController::unblockJobs ${err.message}`);
+      return {
+        success: false,
+        message: `Failed to unblock jobs`,
       };
     }
   }
