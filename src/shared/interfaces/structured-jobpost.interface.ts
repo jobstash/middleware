@@ -83,6 +83,9 @@ export class StructuredJobpost {
   @ApiProperty()
   firstSeenTimestamp: number | null;
 
+  @ApiProperty()
+  lastSeenTimestamp: number | null;
+
   constructor(raw: StructuredJobpost) {
     const {
       id,
@@ -126,6 +129,7 @@ export class StructuredJobpost {
     this.salaryCurrency = salaryCurrency;
     this.responsibilities = responsibilities;
     this.firstSeenTimestamp = firstSeenTimestamp;
+    this.lastSeenTimestamp = firstSeenTimestamp;
     this.offersTokenAllocation = offersTokenAllocation;
 
     if (isLeft(result)) {

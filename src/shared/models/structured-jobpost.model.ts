@@ -96,6 +96,11 @@ export const StructuredJobposts = (
           allowEmpty: false,
           required: true,
         },
+        lastSeenTimestamp: {
+          type: "number",
+          allowEmpty: false,
+          required: true,
+        },
         culture: {
           type: "string",
           allowEmpty: true,
