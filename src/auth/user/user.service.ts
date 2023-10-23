@@ -397,7 +397,8 @@ export class UserService {
   ): Promise<GithubUserProperties | undefined> {
     const res = await this.neogma.queryRunner.run(
       `
-            CREATE (u:User {id: $userId})-[:HAS_GITHUB_USER]->(gu:GithubUser {id: $githubUserId})
+            MATCH (u:User {id: $userId}), (gu:GithubUser {id: $githubUserId})
+            CREATE (user)-[:HAS_GITHUB_USER]->(gu)
             RETURN gu
         `,
       { userId, githubUserId },
