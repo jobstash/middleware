@@ -143,7 +143,7 @@ export const FILTER_CONFIG_PRESETS = {
   chains: {
     position: 9,
     label: "Chains",
-    show: false,
+    show: true,
     googleAnalyticsEventName: "filter_joblist_chains",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
