@@ -349,12 +349,13 @@ export class ProfileService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MATCH (user:User {wallet: $wallet})-[pr:HAS_PROFILE]->(profile:UserProfile)
-        MATCH (user)-[cr:HAS_CONTACT_INFO]->(contact: UserContactInfo)
-        MATCH (user)-[rr:LEFT_REVIEW]->(:OrgReview)
-        MATCH (user)-[gr:HAS_GITHUB_USER]->(:GithubUser)
-        MATCH (user)-[scr:HAS_SHOWCASE]->(showcase:UserShowCase)
-        MATCH (user)-[sr:HAS_SKILLS]->(skills:UserSkills)
+        MATCH (user:User {wallet: $wallet})
+        OPTIONAL MATCH (user)-[pr:HAS_PROFILE]->(profile:UserProfile)
+        OPTIONAL MATCH (user)-[cr:HAS_CONTACT_INFO]->(contact: UserContactInfo)
+        OPTIONAL MATCH (user)-[rr:LEFT_REVIEW]->(:OrgReview)
+        OPTIONAL MATCH (user)-[gr:HAS_GITHUB_USER]->(:GithubUser)
+        OPTIONAL MATCH (user)-[scr:HAS_SHOWCASE]->(showcase:UserShowCase)
+        OPTIONAL MATCH (user)-[sr:HAS_SKILLS]->(skills:UserSkills)
         DETACH DELETE user, pr, profile, cr, contact, rr, gr, scr, showcase, sr, skills
       `,
         { wallet },
