@@ -249,7 +249,7 @@ export class ProfileController {
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body() body: UpdateUserSkillsInput,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/profile/showcase ${JSON.stringify(body)}`);
+    this.logger.log(`/profile/skills ${JSON.stringify(body)}`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       return this.profileService.updateUserSkills(address as string, body);

@@ -85,9 +85,28 @@ export class ProfileService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        MATCH (user:User {wallet: $wallet})-[:LEFT_REVIEW]->(review:OrgReview)
+        MATCH (user:User {wallet: $wallet})-[r:LEFT_REVIEW]->(review:OrgReview)
         RETURN review {
-          .*,
+          salary: {
+            amount: review.amount,
+            selectedCurrency: review.selectedCurrency,
+            offersTokenAllocation: review.offersTokenAllocation
+          },
+          rating: {
+            management: review.management,
+            careerGrowth: review.careerGrowth,
+            benefits: review.benefits,
+            workLifeBalance: review.workLifeBalance,
+            cultureValues: review.cultureValues,
+            diversityInclusion: review.diversityInclusion,
+            interviewProcess: review.interviewProcess
+          },
+          review: {
+            headline: review.headline,
+            pros: review.pros,
+            cons: review.cons
+          },
+          reviewedTimestamp: review.reviewedTimestamp,
           org: [(organization: Organization)-[:HAS_REVIEW]->(review) | organization {
             id: organization.id,
             url: organization.url,
@@ -152,7 +171,7 @@ export class ProfileService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        MATCH (:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(:GithubUser)-[r:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository)
+        MATCH (:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(user:GithubUser)-[r:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository)
         RETURN repo {
           id: repo.id,
           name: repo.fullName,
@@ -165,7 +184,7 @@ export class ProfileService {
             name: organization.name,
             logo: organization.logo
           }][0],
-          tags: r.tags,
+          tags: [(user)-[:USED_TAG]->(tag: RepoTag)-[:USED_ON]->(repo) | tag {.*}],
           contribution: {
             summary: r.summary,
             count: r.commits
@@ -445,11 +464,9 @@ export class ProfileService {
       await this.neogma.queryRunner.run(
         `
         MERGE (:User {wallet: $wallet})-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(:Organization {orgId: $orgId})
-        SET review.salary = {
-          amount: $salaryAmount,
-          selectedCurrency: $selectedCurrency,
-          offersTokenAllocation: $offersTokenAllocation
-        }
+        SET review.amount = $salaryAmount
+        SET review.selectedCurrency = $selectedCurrency
+        SET review.offersTokenAllocation = $offersTokenAllocation
         SET review.reviewedTimestamp = timestamp()
       `,
         { wallet, ...dto },
@@ -480,15 +497,13 @@ export class ProfileService {
       await this.neogma.queryRunner.run(
         `
         MERGE (:User {wallet: $wallet})-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(:Organization {orgId: $orgId})
-        SET review.rating = {
-          management: $management,
-          careerGrowth: $careerGrowth,
-          benefits: $benefits,
-          workLifeBalance: $workLifeBalance,
-          cultureValues: $cultureValues,
-          diversityInclusion: $diversityInclusion,
-          interviewProcess: $interviewProcess
-        }
+        SET review.management = $management
+        SET review.careerGrowth = $careerGrowth
+        SET review.benefits = $benefits
+        SET review.workLifeBalance = $workLifeBalance
+        SET review.cultureValues = $cultureValues
+        SET review.diversityInclusion = $diversityInclusion
+        SET review.interviewProcess = $interviewProcess
         SET review.reviewedTimestamp = timestamp()
       `,
         { wallet, ...dto },
@@ -519,11 +534,9 @@ export class ProfileService {
       await this.neogma.queryRunner.run(
         `
         MERGE (:User {wallet: $wallet})-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(:Organization {orgId: $orgId})
-        SET review.review = {
-          headline: $headline,
-          pros: $pros,
-          cons: $cons
-        }
+        SET review.headline = $headline
+        SET review.pros = $pros
+        SET review.cons = $cons
         SET review.reviewedTimestamp = timestamp()
       `,
         { wallet, ...dto },
@@ -589,8 +602,13 @@ export class ProfileService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MATCH (:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(:GithubUser)-[r:HISTORICALLY_CONTRIBUTED_TO]->(:GithubRepository {id: $id})
-        SET r.tags = $tagsUsed
+        MATCH (:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(user:GithubUser)-[:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository {id: $id})
+        UNWIND $tagsUsed as data
+        MERGE (user)-[:USED_TAG]->(tag: RepoTag)-[:USED_ON]->(repo)
+        SET tag.id = data.id
+        SET tag.name = data.name
+        SET tag.normalizedName = data.normalizedName
+        SET tag.canTeach = data.canTeach
       `,
         { wallet, ...dto },
       );
