@@ -5,6 +5,8 @@ import {
   OrgReviewEntity,
   UserProfileEntity,
   UserRepoEntity,
+  UserShowCaseEntity,
+  UserSkillEntity,
 } from "src/shared/entities";
 import {
   OrgReview,
@@ -241,7 +243,10 @@ export class ProfileService {
       return {
         success: true,
         message: "User showcase retrieved successfully",
-        data: result.records.map(record => record.get("showcase")) ?? [],
+        data:
+          result.records.map(record =>
+            new UserShowCaseEntity(record.get("showcase")).getProperties(),
+          ) ?? [],
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -278,7 +283,10 @@ export class ProfileService {
       return {
         success: true,
         message: "User skills retrieved successfully",
-        data: result.records?.map(record => record.get("skill")) ?? [],
+        data:
+          result.records?.map(record =>
+            new UserSkillEntity(record.get("skill")).getProperties(),
+          ) ?? [],
       };
     } catch (err) {
       Sentry.withScope(scope => {
