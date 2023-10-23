@@ -7,7 +7,6 @@ export class UserProfile {
     avatar: t.union([t.string, t.null]),
     username: t.union([t.string, t.null]),
     contact: t.strict({
-      options: t.array(t.string),
       value: t.union([t.string, t.null]),
       preferred: t.union([t.string, t.null]),
     }),
@@ -17,7 +16,6 @@ export class UserProfile {
   avatar: string | null;
   username: string | null;
   contact: {
-    options: string[];
     value: string | null;
     preferred: string | null;
   };

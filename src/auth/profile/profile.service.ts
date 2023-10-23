@@ -285,8 +285,8 @@ export class ProfileService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        MATCH (user:User {wallet: $wallet})-[:HAS_PROFILE]->(profile:UserProfile)
-        MATCH (user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo)
+        MERGE (user:User {wallet: $wallet})-[:HAS_PROFILE]->(profile:UserProfile)
+        MERGE (user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo)
         SET profile.availableForWork = $availableForWork
         SET contact.preferred = $preferred
         SET contact.value = $value
@@ -369,7 +369,7 @@ export class ProfileService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MATCH (user:User {wallet: $wallet})-[:HAS_SHOWCASE]->(showcase:UserShowCase)
+        MERGE (user:User {wallet: $wallet})-[:HAS_SHOWCASE]->(showcase:UserShowCase)
         SET showcase.data = $showcase
 
       `,
@@ -404,7 +404,7 @@ export class ProfileService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MATCH (user:User {wallet: $wallet})-[:HAS_SKILLS]->(skills:UserSkills)
+        MERGE (user:User {wallet: $wallet})-[:HAS_SKILLS]->(skills:UserSkills)
         SET skills.data = $skills
 
       `,
