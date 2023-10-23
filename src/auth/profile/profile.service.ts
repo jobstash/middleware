@@ -390,6 +390,7 @@ export class ProfileService {
       await this.neogma.queryRunner.run(
         `
         UNWIND $showcase as data
+        WITH data
         MERGE (user:User {wallet: $wallet})-[:HAS_SHOWCASE]->(showcase:UserShowCase)
         SET showcase.label = data.label
         SET showcase.url = data.url
@@ -427,6 +428,7 @@ export class ProfileService {
       await this.neogma.queryRunner.run(
         `
         UNWIND $skills as data
+        WITH data
         MERGE (user:User {wallet: $wallet})-[:HAS_SKILL]->(skill:UserSkill)
         SET skill.id = data.id
         SET skill.name = data.name
@@ -605,6 +607,7 @@ export class ProfileService {
         `
         MATCH (:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(user:GithubUser)-[:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository {id: $id})
         UNWIND $tagsUsed as data
+        WITH data
         MERGE (user)-[:USED_TAG]->(tag: RepoTag)-[:USED_ON]->(repo)
         SET tag.id = data.id
         SET tag.name = data.name
