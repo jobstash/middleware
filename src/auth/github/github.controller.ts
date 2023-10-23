@@ -1,13 +1,6 @@
 import { GithubLoginInput } from "./dto/github-login.input";
 import { GithubAuthenticatedUserResponse } from "./dto/github-authenticated-user.response";
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Redirect,
-  NotFoundException,
-} from "@nestjs/common";
+import { Controller, Get, Post, Body, Redirect } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
   CheckWalletRoles,
@@ -93,14 +86,6 @@ export class GithubController {
   ): Promise<ResponseWithNoData> {
     this.logger.log("/github/github-login");
     const { wallet, code, role } = body;
-    const userByWallet = await this.userService.findByWallet(wallet);
-
-    if (!userByWallet) {
-      throw new NotFoundException({
-        success: false,
-        message: "User wallet not found",
-      });
-    }
 
     const { data: tokenParamsString } = await axios.get(
       `https://github.com/login/oauth/access_token?client_id=${

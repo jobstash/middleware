@@ -48,7 +48,7 @@ export class GithubUserService {
       if (!storedUserNode) {
         return { success: false, message: "User not found" };
       }
-      const githubUserNode = await this.findById(updateObject.githubId);
+      const githubUserNode = await this.findByLogin(updateObject.githubLogin);
 
       let persistedGithubNode: GithubUserEntity;
 
