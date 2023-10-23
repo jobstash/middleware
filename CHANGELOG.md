@@ -15,6 +15,44 @@
 * **jobs:** fixed naming of job date param ([6e73e57](https://github.com/jobstash/middleware/commit/6e73e572d710f18893788cbfd34be5f72f8ca073))
 * **jobs:** fixed validation bugs on jobs list results ([49e7bdd](https://github.com/jobstash/middleware/commit/49e7bdd2fe353e302fdad6fb60c8e6d0a1203147))
 * **jobs:** fixed yet another validation bug on jobs list results ([8e1e2dc](https://github.com/jobstash/middleware/commit/8e1e2dca46d76874c13a85ef4e67fdcd8e5e59cc))
+* **jobs:** rethink of project based filters on jobs list ([d6d8fcd](https://github.com/jobstash/middleware/commit/d6d8fcde90be9b6d889c9ba30e865d8984d2ccc7))
+* **jobs:** temp fix for lastSeenTimestamp ([8138944](https://github.com/jobstash/middleware/commit/8138944093278d51353ae6930242adb9143d6058))
+* **profile:** fix bugs on set user skills and showcase queries ([f3e3510](https://github.com/jobstash/middleware/commit/f3e3510e9dda58838f9bf0eb9bc09858bbe2ebf2))
+* **profile:** fix bugs on set user skills and showcase queries again ([ef52eac](https://github.com/jobstash/middleware/commit/ef52eacfa15f4ec5a293af103c2d15385892d453))
+* **profile:** fix for user profile type and update queries ([4205259](https://github.com/jobstash/middleware/commit/4205259b1beabcbfce6e4d40033903bdef39e835))
+* **profile:** fixed bug introduced by last commit ([777f83d](https://github.com/jobstash/middleware/commit/777f83d0b9aeabff625e9587b8d0f07db836e36f))
+* **profile:** fixed bug where only last item in profile lists get persisted ([636106f](https://github.com/jobstash/middleware/commit/636106f82d37606591c96b22a6e44f3de5fc1a43))
+* **profile:** fixed bug with user profile skills endpoint body ([7f85fc0](https://github.com/jobstash/middleware/commit/7f85fc0043cb2378e72a768b603cc070428aa5c4))
+* **profile:** fixed errors in profile queries ([7d8c672](https://github.com/jobstash/middleware/commit/7d8c672936906c43ce689684fd8ad0b793baec26))
+* **profile:** fixed issue with only last item getting persisted ([4d62fe8](https://github.com/jobstash/middleware/commit/4d62fe8f9dea50da8b7b9cdffddd0da8ab6823ca))
+* **profile:** fixed issue with profile skills and showcase response interface ([4288b02](https://github.com/jobstash/middleware/commit/4288b024f4dde87eddfd3cda606a06e926ce132a))
+* **user:** fixed bugs on user profile ([ef634a8](https://github.com/jobstash/middleware/commit/ef634a87fc6e6a67438394aa47dab2a666c460ab))
+
+
+### Features
+
+* **jobs:** added published timestamp to jobs lists ([a6fa77f](https://github.com/jobstash/middleware/commit/a6fa77fb791f2cadbe12339bc393e8a0c9baa082))
+* **jobs:** added published timestamp to jobs lists ([08bf1ff](https://github.com/jobstash/middleware/commit/08bf1ff51eca4e160fc2b9f23bff3ce343a1b397))
+* **jobs:** added support for blocked jobs ([25e5e86](https://github.com/jobstash/middleware/commit/25e5e8674ecfe7b9242aae10f48c236f4c28197a))
+* **profile:** implemented magic link endpoint ([7893161](https://github.com/jobstash/middleware/commit/7893161831b5f7b9d02a7268eb013502d315fc1a))
+
+# [1.47.0](https://github.com/jobstash/middleware/compare/v1.46.2...v1.47.0) (2023-10-23)
+
+
+### Bug Fixes
+
+* **chains:** fixed chains relation ([9af2570](https://github.com/jobstash/middleware/commit/9af2570960eec6e7a031a2b573a6afe8661aa99f))
+* **filters:** correct numbering ([a2b6482](https://github.com/jobstash/middleware/commit/a2b64823ae7d0e55d1fe404bba2bb06c6850ead5))
+* **filters:** enabled chains filter config ([c193616](https://github.com/jobstash/middleware/commit/c193616b15a755a80787b1f122f33216cc0a8721))
+* **filters:** fixed borkage of jobs filters ([fbd8bb2](https://github.com/jobstash/middleware/commit/fbd8bb28e16cb6180c65c32567b854b7b1bd3f9b))
+* **filters:** reconfigure filters ([289571c](https://github.com/jobstash/middleware/commit/289571cc245a4ad336a0fde272b714cceb9f611b))
+* **github:** fixed bug in github signup flow ([38f9f6e](https://github.com/jobstash/middleware/commit/38f9f6e72fa038f1f209966a5d42b3fa76f1fd9b))
+* **jobs:** fixed bugs borking jobs list ([378c01b](https://github.com/jobstash/middleware/commit/378c01b8f7db48311ef45c7095d32cd30c79ceea))
+* **jobs:** fixed classifications filter bug ([4d88102](https://github.com/jobstash/middleware/commit/4d88102b37c89ee6510f6c22acdebc10b91f704e))
+* **jobs:** fixed jobpost date params ([5259032](https://github.com/jobstash/middleware/commit/5259032330756a75a8a9acee80580e53ff7d5872))
+* **jobs:** fixed naming of job date param ([6e73e57](https://github.com/jobstash/middleware/commit/6e73e572d710f18893788cbfd34be5f72f8ca073))
+* **jobs:** fixed validation bugs on jobs list results ([49e7bdd](https://github.com/jobstash/middleware/commit/49e7bdd2fe353e302fdad6fb60c8e6d0a1203147))
+* **jobs:** fixed yet another validation bug on jobs list results ([8e1e2dc](https://github.com/jobstash/middleware/commit/8e1e2dca46d76874c13a85ef4e67fdcd8e5e59cc))
 * **jobs:** temp fix for lastSeenTimestamp ([8138944](https://github.com/jobstash/middleware/commit/8138944093278d51353ae6930242adb9143d6058))
 * **profile:** fix bugs on set user skills and showcase queries ([f3e3510](https://github.com/jobstash/middleware/commit/f3e3510e9dda58838f9bf0eb9bc09858bbe2ebf2))
 * **profile:** fix bugs on set user skills and showcase queries again ([ef52eac](https://github.com/jobstash/middleware/commit/ef52eacfa15f4ec5a293af103c2d15385892d453))
