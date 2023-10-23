@@ -11,7 +11,6 @@ export class UserProfileEntity {
       username: notStringOrNull(this.raw?.username),
       availableForWork: this.raw?.availableForWork ?? null,
       contact: {
-        options: this.raw?.contact.options ?? [],
         value: notStringOrNull(this.raw?.contact?.value),
         preferred: notStringOrNull(this.raw?.contact?.preferred),
       },
