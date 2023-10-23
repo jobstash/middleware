@@ -301,6 +301,7 @@ export class JobsService {
         tags,
         seniority,
         locationType,
+        classification,
         salary: salary,
         firstSeenTimestamp,
       } = jlr;
@@ -326,8 +327,7 @@ export class JobsService {
           projects.filter(x => projectFilterList.includes(x.name)).length >
             0) &&
         (!classificationFilterList ||
-          projects.filter(x => classificationFilterList.includes(x.category))
-            .length > 0) &&
+          classificationFilterList.includes(classification)) &&
         (!token ||
           projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
             .length > 0) &&
@@ -602,7 +602,7 @@ export class JobsService {
 
     const jobFilters = (jlr: AllJobsListResult): boolean => {
       const { name: orgName } = jlr.organization;
-      const { title: jobTitle, tags } = jlr;
+      const { title: jobTitle, tags, classification } = jlr;
 
       const matchesQuery =
         orgName.match(query) ||
@@ -611,7 +611,7 @@ export class JobsService {
 
       return (
         (!classificationFilterList ||
-          classificationFilterList.includes(jlr.classification)) &&
+          classificationFilterList.includes(classification)) &&
         (!query || matchesQuery) &&
         (!organizationFilterList || organizationFilterList.includes(orgName))
       );
