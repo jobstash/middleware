@@ -214,7 +214,7 @@ export class ProfileService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})-[:HAS_SHOWCASE]->(showcase:UserShowCase)
-        RETURN showcase.data as showcase
+        RETURN showcase
       `,
         { wallet },
       );
@@ -251,7 +251,7 @@ export class ProfileService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})-[:HAS_SKILL]->(skill:UserSkill)
-        RETURN skill.data as skill
+        RETURN skill
       `,
         { wallet },
       );
@@ -371,7 +371,8 @@ export class ProfileService {
         `
         UNWIND $showcase as data
         MERGE (user:User {wallet: $wallet})-[:HAS_SHOWCASE]->(showcase:UserShowCase)
-        SET showcase.data = data
+        SET showcase.label = data.label
+        SET showcase.url = data.url
 
       `,
         { wallet, ...dto },
@@ -407,7 +408,9 @@ export class ProfileService {
         `
         UNWIND $skills as data
         MERGE (user:User {wallet: $wallet})-[:HAS_SKILL]->(skill:UserSkill)
-        SET skill.data = data
+        SET skill.id = data.id
+        SET skill.name = data.name
+        SET skill.canTeach = data.canTeach
 
       `,
         { wallet, ...dto },
