@@ -92,7 +92,7 @@ export class OrganizationsService {
                 (project)-[:HAS_AUDIT]->(audit) | audit { .* }
               ],
               chains: [
-                (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain) | chain { .* }
+                (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
               ]
             }
           ],

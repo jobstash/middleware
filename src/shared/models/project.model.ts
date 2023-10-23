@@ -201,7 +201,7 @@ export const Projects = (
         chains: {
           model: Chains(neogma),
           direction: "out",
-          name: "IS_DEPLOYED_ON_CHAIN",
+          name: "IS_DEPLOYED_ON",
         },
         hacks: {
           model: Hacks(neogma),
@@ -340,7 +340,7 @@ export const Projects = (
                     (project)-[:HAS_AUDIT]->(audit) | audit { .* }
                   ],
                   chains: [
-                    (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain) | chain { .* }
+                    (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ]
                 } as result
             `,
@@ -392,7 +392,7 @@ export const Projects = (
                     (project)-[:HAS_AUDIT]->(audit) | audit { .* }
                   ],
                   chains: [
-                    (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain) | chain { .* }
+                    (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ]
                 } as result
             `,
@@ -461,7 +461,7 @@ export const Projects = (
                   (project)-[:HAS_AUDIT]->(audit) | audit { .* }
                 ],
                 chains: [
-                  (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain) | chain { .* }
+                  (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                 ]
               } AS project
             `,

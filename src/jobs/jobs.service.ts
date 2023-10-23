@@ -94,7 +94,7 @@ export class JobsService {
                     (project)-[:HAS_AUDIT]->(audit) | audit { .* }
                   ],
                   chains: [
-                    (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain) | chain { .* }
+                    (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ]
                 }
               ],
@@ -186,7 +186,7 @@ export class JobsService {
                         (project)-[:HAS_AUDIT]->(audit) | audit { .* }
                       ],
                       chains: [
-                        (project)-[:IS_DEPLOYED_ON_CHAIN]->(chain) | chain { .* }
+                        (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                       ]
                     }
                   ],
@@ -489,7 +489,7 @@ export class JobsService {
                 WHERE (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | classification.name
               ]),
               chains: apoc.coll.toSet([
-                (org)-[:HAS_PROJECT|IS_DEPLOYED_ON_CHAIN*2]->(chain: Chain) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus))
+                (org)-[:HAS_PROJECT|IS_DEPLOYED_ON*2]->(chain: Chain) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus))
                 AND NOT EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)) | chain.name
               ]),
               location: apoc.coll.toSet([
