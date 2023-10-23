@@ -305,9 +305,6 @@ export class JobsService {
         salary: salary,
         firstSeenTimestamp,
       } = jlr;
-      const anchorProject = projects.sort(
-        (a, b) => b.monthlyVolume - a.monthlyVolume,
-      )[0];
       const matchesQuery =
         orgName.match(query) ||
         title.match(query) ||
@@ -332,29 +329,36 @@ export class JobsService {
           projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
             .length > 0) &&
         (!mainNet || projects.filter(x => x.isMainnet).length > 0) &&
-        (!minTvl || (anchorProject?.tvl ?? 0) >= minTvl) &&
-        (!maxTvl || (anchorProject?.tvl ?? 0) < maxTvl) &&
+        (!minTvl || projects.filter(x => (x?.tvl ?? 0) >= minTvl).length > 0) &&
+        (!maxTvl || projects.filter(x => (x?.tvl ?? 0) < maxTvl).length > 0) &&
         (!minMonthlyVolume ||
-          (anchorProject?.monthlyVolume ?? 0) >= minMonthlyVolume) &&
+          projects.filter(x => (x?.monthlyVolume ?? 0) >= minMonthlyVolume)
+            .length > 0) &&
         (!maxMonthlyVolume ||
-          (anchorProject?.monthlyVolume ?? 0) < maxMonthlyVolume) &&
+          projects.filter(x => (x?.monthlyVolume ?? 0) < maxMonthlyVolume)
+            .length > 0) &&
         (!minMonthlyFees ||
-          (anchorProject?.monthlyFees ?? 0) >= minMonthlyFees) &&
+          projects.filter(x => (x?.monthlyFees ?? 0) >= minMonthlyFees).length >
+            0) &&
         (!maxMonthlyFees ||
-          (anchorProject?.monthlyFees ?? 0) < maxMonthlyFees) &&
+          projects.filter(x => (x?.monthlyFees ?? 0) < maxMonthlyFees).length >
+            0) &&
         (!minMonthlyRevenue ||
-          (anchorProject?.monthlyRevenue ?? 0) >= minMonthlyRevenue) &&
+          projects.filter(x => (x?.monthlyRevenue ?? 0) >= minMonthlyRevenue)
+            .length > 0) &&
         (!maxMonthlyRevenue ||
-          (anchorProject?.monthlyRevenue ?? 0) < maxMonthlyRevenue) &&
+          projects.filter(x => (x?.monthlyRevenue ?? 0) < maxMonthlyRevenue)
+            .length > 0) &&
         (!auditFilter ||
-          (anchorProject?.audits.length ?? 0) > 0 === auditFilter) &&
+          projects.filter(x => x.audits.length > 0).length > 0 ===
+            auditFilter) &&
         (!hackFilter ||
-          (anchorProject?.hacks.length ?? 0) > 0 === hackFilter) &&
+          projects.filter(x => x.hacks.length > 0).length > 0 === hackFilter) &&
         (!chainFilterList ||
-          (anchorProject?.chains
-            ?.map(x => x.name)
-            .filter(x => chainFilterList.filter(y => x === y).length > 0) ??
-            false)) &&
+          projects.filter(
+            x =>
+              x.chains.filter(y => chainFilterList.includes(y.name)).length > 0,
+          ).length > 0) &&
         (!investorFilterList ||
           investors.filter(investor =>
             investorFilterList.includes(investor.name),
