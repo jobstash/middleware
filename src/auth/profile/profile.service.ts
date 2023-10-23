@@ -222,7 +222,7 @@ export class ProfileService {
       return {
         success: true,
         message: "User showcase retrieved successfully",
-        data: result.records[0]?.get("showcase") ?? [],
+        data: result.records.map(record => record.get("showcase")) ?? [],
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -250,8 +250,8 @@ export class ProfileService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        MATCH (user:User {wallet: $wallet})-[:HAS_SKILLS]->(skills:UserSkills)
-        RETURN skills.data as skills
+        MATCH (user:User {wallet: $wallet})-[:HAS_SKILL]->(skill:UserSkill)
+        RETURN skill.data as skill
       `,
         { wallet },
       );
@@ -259,7 +259,7 @@ export class ProfileService {
       return {
         success: true,
         message: "User skills retrieved successfully",
-        data: result.records[0]?.get("skills") ?? [],
+        data: result.records?.map(record => record.get("skill")) ?? [],
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -295,7 +295,7 @@ export class ProfileService {
           .*,
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-          contact: contact
+          contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0]
         }
 
       `,
@@ -369,8 +369,9 @@ export class ProfileService {
     try {
       await this.neogma.queryRunner.run(
         `
+        UNWIND $showcase as data
         MERGE (user:User {wallet: $wallet})-[:HAS_SHOWCASE]->(showcase:UserShowCase)
-        SET showcase.data = $showcase
+        SET showcase.data = data
 
       `,
         { wallet, ...dto },
@@ -404,8 +405,9 @@ export class ProfileService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MERGE (user:User {wallet: $wallet})-[:HAS_SKILLS]->(skills:UserSkills)
-        SET skills.data = $skills
+        UNWIND $skills as data
+        MERGE (user:User {wallet: $wallet})-[:HAS_SKILL]->(skill:UserSkill)
+        SET skill.data = data
 
       `,
         { wallet, ...dto },
