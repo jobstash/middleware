@@ -235,7 +235,7 @@ export class ProfileService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})-[:HAS_SHOWCASE]->(showcase:UserShowCase)
-        RETURN showcase
+        RETURN showcase { .* }
       `,
         { wallet },
       );
@@ -275,7 +275,7 @@ export class ProfileService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})-[:HAS_SKILL]->(skill:UserSkill)
-        RETURN skill
+        RETURN skill { .* }
       `,
         { wallet },
       );
