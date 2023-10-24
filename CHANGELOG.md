@@ -1,3 +1,10 @@
+## [1.47.4](https://github.com/jobstash/middleware/compare/v1.47.3...v1.47.4) (2023-10-24)
+
+
+### Bug Fixes
+
+* **profile:** fixed bugs on get user profile skills and showcase endpoints ([83d96ec](https://github.com/jobstash/middleware/commit/83d96ec42d6a5fe9a57db4337233e0cf2e9b0ae0))
+
 ## [1.47.3](https://github.com/jobstash/middleware/compare/v1.47.2...v1.47.3) (2023-10-24)
 
 
