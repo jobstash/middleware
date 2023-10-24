@@ -1,3 +1,10 @@
+## [1.47.5](https://github.com/jobstash/middleware/compare/v1.47.4...v1.47.5) (2023-10-24)
+
+
+### Bug Fixes
+
+* **jobs:** refactored all timestamp refs into `timestamp` ([3340908](https://github.com/jobstash/middleware/commit/3340908bc9fea5fda7860e6139e6d7adbf9546e2))
+
 ## [1.47.4](https://github.com/jobstash/middleware/compare/v1.47.3...v1.47.4) (2023-10-24)
 
 
