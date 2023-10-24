@@ -440,7 +440,7 @@ export class ProfileService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MATCH (user:User {wallet: "0xbB0d2D6eccC20aD778A0Fe7762ac20100c6D131f"})
+        MATCH (user:User {wallet: $wallet})
         CALL {
           WITH user
           OPTIONAL MATCH (user)-[r:HAS_SKILL]->(os:UserSkill)
