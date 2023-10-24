@@ -22,7 +22,7 @@ export class StructuredJobpost {
     minimumSalary: t.union([t.number, t.null]),
     maximumSalary: t.union([t.number, t.null]),
     salaryCurrency: t.union([t.string, t.null]),
-    firstSeenTimestamp: t.union([t.number, t.null]),
+    timestamp: t.union([t.number, t.null]),
     offersTokenAllocation: t.union([t.boolean, t.null]),
   });
 
@@ -81,10 +81,7 @@ export class StructuredJobpost {
   offersTokenAllocation: boolean | null;
 
   @ApiProperty()
-  firstSeenTimestamp: number | null;
-
-  @ApiProperty()
-  lastSeenTimestamp: number | null;
+  timestamp: number | null;
 
   constructor(raw: StructuredJobpost) {
     const {
@@ -105,7 +102,7 @@ export class StructuredJobpost {
       maximumSalary,
       salaryCurrency,
       responsibilities,
-      firstSeenTimestamp,
+      timestamp,
       offersTokenAllocation,
     } = raw;
 
@@ -128,8 +125,7 @@ export class StructuredJobpost {
     this.maximumSalary = maximumSalary;
     this.salaryCurrency = salaryCurrency;
     this.responsibilities = responsibilities;
-    this.firstSeenTimestamp = firstSeenTimestamp;
-    this.lastSeenTimestamp = firstSeenTimestamp;
+    this.timestamp = timestamp;
     this.offersTokenAllocation = offersTokenAllocation;
 
     if (isLeft(result)) {

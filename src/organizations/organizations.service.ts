@@ -67,7 +67,7 @@ export class OrganizationsService {
               salaryCurrency: structured_jobpost.salaryCurrency,
               responsibilities: structured_jobpost.responsibilities,
               offersTokenAllocation: structured_jobpost.offersTokenAllocation,
-              firstSeenTimestamp: CASE WHEN structured_jobpost.publishedTimestamp = NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+              timestamp: CASE WHEN structured_jobpost.publishedTimestamp = NULL THEN structured_jobpost.timestamp ELSE structured_jobpost.publishedTimestamp END,
               classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
               commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
               locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
@@ -198,12 +198,12 @@ export class OrganizationsService {
 
     const getSortParam = (org: OrgListResult): number | null => {
       const shortOrg = toShortOrg(org);
-      const lastJob = sort(org.jobs).desc(x => x.firstSeenTimestamp)[0];
+      const lastJob = sort(org.jobs).desc(x => x.timestamp)[0];
       switch (orderBy) {
         case "recentFundingDate":
           return shortOrg?.lastFundingDate ?? 0;
         case "recentJobDate":
-          return lastJob?.firstSeenTimestamp ?? 0;
+          return lastJob?.timestamp ?? 0;
         case "headcountEstimate":
           return org?.headcountEstimate ?? 0;
         default:

@@ -62,7 +62,7 @@ export class JobsService {
           maximumSalary: structured_jobpost.maximumSalary,
           salaryCurrency: structured_jobpost.salaryCurrency,
           responsibilities: structured_jobpost.responsibilities,
-          firstSeenTimestamp: CASE WHEN structured_jobpost.publishedTimestamp = NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+          timestamp: CASE WHEN structured_jobpost.publishedTimestamp = NULL THEN structured_jobpost.timestamp ELSE structured_jobpost.publishedTimestamp END,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
           commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -155,7 +155,7 @@ export class JobsService {
               salaryCurrency: structured_jobpost.salaryCurrency,
               responsibilities: structured_jobpost.responsibilities,
               offersTokenAllocation: structured_jobpost.offersTokenAllocation,
-              firstSeenTimestamp: CASE WHEN structured_jobpost.publishedTimestamp = NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+              timestamp: CASE WHEN structured_jobpost.publishedTimestamp = NULL THEN structured_jobpost.timestamp ELSE structured_jobpost.publishedTimestamp END,
               classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
               commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
               locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
@@ -303,7 +303,7 @@ export class JobsService {
         locationType,
         classification,
         salary: salary,
-        firstSeenTimestamp,
+        timestamp,
       } = jlr;
       const matchesQuery =
         orgName.match(query) ||
@@ -318,8 +318,8 @@ export class JobsService {
         (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
         (!minSalaryRange || (salary ?? 0) >= minSalaryRange) &&
         (!maxSalaryRange || (salary ?? 0) < maxSalaryRange) &&
-        (!startDate || firstSeenTimestamp >= startDate) &&
-        (!endDate || firstSeenTimestamp < endDate) &&
+        (!startDate || timestamp >= startDate) &&
+        (!endDate || timestamp < endDate) &&
         (!projectFilterList ||
           projects.filter(x => projectFilterList.includes(x.name)).length >
             0) &&
@@ -402,11 +402,11 @@ export class JobsService {
         case "headcountEstimate":
           return jlr.organization?.headcountEstimate ?? 0;
         case "publicationDate":
-          return jlr.firstSeenTimestamp;
+          return jlr.timestamp;
         case "salary":
           return jlr.salary;
         default:
-          return jlr.firstSeenTimestamp;
+          return jlr.timestamp;
       }
     };
 
@@ -623,9 +623,7 @@ export class JobsService {
 
     const filtered = results.filter(jobFilters);
 
-    const final = sort<AllJobsListResult>(filtered).desc(
-      job => job.firstSeenTimestamp,
-    );
+    const final = sort<AllJobsListResult>(filtered).desc(job => job.timestamp);
 
     return {
       page: (final.length > 0 ? params.page ?? 1 : -1) ?? -1,
