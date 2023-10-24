@@ -1,3 +1,10 @@
+# [1.48.0](https://github.com/jobstash/middleware/compare/v1.47.7...v1.48.0) (2023-10-24)
+
+
+### Features
+
+* **filters:** changed previously b64 encoded string filters to support normalization with custom function ([5bdcdc0](https://github.com/jobstash/middleware/commit/5bdcdc0cc33a32f4f7725b9175016aa96c5a3ec2))
+
 ## [1.47.7](https://github.com/jobstash/middleware/compare/v1.47.6...v1.47.7) (2023-10-24)
 
 
