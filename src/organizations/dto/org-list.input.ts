@@ -8,8 +8,8 @@ import {
   IsString,
   Min,
 } from "class-validator";
+import { toList } from "src/shared/helpers";
 import { ListOrder, OrgListOrderBy } from "src/shared/types";
-import { btoaList } from "src/shared/helpers";
 import { Compare } from "src/shared/validators";
 
 export class OrgListParams {
@@ -37,7 +37,7 @@ export class OrgListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(btoaList)
+  @Transform(toList)
   fundingRounds?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -45,7 +45,7 @@ export class OrgListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(btoaList)
+  @Transform(toList)
   investors?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -53,7 +53,7 @@ export class OrgListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(btoaList)
+  @Transform(toList)
   locations?: string[] | null = null;
 
   @ApiPropertyOptional({

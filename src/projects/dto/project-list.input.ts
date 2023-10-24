@@ -8,8 +8,8 @@ import {
   IsString,
   Min,
 } from "class-validator";
+import { toList } from "src/shared/helpers";
 import { ListOrder, ProjectListOrderBy } from "src/shared/types";
-import { btoaList } from "src/shared/helpers";
 import { Compare } from "src/shared/validators";
 
 export class ProjectListParams {
@@ -110,7 +110,7 @@ export class ProjectListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(btoaList)
+  @Transform(toList)
   organizations?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -118,7 +118,7 @@ export class ProjectListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(btoaList)
+  @Transform(toList)
   chains?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -126,7 +126,7 @@ export class ProjectListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(btoaList)
+  @Transform(toList)
   categories?: string[] | null = null;
 
   @ApiPropertyOptional({

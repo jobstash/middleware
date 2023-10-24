@@ -9,6 +9,7 @@ import { Neogma } from "neogma";
 import { UpdateTagDto } from "./dto/update-tag.dto";
 import { TagEntity } from "src/shared/entities/tag.entity";
 import NotFoundError from "src/shared/errors/not-found-error";
+import { normalizeString } from "src/shared/helpers";
 
 @Injectable()
 export class TagsService {
@@ -508,10 +509,6 @@ export class TagsService {
   }
 
   normalizeTagName(name: string): string {
-    // Remove all spaces and punctuation from the name and lowercase the string
-    if (!name) {
-      throw new Error("Tag name is required");
-    }
-    return name.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+    return normalizeString(name);
   }
 }

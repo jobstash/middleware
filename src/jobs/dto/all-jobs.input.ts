@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform, Type } from "class-transformer";
 import { IsNumber, IsOptional, IsString } from "class-validator";
-import { btoaList } from "src/shared/helpers";
+import { toList } from "src/shared/helpers";
 
 export class AllJobsParams {
   @ApiPropertyOptional({
@@ -9,7 +9,7 @@ export class AllJobsParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(btoaList)
+  @Transform(toList)
   organizations?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -17,7 +17,7 @@ export class AllJobsParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(btoaList)
+  @Transform(toList)
   classifications?: string[] | null = null;
   @ApiPropertyOptional({
     example: 500,

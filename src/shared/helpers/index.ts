@@ -16,10 +16,10 @@ import {
 } from "@nestjs/swagger/dist/interfaces/open-api-spec.interface";
 import { getSchemaPath } from "@nestjs/swagger";
 import { Response } from "../interfaces/response.interface";
-import { TransformFnParams } from "class-transformer";
 import { CustomLogger } from "../utils/custom-logger";
 import { OrgListResult, ShortOrg } from "../interfaces";
 import { sort } from "fast-sort";
+import { TransformFnParams } from "class-transformer";
 
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
@@ -224,13 +224,9 @@ export const responseSchemaWrapper = (
   };
 };
 
-export const btoaList = ({ value }: TransformFnParams): string[] | null => {
+export const toList = ({ value }: TransformFnParams): string[] | null => {
   if (typeof value === "string") {
-    return value
-      .split(",")
-      .map(encodedString =>
-        Buffer.from(encodedString, "base64").toString("ascii"),
-      );
+    return value.split(",");
   } else if (typeof value === "undefined") {
     return null;
   } else {
@@ -375,4 +371,39 @@ export function propertiesMatch<T extends object, U extends object>(
     }
   }
   return true;
+}
+
+export function normalizeString(name: string): string {
+  const specialChars = "!@#$%^&*()-+=,";
+  const charToStringMap = new Map([
+    ["!", "_bang_"],
+    ["@", "_at_"],
+    ["#", "_hash_"],
+    ["$", "_dollar_"],
+    ["%", "_percent_"],
+    [",", "_comma_"],
+    ["^", "_caret_"],
+    ["&", "_and_"],
+    ["*", "_asterisk_"],
+    ["(", "_lparen_"],
+    [")", "_rparen_"],
+    ["-", "_hyphen_"],
+    ["+", "_plus_"],
+    ["=", "_equals_"],
+  ]);
+  // Remove all spaces and punctuation from the name and lowercase the string
+  if (!name) {
+    throw new Error("Tag name is required");
+  }
+  const normalizedName = name
+    .split("")
+    .map(x => {
+      if (specialChars.includes(x)) {
+        return charToStringMap.get(x);
+      } else {
+        return x;
+      }
+    })
+    .join("");
+  return normalizedName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
 }

@@ -14,7 +14,11 @@ import {
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { ProjectListParams } from "./dto/project-list.input";
-import { intConverter, notStringOrNull } from "src/shared/helpers";
+import {
+  intConverter,
+  normalizeString,
+  notStringOrNull,
+} from "src/shared/helpers";
 import { createNewSortInstance } from "fast-sort";
 import { ModelService } from "src/model/model.service";
 import { InjectConnection } from "nest-neogma";
@@ -99,9 +103,9 @@ export class ProjectsService {
       return (
         (!query || project.name.match(query)) &&
         (!categoryFilterList ||
-          categoryFilterList.includes(project.category)) &&
+          categoryFilterList.includes(normalizeString(project.category))) &&
         (!organizationFilterList ||
-          organizationFilterList.includes(project.orgName)) &&
+          organizationFilterList.includes(normalizeString(project.orgName))) &&
         (!mainNet || project.isMainnet) &&
         (!minTvl || (project?.tvl ?? 0) >= minTvl) &&
         (!maxTvl || (project?.tvl ?? 0) < maxTvl) &&
@@ -119,7 +123,7 @@ export class ProjectsService {
         (!hackFilter || (project?.hacks.length ?? 0) > 0 === hackFilter) &&
         (!chainFilterList ||
           (project?.chains
-            ?.map(x => x.name)
+            ?.map(x => normalizeString(x.name))
             .filter(x => chainFilterList.filter(y => x === y).length > 0) ??
             false)) &&
         (!token || notStringOrNull(project.tokenSymbol) !== null)

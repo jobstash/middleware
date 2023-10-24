@@ -13,7 +13,7 @@ import {
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { OrgListParams } from "./dto/org-list.input";
-import { intConverter, toShortOrg } from "src/shared/helpers";
+import { intConverter, normalizeString, toShortOrg } from "src/shared/helpers";
 import { OrganizationEntity, RepositoryEntity } from "src/shared/entities";
 import { createNewSortInstance, sort } from "fast-sort";
 import { ModelService } from "src/model/model.service";
@@ -182,14 +182,17 @@ export class OrganizationsService {
         (!hasProjects || projectCount > 0) &&
         (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
         (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
-        (!locationFilterList || locationFilterList.includes(location)) &&
+        (!locationFilterList ||
+          locationFilterList.includes(normalizeString(location))) &&
         (!investorFilterList ||
           investors.filter(investor =>
-            investorFilterList.includes(investor.name),
+            investorFilterList.includes(normalizeString(investor.name)),
           ).length > 0) &&
         (!fundingRoundFilterList ||
           fundingRounds.filter(fundingRound =>
-            fundingRoundFilterList.includes(fundingRound.roundName),
+            fundingRoundFilterList.includes(
+              normalizeString(fundingRound.roundName),
+            ),
           ).length > 0)
       );
     };

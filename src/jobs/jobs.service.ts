@@ -10,6 +10,7 @@ import {
 } from "src/shared/entities";
 import {
   intConverter,
+  normalizeString,
   notStringOrNull,
   publicationDateRangeGenerator,
 } from "src/shared/helpers";
@@ -311,9 +312,12 @@ export class JobsService {
         tags.filter(tag => tag.name.match(query)).length > 0 ||
         projects.filter(project => project.name.match(query)).length > 0;
       return (
-        (!organizationFilterList || organizationFilterList.includes(orgName)) &&
-        (!seniorityFilterList || seniorityFilterList.includes(seniority)) &&
-        (!locationFilterList || locationFilterList.includes(locationType)) &&
+        (!organizationFilterList ||
+          organizationFilterList.includes(normalizeString(orgName))) &&
+        (!seniorityFilterList ||
+          seniorityFilterList.includes(normalizeString(seniority))) &&
+        (!locationFilterList ||
+          locationFilterList.includes(normalizeString(locationType))) &&
         (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
         (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
         (!minSalaryRange || (salary ?? 0) >= minSalaryRange) &&
@@ -321,10 +325,11 @@ export class JobsService {
         (!startDate || timestamp >= startDate) &&
         (!endDate || timestamp < endDate) &&
         (!projectFilterList ||
-          projects.filter(x => projectFilterList.includes(x.name)).length >
-            0) &&
+          projects.filter(x =>
+            projectFilterList.includes(normalizeString(x.name)),
+          ).length > 0) &&
         (!classificationFilterList ||
-          classificationFilterList.includes(classification)) &&
+          classificationFilterList.includes(normalizeString(classification))) &&
         (!token ||
           projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
             .length > 0) &&
@@ -357,19 +362,24 @@ export class JobsService {
         (!chainFilterList ||
           projects.filter(
             x =>
-              x.chains.filter(y => chainFilterList.includes(y.name)).length > 0,
+              x.chains.filter(y =>
+                chainFilterList.includes(normalizeString(y.name)),
+              ).length > 0,
           ).length > 0) &&
         (!investorFilterList ||
           investors.filter(investor =>
-            investorFilterList.includes(investor.name),
+            investorFilterList.includes(normalizeString(investor.name)),
           ).length > 0) &&
         (!fundingRoundFilterList ||
           fundingRounds.filter(fundingRound =>
-            fundingRoundFilterList.includes(fundingRound.roundName),
+            fundingRoundFilterList.includes(
+              normalizeString(fundingRound.roundName),
+            ),
           ).length > 0) &&
         (!query || matchesQuery) &&
         (!tagFilterList ||
-          tags.filter(tag => tagFilterList.includes(tag.name)).length > 0)
+          tags.filter(tag => tagFilterList.includes(normalizeString(tag.name)))
+            .length > 0)
       );
     };
 
@@ -615,9 +625,10 @@ export class JobsService {
 
       return (
         (!classificationFilterList ||
-          classificationFilterList.includes(classification)) &&
+          classificationFilterList.includes(normalizeString(classification))) &&
         (!query || matchesQuery) &&
-        (!organizationFilterList || organizationFilterList.includes(orgName))
+        (!organizationFilterList ||
+          organizationFilterList.includes(normalizeString(orgName)))
       );
     };
 

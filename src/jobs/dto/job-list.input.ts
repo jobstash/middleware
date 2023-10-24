@@ -8,8 +8,8 @@ import {
   IsString,
   Min,
 } from "class-validator";
+import { toList } from "src/shared/helpers";
 import { DateRange, ListOrder, JobListOrderBy } from "src/shared/types";
-import { btoaList } from "src/shared/helpers";
 import { Compare } from "src/shared/validators";
 
 export class JobListParams {
@@ -172,7 +172,7 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(btoaList)
+  @Transform(toList)
   tags?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -180,7 +180,7 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(btoaList)
+  @Transform(toList)
   organizations?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -188,7 +188,7 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(btoaList)
+  @Transform(toList)
   chains?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -196,7 +196,7 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(btoaList)
+  @Transform(toList)
   projects?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -204,7 +204,7 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(btoaList)
+  @Transform(toList)
   classifications?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -212,7 +212,7 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(btoaList)
+  @Transform(toList)
   fundingRounds?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -220,7 +220,7 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(btoaList)
+  @Transform(toList)
   investors?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -228,7 +228,7 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(btoaList)
+  @Transform(toList)
   seniority?: string[] | null = null;
 
   @ApiPropertyOptional({
@@ -236,7 +236,7 @@ export class JobListParams {
   })
   @IsOptional()
   @Type(() => String)
-  @Transform(btoaList)
+  @Transform(toList)
   locations?: string[] | null = null;
 
   @ApiPropertyOptional({
