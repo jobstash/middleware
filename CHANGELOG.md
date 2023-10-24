@@ -1,3 +1,10 @@
+## [1.47.3](https://github.com/jobstash/middleware/compare/v1.47.2...v1.47.3) (2023-10-24)
+
+
+### Bug Fixes
+
+* **jobs:** fixed duplication on funding rounds and investors ([9408908](https://github.com/jobstash/middleware/commit/9408908e847e4002638641b51c2cf9602a5980d2))
+
 ## [1.47.2](https://github.com/jobstash/middleware/compare/v1.47.1...v1.47.2) (2023-10-24)
 
 
