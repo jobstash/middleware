@@ -400,7 +400,7 @@ export class ProfileService {
         MATCH (user:User {wallet: $wallet})
         UNWIND $showcase as data
         WITH data, user
-        MERGE (user)-[:HAS_SHOWCASE]->(showcase:UserShowCase)
+        CREATE (user)-[:HAS_SHOWCASE]->(showcase:UserShowCase)
         SET showcase.label = data.label
         SET showcase.url = data.url
       `,
@@ -438,7 +438,7 @@ export class ProfileService {
         MATCH (user:User {wallet: $wallet})
         UNWIND $skills as data
         WITH data, user
-        MERGE (user)-[:HAS_SKILL]->(skill:UserSkill)
+        CREATE (user)-[:HAS_SKILL]->(skill:UserSkill)
         SET skill.id = data.id
         SET skill.name = data.name
         SET skill.canTeach = data.canTeach
