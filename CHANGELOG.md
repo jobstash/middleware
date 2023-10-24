@@ -1,3 +1,10 @@
+## [1.47.1](https://github.com/jobstash/middleware/compare/v1.47.0...v1.47.1) (2023-10-24)
+
+
+### Bug Fixes
+
+* **profile:** fixed issue with skills, showcase and tags used not getting persisted ([c8e17c8](https://github.com/jobstash/middleware/commit/c8e17c8e72f260595234d1a3f0f2c052d7c5db99))
+
 # [1.47.0](https://github.com/jobstash/middleware/compare/v1.46.2...v1.47.0) (2023-10-23)
 
 
