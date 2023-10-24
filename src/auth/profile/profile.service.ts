@@ -399,11 +399,10 @@ export class ProfileService {
         `
         MATCH (user:User {wallet: $wallet})
         UNWIND $showcase as data
-        WITH data
-        CREATE (user)-[:HAS_SHOWCASE]->(showcase:UserShowCase)
+        WITH data, user
+        MERGE (user)-[:HAS_SHOWCASE]->(showcase:UserShowCase)
         SET showcase.label = data.label
         SET showcase.url = data.url
-
       `,
         { wallet, ...dto },
       );
@@ -438,8 +437,8 @@ export class ProfileService {
         `
         MATCH (user:User {wallet: $wallet})
         UNWIND $skills as data
-        WITH data
-        CREATE (user)-[:HAS_SKILL]->(skill:UserSkill)
+        WITH data, user
+        MERGE (user)-[:HAS_SKILL]->(skill:UserSkill)
         SET skill.id = data.id
         SET skill.name = data.name
         SET skill.canTeach = data.canTeach
@@ -617,7 +616,7 @@ export class ProfileService {
         `
         MATCH (:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(user:GithubUser)-[:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository {id: $id})
         UNWIND $tagsUsed as data
-        WITH data
+        WITH data, user
         CREATE (user)-[:USED_TAG]->(tag: RepoTag)-[:USED_ON]->(repo)
         SET tag.id = data.id
         SET tag.name = data.name
