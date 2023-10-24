@@ -1,3 +1,10 @@
+## [1.47.7](https://github.com/jobstash/middleware/compare/v1.47.6...v1.47.7) (2023-10-24)
+
+
+### Bug Fixes
+
+* **profile:** fixed a really stupid bug ([f483290](https://github.com/jobstash/middleware/commit/f483290749aff97d08cfb292c9d348de9634be77))
+
 ## [1.47.6](https://github.com/jobstash/middleware/compare/v1.47.5...v1.47.6) (2023-10-24)
 
 
