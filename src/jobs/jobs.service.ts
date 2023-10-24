@@ -98,12 +98,12 @@ export class JobsService {
                   ]
                 }
               ],
-              fundingRounds: [
+              fundingRounds: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
-              ],
-              investors: [
+              ]),
+              investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-              ]
+              ])
           }][0],
           tags: [
             (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }
@@ -190,12 +190,12 @@ export class JobsService {
                       ]
                     }
                   ],
-                  fundingRounds: [
+                  fundingRounds: apoc.coll.toSet([
                     (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round {.*}
-                  ],
-                  investors: [
+                  ]),
+                  investors: apoc.coll.toSet([
                     (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-                  ]
+                  ])
               }][0]
           } AS result
         `;

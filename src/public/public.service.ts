@@ -76,12 +76,12 @@ export class PublicService {
                   ]
                 }
               ],
-              fundingRounds: [
+              fundingRounds: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round {.*}
-              ],
-              investors: [
+              ]),
+              investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-              ]
+              ])
           }][0]
       } AS result
     `;
