@@ -1,3 +1,10 @@
+## [1.47.6](https://github.com/jobstash/middleware/compare/v1.47.5...v1.47.6) (2023-10-24)
+
+
+### Bug Fixes
+
+* **profile:** fixed bug on update profile endpoints where new skills, showcase and tags used did not overwrite previous records ([bcf54bd](https://github.com/jobstash/middleware/commit/bcf54bd4ef156a6271606e679cfa34b479dc69bd))
+
 ## [1.47.5](https://github.com/jobstash/middleware/compare/v1.47.4...v1.47.5) (2023-10-24)
 
 
