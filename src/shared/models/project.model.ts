@@ -83,7 +83,7 @@ export interface ProjectStatics {
   getProjectsMoreInfoData: () => Promise<ProjectWithRelations[]>;
   getProjectDetailsById: (id: string) => Promise<ProjectDetails | null>;
   getProjectsByCategory: (category: string) => Promise<ProjectProps[]>;
-  getProjectCompetitors: (id: string) => Promise<ProjectProps[]>;
+  getProjectCompetitors: (id: string) => Promise<ProjectWithRelations[]>;
   searchProjects: (query: string) => Promise<ProjectProps[]>;
   getProjectById: (id: string) => Promise<ProjectProps | null>;
 }
@@ -540,16 +540,36 @@ export const Projects = (
                 },
               ],
             })
-            .raw("WHERE project.id <> $id").return(`
+            .raw("WHERE project.id <> $id")
+            .return(
+              `
               project {
-                .*,
-                orgId: organization.orgId
-              }
-            `);
+                  .*,
+                  orgId: organization.orgId,
+                  discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                  website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                  docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                  telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                  github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
+                  category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                  twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                  hacks: [
+                    (project)-[:HAS_HACK]->(hack) | hack { .* }
+                  ],
+                  audits: [
+                    (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                  ],
+                  chains: [
+                    (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ]
+                } as result
+            `,
+            );
           const result = await query.run(neogma.queryRunner);
-          return result.records.map(record =>
-            new ProjectMoreInfoEntity(record.get("project")).getProperties(),
+          const projects: ProjectWithRelations[] = result?.records.map(
+            record => record.get("result") as ProjectWithRelations,
           );
+          return projects;
         },
         getProjectById: async function (id: string) {
           const query = new QueryBuilder().match({

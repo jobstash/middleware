@@ -312,9 +312,11 @@ export class ProjectsService {
     }
   }
 
-  async getProjectCompetitors(id: string): Promise<ProjectProps[]> {
+  async getProjectCompetitors(id: string): Promise<ProjectListResult[]> {
     try {
-      return this.models.Projects.getProjectCompetitors(id);
+      return (await this.models.Projects.getProjectCompetitors(id)).map(
+        project => new ProjectListResultEntity(project).getProperties(),
+      );
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
