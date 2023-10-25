@@ -1,3 +1,10 @@
+# [1.49.0](https://github.com/jobstash/middleware/compare/v1.48.0...v1.49.0) (2023-10-25)
+
+
+### Features
+
+* **projects:** fixed logo issue and added hacks, audits and chains data to project competitor results ([3a9f83c](https://github.com/jobstash/middleware/commit/3a9f83c600d2bb5991d3be1470d67cc17e399e53))
+
 # [1.48.0](https://github.com/jobstash/middleware/compare/v1.47.7...v1.48.0) (2023-10-24)
 
 
