@@ -1,3 +1,10 @@
+# [1.51.0](https://github.com/jobstash/middleware/compare/v1.50.0...v1.51.0) (2023-10-26)
+
+
+### Features
+
+* **profile:** implemented block jobs from an org endpoint ([ee0f326](https://github.com/jobstash/middleware/commit/ee0f32696cbf6b770ec7978eaea6937beca655de))
+
 # [1.50.0](https://github.com/jobstash/middleware/compare/v1.49.4...v1.50.0) (2023-10-26)
 
 
