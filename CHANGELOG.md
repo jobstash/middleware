@@ -1,3 +1,10 @@
+## [1.49.4](https://github.com/jobstash/middleware/compare/v1.49.3...v1.49.4) (2023-10-26)
+
+
+### Bug Fixes
+
+* **jobs:** fixed the timestamp bug in more places ([bd6d4d1](https://github.com/jobstash/middleware/commit/bd6d4d1d71f6cad3e5010a0bf4efe6234a90ffad))
+
 ## [1.49.3](https://github.com/jobstash/middleware/compare/v1.49.2...v1.49.3) (2023-10-26)
 
 
