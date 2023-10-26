@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   HttpStatus,
+  Param,
   Post,
   Query,
   Req,
@@ -417,6 +418,34 @@ export class ProfileController {
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       return this.profileService.updateRepoTagsUsed(address as string, params);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Post("jobs/block-org/:orgId")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description:
+      "Blocks jobs from the passed org for the currently logged in user",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Response<UserProfile>),
+    }),
+  })
+  async blockOrgJobs(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Param("orgId") orgId: string,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/profile/job/block-org`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.profileService.blockOrgJobs(address as string, orgId);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {

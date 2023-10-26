@@ -664,6 +664,37 @@ export class ProfileService {
     }
   }
 
+  async blockOrgJobs(
+    wallet: string,
+    orgId: string,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
+        CREATE (user)-[r:BLOCKED_ORG_JOBS]->(org)
+        SET r.timestamp = timestamp()
+      `,
+        { wallet, orgId },
+      );
+      return { success: true, message: "Org jobs blocked successfully" };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, orgId });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::blockOrgJobs ${err.message}`);
+      return {
+        success: false,
+        message: "Error blocking org jobs",
+      };
+    }
+  }
+
   async logApplyInteraction(
     wallet: string,
     shortUUID: string,
