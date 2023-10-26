@@ -129,3 +129,31 @@ export class ProjectListResult {
     }
   }
 }
+
+export class ProjectCompetitorListResult extends ProjectListResult {
+  public static readonly ProjectCompetitorListResultType = t.intersection([
+    ProjectListResult.ProjectListResultType,
+    t.strict({ description: t.string }),
+  ]);
+
+  @ApiProperty()
+  description: string;
+
+  constructor(raw: ProjectCompetitorListResult) {
+    super(raw);
+    const { description } = raw;
+
+    const result =
+      ProjectCompetitorListResult.ProjectCompetitorListResultType.decode(raw);
+
+    this.description = description;
+
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(
+          `project competitor list result instance with id ${this.id} failed validation with error '${x}'`,
+        );
+      });
+    }
+  }
+}

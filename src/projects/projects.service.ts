@@ -10,6 +10,7 @@ import {
   ProjectListResult,
   ProjectListResultEntity,
   ProjectEntity,
+  ProjectCompetitorListResultEntity,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -315,7 +316,8 @@ export class ProjectsService {
   async getProjectCompetitors(id: string): Promise<ProjectListResult[]> {
     try {
       return (await this.models.Projects.getProjectCompetitors(id)).map(
-        project => new ProjectListResultEntity(project).getProperties(),
+        project =>
+          new ProjectCompetitorListResultEntity(project).getProperties(),
       );
     } catch (err) {
       Sentry.withScope(scope => {
