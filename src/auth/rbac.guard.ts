@@ -8,6 +8,7 @@ import { ConfigService } from "@nestjs/config";
 import { Request, Response as ExpressResponse } from "express";
 import { getIronSession, IronSession, IronSessionOptions } from "iron-session";
 import { Reflector } from "@nestjs/core";
+import { CheckWalletRoles } from "src/shared/enums";
 
 @Injectable()
 export class RBACGuard implements CanActivate {
@@ -56,7 +57,10 @@ export class RBACGuard implements CanActivate {
     const permittedRoles =
       this.reflector.get<string[]>("roles", context.getHandler()) || [];
 
-    if (!permittedRoles.length) {
+    if (
+      !permittedRoles.length ||
+      permittedRoles.includes(CheckWalletRoles.ANON)
+    ) {
       return true;
     }
 

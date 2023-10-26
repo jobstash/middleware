@@ -22,6 +22,7 @@ import {
   ValidationError,
   AllJobsListResult,
   AllJobsFilterConfigs,
+  Response,
 } from "src/shared/types";
 import {
   ApiBadRequestResponse,
@@ -46,6 +47,7 @@ import { Response as ExpressResponse, Request } from "express";
 import { AuthService } from "src/auth/auth.service";
 import { ChangeJobClassificationInput } from "./dto/change-classification.input";
 import { BlockJobsInput } from "./dto/block-jobs.input";
+import { ProfileService } from "src/auth/profile/profile.service";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
@@ -54,9 +56,12 @@ export class JobsController {
   constructor(
     private readonly jobsService: JobsService,
     private readonly authService: AuthService,
+    private readonly profileService: ProfileService,
   ) {}
 
   @Get("/list")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ANON)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
@@ -95,6 +100,8 @@ export class JobsController {
     },
   })
   async getJobsListWithSearch(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
     @Query(new ValidationPipe({ transform: true }))
     params: JobListParams,
   ): Promise<PaginatedData<JobListResult>> {
@@ -102,7 +109,15 @@ export class JobsController {
       ...params,
       query: btoa(params.query),
     };
-    this.logger.log(`/jobs/list ${JSON.stringify(paramsParsed)}`);
+    const queryString = JSON.stringify(paramsParsed);
+    this.logger.log(`/jobs/list ${queryString}`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      await this.profileService.logSearchInteraction(
+        address as string,
+        queryString,
+      );
+    }
     return this.jobsService.getJobsListWithSearch(paramsParsed);
   }
 
@@ -130,6 +145,8 @@ export class JobsController {
   }
 
   @Get("details/:uuid")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ANON)
   @ApiOkResponse({
     description: "Returns the job details for the provided slug",
     schema: {
@@ -152,9 +169,17 @@ export class JobsController {
   })
   async getJobDetailsByUuid(
     @Param("uuid") uuid: string,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<JobListResult | undefined> {
     this.logger.log(`/jobs/details/${uuid}`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      await this.profileService.logViewDetailsInteraction(
+        address as string,
+        uuid,
+      );
+    }
     const result = await this.jobsService.getJobDetailsByUuid(uuid);
     if (result === undefined) {
       res.status(HttpStatus.NOT_FOUND);
@@ -254,6 +279,48 @@ export class JobsController {
   async getAllJobsListFilterConfigs(): Promise<AllJobsFilterConfigs> {
     this.logger.log(`/jobs/all/filters`);
     return this.jobsService.getAllJobsFilterConfigs();
+  }
+
+  @Get("/bookmarked")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Returns the skills of the currently logged in user",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(PaginatedData),
+          properties: {
+            page: {
+              type: "number",
+            },
+            count: {
+              type: "number",
+            },
+            data: {
+              type: "array",
+              items: { $ref: getSchemaPath(JobListResult) },
+            },
+          },
+        },
+      ],
+    },
+  })
+  async getUserBookmarkedJobs(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ): Promise<Response<JobListResult[]> | ResponseWithNoData> {
+    this.logger.log(`/jobs/bookmarked`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.jobsService.getUserBookmarkedJobs(address as string);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
   }
 
   @Post("/change-classification")

@@ -663,4 +663,125 @@ export class ProfileService {
       };
     }
   }
+
+  async logApplyInteraction(
+    wallet: string,
+    shortUUID: string,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (:User {wallet: $wallet})
+        CREATE (user)-[r:APPLIED_TO]->(:StructuredJobpost {shortUUID: $shortUUID})
+        SET r.timestamp = timestamp()
+      `,
+        { wallet, shortUUID },
+      );
+      return {
+        success: true,
+        message: "Logged application to job successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, shortUUID });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::logApplyInteraction ${err.message}`);
+      return {
+        success: false,
+        message: "Failed to log application to job",
+      };
+    }
+  }
+
+  async logBookmarkInteraction(
+    wallet: string,
+    shortUUID: string,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (:User {wallet: $wallet})
+        CREATE (user)-[r:BOOKMARKED]->(:StructuredJobpost {shortUUID: $shortUUID})
+        SET r.timestamp = timestamp()
+      `,
+        { wallet, shortUUID },
+      );
+      return {
+        success: true,
+        message: "Bookmarked job successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, shortUUID });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `ProfileService::logBookmarkInteraction ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to bookmark job",
+      };
+    }
+  }
+
+  async logViewDetailsInteraction(
+    wallet: string,
+    shortUUID: string,
+  ): Promise<void> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (:User {wallet: $wallet})
+        CREATE (user)-[r:VIEWED_DETAILS]->(:StructuredJobpost {shortUUID: $shortUUID})
+        SET r.timestamp = timestamp()
+      `,
+        { wallet, shortUUID },
+      );
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, shortUUID });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `ProfileService::logViewDetailsInteraction ${err.message}`,
+      );
+    }
+  }
+
+  async logSearchInteraction(wallet: string, query: string): Promise<void> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (:User {wallet: $wallet})
+        CREATE (user)-[r:DID_SEARCH]->(:SearchHistory {query: $query})
+        SET r.timestamp = timestamp()
+      `,
+        { wallet, query },
+      );
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, query });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::logSearchInteraction ${err.message}`);
+    }
+  }
 }
