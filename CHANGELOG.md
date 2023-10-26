@@ -1,3 +1,10 @@
+## [1.51.1](https://github.com/jobstash/middleware/compare/v1.51.0...v1.51.1) (2023-10-26)
+
+
+### Bug Fixes
+
+* **projects:** added description prop back to project competitor list results ([97f7aea](https://github.com/jobstash/middleware/commit/97f7aea6f2ac6108b75c5eda8efb0caabf021223))
+
 # [1.51.0](https://github.com/jobstash/middleware/compare/v1.50.0...v1.51.0) (2023-10-26)
 
 
