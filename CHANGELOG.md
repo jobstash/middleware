@@ -1,3 +1,10 @@
+## [1.49.3](https://github.com/jobstash/middleware/compare/v1.49.2...v1.49.3) (2023-10-26)
+
+
+### Bug Fixes
+
+* **jobs:** fixed query error causing timestamp to be null ([202ced7](https://github.com/jobstash/middleware/commit/202ced78335079f8fc16c0dc1e22ddafc12259e4))
+
 ## [1.49.2](https://github.com/jobstash/middleware/compare/v1.49.1...v1.49.2) (2023-10-26)
 
 
