@@ -43,7 +43,7 @@ export class ProjectsService {
   ): Promise<PaginatedData<ProjectListResult>> {
     const paramsPassed = {
       ...params,
-      query: params.query ? `(?i).*${params.query}.*` : null,
+      query: params.query ? new RegExp(params.query, "gi") : null,
       limit: params.limit ?? 10,
       page: params.page ?? 1,
     };
