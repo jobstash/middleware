@@ -1,3 +1,10 @@
+# [1.50.0](https://github.com/jobstash/middleware/compare/v1.49.4...v1.50.0) (2023-10-26)
+
+
+### Features
+
+* **data:** added data collection on user interactions ([8bf48a1](https://github.com/jobstash/middleware/commit/8bf48a15891f631b31aa35d957314af99429c1f4))
+
 ## [1.49.4](https://github.com/jobstash/middleware/compare/v1.49.3...v1.49.4) (2023-10-26)
 
 
