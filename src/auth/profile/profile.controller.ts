@@ -161,7 +161,7 @@ export class ProfileController {
       $ref: getSchemaPath(Response<UserProfile>),
     }),
   })
-  async getUserSkillss(
+  async getUserSkills(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<
@@ -417,6 +417,62 @@ export class ProfileController {
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       return this.profileService.updateRepoTagsUsed(address as string, params);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Post("jobs/apply")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description:
+      "Logs the apply interaction on a job for the currently logged in user",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Response<UserProfile>),
+    }),
+  })
+  async logApplyInteraction(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Body("shortUUID") job: string,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/profile/job/apply`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.profileService.logApplyInteraction(address as string, job);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Post("jobs/bookmark")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description:
+      "Logs the bookmark interaction on a job for the currently logged in user",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Response<UserProfile>),
+    }),
+  })
+  async logBookmarkInteraction(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Body("shortUUID") job: string,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/profile/job/apply`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.profileService.logBookmarkInteraction(address as string, job);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {

@@ -24,6 +24,7 @@ import {
   JobListResultEntity,
   PaginatedData,
   ResponseWithNoData,
+  Response,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { AllJobsParams } from "./dto/all-jobs.input";
@@ -677,6 +678,108 @@ export class JobsService {
       });
       this.logger.error(`JobsService::getAllJobsFilterConfigs ${err.message}`);
       return undefined;
+    }
+  }
+
+  async getUserBookmarkedJobs(
+    wallet: string,
+  ): Promise<Response<JobListResult[]> | ResponseWithNoData> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (:User {wallet: $wallet})-[:BOOKMARKED]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        RETURN structured_jobpost {
+            id: structured_jobpost.id,
+            url: structured_jobpost.url,
+            title: structured_jobpost.title,
+            salary: structured_jobpost.salary,
+            culture: structured_jobpost.culture,
+            location: structured_jobpost.location,
+            summary: structured_jobpost.summary,
+            benefits: structured_jobpost.benefits,
+            shortUUID: structured_jobpost.shortUUID,
+            seniority: structured_jobpost.seniority,
+            description: structured_jobpost.description,
+            requirements: structured_jobpost.requirements,
+            paysInCrypto: structured_jobpost.paysInCrypto,
+            minimumSalary: structured_jobpost.minimumSalary,
+            maximumSalary: structured_jobpost.maximumSalary,
+            salaryCurrency: structured_jobpost.salaryCurrency,
+            responsibilities: structured_jobpost.responsibilities,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp = NULL THEN structured_jobpost.timestamp ELSE structured_jobpost.publishedTimestamp END,
+            offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+            classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
+            commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
+            locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
+            organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization) | organization {
+                .*,
+                discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+                docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
+                alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
+                twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                projects: [
+                  (organization)-[:HAS_PROJECT]->(project) | project {
+                    .*,
+                    orgId: organization.orgId,
+                    discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                    website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                    docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                    telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                    github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
+                    category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                    twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                    hacks: [
+                      (project)-[:HAS_HACK]->(hack) | hack { .* }
+                    ],
+                    audits: [
+                      (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                    ],
+                    chains: [
+                      (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                    ]
+                  }
+                ],
+                fundingRounds: apoc.coll.toSet([
+                  (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+                ]),
+                investors: apoc.coll.toSet([
+                  (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+                ])
+            }][0],
+            tags: [
+              (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }
+            ]
+        } AS result
+      `,
+        { wallet },
+      );
+
+      return {
+        success: true,
+        message: "User bookmarked jobs retrieved successfully",
+        data:
+          result.records?.map(record =>
+            new JobListResultEntity(record.get("result")).getProperties(),
+          ) ?? [],
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        scope.setExtra("input", { wallet });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::getUserBookmarkedJobs ${err.message}`);
+      return {
+        success: false,
+        message: "Error getting user bookmarked jobs",
+      };
     }
   }
 

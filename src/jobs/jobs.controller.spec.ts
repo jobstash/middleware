@@ -20,7 +20,7 @@ import {
 } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
-import { Response } from "express";
+import { Request, Response } from "express";
 import { ModelModule } from "src/model/model.module";
 import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
 import { ModelService } from "src/model/model.service";
@@ -28,6 +28,7 @@ import { AuthService } from "src/auth/auth.service";
 import { JwtService } from "@nestjs/jwt";
 import { forwardRef } from "@nestjs/common";
 import { UserModule } from "src/auth/user/user.module";
+import { ProfileService } from "src/auth/profile/profile.service";
 
 describe("JobsController", () => {
   let controller: JobsController;
@@ -139,7 +140,13 @@ describe("JobsController", () => {
         ModelModule,
       ],
       controllers: [JobsController],
-      providers: [JobsService, AuthService, JwtService, ModelService],
+      providers: [
+        JobsService,
+        AuthService,
+        JwtService,
+        ModelService,
+        ProfileService,
+      ],
     }).compile();
 
     await module.init();
@@ -165,12 +172,18 @@ describe("JobsController", () => {
       page: 1,
       limit: Number(Integer.MAX_VALUE),
     };
-    const res = await controller.getJobsListWithSearch(params);
+    const req: Partial<Request> = {};
+    const res: Partial<Response> = {};
+    const result = await controller.getJobsListWithSearch(
+      req as Request,
+      res as Response,
+      params,
+    );
 
-    const uuids = res.data.map(job => job.shortUUID);
+    const uuids = result.data.map(job => job.shortUUID);
     const setOfUuids = new Set([...uuids]);
 
-    expect(res).toEqual({
+    expect(result).toEqual({
       page: 1,
       count: expect.any(Number),
       total: expect.any(Number),
@@ -181,9 +194,9 @@ describe("JobsController", () => {
 
     expect(uuids.length).toBe(setOfUuids.size);
 
-    expect(res.data.every(x => jlrHasArrayPropsDuplication(x) === false)).toBe(
-      true,
-    );
+    expect(
+      result.data.every(x => jlrHasArrayPropsDuplication(x) === false),
+    ).toBe(true);
   }, 6000000);
 
   it("should get all jobs list with no jobpost and array property duplication", async () => {
@@ -220,12 +233,19 @@ describe("JobsController", () => {
       limit: 1,
     };
 
-    const job = (await controller.getJobsListWithSearch(params)).data[0];
-
+    const req: Partial<Request> = {};
     const res: Partial<Response> = {};
+    const job = (
+      await controller.getJobsListWithSearch(
+        req as Request,
+        res as Response,
+        params,
+      )
+    ).data[0];
 
     const details = await controller.getJobDetailsByUuid(
       job.shortUUID,
+      req as Request,
       res as Response,
     );
 
@@ -240,9 +260,15 @@ describe("JobsController", () => {
       limit: 1,
     };
 
-    const res = await controller.getJobsListWithSearch(params);
+    const req: Partial<Request> = {};
+    const res: Partial<Response> = {};
+    const result = await controller.getJobsListWithSearch(
+      req as Request,
+      res as Response,
+      params,
+    );
 
-    expect(res.page).toEqual(page);
+    expect(result.page).toEqual(page);
   }, 1000000000);
 
   it("should respond with the correct results for publicationDate filter", async () => {
@@ -264,8 +290,14 @@ describe("JobsController", () => {
       );
     };
 
-    const res = await controller.getJobsListWithSearch(params);
-    const results = res.data;
+    const req: Partial<Request> = {};
+    const res: Partial<Response> = {};
+    const result = await controller.getJobsListWithSearch(
+      req as Request,
+      res as Response,
+      params,
+    );
+    const results = result.data;
     expect(results.every(x => matchesPublicationDateRange(x) === true)).toBe(
       true,
     );
