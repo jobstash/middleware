@@ -1,3 +1,10 @@
+## [1.51.2](https://github.com/jobstash/middleware/compare/v1.51.1...v1.51.2) (2023-10-26)
+
+
+### Bug Fixes
+
+* **projects:** fixed bug on projects list with search ([c6092b3](https://github.com/jobstash/middleware/commit/c6092b3c73f981811df0812bc76c173490da87e4))
+
 ## [1.51.1](https://github.com/jobstash/middleware/compare/v1.51.0...v1.51.1) (2023-10-26)
 
 
