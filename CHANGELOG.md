@@ -1,3 +1,10 @@
+## [1.49.2](https://github.com/jobstash/middleware/compare/v1.49.1...v1.49.2) (2023-10-26)
+
+
+### Bug Fixes
+
+* **projects:** fixed chains bug on project details endpoint ([91fff2d](https://github.com/jobstash/middleware/commit/91fff2dfdc2d79a380244f8d517e8680e521920c))
+
 ## [1.49.1](https://github.com/jobstash/middleware/compare/v1.49.0...v1.49.1) (2023-10-26)
 
 
