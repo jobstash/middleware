@@ -6,6 +6,7 @@ export class Chain {
   public static readonly ChainType = t.strict({
     id: t.union([t.string, t.null]),
     name: t.union([t.string, t.null]),
+    logo: t.union([t.string, t.null]),
   });
 
   @ApiProperty()
@@ -14,12 +15,16 @@ export class Chain {
   @ApiProperty()
   name: string | null;
 
+  @ApiProperty()
+  logo: string | null;
+
   constructor(raw: Chain) {
-    const { id, name } = raw;
+    const { id, name, logo } = raw;
     const result = Chain.ChainType.decode(raw);
 
     this.id = id;
     this.name = name;
+    this.logo = logo;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

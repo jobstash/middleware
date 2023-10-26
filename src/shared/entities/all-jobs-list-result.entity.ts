@@ -91,6 +91,7 @@ export class AllJobListResultEntity {
               project?.chains.map(chain => ({
                 id: notStringOrNull(chain?.id),
                 name: notStringOrNull(chain?.name),
+                logo: notStringOrNull(chain?.logo),
               })) ?? [],
           })) ?? [],
         investors:
