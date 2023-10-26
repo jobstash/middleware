@@ -51,7 +51,12 @@ export class ProjectDetailsEntity {
           techIssues: nonZeroOrNull(audit?.techIssues),
           link: notStringOrNull(audit?.link),
         })) ?? [],
-      chains: project?.chains ?? [],
+      chains:
+        project.chains.map(chain => ({
+          id: notStringOrNull(chain?.id),
+          name: notStringOrNull(chain?.name),
+          logo: notStringOrNull(chain?.logo),
+        })) ?? [],
       organization: {
         ...organization,
         docs: notStringOrNull(organization?.docs),
