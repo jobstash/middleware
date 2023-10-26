@@ -1,3 +1,10 @@
+## [1.49.1](https://github.com/jobstash/middleware/compare/v1.49.0...v1.49.1) (2023-10-26)
+
+
+### Bug Fixes
+
+* **chains:** fixed missing logo on chains on some lists ([145a0b2](https://github.com/jobstash/middleware/commit/145a0b23849ac59ef79c18968cfd6b2a05420b16))
+
 # [1.49.0](https://github.com/jobstash/middleware/compare/v1.48.0...v1.49.0) (2023-10-25)
 
 
