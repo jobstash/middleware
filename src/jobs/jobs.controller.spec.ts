@@ -33,6 +33,7 @@ import { ProfileService } from "src/auth/profile/profile.service";
 describe("JobsController", () => {
   let controller: JobsController;
   let models: ModelService;
+  let authService: AuthService;
 
   const projectHasArrayPropsDuplication = (
     project: ProjectWithRelations,
@@ -153,7 +154,12 @@ describe("JobsController", () => {
     models = module.get<ModelService>(ModelService);
     await models.onModuleInit();
     controller = module.get<JobsController>(JobsController);
+    authService = module.get<AuthService>(AuthService);
   }, 1000000);
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
   it("should be defined", () => {
     expect(controller).toBeDefined();
@@ -172,6 +178,15 @@ describe("JobsController", () => {
       page: 1,
       limit: Number(Integer.MAX_VALUE),
     };
+    jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+      address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
+      destroy: async (): Promise<void> => {
+        console.log("session destroyed");
+      },
+      save: async (): Promise<void> => {
+        console.log("session saved");
+      },
+    }));
     const req: Partial<Request> = {};
     const res: Partial<Response> = {};
     const result = await controller.getJobsListWithSearch(
@@ -205,6 +220,15 @@ describe("JobsController", () => {
       page: 1,
       limit: Number(Integer.MAX_VALUE),
     };
+    jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+      address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
+      destroy: async (): Promise<void> => {
+        console.log("session destroyed");
+      },
+      save: async (): Promise<void> => {
+        console.log("session saved");
+      },
+    }));
     const res = await controller.getAllJobsWithSearch(params);
 
     const uuids = res.data.map(job => job.shortUUID);
@@ -232,6 +256,15 @@ describe("JobsController", () => {
       page: 1,
       limit: 1,
     };
+    jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+      address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
+      destroy: async (): Promise<void> => {
+        console.log("session destroyed");
+      },
+      save: async (): Promise<void> => {
+        console.log("session saved");
+      },
+    }));
 
     const req: Partial<Request> = {};
     const res: Partial<Response> = {};
@@ -252,6 +285,46 @@ describe("JobsController", () => {
     expect(jlrHasArrayPropsDuplication(details)).toBe(false);
   }, 60000000);
 
+  it("should get job for an org with no array property duplication", async () => {
+    const params: JobListParams = {
+      ...new JobListParams(),
+      page: 1,
+      limit: 1,
+    };
+
+    const req: Partial<Request> = {};
+    const res: Partial<Response> = {};
+    jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+      address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
+      destroy: async (): Promise<void> => {
+        console.log("session destroyed");
+      },
+      save: async (): Promise<void> => {
+        console.log("session saved");
+      },
+    }));
+    const job = (
+      await controller.getJobsListWithSearch(
+        req as Request,
+        res as Response,
+        params,
+      )
+    ).data[0];
+
+    const details = await controller.getOrgJobsList(job.organization.orgId);
+
+    const uuids = details.map(job => job.shortUUID);
+    const setOfUuids = new Set([...uuids]);
+
+    printDuplicateItems(setOfUuids, uuids, "StructuredJobpost with UUID");
+
+    expect(uuids.length).toBe(setOfUuids.size);
+
+    expect(details.every(x => jlrHasArrayPropsDuplication(x) === false)).toBe(
+      true,
+    );
+  }, 60000000);
+
   it("should respond with the correct page ", async () => {
     const page = 1;
     const params: JobListParams = {
@@ -259,6 +332,15 @@ describe("JobsController", () => {
       page: page,
       limit: 1,
     };
+    jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+      address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
+      destroy: async (): Promise<void> => {
+        console.log("session destroyed");
+      },
+      save: async (): Promise<void> => {
+        console.log("session saved");
+      },
+    }));
 
     const req: Partial<Request> = {};
     const res: Partial<Response> = {};
@@ -279,6 +361,15 @@ describe("JobsController", () => {
       limit: Number(Integer.MAX_VALUE),
       publicationDate: dateRange,
     };
+    jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+      address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
+      destroy: async (): Promise<void> => {
+        console.log("session destroyed");
+      },
+      save: async (): Promise<void> => {
+        console.log("session saved");
+      },
+    }));
 
     const matchesPublicationDateRange = (
       jobListResult: JobListResult,

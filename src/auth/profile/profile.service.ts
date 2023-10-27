@@ -702,7 +702,7 @@ export class ProfileService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MATCH (:User {wallet: $wallet})
+        MATCH (user:User {wallet: $wallet})
         CREATE (user)-[r:APPLIED_TO]->(:StructuredJobpost {shortUUID: $shortUUID})
         SET r.timestamp = timestamp()
       `,
@@ -736,7 +736,7 @@ export class ProfileService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MATCH (:User {wallet: $wallet})
+        MATCH (user:User {wallet: $wallet})
         CREATE (user)-[r:BOOKMARKED]->(:StructuredJobpost {shortUUID: $shortUUID})
         SET r.timestamp = timestamp()
       `,
@@ -772,7 +772,7 @@ export class ProfileService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MATCH (:User {wallet: $wallet})
+        MATCH (user:User {wallet: $wallet})
         CREATE (user)-[r:VIEWED_DETAILS]->(:StructuredJobpost {shortUUID: $shortUUID})
         SET r.timestamp = timestamp()
       `,
@@ -797,7 +797,7 @@ export class ProfileService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MATCH (:User {wallet: $wallet})
+        MATCH (user:User {wallet: $wallet})
         CREATE (user)-[r:DID_SEARCH]->(:SearchHistory {query: $query})
         SET r.timestamp = timestamp()
       `,

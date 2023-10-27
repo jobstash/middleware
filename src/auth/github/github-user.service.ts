@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { GithubUserEntity, RepositoryEntity } from "../../shared/entities";
+import { RepositoryEntity } from "../../shared/entities";
 import { CustomLogger } from "../../shared/utils/custom-logger";
 import {
   GithubUserEntity as GithubUserNode,
@@ -50,8 +50,6 @@ export class GithubUserService {
       }
       const githubUserNode = await this.findByLogin(updateObject.githubLogin);
 
-      let persistedGithubNode: GithubUserEntity;
-
       const payload = {
         id: updateObject.githubId,
         login: updateObject.githubLogin,
@@ -69,16 +67,10 @@ export class GithubUserService {
           return { success: false, message: "Github data is identical" };
         }
 
-        persistedGithubNode = await this.update(
-          githubUserNode.getId(),
-          payload,
-        );
+        await this.update(githubUserNode.getId(), payload);
       } else {
-        persistedGithubNode = await this.create(payload);
-        await this.userService.addGithubUser(
-          storedUserNode.getId(),
-          persistedGithubNode.getId(),
-        );
+        await this.create(payload);
+        await this.userService.addGithubUser(wallet, updateObject.githubLogin);
       }
 
       return {
