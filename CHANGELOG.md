@@ -1,3 +1,10 @@
+# [1.52.0](https://github.com/jobstash/middleware/compare/v1.51.3...v1.52.0) (2023-10-27)
+
+
+### Features
+
+* **jobs:** added s'more tests ([4325817](https://github.com/jobstash/middleware/commit/4325817d779664607f8141955b2da3bb67534f64))
+
 ## [1.51.3](https://github.com/jobstash/middleware/compare/v1.51.2...v1.51.3) (2023-10-27)
 
 
