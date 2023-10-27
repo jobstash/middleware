@@ -1,3 +1,10 @@
+## [1.51.3](https://github.com/jobstash/middleware/compare/v1.51.2...v1.51.3) (2023-10-27)
+
+
+### Bug Fixes
+
+* **filters:** fixed issue with seniority filter config generator query ([127e5e2](https://github.com/jobstash/middleware/commit/127e5e21aa1370626a6e688edf883457605da813))
+
 ## [1.51.2](https://github.com/jobstash/middleware/compare/v1.51.1...v1.51.2) (2023-10-26)
 
 
