@@ -36,7 +36,7 @@ export class OrgListResultEntity {
       createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
       updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
       projects:
-        projects.map(project => ({
+        projects?.map(project => ({
           ...project,
           defiLlamaId: notStringOrNull(project?.defiLlamaId),
           defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug),

@@ -44,7 +44,7 @@ export class AllJobListResultEntity {
         createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
         updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
         projects:
-          organization.projects.map(project => ({
+          organization?.projects?.map(project => ({
             ...project,
             defiLlamaId: notStringOrNull(project?.defiLlamaId),
             defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug),
