@@ -1,3 +1,10 @@
+## [1.52.3](https://github.com/jobstash/middleware/compare/v1.52.2...v1.52.3) (2023-10-28)
+
+
+### Bug Fixes
+
+* **jobs:** fixed issue with orgs interface ([5116120](https://github.com/jobstash/middleware/commit/5116120a1bd296437e991501e5583c32306d216c))
+
 ## [1.52.2](https://github.com/jobstash/middleware/compare/v1.52.1...v1.52.2) (2023-10-28)
 
 
