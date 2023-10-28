@@ -373,7 +373,7 @@ export function propertiesMatch<T extends object, U extends object>(
   return true;
 }
 
-export function normalizeString(name: string): string {
+export function normalizeString(original: string | null): string | null {
   const specialChars = "!@#$%^&*()-+=,";
   const charToStringMap = new Map([
     ["!", "_bang_"],
@@ -392,10 +392,10 @@ export function normalizeString(name: string): string {
     ["=", "_equals_"],
   ]);
   // Remove all spaces and punctuation from the name and lowercase the string
-  if (!name) {
-    throw new Error("Tag name is required");
+  if (!original) {
+    return null;
   }
-  const normalizedName = name
+  const normalized = original
     .split("")
     .map(x => {
       if (specialChars.includes(x)) {
@@ -405,5 +405,5 @@ export function normalizeString(name: string): string {
       }
     })
     .join("");
-  return normalizedName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+  return normalized.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
 }

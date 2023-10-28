@@ -316,7 +316,8 @@ export class JobsService {
         (!organizationFilterList ||
           organizationFilterList.includes(normalizeString(orgName))) &&
         (!seniorityFilterList ||
-          seniorityFilterList.includes(normalizeString(seniority))) &&
+          (seniority !== null &&
+            seniorityFilterList.includes(normalizeString(seniority)))) &&
         (!locationFilterList ||
           locationFilterList.includes(normalizeString(locationType))) &&
         (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
