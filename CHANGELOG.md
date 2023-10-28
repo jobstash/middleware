@@ -1,3 +1,10 @@
+## [1.52.2](https://github.com/jobstash/middleware/compare/v1.52.1...v1.52.2) (2023-10-28)
+
+
+### Bug Fixes
+
+* **job:** revert temp fix on seniority filter bug ([a1f55d1](https://github.com/jobstash/middleware/commit/a1f55d12ea83fc0e97c64e959157212908665536))
+
 ## [1.52.1](https://github.com/jobstash/middleware/compare/v1.52.0...v1.52.1) (2023-10-28)
 
 
