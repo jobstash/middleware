@@ -1,3 +1,10 @@
+## [1.52.1](https://github.com/jobstash/middleware/compare/v1.52.0...v1.52.1) (2023-10-28)
+
+
+### Bug Fixes
+
+* **jobs:** temp fix for seniority filter borkage ([09dd13e](https://github.com/jobstash/middleware/commit/09dd13ec867b849b0d20b91392ffc19b9f77cdbc))
+
 # [1.52.0](https://github.com/jobstash/middleware/compare/v1.51.3...v1.52.0) (2023-10-27)
 
 
