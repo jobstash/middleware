@@ -280,16 +280,86 @@ export class OrganizationsService {
     }
   }
 
-  async getOrgDetailsById(id: string): Promise<OrgListResult | undefined> {
+  async getOrgDetailsById(orgId: string): Promise<OrgListResult | undefined> {
     try {
-      return (await this.getOrgListResults()).find(org => org.orgId === id);
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (organization:Organization {orgId: $orgId})
+          RETURN organization {
+            .*,
+            discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+            website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+            docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+            telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+            github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
+            alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
+            twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+            fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
+            investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
+            jobs: [
+              (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | structured_jobpost {
+                id: structured_jobpost.id,
+                url: structured_jobpost.url,
+                title: structured_jobpost.title,
+                salary: structured_jobpost.salary,
+                culture: structured_jobpost.culture,
+                location: structured_jobpost.location,
+                summary: structured_jobpost.summary,
+                benefits: structured_jobpost.benefits,
+                shortUUID: structured_jobpost.shortUUID,
+                seniority: structured_jobpost.seniority,
+                description: structured_jobpost.description,
+                requirements: structured_jobpost.requirements,
+                paysInCrypto: structured_jobpost.paysInCrypto,
+                minimumSalary: structured_jobpost.minimumSalary,
+                maximumSalary: structured_jobpost.maximumSalary,
+                salaryCurrency: structured_jobpost.salaryCurrency,
+                responsibilities: structured_jobpost.responsibilities,
+                offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+                timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+                classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
+                commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
+                locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
+                tags: [(structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }]
+              }
+            ],
+            projects: [
+              (organization)-[:HAS_PROJECT]->(project) | project {
+                .*,
+                orgId: organization.orgId,
+                discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
+                category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                hacks: [
+                  (project)-[:HAS_HACK]->(hack) | hack { .* }
+                ],
+                audits: [
+                  (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                ],
+                chains: [
+                  (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                ]
+              }
+            ],
+            tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }]
+          } as res
+        `,
+        { orgId },
+      );
+      return new OrgListResultEntity(
+        result.records[0]?.get("res"),
+      ).getProperties();
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
           source: "jobs.service",
         });
-        scope.setExtra("input", id);
+        scope.setExtra("input", orgId);
         Sentry.captureException(err);
       });
       this.logger.error(
