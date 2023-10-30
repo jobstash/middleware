@@ -1,3 +1,10 @@
+## [1.52.6](https://github.com/jobstash/middleware/compare/v1.52.5...v1.52.6) (2023-10-30)
+
+
+### Bug Fixes
+
+* **orgs:** fixed inefficient lookup method of org details ([89b5a32](https://github.com/jobstash/middleware/commit/89b5a32b8d8961976ad5ca240f971b4f706c1eb4))
+
 ## [1.52.5](https://github.com/jobstash/middleware/compare/v1.52.4...v1.52.5) (2023-10-30)
 
 
