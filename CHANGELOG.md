@@ -1,3 +1,10 @@
+## [1.52.4](https://github.com/jobstash/middleware/compare/v1.52.3...v1.52.4) (2023-10-30)
+
+
+### Bug Fixes
+
+* **jobs:** temp disable hacks and audits filters ([992f944](https://github.com/jobstash/middleware/commit/992f94469f142f255cd199bfe3750541fcad4f60))
+
 ## [1.52.3](https://github.com/jobstash/middleware/compare/v1.52.2...v1.52.3) (2023-10-28)
 
 
