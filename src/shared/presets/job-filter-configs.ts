@@ -127,7 +127,7 @@ export const FILTER_CONFIG_PRESETS = {
   audits: {
     position: 9,
     label: "Audits",
-    show: true,
+    show: false,
     googleAnalyticsEventName: "filter_joblist_audits",
     kind: FilterKind.SINGLE_SELECT,
     options: SINGLE_SELECT_OPTIONS.audits,
@@ -135,7 +135,7 @@ export const FILTER_CONFIG_PRESETS = {
   hacks: {
     position: 10,
     label: "Hacks",
-    show: true,
+    show: false,
     googleAnalyticsEventName: "filter_joblist_hacks",
     kind: FilterKind.SINGLE_SELECT,
     options: SINGLE_SELECT_OPTIONS.hacks,
