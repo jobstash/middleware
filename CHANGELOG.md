@@ -1,3 +1,10 @@
+## [1.52.5](https://github.com/jobstash/middleware/compare/v1.52.4...v1.52.5) (2023-10-30)
+
+
+### Bug Fixes
+
+* **organizations:** fixed a weird artifact from way back on org filter configs query ([f8068d3](https://github.com/jobstash/middleware/commit/f8068d3ed54e7524eeef1f78d982e4b80540959c))
+
 ## [1.52.4](https://github.com/jobstash/middleware/compare/v1.52.3...v1.52.4) (2023-10-30)
 
 
