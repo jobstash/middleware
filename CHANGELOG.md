@@ -1,3 +1,10 @@
+## [1.52.10](https://github.com/jobstash/middleware/compare/v1.52.9...v1.52.10) (2023-10-31)
+
+
+### Bug Fixes
+
+* **lists:** moved over the pagination logic to a global helper and wrote a test to prevent a regression to the previous bug ([5462ffb](https://github.com/jobstash/middleware/commit/5462ffb9f5ce6ed2d1886cdbcb3a2e23131b063f))
+
 ## [1.52.9](https://github.com/jobstash/middleware/compare/v1.52.8...v1.52.9) (2023-10-31)
 
 
