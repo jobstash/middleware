@@ -1,8 +1,8 @@
 import {
   FundingRound,
+  OrgJob,
   OrganizationWithRelations,
   ProjectMoreInfo,
-  StructuredJobpostWithRelations,
   Tag,
 } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
@@ -10,7 +10,7 @@ import { OrgListResult } from "../interfaces/org-list-result.interface";
 import { Investor } from "../interfaces/investor.interface";
 
 type RawOrg = OrganizationWithRelations & {
-  jobs?: StructuredJobpostWithRelations[] | null;
+  jobs?: OrgJob[] | null;
   tags: Tag[];
   projects?: ProjectMoreInfo[] | null;
   investors?: Investor[] | null;
@@ -102,13 +102,10 @@ export class OrgListResultEntity {
         minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
         maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
         seniority: notStringOrNull(jobpost?.seniority, ["", "undefined"]),
-        culture: notStringOrNull(jobpost?.culture, ["", "undefined"]),
         salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
         paysInCrypto: jobpost?.paysInCrypto ?? null,
         offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
         commitment: notStringOrNull(jobpost?.commitment),
-        timestamp: nonZeroOrNull(jobpost?.timestamp),
-        url: notStringOrNull(jobpost?.url),
         title: notStringOrNull(jobpost?.title),
       })),
       tags: tags ?? [],

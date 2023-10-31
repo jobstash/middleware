@@ -18,6 +18,7 @@ export * from "./org-repos.interface";
 export * from "./tag.interface";
 export * from "./tag-pair.interface";
 export * from "./organization.interface";
+export * from "./org-job.interface";
 export * from "./funding-round.interface";
 export * from "./github-profile.interface";
 export * from "./paginated-data.interface";

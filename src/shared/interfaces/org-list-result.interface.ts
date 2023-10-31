@@ -4,30 +4,27 @@ import {
   getSchemaPath,
 } from "@nestjs/swagger";
 import { OrganizationWithRelations } from "./organization.interface";
-import { StructuredJobpost } from "./structured-jobpost.interface";
 import * as t from "io-ts";
 import { isLeft } from "fp-ts/lib/Either";
 import { Tag } from "./tag.interface";
 import { report } from "io-ts-human-reporter";
-import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relations.interface";
+import { OrgJob } from "./org-job.interface";
 
-@ApiExtraModels(OrganizationWithRelations, OrgListResult)
+@ApiExtraModels(OrganizationWithRelations, OrgListResult, OrgJob)
 export class OrgListResult extends OrganizationWithRelations {
   public static readonly OrgListResultType = t.intersection([
     OrganizationWithRelations.OrganizationWithRelationsType,
     t.strict({
-      jobs: t.array(
-        StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
-      ),
+      jobs: t.array(OrgJob.OrgJobType),
       tags: t.array(Tag.TagType),
     }),
   ]);
 
   @ApiPropertyOptional({
     type: "array",
-    items: { $ref: getSchemaPath(StructuredJobpost) },
+    items: { $ref: getSchemaPath(OrgJob) },
   })
-  jobs: StructuredJobpostWithRelations[];
+  jobs: OrgJob[];
 
   @ApiPropertyOptional({
     type: "array",
