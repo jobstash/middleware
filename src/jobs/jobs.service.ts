@@ -9,9 +9,9 @@ import {
   AllJobsFilterConfigsEntity,
 } from "src/shared/entities";
 import {
-  intConverter,
   normalizeString,
   notStringOrNull,
+  paginate,
   publicationDateRangeGenerator,
 } from "src/shared/helpers";
 import {
@@ -428,17 +428,11 @@ export class JobsService {
       final = sort<JobListResult>(filtered).asc(getSortParam);
     }
 
-    return {
-      page: (final.length > 0 ? params.page ?? 1 : -1) ?? -1,
-      count: limit > final.length ? final.length : limit,
-      total: final.length ? intConverter(final.length) : 0,
-      data: final
-        .slice(
-          page > 1 ? (page - 1) * limit : 0,
-          page === 1 ? limit : (page + 1) * limit,
-        )
-        .map(x => new JobListResultEntity(x).getProperties()),
-    };
+    return paginate<JobListResult>(
+      page,
+      limit,
+      final.map(x => new JobListResultEntity(x).getProperties()),
+    );
   }
 
   async getFilterConfigs(): Promise<JobFilterConfigs> {
@@ -637,17 +631,11 @@ export class JobsService {
 
     const final = sort<AllJobsListResult>(filtered).desc(job => job.timestamp);
 
-    return {
-      page: (final.length > 0 ? params.page ?? 1 : -1) ?? -1,
-      count: limit > final.length ? final.length : limit,
-      total: final.length ? intConverter(final.length) : 0,
-      data: final
-        .slice(
-          page > 1 ? (page - 1) * limit : 0,
-          page === 1 ? limit : (page + 1) * limit,
-        )
-        .map(x => new AllJobListResultEntity(x).getProperties()),
-    };
+    return paginate<AllJobsListResult>(
+      page,
+      limit,
+      final.map(x => new AllJobListResultEntity(x).getProperties()),
+    );
   }
 
   async getAllJobsFilterConfigs(): Promise<AllJobsFilterConfigs> {

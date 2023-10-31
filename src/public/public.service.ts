@@ -5,7 +5,7 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import { ModelService } from "src/model/model.service";
 import { JobListResultEntity } from "src/shared/entities";
-import { intConverter } from "src/shared/helpers";
+import { paginate } from "src/shared/helpers";
 import { JobListResult, PaginatedData } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 
@@ -155,16 +155,10 @@ export class PublicService {
 
     const final = sort<JobListResult>(results).desc(job => job.timestamp);
 
-    return {
-      page: (final.length > 0 ? params.page ?? 1 : -1) ?? -1,
-      count: limit > final.length ? final.length : limit,
-      total: final.length ? intConverter(final.length) : 0,
-      data: final
-        .slice(
-          page > 1 ? (page - 1) * limit : 0,
-          page === 1 ? limit : (page + 1) * limit,
-        )
-        .map(x => new JobListResultEntity(x).getProperties()),
-    };
+    return paginate<JobListResult>(
+      page,
+      limit,
+      final.map(x => new JobListResultEntity(x).getProperties()),
+    );
   }
 }

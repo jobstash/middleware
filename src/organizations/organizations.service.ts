@@ -13,7 +13,7 @@ import {
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { OrgListParams } from "./dto/org-list.input";
-import { intConverter, normalizeString, toShortOrg } from "src/shared/helpers";
+import { normalizeString, paginate, toShortOrg } from "src/shared/helpers";
 import { OrganizationEntity, RepositoryEntity } from "src/shared/entities";
 import { createNewSortInstance, sort } from "fast-sort";
 import { ModelService } from "src/model/model.service";
@@ -224,17 +224,11 @@ export class OrganizationsService {
       );
     }
 
-    return {
-      page: (final.length > 0 ? page ?? 1 : -1) ?? -1,
-      count: limit > final.length ? final.length : limit,
-      total: final.length ? intConverter(final.length) : 0,
-      data: final
-        .slice(
-          page > 1 ? (page - 1) * limit : 0,
-          page === 1 ? limit : (page + 1) * limit,
-        )
-        .map(x => new ShortOrgEntity(toShortOrg(x)).getProperties()),
-    };
+    return paginate<ShortOrg>(
+      page,
+      limit,
+      final.map(x => new ShortOrgEntity(toShortOrg(x)).getProperties()),
+    );
   }
 
   async getFilterConfigs(): Promise<OrgFilterConfigs> {

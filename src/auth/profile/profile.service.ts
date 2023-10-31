@@ -18,7 +18,7 @@ import {
 } from "src/shared/interfaces";
 import { UpdateUserProfileInput } from "./dto/update-profile.input";
 import { ReviewListParams } from "./dto/review-list.input";
-import { intConverter } from "src/shared/helpers";
+import { paginate } from "src/shared/helpers";
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { ReviewOrgSalaryInput } from "./dto/review-org-salary.input";
@@ -140,15 +140,7 @@ export class ProfileService {
       );
 
       const { page, limit } = params;
-      return {
-        page: (final.length > 0 ? page ?? 1 : -1) ?? -1,
-        count: (limit > final.length ? final.length : limit) ?? 0,
-        total: final.length ? intConverter(final.length) : 0,
-        data: final.slice(
-          page > 1 ? (page - 1) * limit : 0,
-          page === 1 ? limit : (page + 1) * limit,
-        ),
-      };
+      return paginate<OrgReview>(page, limit, final);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -202,15 +194,7 @@ export class ProfileService {
       );
 
       const { page, limit } = params;
-      return {
-        page: (final.length > 0 ? page ?? 1 : -1) ?? -1,
-        count: (limit > final.length ? final.length : limit) ?? 0,
-        total: final.length ? intConverter(final.length) : 0,
-        data: final.slice(
-          page > 1 ? (page - 1) * limit : 0,
-          page === 1 ? limit : (page + 1) * limit,
-        ),
-      };
+      return paginate<UserRepo>(page, limit, final);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({

@@ -17,7 +17,7 @@ import {
 import { getSchemaPath } from "@nestjs/swagger";
 import { Response } from "../interfaces/response.interface";
 import { CustomLogger } from "../utils/custom-logger";
-import { OrgListResult, ShortOrg } from "../interfaces";
+import { OrgListResult, PaginatedData, ShortOrg } from "../interfaces";
 import { sort } from "fast-sort";
 import { TransformFnParams } from "class-transformer";
 
@@ -407,3 +407,16 @@ export function normalizeString(original: string | null): string | null {
     .join("");
   return normalized.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
 }
+
+export const paginate = <T>(
+  page: number,
+  limit: number,
+  data: T[],
+): PaginatedData<T> => {
+  return {
+    page: (data.length > 0 ? page ?? 1 : -1) ?? -1,
+    count: limit > data.length ? data.length : limit,
+    total: data.length,
+    data: data.slice((page - 1) * limit, page * limit),
+  };
+};
