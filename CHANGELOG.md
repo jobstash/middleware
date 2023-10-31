@@ -1,3 +1,10 @@
+## [1.52.7](https://github.com/jobstash/middleware/compare/v1.52.6...v1.52.7) (2023-10-31)
+
+
+### Bug Fixes
+
+* **orgs:** removed redundant params on orgs list ([a6ba8c4](https://github.com/jobstash/middleware/commit/a6ba8c49e98ce564a15edc623d0d377868d4676b))
+
 ## [1.52.6](https://github.com/jobstash/middleware/compare/v1.52.5...v1.52.6) (2023-10-30)
 
 
