@@ -107,6 +107,7 @@ export class OrgListResultEntity {
         offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
         commitment: notStringOrNull(jobpost?.commitment),
         title: notStringOrNull(jobpost?.title),
+        timestamp: nonZeroOrNull(jobpost?.timestamp),
       })),
       tags: tags ?? [],
     });
