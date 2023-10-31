@@ -1,3 +1,10 @@
+## [1.52.9](https://github.com/jobstash/middleware/compare/v1.52.8...v1.52.9) (2023-10-31)
+
+
+### Bug Fixes
+
+* **lists:** fixed off-by-1 pagination bug on all list endpoints ([625520d](https://github.com/jobstash/middleware/commit/625520dba1668080f056bc9d1b9798b881fe09cb))
+
 ## [1.52.8](https://github.com/jobstash/middleware/compare/v1.52.7...v1.52.8) (2023-10-31)
 
 
