@@ -1,3 +1,10 @@
+## [1.52.8](https://github.com/jobstash/middleware/compare/v1.52.7...v1.52.8) (2023-10-31)
+
+
+### Bug Fixes
+
+* **orgs:** fixed bugs introduced by last commit ([0f241c7](https://github.com/jobstash/middleware/commit/0f241c7b8287d278cd55affd64455529e17c32e6))
+
 ## [1.52.7](https://github.com/jobstash/middleware/compare/v1.52.6...v1.52.7) (2023-10-31)
 
 
