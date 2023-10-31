@@ -145,7 +145,7 @@ export class ProfileService {
         count: (limit > final.length ? final.length : limit) ?? 0,
         total: final.length ? intConverter(final.length) : 0,
         data: final.slice(
-          page > 1 ? page * limit : 0,
+          page > 1 ? (page - 1) * limit : 0,
           page === 1 ? limit : (page + 1) * limit,
         ),
       };
@@ -207,7 +207,7 @@ export class ProfileService {
         count: (limit > final.length ? final.length : limit) ?? 0,
         total: final.length ? intConverter(final.length) : 0,
         data: final.slice(
-          page > 1 ? page * limit : 0,
+          page > 1 ? (page - 1) * limit : 0,
           page === 1 ? limit : (page + 1) * limit,
         ),
       };

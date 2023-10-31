@@ -161,7 +161,7 @@ export class PublicService {
       total: final.length ? intConverter(final.length) : 0,
       data: final
         .slice(
-          page > 1 ? page * limit : 0,
+          page > 1 ? (page - 1) * limit : 0,
           page === 1 ? limit : (page + 1) * limit,
         )
         .map(x => new JobListResultEntity(x).getProperties()),
