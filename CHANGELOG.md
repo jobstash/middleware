@@ -1,3 +1,10 @@
+## [1.52.11](https://github.com/jobstash/middleware/compare/v1.52.10...v1.52.11) (2023-11-02)
+
+
+### Bug Fixes
+
+* **models:** added logging for pre and post connection attempts ([4171400](https://github.com/jobstash/middleware/commit/4171400b9e2f7be62d4bbdff18433d9f3f2a93eb))
+
 ## [1.52.10](https://github.com/jobstash/middleware/compare/v1.52.9...v1.52.10) (2023-10-31)
 
 
