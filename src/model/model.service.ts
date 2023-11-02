@@ -93,7 +93,9 @@ export class ModelService implements OnModuleInit {
 
   onModuleInit = async (): Promise<void> => {
     try {
+      this.logger.log("Connection Initiated");
       await this.neogma.verifyConnectivity();
+      this.logger.log("Connection Successfully");
     } catch (e) {
       this.logger.error(e);
     }
