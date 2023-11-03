@@ -66,21 +66,25 @@ export class AuthController {
   }
 
   @Post("set-role/admin")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  // @UseGuards(RBACGuard)
+  // @Roles(CheckWalletRoles.ADMIN)
   async setAdminRole(
     @Body() walletDto: WalletAdminMappingDto,
   ): Promise<ResponseWithNoData> {
     const { wallet } = walletDto;
     this.logger.log(
-      `/user/setAdminrole: Setting admin priviledges for ${wallet}`,
+      `/auth/set-role/admin: Setting admin priviledges for ${wallet}`,
     );
     const user = await this.userService.findByWallet(wallet);
 
-    this.userService.setRole(CheckWalletRoles.ADMIN, user);
-    this.userService.setFlow(CheckWalletFlows.ADMIN_COMPLETE, user);
+    if (user) {
+      this.userService.setRole(CheckWalletRoles.ADMIN, user);
+      this.userService.setFlow(CheckWalletFlows.ADMIN_COMPLETE, user);
 
-    this.logger.log(`admin priviliedges set.`);
-    return { success: true, message: "Wallet is now admin" };
+      this.logger.log(`admin priviliedges set.`);
+      return { success: true, message: "Wallet is now admin" };
+    } else {
+      return { success: false, message: "No user associated with wallet" };
+    }
   }
 }

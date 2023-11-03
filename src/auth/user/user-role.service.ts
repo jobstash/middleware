@@ -14,8 +14,8 @@ export class UserRoleService {
   async find(name: string): Promise<UserRole | undefined> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (ur:UserRole {name: $name})
-        RETURN ur
+      MATCH (ur:UserRole {name: $name})
+      RETURN ur
       `,
       { name },
     );
@@ -28,9 +28,9 @@ export class UserRoleService {
     return this.neogma.queryRunner
       .run(
         `
-            CREATE (ur:UserRole { id: randomUUID() })
-            SET ur += $properties
-            RETURN ur
+        CREATE (ur:UserRole { id: randomUUID() })
+        SET ur += $properties
+        RETURN ur
         `,
         {
           properties: {
@@ -44,9 +44,9 @@ export class UserRoleService {
   async getRoleForWallet(wallet: string): Promise<UserRole | undefined> {
     const res = await this.neogma.queryRunner.run(
       `
-            MATCH (u:User {wallet: $wallet})-[:HAS_ROLE]->(ur:UserRole)
-            RETURN ur
-        `,
+      MATCH (u:User {wallet: $wallet})-[:HAS_ROLE]->(ur:UserRole)
+      RETURN ur
+      `,
       { wallet },
     );
 
@@ -61,11 +61,11 @@ export class UserRoleService {
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (u:User {id: $userId})
-        MATCH (ur:UserRole {id: $userRoleId})
-        u, ur
-        RETURN EXISTS( (u)-[:HAS_ROLE]->(ur) ) AS result
-        `,
+      MATCH (u:User {id: $userId})
+      MATCH (ur:UserRole {id: $userRoleId})
+      u, ur
+      RETURN EXISTS( (u)-[:HAS_ROLE]->(ur) ) AS result
+      `,
       { userId, userRoleId },
     );
 
@@ -78,10 +78,10 @@ export class UserRoleService {
   ): Promise<unknown> {
     return this.neogma.queryRunner.run(
       `
-        MATCH (u:User {id: $userId})
-        MATCH (ur:UserRole {id: $userRoleId})
-        MERGE (u)-[:HAS_ROLE]->(ur)
-        `,
+      MATCH (u:User {id: $userId})
+      MATCH (ur:UserRole {id: $userRoleId})
+      MERGE (u)-[:HAS_ROLE]->(ur)
+      `,
       { userId, userRoleId },
     );
   }
@@ -92,9 +92,9 @@ export class UserRoleService {
   ): Promise<unknown> {
     return this.neogma.queryRunner.run(
       `
-        MATCH (u:User {id: $userId})-[r:HAS_ROLE]-(ur:UserRole {id: $userRoleId})
-        DELETE r
-        `,
+      MATCH (u:User {id: $userId})-[r:HAS_ROLE]-(ur:UserRole {id: $userRoleId})
+      DELETE r
+      `,
       { userId, userRoleId },
     );
   }

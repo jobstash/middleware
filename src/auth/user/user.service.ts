@@ -45,8 +45,18 @@ export class UserService {
     return this.neogma.queryRunner
       .run(
         `
-            MATCH (u:User {id: $id})
-            RETURN u
+        MATCH (u:User {id: $id})
+        OPTIONAL MATCH (user)-[:HAS_GITHUB_USER]->(gu:GithubUser)
+        RETURN u {
+          .*,
+          githubId: gu.id,
+          githubLogin: gu.login,
+          githubNodeId: gu.nodeId,
+          githubAvatarUrl: gu.avatarUrl,
+          githubGravatarId: gu.gravatarId,
+          githubAccessToken: gu.accessToken,
+          githubRefreshToken: gu.refreshToken
+        }
         `,
         { id },
       )
@@ -72,8 +82,18 @@ export class UserService {
     return this.neogma.queryRunner
       .run(
         `
-            MATCH (u:User {wallet: $wallet})
-            RETURN u
+        MATCH (u:User {wallet: $wallet})
+        OPTIONAL MATCH (user)-[:HAS_GITHUB_USER]->(gu:GithubUser)
+        RETURN u {
+          .*,
+          githubId: gu.id,
+          githubLogin: gu.login,
+          githubNodeId: gu.nodeId,
+          githubAvatarUrl: gu.avatarUrl,
+          githubGravatarId: gu.gravatarId,
+          githubAccessToken: gu.accessToken,
+          githubRefreshToken: gu.refreshToken
+        }
         `,
         { wallet },
       )
@@ -159,8 +179,17 @@ export class UserService {
     return this.neogma.queryRunner
       .run(
         `
-            MATCH (u:User {githubNodeId: $nodeId})
-            RETURN u
+        MATCH (u:User)-[:HAS_GITHUB_USER]->(gu:GithubUser {nodeId: $nodeId})
+        RETURN u {
+          .*,
+          githubId: gu.id,
+          githubLogin: gu.login,
+          githubNodeId: gu.nodeId,
+          githubAvatarUrl: gu.avatarUrl,
+          githubGravatarId: gu.gravatarId,
+          githubAccessToken: gu.accessToken,
+          githubRefreshToken: gu.refreshToken
+        }
         `,
         { nodeId },
       )
@@ -185,9 +214,18 @@ export class UserService {
   async findByGithubLogin(githubLogin: string): Promise<User | undefined> {
     const res = await this.neogma.queryRunner.run(
       `
-            MATCH (u:User {githubLogin: $githubLogin})
-            RETURN u
-        `,
+      MATCH (u:User)-[:HAS_GITHUB_USER]->(gu:GithubUser {login: $githubLogin})
+      RETURN u {
+        .*,
+        githubId: gu.id,
+        githubLogin: gu.login,
+        githubNodeId: gu.nodeId,
+        githubAvatarUrl: gu.avatarUrl,
+        githubGravatarId: gu.gravatarId,
+        githubAccessToken: gu.accessToken,
+        githubRefreshToken: gu.refreshToken
+      }
+      `,
       { githubLogin },
     );
     return res.records.length
@@ -216,10 +254,10 @@ export class UserService {
     return this.neogma.queryRunner
       .run(
         `
-                MATCH (u:User { id: $id })
-                SET u += $properties
-                RETURN u
-            `,
+        MATCH (u:User { id: $id })
+        SET u += $properties
+        RETURN u
+        `,
         { id, properties },
       )
       .then(res => new UserEntity(res.records[0].get("u")).getProperties());
@@ -397,10 +435,10 @@ export class UserService {
   ): Promise<GithubUserProperties | undefined> {
     const res = await this.neogma.queryRunner.run(
       `
-            MATCH (u:User {wallet: $wallet}), (gu:GithubUser {login: $githubLogin})
-            CREATE (user)-[:HAS_GITHUB_USER]->(gu)
-            RETURN gu
-        `,
+      MATCH (u:User {wallet: $wallet}), (gu:GithubUser {login: $githubLogin})
+      CREATE (user)-[:HAS_GITHUB_USER]->(gu)
+      RETURN gu
+      `,
       { wallet, githubLogin },
     );
 
@@ -415,10 +453,10 @@ export class UserService {
   ): Promise<GithubUserProperties | undefined> {
     const res = await this.neogma.queryRunner.run(
       `
-            MATCH (u:User {id: $userId})-[r:HAS_GITHUB_USER]->(gu:GithubUser {id: $githubUserId})
-            DELETE r
-            RETURN gu
-        `,
+      MATCH (u:User {id: $userId})-[r:HAS_GITHUB_USER]->(gu:GithubUser {id: $githubUserId})
+      DELETE r
+      RETURN gu
+      `,
       { userId, githubUserId },
     );
 

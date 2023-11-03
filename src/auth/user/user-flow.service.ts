@@ -28,9 +28,9 @@ export class UserFlowService {
     return this.neogma.queryRunner
       .run(
         `
-            CREATE (uf:UserFlow { id: randomUUID() })
-            SET uf += $properties
-            RETURN uf
+        CREATE (uf:UserFlow { id: randomUUID() })
+        SET uf += $properties
+        RETURN uf
         `,
         {
           properties: {
@@ -44,9 +44,9 @@ export class UserFlowService {
   async getFlowForWallet(wallet: string): Promise<UserFlow | undefined> {
     const res = await this.neogma.queryRunner.run(
       `
-            MATCH (u:User {wallet: $wallet})-[:HAS_USER_FLOW_STAGE]->(uf:UserFlow)
-            RETURN uf
-        `,
+      MATCH (u:User {wallet: $wallet})-[:HAS_USER_FLOW_STAGE]->(uf:UserFlow)
+      RETURN uf
+      `,
       { wallet },
     );
 
@@ -92,9 +92,9 @@ export class UserFlowService {
   ): Promise<unknown> {
     return this.neogma.queryRunner.run(
       `
-        MATCH (u:User {id: $userId})-[r:HAS_USER_FLOW_STAGE]-(uf:UserFlow {id: $userRoleId})
-        DELETE r
-        `,
+      MATCH (u:User {id: $userId})-[r:HAS_USER_FLOW_STAGE]-(uf:UserFlow {id: $userRoleId})
+      DELETE r
+      `,
       { userId, userRoleId },
     );
   }
