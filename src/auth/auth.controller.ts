@@ -12,7 +12,7 @@ import { MagicAuthStrategy } from "./magic/magic-auth.strategy";
 import { Request, Response } from "express";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { RBACGuard } from "./rbac.guard";
-import { CheckWalletRoles } from "src/shared/enums";
+import { CheckWalletFlows, CheckWalletRoles } from "src/shared/enums";
 import { ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import { ResponseWithNoData, User } from "src/shared/interfaces";
 import { UserService } from "./user/user.service";
@@ -20,9 +20,12 @@ import { SendVerificationEmailInput } from "./dto/send-verification-email.input"
 import { AuthGuard } from "@nestjs/passport";
 import { AuthUser } from "src/shared/decorators/auth-user.decorator";
 import { AuthService } from "./auth.service";
+import { WalletAdminMappingDto } from "./user/dto/wallet-admin-mapping-request.dto";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Controller("auth")
 export class AuthController {
+  private logger = new CustomLogger(AuthController.name);
   constructor(
     private readonly userService: UserService,
     private readonly authService: AuthService,
@@ -60,5 +63,24 @@ export class AuthController {
   })
   async verifyMagicLink(@AuthUser() user: User): Promise<User> {
     return user;
+  }
+
+  @Post("set-role/admin")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  async setAdminRole(
+    @Body() walletDto: WalletAdminMappingDto,
+  ): Promise<ResponseWithNoData> {
+    const { wallet } = walletDto;
+    this.logger.log(
+      `/user/setAdminrole: Setting admin priviledges for ${wallet}`,
+    );
+    const user = await this.userService.findByWallet(wallet);
+
+    this.userService.setRole(CheckWalletRoles.ADMIN, user);
+    this.userService.setFlow(CheckWalletFlows.ADMIN_COMPLETE, user);
+
+    this.logger.log(`admin priviliedges set.`);
+    return { success: true, message: "Wallet is now admin" };
   }
 }

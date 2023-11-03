@@ -387,6 +387,8 @@ export function normalizeString(original: string | null): string | null {
     ["*", "_asterisk_"],
     ["(", "_lparen_"],
     [")", "_rparen_"],
+    ["<", "_langle_"],
+    [">", "_rangle_"],
     ["-", "_hyphen_"],
     ["+", "_plus_"],
     ["=", "_equals_"],
