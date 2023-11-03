@@ -1,3 +1,10 @@
+## [1.53.1](https://github.com/jobstash/middleware/compare/v1.53.0...v1.53.1) (2023-11-03)
+
+
+### Bug Fixes
+
+* fixed bugs on auth infra ([9943ac4](https://github.com/jobstash/middleware/commit/9943ac4ace6c975427b6498ce251c3533324f5e8))
+
 # [1.53.0](https://github.com/jobstash/middleware/compare/v1.52.11...v1.53.0) (2023-11-03)
 
 
