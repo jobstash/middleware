@@ -1,3 +1,10 @@
+# [1.53.0](https://github.com/jobstash/middleware/compare/v1.52.11...v1.53.0) (2023-11-03)
+
+
+### Features
+
+* added back in the set admin endpoint ([f6f7bc9](https://github.com/jobstash/middleware/commit/f6f7bc955b09c03ac7da55f445048fec6f11b0b0))
+
 ## [1.52.11](https://github.com/jobstash/middleware/compare/v1.52.10...v1.52.11) (2023-11-02)
 
 
