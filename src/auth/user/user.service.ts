@@ -46,17 +46,7 @@ export class UserService {
       .run(
         `
         MATCH (u:User {id: $id})
-        OPTIONAL MATCH (user)-[:HAS_GITHUB_USER]->(gu:GithubUser)
-        RETURN u {
-          .*,
-          githubId: gu.id,
-          githubLogin: gu.login,
-          githubNodeId: gu.nodeId,
-          githubAvatarUrl: gu.avatarUrl,
-          githubGravatarId: gu.gravatarId,
-          githubAccessToken: gu.accessToken,
-          githubRefreshToken: gu.refreshToken
-        }
+        RETURN u
         `,
         { id },
       )
@@ -83,17 +73,7 @@ export class UserService {
       .run(
         `
         MATCH (u:User {wallet: $wallet})
-        OPTIONAL MATCH (user)-[:HAS_GITHUB_USER]->(gu:GithubUser)
-        RETURN u {
-          .*,
-          githubId: gu.id,
-          githubLogin: gu.login,
-          githubNodeId: gu.nodeId,
-          githubAvatarUrl: gu.avatarUrl,
-          githubGravatarId: gu.gravatarId,
-          githubAccessToken: gu.accessToken,
-          githubRefreshToken: gu.refreshToken
-        }
+        RETURN u
         `,
         { wallet },
       )
@@ -179,17 +159,8 @@ export class UserService {
     return this.neogma.queryRunner
       .run(
         `
-        MATCH (u:User)-[:HAS_GITHUB_USER]->(gu:GithubUser {nodeId: $nodeId})
-        RETURN u {
-          .*,
-          githubId: gu.id,
-          githubLogin: gu.login,
-          githubNodeId: gu.nodeId,
-          githubAvatarUrl: gu.avatarUrl,
-          githubGravatarId: gu.gravatarId,
-          githubAccessToken: gu.accessToken,
-          githubRefreshToken: gu.refreshToken
-        }
+        MATCH (u:User)-[:HAS_GITHUB_USER]->(:GithubUser {nodeId: $nodeId})
+        RETURN u
         `,
         { nodeId },
       )
@@ -214,17 +185,8 @@ export class UserService {
   async findByGithubLogin(githubLogin: string): Promise<User | undefined> {
     const res = await this.neogma.queryRunner.run(
       `
-      MATCH (u:User)-[:HAS_GITHUB_USER]->(gu:GithubUser {login: $githubLogin})
-      RETURN u {
-        .*,
-        githubId: gu.id,
-        githubLogin: gu.login,
-        githubNodeId: gu.nodeId,
-        githubAvatarUrl: gu.avatarUrl,
-        githubGravatarId: gu.gravatarId,
-        githubAccessToken: gu.accessToken,
-        githubRefreshToken: gu.refreshToken
-      }
+      MATCH (u:User)-[:HAS_GITHUB_USER]->(:GithubUser {login: $githubLogin})
+      RETURN u
       `,
       { githubLogin },
     );
@@ -344,8 +306,11 @@ export class UserService {
 
   async createSIWEUser(wallet: string): Promise<User | undefined> {
     try {
-      this.logger.log(`/user/createUser: Creating user with wallet ${wallet}`);
+      this.logger.log(
+        `/user/createSIWEUser: Creating user with wallet ${wallet}`,
+      );
       const storedUser = await this.findByWallet(wallet);
+      this.logger.log(JSON.stringify(storedUser));
 
       if (storedUser) {
         return storedUser.getProperties();
