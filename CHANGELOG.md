@@ -1,3 +1,11 @@
+## [1.53.2](https://github.com/jobstash/middleware/compare/v1.53.1...v1.53.2) (2023-11-04)
+
+
+### Bug Fixes
+
+* fixed a bug in user creation service ([f9c35d8](https://github.com/jobstash/middleware/commit/f9c35d83b32c2c4f595a95a5b0f1878cb20939c3))
+* remove certs from git history ([f5e4de2](https://github.com/jobstash/middleware/commit/f5e4de204e0cfff8752cfe83df4e6e6a24c19890))
+
 ## [1.53.1](https://github.com/jobstash/middleware/compare/v1.53.0...v1.53.1) (2023-11-03)
 
 
