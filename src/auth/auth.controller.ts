@@ -66,8 +66,8 @@ export class AuthController {
   }
 
   @Post("set-role/admin")
-  // @UseGuards(RBACGuard)
-  // @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
   async setAdminRole(
     @Body() walletDto: WalletAdminMappingDto,
   ): Promise<ResponseWithNoData> {
