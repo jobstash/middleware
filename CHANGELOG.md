@@ -1,3 +1,10 @@
+## [1.53.3](https://github.com/jobstash/middleware/compare/v1.53.2...v1.53.3) (2023-11-04)
+
+
+### Bug Fixes
+
+* **auth:** fixed a bug in github signup service ([24c7972](https://github.com/jobstash/middleware/commit/24c7972ef16c2a19235e8d8bed3858df5eb6fbf5))
+
 ## [1.53.2](https://github.com/jobstash/middleware/compare/v1.53.1...v1.53.2) (2023-11-04)
 
 
