@@ -1,3 +1,10 @@
+## [1.53.4](https://github.com/jobstash/middleware/compare/v1.53.3...v1.53.4) (2023-11-04)
+
+
+### Bug Fixes
+
+* **auth:** added back auth guard for set admin role endpoint ([0ad5e5f](https://github.com/jobstash/middleware/commit/0ad5e5f38f113ea9140d61792fdf7415c9cbba16))
+
 ## [1.53.3](https://github.com/jobstash/middleware/compare/v1.53.2...v1.53.3) (2023-11-04)
 
 
