@@ -401,7 +401,7 @@ export class UserService {
     const res = await this.neogma.queryRunner.run(
       `
       MATCH (u:User {wallet: $wallet}), (gu:GithubUser {login: $githubLogin})
-      CREATE (user)-[:HAS_GITHUB_USER]->(gu)
+      CREATE (u)-[:HAS_GITHUB_USER]->(gu)
       RETURN gu
       `,
       { wallet, githubLogin },
