@@ -14,7 +14,7 @@ export * from "./filters.interface";
 export * from "./telegram.interface";
 export * from "./investor.interface";
 export * from "./response.interface";
-export * from "./org-repos.interface";
+export * from "./repository.interface";
 export * from "./tag.interface";
 export * from "./tag-pair.interface";
 export * from "./organization.interface";

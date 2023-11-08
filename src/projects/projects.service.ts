@@ -11,6 +11,7 @@ import {
   ProjectListResultEntity,
   ProjectEntity,
   ProjectCompetitorListResultEntity,
+  ResponseWithNoData,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -24,6 +25,8 @@ import { ProjectProps } from "src/shared/models";
 import { UpdateProjectInput } from "./dto/update-project.input";
 import { CreateProjectInput } from "./dto/create-project.input";
 import NotFoundError from "src/shared/errors/not-found-error";
+import { LinkJobsToProjectInput } from "./dto/link-jobs-to-project.dto";
+import { LinkReposToProjectInput } from "./dto/link-repos-to-project.dto";
 
 @Injectable()
 export class ProjectsService {
@@ -439,6 +442,49 @@ export class ProjectsService {
     return new ProjectEntity(res.records[0].get("p"));
   }
 
+  async delete(id: string): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+            MATCH (p:Project { id: $id })
+            OPTIONAL MATCH (p)-[r1:HAS_AUDIT]->(a:Audit)
+            OPTIONAL MATCH (p)-[r2:IS_DEPLOYED_ON]->(c:Chain)
+            OPTIONAL MATCH (p)-[r3:HAS_HACK]->(h:Hack)
+            OPTIONAL MATCH (p)-[r4:HAS_CATEGORY]->(pc:ProjectCategory)
+            OPTIONAL MATCH (p)-[r5:HAS_DISCORD]->(d:Discord)
+            OPTIONAL MATCH (p)-[r5:HAS_DOCSITE]->(doc:DocSite)
+            OPTIONAL MATCH (p)-[r6:HAS_GITHUB]->(g:Github)
+            OPTIONAL MATCH (p)-[r7:HAS_TELEGRAM]->(t:Telegram)
+            OPTIONAL MATCH (p)-[r8:HAS_TWITTER]->(tw:Twitter)
+            OPTIONAL MATCH (p)-[r9:HAS_WEBSITE]->(w:Website)
+            OPTIONAL MATCH (p)-[r10:HAS_JOB]->(:StructuredJobpost)
+            DETACH DELETE p,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,a,c,h,pc,d,doc.g,t,tw,w
+        `,
+        {
+          id,
+        },
+      );
+      return {
+        success: true,
+        message: "Project deleted successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", id);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProjectsService::delete ${err.message}`);
+      return {
+        success: false,
+        message: "Failed delete project",
+      };
+    }
+  }
+
   async hasRelationshipToCategory(
     projectId: string,
     projectCategoryId: string,
@@ -478,5 +524,71 @@ export class ProjectsService {
     const [first] = res.records;
     const project = first.get("project");
     return new ProjectWithRelations(project);
+  }
+
+  async linkJobsToProject(
+    dto: LinkJobsToProjectInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+          MATCH (project: Project {id: $projectId})
+          UNWIND $jobs AS shortUUID
+          CREATE (project)-[:HAS_JOB]->(:StructuredJobpost {shortUUID: shortUUID})
+        `,
+        { ...dto },
+      );
+      return {
+        success: true,
+        message: "Jobs linked to project successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProjectsService::linkJobsToProject ${err.message}`);
+      return {
+        success: false,
+        message: "Failed to link jobs to project",
+      };
+    }
+  }
+
+  async linkReposToProject(
+    dto: LinkReposToProjectInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+          MATCH (project: Project {id: $projectId})
+          UNWIND $repos AS name
+          CREATE (project)-[:HAS_REPOSITORY]->(:GithubRepository {name: name})
+        `,
+        { ...dto },
+      );
+      return {
+        success: true,
+        message: "Repos linked to project successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProjectsService::linkReposToProject ${err.message}`);
+      return {
+        success: false,
+        message: "Failed to link repos to project",
+      };
+    }
   }
 }
