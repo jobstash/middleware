@@ -1,3 +1,10 @@
+## [1.53.5](https://github.com/jobstash/middleware/compare/v1.53.4...v1.53.5) (2023-11-08)
+
+
+### Bug Fixes
+
+* **tags:** fixed issue with preferred terms ([a0496f4](https://github.com/jobstash/middleware/commit/a0496f439ee09800077ab880f4dedcde8c7404aa))
+
 ## [1.53.4](https://github.com/jobstash/middleware/compare/v1.53.3...v1.53.4) (2023-11-04)
 
 
