@@ -79,9 +79,9 @@ export const Tags = (
               } as res
             `);
           const result = await query.run(neogma.queryRunner);
-          return result.records.map(
-            record => new TagPreference(record.get("res")),
-          );
+          return result.records[0]?.get("res")
+            ? result.records.map(record => new TagPreference(record.get("res")))
+            : [];
         },
         getPairedTags: async function (): Promise<TagPair[]> {
           const query = new QueryBuilder().match({
