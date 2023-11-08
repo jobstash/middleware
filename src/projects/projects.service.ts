@@ -458,7 +458,7 @@ export class ProjectsService {
             OPTIONAL MATCH (p)-[r8:HAS_TWITTER]->(tw:Twitter)
             OPTIONAL MATCH (p)-[r9:HAS_WEBSITE]->(w:Website)
             OPTIONAL MATCH (p)-[r10:HAS_JOB]->(:StructuredJobpost)
-            DETACH DELETE p,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,a,c,h,pc,d,doc.g,t,tw,w
+            DETACH DELETE p,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,a,c,h,pc,d,doc,g,t,tw,w
         `,
         {
           id,
