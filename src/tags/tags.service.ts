@@ -55,7 +55,7 @@ export class TagsService {
       `,
       { normalizedName },
     );
-    return res.records.length ? new TagEntity(res.records[0].get("t")) : null;
+    return res.records.length ? new TagEntity(res.records[0]?.get("t")) : null;
   }
 
   async findPreferredTagByNormalizedName(
@@ -66,7 +66,7 @@ export class TagsService {
         MATCH (pt:Tag {normalizedName: $normalizedPreferredName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
         RETURN {
           tag: pt { .* },
-          synonyms: [(tag)<-[:IS_SYNONYM_OF]-(synonym: Tag) | synonym { .* }]
+          synonyms: [(pt)<-[:IS_SYNONYM_OF]-(synonym: Tag) | synonym { .* }]
         } as res
       `,
       { normalizedPreferredName },
@@ -76,13 +76,15 @@ export class TagsService {
       : null;
   }
 
-  async findBlockedTagByName(name: string): Promise<TagEntity | null> {
+  async findBlockedTagByNormalizedName(
+    normalizedName: string,
+  ): Promise<TagEntity | null> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (bt:Tag {name: $name})-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        MATCH (bt:Tag {normalizedName: $normalizedName})-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
         RETURN bt
       `,
-      { name },
+      { normalizedName },
     );
     return res.records.length ? new TagEntity(res.records[0].get("bt")) : null;
   }
@@ -171,159 +173,162 @@ export class TagsService {
       .then(res => new TagEntity(res.records[0].get("t")));
   }
 
-  async blockTag(name: string, creatorWallet: string): Promise<TagEntity> {
+  async blockTag(
+    normalizedName: string,
+    creatorWallet: string,
+  ): Promise<TagEntity> {
     return this.neogma.queryRunner
       .run(
         `
-          MATCH (:Tag {name: $name})-[r:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+          MATCH (bt:Tag {normalizedName: $normalizedName})-[r:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
           DETACH DELETE r
 
-          CREATE (bt:Tag {name: $name})-[r:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+          WITH bt
+          CREATE (bt)-[r:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
           SET r.creator = $creatorWallet
           SET r.timestamp = timestamp()
           RETURN bt
           `,
         {
-          properties: {
-            name,
-            creatorWallet,
-          },
+          normalizedName,
+          creatorWallet,
         },
       )
       .then(res => new TagEntity(res.records[0].get("bt")));
   }
 
-  async preferTag(name: string, creatorWallet: string): Promise<TagEntity> {
+  async preferTag(
+    normalizedName: string,
+    creatorWallet: string,
+  ): Promise<TagEntity> {
     return this.neogma.queryRunner
       .run(
         `
-          CREATE (pt:Tag {name: $name})-[r:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
+          MATCH (pt:Tag {normalizedName: $normalizedName})
+          CREATE (pt)-[r:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
           SET r.creator = $creatorWallet
           SET r.timestamp = timestamp()
           RETURN pt
           `,
         {
-          name,
+          normalizedName,
           creatorWallet,
         },
       )
       .then(res => new TagEntity(res.records[0].get("pt")));
   }
 
-  async hasBlockedRelation(tagNodeId: string): Promise<boolean> {
+  async hasBlockedRelation(normalizedName: string): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        RETURN EXISTS( (t:Tag {id: $tagNodeId})-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation) ) AS result
+        RETURN EXISTS( (:Tag {normalizedName: $normalizedName})-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation) ) AS result
         `,
-      { tagNodeId },
+      { normalizedName },
     );
 
-    return res.records[0]?.get("result") ?? false;
+    return (res.records[0]?.get("result") as boolean) ?? false;
   }
 
-  async hasPreferredRelation(tagNodeId: string): Promise<boolean> {
+  async hasPreferredRelation(normalizedName: string): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        RETURN EXISTS( (t:Tag {id: $tagNodeId})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation) ) AS result
+        RETURN EXISTS( (:Tag {normalizedName: $normalizedName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation) ) AS result
         `,
-      { tagNodeId },
+      { normalizedName },
     );
 
-    return res.records[0]?.get("result") ?? false;
+    return (res.records[0]?.get("result") as boolean) ?? false;
   }
 
   async hasRelationToPreferredTag(
-    preferredNodeId: string,
-    synonymNodeId: string,
+    preferredNormalizedName: string,
+    synonymNormalizedName: string,
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (t:Tag {id: $preferredNodeId})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
-        RETURN EXISTS( (t)<-[:IS_SYNONYM_OF]-(:Tag {id: $synonymNodeId}) ) AS result
+        MATCH (pt:Tag {normalizedName: $preferredNormalizedName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation), (st:Tag {normalizedName: $synonymNormalizedName})
+        RETURN EXISTS( (pt)<-[:IS_SYNONYM_OF]-(st) ) AS result
         `,
-      { preferredNodeId, synonymNodeId },
+      { preferredNormalizedName, synonymNormalizedName },
     );
 
-    return res.records[0]?.get("result") ?? false;
+    return (res.records[0]?.get("result") as boolean) ?? false;
   }
 
   async hasPreferredTagCreatorRelationship(
-    preferredTagNodeId: string,
+    preferredNormalizedName: string,
     wallet: string,
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (:Tag {id: $preferredTagNodeId})-[r:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
+        MATCH (:Tag {normalizedName: $preferredNormalizedName})-[r:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
         RETURN r.creator = $wallet AS result
         `,
-      { preferredTagNodeId, wallet },
+      { preferredNormalizedName, wallet },
     );
 
-    return res.records[0]?.get("result") ?? false;
+    return (res.records[0]?.get("result") as boolean) ?? false;
   }
 
   async hasBlockedTagCreatorRelationship(
-    blockedTagNodeId: string,
+    blockedNormalizedName: string,
     wallet: string,
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (:Tag {id: $blockedTagNodeId})-[r:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        MATCH (:Tag {normalizedName: $blockedNormalizedName})-[r:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
         RETURN r.creator = $wallet AS result
         `,
-      { blockedTagNodeId, wallet },
+      { blockedNormalizedName, wallet },
     );
 
-    return res.records[0]?.get("result") ?? false;
+    return (res.records[0]?.get("result") as boolean) ?? false;
   }
 
   async relatePreferredTagToTag(
-    preferredTagNodeId: string,
-    tagNodeId: string,
+    preferredNormalizedName: string,
+    synonymNormalizedName: string,
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (pt:Tag {id: $preferredTagNodeId})-[r:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
-        MATCH (t:Tag {id: $tagNodeId})
+        MATCH (pt:Tag {normalizedName: $preferredNormalizedName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation), (t:Tag {normalizedName: $synonymNormalizedName})
 
         CREATE (pt)<-[r:IS_SYNONYM_OF]-(t)
         SET r.timestamp = timestamp()
 
         RETURN true as result;
-
-
         `,
-      { preferredTagNodeId, tagNodeId },
+      { preferredNormalizedName, synonymNormalizedName },
     );
 
-    return res.records[0].get("result") as boolean;
+    return res.records[0]?.get("result") as boolean;
   }
 
   async relatePairedTags(
-    normalizedOriginTagNameNodeId: string,
-    normalizedPairTagListNodesIds: string[],
+    normalizedOriginTagName: string,
+    normalizedPairTagNameList: string[],
     creatorWallet: string,
   ): Promise<boolean> {
     try {
       await this.neogma.queryRunner.run(
         `
-          MATCH (t1:Tag {id: $normalizedOriginTagNameNodeId})-[:HAS_TAG_DESIGNATION]->(:PairedDesignation)
+          MATCH (t1:Tag {normalizedName: $normalizedOriginTagName})-[:HAS_TAG_DESIGNATION]->(:PairedDesignation)
 
           OPTIONAL MATCH (t1)-[r:IS_PAIR_OF]->(t2)
           DETACH DELETE r
 
           WITH t1
           
-          UNWIND $normalizedPairTagListNodesIds AS pairTagNodeId
-          MATCH (t2:Tag {id: pairTagNodeId})
+          UNWIND $normalizedPairTagNameList AS pairTagNormalizedName
+          MATCH (t2:Tag {normalizedName: pairTagNormalizedName})
 
           CREATE (t1)-[p:IS_PAIR_OF]->(t2)
           SET p.timestamp = timestamp()
           SET p.creator = $creatorWallet
         `,
         {
-          normalizedOriginTagNameNodeId,
-          normalizedPairTagListNodesIds,
+          normalizedOriginTagName,
+          normalizedPairTagNameList,
           creatorWallet,
         },
       );
@@ -394,47 +399,46 @@ export class TagsService {
   }
 
   async unrelatePreferredTagToTag(
-    preferredTagNodeId: string,
-    tagNodeId: string,
+    preferredNormalizedName: string,
+    synonymNormalizedName: string,
   ): Promise<void> {
     await this.neogma.queryRunner.run(
       `
-      MATCH (pt:Tag {id: $preferredTagNodeId})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
-      MATCH (pt)<-[r:IS_SYNONYM_OF]-(t:Tag {id: $tagNodeId})
+      MATCH (pt:Tag {normalizedName: $preferredNormalizedName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
+      MATCH (pt)<-[r:IS_SYNONYM_OF]-(t:Tag {normalizedName: $synonymNormalizedName})
 
       DETACH DELETE r
       `,
-      { preferredTagNodeId, tagNodeId },
+      { preferredNormalizedName, synonymNormalizedName },
     );
 
     return;
   }
 
-  async unblockTag(blockedTagNodeId: string, wallet: string): Promise<boolean> {
+  async unblockTag(normalizedName: string, wallet: string): Promise<boolean> {
     await this.neogma.queryRunner.run(
       `
-        MATCH (tag:Tag {id: $blockedTagNodeId})-[r:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        MATCH (tag:Tag {normalizedName: $normalizedName})-[r:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
         DETACH DELETE r
 
         CREATE (tag)-[r:HAS_TAG_DESIGNATION]->(:Allowed)
         SET r.creator = $wallet
         SET r.timestamp = timestamp()
       `,
-      { blockedTagNodeId, wallet },
+      { normalizedName, wallet },
     );
 
     return;
   }
 
   async linkSynonyms(
-    firstTagNodeId: string,
-    secondTagNodeId: string,
+    originTagNormalizedName: string,
+    synonymNormalizedName: string,
     synonymSuggesterWallet: string,
   ): Promise<Tag[]> {
     const res = await this.neogma.queryRunner.run(
       `
-      MATCH (t1:Tag {id: $firstTagNodeId})
-      MATCH (t2:Tag {id: $secondTagNodeId})
+      MATCH (t1:Tag {normalizedName: $originTagNormalizedName}), (t2:Tag {normalizedName: $synonymNormalizedName})
       
       CREATE (t1)<-[ts:IS_SYNONYM_OF]-(t2)
 
@@ -444,12 +448,16 @@ export class TagsService {
 
       RETURN t1, t2
       `,
-      { firstTagNodeId, secondTagNodeId, synonymSuggesterWallet },
+      {
+        originTagNormalizedName,
+        synonymNormalizedName,
+        synonymSuggesterWallet,
+      },
     );
 
     if (res.records.length === 0) {
       throw new NotFoundError(
-        `Could not link synonym Tags ${firstTagNodeId} and ${secondTagNodeId}`,
+        `Could not link synonym Tags ${originTagNormalizedName} and ${synonymNormalizedName}`,
       );
     }
 
@@ -461,21 +469,25 @@ export class TagsService {
   }
 
   async unlinkSynonyms(
-    firstTagNodeId: string,
-    secondTagNodeId: string,
-    creatorWallet: string,
+    originTagNormalizedName: string,
+    synonymNormalizedName: string,
+    synonymSuggesterWallet: string,
   ): Promise<Tag[]> {
     await this.neogma.queryRunner.run(
       `
-        MATCH (t1:Tag {id: $firstTagNodeId})<-[syn:IS_SYNONYM_OF]-(t2:Tag {id: $secondTagNodeId})
+        MATCH (t1:Tag {normalizedName: $originTagNormalizedName})<-[syn:IS_SYNONYM_OF]-(t2:Tag {normalizedName: $synonymNormalizedName})
 
-        CREATE (t1:Tag {id: $firstTagNodeId})<-[tds:IS_UNLINKED_SYNONYM_OF]-(t2:Tag {id: $secondTagNodeId})
+        CREATE (t1)<-[tds:IS_UNLINKED_SYNONYM_OF]-(t2)
         SET tds.synonymNodeId = $secondTagNodeId
         SET tds.timestamp = timestamp()
 
         DETACH DELETE syn
       `,
-      { firstTagNodeId, secondTagNodeId, creatorWallet },
+      {
+        originTagNormalizedName,
+        synonymNormalizedName,
+        synonymSuggesterWallet,
+      },
     );
 
     return;

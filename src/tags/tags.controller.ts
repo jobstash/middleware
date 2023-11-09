@@ -276,8 +276,8 @@ export class TagsController {
       }
 
       await this.tagsService.linkSynonyms(
-        firstTagNodeId,
-        secondTagNodeId,
+        firstTagNode.getNormalizedName(),
+        secondTagNode.getNormalizedName(),
         creatorWallet as string,
       );
     } catch (err) {
@@ -316,8 +316,10 @@ export class TagsController {
     );
     for (const tagName of input.tagNameList) {
       try {
+        const blockedNormalizedName =
+          this.tagsService.normalizeTagName(tagName);
         const tag = await this.tagsService.findByNormalizedName(
-          this.tagsService.normalizeTagName(tagName),
+          blockedNormalizedName,
         );
         if (!tag) {
           return {
@@ -325,9 +327,10 @@ export class TagsController {
             message: `Could not block tag ${tagName} because it does not exist.`,
           };
         }
-        const existingBlockedTag = await this.tagsService.findBlockedTagByName(
-          tagName,
-        );
+        const existingBlockedTag =
+          await this.tagsService.findBlockedTagByNormalizedName(
+            blockedNormalizedName,
+          );
         if (existingBlockedTag) {
           return {
             success: false,
@@ -335,7 +338,10 @@ export class TagsController {
           };
         }
 
-        await this.tagsService.blockTag(tagName, creatorWallet as string);
+        await this.tagsService.blockTag(
+          blockedNormalizedName,
+          creatorWallet as string,
+        );
       } catch (err) {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -377,8 +383,10 @@ export class TagsController {
     );
     for (const tagName of input.tagNameList) {
       try {
+        const blockedNormalizedName =
+          this.tagsService.normalizeTagName(tagName);
         const tag = await this.tagsService.findByNormalizedName(
-          this.tagsService.normalizeTagName(tagName),
+          blockedNormalizedName,
         );
         if (!tag) {
           return {
@@ -386,9 +394,10 @@ export class TagsController {
             message: `Could not unblock tag ${tagName} because it does not exist.`,
           };
         }
-        const existingBlockedTag = await this.tagsService.findBlockedTagByName(
-          tagName,
-        );
+        const existingBlockedTag =
+          await this.tagsService.findBlockedTagByNormalizedName(
+            blockedNormalizedName,
+          );
         if (!existingBlockedTag) {
           return {
             success: false,
@@ -397,7 +406,7 @@ export class TagsController {
         }
 
         await this.tagsService.unblockTag(
-          existingBlockedTag.getId(),
+          existingBlockedTag.getNormalizedName(),
           creatorWallet as string,
         );
       } catch (err) {
@@ -471,16 +480,13 @@ export class TagsController {
         };
       }
 
-      const normalizedOriginTagNameNodeId = normalizedOriginTagNameNode.getId();
-      const normalizedPairTagListNodesIds = normalizedPairTagListNodes.map(
-        node => {
-          return node.getId();
-        },
-      );
+      const normalizedPairTagNameList = normalizedPairTagListNodes.map(node => {
+        return node.getNormalizedName();
+      });
 
       await this.tagsService.relatePairedTags(
-        normalizedOriginTagNameNodeId,
-        normalizedPairTagListNodesIds,
+        normalizedOriginTagName,
+        normalizedPairTagNameList,
         creatorWallet as string,
       );
 
@@ -544,13 +550,13 @@ export class TagsController {
         };
       }
 
-      const isPreferred = this.tagsService.hasPreferredRelation(
-        preferredTag.getId(),
+      const isPreferred = await this.tagsService.hasPreferredRelation(
+        preferredTag.getNormalizedName(),
       );
 
       if (!isPreferred) {
         await this.tagsService.preferTag(
-          preferredName,
+          normalizedPreferredName,
           creatorWallet as string,
         );
       }
@@ -581,11 +587,11 @@ export class TagsController {
         // }
 
         await this.tagsService.relatePreferredTagToTag(
-          preferredTag.getId(),
-          storedTagNode.getId(),
+          preferredTag.getNormalizedName(),
+          storedTagNode.getNormalizedName(),
         );
 
-        results.push(preferredTag.getProperties());
+        results.push(storedTagNode.getProperties());
       }
 
       return {
@@ -659,8 +665,8 @@ export class TagsController {
 
         const hasPreferredRelationship =
           await this.tagsService.hasRelationToPreferredTag(
-            existingPreferredTagNameNode.tag.id,
-            storedTagNode.getId(),
+            existingPreferredTagNameNode.tag.normalizedName,
+            storedTagNode.getNormalizedName(),
           );
 
         if (!hasPreferredRelationship) {
@@ -685,8 +691,8 @@ export class TagsController {
         // }
 
         await this.tagsService.unrelatePreferredTagToTag(
-          existingPreferredTagNameNode.tag.id,
-          storedTagNode.getId(),
+          existingPreferredTagNameNode.tag.normalizedName,
+          storedTagNode.getNormalizedName(),
         );
       }
 
