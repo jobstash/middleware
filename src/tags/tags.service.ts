@@ -312,7 +312,10 @@ export class TagsService {
     try {
       await this.neogma.queryRunner.run(
         `
-          MATCH (t1:Tag {normalizedName: $normalizedOriginTagName})-[:HAS_TAG_DESIGNATION]->(:PairedDesignation)
+          MATCH (t1:Tag {normalizedName: $normalizedOriginTagName})
+          MERGE (t1)-[:HAS_TAG_DESIGNATION]->(:PairedDesignation)
+
+          WITH t1
 
           OPTIONAL MATCH (t1)-[r:IS_PAIR_OF]->(t2)
           DETACH DELETE r
@@ -421,9 +424,9 @@ export class TagsService {
         MATCH (tag:Tag {normalizedName: $normalizedName})-[r:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
         DETACH DELETE r
 
-        CREATE (tag)-[r:HAS_TAG_DESIGNATION]->(:Allowed)
-        SET r.creator = $wallet
-        SET r.timestamp = timestamp()
+        CREATE (tag)-[nr:HAS_TAG_DESIGNATION]->(:Allowed)
+        SET nr.creator = $wallet
+        SET nr.timestamp = timestamp()
       `,
       { normalizedName, wallet },
     );
