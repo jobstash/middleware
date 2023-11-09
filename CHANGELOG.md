@@ -1,3 +1,10 @@
+## [1.53.7](https://github.com/jobstash/middleware/compare/v1.53.6...v1.53.7) (2023-11-09)
+
+
+### Bug Fixes
+
+* **tags:** fixed borkages with unblock and pair tags service queries ([a03a66c](https://github.com/jobstash/middleware/commit/a03a66c0ac11bb4c7d72a986022ff97f21389cb0))
+
 ## [1.53.6](https://github.com/jobstash/middleware/compare/v1.53.5...v1.53.6) (2023-11-09)
 
 
