@@ -1,3 +1,10 @@
+## [1.53.6](https://github.com/jobstash/middleware/compare/v1.53.5...v1.53.6) (2023-11-09)
+
+
+### Bug Fixes
+
+* **tags:** fixed bugs in tag godmode services ([212aef0](https://github.com/jobstash/middleware/commit/212aef03f9406c1f8d9e68c77dde71293027b32b))
+
 ## [1.53.5](https://github.com/jobstash/middleware/compare/v1.53.4...v1.53.5) (2023-11-08)
 
 
