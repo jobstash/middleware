@@ -446,19 +446,17 @@ export class ProjectsService {
     try {
       await this.neogma.queryRunner.run(
         `
-            MATCH (p:Project { id: $id })
-            OPTIONAL MATCH (p)-[r1:HAS_AUDIT]->(a:Audit)
-            OPTIONAL MATCH (p)-[r2:IS_DEPLOYED_ON]->(c:Chain)
-            OPTIONAL MATCH (p)-[r3:HAS_HACK]->(h:Hack)
-            OPTIONAL MATCH (p)-[r4:HAS_CATEGORY]->(pc:ProjectCategory)
-            OPTIONAL MATCH (p)-[r5:HAS_DISCORD]->(d:Discord)
-            OPTIONAL MATCH (p)-[r5:HAS_DOCSITE]->(doc:DocSite)
-            OPTIONAL MATCH (p)-[r6:HAS_GITHUB]->(g:Github)
-            OPTIONAL MATCH (p)-[r7:HAS_TELEGRAM]->(t:Telegram)
-            OPTIONAL MATCH (p)-[r8:HAS_TWITTER]->(tw:Twitter)
-            OPTIONAL MATCH (p)-[r9:HAS_WEBSITE]->(w:Website)
-            OPTIONAL MATCH (p)-[r10:HAS_JOB]->(:StructuredJobpost)
-            DETACH DELETE p,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,a,c,h,pc,d,doc,g,t,tw,w
+            MATCH (project:Project { id: $id })
+            OPTIONAL MATCH (project)-[:HAS_AUDIT]->(audit)
+            OPTIONAL MATCH (project)-[:HAS_HACK]->(hack)
+            OPTIONAL MATCH (project)-[:HAS_DISCORD]->(discord)
+            OPTIONAL MATCH (project)-[:HAS_DOCSITE]->(docsite)
+            OPTIONAL MATCH (project)-[:HAS_GITHUB]->(github)
+            OPTIONAL MATCH (project)-[:HAS_TELEGRAM]->(telegram)
+            OPTIONAL MATCH (project)-[:HAS_TWITTER]->(twitter)
+            OPTIONAL MATCH (project)-[:HAS_WEBSITE]->(website)
+            DETACH DELETE audit, hack, discord, docsite,
+              github, telegram, twitter, website
         `,
         {
           id,

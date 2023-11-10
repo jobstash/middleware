@@ -77,7 +77,7 @@ export class JobsService {
               telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
               github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
               alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
-              twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+              twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
@@ -88,7 +88,7 @@ export class JobsService {
                   telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
                   github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                  twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                  twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                   hacks: [
                     (project)-[:HAS_HACK]->(hack) | hack { .* }
                   ],
@@ -169,7 +169,7 @@ export class JobsService {
                   telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
                   github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
                   alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
-                  twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                  twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                   projects: [
                     (organization)-[:HAS_PROJECT]->(project) | project {
                       .*,
@@ -180,7 +180,7 @@ export class JobsService {
                       telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
                       github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
                       category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                      twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                      twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                       hacks: [
                         (project)-[:HAS_HACK]->(hack) | hack { .* }
                       ],
@@ -714,7 +714,7 @@ export class JobsService {
                 telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
                 github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
                 alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
-                twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                 projects: [
                   (organization)-[:HAS_PROJECT]->(project) | project {
                     .*,
@@ -725,7 +725,7 @@ export class JobsService {
                     telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
                     github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
                     category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                    twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                    twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                     hacks: [
                       (project)-[:HAS_HACK]->(hack) | hack { .* }
                     ],

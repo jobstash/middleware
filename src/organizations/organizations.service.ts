@@ -9,6 +9,7 @@ import {
   OrgListResult,
   OrgListResultEntity,
   OrganizationWithRelations,
+  ResponseWithNoData,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -523,6 +524,61 @@ export class OrganizationsService {
         { id, properties },
       )
       .then(res => new OrganizationEntity(res.records[0].get("o")));
+  }
+
+  async delete(id: string): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+            MATCH (organization:Organization { id: $id })
+            OPTIONAL MATCH (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag)
+            OPTIONAL MATCH (organization)-[:HAS_JOBSITE]->(jobsite)-[:HAS_JOBPOST]->(jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost)
+            OPTIONAL MATCH (organization)-[:HAS_DISCORD]->(discord)
+            OPTIONAL MATCH (organization)-[:HAS_WEBSITE]->(website)
+            OPTIONAL MATCH (organization)-[:HAS_DOCSITE]->(docsite)
+            OPTIONAL MATCH (organization)-[:HAS_TELEGRAM]->(telegram)
+            OPTIONAL MATCH (organization)-[:HAS_GITHUB]->(github)
+            OPTIONAL MATCH (organization)-[:HAS_ORGANIZATION_ALIAS]->(alias)
+            OPTIONAL MATCH (organization)-[:HAS_TWITTER]->(twitter)
+            DETACH DELETE jobsite, jobpost, structured_jobpost,
+              discord, website, docsite, telegram, github, alias, twitter, tag
+
+            WITH organization
+            MATCH (organization)-[:HAS_PROJECT]->(project)
+            OPTIONAL MATCH (project)-[:HAS_AUDIT]->(audit)
+            OPTIONAL MATCH (project)-[:HAS_HACK]->(hack)
+            OPTIONAL MATCH (project)-[:HAS_DISCORD]->(discord2)
+            OPTIONAL MATCH (project)-[:HAS_DOCSITE]->(docsite2)
+            OPTIONAL MATCH (project)-[:HAS_GITHUB]->(github2)
+            OPTIONAL MATCH (project)-[:HAS_TELEGRAM]->(telegram2)
+            OPTIONAL MATCH (project)-[:HAS_TWITTER]->(twitter2)
+            OPTIONAL MATCH (project)-[:HAS_WEBSITE]->(website2)
+            DETACH DELETE audit, hack, discord2, docsite2,
+              github2, telegram2, twitter2, website2, orphan, organization
+        `,
+        {
+          id,
+        },
+      );
+      return {
+        success: true,
+        message: "Organization deleted successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "organizations.service",
+        });
+        scope.setExtra("input", id);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`OrganizationsService::delete ${err.message}`);
+      return {
+        success: false,
+        message: "Failed to delete organization",
+      };
+    }
   }
 
   async hasProjectRelationship(
