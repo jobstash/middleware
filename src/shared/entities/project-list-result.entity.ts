@@ -43,6 +43,25 @@ export class ProjectListResultEntity {
           name: notStringOrNull(chain?.name),
           logo: notStringOrNull(chain?.logo),
         })) ?? [],
+      jobs:
+        project?.jobs.map(jobpost => ({
+          ...jobpost,
+          salary: nonZeroOrNull(jobpost?.salary),
+          minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
+          maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
+          seniority: notStringOrNull(jobpost?.seniority, ["", "undefined"]),
+          culture: notStringOrNull(jobpost?.culture, ["", "undefined"]),
+          salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
+          paysInCrypto: jobpost?.paysInCrypto ?? null,
+          offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
+          url: notStringOrNull(jobpost?.url),
+          title: notStringOrNull(jobpost?.title),
+          summary: notStringOrNull(jobpost?.summary),
+          description: notStringOrNull(jobpost?.description),
+          commitment: notStringOrNull(jobpost?.commitment),
+          timestamp: nonZeroOrNull(jobpost?.timestamp),
+        })) ?? [],
+      repos: project?.repos.map(repo => ({ ...repo })) ?? [],
     });
   }
 }
@@ -90,6 +109,25 @@ export class ProjectCompetitorListResultEntity {
           name: notStringOrNull(chain?.name),
           logo: notStringOrNull(chain?.logo),
         })) ?? [],
+      jobs:
+        project?.jobs?.map(jobpost => ({
+          ...jobpost,
+          salary: nonZeroOrNull(jobpost?.salary),
+          minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
+          maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
+          seniority: notStringOrNull(jobpost?.seniority, ["", "undefined"]),
+          culture: notStringOrNull(jobpost?.culture, ["", "undefined"]),
+          salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
+          paysInCrypto: jobpost?.paysInCrypto ?? null,
+          offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
+          url: notStringOrNull(jobpost?.url),
+          title: notStringOrNull(jobpost?.title),
+          summary: notStringOrNull(jobpost?.summary),
+          description: notStringOrNull(jobpost?.description),
+          commitment: notStringOrNull(jobpost?.commitment),
+          timestamp: nonZeroOrNull(jobpost?.timestamp),
+        })) ?? [],
+      repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
     });
   }
 }

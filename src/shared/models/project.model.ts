@@ -390,6 +390,12 @@ export const Projects = (
                   ],
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  jobs: [
+                    (project)-[:HAS_JOB]->(job) | job { .* }
+                  ],
+                  repos: [
+                    (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                   ]
                 } as result
             `,
@@ -442,6 +448,12 @@ export const Projects = (
                   ],
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  jobs: [
+                    (project)-[:HAS_JOB]->(job) | job { .* }
+                  ],
+                  repos: [
+                    (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                   ]
                 } as result
             `,
@@ -511,6 +523,12 @@ export const Projects = (
                 ],
                 chains: [
                   (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                ],
+                jobs: [
+                  (project)-[:HAS_JOB]->(job) | job { .* }
+                ],
+                repos: [
+                  (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                 ]
               } AS project
             `,
@@ -610,6 +628,12 @@ export const Projects = (
                   ],
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  jobs: [
+                    (project)-[:HAS_JOB]->(job) | job { .* }
+                  ],
+                  repos: [
+                    (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                   ]
                 } as result
             `,

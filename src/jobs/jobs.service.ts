@@ -189,6 +189,12 @@ export class JobsService {
                       ],
                       chains: [
                         (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                      ],
+                      jobs: [
+                        (project)-[:HAS_JOB]->(job) | job { .* }
+                      ],
+                      repos: [
+                        (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                       ]
                     }
                   ],
@@ -728,6 +734,12 @@ export class JobsService {
                     ],
                     chains: [
                       (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                    ],
+                    jobs: [
+                      (project)-[:HAS_JOB]->(job) | job { .* }
+                    ],
+                    repos: [
+                      (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                     ]
                   }
                 ],
