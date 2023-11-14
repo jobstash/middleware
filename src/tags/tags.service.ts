@@ -157,7 +157,8 @@ export class TagsService {
     return this.neogma.queryRunner
       .run(
         `
-          CREATE (t:Tag { id: randomUUID() })-[r:HAS_TAG_DESIGNATION]->(:AllowedDesignation)
+          MERGE (dd:DefaultDesignation {name: "DefaultDesignation"})
+          CREATE (t:Tag { id: randomUUID() })-[r:HAS_TAG_DESIGNATION]->(dd)
           SET t += $properties
           SET r.creator = $creatorWallet
           SET r.timestamp = timestamp()
@@ -180,11 +181,13 @@ export class TagsService {
     return this.neogma.queryRunner
       .run(
         `
+          MERGE (bd:BlockedDesignation {name: "BlockedDesignation"})
+          WITH bd
           MATCH (bt:Tag {normalizedName: $normalizedName})-[r:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
           DETACH DELETE r
 
           WITH bt
-          CREATE (bt)-[r:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+          CREATE (bt)-[r:HAS_TAG_DESIGNATION]->(bd)
           SET r.creator = $creatorWallet
           SET r.timestamp = timestamp()
           RETURN bt
@@ -204,8 +207,10 @@ export class TagsService {
     return this.neogma.queryRunner
       .run(
         `
+          MERGE (pd:PreferredDesignation {name: "PreferredDesignation"})
+          WITH pd
           MATCH (pt:Tag {normalizedName: $normalizedName})
-          CREATE (pt)-[r:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
+          CREATE (pt)-[r:HAS_TAG_DESIGNATION]->(pd)
           SET r.creator = $creatorWallet
           SET r.timestamp = timestamp()
           RETURN pt
@@ -312,8 +317,10 @@ export class TagsService {
     try {
       await this.neogma.queryRunner.run(
         `
+          MERGE (pd:PairedDesignation {name: "PairedDesignation"})
+          WITH pd
           MATCH (t1:Tag {normalizedName: $normalizedOriginTagName})
-          MERGE (t1)-[:HAS_TAG_DESIGNATION]->(:PairedDesignation)
+          MERGE (t1)-[:HAS_TAG_DESIGNATION]->(pd)
 
           WITH t1
 
@@ -424,7 +431,9 @@ export class TagsService {
         MATCH (tag:Tag {normalizedName: $normalizedName})-[r:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
         DETACH DELETE r
 
-        CREATE (tag)-[nr:HAS_TAG_DESIGNATION]->(:AllowedDesignation)
+        MERGE (ad:AllowedDesignation {name: "AllowedDesignation"})
+        WITH ad
+        CREATE (tag)-[nr:HAS_TAG_DESIGNATION]->(ad)
         SET nr.creator = $wallet
         SET nr.timestamp = timestamp()
       `,
