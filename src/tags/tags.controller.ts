@@ -554,16 +554,25 @@ export class TagsController {
         preferredTag.getNormalizedName(),
       );
 
+      let oldSynonymList = [];
+
       if (!isPreferred) {
         await this.tagsService.preferTag(
           normalizedPreferredName,
           creatorWallet as string,
         );
+      } else {
+        const preferredTag =
+          await this.tagsService.findPreferredTagByNormalizedName(
+            normalizedPreferredName,
+          );
+        oldSynonymList = preferredTag.synonyms;
       }
 
       for (const tagName of synonyms) {
+        const normalizedTagName = this.tagsService.normalizeTagName(tagName);
         const storedTagNode = await this.tagsService.findByNormalizedName(
-          this.tagsService.normalizeTagName(tagName),
+          normalizedTagName,
         );
 
         if (!storedTagNode) {
@@ -586,12 +595,18 @@ export class TagsController {
         //   };
         // }
 
-        await this.tagsService.relatePreferredTagToTag(
-          preferredTag.getNormalizedName(),
-          storedTagNode.getNormalizedName(),
-        );
+        if (
+          oldSynonymList.find(
+            tag => tag.normalizedName === normalizedTagName,
+          ) === undefined
+        ) {
+          await this.tagsService.relatePreferredTagToTag(
+            preferredTag.getNormalizedName(),
+            storedTagNode.getNormalizedName(),
+          );
 
-        results.push(storedTagNode.getProperties());
+          results.push(storedTagNode.getProperties());
+        }
       }
 
       return {
@@ -665,7 +680,7 @@ export class TagsController {
 
         const hasPreferredRelationship =
           await this.tagsService.hasRelationToPreferredTag(
-            existingPreferredTagNameNode.tag.normalizedName,
+            normalizedPreferredName,
             storedTagNode.getNormalizedName(),
           );
 
@@ -691,7 +706,7 @@ export class TagsController {
         // }
 
         await this.tagsService.unrelatePreferredTagToTag(
-          existingPreferredTagNameNode.tag.normalizedName,
+          normalizedPreferredName,
           storedTagNode.getNormalizedName(),
         );
       }

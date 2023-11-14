@@ -554,7 +554,7 @@ export class OrganizationsService {
             OPTIONAL MATCH (project)-[:HAS_TWITTER]->(twitter2)
             OPTIONAL MATCH (project)-[:HAS_WEBSITE]->(website2)
             DETACH DELETE audit, hack, discord2, docsite2,
-              github2, telegram2, twitter2, website2, orphan, organization
+              github2, telegram2, twitter2, website2, organization
         `,
         {
           id,

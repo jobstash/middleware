@@ -424,7 +424,7 @@ export class TagsService {
         MATCH (tag:Tag {normalizedName: $normalizedName})-[r:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
         DETACH DELETE r
 
-        CREATE (tag)-[nr:HAS_TAG_DESIGNATION]->(:Allowed)
+        CREATE (tag)-[nr:HAS_TAG_DESIGNATION]->(:AllowedDesignation)
         SET nr.creator = $wallet
         SET nr.timestamp = timestamp()
       `,
