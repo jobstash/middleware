@@ -21,7 +21,7 @@ describe("PublicController", () => {
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
       project.audits,
-      a => a?.link.toLowerCase(),
+      a => a.id,
       `Audit for Project ${project.id} for Jobpost ${jobPostUUID}`,
     );
     const hasDuplicateHacks = hasDuplicates(

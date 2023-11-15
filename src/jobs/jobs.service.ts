@@ -47,8 +47,8 @@ export class JobsService {
       MATCH (structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
       WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
       MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF*]-(:Tag)--(:BlockedDesignation) OR NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-      OPTIONAL MATCH (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF*]->(other:Tag)--(:PairedDesignation|PreferredDesignation)
+      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) OR NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+      OPTIONAL MATCH (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(other:Tag)--(:PairedDesignation|PreferredDesignation)
       WITH COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END) AS tags, structured_jobpost
       RETURN structured_jobpost {
           id: structured_jobpost.id,
@@ -544,8 +544,8 @@ export class JobsService {
       MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID})-[:HAS_STATUS]->(:JobpostOnlineStatus)
       WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
       MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF*]-(:Tag)--(:BlockedDesignation) OR NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-      OPTIONAL MATCH (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF*]->(other:Tag)--(:PairedDesignation|PreferredDesignation)
+      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) OR NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+      OPTIONAL MATCH (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(other:Tag)--(:PairedDesignation|PreferredDesignation)
       WITH COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END) AS tags, structured_jobpost
       RETURN structured_jobpost {
           id: structured_jobpost.id,
@@ -762,8 +762,8 @@ export class JobsService {
         MATCH (:User {wallet: $wallet})-[:BOOKMARKED]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
         MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-        WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF*]-(:Tag)--(:BlockedDesignation) OR NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-        OPTIONAL MATCH (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF*]->(other:Tag)--(:PairedDesignation|PreferredDesignation)
+        WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) OR NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+        OPTIONAL MATCH (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(other:Tag)--(:PairedDesignation|PreferredDesignation)
         WITH COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END) AS tags, structured_jobpost
         RETURN structured_jobpost {
             id: structured_jobpost.id,

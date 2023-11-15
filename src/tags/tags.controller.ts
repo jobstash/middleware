@@ -30,6 +30,7 @@ import { CreateTagDto } from "./dto/create-tag.dto";
 import { DeletePreferredTagInput } from "./dto/delete-preferred-tag.input";
 import { LinkTagSynonymDto } from "./dto/link-tag-synonym.dto";
 import { TagsService } from "./tags.service";
+import { DeletePreferredTagSynonymsInput } from "./dto/delete-preferred-tag-synonym.input";
 @Controller("tags")
 @ApiExtraModels(TagPreference, TagPreference)
 export class TagsController {
@@ -639,15 +640,60 @@ export class TagsController {
     schema: responseSchemaWrapper({ $ref: getSchemaPath(TagPreference) }),
   })
   async deletePreferredTag(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
     @Body() input: DeletePreferredTagInput,
   ): Promise<Response<TagPreference> | ResponseWithNoData> {
     this.logger.log(`/tags/delete-preference ${JSON.stringify(input)}`);
-    // const { address: creatorWallet } = await this.authService.getSession(
-    //   req,
-    //   res,
-    // );
+    try {
+      const { preferredName } = input;
+
+      const normalizedPreferredName =
+        this.tagsService.normalizeTagName(preferredName);
+
+      const existingPreferredTagNameNode =
+        await this.tagsService.findPreferredTagByNormalizedName(
+          normalizedPreferredName,
+        );
+
+      await this.deletePreferredTagSynonym({
+        preferredName: preferredName,
+        synonyms: existingPreferredTagNameNode.synonyms.map(tag => tag.name),
+      });
+
+      await this.tagsService.unpreferTag(normalizedPreferredName);
+
+      return {
+        success: true,
+        data: existingPreferredTagNameNode,
+        message: "Tag preference deleted successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "tags.controller",
+        });
+        scope.setExtra("input", input);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`TagsController::deletePreferredTag ${err.message}`);
+      return {
+        success: false,
+        message: `Failed to delete preferred tag`,
+      };
+    }
+  }
+
+  @Post("/delete-synonyms")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
+  @ApiOkResponse({
+    description: "Deletes synonyms for a preferred tag",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(TagPreference) }),
+  })
+  async deletePreferredTagSynonym(
+    @Body() input: DeletePreferredTagSynonymsInput,
+  ): Promise<Response<TagPreference> | ResponseWithNoData> {
+    this.logger.log(`/tags/delete-synonyms ${JSON.stringify(input)}`);
     try {
       const { preferredName, synonyms } = input;
 
@@ -667,7 +713,7 @@ export class TagsController {
         if (!storedTagNode) {
           return {
             success: false,
-            message: `Could not find Tag ${tagName} to delete preference for`,
+            message: `Could not find Tag ${tagName} to delete synonym for`,
           };
         }
 
@@ -714,7 +760,7 @@ export class TagsController {
       return {
         success: true,
         data: existingPreferredTagNameNode,
-        message: "Tag preference deleted successfully",
+        message: "Preferred tag synonym deleted successfully",
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -725,10 +771,12 @@ export class TagsController {
         scope.setExtra("input", input);
         Sentry.captureException(err);
       });
-      this.logger.error(`TagsController::deletePreferredTag ${err.message}`);
+      this.logger.error(
+        `TagsController::deletePreferredTagSynonym ${err.message}`,
+      );
       return {
         success: false,
-        message: `Failed to delete preferred tag`,
+        message: `Failed to delete preferred tag synonym`,
       };
     }
   }

@@ -75,7 +75,7 @@ export const Tags = (
           }).return(`
               pt {
                 tag: pt { .* },
-                synonyms: [(pt)<-[:IS_SYNONYM_OF*]-(t2) | t2 { .* }]
+                synonyms: [(pt)<-[:IS_SYNONYM_OF]-(t2) | t2 { .* }]
               } as res
             `);
           const result = await query.run(neogma.queryRunner);
