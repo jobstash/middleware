@@ -314,14 +314,24 @@ export class TagsService {
     const res = await this.neogma.queryRunner.run(
       `
         MATCH (pt:Tag {normalizedName: $preferredNormalizedName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation), (t:Tag {normalizedName: $synonymNormalizedName})
-        CREATE (pt)<-[r1:IS_SYNONYM_OF]-(t)
+        MERGE (pt)<-[r1:IS_SYNONYM_OF]-(t)
         SET r1.timestamp = timestamp()
 
         WITH pt, t
         OPTIONAL MATCH (st:Tag)-[:IS_SYNONYM_OF]-(t)
-        WHERE st.id <> pt.id AND NOT (st)-[:IS_SYNONYM_OF]-(pt)
-        CREATE (pt)<-[r2:IS_SYNONYM_OF]-(st)
+        WHERE st.id <> pt.id AND NOT (st)<-[:IS_SYNONYM_OF]-(pt)
+        MERGE (pt)<-[r2:IS_SYNONYM_OF]-(st)
         SET r2.timestamp = timestamp()
+
+        WITH pt, t
+        OPTIONAL MATCH (st:Tag)-[:IS_SYNONYM_OF]-(pt)
+        WHERE st.id <> t.id AND NOT (st)-[:IS_SYNONYM_OF]->(t)
+        MERGE (t)<-[r3:IS_SYNONYM_OF]-(st)
+        SET r3.timestamp = timestamp()
+
+        WITH pt, t
+        MERGE (t)<-[r4:IS_SYNONYM_OF]-(pt)
+        SET r4.timestamp = timestamp()
 
         RETURN true as result;
         `,
@@ -436,11 +446,26 @@ export class TagsService {
   ): Promise<void> {
     await this.neogma.queryRunner.run(
       `
-      MATCH (pt:Tag {normalizedName: $preferredNormalizedName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
-      MATCH (pt)-[r1:IS_SYNONYM_OF]-(t:Tag {normalizedName: $synonymNormalizedName})
+      MATCH (pt:Tag {normalizedName: $preferredNormalizedName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation), (t:Tag {normalizedName: $synonymNormalizedName})
+      MATCH (pt)<-[r1:IS_SYNONYM_OF]-(t)
+      DELETE r1
+
+      WITH pt, t
       OPTIONAL MATCH (st:Tag)-[:IS_SYNONYM_OF]-(t)
-      OPTIONAL MATCH (st)-[r2:IS_SYNONYM_OF]-(pt)
-      DETACH DELETE r1, r2
+      WHERE st.id <> pt.id AND NOT (st)<-[:IS_SYNONYM_OF]-(pt)
+      MATCH (pt)<-[r2:IS_SYNONYM_OF]-(st)
+      DELETE r2
+
+      WITH pt, t
+      OPTIONAL MATCH (st:Tag)-[:IS_SYNONYM_OF]-(pt)
+      MATCH (t)-[r3:IS_SYNONYM_OF]-(st)
+      DELETE r3
+
+      WITH pt, t
+      MERGE (t)-[r4:IS_SYNONYM_OF]-(pt)
+      DELETE r4
+
+      RETURN true as result;
       `,
       { preferredNormalizedName, synonymNormalizedName },
     );
@@ -452,15 +477,19 @@ export class TagsService {
     await this.neogma.queryRunner.run(
       `
         MATCH (tag:Tag {normalizedName: $normalizedName})-[r1:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
-        OPTIONAL MATCH (st:Tag)-[:IS_SYNONYM_OF]-(tag)
+        OPTIONAL MATCH (st:Tag)<-[:IS_SYNONYM_OF]-(tag)
         OPTIONAL MATCH (st)-[r2:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
         DETACH DELETE r1, r2
 
         MERGE (ad:AllowedDesignation {name: "AllowedDesignation"})
-        WITH ad, tag, st
-        CREATE (tag)-[nr1:HAS_TAG_DESIGNATION]->(ad), (st)-[nr2:HAS_TAG_DESIGNATION]->(ad)
+        WITH ad, tag
+        CREATE (tag)-[nr1:HAS_TAG_DESIGNATION]->(ad)
         SET nr1.creator = $wallet
         SET nr1.timestamp = timestamp()
+        
+        WITH ad, tag
+        OPTIONAL MATCH (st:Tag)<-[:IS_SYNONYM_OF]-(tag)
+        CREATE (st)-[nr2:HAS_TAG_DESIGNATION]->(ad)
         SET nr2.creator = $wallet
         SET nr2.timestamp = timestamp()
       `,
