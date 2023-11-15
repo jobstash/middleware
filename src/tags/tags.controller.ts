@@ -571,6 +571,11 @@ export class TagsController {
       }
 
       for (const tagName of synonyms) {
+        oldSynonymList = (
+          await this.tagsService.findPreferredTagByNormalizedName(
+            normalizedPreferredName,
+          )
+        ).synonyms;
         const normalizedTagName = this.tagsService.normalizeTagName(tagName);
         const storedTagNode = await this.tagsService.findByNormalizedName(
           normalizedTagName,
@@ -724,18 +729,18 @@ export class TagsController {
           };
         }
 
-        const hasPreferredRelationship =
-          await this.tagsService.hasRelationToPreferredTag(
-            normalizedPreferredName,
-            storedTagNode.getNormalizedName(),
-          );
+        // const hasPreferredRelationship =
+        //   await this.tagsService.hasRelationToPreferredTag(
+        //     normalizedPreferredName,
+        //     storedTagNode.getNormalizedName(),
+        //   );
 
-        if (!hasPreferredRelationship) {
-          return {
-            success: false,
-            message: `Preferred tag relation not found`,
-          };
-        }
+        // if (!hasPreferredRelationship) {
+        //   return {
+        //     success: false,
+        //     message: `Preferred tag relation not found`,
+        //   };
+        // }
 
         // TODO: Confirm that check is needed @duckdegen
         // const hasPreferredTagCreatorRelationship =
