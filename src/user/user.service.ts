@@ -1,4 +1,4 @@
-import { UserRoleEntity } from "./../../shared/entities/user-role.entity";
+import { UserRoleEntity } from "../shared/entities/user-role.entity";
 import { Injectable } from "@nestjs/common";
 import {
   GithubUserEntity,
@@ -8,6 +8,8 @@ import {
   User,
   UserEntity,
   UserFlowEntity,
+  UserProfile,
+  UserProfileEntity,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -17,8 +19,8 @@ import { UserFlowService } from "./user-flow.service";
 import { UserRoleService } from "./user-role.service";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
-import { SetRoleInput } from "../dto/set-role.input";
-import { SetFlowStateInput } from "../dto/set-flow-state.input";
+import { SetRoleInput } from "../auth/dto/set-role.input";
+import { SetFlowStateInput } from "../auth/dto/set-flow-state.input";
 import { USER_FLOWS, USER_ROLES } from "src/shared/constants";
 
 @Injectable()
@@ -481,6 +483,39 @@ export class UserService {
         });
         this.logger.error(`UserService::getFlowForWallet ${err.message}`);
         return undefined;
+      });
+  }
+
+  async getAll(): Promise<UserProfile[]> {
+    return this.neogma.queryRunner
+      .run(
+        `
+          MATCH (user:User {wallet: $wallet})-[:HAS_PROFILE]->(profile:UserProfile)
+          RETURN profile {
+            .*,
+            username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
+            avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+            contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0]
+          } as user
+        `,
+      )
+      .then(res =>
+        res.records.length
+          ? res.records.map(record =>
+              new UserProfileEntity(record.get("user")).getProperties(),
+            )
+          : [],
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`UserService::getAll ${err.message}`);
+        return [];
       });
   }
 }

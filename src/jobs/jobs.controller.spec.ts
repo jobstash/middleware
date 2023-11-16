@@ -27,7 +27,7 @@ import { ModelService } from "src/model/model.service";
 import { AuthService } from "src/auth/auth.service";
 import { JwtService } from "@nestjs/jwt";
 import { forwardRef } from "@nestjs/common";
-import { UserModule } from "src/auth/user/user.module";
+import { UserModule } from "src/user/user.module";
 import { ProfileService } from "src/auth/profile/profile.service";
 
 describe("JobsController", () => {

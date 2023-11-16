@@ -15,7 +15,7 @@ import {
   ApiOkResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
-import { UserService } from "../user/user.service";
+import { UserService } from "../../user/user.service";
 
 import axios from "axios";
 import { responseSchemaWrapper } from "src/shared/helpers";

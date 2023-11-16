@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
-import { UserRoleEntity as UserRole } from "../../shared/entities";
+import { UserRoleEntity as UserRole } from "../shared/entities";
 import { CreateUserRoleDto } from "./dto/create-user-role.dto";
 
 @Injectable()

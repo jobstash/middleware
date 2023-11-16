@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
-import { UserFlowEntity as UserFlow } from "../../shared/entities";
+import { UserFlowEntity as UserFlow } from "../shared/entities";
 import { CreateUserFlowDto } from "./dto/create-user-flow.dto";
 
 @Injectable()
