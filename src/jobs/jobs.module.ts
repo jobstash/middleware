@@ -6,12 +6,14 @@ import { UserModule } from "src/auth/user/user.module";
 import { JwtService } from "@nestjs/jwt";
 import { AuthService } from "src/auth/auth.service";
 import { ProfileService } from "src/auth/profile/profile.service";
+import { TagsService } from "src/tags/tags.service";
 
 @Module({
   imports: [forwardRef(() => UserModule)],
   controllers: [JobsController],
   providers: [
     JobsService,
+    TagsService,
     AuthService,
     JwtService,
     ModelService,

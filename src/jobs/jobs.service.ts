@@ -31,6 +31,7 @@ import { AllJobsParams } from "./dto/all-jobs.input";
 import { JobListParams } from "./dto/job-list.input";
 import { ChangeJobClassificationInput } from "./dto/change-classification.input";
 import { BlockJobsInput } from "./dto/block-jobs.input";
+import { EditJobTagsInput } from "./dto/edit-tags.input";
 
 @Injectable()
 export class JobsService {
@@ -855,7 +856,7 @@ export class JobsService {
         scope.setExtra("input", { wallet });
         Sentry.captureException(err);
       });
-      this.logger.error(`ProfileService::getUserBookmarkedJobs ${err.message}`);
+      this.logger.error(`JobsService::getUserBookmarkedJobs ${err.message}`);
       return {
         success: false,
         message: "Error getting user bookmarked jobs",
@@ -892,9 +893,46 @@ export class JobsService {
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
       });
-      this.logger.error(
-        `ProfileService::updateRepoContribution ${err.message}`,
+      this.logger.error(`JobsService::updateRepoContribution ${err.message}`);
+      return {
+        success: false,
+        message: "Error updating user repo tags used",
+      };
+    }
+  }
+
+  async editJobTags(
+    wallet: string,
+    dto: EditJobTagsInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID})-[r:HAS_TAG]->(tag: Tag)
+        DELETE r
+
+        WITH structured_jobpost
+        MATCH (tag:Tag  WHERE tag.normalizedName IN $tags)
+        CREATE (structured_jobpost)-[nc:HAS_TAG]->(tag)
+        SET nc.creator = $wallet
+      `,
+        { wallet, ...dto },
       );
+
+      return {
+        success: true,
+        message: "User repo tags used updated successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::editJobTags ${err.message}`);
       return {
         success: false,
         message: "Error updating user repo tags used",
@@ -928,7 +966,7 @@ export class JobsService {
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
       });
-      this.logger.error(`ProfileService::blockJobs ${err.message}`);
+      this.logger.error(`JobsService::blockJobs ${err.message}`);
       return {
         success: false,
         message: "Error blocking jobs",
@@ -962,7 +1000,7 @@ export class JobsService {
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
       });
-      this.logger.error(`ProfileService::unblockJobs ${err.message}`);
+      this.logger.error(`JobsService::unblockJobs ${err.message}`);
       return {
         success: false,
         message: "Error unblocking jobs",

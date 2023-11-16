@@ -48,6 +48,8 @@ import { AuthService } from "src/auth/auth.service";
 import { ChangeJobClassificationInput } from "./dto/change-classification.input";
 import { BlockJobsInput } from "./dto/block-jobs.input";
 import { ProfileService } from "src/auth/profile/profile.service";
+import { EditJobTagsInput } from "./dto/edit-tags.input";
+import { TagsService } from "src/tags/tags.service";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
@@ -56,6 +58,7 @@ export class JobsController {
   constructor(
     private readonly jobsService: JobsService,
     private readonly authService: AuthService,
+    private readonly tagsService: TagsService,
     private readonly profileService: ProfileService,
   ) {}
 
@@ -353,6 +356,58 @@ export class JobsController {
       return {
         success: false,
         message: `Failed to change job classification`,
+      };
+    }
+  }
+
+  @Post("/edit-tags")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Edits the tags of a job",
+    schema: {
+      $ref: getSchemaPath(ResponseWithNoData),
+    },
+  })
+  async editTags(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Body() dto: EditJobTagsInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      const { address } = await this.authService.getSession(req, res);
+      const { tags } = dto;
+      const tagsToAdd = [];
+      for (const tag in tags) {
+        const tagNormalizedName = this.tagsService.normalizeTagName(tag);
+        const tagNode =
+          this.tagsService.findByNormalizedName(tagNormalizedName);
+        if (!tagNode) {
+          return {
+            success: false,
+            message: `Tag ${tag} cannot be added to the job because it doen't exist`,
+          };
+        } else {
+          tagsToAdd.push(tagNormalizedName);
+        }
+      }
+      return this.jobsService.editJobTags(address as string, {
+        ...dto,
+        tags: tagsToAdd,
+      });
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "jobs.controller",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsController::editJobTags ${err.message}`);
+      return {
+        success: false,
+        message: `Failed to edit job tags`,
       };
     }
   }
