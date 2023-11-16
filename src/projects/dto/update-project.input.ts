@@ -1,78 +1,78 @@
-import { ApiPropertyOptional } from "@nestjs/swagger";
+import { ApiProperty } from "@nestjs/swagger";
 import { IsOptional, IsString, IsUrl, IsNumber } from "class-validator";
 
 export class UpdateProjectInput {
-  @ApiPropertyOptional()
+  @ApiProperty()
   @IsOptional()
   @IsString()
   orgId?: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty()
   @IsOptional()
   @IsString()
   name?: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty()
   @IsOptional()
   @IsString()
   category: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty()
   @IsOptional()
   @IsString()
   description: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty()
   @IsOptional()
   @IsUrl()
   url: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty()
   @IsOptional()
   @IsUrl()
   logo: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty()
   @IsOptional()
   @IsString()
   githubOrganization?: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty()
   @IsOptional()
   @IsNumber()
   teamSize?: number;
 
-  @ApiPropertyOptional()
+  @ApiProperty()
   @IsOptional()
   @IsString()
   twitter?: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty()
   @IsOptional()
   @IsString()
   discord?: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty()
   @IsOptional()
   @IsString()
   docs?: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty()
   @IsOptional()
   @IsString()
   telegram?: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty()
   @IsOptional()
   @IsString()
   isMainnet?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiProperty()
   @IsOptional()
   @IsString()
   tokenAddress?: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty()
   @IsOptional()
   @IsString()
   tokenSymbol?: string;

@@ -23,12 +23,14 @@ import {
   AllJobsListResult,
   AllJobsFilterConfigs,
   Response,
+  StructuredJobpostWithRelations,
 } from "src/shared/types";
 import {
   ApiBadRequestResponse,
   ApiExtraModels,
   ApiNotFoundResponse,
   ApiOkResponse,
+  ApiUnprocessableEntityResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
 import * as Sentry from "@sentry/node";
@@ -40,7 +42,7 @@ import {
   CACHE_DURATION,
   CACHE_EXPIRY,
 } from "src/shared/presets/cache-control";
-import { btoa } from "src/shared/helpers";
+import { btoa, responseSchemaWrapper } from "src/shared/helpers";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { Response as ExpressResponse, Request } from "express";
@@ -50,6 +52,7 @@ import { BlockJobsInput } from "./dto/block-jobs.input";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { EditJobTagsInput } from "./dto/edit-tags.input";
 import { TagsService } from "src/tags/tags.service";
+import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
@@ -409,6 +412,74 @@ export class JobsController {
       return {
         success: false,
         message: `Failed to edit job tags`,
+      };
+    }
+  }
+
+  @Post("/update/:id")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Updates an existing project",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(StructuredJobpostWithRelations),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong updating the job on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async updateJobMetadata(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Param("id") shortUUID: string,
+    @Body(new ValidationPipe({ transform: true })) body: UpdateJobMetadataInput,
+  ): Promise<Response<StructuredJobpostWithRelations> | ResponseWithNoData> {
+    this.logger.log(`/jobs/update ${JSON.stringify(body)}`);
+    const { address } = await this.authService.getSession(req, res);
+    const { commitment, classification, locationType, ...dto } = body;
+    const res2 = await this.jobsService.changeJobCommitment(address as string, {
+      shortUUID,
+      commitment,
+    });
+    if (res2.success === false) {
+      this.logger.error(res2.message);
+      return res2;
+    }
+    const res3 = await this.jobsService.changeJobClassification(
+      address as string,
+      {
+        shortUUIDs: [shortUUID],
+        classification,
+      },
+    );
+    if (res3.success === false) {
+      this.logger.error(res3.message);
+      return res3;
+    }
+    const res4 = await this.jobsService.changeJobLocationType(
+      address as string,
+      {
+        shortUUID,
+        locationType,
+      },
+    );
+    if (res4.success === false) {
+      this.logger.error(res4.message);
+      return res4;
+    }
+    const res1 = await this.jobsService.update(shortUUID, dto);
+    if (res1 !== undefined) {
+      return {
+        success: true,
+        message: "Job metadata updated successfully",
+        data: res1,
+      };
+    } else {
+      return {
+        success: false,
+        message: "Error updating job metadata",
       };
     }
   }

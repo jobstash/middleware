@@ -25,6 +25,7 @@ import {
   PaginatedData,
   ResponseWithNoData,
   Response,
+  StructuredJobpostWithRelations,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { AllJobsParams } from "./dto/all-jobs.input";
@@ -32,6 +33,9 @@ import { JobListParams } from "./dto/job-list.input";
 import { ChangeJobClassificationInput } from "./dto/change-classification.input";
 import { BlockJobsInput } from "./dto/block-jobs.input";
 import { EditJobTagsInput } from "./dto/edit-tags.input";
+import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
+import { ChangeJobCommitmentInput } from "./dto/change-commitment.input";
+import { ChangeJobLocationTypeInput } from "./dto/change-location-type.input";
 
 @Injectable()
 export class JobsService {
@@ -895,10 +899,10 @@ export class JobsService {
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
       });
-      this.logger.error(`JobsService::updateRepoContribution ${err.message}`);
+      this.logger.error(`JobsService::changeClassification ${err.message}`);
       return {
         success: false,
-        message: "Error updating user repo tags used",
+        message: "Error changing job classification",
       };
     }
   }
@@ -938,9 +942,136 @@ export class JobsService {
       this.logger.error(`JobsService::editJobTags ${err.message}`);
       return {
         success: false,
-        message: "Error updating user repo tags used",
+        message: "Error editing job tags",
       };
     }
+  }
+
+  async changeJobCommitment(
+    wallet: string,
+    dto: ChangeJobCommitmentInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (jc:JobpostCommitment {name: $commitment})
+        MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID} )-[c:HAS_COMMITMENT]->(:JobpostCommitment)
+        DELETE c
+        
+        WITH structured_jobpost, jc
+        CREATE (structured_jobpost)-[nc:HAS_COMMITMENT]->(jc)
+        SET nc.creator = $wallet
+      `,
+        { wallet, ...dto },
+      );
+
+      return {
+        success: true,
+        message: "Job classification changed successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::changeCommitment ${err.message}`);
+      return {
+        success: false,
+        message: "Error changing job commitment",
+      };
+    }
+  }
+
+  async changeJobLocationType(
+    wallet: string,
+    dto: ChangeJobLocationTypeInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (jc:JobpostCommitment {name: $commitment})
+        MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID} )-[c:HAS_COMMITMENT]->(:JobpostCommitment)
+        DELETE c
+        
+        WITH structured_jobpost, jc
+        CREATE (structured_jobpost)-[nc:HAS_COMMITMENT]->(jc)
+        SET nc.creator = $wallet
+      `,
+        { wallet, ...dto },
+      );
+
+      return {
+        success: true,
+        message: "Job classification changed successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::changeCommitment ${err.message}`);
+      return {
+        success: false,
+        message: "Error changing job commitment",
+      };
+    }
+  }
+
+  async update(
+    shortUUID: string,
+    job: Omit<
+      UpdateJobMetadataInput,
+      "commitment" | "classification" | "locationType"
+    >,
+  ): Promise<StructuredJobpostWithRelations | undefined> {
+    const res = await this.neogma.queryRunner.run(
+      `
+        MATCH (structured_jobpost:StructuredJobpost { shortUUID: $shortUUID })
+        SET structured_jobpost += $properties
+        RETURN {
+          id: structured_jobpost.id,
+          url: structured_jobpost.url,
+          title: structured_jobpost.title,
+          salary: structured_jobpost.salary,
+          culture: structured_jobpost.culture,
+          location: structured_jobpost.location,
+          summary: structured_jobpost.summary,
+          benefits: structured_jobpost.benefits,
+          shortUUID: structured_jobpost.shortUUID,
+          seniority: structured_jobpost.seniority,
+          description: structured_jobpost.description,
+          requirements: structured_jobpost.requirements,
+          paysInCrypto: structured_jobpost.paysInCrypto,
+          minimumSalary: structured_jobpost.minimumSalary,
+          maximumSalary: structured_jobpost.maximumSalary,
+          salaryCurrency: structured_jobpost.salaryCurrency,
+          responsibilities: structured_jobpost.responsibilities,
+          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+          offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+          classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
+          commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
+          locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
+        } as res
+      `,
+      {
+        shortUUID,
+        properties: {
+          ...job,
+          updatedTimestamp: new Date().getTime(),
+        },
+      },
+    );
+    return res.records.length
+      ? new StructuredJobpostWithRelations(res.records[0].get("res"))
+      : undefined;
   }
 
   async blockJobs(
