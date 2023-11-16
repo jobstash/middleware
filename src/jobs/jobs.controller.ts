@@ -378,7 +378,7 @@ export class JobsController {
       const { address } = await this.authService.getSession(req, res);
       const { tags } = dto;
       const tagsToAdd = [];
-      for (const tag in tags) {
+      for (const tag of tags) {
         const tagNormalizedName = this.tagsService.normalizeTagName(tag);
         const tagNode =
           this.tagsService.findByNormalizedName(tagNormalizedName);
@@ -391,6 +391,7 @@ export class JobsController {
           tagsToAdd.push(tagNormalizedName);
         }
       }
+      this.logger.log(JSON.stringify(tagsToAdd));
       return this.jobsService.editJobTags(address as string, {
         ...dto,
         tags: tagsToAdd,

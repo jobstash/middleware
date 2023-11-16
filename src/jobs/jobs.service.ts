@@ -871,10 +871,12 @@ export class JobsService {
     try {
       await this.neogma.queryRunner.run(
         `
+        MATCH (jc:JobpostClassification {name: $classification})
         MATCH (structured_jobpost:StructuredJobpost WHERE structured_jobpost.shortUUID IN $shortUUIDs)-[c:HAS_CLASSIFICATION]->(:JobpostClassification)
-        DETACH DELETE c
+        DELETE c
         
-        CREATE (structured_jobpost)-[nc:HAS_CLASSIFICATION]->(:JobpostClassification {name: $classification})
+        WITH structured_jobpost, jc
+        CREATE (structured_jobpost)-[nc:HAS_CLASSIFICATION]->(jc)
         SET nc.creator = $wallet
       `,
         { wallet, ...dto },
@@ -882,7 +884,7 @@ export class JobsService {
 
       return {
         success: true,
-        message: "User repo tags used updated successfully",
+        message: "Job classification changed successfully",
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -908,12 +910,13 @@ export class JobsService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID})-[r:HAS_TAG]->(tag: Tag)
+        MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID})
+        OPTIONAL MATCH (structured_jobpost)-[r:HAS_TAG]->(:Tag)
         DELETE r
 
         WITH structured_jobpost
-        MATCH (tag:Tag  WHERE tag.normalizedName IN $tags)
-        CREATE (structured_jobpost)-[nc:HAS_TAG]->(tag)
+        MATCH (tag:Tag WHERE tag.normalizedName IN $tags)
+        MERGE (structured_jobpost)-[nc:HAS_TAG]->(tag)
         SET nc.creator = $wallet
       `,
         { wallet, ...dto },
@@ -921,7 +924,7 @@ export class JobsService {
 
       return {
         success: true,
-        message: "User repo tags used updated successfully",
+        message: "Job tags updated successfully",
       };
     } catch (err) {
       Sentry.withScope(scope => {
