@@ -21,17 +21,17 @@ export class ProjectMoreInfo extends Project {
   @ApiPropertyOptional()
   description: string;
   @ApiPropertyOptional()
-  defiLlamaId: string | null;
+  defiLlamaId?: string | null;
   @ApiPropertyOptional()
-  defiLlamaSlug: string | null;
+  defiLlamaSlug?: string | null;
   @ApiPropertyOptional()
-  defiLlamaParent: string | null;
+  defiLlamaParent?: string | null;
   @ApiPropertyOptional()
-  tokenAddress: string | null;
+  tokenAddress?: string | null;
   @ApiProperty()
-  createdTimestamp: number | null;
+  createdTimestamp?: number | null;
   @ApiPropertyOptional()
-  updatedTimestamp: number | null;
+  updatedTimestamp?: number | null;
 
   constructor(raw: ProjectMoreInfo) {
     const {

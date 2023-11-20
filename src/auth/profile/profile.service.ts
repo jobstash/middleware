@@ -49,6 +49,8 @@ export class ProfileService {
           .*,
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+          role: [(user)-[:HAS_ROLE]->(ur:UserRole) | ur.name][0],
+          flow: [(user)-[:HAS_USER_FLOW_STAGE]->(uf:UserFlow) | uf.name][0],
           contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0]
         }][0] as profile
 
@@ -297,8 +299,10 @@ export class ProfileService {
       const result = await this.neogma.queryRunner.run(
         `
         MERGE (user:User {wallet: $wallet})-[:HAS_PROFILE]->(profile:UserProfile)
-        MERGE (user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo)
         SET profile.availableForWork = $availableForWork
+
+        WITH user
+        MERGE (user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo)
         SET contact.preferred = $preferred
         SET contact.value = $value
         
@@ -306,6 +310,8 @@ export class ProfileService {
           .*,
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+          role: [(user)-[:HAS_ROLE]->(ur:UserRole) | ur.name][0],
+          flow: [(user)-[:HAS_USER_FLOW_STAGE]->(uf:UserFlow) | uf.name][0],
           contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0]
         }
 
@@ -468,7 +474,8 @@ export class ProfileService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MERGE (:User {wallet: $wallet})-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(:Organization {orgId: $orgId})
+        MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
+        MERGE (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(org)
         SET review.amount = $salaryAmount
         SET review.selectedCurrency = $selectedCurrency
         SET review.offersTokenAllocation = $offersTokenAllocation
@@ -501,7 +508,8 @@ export class ProfileService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MERGE (:User {wallet: $wallet})-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(:Organization {orgId: $orgId})
+        MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
+        MERGE (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(org)
         SET review.management = $management
         SET review.careerGrowth = $careerGrowth
         SET review.benefits = $benefits
@@ -538,7 +546,8 @@ export class ProfileService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MERGE (:User {wallet: $wallet})-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(:Organization {orgId: $orgId})
+        MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
+        MERGE (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(org)
         SET review.headline = $headline
         SET review.pros = $pros
         SET review.cons = $cons
@@ -616,6 +625,7 @@ export class ProfileService {
         }
         UNWIND $tagsUsed as data
         WITH data, user
+        MATCH (repo:GithubRepository {id: $id})
         CREATE (user)-[:USED_TAG]->(tag: RepoTag)-[:USED_ON]->(repo)
         SET tag.id = data.id
         SET tag.name = data.name
@@ -686,8 +696,8 @@ export class ProfileService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MATCH (user:User {wallet: $wallet})
-        CREATE (user)-[r:APPLIED_TO]->(:StructuredJobpost {shortUUID: $shortUUID})
+        MATCH (user:User {wallet: $wallet}), (job:StructuredJobpost {shortUUID: $shortUUID})
+        CREATE (user)-[r:APPLIED_TO]->(job)
         SET r.timestamp = timestamp()
       `,
         { wallet, shortUUID },
@@ -720,8 +730,8 @@ export class ProfileService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MATCH (user:User {wallet: $wallet})
-        CREATE (user)-[r:BOOKMARKED]->(:StructuredJobpost {shortUUID: $shortUUID})
+        MATCH (user:User {wallet: $wallet}), (job:StructuredJobpost {shortUUID: $shortUUID})
+        CREATE (user)-[r:BOOKMARKED]->(job)
         SET r.timestamp = timestamp()
       `,
         { wallet, shortUUID },
@@ -756,8 +766,8 @@ export class ProfileService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MATCH (user:User {wallet: $wallet})
-        CREATE (user)-[r:VIEWED_DETAILS]->(:StructuredJobpost {shortUUID: $shortUUID})
+        MATCH (user:User {wallet: $wallet}), (job:StructuredJobpost {shortUUID: $shortUUID})
+        CREATE (user)-[r:VIEWED_DETAILS]->(job)
         SET r.timestamp = timestamp()
       `,
         { wallet, shortUUID },

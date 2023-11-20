@@ -3,8 +3,8 @@ import { GithubController } from "./github.controller";
 import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { CacheModule } from "@nestjs/cache-manager";
-import { UserModule } from "../user/user.module";
-import { UserService } from "../user/user.service";
+import { UserModule } from "../../user/user.module";
+import { UserService } from "../../user/user.service";
 import { GithubUserService } from "./github-user.service";
 
 @Module({

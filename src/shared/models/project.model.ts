@@ -15,6 +15,8 @@ import {
   Project,
   ProjectDetailsEntity,
   ProjectMoreInfoEntity,
+  StructuredJobpost,
+  Repository,
 } from "../types";
 import { AuditInstance, AuditProps, Audits } from "./audit.model";
 import { HackInstance, HackProps, Hacks } from "./hack.model";
@@ -28,16 +30,17 @@ import { DocsiteInstance, Docsites } from "./docsite.model";
 import { TwitterInstance, Twitters } from "./twitter.model";
 import { TelegramInstance, Telegrams } from "./telegram.model";
 import { WebsiteInstance, Websites } from "./website.model";
-import {
-  GithubOrganizationInstance,
-  GithubOrganizations,
-} from "./github-organization.model";
+import { GithubOrganizationInstance } from "./github-organization.model";
 import { ProjectWithRelations } from "../interfaces/project-with-relations.interface";
 import { ProjectEntity } from "../entities/project.entity";
+import {
+  StructuredJobpostInstance,
+  StructuredJobposts,
+} from "./structured-jobpost.model";
+import { Repositories, RepositoryInstance } from "./repository.model";
+import { Githubs } from "./github.model";
 
-export type ProjectProps = ExtractProps<
-  Omit<ProjectMoreInfo, "audits" | "hacks" | "chains">
->;
+export type ProjectProps = ExtractProps<ProjectMoreInfo>;
 
 export type ProjectInstance = NeogmaInstance<
   ProjectProps,
@@ -55,8 +58,16 @@ export interface ProjectRelations {
   >;
   discord: ModelRelatedNodesI<ReturnType<typeof Discords>, DiscordInstance>;
   docsite: ModelRelatedNodesI<ReturnType<typeof Docsites>, DocsiteInstance>;
+  jobs: ModelRelatedNodesI<
+    ReturnType<typeof StructuredJobposts>,
+    StructuredJobpostInstance
+  >;
+  repos: ModelRelatedNodesI<
+    ReturnType<typeof Repositories>,
+    RepositoryInstance
+  >;
   github: ModelRelatedNodesI<
-    ReturnType<typeof GithubOrganizations>,
+    ReturnType<typeof Githubs>,
     GithubOrganizationInstance
   >;
   twitter: ModelRelatedNodesI<ReturnType<typeof Twitters>, TwitterInstance>;
@@ -74,6 +85,10 @@ export interface ProjectMethods {
   getChainsData: () => Promise<ChainProps[]>;
   getCategory: () => Promise<ProjectCategoryInstance[]>;
   getCategoryData: () => Promise<ProjectCategory[]>;
+  getJobs: () => Promise<StructuredJobpostInstance[]>;
+  getJobsData: () => Promise<StructuredJobpost[]>;
+  getRepos: () => Promise<RepositoryInstance[]>;
+  getReposData: () => Promise<Repository[]>;
 }
 
 export interface ProjectStatics {
@@ -224,7 +239,7 @@ export const Projects = (
           name: "HAS_DOCSITE",
         },
         github: {
-          model: GithubOrganizations(neogma),
+          model: Githubs(neogma),
           direction: "out",
           name: "HAS_GITHUB",
         },
@@ -242,6 +257,16 @@ export const Projects = (
           model: Websites(neogma),
           direction: "out",
           name: "HAS_WEBSITE",
+        },
+        jobs: {
+          model: StructuredJobposts(neogma),
+          direction: "out",
+          name: "HAS_JOB",
+        },
+        repos: {
+          model: Repositories(neogma),
+          direction: "out",
+          name: "HAS_REPOSITORY",
         },
       },
       methods: {
@@ -280,6 +305,16 @@ export const Projects = (
             ref => ref.target,
           );
         },
+        getJobs: async function () {
+          return (await this.findRelationships({ alias: "jobs" })).map(
+            ref => ref.target,
+          );
+        },
+        getRepos: async function () {
+          return (await this.findRelationships({ alias: "repos" })).map(
+            ref => ref.target,
+          );
+        },
         getAuditsData: async function () {
           return (await this.findRelationships({ alias: "audits" })).map(ref =>
             ref.target.getDataValues(),
@@ -293,6 +328,16 @@ export const Projects = (
         getCategoryData: async function () {
           return (await this.findRelationships({ alias: "category" })).map(
             ref => ref.target.getDataValues(),
+          );
+        },
+        getJobsData: async function () {
+          return (await this.findRelationships({ alias: "jobs" })).map(ref =>
+            ref.target.getDataValues(),
+          );
+        },
+        getReposData: async function () {
+          return (await this.findRelationships({ alias: "repos" })).map(ref =>
+            ref.target.getDataValues(),
           );
         },
         getHacksData: async function () {
@@ -341,6 +386,12 @@ export const Projects = (
                   ],
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  jobs: [
+                    (project)-[:HAS_JOB]->(job) | job { .* }
+                  ],
+                  repos: [
+                    (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                   ]
                 } as result
             `,
@@ -393,6 +444,12 @@ export const Projects = (
                   ],
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  jobs: [
+                    (project)-[:HAS_JOB]->(job) | job { .* }
+                  ],
+                  repos: [
+                    (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                   ]
                 } as result
             `,
@@ -462,6 +519,12 @@ export const Projects = (
                 ],
                 chains: [
                   (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                ],
+                jobs: [
+                  (project)-[:HAS_JOB]->(job) | job { .* }
+                ],
+                repos: [
+                  (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                 ]
               } AS project
             `,
@@ -561,6 +624,12 @@ export const Projects = (
                   ],
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  jobs: [
+                    (project)-[:HAS_JOB]->(job) | job { .* }
+                  ],
+                  repos: [
+                    (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                   ]
                 } as result
             `,

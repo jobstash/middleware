@@ -66,7 +66,7 @@ export class TagsService {
         MATCH (pt:Tag {normalizedName: $normalizedPreferredName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
         RETURN {
           tag: pt { .* },
-          synonyms: [(pt)<-[:IS_SYNONYM_OF]-(synonym: Tag) | synonym { .* }]
+          synonyms: apoc.coll.toSet([(pt)-[:IS_SYNONYM_OF]-(synonym: Tag) | synonym { .* }])
         } as res
       `,
       { normalizedPreferredName },
@@ -157,7 +157,8 @@ export class TagsService {
     return this.neogma.queryRunner
       .run(
         `
-          CREATE (t:Tag { id: randomUUID() })-[r:HAS_TAG_DESIGNATION]->(:AllowedDesignation)
+          MERGE (dd:DefaultDesignation {name: "DefaultDesignation"})
+          CREATE (t:Tag { id: randomUUID() })-[r:HAS_TAG_DESIGNATION]->(dd)
           SET t += $properties
           SET r.creator = $creatorWallet
           SET r.timestamp = timestamp()
@@ -180,13 +181,19 @@ export class TagsService {
     return this.neogma.queryRunner
       .run(
         `
-          MATCH (bt:Tag {normalizedName: $normalizedName})-[r:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-          DETACH DELETE r
+          MERGE (bd:BlockedDesignation {name: "BlockedDesignation"})
+          WITH bd
+          MATCH (bt:Tag {normalizedName: $normalizedName})-[r1:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+          OPTIONAL MATCH (bt)-[:IS_SYNONYM_OF]-(st:Tag)-[r2:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+          DETACH DELETE r1, r2
 
-          WITH bt
-          CREATE (bt)-[r:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
-          SET r.creator = $creatorWallet
-          SET r.timestamp = timestamp()
+          WITH bt, st, bd
+          CREATE (bt)-[r3:HAS_TAG_DESIGNATION]->(bd)
+          CREATE (st)-[r4:HAS_TAG_DESIGNATION]->(bd)
+          SET r3.creator = $creatorWallet
+          SET r3.timestamp = timestamp()
+          SET r4.creator = $creatorWallet
+          SET r4.timestamp = timestamp()
           RETURN bt
           `,
         {
@@ -204,8 +211,10 @@ export class TagsService {
     return this.neogma.queryRunner
       .run(
         `
+          MERGE (pd:PreferredDesignation {name: "PreferredDesignation"})
+          WITH pd
           MATCH (pt:Tag {normalizedName: $normalizedName})
-          CREATE (pt)-[r:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
+          CREATE (pt)-[r:HAS_TAG_DESIGNATION]->(pd)
           SET r.creator = $creatorWallet
           SET r.timestamp = timestamp()
           RETURN pt
@@ -216,6 +225,19 @@ export class TagsService {
         },
       )
       .then(res => new TagEntity(res.records[0].get("pt")));
+  }
+
+  async unpreferTag(normalizedName: string): Promise<boolean> {
+    await this.neogma.queryRunner.run(
+      `
+          MATCH (pt:Tag {normalizedName: $normalizedName})-[r:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
+          DELETE r
+          `,
+      {
+        normalizedName,
+      },
+    );
+    return true;
   }
 
   async hasBlockedRelation(normalizedName: string): Promise<boolean> {
@@ -247,7 +269,7 @@ export class TagsService {
     const res = await this.neogma.queryRunner.run(
       `
         MATCH (pt:Tag {normalizedName: $preferredNormalizedName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation), (st:Tag {normalizedName: $synonymNormalizedName})
-        RETURN EXISTS( (pt)<-[:IS_SYNONYM_OF]-(st) ) AS result
+        RETURN EXISTS( (pt)-[:IS_SYNONYM_OF*]-(st) ) AS result
         `,
       { preferredNormalizedName, synonymNormalizedName },
     );
@@ -292,9 +314,24 @@ export class TagsService {
     const res = await this.neogma.queryRunner.run(
       `
         MATCH (pt:Tag {normalizedName: $preferredNormalizedName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation), (t:Tag {normalizedName: $synonymNormalizedName})
+        MERGE (pt)<-[r1:IS_SYNONYM_OF]-(t)
+        SET r1.timestamp = timestamp()
 
-        CREATE (pt)<-[r:IS_SYNONYM_OF]-(t)
-        SET r.timestamp = timestamp()
+        WITH pt, t
+        OPTIONAL MATCH (st:Tag)-[:IS_SYNONYM_OF]-(t)
+        WHERE st.id <> pt.id AND NOT (st)<-[:IS_SYNONYM_OF]-(pt)
+        MERGE (pt)<-[r2:IS_SYNONYM_OF]-(st)
+        SET r2.timestamp = timestamp()
+
+        WITH pt, t
+        OPTIONAL MATCH (st:Tag)-[:IS_SYNONYM_OF]-(pt)
+        WHERE st.id <> t.id AND NOT (st)-[:IS_SYNONYM_OF]->(t)
+        MERGE (t)<-[r3:IS_SYNONYM_OF]-(st)
+        SET r3.timestamp = timestamp()
+
+        WITH pt, t
+        MERGE (t)<-[r4:IS_SYNONYM_OF]-(pt)
+        SET r4.timestamp = timestamp()
 
         RETURN true as result;
         `,
@@ -312,8 +349,10 @@ export class TagsService {
     try {
       await this.neogma.queryRunner.run(
         `
+          MERGE (pd:PairedDesignation {name: "PairedDesignation"})
+          WITH pd
           MATCH (t1:Tag {normalizedName: $normalizedOriginTagName})
-          MERGE (t1)-[:HAS_TAG_DESIGNATION]->(:PairedDesignation)
+          MERGE (t1)-[:HAS_TAG_DESIGNATION]->(pd)
 
           WITH t1
 
@@ -407,10 +446,26 @@ export class TagsService {
   ): Promise<void> {
     await this.neogma.queryRunner.run(
       `
-      MATCH (pt:Tag {normalizedName: $preferredNormalizedName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
-      MATCH (pt)<-[r:IS_SYNONYM_OF]-(t:Tag {normalizedName: $synonymNormalizedName})
+      MATCH (pt:Tag {normalizedName: $preferredNormalizedName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation), (t:Tag {normalizedName: $synonymNormalizedName})
+      MATCH (pt)<-[r1:IS_SYNONYM_OF]-(t)
+      DELETE r1
 
-      DETACH DELETE r
+      WITH pt, t
+      OPTIONAL MATCH (st:Tag)-[:IS_SYNONYM_OF]-(t)
+      WHERE st.id <> pt.id AND NOT (st)<-[:IS_SYNONYM_OF]-(pt)
+      MATCH (pt)<-[r2:IS_SYNONYM_OF]-(st)
+      DELETE r2
+
+      WITH pt, t
+      OPTIONAL MATCH (st:Tag)-[:IS_SYNONYM_OF]-(pt)
+      MATCH (t)-[r3:IS_SYNONYM_OF]-(st)
+      DELETE r3
+
+      WITH pt, t
+      MERGE (t)-[r4:IS_SYNONYM_OF]-(pt)
+      DELETE r4
+
+      RETURN true as result;
       `,
       { preferredNormalizedName, synonymNormalizedName },
     );
@@ -421,12 +476,22 @@ export class TagsService {
   async unblockTag(normalizedName: string, wallet: string): Promise<boolean> {
     await this.neogma.queryRunner.run(
       `
-        MATCH (tag:Tag {normalizedName: $normalizedName})-[r:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
-        DETACH DELETE r
+        MATCH (tag:Tag {normalizedName: $normalizedName})-[r1:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        OPTIONAL MATCH (st:Tag)<-[:IS_SYNONYM_OF]-(tag)
+        OPTIONAL MATCH (st)-[r2:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        DETACH DELETE r1, r2
 
-        CREATE (tag)-[nr:HAS_TAG_DESIGNATION]->(:Allowed)
-        SET nr.creator = $wallet
-        SET nr.timestamp = timestamp()
+        MERGE (ad:AllowedDesignation {name: "AllowedDesignation"})
+        WITH ad, tag
+        CREATE (tag)-[nr1:HAS_TAG_DESIGNATION]->(ad)
+        SET nr1.creator = $wallet
+        SET nr1.timestamp = timestamp()
+        
+        WITH ad, tag
+        OPTIONAL MATCH (st:Tag)<-[:IS_SYNONYM_OF]-(tag)
+        CREATE (st)-[nr2:HAS_TAG_DESIGNATION]->(ad)
+        SET nr2.creator = $wallet
+        SET nr2.timestamp = timestamp()
       `,
       { normalizedName, wallet },
     );
@@ -448,6 +513,12 @@ export class TagsService {
       SET ts.timestamp = timestamp()
       SET ts.synonymNodeId = $secondTagNodeId
       SET ts.creator = $synonymSuggesterWallet
+
+      OPTIONAL MATCH (ty)-[:IS_SYNONYM_OF]-(t2)
+
+      MERGE (ty)-[:IS_SYNONYM_OF]->(t1)
+
+      WITH t1, t2
 
       RETURN t1, t2
       `,
@@ -478,12 +549,7 @@ export class TagsService {
   ): Promise<Tag[]> {
     await this.neogma.queryRunner.run(
       `
-        MATCH (t1:Tag {normalizedName: $originTagNormalizedName})<-[syn:IS_SYNONYM_OF]-(t2:Tag {normalizedName: $synonymNormalizedName})
-
-        CREATE (t1)<-[tds:IS_UNLINKED_SYNONYM_OF]-(t2)
-        SET tds.synonymNodeId = $secondTagNodeId
-        SET tds.timestamp = timestamp()
-
+        MATCH (t1:Tag {normalizedName: $originTagNormalizedName})-[syn:IS_SYNONYM_OF]-(t2:Tag {normalizedName: $synonymNormalizedName})
         DETACH DELETE syn
       `,
       {

@@ -25,12 +25,17 @@ import {
   PaginatedData,
   ResponseWithNoData,
   Response,
+  StructuredJobpostWithRelations,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { AllJobsParams } from "./dto/all-jobs.input";
 import { JobListParams } from "./dto/job-list.input";
 import { ChangeJobClassificationInput } from "./dto/change-classification.input";
 import { BlockJobsInput } from "./dto/block-jobs.input";
+import { EditJobTagsInput } from "./dto/edit-tags.input";
+import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
+import { ChangeJobCommitmentInput } from "./dto/change-commitment.input";
+import { ChangeJobLocationTypeInput } from "./dto/change-location-type.input";
 
 @Injectable()
 export class JobsService {
@@ -46,6 +51,10 @@ export class JobsService {
     const generatedQuery = `
       MATCH (structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
       WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+      MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) OR NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+      OPTIONAL MATCH (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(other:Tag)--(:PairedDesignation|PreferredDesignation)
+      WITH COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END) AS tags, structured_jobpost
       RETURN structured_jobpost {
           id: structured_jobpost.id,
           url: structured_jobpost.url,
@@ -77,7 +86,7 @@ export class JobsService {
               telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
               github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
               alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
-              twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+              twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
@@ -88,7 +97,7 @@ export class JobsService {
                   telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
                   github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                  twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                  twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                   hacks: [
                     (project)-[:HAS_HACK]->(hack) | hack { .* }
                   ],
@@ -107,9 +116,7 @@ export class JobsService {
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ])
           }][0],
-          tags: [
-            (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }
-          ]
+          tags: apoc.coll.toSet(tags)
       } AS result
     `;
 
@@ -169,7 +176,7 @@ export class JobsService {
                   telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
                   github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
                   alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
-                  twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                  twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                   projects: [
                     (organization)-[:HAS_PROJECT]->(project) | project {
                       .*,
@@ -180,7 +187,7 @@ export class JobsService {
                       telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
                       github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
                       category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                      twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                      twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                       hacks: [
                         (project)-[:HAS_HACK]->(hack) | hack { .* }
                       ],
@@ -189,6 +196,12 @@ export class JobsService {
                       ],
                       chains: [
                         (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                      ],
+                      jobs: [
+                        (project)-[:HAS_JOB]->(job) | job { .* }
+                      ],
+                      repos: [
+                        (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                       ]
                     }
                   ],
@@ -532,9 +545,85 @@ export class JobsService {
 
   async getJobDetailsByUuid(uuid: string): Promise<JobListResult | undefined> {
     try {
-      return (await this.getJobsListResults()).find(
-        job => job.shortUUID === uuid,
-      );
+      const generatedQuery = `
+      MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID})-[:HAS_STATUS]->(:JobpostOnlineStatus)
+      WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+      MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) OR NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+      OPTIONAL MATCH (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(other:Tag)--(:PairedDesignation|PreferredDesignation)
+      WITH COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END) AS tags, structured_jobpost
+      RETURN structured_jobpost {
+          id: structured_jobpost.id,
+          url: structured_jobpost.url,
+          title: structured_jobpost.title,
+          salary: structured_jobpost.salary,
+          culture: structured_jobpost.culture,
+          location: structured_jobpost.location,
+          summary: structured_jobpost.summary,
+          benefits: structured_jobpost.benefits,
+          shortUUID: structured_jobpost.shortUUID,
+          seniority: structured_jobpost.seniority,
+          description: structured_jobpost.description,
+          requirements: structured_jobpost.requirements,
+          paysInCrypto: structured_jobpost.paysInCrypto,
+          minimumSalary: structured_jobpost.minimumSalary,
+          maximumSalary: structured_jobpost.maximumSalary,
+          salaryCurrency: structured_jobpost.salaryCurrency,
+          responsibilities: structured_jobpost.responsibilities,
+          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+          offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+          classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
+          commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
+          locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
+          organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization) | organization {
+              .*,
+              discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
+              alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
+              twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              projects: [
+                (organization)-[:HAS_PROJECT]->(project) | project {
+                  .*,
+                  orgId: organization.orgId,
+                  discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                  website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                  docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                  telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                  github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
+                  category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                  twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+                  hacks: [
+                    (project)-[:HAS_HACK]->(hack) | hack { .* }
+                  ],
+                  audits: [
+                    (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                  ],
+                  chains: [
+                    (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ]
+                }
+              ],
+              fundingRounds: apoc.coll.toSet([
+                (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+              ]),
+              investors: apoc.coll.toSet([
+                (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+              ])
+          }][0],
+          tags: apoc.coll.toSet(tags)
+      } AS result
+    `;
+      const result = await this.neogma.queryRunner.run(generatedQuery, {
+        shortUUID: uuid,
+      });
+      return result.records[0]?.get("result")
+        ? new JobListResultEntity(
+            result.records[0]?.get("result") as JobListResult,
+          ).getProperties()
+        : undefined;
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -677,6 +766,10 @@ export class JobsService {
         `
         MATCH (:User {wallet: $wallet})-[:BOOKMARKED]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) OR NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+        OPTIONAL MATCH (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(other:Tag)--(:PairedDesignation|PreferredDesignation)
+        WITH COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END) AS tags, structured_jobpost
         RETURN structured_jobpost {
             id: structured_jobpost.id,
             url: structured_jobpost.url,
@@ -708,7 +801,7 @@ export class JobsService {
                 telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
                 github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
                 alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
-                twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                 projects: [
                   (organization)-[:HAS_PROJECT]->(project) | project {
                     .*,
@@ -719,7 +812,7 @@ export class JobsService {
                     telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
                     github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
                     category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                    twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                    twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                     hacks: [
                       (project)-[:HAS_HACK]->(hack) | hack { .* }
                     ],
@@ -728,6 +821,12 @@ export class JobsService {
                     ],
                     chains: [
                       (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                    ],
+                    jobs: [
+                      (project)-[:HAS_JOB]->(job) | job { .* }
+                    ],
+                    repos: [
+                      (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                     ]
                   }
                 ],
@@ -738,9 +837,7 @@ export class JobsService {
                   (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
                 ])
             }][0],
-            tags: [
-              (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }
-            ]
+            tags: apoc.coll.toSet(tags)
         } AS result
       `,
         { wallet },
@@ -763,7 +860,7 @@ export class JobsService {
         scope.setExtra("input", { wallet });
         Sentry.captureException(err);
       });
-      this.logger.error(`ProfileService::getUserBookmarkedJobs ${err.message}`);
+      this.logger.error(`JobsService::getUserBookmarkedJobs ${err.message}`);
       return {
         success: false,
         message: "Error getting user bookmarked jobs",
@@ -778,10 +875,12 @@ export class JobsService {
     try {
       await this.neogma.queryRunner.run(
         `
+        MATCH (jc:JobpostClassification {name: $classification})
         MATCH (structured_jobpost:StructuredJobpost WHERE structured_jobpost.shortUUID IN $shortUUIDs)-[c:HAS_CLASSIFICATION]->(:JobpostClassification)
-        DETACH DELETE c
+        DELETE c
         
-        CREATE (structured_jobpost)-[nc:HAS_CLASSIFICATION]->(:JobpostClassification {name: $classification})
+        WITH structured_jobpost, jc
+        CREATE (structured_jobpost)-[nc:HAS_CLASSIFICATION]->(jc)
         SET nc.creator = $wallet
       `,
         { wallet, ...dto },
@@ -789,7 +888,7 @@ export class JobsService {
 
       return {
         success: true,
-        message: "User repo tags used updated successfully",
+        message: "Job classification changed successfully",
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -800,14 +899,179 @@ export class JobsService {
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
       });
-      this.logger.error(
-        `ProfileService::updateRepoContribution ${err.message}`,
-      );
+      this.logger.error(`JobsService::changeClassification ${err.message}`);
       return {
         success: false,
-        message: "Error updating user repo tags used",
+        message: "Error changing job classification",
       };
     }
+  }
+
+  async editJobTags(
+    wallet: string,
+    dto: EditJobTagsInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID})
+        OPTIONAL MATCH (structured_jobpost)-[r:HAS_TAG]->(:Tag)
+        DELETE r
+
+        WITH structured_jobpost
+        MATCH (tag:Tag WHERE tag.normalizedName IN $tags)
+        MERGE (structured_jobpost)-[nc:HAS_TAG]->(tag)
+        SET nc.creator = $wallet
+      `,
+        { wallet, ...dto },
+      );
+
+      return {
+        success: true,
+        message: "Job tags updated successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::editJobTags ${err.message}`);
+      return {
+        success: false,
+        message: "Error editing job tags",
+      };
+    }
+  }
+
+  async changeJobCommitment(
+    wallet: string,
+    dto: ChangeJobCommitmentInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (jc:JobpostCommitment {name: $commitment})
+        MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID} )-[c:HAS_COMMITMENT]->(:JobpostCommitment)
+        DELETE c
+        
+        WITH structured_jobpost, jc
+        CREATE (structured_jobpost)-[nc:HAS_COMMITMENT]->(jc)
+        SET nc.creator = $wallet
+      `,
+        { wallet, ...dto },
+      );
+
+      return {
+        success: true,
+        message: "Job classification changed successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::changeCommitment ${err.message}`);
+      return {
+        success: false,
+        message: "Error changing job commitment",
+      };
+    }
+  }
+
+  async changeJobLocationType(
+    wallet: string,
+    dto: ChangeJobLocationTypeInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (jc:JobpostCommitment {name: $commitment})
+        MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID} )-[c:HAS_COMMITMENT]->(:JobpostCommitment)
+        DELETE c
+        
+        WITH structured_jobpost, jc
+        CREATE (structured_jobpost)-[nc:HAS_COMMITMENT]->(jc)
+        SET nc.creator = $wallet
+      `,
+        { wallet, ...dto },
+      );
+
+      return {
+        success: true,
+        message: "Job classification changed successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::changeCommitment ${err.message}`);
+      return {
+        success: false,
+        message: "Error changing job commitment",
+      };
+    }
+  }
+
+  async update(
+    shortUUID: string,
+    job: Omit<
+      UpdateJobMetadataInput,
+      "commitment" | "classification" | "locationType"
+    >,
+  ): Promise<StructuredJobpostWithRelations | undefined> {
+    const res = await this.neogma.queryRunner.run(
+      `
+        MATCH (structured_jobpost:StructuredJobpost { shortUUID: $shortUUID })
+        SET structured_jobpost += $properties
+        RETURN {
+          id: structured_jobpost.id,
+          url: structured_jobpost.url,
+          title: structured_jobpost.title,
+          salary: structured_jobpost.salary,
+          culture: structured_jobpost.culture,
+          location: structured_jobpost.location,
+          summary: structured_jobpost.summary,
+          benefits: structured_jobpost.benefits,
+          shortUUID: structured_jobpost.shortUUID,
+          seniority: structured_jobpost.seniority,
+          description: structured_jobpost.description,
+          requirements: structured_jobpost.requirements,
+          paysInCrypto: structured_jobpost.paysInCrypto,
+          minimumSalary: structured_jobpost.minimumSalary,
+          maximumSalary: structured_jobpost.maximumSalary,
+          salaryCurrency: structured_jobpost.salaryCurrency,
+          responsibilities: structured_jobpost.responsibilities,
+          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+          offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+          classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
+          commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
+          locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
+        } as res
+      `,
+      {
+        shortUUID,
+        properties: {
+          ...job,
+          updatedTimestamp: new Date().getTime(),
+        },
+      },
+    );
+    return res.records.length
+      ? new StructuredJobpostWithRelations(res.records[0].get("res"))
+      : undefined;
   }
 
   async blockJobs(
@@ -836,7 +1100,7 @@ export class JobsService {
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
       });
-      this.logger.error(`ProfileService::blockJobs ${err.message}`);
+      this.logger.error(`JobsService::blockJobs ${err.message}`);
       return {
         success: false,
         message: "Error blocking jobs",
@@ -870,7 +1134,7 @@ export class JobsService {
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
       });
-      this.logger.error(`ProfileService::unblockJobs ${err.message}`);
+      this.logger.error(`JobsService::unblockJobs ${err.message}`);
       return {
         success: false,
         message: "Error unblocking jobs",

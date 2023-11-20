@@ -11,6 +11,8 @@ export class UserProfile {
       preferred: t.union([t.string, t.null]),
     }),
     availableForWork: t.union([t.boolean, t.null]),
+    role: t.union([t.string, t.null]),
+    flow: t.union([t.string, t.null]),
   });
 
   avatar: string | null;
@@ -20,14 +22,18 @@ export class UserProfile {
     preferred: string | null;
   };
   availableForWork: boolean | null;
+  role: string | null;
+  flow: string | null;
 
   constructor(raw: UserProfile) {
-    const { avatar, username, availableForWork, contact } = raw;
+    const { avatar, username, availableForWork, contact, role, flow } = raw;
 
     const result = UserProfile.UserProfileType.decode(raw);
 
     this.avatar = avatar;
     this.username = username;
+    this.flow = flow;
+    this.role = role;
     this.contact = contact;
     this.availableForWork = availableForWork;
 

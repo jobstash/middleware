@@ -32,7 +32,7 @@ import {
 } from "@nestjs/swagger";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import * as Sentry from "@sentry/node";
-import { UserService } from "../user/user.service";
+import { UserService } from "../../user/user.service";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { NO_CACHE } from "src/shared/presets/cache-control";
 

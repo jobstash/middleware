@@ -9,6 +9,8 @@ import {
 } from "@nestjs/swagger";
 import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
+import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relations.interface";
+import { Repository } from "./repository.interface";
 
 export class ProjectListResult {
   public static readonly ProjectListResultType = t.strict({
@@ -27,6 +29,10 @@ export class ProjectListResult {
     hacks: t.array(Hack.HackType),
     audits: t.array(Audit.AuditType),
     chains: t.array(Chain.ChainType),
+    jobs: t.array(
+      StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
+    ),
+    repos: t.array(Repository.RepositoryType),
   });
 
   @ApiProperty()
@@ -36,34 +42,34 @@ export class ProjectListResult {
   name: string;
 
   @ApiPropertyOptional()
-  website: string | null;
+  website?: string | null;
 
   @ApiPropertyOptional()
-  logo: string | null;
+  logo?: string | null;
 
   @ApiPropertyOptional()
-  category: string | null;
+  category?: string | null;
 
   @ApiPropertyOptional()
-  isMainnet: boolean | null;
+  isMainnet?: boolean | null;
 
   @ApiPropertyOptional()
-  tokenSymbol: string | null;
+  tokenSymbol?: string | null;
 
   @ApiPropertyOptional()
-  tvl: number | null;
+  tvl?: number | null;
 
   @ApiPropertyOptional()
-  monthlyRevenue: number | null;
+  monthlyRevenue?: number | null;
 
   @ApiPropertyOptional()
-  monthlyVolume: number | null;
+  monthlyVolume?: number | null;
 
   @ApiPropertyOptional()
-  monthlyFees: number | null;
+  monthlyFees?: number | null;
 
   @ApiPropertyOptional()
-  monthlyActiveUsers: number | null;
+  monthlyActiveUsers?: number | null;
 
   @ApiProperty({
     type: "array",
@@ -83,6 +89,18 @@ export class ProjectListResult {
   })
   chains: Chain[];
 
+  @ApiProperty({
+    type: "array",
+    items: { $ref: getSchemaPath(StructuredJobpostWithRelations) },
+  })
+  jobs: StructuredJobpostWithRelations[];
+
+  @ApiProperty({
+    type: "array",
+    items: { $ref: getSchemaPath(StructuredJobpostWithRelations) },
+  })
+  repos: Repository[];
+
   constructor(raw: ProjectListResult) {
     const {
       id,
@@ -100,6 +118,8 @@ export class ProjectListResult {
       hacks,
       audits,
       chains,
+      jobs,
+      repos,
     } = raw;
 
     const result = ProjectListResult.ProjectListResultType.decode(raw);
@@ -110,6 +130,8 @@ export class ProjectListResult {
     this.logo = logo;
     this.hacks = hacks;
     this.audits = audits;
+    this.jobs = jobs;
+    this.repos = repos;
     this.chains = chains;
     this.website = website;
     this.category = category;

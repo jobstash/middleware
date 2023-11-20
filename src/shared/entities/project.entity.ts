@@ -34,7 +34,7 @@ export class ProjectWithRelationsEntity {
         project?.hacks.map(hack => ({
           ...hack,
           fundsLost: hack.fundsLost,
-          date: notStringOrNull(hack.date),
+          date: nonZeroOrNull(hack.date),
           description: notStringOrNull(hack.description),
           fundsReturned: nonZeroOrNull(hack.fundsReturned),
         })) ?? [],
@@ -80,36 +80,8 @@ export class ProjectEntity {
     return (<Record<string, string>>this.node.properties).description;
   }
 
-  getWebsite(): string {
-    return (<Record<string, string>>this.node.properties).website;
-  }
-
-  getLogo(): string {
-    return (<Record<string, string>>this.node.properties).logo;
-  }
-
-  getGithubOrganization(): string | undefined {
-    return (<Record<string, string>>this.node.properties).githubOrganization;
-  }
-
   getAltName(): string | undefined {
     return (<Record<string, string>>this.node.properties).altName;
-  }
-
-  getTwitter(): string | undefined {
-    return (<Record<string, string>>this.node.properties).twitter;
-  }
-
-  getDiscord(): string | undefined {
-    return (<Record<string, string>>this.node.properties).discord;
-  }
-
-  getDocs(): string | undefined {
-    return (<Record<string, string>>this.node.properties).docs;
-  }
-
-  getTelegram(): string | undefined {
-    return (<Record<string, string>>this.node.properties).telegram;
   }
 
   getIsMainnet(): boolean {

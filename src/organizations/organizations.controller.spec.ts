@@ -128,7 +128,7 @@ describe("OrganizationsController", () => {
     models = module.get<ModelService>(ModelService);
     await models.onModuleInit();
     controller = module.get<OrganizationsController>(OrganizationsController);
-  }, 100000);
+  }, 3000000);
 
   it("should be defined", () => {
     expect(controller).toBeDefined();
@@ -139,7 +139,7 @@ describe("OrganizationsController", () => {
     expect(
       (await models.Organizations.findMany()).length,
     ).toBeGreaterThanOrEqual(1);
-  }, 100000);
+  }, 3000000);
 
   it("should get orgs list with no org and array property duplication", async () => {
     const params: OrgListParams = {
@@ -185,7 +185,7 @@ describe("OrganizationsController", () => {
     expect(details).toBeDefined();
 
     expect(olrHasArrayPropsDuplication(details)).toBe(false);
-  }, 10000);
+  }, 300000);
 
   it("should respond with the correct page ", async () => {
     const page = 1;
@@ -198,7 +198,7 @@ describe("OrganizationsController", () => {
     const res = await controller.getOrgsListWithSearch(params);
 
     expect(res.page).toEqual(page);
-  }, 10000);
+  }, 300000);
 
   it("should respond with the correct results for {(min & max)HeadCount} filter", async () => {
     const minHeadCount = 1;
@@ -227,7 +227,7 @@ describe("OrganizationsController", () => {
     const res = await controller.getOrgsListWithSearch(params);
     const results = res.data;
     expect(results.every(x => matchesHeadCountRange(x) === true)).toBe(true);
-  }, 1000000);
+  }, 30000000);
 
   it("should get correctly formatted filter configs", async () => {
     const configs = await controller.getFilterConfigs();
@@ -244,5 +244,5 @@ describe("OrganizationsController", () => {
         throw new Error(x);
       });
     }
-  }, 100000);
+  }, 3000000);
 });

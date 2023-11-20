@@ -9,6 +9,8 @@ export class UserProfileEntity {
       ...this.raw,
       avatar: notStringOrNull(this.raw?.avatar),
       username: notStringOrNull(this.raw?.username),
+      role: notStringOrNull(this.raw?.role),
+      flow: notStringOrNull(this.raw?.flow),
       availableForWork: this.raw?.availableForWork ?? null,
       contact: {
         value: notStringOrNull(this.raw?.contact?.value),

@@ -1,11 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import {
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  IsUrl,
-  IsNumber,
-} from "class-validator";
+import { IsNotEmpty, IsOptional, IsString, IsUrl } from "class-validator";
 
 export class CreateProjectInput {
   @ApiProperty()
@@ -31,22 +25,12 @@ export class CreateProjectInput {
   @ApiProperty()
   @IsNotEmpty()
   @IsUrl()
-  url: string;
+  website: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsUrl()
   logo: string;
-
-  @ApiProperty()
-  @IsOptional()
-  @IsString()
-  githubOrganization?: string;
-
-  @ApiProperty()
-  @IsOptional()
-  @IsNumber()
-  teamSize?: number;
 
   @ApiProperty()
   @IsOptional()
@@ -57,6 +41,11 @@ export class CreateProjectInput {
   @IsOptional()
   @IsString()
   discord?: string;
+
+  @ApiProperty()
+  @IsOptional()
+  @IsString()
+  github?: string;
 
   @ApiProperty()
   @IsOptional()

@@ -10,6 +10,8 @@ import { Chain } from "./chain.interface";
 import { Audit } from "./audit.interface";
 import { Hack } from "./hack.interface";
 import { ProjectMoreInfo } from "./project-more-info.interface";
+import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relations.interface";
+import { Repository } from "./repository.interface";
 
 export class ProjectWithRelations extends ProjectMoreInfo {
   public static readonly ProjectWithRelationsType = t.intersection([
@@ -25,6 +27,10 @@ export class ProjectWithRelations extends ProjectMoreInfo {
       hacks: t.array(Hack.HackType),
       audits: t.array(Audit.AuditType),
       chains: t.array(Chain.ChainType),
+      jobs: t.array(
+        StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
+      ),
+      repos: t.array(Repository.RepositoryType),
     }),
   ]);
 
@@ -67,6 +73,18 @@ export class ProjectWithRelations extends ProjectMoreInfo {
   })
   chains: Chain[];
 
+  @ApiProperty({
+    type: "array",
+    items: { $ref: getSchemaPath(StructuredJobpostWithRelations) },
+  })
+  jobs: StructuredJobpostWithRelations[];
+
+  @ApiProperty({
+    type: "array",
+    items: { $ref: getSchemaPath(StructuredJobpostWithRelations) },
+  })
+  repos: Repository[];
+
   constructor(raw: ProjectWithRelations) {
     const {
       github,
@@ -79,6 +97,8 @@ export class ProjectWithRelations extends ProjectMoreInfo {
       hacks,
       audits,
       chains,
+      jobs,
+      repos,
       ...projectProperties
     } = raw;
     super(projectProperties);
@@ -94,6 +114,8 @@ export class ProjectWithRelations extends ProjectMoreInfo {
     this.hacks = hacks;
     this.audits = audits;
     this.chains = chains;
+    this.jobs = jobs;
+    this.repos = repos;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

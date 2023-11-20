@@ -3,16 +3,36 @@ import { Neogma, NeogmaModel } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import {
   AuditProps,
+  AuditorProps,
+  Auditors,
   Audits,
   ChainProps,
   Chains,
+  DiscordProps,
+  Discords,
+  DocsiteProps,
+  Docsites,
   FundingRoundProps,
   FundingRoundRelations,
   FundingRounds,
+  GithubOrganizationProps,
+  GithubOrganizations,
+  GithubProps,
+  Githubs,
   HackProps,
   Hacks,
   InvestorProps,
   Investors,
+  JobpostClassificationProps,
+  JobpostClassifications,
+  JobpostCommitmentProps,
+  JobpostCommitments,
+  JobpostLocationTypeProps,
+  JobpostLocationTypes,
+  JobpostOfflineStatusProps,
+  JobpostOfflineStatuses,
+  JobpostOnlineStatusProps,
+  JobpostOnlineStatuses,
   JobpostProps,
   JobpostRelations,
   Jobposts,
@@ -20,6 +40,8 @@ import {
   JobsiteProps,
   JobsiteRelations,
   Jobsites,
+  OrganizationAliasProps,
+  OrganizationAliases,
   OrganizationMethods,
   OrganizationProps,
   OrganizationRelations,
@@ -31,19 +53,23 @@ import {
   ProjectRelations,
   ProjectStatics,
   Projects,
+  Repositories,
+  RepositoryProps,
   StructuredJobposStatics,
   StructuredJobpostMethods,
   StructuredJobpostProps,
   StructuredJobpostRelations,
   StructuredJobposts,
-  Tags,
   TagMethods,
   TagProps,
   TagStatics,
-  JobpostOnlineStatusProps,
-  JobpostOfflineStatusProps,
-  JobpostOnlineStatuses,
-  JobpostOfflineStatuses,
+  Tags,
+  TelegramProps,
+  Telegrams,
+  TwitterProps,
+  Twitters,
+  WebsiteProps,
+  Websites,
 } from "src/shared/models";
 import { NoRelations } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -69,6 +95,8 @@ export class ModelService implements OnModuleInit {
     OrganizationRelations,
     OrganizationMethods
   >;
+  public OrganizationAliases: NeogmaModel<OrganizationAliasProps, NoRelations>;
+  public GithubOrganizations: NeogmaModel<GithubOrganizationProps, NoRelations>;
   public Projects: NeogmaModel<
     ProjectProps,
     ProjectRelations,
@@ -85,11 +113,28 @@ export class ModelService implements OnModuleInit {
     JobpostOfflineStatusProps,
     NoRelations
   >;
+  public JobpostClassifications: NeogmaModel<
+    JobpostClassificationProps,
+    NoRelations
+  >;
+  public JobpostCommitments: NeogmaModel<JobpostCommitmentProps, NoRelations>;
+  public JobpostLocationTypes: NeogmaModel<
+    JobpostLocationTypeProps,
+    NoRelations
+  >;
   public FundingRounds: NeogmaModel<FundingRoundProps, FundingRoundRelations>;
   public Investors: NeogmaModel<InvestorProps, NoRelations>;
   public Audits: NeogmaModel<AuditProps, NoRelations>;
+  public Auditors: NeogmaModel<AuditorProps, NoRelations>;
   public Hacks: NeogmaModel<HackProps, NoRelations>;
   public Chains: NeogmaModel<ChainProps, NoRelations>;
+  public Discords: NeogmaModel<DiscordProps, NoRelations>;
+  public Repositories: NeogmaModel<RepositoryProps, NoRelations>;
+  public Telegrams: NeogmaModel<TelegramProps, NoRelations>;
+  public Githubs: NeogmaModel<GithubProps, NoRelations>;
+  public Twitters: NeogmaModel<TwitterProps, NoRelations>;
+  public Docsites: NeogmaModel<DocsiteProps, NoRelations>;
+  public Websites: NeogmaModel<WebsiteProps, NoRelations>;
 
   onModuleInit = async (): Promise<void> => {
     // try {
@@ -113,5 +158,18 @@ export class ModelService implements OnModuleInit {
     this.Audits = Audits(this.neogma);
     this.Hacks = Hacks(this.neogma);
     this.Chains = Chains(this.neogma);
+    this.OrganizationAliases = OrganizationAliases(this.neogma);
+    this.GithubOrganizations = GithubOrganizations(this.neogma);
+    this.JobpostClassifications = JobpostClassifications(this.neogma);
+    this.JobpostCommitments = JobpostCommitments(this.neogma);
+    this.JobpostLocationTypes = JobpostLocationTypes(this.neogma);
+    this.Auditors = Auditors(this.neogma);
+    this.Discords = Discords(this.neogma);
+    this.Repositories = Repositories(this.neogma);
+    this.Telegrams = Telegrams(this.neogma);
+    this.Twitters = Twitters(this.neogma);
+    this.Docsites = Docsites(this.neogma);
+    this.Githubs = Githubs(this.neogma);
+    this.Websites = Websites(this.neogma);
   };
 }

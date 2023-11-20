@@ -16,7 +16,7 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import { propertiesMatch } from "src/shared/helpers";
 import * as Sentry from "@sentry/node";
-import { UserService } from "../user/user.service";
+import { UserService } from "../../user/user.service";
 import { GithubInfo } from "./dto/github-info.input";
 
 @Injectable()

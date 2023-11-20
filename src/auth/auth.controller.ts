@@ -15,12 +15,12 @@ import { RBACGuard } from "./rbac.guard";
 import { CheckWalletFlows, CheckWalletRoles } from "src/shared/enums";
 import { ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import { ResponseWithNoData, User } from "src/shared/interfaces";
-import { UserService } from "./user/user.service";
+import { UserService } from "../user/user.service";
 import { SendVerificationEmailInput } from "./dto/send-verification-email.input";
 import { AuthGuard } from "@nestjs/passport";
 import { AuthUser } from "src/shared/decorators/auth-user.decorator";
 import { AuthService } from "./auth.service";
-import { WalletAdminMappingDto } from "./user/dto/wallet-admin-mapping-request.dto";
+import { WalletAdminMappingDto } from "../user/dto/wallet-admin-mapping-request.dto";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Controller("auth")

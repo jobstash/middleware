@@ -75,7 +75,7 @@ export const Tags = (
           }).return(`
               pt {
                 tag: pt { .* },
-                synonyms: [(pt)<-[:IS_SYNONYM_OF*]-(t2) | t2 { .* }]
+                synonyms: apoc.coll.toSet([(pt)-[:IS_SYNONYM_OF]-(t2) | t2 { .* }])
               } as res
             `);
           const result = await query.run(neogma.queryRunner);
@@ -93,7 +93,7 @@ export const Tags = (
           }).return(`
               t1 {
                 tag: t1 { .* },
-                pairings: [(t1)-[:IS_PAIR_OF]->(t2) | t2 { .* }]
+                pairings: apoc.coll.toSet([(t1)-[:IS_PAIR_OF]->(t2) | t2 { .* }])
               } as res
             `);
           const result = await query.run(neogma.queryRunner);

@@ -30,6 +30,7 @@ import { CreateTagDto } from "./dto/create-tag.dto";
 import { DeletePreferredTagInput } from "./dto/delete-preferred-tag.input";
 import { LinkTagSynonymDto } from "./dto/link-tag-synonym.dto";
 import { TagsService } from "./tags.service";
+import { DeletePreferredTagSynonymsInput } from "./dto/delete-preferred-tag-synonym.input";
 @Controller("tags")
 @ApiExtraModels(TagPreference, TagPreference)
 export class TagsController {
@@ -554,16 +555,30 @@ export class TagsController {
         preferredTag.getNormalizedName(),
       );
 
+      let oldSynonymList = [];
+
       if (!isPreferred) {
         await this.tagsService.preferTag(
           normalizedPreferredName,
           creatorWallet as string,
         );
+      } else {
+        const preferredTag =
+          await this.tagsService.findPreferredTagByNormalizedName(
+            normalizedPreferredName,
+          );
+        oldSynonymList = preferredTag.synonyms;
       }
 
       for (const tagName of synonyms) {
+        oldSynonymList = (
+          await this.tagsService.findPreferredTagByNormalizedName(
+            normalizedPreferredName,
+          )
+        ).synonyms;
+        const normalizedTagName = this.tagsService.normalizeTagName(tagName);
         const storedTagNode = await this.tagsService.findByNormalizedName(
-          this.tagsService.normalizeTagName(tagName),
+          normalizedTagName,
         );
 
         if (!storedTagNode) {
@@ -586,12 +601,18 @@ export class TagsController {
         //   };
         // }
 
-        await this.tagsService.relatePreferredTagToTag(
-          preferredTag.getNormalizedName(),
-          storedTagNode.getNormalizedName(),
-        );
+        if (
+          oldSynonymList.find(
+            tag => tag.normalizedName === normalizedTagName,
+          ) === undefined
+        ) {
+          await this.tagsService.relatePreferredTagToTag(
+            preferredTag.getNormalizedName(),
+            storedTagNode.getNormalizedName(),
+          );
 
-        results.push(storedTagNode.getProperties());
+          results.push(storedTagNode.getProperties());
+        }
       }
 
       return {
@@ -624,17 +645,11 @@ export class TagsController {
     schema: responseSchemaWrapper({ $ref: getSchemaPath(TagPreference) }),
   })
   async deletePreferredTag(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
     @Body() input: DeletePreferredTagInput,
   ): Promise<Response<TagPreference> | ResponseWithNoData> {
     this.logger.log(`/tags/delete-preference ${JSON.stringify(input)}`);
-    // const { address: creatorWallet } = await this.authService.getSession(
-    //   req,
-    //   res,
-    // );
     try {
-      const { preferredName, synonyms } = input;
+      const { preferredName } = input;
 
       const normalizedPreferredName =
         this.tagsService.normalizeTagName(preferredName);
@@ -644,57 +659,12 @@ export class TagsController {
           normalizedPreferredName,
         );
 
-      for (const tagName of synonyms) {
-        const storedTagNode = await this.tagsService.findByNormalizedName(
-          this.tagsService.normalizeTagName(tagName),
-        );
+      await this.deletePreferredTagSynonym({
+        preferredName: preferredName,
+        synonyms: existingPreferredTagNameNode.synonyms.map(tag => tag.name),
+      });
 
-        if (!storedTagNode) {
-          return {
-            success: false,
-            message: `Could not find Tag ${tagName} to delete preference for`,
-          };
-        }
-
-        if (!existingPreferredTagNameNode) {
-          return {
-            success: false,
-            message: "Preferred Tag Name does not exist",
-          };
-        }
-
-        const hasPreferredRelationship =
-          await this.tagsService.hasRelationToPreferredTag(
-            existingPreferredTagNameNode.tag.normalizedName,
-            storedTagNode.getNormalizedName(),
-          );
-
-        if (!hasPreferredRelationship) {
-          return {
-            success: false,
-            message: `Preferred tag relation not found`,
-          };
-        }
-
-        // TODO: Confirm that check is needed @duckdegen
-        // const hasPreferredTagCreatorRelationship =
-        //   await this.tagsService.hasPreferredTagCreatorRelationship(
-        //     existingPreferredTagNameNode.tag.id,
-        //     creatorWallet as string,
-        //   );
-
-        // if (!hasPreferredTagCreatorRelationship) {
-        //   return {
-        //     success: false,
-        //     message: `Missing existing preferred tag relation to creator`,
-        //   };
-        // }
-
-        await this.tagsService.unrelatePreferredTagToTag(
-          existingPreferredTagNameNode.tag.normalizedName,
-          storedTagNode.getNormalizedName(),
-        );
-      }
+      await this.tagsService.unpreferTag(normalizedPreferredName);
 
       return {
         success: true,
@@ -714,6 +684,104 @@ export class TagsController {
       return {
         success: false,
         message: `Failed to delete preferred tag`,
+      };
+    }
+  }
+
+  @Post("/delete-synonyms")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
+  @ApiOkResponse({
+    description: "Deletes synonyms for a preferred tag",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(TagPreference) }),
+  })
+  async deletePreferredTagSynonym(
+    @Body() input: DeletePreferredTagSynonymsInput,
+  ): Promise<Response<TagPreference> | ResponseWithNoData> {
+    this.logger.log(`/tags/delete-synonyms ${JSON.stringify(input)}`);
+    try {
+      const { preferredName, synonyms } = input;
+
+      const normalizedPreferredName =
+        this.tagsService.normalizeTagName(preferredName);
+
+      const existingPreferredTagNameNode =
+        await this.tagsService.findPreferredTagByNormalizedName(
+          normalizedPreferredName,
+        );
+
+      for (const tagName of synonyms) {
+        const storedTagNode = await this.tagsService.findByNormalizedName(
+          this.tagsService.normalizeTagName(tagName),
+        );
+
+        if (!storedTagNode) {
+          return {
+            success: false,
+            message: `Could not find Tag ${tagName} to delete synonym for`,
+          };
+        }
+
+        if (!existingPreferredTagNameNode) {
+          return {
+            success: false,
+            message: "Preferred Tag Name does not exist",
+          };
+        }
+
+        // const hasPreferredRelationship =
+        //   await this.tagsService.hasRelationToPreferredTag(
+        //     normalizedPreferredName,
+        //     storedTagNode.getNormalizedName(),
+        //   );
+
+        // if (!hasPreferredRelationship) {
+        //   return {
+        //     success: false,
+        //     message: `Preferred tag relation not found`,
+        //   };
+        // }
+
+        // TODO: Confirm that check is needed @duckdegen
+        // const hasPreferredTagCreatorRelationship =
+        //   await this.tagsService.hasPreferredTagCreatorRelationship(
+        //     existingPreferredTagNameNode.tag.id,
+        //     creatorWallet as string,
+        //   );
+
+        // if (!hasPreferredTagCreatorRelationship) {
+        //   return {
+        //     success: false,
+        //     message: `Missing existing preferred tag relation to creator`,
+        //   };
+        // }
+
+        await this.tagsService.unrelatePreferredTagToTag(
+          normalizedPreferredName,
+          storedTagNode.getNormalizedName(),
+        );
+      }
+
+      return {
+        success: true,
+        data: existingPreferredTagNameNode,
+        message: "Preferred tag synonym deleted successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "tags.controller",
+        });
+        scope.setExtra("input", input);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `TagsController::deletePreferredTagSynonym ${err.message}`,
+      );
+      return {
+        success: false,
+        message: `Failed to delete preferred tag synonym`,
       };
     }
   }

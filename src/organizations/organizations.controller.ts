@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   HttpStatus,
@@ -395,7 +396,7 @@ export class OrganizationsController {
     }
   }
 
-  @Post("/update")
+  @Post("/update/:id")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
@@ -410,30 +411,18 @@ export class OrganizationsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async updateOrganization(
+    @Param("id") id: string,
     @Body() body: UpdateOrganizationInput,
   ): Promise<Response<Organization> | ResponseWithNoData> {
-    this.logger.log(`/organizations/update ${JSON.stringify(body)}`);
-    const storedOrganization = await this.organizationsService.find(body.name);
-
-    if (!storedOrganization) {
-      return new Promise(resolve => {
-        resolve({
-          success: false,
-          message: `Organization ${body.name} not found, but trying to edit it`,
-        });
-      });
-    }
+    this.logger.log(`/organizations/update/${id} ${JSON.stringify(body)}`);
 
     try {
-      const updatedOrganization = await this.organizationsService.update(
-        storedOrganization.getId(),
-        body,
-      );
+      const result = await this.organizationsService.update(id, body);
 
       return {
         success: true,
-        data: updatedOrganization.getProperties(),
-        message: "Organization already exists, returning existing organization",
+        message: "Organization updated successfully",
+        data: result.getProperties(),
       };
     } catch (error) {
       this.logger.error(error);
@@ -442,6 +431,27 @@ export class OrganizationsController {
         message: `An unexpected error occured`,
       };
     }
+  }
+
+  @Delete("/delete/:id")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Deletes an existing organization",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Organization),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong deleting the organization on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async deleteOrganization(
+    @Param("id") id: string,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/organizations/delete/${id}}`);
+    return this.organizationsService.delete(id);
   }
 
   @Get("/repositories/:id")

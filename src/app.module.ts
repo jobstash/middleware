@@ -18,6 +18,8 @@ import { ModelModule } from "./model/model.module";
 import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
 import { ProfileModule } from "./auth/profile/profile.module";
 import { MailModule } from "./mail/mail.module";
+import { HacksModule } from "./hacks/hacks.module";
+import { AuditsModule } from "./audits/audits.module";
 
 @Module({
   imports: [
@@ -53,6 +55,8 @@ import { MailModule } from "./mail/mail.module";
     ModelModule,
     ProfileModule,
     MailModule,
+    HacksModule,
+    AuditsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

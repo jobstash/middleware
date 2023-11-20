@@ -21,6 +21,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@neo4j-labs/temp-dbs": "^0.2.4",
     "@nestjs/cache-manager": "^1.0.0",
     "@nestjs/common": "^9.4.0",
     "@nestjs/config": "^2.3.1",
