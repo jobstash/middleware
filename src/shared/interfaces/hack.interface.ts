@@ -19,13 +19,13 @@ export class Hack {
   id: string | null;
 
   @ApiProperty()
-  date: string | null;
+  date: number | null;
 
   @ApiProperty()
   defiId: string | null;
 
   @ApiProperty()
-  category: number | null;
+  category: string | null;
 
   @ApiProperty()
   fundsLost: number | null;

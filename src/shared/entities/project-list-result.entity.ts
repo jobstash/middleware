@@ -23,7 +23,7 @@ export class ProjectListResultEntity {
         project?.hacks.map(hack => ({
           ...hack,
           fundsLost: hack.fundsLost,
-          date: notStringOrNull(hack.date),
+          date: nonZeroOrNull(hack.date),
           description: notStringOrNull(hack.description),
           fundsReturned: nonZeroOrNull(hack.fundsReturned),
         })) ?? [],
@@ -89,7 +89,7 @@ export class ProjectCompetitorListResultEntity {
         project?.hacks.map(hack => ({
           ...hack,
           fundsLost: hack.fundsLost,
-          date: notStringOrNull(hack.date),
+          date: nonZeroOrNull(hack.date),
           description: notStringOrNull(hack.description),
           fundsReturned: nonZeroOrNull(hack.fundsReturned),
         })) ?? [],

@@ -14,6 +14,8 @@ export * from "./user-skill.entity";
 export * from "./project-details.entity";
 export * from "./project-category.entity";
 export * from "./project.entity";
+export * from "./audit.entity";
+export * from "./hack.entity";
 export * from "./structured-jobpost.entity";
 export * from "./job-filter-configs.entity";
 export * from "./org-filter-configs.entity";
