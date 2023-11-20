@@ -1,4 +1,4 @@
-import { Integer } from "neo4j-driver";
+import { Integer, Node } from "neo4j-driver";
 import { DateRange, JobListOrderBy } from "../enums";
 import {
   startOfDay,
@@ -20,6 +20,8 @@ import { CustomLogger } from "../utils/custom-logger";
 import { OrgListResult, PaginatedData, ShortOrg } from "../interfaces";
 import { sort } from "fast-sort";
 import { TransformFnParams } from "class-transformer";
+import { Neo4jSupportedProperties, NeogmaInstance } from "neogma";
+import { randomUUID } from "crypto";
 
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
@@ -420,5 +422,16 @@ export const paginate = <T>(
     count: limit > data.length ? data.length : limit,
     total: data.length,
     data: data.slice((page - 1) * limit, page * limit),
+  };
+};
+
+export const instanceToNode = <M extends Neo4jSupportedProperties, V, K>(
+  instance: NeogmaInstance<M, V, K>,
+): Node => {
+  return {
+    labels: instance.labels,
+    properties: instance.getDataValues(),
+    identity: Integer.MAX_VALUE,
+    elementId: randomUUID(),
   };
 };

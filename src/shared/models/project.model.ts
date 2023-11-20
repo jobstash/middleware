@@ -30,10 +30,7 @@ import { DocsiteInstance, Docsites } from "./docsite.model";
 import { TwitterInstance, Twitters } from "./twitter.model";
 import { TelegramInstance, Telegrams } from "./telegram.model";
 import { WebsiteInstance, Websites } from "./website.model";
-import {
-  GithubOrganizationInstance,
-  GithubOrganizations,
-} from "./github-organization.model";
+import { GithubOrganizationInstance } from "./github-organization.model";
 import { ProjectWithRelations } from "../interfaces/project-with-relations.interface";
 import { ProjectEntity } from "../entities/project.entity";
 import {
@@ -41,10 +38,9 @@ import {
   StructuredJobposts,
 } from "./structured-jobpost.model";
 import { Repositories, RepositoryInstance } from "./repository.model";
+import { Githubs } from "./github.model";
 
-export type ProjectProps = ExtractProps<
-  Omit<ProjectMoreInfo, "audits" | "hacks" | "chains">
->;
+export type ProjectProps = ExtractProps<ProjectMoreInfo>;
 
 export type ProjectInstance = NeogmaInstance<
   ProjectProps,
@@ -71,7 +67,7 @@ export interface ProjectRelations {
     RepositoryInstance
   >;
   github: ModelRelatedNodesI<
-    ReturnType<typeof GithubOrganizations>,
+    ReturnType<typeof Githubs>,
     GithubOrganizationInstance
   >;
   twitter: ModelRelatedNodesI<ReturnType<typeof Twitters>, TwitterInstance>;
@@ -243,7 +239,7 @@ export const Projects = (
           name: "HAS_DOCSITE",
         },
         github: {
-          model: GithubOrganizations(neogma),
+          model: Githubs(neogma),
           direction: "out",
           name: "HAS_GITHUB",
         },

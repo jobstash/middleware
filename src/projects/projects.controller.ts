@@ -38,6 +38,7 @@ import {
   ResponseWithNoData,
   ProjectWithRelations,
   ProjectListResult,
+  ProjectMoreInfo,
 } from "src/shared/types";
 import { CreateProjectInput } from "./dto/create-project.input";
 import { ProjectsService } from "./projects.service";
@@ -59,6 +60,7 @@ import { ProjectCategoryService } from "./project-category.service";
 import { UpdateProjectInput } from "./dto/update-project.input";
 import { LinkJobsToProjectInput } from "./dto/link-jobs-to-project.dto";
 import { LinkReposToProjectInput } from "./dto/link-repos-to-project.dto";
+import { CreateProjectMetricsInput } from "./dto/create-project-metrics.input";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -599,6 +601,56 @@ export class ProjectsController {
   async deleteProject(@Param("id") id: string): Promise<ResponseWithNoData> {
     this.logger.log(`/projects/delete/${id}`);
     return this.projectsService.delete(id);
+  }
+
+  @Post("/metrics/update/:id")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Updates an existing projects metrics",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Project),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong updating the project on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async updateProjectMetrics(
+    @Param("id") id: string,
+    @Body() body: CreateProjectMetricsInput,
+  ): Promise<Response<ProjectMoreInfo> | ResponseWithNoData> {
+    this.logger.log(`/projects/metrics/update ${JSON.stringify(body)}`);
+    const result = await this.projectsService.updateMetrics(id, body);
+    if (result !== undefined) {
+      return {
+        success: true,
+        message: "Project metrics updated successfully",
+        data: result.getProperties(),
+      };
+    } else {
+      return {
+        success: false,
+        message: "Error updating project metrics",
+      };
+    }
+  }
+
+  @Delete("/metrics/delete/:id")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Deletes an existing projects metrics",
+    schema: {
+      $ref: getSchemaPath(ResponseWithNoData),
+    },
+  })
+  async deleteProjectMetrics(
+    @Param("id") id: string,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/projects/metrics/delete/${id}`);
+    return this.projectsService.deleteMetrics(id);
   }
 
   @Post("/link-jobs")

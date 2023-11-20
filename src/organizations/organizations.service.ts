@@ -451,7 +451,7 @@ export class OrganizationsService {
       : undefined;
   }
 
-  async findById(id: string): Promise<OrganizationWithRelations | undefined> {
+  async findById(id: string): Promise<OrganizationEntity | undefined> {
     const res = await this.neogma.queryRunner.run(
       `
         MATCH (o:Organization {id: $id})
@@ -460,11 +460,11 @@ export class OrganizationsService {
       { id },
     );
     return res.records.length
-      ? new OrganizationWithRelations(res.records[0].get("o"))
+      ? new OrganizationEntity(res.records[0].get("o"))
       : undefined;
   }
 
-  async findAll(): Promise<OrganizationWithRelations[] | undefined> {
+  async findAll(): Promise<OrganizationEntity[] | undefined> {
     const res = await this.neogma.queryRunner.run(
       `
         MATCH (o:Organization)
@@ -472,9 +472,7 @@ export class OrganizationsService {
       `,
     );
     return res.records.length
-      ? res.records.map(
-          resource => new OrganizationWithRelations(resource.get("o")),
-        )
+      ? res.records.map(resource => new OrganizationEntity(resource.get("o")))
       : undefined;
   }
 

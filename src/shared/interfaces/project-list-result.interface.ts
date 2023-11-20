@@ -42,34 +42,34 @@ export class ProjectListResult {
   name: string;
 
   @ApiPropertyOptional()
-  website: string | null;
+  website?: string | null;
 
   @ApiPropertyOptional()
-  logo: string | null;
+  logo?: string | null;
 
   @ApiPropertyOptional()
-  category: string | null;
+  category?: string | null;
 
   @ApiPropertyOptional()
-  isMainnet: boolean | null;
+  isMainnet?: boolean | null;
 
   @ApiPropertyOptional()
-  tokenSymbol: string | null;
+  tokenSymbol?: string | null;
 
   @ApiPropertyOptional()
-  tvl: number | null;
+  tvl?: number | null;
 
   @ApiPropertyOptional()
-  monthlyRevenue: number | null;
+  monthlyRevenue?: number | null;
 
   @ApiPropertyOptional()
-  monthlyVolume: number | null;
+  monthlyVolume?: number | null;
 
   @ApiPropertyOptional()
-  monthlyFees: number | null;
+  monthlyFees?: number | null;
 
   @ApiPropertyOptional()
-  monthlyActiveUsers: number | null;
+  monthlyActiveUsers?: number | null;
 
   @ApiProperty({
     type: "array",

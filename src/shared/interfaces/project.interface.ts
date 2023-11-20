@@ -31,22 +31,22 @@ export class Project {
   id: string;
   @ApiProperty()
   name: string;
+  @ApiPropertyOptional()
+  logo?: string | null;
+  @ApiPropertyOptional()
+  tokenSymbol?: string | null;
+  @ApiPropertyOptional()
+  tvl?: number | null;
+  @ApiPropertyOptional()
+  monthlyVolume?: number | null;
+  @ApiPropertyOptional()
+  monthlyFees?: number | null;
+  @ApiPropertyOptional()
+  monthlyRevenue?: number | null;
+  @ApiPropertyOptional()
+  monthlyActiveUsers?: number | null;
   @ApiProperty()
-  logo: string | null;
-  @ApiPropertyOptional()
-  tokenSymbol: string | null;
-  @ApiPropertyOptional()
-  tvl: number | null;
-  @ApiPropertyOptional()
-  monthlyVolume: number | null;
-  @ApiPropertyOptional()
-  monthlyFees: number | null;
-  @ApiPropertyOptional()
-  monthlyRevenue: number | null;
-  @ApiPropertyOptional()
-  monthlyActiveUsers: number | null;
-  @ApiProperty()
-  isMainnet: boolean | null;
+  isMainnet?: boolean | null;
   @ApiProperty()
   orgId: string;
 

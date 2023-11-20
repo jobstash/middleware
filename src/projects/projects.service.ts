@@ -12,11 +12,17 @@ import {
   ProjectEntity,
   ProjectCompetitorListResultEntity,
   ResponseWithNoData,
+  ProjectMoreInfoEntity,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { ProjectListParams } from "./dto/project-list.input";
-import { normalizeString, notStringOrNull, paginate } from "src/shared/helpers";
+import {
+  instanceToNode,
+  normalizeString,
+  notStringOrNull,
+  paginate,
+} from "src/shared/helpers";
 import { createNewSortInstance } from "fast-sort";
 import { ModelService } from "src/model/model.service";
 import { InjectConnection } from "nest-neogma";
@@ -27,6 +33,8 @@ import { CreateProjectInput } from "./dto/create-project.input";
 import NotFoundError from "src/shared/errors/not-found-error";
 import { LinkJobsToProjectInput } from "./dto/link-jobs-to-project.dto";
 import { LinkReposToProjectInput } from "./dto/link-repos-to-project.dto";
+import { randomUUID } from "crypto";
+import { CreateProjectMetricsInput } from "./dto/create-project-metrics.input";
 
 @Injectable()
 export class ProjectsService {
@@ -404,42 +412,174 @@ export class ProjectsService {
   }
 
   async create(project: CreateProjectInput): Promise<ProjectEntity> {
-    return this.neogma.queryRunner
-      .run(
-        `
-            CREATE (p:Project { id: randomUUID() })
-            SET p += $properties
-            RETURN p
-        `,
+    const {
+      website,
+      telegram,
+      twitter,
+      discord,
+      github,
+      docs,
+      category,
+      ...props
+    } = project;
+    try {
+      const projectNode = await this.models.Projects.createOne(
         {
-          properties: {
-            ...project,
-            createdTimestamp: new Date().getTime(),
+          id: randomUUID(),
+          description: props.description,
+          name: props.name,
+          orgId: props.orgId,
+          isMainnet: props.isMainnet,
+          logo: props.logo,
+          tokenSymbol: props.tokenSymbol,
+          tokenAddress: props.tokenAddress,
+          createdTimestamp: new Date().getTime(),
+          category: {
+            properties: [
+              {
+                id: randomUUID(),
+                name: category,
+              },
+            ],
+            propertiesMergeConfig: {
+              nodes: true,
+            },
+          },
+          docsite: {
+            properties: [
+              {
+                id: randomUUID(),
+                url: docs,
+              },
+            ],
+          },
+          discord: {
+            properties: [
+              {
+                id: randomUUID(),
+                invite: discord,
+              },
+            ],
+          },
+          twitter: {
+            properties: [
+              {
+                id: randomUUID(),
+                username: twitter,
+              },
+            ],
+          },
+          telegram: {
+            properties: [
+              {
+                id: randomUUID(),
+                username: telegram,
+              },
+            ],
+          },
+          github: {
+            properties: [
+              {
+                id: randomUUID(),
+                login: github,
+              },
+            ],
+          },
+          website: {
+            properties: [
+              {
+                id: randomUUID(),
+                url: website,
+              },
+            ],
           },
         },
-      )
-      .then(res => new ProjectEntity(res.records[0].get("p")));
+        { merge: true },
+      );
+      return new ProjectEntity(instanceToNode(projectNode));
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", project);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProjectsService::create ${err.message}`);
+      return undefined;
+    }
   }
 
   async update(
     id: string,
     project: UpdateProjectInput,
   ): Promise<ProjectEntity> {
-    const res = await this.neogma.queryRunner.run(
-      `
-            MATCH (p:Project { id: $id })
-            SET p += $properties
-            RETURN p
-        `,
-      {
-        id,
-        properties: {
-          ...project,
+    const {
+      website,
+      telegram,
+      twitter,
+      discord,
+      github,
+      docs,
+      category,
+      ...props
+    } = project;
+    try {
+      const projectNode = await this.models.Projects.update(
+        {
+          description: props.description,
+          name: props.name,
+          orgId: props.orgId,
+          isMainnet: props.isMainnet,
+          logo: props.logo,
+          tokenSymbol: props.tokenSymbol,
+          tokenAddress: props.tokenAddress,
           updatedTimestamp: new Date().getTime(),
         },
-      },
-    );
-    return new ProjectEntity(res.records[0].get("p"));
+        { where: { id }, return: true },
+      );
+      await this.models.Projects.updateRelationship(
+        { invite: discord },
+        { alias: "discord", where: { source: { id } } },
+      );
+      await this.models.Projects.updateRelationship(
+        { name: category },
+        { alias: "category", where: { source: { id } } },
+      );
+      await this.models.Projects.updateRelationship(
+        { url: docs },
+        { alias: "docsite", where: { source: { id } } },
+      );
+      await this.models.Projects.updateRelationship(
+        { username: twitter },
+        { alias: "twitter", where: { source: { id } } },
+      );
+      await this.models.Projects.updateRelationship(
+        { username: telegram },
+        { alias: "telegram", where: { source: { id } } },
+      );
+      await this.models.Projects.updateRelationship(
+        { url: website },
+        { alias: "website", where: { source: { id } } },
+      );
+      await this.models.Projects.updateRelationship(
+        { login: github },
+        { alias: "github", where: { source: { id } } },
+      );
+      return new ProjectEntity(instanceToNode(projectNode[0][0]));
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", project);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProjectsService::update ${err.message}`);
+      return undefined;
+    }
   }
 
   async delete(id: string): Promise<ResponseWithNoData> {
@@ -480,6 +620,67 @@ export class ProjectsService {
         success: false,
         message: "Failed delete project",
       };
+    }
+  }
+
+  async updateMetrics(
+    id: string,
+    metrics: CreateProjectMetricsInput,
+  ): Promise<ProjectMoreInfoEntity> {
+    const { monthlyFees, monthlyVolume, monthlyRevenue, monthlyActiveUsers } =
+      metrics;
+    try {
+      const projectNode = await this.models.Projects.update(
+        {
+          monthlyFees,
+          monthlyVolume,
+          monthlyRevenue,
+          monthlyActiveUsers,
+          updatedTimestamp: new Date().getTime(),
+        },
+        { where: { id }, return: true },
+      );
+      return new ProjectMoreInfoEntity(projectNode[0][0].getDataValues());
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", metrics);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProjectsService::updateMetrics ${err.message}`);
+      return undefined;
+    }
+  }
+
+  async deleteMetrics(id: string): Promise<ResponseWithNoData> {
+    try {
+      await this.models.Projects.update(
+        {
+          monthlyFees: null,
+          monthlyVolume: null,
+          monthlyRevenue: null,
+          monthlyActiveUsers: null,
+          updatedTimestamp: new Date().getTime(),
+        },
+        { where: { id }, return: true },
+      );
+      return {
+        success: true,
+        message: "Project metrics deleted successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProjectsService::deleteMetrics ${err.message}`);
+      return undefined;
     }
   }
 
