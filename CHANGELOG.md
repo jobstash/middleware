@@ -1,3 +1,32 @@
+# [1.54.0](https://github.com/jobstash/middleware/compare/v1.53.7...v1.54.0) (2023-11-20)
+
+
+### Bug Fixes
+
+* added fixes for borkages in tests ([6f7c3aa](https://github.com/jobstash/middleware/commit/6f7c3aa1cefed15969395e653b55d0734273888e))
+* **projects:** fixed a bug with delete query ([569cf7c](https://github.com/jobstash/middleware/commit/569cf7cdfac14e9b568608c648ef16fd5aae124b))
+* removed default generated tests ([84b6cee](https://github.com/jobstash/middleware/commit/84b6ceeb6ee933df7cfc83ef91cb52f89c3471f1))
+* **tags:** added backwards connection and fixed delete query bugs ([897e2d7](https://github.com/jobstash/middleware/commit/897e2d73a1ea2d35bc89665029d3bc8142f26495))
+* **tags:** fixed bugs in edit job tags query ([cc1c14f](https://github.com/jobstash/middleware/commit/cc1c14fb988e43ef61e7cf1f818218584fe05a41))
+* **tags:** fixed bugs on tags services ([ed16d1a](https://github.com/jobstash/middleware/commit/ed16d1af79a7fec4bbacf68592a059fc9989b1e8))
+* **tags:** fixed duplication of designation nodes ([6ef2bec](https://github.com/jobstash/middleware/commit/6ef2becdf96935259dea2bfcaa7393ab33163509))
+* **tags:** fixed duplication on add tag synonym and removed relation check on synonym delete ([21bddd9](https://github.com/jobstash/middleware/commit/21bddd947bc7f67c35da971ad7924dd8adfc384a))
+* **tags:** fixed issue with bidirectional relationship of synonyms ([3874add](https://github.com/jobstash/middleware/commit/3874add7f7c0bf8747480c4a8b0cb48cc9bd9633))
+* **users:** fixed bugs in profile queries ([40cd6f6](https://github.com/jobstash/middleware/commit/40cd6f6925bbf77fc649735d1ca208fb1dbdb1ea))
+
+
+### Features
+
+* **jobs:** implemented edit job metadata endpoint ([2b43073](https://github.com/jobstash/middleware/commit/2b430734dc2b25e6cadba4a3928d304be9193fd2))
+* **jobs:** implemented edit job tags endpoint ([efa5224](https://github.com/jobstash/middleware/commit/efa52242254a3bcb6453da83c7ec52e4b5c7847f))
+* **organizations:** Implemented CRUD ops for organizations ([042df5a](https://github.com/jobstash/middleware/commit/042df5a487e0922e3e055716d55bb8e70e0dbd48))
+* **projects:** added jobs and repo props to projects ([2232d9c](https://github.com/jobstash/middleware/commit/2232d9c8847127a221a0ed0436ac30334ce56562))
+* **projects:** implemented CRUD endpoints for ([bf67293](https://github.com/jobstash/middleware/commit/bf6729325d01372c5654de7e40934ebaa6ef883b))
+* **projects:** implemented link jobs to project endpoint ([107226b](https://github.com/jobstash/middleware/commit/107226b73c8d40499695ead36115a1f745038b15))
+* **projects:** implemented update and delete project metrics endpoints ([ce03336](https://github.com/jobstash/middleware/commit/ce03336e12a0797f50c848c45fa5c762b3846899))
+* **tags:** fixed bugs on tag handling services and updated the queries to follow the new ddm ([9133d30](https://github.com/jobstash/middleware/commit/9133d30650b011d34ff7341f3a418630860ca6fe))
+* **users:** implemented get all users endpoint ([1661db1](https://github.com/jobstash/middleware/commit/1661db17906daa8efb038c79c1bc4f73f6d74154))
+
 ## [1.53.7](https://github.com/jobstash/middleware/compare/v1.53.6...v1.53.7) (2023-11-09)
 
 
