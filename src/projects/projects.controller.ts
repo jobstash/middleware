@@ -61,6 +61,8 @@ import { UpdateProjectInput } from "./dto/update-project.input";
 import { LinkJobsToProjectInput } from "./dto/link-jobs-to-project.dto";
 import { LinkReposToProjectInput } from "./dto/link-repos-to-project.dto";
 import { CreateProjectMetricsInput } from "./dto/create-project-metrics.input";
+import axios from "axios";
+import { randomUUID } from "crypto";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -364,6 +366,60 @@ export class ProjectsController {
           message: `Error retrieving projects by query!`,
         };
       });
+  }
+
+  @Get("prefiller")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description:
+      "Returns the details of the project retrieved from the passed defillama url",
+  })
+  async getProjectDetailsFromDefillama(
+    @Query("url") url: string,
+  ): Promise<Response<ProjectProps> | ResponseWithNoData> {
+    this.logger.log(`/prefiller?url=${url}`);
+
+    try {
+      const uri = new URL(url);
+      const regex = /^https:\/\/api\.llama\.fi\/protocol\/[^\/]+$/;
+      if (regex.test(uri.toString())) {
+        const response = await axios.get(uri.toString());
+        if (!response) {
+          return {
+            success: false,
+            message: "Unable to retrieve project details",
+          };
+        } else {
+          const project = response.data;
+          return {
+            success: true,
+            message: "Project details retrieved successfully",
+            data: {
+              id: randomUUID(),
+              orgId: "-1",
+              name: project.name,
+              logo: project.logo,
+              tokenSymbol: project.symbol,
+              url: project.url,
+              description: project.description,
+            } as ProjectProps,
+          };
+        }
+      } else {
+        return { success: false, message: "Invalid defillama url passed" };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "prefill-data",
+          source: "projects.controller",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`/projects/prefiller ${err.message}`);
+      return { success: false, message: "Failed to parse url" };
+    }
   }
 
   @Get("/:id")
