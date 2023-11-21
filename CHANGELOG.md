@@ -1,3 +1,10 @@
+# [1.55.0](https://github.com/jobstash/middleware/compare/v1.54.0...v1.55.0) (2023-11-21)
+
+
+### Features
+
+* **projects:** implemented prefiller endpoint for project creation ([8a33995](https://github.com/jobstash/middleware/commit/8a33995a0a265b14197fbaee0af7d139b1aa4287))
+
 # [1.54.0](https://github.com/jobstash/middleware/compare/v1.53.7...v1.54.0) (2023-11-20)
 
 
