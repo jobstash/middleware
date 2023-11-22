@@ -39,6 +39,10 @@ import {
   ProjectWithRelations,
   ProjectListResult,
   ProjectMoreInfo,
+  DefiLlamaProject,
+  DexSummary,
+  OptionsSummary,
+  FeeOverview,
 } from "src/shared/types";
 import { CreateProjectInput } from "./dto/create-project.input";
 import { ProjectsService } from "./projects.service";
@@ -391,7 +395,48 @@ export class ProjectsController {
             message: "Unable to retrieve project details",
           };
         } else {
+          const projectsData = (
+            await axios.get("https://api.llama.fi/protocols")
+          ).data as DefiLlamaProject[];
+          const dexOverviewData = (
+            await axios.get(
+              `https://api.llama.fi/overview/dexs?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true&dataType=totalVolume`,
+            )
+          ).data as DexSummary;
+          const optionsOverview = (
+            await axios.get(
+              `https://api.llama.fi/overview/options?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true&dataType=dailyPremiumVolume`,
+            )
+          ).data as OptionsSummary;
+          const dailyFees = (
+            await axios.get(
+              `https://api.llama.fi/overview/fees?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true&dataType=dailyFees`,
+            )
+          ).data as FeeOverview;
+          const dailyRevenue = (
+            await axios.get(
+              `https://api.llama.fi/overview/fees?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true&dataType=dailyRevenue`,
+            )
+          ).data as FeeOverview;
           const project = response.data;
+          const thisProjectsData = projectsData.find(
+            p =>
+              p.name === project.name ||
+              p.symbol === project.symbol ||
+              p.id === project.id,
+          );
+          const dexOverview = dexOverviewData.protocols.find(
+            p => p.name === project.name,
+          );
+          const optionOverview = optionsOverview.protocols.find(
+            p => p.name === project.name,
+          );
+          const feesOverview = dailyFees.protocols.find(
+            p => p.name === project.name,
+          );
+          const revenueOverview = dailyRevenue.protocols.find(
+            p => p.name === project.name,
+          );
           return {
             success: true,
             message: "Project details retrieved successfully",
@@ -402,6 +447,12 @@ export class ProjectsController {
               logo: project.logo,
               tokenSymbol: project.symbol,
               url: project.url,
+              tvl: thisProjectsData?.tvl,
+              monthlyVolume:
+                (dexOverview?.total30d || 0) + (optionOverview?.total30d || 0),
+              monthlyFees: feesOverview?.total30d,
+              monthlyRevenue: revenueOverview?.total30d,
+              tokenAddress: thisProjectsData?.address,
               description: project.description,
             } as ProjectProps,
           };

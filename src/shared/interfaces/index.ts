@@ -15,6 +15,7 @@ export * from "./telegram.interface";
 export * from "./investor.interface";
 export * from "./response.interface";
 export * from "./repository.interface";
+export * from "./defillama-types.interface";
 export * from "./tag.interface";
 export * from "./tag-pair.interface";
 export * from "./organization.interface";
