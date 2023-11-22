@@ -1,3 +1,10 @@
+# [1.56.0](https://github.com/jobstash/middleware/compare/v1.55.0...v1.56.0) (2023-11-22)
+
+
+### Features
+
+* **projects:** added support for financials data on project prefiller endpoint ([05b6cea](https://github.com/jobstash/middleware/commit/05b6cea14669fd86526a176ad28551f6253075c4))
+
 # [1.55.0](https://github.com/jobstash/middleware/compare/v1.54.0...v1.55.0) (2023-11-21)
 
 
