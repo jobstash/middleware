@@ -1,3 +1,10 @@
+## [1.56.1](https://github.com/jobstash/middleware/compare/v1.56.0...v1.56.1) (2023-11-23)
+
+
+### Bug Fixes
+
+* **jobs:** fix parsing of location filter ([3f792b6](https://github.com/jobstash/middleware/commit/3f792b6ea22da1507370290a4946a212d0c050f5))
+
 # [1.56.0](https://github.com/jobstash/middleware/compare/v1.55.0...v1.56.0) (2023-11-22)
 
 
