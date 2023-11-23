@@ -524,8 +524,7 @@ export class TagsController {
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body() input: CreatePreferredTagInput,
   ): Promise<
-    | Response<{ preferredName: string; synonyms: TagPreference[] }>
-    | ResponseWithNoData
+    Response<{ preferredName: string; synonyms: Tag[] }> | ResponseWithNoData
   > {
     this.logger.log(`/tags/create-preference ${JSON.stringify(input)}`);
     const { address: creatorWallet } = await this.authService.getSession(
@@ -535,7 +534,7 @@ export class TagsController {
     try {
       const { preferredName, synonyms } = input;
 
-      const results = [];
+      const results: Tag[] = [];
 
       const normalizedPreferredName =
         this.tagsService.normalizeTagName(preferredName);
@@ -554,28 +553,33 @@ export class TagsController {
       const isPreferred = await this.tagsService.hasPreferredRelation(
         preferredTag.getNormalizedName(),
       );
+      const isSynonym = await this.tagsService.getSynonymPreferredTag(
+        preferredTag.getNormalizedName(),
+      );
 
       let oldSynonymList = [];
 
-      if (!isPreferred) {
+      if (!isPreferred && !isSynonym) {
         await this.tagsService.preferTag(
           normalizedPreferredName,
           creatorWallet as string,
         );
       } else {
-        const preferredTag =
-          await this.tagsService.findPreferredTagByNormalizedName(
-            normalizedPreferredName,
-          );
-        oldSynonymList = preferredTag.synonyms;
+        if (isSynonym) {
+          return {
+            success: false,
+            message: `Could not set tag ${preferredName} as preferred because it is already a synonym of another preferred term`,
+          };
+        } else {
+          const preferredTag =
+            await this.tagsService.findPreferredTagByNormalizedName(
+              normalizedPreferredName,
+            );
+          oldSynonymList = preferredTag.synonyms;
+        }
       }
 
       for (const tagName of synonyms) {
-        oldSynonymList = (
-          await this.tagsService.findPreferredTagByNormalizedName(
-            normalizedPreferredName,
-          )
-        ).synonyms;
         const normalizedTagName = this.tagsService.normalizeTagName(tagName);
         const storedTagNode = await this.tagsService.findByNormalizedName(
           normalizedTagName,
@@ -588,30 +592,49 @@ export class TagsController {
           };
         }
 
-        // TODO: Confirm that this check is needed @duckdegen
-        // const hasPreferredNoRelationship =
-        //   await this.tagsService.hasPreferredRelation(
-        //     createdPreferredTag.getId(),
-        //   );
-
-        // if (hasPreferredNoRelationship) {
-        //   return {
-        //     success: false,
-        //     message: `Already has existing relation to a preferred tag`,
-        //   };
-        // }
-
         if (
           oldSynonymList.find(
             tag => tag.normalizedName === normalizedTagName,
           ) === undefined
         ) {
-          await this.tagsService.relatePreferredTagToTag(
-            preferredTag.getNormalizedName(),
+          const nodeIsPreferred = await this.tagsService.hasPreferredRelation(
             storedTagNode.getNormalizedName(),
           );
+          let oldPreferredTag: TagPreference;
+          if (nodeIsPreferred) {
+            oldPreferredTag =
+              await this.tagsService.findPreferredTagByNormalizedName(
+                storedTagNode.getNormalizedName(),
+              );
+          } else {
+            oldPreferredTag = await this.tagsService.getSynonymPreferredTag(
+              storedTagNode.getNormalizedName(),
+            );
+          }
 
-          results.push(storedTagNode.getProperties());
+          if (oldPreferredTag && oldPreferredTag.tag.name !== preferredName) {
+            await this.deletePreferredTag({
+              preferredName: oldPreferredTag.tag.name,
+            });
+            return this.createPreferredTag(req, res, {
+              preferredName: preferredName,
+              synonyms: Array.from(
+                new Set([
+                  oldPreferredTag.tag.name,
+                  ...oldPreferredTag.synonyms.map(x => x.name),
+                  ...synonyms,
+                ]),
+              ),
+            });
+          } else {
+            await this.tagsService.relatePreferredTagToTag(
+              preferredTag.getNormalizedName(),
+              storedTagNode.getNormalizedName(),
+            );
+
+            results.push(storedTagNode.getProperties());
+            oldSynonymList.push(storedTagNode.getProperties());
+          }
         }
       }
 

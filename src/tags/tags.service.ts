@@ -341,6 +341,25 @@ export class TagsService {
     return res.records[0]?.get("result") as boolean;
   }
 
+  async getSynonymPreferredTag(
+    synonymNormalizedName: string,
+  ): Promise<TagPreference | undefined> {
+    const res = await this.neogma.queryRunner.run(
+      `
+        MATCH (t:Tag {normalizedName: $synonymNormalizedName})-[:IS_SYNONYM_OF]->(pt:Tag)-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
+        RETURN pt {
+          tag: pt { .* },
+          synonyms: apoc.coll.toSet([(pt)-[:IS_SYNONYM_OF]-(t2) | t2 { .* }])
+        } as res
+        `,
+      { synonymNormalizedName },
+    );
+
+    return res.records[0]?.get("res")
+      ? new TagPreference(res.records[0]?.get("res") as TagPreference)
+      : undefined;
+  }
+
   async relatePairedTags(
     normalizedOriginTagName: string,
     normalizedPairTagNameList: string[],
