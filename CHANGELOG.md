@@ -1,3 +1,10 @@
+## [1.56.2](https://github.com/jobstash/middleware/compare/v1.56.1...v1.56.2) (2023-11-23)
+
+
+### Bug Fixes
+
+* **tags:** finessed the preferred terms impl ([1a8ff60](https://github.com/jobstash/middleware/commit/1a8ff6091f3b61878fcc5729341d7767c71f49fc))
+
 ## [1.56.1](https://github.com/jobstash/middleware/compare/v1.56.0...v1.56.1) (2023-11-23)
 
 
