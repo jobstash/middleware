@@ -1,3 +1,10 @@
+# [1.57.0](https://github.com/jobstash/middleware/compare/v1.56.3...v1.57.0) (2023-11-23)
+
+
+### Features
+
+* **projects:** added endpoints to unlink jobs and repos from projects ([73efeb2](https://github.com/jobstash/middleware/commit/73efeb2fb0ed9d9f6f1f21528b94bc9ade672a6a))
+
 ## [1.56.3](https://github.com/jobstash/middleware/compare/v1.56.2...v1.56.3) (2023-11-23)
 
 
