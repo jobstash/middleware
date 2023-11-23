@@ -791,4 +791,36 @@ export class ProjectsController {
     this.logger.log(`/projects/link-repos`);
     return this.projectsService.linkReposToProject(body);
   }
+
+  @Post("/unlink-jobs")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Removes a list of jobs from a project",
+    schema: {
+      $ref: getSchemaPath(ResponseWithNoData),
+    },
+  })
+  async unlinkJobsFromProject(
+    @Body() body: LinkJobsToProjectInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/projects/unlink-jobs`);
+    return this.projectsService.unlinkJobsFromProject(body);
+  }
+
+  @Post("/unlink-repos")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Removes a list of repos from a project",
+    schema: {
+      $ref: getSchemaPath(ResponseWithNoData),
+    },
+  })
+  async unlinkReposFromProject(
+    @Body() body: LinkReposToProjectInput,
+  ): Promise<Response<ProjectProps> | ResponseWithNoData> {
+    this.logger.log(`/projects/unlink-repos`);
+    return this.projectsService.unlinkReposFromProject(body);
+  }
 }

@@ -733,7 +733,8 @@ export class ProjectsService {
         `
           MATCH (project: Project {id: $projectId})
           UNWIND $jobs AS shortUUID
-          CREATE (project)-[:HAS_JOB]->(:StructuredJobpost {shortUUID: shortUUID})
+          MATCH (job:StructuredJobpost {shortUUID: shortUUID})
+          MERGE (project)-[:HAS_JOB]->(job)
         `,
         { ...dto },
       );
@@ -766,7 +767,8 @@ export class ProjectsService {
         `
           MATCH (project: Project {id: $projectId})
           UNWIND $repos AS name
-          CREATE (project)-[:HAS_REPOSITORY]->(:GithubRepository {name: name})
+          MATCH (repo:GithubRepository {name: name})
+          MERGE (project)-[:HAS_REPOSITORY]->(repo)
         `,
         { ...dto },
       );
@@ -787,6 +789,78 @@ export class ProjectsService {
       return {
         success: false,
         message: "Failed to link repos to project",
+      };
+    }
+  }
+
+  async unlinkJobsFromProject(
+    dto: LinkJobsToProjectInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+          MATCH (project: Project {id: $projectId})
+          UNWIND $jobs AS shortUUID
+          MATCH (project)-[r:HAS_JOB]->(:StructuredJobpost {shortUUID: shortUUID})
+          DELETE r
+        `,
+        { ...dto },
+      );
+      return {
+        success: true,
+        message: "Jobs unlinked from project successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `ProjectsService::unlinkJobsFromProject ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to unlink jobs from project",
+      };
+    }
+  }
+
+  async unlinkReposFromProject(
+    dto: LinkReposToProjectInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+          MATCH (project: Project {id: $projectId})
+          UNWIND $repos AS name
+          MATCH (project)-[r:HAS_REPOSITORY]->(:GithubRepository {name: name})
+          DELETE r
+        `,
+        { ...dto },
+      );
+      return {
+        success: true,
+        message: "Repos unlinked from project successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `ProjectsService::unlinkReposFromProject ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to unlink repos from project",
       };
     }
   }
