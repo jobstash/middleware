@@ -1,3 +1,10 @@
+## [1.56.3](https://github.com/jobstash/middleware/compare/v1.56.2...v1.56.3) (2023-11-23)
+
+
+### Bug Fixes
+
+* **projects:** fixed typo in swagger metadata ([ee0da5f](https://github.com/jobstash/middleware/commit/ee0da5f3085af3e7ec79c294671936f68ae264e1))
+
 ## [1.56.2](https://github.com/jobstash/middleware/compare/v1.56.1...v1.56.2) (2023-11-23)
 
 
