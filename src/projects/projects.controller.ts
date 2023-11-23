@@ -780,7 +780,7 @@ export class ProjectsController {
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
-    description: "Adds a list of jobs to a project",
+    description: "Adds a list of repos to a project",
     schema: {
       $ref: getSchemaPath(ResponseWithNoData),
     },
@@ -788,7 +788,7 @@ export class ProjectsController {
   async linkReposToProject(
     @Body() body: LinkReposToProjectInput,
   ): Promise<Response<ProjectProps> | ResponseWithNoData> {
-    this.logger.log(`/projects/link-jobs`);
+    this.logger.log(`/projects/link-repos`);
     return this.projectsService.linkReposToProject(body);
   }
 }
