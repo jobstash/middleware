@@ -1,3 +1,10 @@
+## [1.57.1](https://github.com/jobstash/middleware/compare/v1.57.0...v1.57.1) (2023-11-24)
+
+
+### Bug Fixes
+
+* **jobs:** refactored all jobs response to return all at once ([b12d05c](https://github.com/jobstash/middleware/commit/b12d05c5ea88523cf1ca26acaeb2c8210a749eff))
+
 # [1.57.0](https://github.com/jobstash/middleware/compare/v1.56.3...v1.57.0) (2023-11-23)
 
 
