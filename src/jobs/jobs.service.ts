@@ -658,20 +658,16 @@ export class JobsService {
 
   async getAllJobsWithSearch(
     params: AllJobsParams,
-  ): Promise<PaginatedData<AllJobsListResult>> {
+  ): Promise<Response<AllJobsListResult[]>> {
     const paramsPassed = {
       ...params,
       query: params.query ? new RegExp(params.query, "gi") : null,
-      limit: params.limit ?? 10,
-      page: params.page ?? 1,
     };
 
     const {
       organizations: organizationFilterList,
       classifications: classificationFilterList,
       query,
-      page,
-      limit,
     } = paramsPassed;
 
     const results: AllJobsListResult[] = [];
@@ -690,9 +686,8 @@ export class JobsService {
       });
       this.logger.error(`JobsService::getAllJobsWithSearch ${err.message}`);
       return {
-        page: -1,
-        count: 0,
-        total: 0,
+        success: false,
+        message: "Error retrieving all jobs",
         data: [],
       };
     }
@@ -719,11 +714,11 @@ export class JobsService {
 
     const final = sort<AllJobsListResult>(filtered).desc(job => job.timestamp);
 
-    return paginate<AllJobsListResult>(
-      page,
-      limit,
-      final.map(x => new AllJobListResultEntity(x).getProperties()),
-    );
+    return {
+      success: true,
+      message: "All jobposts retrieved successfully",
+      data: final.map(x => new AllJobListResultEntity(x).getProperties()),
+    };
   }
 
   async getAllJobsFilterConfigs(): Promise<AllJobsFilterConfigs> {

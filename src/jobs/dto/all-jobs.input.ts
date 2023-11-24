@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform, Type } from "class-transformer";
-import { IsNumber, IsOptional, IsString } from "class-validator";
+import { IsOptional, IsString } from "class-validator";
 import { toList } from "src/shared/helpers";
 
 export class AllJobsParams {
@@ -19,21 +19,6 @@ export class AllJobsParams {
   @Type(() => String)
   @Transform(toList)
   classifications?: string[] | null = null;
-  @ApiPropertyOptional({
-    example: 500,
-  })
-  @IsOptional()
-  @IsNumber()
-  @Type(() => Number)
-  page?: number | null = null;
-
-  @ApiPropertyOptional({
-    example: 100,
-  })
-  @IsOptional()
-  @IsNumber()
-  @Type(() => Number)
-  limit?: number | null = null;
 
   @ApiPropertyOptional({
     example: "C++",
