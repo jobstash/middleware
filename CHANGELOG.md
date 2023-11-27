@@ -1,3 +1,10 @@
+## [1.57.3](https://github.com/jobstash/middleware/compare/v1.57.2...v1.57.3) (2023-11-27)
+
+
+### Bug Fixes
+
+* **jobs:** fixed a naming issue with job location filters param key ([8c2affb](https://github.com/jobstash/middleware/commit/8c2affb73a0dfcd0ac15be157cfef3d68001aaf7))
+
 ## [1.57.2](https://github.com/jobstash/middleware/compare/v1.57.1...v1.57.2) (2023-11-27)
 
 
