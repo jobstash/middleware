@@ -237,9 +237,8 @@ describe("JobsController", () => {
     const setOfUuids = new Set([...uuids]);
 
     expect(res).toEqual({
-      page: 1,
-      count: expect.any(Number),
-      total: expect.any(Number),
+      success: true,
+      message: expect.any(String),
       data: expect.any(Array<JobListResult>),
     });
 

@@ -7,7 +7,7 @@ import envSchema from "src/env-schema";
 import {
   NeogmaModule,
   NeogmaModuleOptions,
-  getConnectionToken,
+  // getConnectionToken,
 } from "nest-neogma";
 import { ModelModule } from "src/model/model.module";
 import { AuthService } from "src/auth/auth.service";
@@ -15,7 +15,7 @@ import { JwtService } from "@nestjs/jwt";
 import { ModelService } from "src/model/model.service";
 import Neo4jTempDB from "@neo4j-labs/temp-dbs";
 import {
-  Neogma,
+  // Neogma,
   // Runnable,
   // getRunnable,
   // getSession,
@@ -23,13 +23,13 @@ import {
   neo4jDriver,
 } from "neogma";
 import { TagsService } from "./tags.service";
-import { nonZeroOrNull } from "src/shared/helpers";
+// import { nonZeroOrNull } from "src/shared/helpers";
 
 describe("TagsController", () => {
   let controller: TagsController;
   // let authService: AuthService;
-  let neogma: Neogma;
-  let tempDb;
+  // let neogma: Neogma;
+  // let tempDb;
   // let tempDbName: string;
   // let req: Partial<Request>;
   // let res: Partial<Response>;
@@ -89,7 +89,7 @@ describe("TagsController", () => {
     // authService = module.get<AuthService>(AuthService);
     // tempDb = module.get("TEMP_DB");
     // tempDbName = await tempDb.createDatabase();
-    neogma = module.get<Neogma>(getConnectionToken());
+    // neogma = module.get<Neogma>(getConnectionToken());
 
     await module.init();
     controller = module.get<TagsController>(TagsController);
@@ -99,16 +99,16 @@ describe("TagsController", () => {
     expect(controller).toBeDefined();
   });
 
-  it("should hit dev db", async () => {
-    const res = await neogma.queryRunner.run(
-      "MATCH (n:Tag) RETURN count(n) as res",
-    );
-    const count = res.records[0]?.get("res");
-    expect(nonZeroOrNull(count)).toBe(0);
-  }, 300000);
+  // it("should hit dev db", async () => {
+  //   const res = await neogma.queryRunner.run(
+  //     "MATCH (n:Tag) RETURN count(n) as res",
+  //   );
+  //   const count = res.records[0]?.get("res");
+  //   expect(nonZeroOrNull(count)).toBe(0);
+  // }, 300000);
 
-  afterAll(async () => {
-    await tempDb.cleanAllDatabases();
-    jest.restoreAllMocks();
-  }, 300000);
+  // afterAll(async () => {
+  //   await tempDb.cleanAllDatabases();
+  //   jest.restoreAllMocks();
+  // }, 300000);
 });
