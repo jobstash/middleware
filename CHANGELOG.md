@@ -1,3 +1,10 @@
+## [1.57.4](https://github.com/jobstash/middleware/compare/v1.57.3...v1.57.4) (2023-11-27)
+
+
+### Bug Fixes
+
+* **tests:** fixed broken tests ([26fa3ef](https://github.com/jobstash/middleware/commit/26fa3ef65ab34ff399d56f98a128017ede30c00c))
+
 ## [1.57.3](https://github.com/jobstash/middleware/compare/v1.57.2...v1.57.3) (2023-11-27)
 
 
