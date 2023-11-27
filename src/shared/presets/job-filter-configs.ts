@@ -81,7 +81,7 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "filter_joblist_seniority",
     kind: FilterKind.MULTI_SELECT,
   },
-  location: {
+  locations: {
     position: 4,
     label: "Location",
     show: true,
@@ -229,7 +229,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
     highest: "maxSalaryRange",
   },
   seniority: "seniority",
-  location: "location",
+  locations: "locations",
   headcountEstimate: {
     lowest: "minHeadCount",
     highest: "maxHeadCount",
