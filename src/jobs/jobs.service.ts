@@ -7,6 +7,7 @@ import { ModelService } from "src/model/model.service";
 import {
   AllJobListResultEntity,
   AllJobsFilterConfigsEntity,
+  StructuredJobpostWithRelationsEntity,
 } from "src/shared/entities";
 import {
   normalizeString,
@@ -949,8 +950,8 @@ export class JobsService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MATCH (jc:JobpostCommitment {name: $commitment})
-        MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID} )-[c:HAS_COMMITMENT]->(:JobpostCommitment)
+        MATCH (jc:JobpostCommitment {name: $commitment}), (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID})
+        MATCH (structured_jobpost)-[c:HAS_COMMITMENT]->()
         DELETE c
         
         WITH structured_jobpost, jc
@@ -962,7 +963,7 @@ export class JobsService {
 
       return {
         success: true,
-        message: "Job classification changed successfully",
+        message: "Job commitment changed successfully",
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -973,7 +974,7 @@ export class JobsService {
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
       });
-      this.logger.error(`JobsService::changeCommitment ${err.message}`);
+      this.logger.error(`JobsService::changeJobCommitment ${err.message}`);
       return {
         success: false,
         message: "Error changing job commitment",
@@ -988,12 +989,12 @@ export class JobsService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MATCH (jc:JobpostCommitment {name: $commitment})
-        MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID} )-[c:HAS_COMMITMENT]->(:JobpostCommitment)
+        MATCH (jlt:JobpostLocationType {name: $locationType})
+        MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID} )-[c:HAS_LOCATION_TYPE]->()
         DELETE c
         
-        WITH structured_jobpost, jc
-        CREATE (structured_jobpost)-[nc:HAS_COMMITMENT]->(jc)
+        WITH structured_jobpost, jlt
+        CREATE (structured_jobpost)-[nc:HAS_LOCATION_TYPE]->(jlt)
         SET nc.creator = $wallet
       `,
         { wallet, ...dto },
@@ -1054,6 +1055,7 @@ export class JobsService {
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
           commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
           locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
+          tags: []
         } as res
       `,
       {
@@ -1065,7 +1067,9 @@ export class JobsService {
       },
     );
     return res.records.length
-      ? new StructuredJobpostWithRelations(res.records[0].get("res"))
+      ? new StructuredJobpostWithRelationsEntity(
+          res.records[0].get("res"),
+        ).getProperties()
       : undefined;
   }
 

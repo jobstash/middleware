@@ -420,7 +420,7 @@ export class JobsController {
     @Param("id") shortUUID: string,
     @Body(new ValidationPipe({ transform: true })) body: UpdateJobMetadataInput,
   ): Promise<Response<StructuredJobpostWithRelations> | ResponseWithNoData> {
-    this.logger.log(`/jobs/update ${JSON.stringify(body)}`);
+    this.logger.log(`/jobs/update/${shortUUID} ${JSON.stringify(body)}`);
     const { address } = await this.authService.getSession(req, res);
     const { commitment, classification, locationType, ...dto } = body;
     const res2 = await this.jobsService.changeJobCommitment(address as string, {

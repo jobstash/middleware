@@ -1,6 +1,6 @@
 {
   "ext": "*.ts",
-  "verbose": true,
+  "verbose": false,
   "ignore": ["*.spec.ts", "dist/*"],
   "exec": "yarn start:ssl"
 }

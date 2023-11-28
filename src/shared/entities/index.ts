@@ -17,6 +17,7 @@ export * from "./project.entity";
 export * from "./audit.entity";
 export * from "./hack.entity";
 export * from "./structured-jobpost.entity";
+export * from "./structured-jobpost-with-relations.entity";
 export * from "./job-filter-configs.entity";
 export * from "./org-filter-configs.entity";
 export * from "./github-organization.entity";
