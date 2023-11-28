@@ -1,3 +1,10 @@
+## [1.57.5](https://github.com/jobstash/middleware/compare/v1.57.4...v1.57.5) (2023-11-28)
+
+
+### Bug Fixes
+
+* **jobs:** fixed body validator of update job endpoint ([871a9a4](https://github.com/jobstash/middleware/commit/871a9a4e0eb6f2bb7b2beeb1d8079b7b17f764ab))
+
 ## [1.57.4](https://github.com/jobstash/middleware/compare/v1.57.3...v1.57.4) (2023-11-27)
 
 
