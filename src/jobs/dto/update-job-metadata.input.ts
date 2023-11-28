@@ -1,9 +1,10 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   IsArray,
   IsBoolean,
   IsNotEmpty,
   IsNumber,
+  IsOptional,
   IsPositive,
   IsString,
 } from "class-validator";
@@ -15,95 +16,92 @@ export class UpdateJobMetadataInput {
   url: string;
 
   @ApiProperty()
-  @IsNotEmpty()
   @IsArray()
   benefits: string[];
 
   @ApiProperty()
-  @IsNotEmpty()
   @IsArray()
   requirements: string[];
 
   @ApiProperty()
-  @IsNotEmpty()
   @IsArray()
   responsibilities: string[];
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiPropertyOptional()
   @IsString()
-  title: string;
+  @IsOptional()
+  title: string | null;
 
   @ApiProperty()
-  @IsNotEmpty()
   @IsNumber()
   @IsPositive()
-  salary: number;
+  @IsOptional()
+  salary: number | null;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  summary: string;
+  summary: string | null;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  description: string;
+  description: string | null;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  culture: string;
+  culture: string | null;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  location: string;
+  location: string | null;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  seniority: string;
+  seniority: string | null;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsBoolean()
-  paysInCrypto: boolean;
+  paysInCrypto: boolean | null;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsNumber()
   @IsPositive()
-  minimumSalary: number;
+  minimumSalary: number | null;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsNumber()
   @IsPositive()
-  maximumSalary: number;
+  maximumSalary: number | null;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  salaryCurrency: string;
+  salaryCurrency: string | null;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsBoolean()
-  offersTokenAllocation: boolean;
+  offersTokenAllocation: boolean | null;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  commitment: string;
+  commitment: string | null;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  classification: string;
+  classification: string | null;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  locationType: string;
+  locationType: string | null;
 }
