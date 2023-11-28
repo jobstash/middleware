@@ -1,3 +1,10 @@
+## [1.57.6](https://github.com/jobstash/middleware/compare/v1.57.5...v1.57.6) (2023-11-28)
+
+
+### Bug Fixes
+
+* **jobs:** fixed update jobs bug ([8b5a7a1](https://github.com/jobstash/middleware/commit/8b5a7a12875cd73865d69d65372d7dd3d939d494))
+
 ## [1.57.5](https://github.com/jobstash/middleware/compare/v1.57.4...v1.57.5) (2023-11-28)
 
 
