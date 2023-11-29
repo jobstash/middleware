@@ -1,15 +1,8 @@
-import {
-  ApiExtraModels,
-  ApiPropertyOptional,
-  getSchemaPath,
-} from "@nestjs/swagger";
+import { ApiExtraModels, ApiProperty } from "@nestjs/swagger";
 import { isLeft } from "fp-ts/lib/Either";
 import * as t from "io-ts";
 import { report } from "io-ts-human-reporter";
-import {
-  OrganizationWithRelations,
-  Organization,
-} from "./organization.interface";
+import { Organization } from "./organization.interface";
 import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relations.interface";
 
 @ApiExtraModels(StructuredJobpostWithRelations, Organization)
@@ -17,22 +10,43 @@ export class AllJobsListResult extends StructuredJobpostWithRelations {
   public static readonly AllJobsListResultType = t.intersection([
     StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
     t.strict({
-      organization: OrganizationWithRelations.OrganizationWithRelationsType,
+      isBlocked: t.boolean,
+      isOnline: t.boolean,
+      organization: t.strict({
+        orgId: t.string,
+        name: t.string,
+        projects: t.array(t.strict({ id: t.string, name: t.string })),
+      }),
+      project: t.union([t.strict({ id: t.string, name: t.string }), t.null]),
     }),
   ]);
 
-  @ApiPropertyOptional({
-    type: "array",
-    items: { $ref: getSchemaPath(OrganizationWithRelations) },
-  })
-  organization: OrganizationWithRelations;
+  @ApiProperty()
+  isBlocked: boolean;
+
+  @ApiProperty()
+  isOnline: boolean;
+
+  @ApiProperty()
+  organization: {
+    orgId: string;
+    name: string;
+    projects: { id: string; name: string }[];
+  };
+
+  @ApiProperty()
+  project: { id: string; name: string } | null;
 
   constructor(raw: AllJobsListResult) {
-    const { organization, ...jobpostProperties } = raw;
+    const { organization, isBlocked, isOnline, project, ...jobpostProperties } =
+      raw;
     super(jobpostProperties);
     const result = AllJobsListResult.AllJobsListResultType.decode(raw);
 
     this.organization = organization;
+    this.project = project;
+    this.isBlocked = isBlocked;
+    this.isOnline = isOnline;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

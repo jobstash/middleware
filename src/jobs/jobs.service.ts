@@ -145,7 +145,11 @@ export class JobsService {
   getAllJobsListResults = async (): Promise<AllJobsListResult[]> => {
     const results: AllJobsListResult[] = [];
     const generatedQuery = `
-          MATCH (structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+          MATCH (structured_jobpost:StructuredJobpost)
+          MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+          WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) OR NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+          OPTIONAL MATCH (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(other:Tag)--(:PairedDesignation|PreferredDesignation)
+          WITH COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END) AS tags, structured_jobpost
           RETURN structured_jobpost {
               id: structured_jobpost.id,
               url: structured_jobpost.url,
@@ -165,54 +169,27 @@ export class JobsService {
               salaryCurrency: structured_jobpost.salaryCurrency,
               responsibilities: structured_jobpost.responsibilities,
               offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+              isBlocked: CASE WHEN (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation) THEN true ELSE false END,
+              isOnline: CASE WHEN (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) THEN true ELSE false END,
               timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
               classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
               commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
               locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
+              project: [(structured_jobpost)<-[:HAS_JOB]->(project) | project {
+                id: project.id,
+                name: project.name
+              }][0],
               organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization) | organization {
-                  .*,
-                  discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-                  website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-                  docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-                  telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                  github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
-                  alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
-                  twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+                  orgId: organization.orgId,
+                  name: organization.name,
                   projects: [
                     (organization)-[:HAS_PROJECT]->(project) | project {
-                      .*,
-                      orgId: organization.orgId,
-                      discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-                      website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
-                      docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-                      telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                      github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
-                      category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                      twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-                      hacks: [
-                        (project)-[:HAS_HACK]->(hack) | hack { .* }
-                      ],
-                      audits: [
-                        (project)-[:HAS_AUDIT]->(audit) | audit { .* }
-                      ],
-                      chains: [
-                        (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
-                      ],
-                      jobs: [
-                        (project)-[:HAS_JOB]->(job) | job { .* }
-                      ],
-                      repos: [
-                        (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
-                      ]
+                      id: project.id,
+                      name: project.name
                     }
-                  ],
-                  fundingRounds: apoc.coll.toSet([
-                    (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round {.*}
-                  ]),
-                  investors: apoc.coll.toSet([
-                    (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-                  ])
-              }][0]
+                  ]
+              }][0],
+            tags: apoc.coll.toSet(tags)
           } AS result
         `;
 
@@ -1031,6 +1008,10 @@ export class JobsService {
     const res = await this.neogma.queryRunner.run(
       `
         MATCH (structured_jobpost:StructuredJobpost { shortUUID: $shortUUID })
+        MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) OR NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+        OPTIONAL MATCH (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(other:Tag)--(:PairedDesignation|PreferredDesignation)
+        WITH COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END) AS tags, structured_jobpost
         SET structured_jobpost += $properties
         RETURN {
           id: structured_jobpost.id,
@@ -1055,7 +1036,7 @@ export class JobsService {
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
           commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
           locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
-          tags: []
+          tags: apoc.coll.toSet(tags)
         } as res
       `,
       {

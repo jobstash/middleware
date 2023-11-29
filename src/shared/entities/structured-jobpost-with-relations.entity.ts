@@ -30,6 +30,7 @@ export class StructuredJobpostWithRelationsEntity {
       description: notStringOrNull(jobpost?.description),
       commitment: notStringOrNull(jobpost?.commitment),
       timestamp: nonZeroOrNull(jobpost?.timestamp),
+      tags: jobpost.tags ?? [],
     });
   }
 }
