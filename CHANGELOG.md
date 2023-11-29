@@ -1,3 +1,10 @@
+## [1.58.1](https://github.com/jobstash/middleware/compare/v1.58.0...v1.58.1) (2023-11-29)
+
+
+### Bug Fixes
+
+* **jobs:** added support for blocked and online status update, tags and associated project update ([af7f69d](https://github.com/jobstash/middleware/commit/af7f69de2cc35991e9839633a1645afcfb65196a))
+
 # [1.58.0](https://github.com/jobstash/middleware/compare/v1.57.6...v1.58.0) (2023-11-29)
 
 
