@@ -1,3 +1,10 @@
+# [1.58.0](https://github.com/jobstash/middleware/compare/v1.57.6...v1.58.0) (2023-11-29)
+
+
+### Features
+
+* **jobs:** refactored all jobs list response interface to match the new FE needs ([f54ce3a](https://github.com/jobstash/middleware/commit/f54ce3ac8e40d4bed01390362103639e9744006e))
+
 ## [1.57.6](https://github.com/jobstash/middleware/compare/v1.57.5...v1.57.6) (2023-11-28)
 
 
