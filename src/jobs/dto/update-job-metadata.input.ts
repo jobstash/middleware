@@ -104,4 +104,23 @@ export class UpdateJobMetadataInput {
   @IsOptional()
   @IsString()
   locationType: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  project: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isBlocked: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isOnline: boolean;
+
+  @ApiProperty()
+  @IsArray()
+  tags: string[];
 }

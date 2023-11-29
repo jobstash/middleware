@@ -37,6 +37,7 @@ import { EditJobTagsInput } from "./dto/edit-tags.input";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
 import { ChangeJobCommitmentInput } from "./dto/change-commitment.input";
 import { ChangeJobLocationTypeInput } from "./dto/change-location-type.input";
+import { ChangeJobProjectInput } from "./dto/update-job-project.input";
 
 @Injectable()
 export class JobsService {
@@ -998,11 +999,55 @@ export class JobsService {
     }
   }
 
+  async changeJobProject(
+    wallet: string,
+    dto: ChangeJobProjectInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+          MATCH (project:Project {id: $projectId})
+          MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID} )<-[c:HAS_JOB]-()
+          DELETE c
+
+          WITH structured_jobpost, project
+          CREATE (structured_jobpost)<-[nc:HAS_JOB]-(project)
+          SET nc.creator = $wallet
+        `,
+        { wallet, ...dto },
+      );
+      return {
+        success: true,
+        message: "Job project changed successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::changeJobProject ${err.message}`);
+      return {
+        success: false,
+        message: "Failed to change job project",
+      };
+    }
+  }
+
   async update(
     shortUUID: string,
     job: Omit<
       UpdateJobMetadataInput,
-      "commitment" | "classification" | "locationType"
+      | "commitment"
+      | "classification"
+      | "locationType"
+      | "project"
+      | "tags"
+      | "isBlocked"
+      | "isOnline"
     >,
   ): Promise<StructuredJobpostWithRelations | undefined> {
     const res = await this.neogma.queryRunner.run(
@@ -1118,6 +1163,82 @@ export class JobsService {
       return {
         success: false,
         message: "Error unblocking jobs",
+      };
+    }
+  }
+
+  async makeJobsOffline(
+    wallet: string,
+    dto: BlockJobsInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (structured_jobpost:StructuredJobpost WHERE structured_jobpost.shortUUID IN $shortUUIDs)-[js:HAS_STATUS]->(:JobpostOnlineStatus)
+        DELETE js
+
+        WITH structured_jobpost
+        MERGE (structured_jobpost)-[js:HAS_STATUS]->(:JobpostOfflineStatus)
+        SET js.creator = $wallet
+      `,
+        { wallet, ...dto },
+      );
+
+      return {
+        success: true,
+        message: "Jobs made offline successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::makeJobsOffline ${err.message}`);
+      return {
+        success: false,
+        message: "Error making jobs offline",
+      };
+    }
+  }
+
+  async makeJobsOnline(
+    wallet: string,
+    dto: BlockJobsInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (structured_jobpost:StructuredJobpost WHERE structured_jobpost.shortUUID IN $shortUUIDs)-[js:HAS_STATUS]->(:JobpostOfflineStatus)
+        DELETE js
+
+        WITH structured_jobpost
+        MERGE (structured_jobpost)-[js:HAS_STATUS]->(:JobpostOnlineStatus)
+        SET js.creator = $wallet
+      `,
+        { wallet, ...dto },
+      );
+
+      return {
+        success: true,
+        message: "Jobs made online successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::makeJobsOnline ${err.message}`);
+      return {
+        success: false,
+        message: "Error making jobs online",
       };
     }
   }

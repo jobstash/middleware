@@ -422,7 +422,53 @@ export class JobsController {
   ): Promise<Response<StructuredJobpostWithRelations> | ResponseWithNoData> {
     this.logger.log(`/jobs/update/${shortUUID} ${JSON.stringify(body)}`);
     const { address } = await this.authService.getSession(req, res);
-    const { commitment, classification, locationType, ...dto } = body;
+    const {
+      commitment,
+      classification,
+      locationType,
+      project,
+      isBlocked,
+      isOnline,
+      tags,
+      ...dto
+    } = body;
+
+    if (isBlocked) {
+      const res1a = await this.jobsService.blockJobs(address as string, {
+        shortUUIDs: [shortUUID],
+      });
+      if (res1a.success === false) {
+        this.logger.error(res1a.message);
+        return res1a;
+      }
+    } else {
+      const res1a = await this.jobsService.unblockJobs(address as string, {
+        shortUUIDs: [shortUUID],
+      });
+      if (res1a.success === false) {
+        this.logger.error(res1a.message);
+        return res1a;
+      }
+    }
+
+    if (isOnline) {
+      const res1b = await this.jobsService.makeJobsOnline(address as string, {
+        shortUUIDs: [shortUUID],
+      });
+      if (res1b.success === false) {
+        this.logger.error(res1b.message);
+        return res1b;
+      }
+    } else {
+      const res1b = await this.jobsService.makeJobsOffline(address as string, {
+        shortUUIDs: [shortUUID],
+      });
+      if (res1b.success === false) {
+        this.logger.error(res1b.message);
+        return res1b;
+      }
+    }
+
     const res2 = await this.jobsService.changeJobCommitment(address as string, {
       shortUUID,
       commitment,
@@ -431,6 +477,7 @@ export class JobsController {
       this.logger.error(res2.message);
       return res2;
     }
+
     const res3 = await this.jobsService.changeJobClassification(
       address as string,
       {
@@ -442,6 +489,7 @@ export class JobsController {
       this.logger.error(res3.message);
       return res3;
     }
+
     const res4 = await this.jobsService.changeJobLocationType(
       address as string,
       {
@@ -453,6 +501,24 @@ export class JobsController {
       this.logger.error(res4.message);
       return res4;
     }
+
+    if (project !== null) {
+      const res5 = await this.jobsService.changeJobProject(address as string, {
+        shortUUID,
+        projectId: project,
+      });
+      if (res5.success === false) {
+        this.logger.error(res5.message);
+        return res5;
+      }
+    }
+
+    const res6 = await this.editTags(req, res, { shortUUID, tags });
+    if (res6.success === false) {
+      this.logger.error(res6.message);
+      return res6;
+    }
+
     const res1 = await this.jobsService.update(shortUUID, dto);
     if (res1 !== undefined) {
       return {
