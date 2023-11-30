@@ -52,7 +52,7 @@ describe("PublicController", () => {
     );
     const hasDuplicateTechs = hasDuplicates(
       jobListResult.tags,
-      x => x.id,
+      x => x.normalizedName,
       `Technologies for Jobpost ${jobListResult.shortUUID}`,
     );
     const hasDuplicateInvestors = hasDuplicates(

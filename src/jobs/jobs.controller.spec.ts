@@ -71,7 +71,7 @@ describe("JobsController", () => {
     );
     const hasDuplicateTechs = hasDuplicates(
       jobListResult.tags,
-      x => x.id,
+      x => x.normalizedName,
       `Technologies for Jobpost ${jobListResult.shortUUID}`,
     );
     const hasDuplicateInvestors = hasDuplicates(
@@ -108,7 +108,7 @@ describe("JobsController", () => {
   ): boolean => {
     const hasDuplicateTechs = hasDuplicates(
       jobListResult.tags,
-      x => x.id,
+      x => x.normalizedName,
       `Technologies for Jobpost ${jobListResult.shortUUID}`,
     );
     expect(hasDuplicateTechs).toBe(false);

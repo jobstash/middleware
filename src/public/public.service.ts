@@ -22,6 +22,7 @@ export class PublicService {
     const results: JobListResult[] = [];
     const generatedQuery = `
       MATCH (structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+      WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
       RETURN structured_jobpost {
           id: structured_jobpost.id,
           url: structured_jobpost.url,
