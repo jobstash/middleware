@@ -1,3 +1,10 @@
+## [1.58.3](https://github.com/jobstash/middleware/compare/v1.58.2...v1.58.3) (2023-11-30)
+
+
+### Bug Fixes
+
+* **jobs:** fixed tests borked by the last response interface change ([0251492](https://github.com/jobstash/middleware/commit/025149269f8968f33cc8ac578cc5d6c6f1a3422a))
+
 ## [1.58.2](https://github.com/jobstash/middleware/compare/v1.58.1...v1.58.2) (2023-11-30)
 
 
