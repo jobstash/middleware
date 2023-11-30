@@ -125,7 +125,7 @@ export class GithubController {
 
     const profileData = data.data;
 
-    await this.githubUserService.addGithubInfoToUser({
+    const res1 = await this.githubUserService.addGithubInfoToUser({
       githubAccessToken: accessToken,
       githubRefreshToken: "",
       githubLogin: profileData.login,
@@ -136,6 +136,10 @@ export class GithubController {
       githubAvatarUrl: profileData.avatar_url,
       wallet,
     });
+
+    if (!res1.success) {
+      return res1;
+    }
 
     await this.userService.setFlowState({
       flow: CheckWalletFlows.ONBOARD_REPO,

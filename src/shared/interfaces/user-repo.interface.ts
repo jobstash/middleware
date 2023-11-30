@@ -5,7 +5,7 @@ import { report } from "io-ts-human-reporter";
 
 export class UserRepo {
   public static readonly UserRepoType = t.strict({
-    id: t.string,
+    id: t.number,
     name: t.string,
     description: t.string,
     timestamp: t.number,
@@ -31,7 +31,7 @@ export class UserRepo {
   });
 
   @ApiProperty()
-  id: string;
+  id: number;
 
   @ApiProperty()
   name: string;

@@ -38,7 +38,7 @@ export class GithubUserService {
       githubRefreshToken: "[REDACTED]",
     };
     this.logger.log(
-      `/user/addGithubInfoToUser: Assigning ${args.githubId} github account to wallet ${args.wallet}`,
+      `/user/addGithubInfoToUser: Assigning ${args.githubLogin} github account to wallet ${args.wallet}`,
     );
 
     const { wallet, ...updateObject } = args;
@@ -70,8 +70,9 @@ export class GithubUserService {
         await this.update(githubUserNode.getId(), payload);
       } else {
         await this.create(payload);
-        await this.userService.addGithubUser(wallet, updateObject.githubLogin);
       }
+
+      await this.userService.addGithubUser(wallet, updateObject.githubLogin);
 
       return {
         success: true,
@@ -82,12 +83,14 @@ export class GithubUserService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "service-request-pipeline",
-          source: "backend.service",
+          source: "github-user.service",
         });
         scope.setExtra("input", logInfo);
         Sentry.captureException(err);
       });
-      this.logger.error(`BackendService::addGithubInfoToUser ${err.message}`);
+      this.logger.error(
+        `GithubUserService::addGithubInfoToUser ${err.message}`,
+      );
       return {
         success: false,
         message: "Error adding github info to user",
