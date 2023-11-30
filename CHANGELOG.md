@@ -1,3 +1,10 @@
+## [1.58.2](https://github.com/jobstash/middleware/compare/v1.58.1...v1.58.2) (2023-11-30)
+
+
+### Bug Fixes
+
+* **profile:** fixed bugs with github profile and repo services ([8c3c6f4](https://github.com/jobstash/middleware/commit/8c3c6f4bcd62419f67bf024ac71fe6eddadaec90))
+
 ## [1.58.1](https://github.com/jobstash/middleware/compare/v1.58.0...v1.58.1) (2023-11-29)
 
 
