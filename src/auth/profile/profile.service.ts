@@ -180,7 +180,7 @@ export class ProfileService {
             name: organization.name,
             logo: organization.logo
           }][0],
-          tags: [(user)-[:USED_TAG]->(tag: RepoTag)-[:USED_ON]->(repo) | tag {.*}],
+          tags: [(user)-[:USED_TAG]->(tag: Tag)-[:USED_ON]->(repo) | tag {.*}],
           contribution: {
             summary: r.summary,
             count: r.commits
@@ -620,13 +620,13 @@ export class ProfileService {
         CALL {
           WITH user
           MATCH (user)-[:HAS_GITHUB_USER]->(user:GithubUser)-[:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository {id: $id})
-          OPTIONAL MATCH (user)-[r1:USED_TAG]->(tag: RepoTag)-[r2:USED_ON]->(repo)
+          OPTIONAL MATCH (user)-[r1:USED_TAG]->(tag: Tag)-[r2:USED_ON]->(repo)
           DETACH DELETE r1,tag,r2
         }
         UNWIND $tagsUsed as data
         WITH data, user
         MATCH (repo:GithubRepository {id: $id})
-        CREATE (user)-[:USED_TAG]->(tag: RepoTag)-[:USED_ON]->(repo)
+        CREATE (user)-[:USED_TAG]->(tag: Tag)-[:USED_ON]->(repo)
         SET tag.id = data.id
         SET tag.name = data.name
         SET tag.normalizedName = data.normalizedName
