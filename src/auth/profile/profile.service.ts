@@ -616,7 +616,7 @@ export class ProfileService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MATCH (:User {wallet: $wallet})
+        MATCH (user:User {wallet: $wallet})
         CALL {
           WITH user
           MATCH (user)-[:HAS_GITHUB_USER]->(user:GithubUser)-[:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository {id: $id})
