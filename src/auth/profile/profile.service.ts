@@ -180,7 +180,10 @@ export class ProfileService {
             name: organization.name,
             logo: organization.logo
           }][0],
-          tags: [(user)-[:USED_TAG]->(tag: Tag)-[:USED_ON]->(repo) | tag {.*}],
+          tags: [(user)-[m:USED_TAG]->(tag: Tag)-[:USED_ON]->(repo) | tag {
+            .*,
+            canTeach: [(user)-[m:USED_TAG]->(tag)-[:USED_ON]->(repo) | m.canTeach][0]
+          }],
           contribution: {
             summary: r.summary,
             count: r.commits
@@ -615,18 +618,15 @@ export class ProfileService {
       await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})
-        MATCH (user)-[:HAS_GITHUB_USER]->(user:GithubUser)-[:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository {id: $id})
-        OPTIONAL MATCH (user)-[r1:USED_TAG]->(tag: Tag)-[r2:USED_ON]->(repo)
+        MATCH (user)-[:HAS_GITHUB_USER]->(ghu:GithubUser)-[:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository {id: $id})
+        OPTIONAL MATCH (ghu)-[r1:USED_TAG]->(tag: Tag)-[r2:USED_ON]->(repo)
         DETACH DELETE r1,tag,r2
 
-        WITH user
+        WITH ghu
         UNWIND $tagsUsed as data
-        WITH data, user
-        MATCH (repo:GithubRepository {id: $id})
-        CREATE (user)-[r:USED_TAG]->(tag: Tag)-[:USED_ON]->(repo)
-        SET tag.id = data.id
-        SET tag.name = data.name
-        SET tag.normalizedName = data.normalizedName
+        WITH data, ghu
+        MATCH (repo:GithubRepository {id: $id}), (tag: Tag {id: data.id})
+        CREATE (ghu)-[r:USED_TAG]->(tag)-[:USED_ON]->(repo)
         SET r.canTeach = data.canTeach
       `,
         { wallet, ...dto },
