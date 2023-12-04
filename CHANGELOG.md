@@ -1,3 +1,10 @@
+# [1.59.0](https://github.com/jobstash/middleware/compare/v1.58.6...v1.59.0) (2023-12-04)
+
+
+### Features
+
+* **profile:** implemented get user orgs endpoint ([c106b3a](https://github.com/jobstash/middleware/commit/c106b3a7c37e58e454670e955dc32fbf99616a85))
+
 ## [1.58.6](https://github.com/jobstash/middleware/compare/v1.58.5...v1.58.6) (2023-12-04)
 
 
