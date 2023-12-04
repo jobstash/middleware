@@ -1,3 +1,10 @@
+## [1.58.5](https://github.com/jobstash/middleware/compare/v1.58.4...v1.58.5) (2023-12-04)
+
+
+### Bug Fixes
+
+* **profile:** fixed borked queries on profile endpoint ([beef67d](https://github.com/jobstash/middleware/commit/beef67d8bfa99e1e9a72803fefa202d7e8c2af4f))
+
 ## [1.58.4](https://github.com/jobstash/middleware/compare/v1.58.3...v1.58.4) (2023-12-04)
 
 
