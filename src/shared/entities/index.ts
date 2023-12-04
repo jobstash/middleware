@@ -16,6 +16,7 @@ export * from "./project-category.entity";
 export * from "./project.entity";
 export * from "./audit.entity";
 export * from "./hack.entity";
+export * from "./organization-with-relations.entity";
 export * from "./structured-jobpost.entity";
 export * from "./structured-jobpost-with-relations.entity";
 export * from "./job-filter-configs.entity";

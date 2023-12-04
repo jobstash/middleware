@@ -21,6 +21,7 @@ import { AuthService } from "../auth.service";
 import { Request, Response as ExpressResponse } from "express";
 import {
   OrgReview,
+  OrganizationWithRelations,
   PaginatedData,
   Response,
   ResponseWithNoData,
@@ -79,7 +80,7 @@ export class ProfileController {
   @ApiOkResponse({
     description: "Returns the org reviews of the currently logged in user",
     schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Response<UserProfile>),
+      $ref: getSchemaPath(PaginatedData<OrgReview>),
     }),
   })
   async getOrgReviews(
@@ -106,7 +107,7 @@ export class ProfileController {
   @ApiOkResponse({
     description: "Returns the repos of the currently logged in user",
     schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Response<UserProfile>),
+      $ref: getSchemaPath(PaginatedData<UserRepo>),
     }),
   })
   async getUserRepos(
@@ -127,13 +128,40 @@ export class ProfileController {
     }
   }
 
+  @Get("organizations")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Returns the organizations of the currently logged in user",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(PaginatedData<OrganizationWithRelations>),
+    }),
+  })
+  async getUserOrgs(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Query(new ValidationPipe({ transform: true })) params: RepoListParams,
+  ): Promise<PaginatedData<OrganizationWithRelations> | ResponseWithNoData> {
+    this.logger.log(`/profile/organizations`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.profileService.getUserOrgs(address as string, params);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
   @Get("showcase")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns the showcase of the currently logged in user",
     schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Response<UserProfile>),
+      $ref: getSchemaPath(Response<{ label: string; url: string }[]>),
     }),
   })
   async getUserShowCase(
@@ -159,7 +187,9 @@ export class ProfileController {
   @ApiOkResponse({
     description: "Returns the skills of the currently logged in user",
     schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Response<UserProfile>),
+      $ref: getSchemaPath(
+        Response<{ id: string; name: string; canTeach: boolean }[]>,
+      ),
     }),
   })
   async getUserSkills(
@@ -269,7 +299,7 @@ export class ProfileController {
   @ApiOkResponse({
     description: "Updates the profile of the currently logged in user",
     schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Response<UserProfile>),
+      $ref: getSchemaPath(ResponseWithNoData),
     }),
   })
   async deleteUserAccount(
@@ -295,7 +325,7 @@ export class ProfileController {
   @ApiOkResponse({
     description: "Returns the org reviews of the currently logged in user",
     schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Response<UserProfile>),
+      $ref: getSchemaPath(ResponseWithNoData),
     }),
   })
   async reviewOrgSalary(
@@ -322,7 +352,7 @@ export class ProfileController {
   @ApiOkResponse({
     description: "Returns the org reviews of the currently logged in user",
     schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Response<UserProfile>),
+      $ref: getSchemaPath(ResponseWithNoData),
     }),
   })
   async rateOrg(
@@ -349,7 +379,7 @@ export class ProfileController {
   @ApiOkResponse({
     description: "Returns the org reviews of the currently logged in user",
     schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Response<UserProfile>),
+      $ref: getSchemaPath(ResponseWithNoData),
     }),
   })
   async reviewOrg(

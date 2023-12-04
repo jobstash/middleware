@@ -3,6 +3,7 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import {
   OrgReviewEntity,
+  OrganizationWithRelationsEntity,
   UserProfileEntity,
   UserRepoEntity,
   UserShowCaseEntity,
@@ -10,6 +11,7 @@ import {
 } from "src/shared/entities";
 import {
   OrgReview,
+  OrganizationWithRelations,
   PaginatedData,
   Response,
   ResponseWithNoData,
@@ -200,6 +202,66 @@ export class ProfileService {
 
       const { page, limit } = params;
       return paginate<UserRepo>(page, limit, final);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, ...params });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::getUserRepos ${err.message}`);
+      return {
+        success: false,
+        message: "Error retrieving user repos",
+      };
+    }
+  }
+
+  async getUserOrgs(
+    wallet: string,
+    params: RepoListParams,
+  ): Promise<PaginatedData<OrganizationWithRelations> | ResponseWithNoData> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(user:GithubUser)-[r:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository)<-[:HAS_REPOSITORY|HAS_GITHUB*2]-(organization: Organization)
+        RETURN organization {
+          id: organization.id,
+          name: organization.name,
+          orgId: organization.orgId,
+          summary: organization.summary,
+          location: organization.location,
+          description: organization.description,
+          logoUrl: organization.logoUrl,
+          headcountEstimate: organization.headcountEstimate,
+          createdTimestamp: organization.createdTimestamp,
+          updatedTimestamp: organization.updatedTimestamp,
+          url: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+          discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+          website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+          docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+          telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+          github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
+          alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
+          twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+          projects: [],
+          fundingRounds: [],
+          investors: []
+        }
+      `,
+        { wallet },
+      );
+
+      const final = result.records.map(record =>
+        new OrganizationWithRelationsEntity(
+          record?.get("organization"),
+        ).getProperties(),
+      );
+
+      const { page, limit } = params;
+      return paginate<OrganizationWithRelations>(page, limit, final);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
