@@ -134,18 +134,17 @@ export class ProfileController {
   @ApiOkResponse({
     description: "Returns the organizations of the currently logged in user",
     schema: responseSchemaWrapper({
-      $ref: getSchemaPath(PaginatedData<OrganizationWithRelations>),
+      $ref: getSchemaPath(Response<OrganizationWithRelations[]>),
     }),
   })
   async getUserOrgs(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
-    @Query(new ValidationPipe({ transform: true })) params: RepoListParams,
-  ): Promise<PaginatedData<OrganizationWithRelations> | ResponseWithNoData> {
+  ): Promise<Response<OrganizationWithRelations[]> | ResponseWithNoData> {
     this.logger.log(`/profile/organizations`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.getUserOrgs(address as string, params);
+      return this.profileService.getUserOrgs(address as string);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {

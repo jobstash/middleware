@@ -221,8 +221,7 @@ export class ProfileService {
 
   async getUserOrgs(
     wallet: string,
-    params: RepoListParams,
-  ): Promise<PaginatedData<OrganizationWithRelations> | ResponseWithNoData> {
+  ): Promise<Response<OrganizationWithRelations[]> | ResponseWithNoData> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
@@ -248,7 +247,31 @@ export class ProfileService {
           twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
           projects: [],
           fundingRounds: [],
-          investors: []
+          investors: [],
+          reviews: [
+            (organization)-[:HAS_REVIEW]->(review: OrgReview) | review {
+              salary: {
+                amount: review.amount,
+                selectedCurrency: review.selectedCurrency,
+                offersTokenAllocation: review.offersTokenAllocation
+              },
+              rating: {
+                management: review.management,
+                careerGrowth: review.careerGrowth,
+                benefits: review.benefits,
+                workLifeBalance: review.workLifeBalance,
+                cultureValues: review.cultureValues,
+                diversityInclusion: review.diversityInclusion,
+                interviewProcess: review.interviewProcess
+              },
+              review: {
+                headline: review.headline,
+                pros: review.pros,
+                cons: review.cons
+              },
+              reviewedTimestamp: review.reviewedTimestamp
+            }
+          ]
         }
       `,
         { wallet },
@@ -260,15 +283,18 @@ export class ProfileService {
         ).getProperties(),
       );
 
-      const { page, limit } = params;
-      return paginate<OrganizationWithRelations>(page, limit, final);
+      return {
+        success: true,
+        message: "Retrieved user orgs",
+        data: final,
+      };
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
           source: "profile.service",
         });
-        scope.setExtra("input", { wallet, ...params });
+        scope.setExtra("input", { wallet });
         Sentry.captureException(err);
       });
       this.logger.error(`ProfileService::getUserRepos ${err.message}`);

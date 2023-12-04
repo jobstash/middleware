@@ -116,7 +116,8 @@ export class JobsService {
               ]),
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-              ])
+              ]),
+              reviews: []
           }][0],
           tags: apoc.coll.toSet(tags)
       } AS result
@@ -190,7 +191,8 @@ export class JobsService {
                     }
                   ]
               }][0],
-            tags: apoc.coll.toSet(tags)
+            tags: apoc.coll.toSet(tags),
+            reviews: []
           } AS result
         `;
 
@@ -590,7 +592,8 @@ export class JobsService {
               ]),
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-              ])
+              ]),
+              reviews: []
           }][0],
           tags: apoc.coll.toSet(tags)
       } AS result
@@ -809,7 +812,8 @@ export class JobsService {
                 ]),
                 investors: apoc.coll.toSet([
                   (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-                ])
+                ]),
+                reviews: []
             }][0],
             tags: apoc.coll.toSet(tags)
         } AS result

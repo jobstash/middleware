@@ -10,6 +10,7 @@ import { Investor } from "./investor.interface";
 import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
 import { ProjectWithRelations } from "./project-with-relations.interface";
+import { OrgReview } from "./org-review.interface";
 
 export class Organization {
   public static readonly OrganizationType = t.strict({
@@ -107,6 +108,7 @@ export class OrganizationWithRelations extends Organization {
       projects: t.array(ProjectWithRelations.ProjectWithRelationsType),
       fundingRounds: t.array(FundingRound.FundingRoundType),
       investors: t.array(Investor.InvestorType),
+      reviews: t.array(OrgReview.OrgReviewType),
     }),
   ]);
 
@@ -149,6 +151,12 @@ export class OrganizationWithRelations extends Organization {
   })
   investors: Investor[];
 
+  @ApiProperty({
+    type: "array",
+    items: { $ref: getSchemaPath(OrgReview) },
+  })
+  reviews: OrgReview[];
+
   constructor(raw: OrganizationWithRelations) {
     const {
       discord,
@@ -161,6 +169,7 @@ export class OrganizationWithRelations extends Organization {
       projects,
       fundingRounds,
       investors,
+      reviews,
       ...orgProperties
     } = raw;
     super(orgProperties);
@@ -177,6 +186,7 @@ export class OrganizationWithRelations extends Organization {
     this.projects = projects;
     this.fundingRounds = fundingRounds;
     this.investors = investors;
+    this.reviews = reviews;
 
     if (isLeft(result)) {
       report(result).forEach(x => {
