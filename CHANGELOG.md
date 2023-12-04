@@ -1,3 +1,10 @@
+## [1.59.1](https://github.com/jobstash/middleware/compare/v1.59.0...v1.59.1) (2023-12-04)
+
+
+### Bug Fixes
+
+* **profile:** merged reviews with orgs list ([5b8c625](https://github.com/jobstash/middleware/commit/5b8c6253d8d835745ba28882106145ba5a2d36a2))
+
 # [1.59.0](https://github.com/jobstash/middleware/compare/v1.58.6...v1.59.0) (2023-12-04)
 
 
