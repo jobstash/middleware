@@ -626,11 +626,11 @@ export class ProfileService {
         UNWIND $tagsUsed as data
         WITH data, user
         MATCH (repo:GithubRepository {id: $id})
-        CREATE (user)-[:USED_TAG]->(tag: Tag)-[:USED_ON]->(repo)
+        CREATE (user)-[r:USED_TAG]->(tag: Tag)-[:USED_ON]->(repo)
         SET tag.id = data.id
         SET tag.name = data.name
         SET tag.normalizedName = data.normalizedName
-        SET tag.canTeach = data.canTeach
+        SET r.canTeach = data.canTeach
       `,
         { wallet, ...dto },
       );
