@@ -388,11 +388,10 @@ export class ProfileService {
       await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})
-        CALL {
-          WITH user
-          OPTIONAL MATCH (user)-[r:HAS_SHOWCASE]->(os:UserShowCase)
-          DETACH DELETE r, os
-        }
+        OPTIONAL MATCH (user)-[r:HAS_SHOWCASE]->(os:UserShowCase)
+        DETACH DELETE r, os
+
+        WITH user
         UNWIND $showcase as data
         WITH data, user
         CREATE (user)-[:HAS_SHOWCASE]->(showcase:UserShowCase)
@@ -431,11 +430,10 @@ export class ProfileService {
       await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})
-        CALL {
-          WITH user
-          OPTIONAL MATCH (user)-[r:HAS_SKILL]->(os:UserSkill)
-          DETACH DELETE r, os
-        }
+        OPTIONAL MATCH (user)-[r:HAS_SKILL]->(os:UserSkill)
+        DETACH DELETE r, os
+
+        WITH user
         UNWIND $skills as data
         WITH data, user
         CREATE (user)-[:HAS_SKILL]->(skill:UserSkill)
@@ -617,12 +615,11 @@ export class ProfileService {
       await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})
-        CALL {
-          WITH user
-          MATCH (user)-[:HAS_GITHUB_USER]->(user:GithubUser)-[:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository {id: $id})
-          OPTIONAL MATCH (user)-[r1:USED_TAG]->(tag: Tag)-[r2:USED_ON]->(repo)
-          DETACH DELETE r1,tag,r2
-        }
+        MATCH (user)-[:HAS_GITHUB_USER]->(user:GithubUser)-[:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository {id: $id})
+        OPTIONAL MATCH (user)-[r1:USED_TAG]->(tag: Tag)-[r2:USED_ON]->(repo)
+        DETACH DELETE r1,tag,r2
+
+        WITH user
         UNWIND $tagsUsed as data
         WITH data, user
         MATCH (repo:GithubRepository {id: $id})
