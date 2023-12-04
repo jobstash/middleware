@@ -1,3 +1,10 @@
+## [1.58.6](https://github.com/jobstash/middleware/compare/v1.58.5...v1.58.6) (2023-12-04)
+
+
+### Bug Fixes
+
+* **profile:** fixed borkage on add repo tags used ([c235d3e](https://github.com/jobstash/middleware/commit/c235d3e02dfee539caceeaa2f6daccd620751c0c))
+
 ## [1.58.5](https://github.com/jobstash/middleware/compare/v1.58.4...v1.58.5) (2023-12-04)
 
 
