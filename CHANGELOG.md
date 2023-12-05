@@ -1,3 +1,10 @@
+## [1.59.6](https://github.com/jobstash/middleware/compare/v1.59.5...v1.59.6) (2023-12-05)
+
+
+### Bug Fixes
+
+* **profile:** simplified the user organization response interface ([5555b66](https://github.com/jobstash/middleware/commit/5555b6666ddd3d3f78ae83543b0b5470742106ef))
+
 ## [1.59.5](https://github.com/jobstash/middleware/compare/v1.59.4...v1.59.5) (2023-12-05)
 
 
