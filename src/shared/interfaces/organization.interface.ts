@@ -332,8 +332,7 @@ export class UserOrg extends Organization {
       ...orgProperties
     } = raw;
     super(orgProperties);
-    const result =
-      OrganizationWithRelations.OrganizationWithRelationsType.decode(raw);
+    const result = UserOrg.UserOrgType.decode(raw);
 
     this.discord = discord;
     this.website = website;

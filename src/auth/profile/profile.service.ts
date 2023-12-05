@@ -292,10 +292,10 @@ export class ProfileService {
         scope.setExtra("input", { wallet });
         Sentry.captureException(err);
       });
-      this.logger.error(`ProfileService::getUserRepos ${err.message}`);
+      this.logger.error(`ProfileService::getUserOrgs ${err.message}`);
       return {
         success: false,
-        message: "Error retrieving user repos",
+        message: "Error retrieving user orgs",
       };
     }
   }
