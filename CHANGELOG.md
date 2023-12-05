@@ -1,3 +1,11 @@
+## [1.59.3](https://github.com/jobstash/middleware/compare/v1.59.2...v1.59.3) (2023-12-05)
+
+
+### Bug Fixes
+
+* **profile:** fixed validation bug on user profile endpoint ([f4731a3](https://github.com/jobstash/middleware/commit/f4731a35b05b435b3e7af9caead0e549ae7eb477))
+* **projects:** fixed bug with project chains filter ([508f123](https://github.com/jobstash/middleware/commit/508f1239ca52324eb7024b80ff478b6d61272b4d))
+
 ## [1.59.2](https://github.com/jobstash/middleware/compare/v1.59.1...v1.59.2) (2023-12-05)
 
 
