@@ -3,7 +3,6 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import {
   OrgReviewEntity,
-  UserOrgEntity,
   UserProfileEntity,
   UserRepoEntity,
   UserShowCaseEntity,
@@ -14,7 +13,6 @@ import {
   PaginatedData,
   Response,
   ResponseWithNoData,
-  UserOrg,
   UserProfile,
   UserRepo,
 } from "src/shared/interfaces";
@@ -221,61 +219,61 @@ export class ProfileService {
 
   async getUserOrgs(
     wallet: string,
-  ): Promise<Response<UserOrg[]> | ResponseWithNoData> {
+  ): Promise<Response<OrgReview[]> | ResponseWithNoData> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        MATCH (:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(user:GithubUser)-[r:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository)<-[:HAS_REPOSITORY|HAS_GITHUB*2]-(organization: Organization)
+        MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER|HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository)<-[:HAS_REPOSITORY|HAS_GITHUB*2]-(organization: Organization)
+        OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
         RETURN organization {
-          id: organization.id,
-          name: organization.name,
-          orgId: organization.orgId,
-          summary: organization.summary,
-          location: organization.location,
-          description: organization.description,
-          logoUrl: organization.logoUrl,
-          headcountEstimate: organization.headcountEstimate,
-          createdTimestamp: organization.createdTimestamp,
-          updatedTimestamp: organization.updatedTimestamp,
-          url: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-          discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-          website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-          docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-          telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-          github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
-          alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
-          twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-          review: [
-            (organization)-[:HAS_REVIEW]->(review: OrgReview) | review {
-              salary: {
-                amount: review.amount,
-                selectedCurrency: review.selectedCurrency,
-                offersTokenAllocation: review.offersTokenAllocation
-              },
-              rating: {
-                management: review.management,
-                careerGrowth: review.careerGrowth,
-                benefits: review.benefits,
-                workLifeBalance: review.workLifeBalance,
-                cultureValues: review.cultureValues,
-                diversityInclusion: review.diversityInclusion,
-                interviewProcess: review.interviewProcess
-              },
-              review: {
-                headline: review.headline,
-                pros: review.pros,
-                cons: review.cons
-              },
-              reviewedTimestamp: review.reviewedTimestamp
-            }
-          ][0]
+          salary: {
+            amount: review.amount,
+            selectedCurrency: review.selectedCurrency,
+            offersTokenAllocation: review.offersTokenAllocation
+          },
+          rating: {
+            management: review.management,
+            careerGrowth: review.careerGrowth,
+            benefits: review.benefits,
+            workLifeBalance: review.workLifeBalance,
+            cultureValues: review.cultureValues,
+            diversityInclusion: review.diversityInclusion,
+            interviewProcess: review.interviewProcess
+          },
+          review: {
+            headline: review.headline,
+            pros: review.pros,
+            cons: review.cons
+          },
+          reviewedTimestamp: review.reviewedTimestamp,
+          org: {
+            id: organization.id,
+            url: organization.url,
+            name: organization.name,
+            logo: organization.logo,
+            summary: organization.summary,
+            altName: organization.altName,
+            location: organization.location,
+            headCount: organization.headCount,
+            description: organization.description,
+            jobsiteLink: organization.jobsiteLink,
+            organizationId: organization.organizationId,
+            updatedTimestamp: organization.updatedTimestamp,
+            docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+            github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
+            website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+            discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+            telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+            twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0]
+          }
         }
+        ORDER BY review.reviewedTimestamp DESC
       `,
         { wallet },
       );
 
       const final = result.records.map(record =>
-        new UserOrgEntity(record?.get("organization")).getProperties(),
+        new OrgReviewEntity(record?.get("organization")).getProperties(),
       );
 
       return {
