@@ -1,3 +1,10 @@
+## [1.59.5](https://github.com/jobstash/middleware/compare/v1.59.4...v1.59.5) (2023-12-05)
+
+
+### Bug Fixes
+
+* **organizations:** fixed interface bug ([8293a95](https://github.com/jobstash/middleware/commit/8293a959094ff642da074b6c99c976e930e75b40))
+
 ## [1.59.4](https://github.com/jobstash/middleware/compare/v1.59.3...v1.59.4) (2023-12-05)
 
 
