@@ -82,7 +82,8 @@ export class PublicService {
               ]),
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-              ])
+              ]),
+              reviews: []
           }][0]
       } AS result
     `;
@@ -113,7 +114,9 @@ export class PublicService {
         });
         Sentry.captureException(err);
       });
-      this.logger.error(`JobsService::getJobsListResults ${err.message}`);
+      this.logger.error(
+        `PublicService::getAllJobsListWithSearch ${err.message}`,
+      );
     }
 
     return results;

@@ -1,3 +1,25 @@
+## [1.59.5](https://github.com/jobstash/middleware/compare/v1.59.4...v1.59.5) (2023-12-05)
+
+
+### Bug Fixes
+
+* **organizations:** fixed interface bug ([8293a95](https://github.com/jobstash/middleware/commit/8293a959094ff642da074b6c99c976e930e75b40))
+
+## [1.59.4](https://github.com/jobstash/middleware/compare/v1.59.3...v1.59.4) (2023-12-05)
+
+
+### Bug Fixes
+
+* **organizations:** fixed validation borkage on organizations list endpoint ([55e2242](https://github.com/jobstash/middleware/commit/55e22422165a6bb4a1c7328dc83a3a7aef93e7df))
+
+## [1.59.3](https://github.com/jobstash/middleware/compare/v1.59.2...v1.59.3) (2023-12-05)
+
+
+### Bug Fixes
+
+* **profile:** fixed validation bug on user profile endpoint ([f4731a3](https://github.com/jobstash/middleware/commit/f4731a35b05b435b3e7af9caead0e549ae7eb477))
+* **projects:** fixed bug with project chains filter ([508f123](https://github.com/jobstash/middleware/commit/508f1239ca52324eb7024b80ff478b6d61272b4d))
+
 ## [1.59.2](https://github.com/jobstash/middleware/compare/v1.59.1...v1.59.2) (2023-12-05)
 
 
