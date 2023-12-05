@@ -90,7 +90,31 @@ export class OrganizationsService {
               ]
             }
           ],
-          tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }]
+          tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }],
+          reviews: [
+            (organization)-[:HAS_REVIEW]->(review: OrgReview) | review {
+              salary: {
+                amount: review.amount,
+                selectedCurrency: review.selectedCurrency,
+                offersTokenAllocation: review.offersTokenAllocation
+              },
+              rating: {
+                management: review.management,
+                careerGrowth: review.careerGrowth,
+                benefits: review.benefits,
+                workLifeBalance: review.workLifeBalance,
+                cultureValues: review.cultureValues,
+                diversityInclusion: review.diversityInclusion,
+                interviewProcess: review.interviewProcess
+              },
+              review: {
+                headline: review.headline,
+                pros: review.pros,
+                cons: review.cons
+              },
+              reviewedTimestamp: review.reviewedTimestamp
+            }
+          ]
         } as res
         `;
 

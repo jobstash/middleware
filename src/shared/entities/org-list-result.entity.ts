@@ -1,6 +1,7 @@
 import {
   FundingRound,
   OrgJob,
+  OrgReview,
   OrganizationWithRelations,
   ProjectMoreInfo,
   Tag,
@@ -8,11 +9,13 @@ import {
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { OrgListResult } from "../interfaces/org-list-result.interface";
 import { Investor } from "../interfaces/investor.interface";
+import { OrgReviewEntity } from "./org-review.entity";
 
 type RawOrg = OrganizationWithRelations & {
   jobs?: OrgJob[] | null;
   tags: Tag[];
   projects?: ProjectMoreInfo[] | null;
+  reviews?: OrgReview[] | null;
   investors?: Investor[] | null;
   fundingRounds?: FundingRound[] | null;
 };
@@ -22,7 +25,8 @@ export class OrgListResultEntity {
 
   getProperties(): OrgListResult {
     const organization = this.raw;
-    const { jobs, investors, fundingRounds, projects, tags } = organization;
+    const { jobs, investors, fundingRounds, projects, tags, reviews } =
+      organization;
 
     return new OrgListResult({
       ...organization,
@@ -129,6 +133,7 @@ export class OrgListResultEntity {
         timestamp: nonZeroOrNull(jobpost?.timestamp),
       })),
       tags: tags ?? [],
+      reviews: reviews.map(r => new OrgReviewEntity(r).getProperties()),
     });
   }
 }
