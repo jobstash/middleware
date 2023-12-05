@@ -1,3 +1,10 @@
+## [1.59.2](https://github.com/jobstash/middleware/compare/v1.59.1...v1.59.2) (2023-12-05)
+
+
+### Bug Fixes
+
+* **profile:** simplified the response interface of the get user orgs endpoint ([ae07682](https://github.com/jobstash/middleware/commit/ae0768236576b0c098694dd950548cd666861bb7))
+
 ## [1.59.1](https://github.com/jobstash/middleware/compare/v1.59.0...v1.59.1) (2023-12-04)
 
 
