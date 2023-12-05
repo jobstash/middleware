@@ -3,7 +3,7 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import {
   OrgReviewEntity,
-  OrganizationWithRelationsEntity,
+  UserOrgEntity,
   UserProfileEntity,
   UserRepoEntity,
   UserShowCaseEntity,
@@ -11,10 +11,10 @@ import {
 } from "src/shared/entities";
 import {
   OrgReview,
-  OrganizationWithRelations,
   PaginatedData,
   Response,
   ResponseWithNoData,
+  UserOrg,
   UserProfile,
   UserRepo,
 } from "src/shared/interfaces";
@@ -221,7 +221,7 @@ export class ProfileService {
 
   async getUserOrgs(
     wallet: string,
-  ): Promise<Response<OrganizationWithRelations[]> | ResponseWithNoData> {
+  ): Promise<Response<UserOrg[]> | ResponseWithNoData> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
@@ -245,10 +245,7 @@ export class ProfileService {
           github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
           alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
           twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-          projects: [],
-          fundingRounds: [],
-          investors: [],
-          reviews: [
+          review: [
             (organization)-[:HAS_REVIEW]->(review: OrgReview) | review {
               salary: {
                 amount: review.amount,
@@ -271,16 +268,14 @@ export class ProfileService {
               },
               reviewedTimestamp: review.reviewedTimestamp
             }
-          ]
+          ][0]
         }
       `,
         { wallet },
       );
 
       const final = result.records.map(record =>
-        new OrganizationWithRelationsEntity(
-          record?.get("organization"),
-        ).getProperties(),
+        new UserOrgEntity(record?.get("organization")).getProperties(),
       );
 
       return {

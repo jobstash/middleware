@@ -278,3 +278,78 @@ export class ShortOrg {
     }
   }
 }
+
+@ApiExtraModels(UserOrg, OrgReview)
+export class UserOrg extends Organization {
+  public static readonly UserOrgType = t.intersection([
+    Organization.OrganizationType,
+    t.strict({
+      discord: t.union([t.string, t.null]),
+      website: t.union([t.string, t.null]),
+      telegram: t.union([t.string, t.null]),
+      github: t.union([t.string, t.null]),
+      alias: t.union([t.string, t.null]),
+      twitter: t.union([t.string, t.null]),
+      docs: t.union([t.string, t.null]),
+      review: t.union([OrgReview.OrgReviewType, t.null]),
+    }),
+  ]);
+
+  @ApiPropertyOptional()
+  discord: string | null;
+
+  @ApiPropertyOptional()
+  website: string | null;
+
+  @ApiPropertyOptional()
+  telegram: string | null;
+
+  @ApiPropertyOptional()
+  github: string | null;
+
+  @ApiPropertyOptional()
+  alias: string | null;
+
+  @ApiPropertyOptional()
+  twitter: string | null;
+
+  @ApiPropertyOptional()
+  docs: string | null;
+
+  @ApiPropertyOptional()
+  review: OrgReview | null;
+
+  constructor(raw: UserOrg) {
+    const {
+      discord,
+      website,
+      telegram,
+      github,
+      twitter,
+      docs,
+      alias,
+      review,
+      ...orgProperties
+    } = raw;
+    super(orgProperties);
+    const result =
+      OrganizationWithRelations.OrganizationWithRelationsType.decode(raw);
+
+    this.discord = discord;
+    this.website = website;
+    this.telegram = telegram;
+    this.github = github;
+    this.alias = alias;
+    this.twitter = twitter;
+    this.docs = docs;
+    this.review = review;
+
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(
+          `user org instance with id ${this.orgId} failed validation with error '${x}'`,
+        );
+      });
+    }
+  }
+}

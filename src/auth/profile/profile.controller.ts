@@ -25,6 +25,7 @@ import {
   PaginatedData,
   Response,
   ResponseWithNoData,
+  UserOrg,
   UserProfile,
   UserRepo,
 } from "src/shared/interfaces";
@@ -134,13 +135,13 @@ export class ProfileController {
   @ApiOkResponse({
     description: "Returns the organizations of the currently logged in user",
     schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Response<OrganizationWithRelations[]>),
+      $ref: getSchemaPath(Response<UserOrg[]>),
     }),
   })
   async getUserOrgs(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<Response<OrganizationWithRelations[]> | ResponseWithNoData> {
+  ): Promise<Response<UserOrg[]> | ResponseWithNoData> {
     this.logger.log(`/profile/organizations`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
