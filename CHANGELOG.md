@@ -1,3 +1,10 @@
+## [1.59.6](https://github.com/jobstash/middleware/compare/v1.59.5...v1.59.6) (2023-12-05)
+
+
+### Bug Fixes
+
+* **organizations:** fixed validation borkage on organizations list endpoint ([9587c15](https://github.com/jobstash/middleware/commit/9587c15d49b9a83e6b574c363523d411cf3f5f81))
+
 ## [1.59.5](https://github.com/jobstash/middleware/compare/v1.59.4...v1.59.5) (2023-12-05)
 
 
