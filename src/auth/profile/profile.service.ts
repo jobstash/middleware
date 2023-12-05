@@ -113,9 +113,9 @@ export class ProfileService {
           reviewedTimestamp: review.reviewedTimestamp,
           org: [(organization: Organization)-[:HAS_REVIEW]->(review) | organization {
             id: organization.id,
-            url: organization.url,
             name: organization.name,
             logo: organization.logo,
+            orgId: organization.orgId,
             summary: organization.summary,
             altName: organization.altName,
             location: organization.location,
@@ -223,7 +223,7 @@ export class ProfileService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER|HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository)<-[:HAS_REPOSITORY|HAS_GITHUB*2]-(organization: Organization)
+        MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER|HISTORICALLY_CONTRIBUTED_TO*2]->(repo:GithubRepository)<-[:HAS_REPOSITORY|HAS_GITHUB*2]-(organization: Organization)
         OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
         RETURN organization {
           salary: {
@@ -248,9 +248,9 @@ export class ProfileService {
           reviewedTimestamp: review.reviewedTimestamp,
           org: {
             id: organization.id,
-            url: organization.url,
             name: organization.name,
             logo: organization.logo,
+            orgId: organization.orgId,
             summary: organization.summary,
             altName: organization.altName,
             location: organization.location,

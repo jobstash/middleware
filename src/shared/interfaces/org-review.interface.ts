@@ -12,7 +12,7 @@ export class OrgReview {
     membershipStatus: t.union([t.string, t.null]),
     startDate: t.union([t.number, t.null]),
     endDate: t.union([t.number, t.null]),
-    reviewedTimestamp: t.number,
+    reviewedTimestamp: t.union([t.number, t.null]),
     commitCount: t.union([t.number, t.null]),
     salary: OrgSalaryReview.OrgSalaryReviewType,
     rating: OrgRating.OrgRatingType,

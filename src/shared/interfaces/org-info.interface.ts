@@ -8,7 +8,6 @@ export class OrgInfo {
     name: t.string,
     description: t.string,
     orgId: t.string,
-    url: t.string,
     location: t.string,
     summary: t.string,
     altName: t.union([t.string, t.null]),
@@ -28,7 +27,6 @@ export class OrgInfo {
   name: string;
   description: string;
   orgId: string;
-  url: string;
   location: string;
   summary: string;
   altName: string | null;
@@ -49,7 +47,6 @@ export class OrgInfo {
       name,
       description,
       orgId,
-      url,
       location,
       summary,
       altName,
@@ -71,7 +68,6 @@ export class OrgInfo {
     this.name = name;
     this.description = description;
     this.orgId = orgId;
-    this.url = url;
     this.location = location;
     this.summary = summary;
     this.altName = altName;
