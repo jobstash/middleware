@@ -55,6 +55,8 @@ export class ProjectsService {
       page: params.page ?? 1,
     };
 
+    this.logger.log(JSON.stringify(paramsPassed));
+
     const {
       minTvl,
       maxTvl,
@@ -130,9 +132,9 @@ export class ProjectsService {
         (!auditFilter || (project?.audits.length ?? 0) > 0 === auditFilter) &&
         (!hackFilter || (project?.hacks.length ?? 0) > 0 === hackFilter) &&
         (!chainFilterList ||
-          (project?.chains
-            ?.map(x => normalizeString(x.name))
-            .filter(x => chainFilterList.filter(y => x === y).length > 0) ??
+          (chainFilterList.find(x =>
+            project.chains.map(x => normalizeString(x.name)).includes(x),
+          ) ??
             false)) &&
         (!token || notStringOrNull(project.tokenSymbol) !== null)
       );

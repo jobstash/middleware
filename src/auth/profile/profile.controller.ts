@@ -21,7 +21,6 @@ import { AuthService } from "../auth.service";
 import { Request, Response as ExpressResponse } from "express";
 import {
   OrgReview,
-  OrganizationWithRelations,
   PaginatedData,
   Response,
   ResponseWithNoData,
