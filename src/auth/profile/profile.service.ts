@@ -379,7 +379,8 @@ export class ProfileService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        MERGE (user:User {wallet: $wallet})-[:HAS_PROFILE]->(profile:UserProfile)
+        MATCH (user:User {wallet: $wallet})
+        MERGE (user)-[:HAS_PROFILE]->(profile:UserProfile)
         SET profile.availableForWork = $availableForWork
 
         WITH user
@@ -387,12 +388,13 @@ export class ProfileService {
         SET contact.preferred = $preferred
         SET contact.value = $value
         
-        RETURN profile {
-          .*,
+        WITH user
+        RETURN {
+          availableForWork: [(user)-[:HAS_PROFILE]->(profile:UserProfile) | profile.availableForWork][0],
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
           contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0]
-        }
+        } as profile
 
       `,
         { wallet, ...dto, ...dto.contact },
