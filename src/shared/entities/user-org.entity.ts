@@ -1,11 +1,12 @@
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
-import { OrgReview } from "../interfaces";
+import { UserOrg } from "../interfaces";
 
-export class OrgReviewEntity {
-  constructor(private readonly raw: OrgReview) {}
+export class UserOrgEntity {
+  constructor(private readonly raw: UserOrg) {}
 
-  getProperties(): OrgReview {
+  getProperties(): UserOrg {
     const {
+      org: organization,
       membershipStatus,
       startDate,
       endDate,
@@ -15,7 +16,16 @@ export class OrgReviewEntity {
       rating,
       review,
     } = this.raw;
-    return new OrgReview({
+    return new UserOrg({
+      org: {
+        ...organization,
+        docs: notStringOrNull(organization?.docs),
+        github: notStringOrNull(organization?.github),
+        twitter: notStringOrNull(organization?.twitter),
+        discord: notStringOrNull(organization?.discord),
+        telegram: notStringOrNull(organization?.telegram),
+        updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
+      },
       membershipStatus: notStringOrNull(membershipStatus),
       startDate: nonZeroOrNull(startDate),
       endDate: nonZeroOrNull(endDate),

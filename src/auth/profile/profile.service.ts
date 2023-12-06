@@ -2,14 +2,14 @@ import { Injectable } from "@nestjs/common";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import {
-  OrgReviewEntity,
+  UserOrgEntity,
   UserProfileEntity,
   UserRepoEntity,
   UserShowCaseEntity,
   UserSkillEntity,
 } from "src/shared/entities";
 import {
-  OrgReview,
+  UserOrg,
   PaginatedData,
   Response,
   ResponseWithNoData,
@@ -85,7 +85,7 @@ export class ProfileService {
   async getOrgReviews(
     wallet: string,
     params: ReviewListParams,
-  ): Promise<PaginatedData<OrgReview> | ResponseWithNoData> {
+  ): Promise<PaginatedData<UserOrg> | ResponseWithNoData> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
@@ -138,11 +138,11 @@ export class ProfileService {
       );
 
       const final = result.records.map(record =>
-        new OrgReviewEntity(record?.get("review")).getProperties(),
+        new UserOrgEntity(record?.get("review")).getProperties(),
       );
 
       const { page, limit } = params;
-      return paginate<OrgReview>(page, limit, final);
+      return paginate<UserOrg>(page, limit, final);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -219,7 +219,7 @@ export class ProfileService {
 
   async getUserOrgs(
     wallet: string,
-  ): Promise<Response<OrgReview[]> | ResponseWithNoData> {
+  ): Promise<Response<UserOrg[]> | ResponseWithNoData> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
@@ -273,7 +273,7 @@ export class ProfileService {
       );
 
       const final = result.records.map(record =>
-        new OrgReviewEntity(record?.get("organization")).getProperties(),
+        new UserOrgEntity(record?.get("organization")).getProperties(),
       );
 
       return {

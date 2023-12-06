@@ -1,10 +1,10 @@
 import {
   FundingRound,
   OrgJob,
-  OrgReview,
   OrganizationWithRelations,
   ProjectMoreInfo,
   Tag,
+  OrgReview,
 } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { OrgListResult } from "../interfaces/org-list-result.interface";

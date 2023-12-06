@@ -1,12 +1,14 @@
 import { isLeft } from "fp-ts/lib/Either";
 import * as t from "io-ts";
 import { report } from "io-ts-human-reporter";
+import { OrgInfo } from "./org-info.interface";
 import { OrgSalaryReview } from "./org-salary-review.interface";
 import { OrgRating } from "./org-ratings.interface";
 import { OrgStaffReview } from "./org-staff-review.interface";
 
-export class OrgReview {
-  public static readonly OrgReviewType = t.strict({
+export class UserOrg {
+  public static readonly UserOrgType = t.strict({
+    org: OrgInfo.OrgInfoType,
     membershipStatus: t.union([t.string, t.null]),
     startDate: t.union([t.number, t.null]),
     endDate: t.union([t.number, t.null]),
@@ -17,6 +19,7 @@ export class OrgReview {
     review: OrgStaffReview.OrgStaffReviewType,
   });
 
+  org: OrgInfo;
   membershipStatus: string | null;
   startDate: number | null;
   endDate: number | null;
@@ -26,8 +29,9 @@ export class OrgReview {
   review: OrgStaffReview;
   reviewedTimestamp: number;
 
-  constructor(raw: OrgReview) {
+  constructor(raw: UserOrg) {
     const {
+      org,
       membershipStatus,
       startDate,
       endDate,
@@ -38,8 +42,9 @@ export class OrgReview {
       reviewedTimestamp,
     } = raw;
 
-    const result = OrgReview.OrgReviewType.decode(raw);
+    const result = UserOrg.UserOrgType.decode(raw);
 
+    this.org = org;
     this.membershipStatus = membershipStatus;
     this.startDate = startDate;
     this.endDate = endDate;
@@ -52,7 +57,7 @@ export class OrgReview {
     if (isLeft(result)) {
       report(result).forEach(x => {
         throw new Error(
-          `org review instance failed validation with error '${x}'`,
+          `org review instance with id ${this.org.orgId} failed validation with error '${x}'`,
         );
       });
     }

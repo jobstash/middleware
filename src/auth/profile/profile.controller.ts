@@ -20,7 +20,7 @@ import { responseSchemaWrapper } from "src/shared/helpers";
 import { AuthService } from "../auth.service";
 import { Request, Response as ExpressResponse } from "express";
 import {
-  OrgReview,
+  UserOrg,
   PaginatedData,
   Response,
   ResponseWithNoData,
@@ -81,14 +81,14 @@ export class ProfileController {
   @ApiOkResponse({
     description: "Returns the org reviews of the currently logged in user",
     schema: responseSchemaWrapper({
-      $ref: getSchemaPath(PaginatedData<OrgReview>),
+      $ref: getSchemaPath(PaginatedData<UserOrg>),
     }),
   })
   async getOrgReviews(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Query(new ValidationPipe({ transform: true })) params: ReviewListParams,
-  ): Promise<PaginatedData<OrgReview> | ResponseWithNoData> {
+  ): Promise<PaginatedData<UserOrg> | ResponseWithNoData> {
     this.logger.log(`/profile/reviews`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
@@ -135,13 +135,13 @@ export class ProfileController {
   @ApiOkResponse({
     description: "Returns the organizations of the currently logged in user",
     schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Response<OrgReview[]>),
+      $ref: getSchemaPath(Response<UserOrg[]>),
     }),
   })
   async getUserOrgs(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<Response<OrgReview[]> | ResponseWithNoData> {
+  ): Promise<Response<UserOrg[]> | ResponseWithNoData> {
     this.logger.log(`/profile/organizations`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
