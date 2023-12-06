@@ -3,6 +3,18 @@
 
 ### Bug Fixes
 
+* **profile:** fixed get user profile bug ([0858e4a](https://github.com/jobstash/middleware/commit/0858e4a46138e183d5cbcd8eff24324f6bd0ce09))
+* **profile:** fixed issue with org review vs. user org types ([8e41183](https://github.com/jobstash/middleware/commit/8e4118315563c950a099525ae39ed42b8c290982))
+* **profile:** fixed query bugs on get user organizations endpoint ([5a2e180](https://github.com/jobstash/middleware/commit/5a2e18011bfc5ada1ad596f203b48786578e394a))
+* **profile:** fixed validation bug for get user orgs endpoint ([b494a64](https://github.com/jobstash/middleware/commit/b494a6480a66c55ebc019a87c9ab9239f55ac5fa))
+* **profile:** removed weirdo property from user org response interface ([33c35d9](https://github.com/jobstash/middleware/commit/33c35d95985f47d57685989fc4eb28f2cac46cbb))
+* **profile:** simplified the user organization response interface ([5555b66](https://github.com/jobstash/middleware/commit/5555b6666ddd3d3f78ae83543b0b5470742106ef))
+
+## [1.59.6](https://github.com/jobstash/middleware/compare/v1.59.5...v1.59.6) (2023-12-06)
+
+
+### Bug Fixes
+
 * **profile:** fixed issue with org review vs. user org types ([8e41183](https://github.com/jobstash/middleware/commit/8e4118315563c950a099525ae39ed42b8c290982))
 * **profile:** fixed query bugs on get user organizations endpoint ([5a2e180](https://github.com/jobstash/middleware/commit/5a2e18011bfc5ada1ad596f203b48786578e394a))
 * **profile:** fixed validation bug for get user orgs endpoint ([b494a64](https://github.com/jobstash/middleware/commit/b494a6480a66c55ebc019a87c9ab9239f55ac5fa))
