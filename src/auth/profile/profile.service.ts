@@ -51,8 +51,6 @@ export class ProfileService {
           availableForWork: profile.availableForWork,
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-          role: [(user)-[:HAS_ROLE]->(ur:UserRole) | ur.name][0],
-          flow: [(user)-[:HAS_USER_FLOW_STAGE]->(uf:UserFlow) | uf.name][0],
           contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0]
         } as profile
       `,
@@ -393,8 +391,6 @@ export class ProfileService {
           .*,
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-          role: [(user)-[:HAS_ROLE]->(ur:UserRole) | ur.name][0],
-          flow: [(user)-[:HAS_USER_FLOW_STAGE]->(uf:UserFlow) | uf.name][0],
           contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0]
         }
 
