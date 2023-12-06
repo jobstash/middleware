@@ -49,7 +49,7 @@ export class OrgReviewEntity {
         pros: notStringOrNull(review?.pros),
         cons: notStringOrNull(review?.cons),
       },
-      reviewedTimestamp: reviewedTimestamp,
+      reviewedTimestamp: nonZeroOrNull(reviewedTimestamp),
     });
   }
 }

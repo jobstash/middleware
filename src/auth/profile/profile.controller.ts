@@ -38,13 +38,15 @@ import { UpdateRepoContributionInput } from "./dto/update-repo-contribution.inpu
 import { UpdateRepoTagsUsedInput } from "./dto/update-repo-tags-used.input";
 import { UpdateUserShowCaseInput } from "./dto/update-user-showcase.input";
 import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
+import { OrganizationsService } from "src/organizations/organizations.service";
 
 @Controller("profile")
 export class ProfileController {
   private logger = new CustomLogger(ProfileController.name);
   constructor(
-    private readonly profileService: ProfileService,
     private readonly authService: AuthService,
+    private readonly profileService: ProfileService,
+    private readonly organizationsService: OrganizationsService,
   ) {}
 
   @Get("info")
@@ -334,7 +336,15 @@ export class ProfileController {
     this.logger.log(`/profile/reviews/salary`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.reviewOrgSalary(address as string, params);
+      const org = await this.organizationsService.findByOrgId(params.orgId);
+      if (org) {
+        return this.profileService.reviewOrgSalary(address as string, params);
+      } else {
+        return {
+          success: false,
+          message: "Invalid orgId or orgId not found",
+        };
+      }
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -361,7 +371,15 @@ export class ProfileController {
     this.logger.log(`/profile/reviews/rating`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.rateOrg(address as string, params);
+      const org = await this.organizationsService.findByOrgId(params.orgId);
+      if (org) {
+        return this.profileService.rateOrg(address as string, params);
+      } else {
+        return {
+          success: false,
+          message: "Invalid orgId or orgId not found",
+        };
+      }
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -388,7 +406,15 @@ export class ProfileController {
     this.logger.log(`/profile/reviews/review`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.reviewOrg(address as string, params);
+      const org = await this.organizationsService.findByOrgId(params.orgId);
+      if (org) {
+        return this.profileService.reviewOrg(address as string, params);
+      } else {
+        return {
+          success: false,
+          message: "Invalid orgId or orgId not found",
+        };
+      }
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -473,7 +499,15 @@ export class ProfileController {
     this.logger.log(`/profile/job/block-org`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.blockOrgJobs(address as string, orgId);
+      const org = await this.organizationsService.findByOrgId(orgId);
+      if (org) {
+        return this.profileService.blockOrgJobs(address as string, orgId);
+      } else {
+        return {
+          success: false,
+          message: "Invalid orgId or orgId not found",
+        };
+      }
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
