@@ -21,7 +21,7 @@ export class ReviewOrgSalaryInput {
   @ApiProperty()
   @IsNumber()
   @IsOptional()
-  salaryAmount: number | null;
+  amount: number | null;
 
   @ApiProperty()
   @IsBoolean()

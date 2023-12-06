@@ -556,7 +556,7 @@ export class ProfileService {
         `
         MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
         MERGE (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(org)
-        SET review.amount = $salaryAmount
+        SET review.amount = $amount
         SET review.selectedCurrency = $selectedCurrency
         SET review.offersTokenAllocation = $offersTokenAllocation
         SET review.reviewedTimestamp = timestamp()
