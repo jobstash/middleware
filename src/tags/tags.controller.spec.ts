@@ -23,6 +23,8 @@ import {
   neo4jDriver,
 } from "neogma";
 import { TagsService } from "./tags.service";
+import { Response, Tag } from "src/shared/interfaces";
+import { printDuplicateItems } from "src/shared/helpers";
 // import { nonZeroOrNull } from "src/shared/helpers";
 
 describe("TagsController", () => {
@@ -111,4 +113,23 @@ describe("TagsController", () => {
   //   await tempDb.cleanAllDatabases();
   //   jest.restoreAllMocks();
   // }, 300000);
+
+  it("should get tags list with no duplication", async () => {
+    const result = await controller.getTags();
+
+    const uuids = (result as Response<Tag[]>).data.map(
+      tag => tag.normalizedName,
+    );
+    const setOfUuids = new Set([...uuids]);
+
+    expect(result).toEqual({
+      success: true,
+      message: expect.any(String),
+      data: expect.any(Array<Tag>),
+    });
+
+    printDuplicateItems(setOfUuids, uuids, "Tag with normalizedName");
+
+    expect(uuids.length).toBe(setOfUuids.size);
+  }, 6000000);
 });

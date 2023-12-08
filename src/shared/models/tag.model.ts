@@ -111,7 +111,13 @@ export const Tags = (
                 { label: "AllowedDesignation|DefaultDesignation" },
               ],
             })
-            .return("tag");
+            .where(
+              "NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) OR NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)",
+            )
+            .raw(
+              "OPTIONAL MATCH (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(other:Tag)--(:PairedDesignation|PreferredDesignation)",
+            )
+            .return("CASE WHEN other IS NULL THEN tag ELSE other END as tag");
           const result = await query.run(neogma.queryRunner);
           return result.records.map(record =>
             this.buildFromRecord(record.get("tag")).getDataValues(),
