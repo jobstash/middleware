@@ -12,6 +12,7 @@ import {
   TagPreference,
   NoRelations,
 } from "../types";
+import { TagEntity } from "../entities/tag.entity";
 
 export type TagProps = ExtractProps<Tag>;
 
@@ -117,11 +118,13 @@ export const Tags = (
             .raw(
               "OPTIONAL MATCH (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(other:Tag)--(:PairedDesignation|PreferredDesignation)",
             )
-            .return("CASE WHEN other IS NULL THEN tag ELSE other END as tag");
+            .return(
+              "apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag ELSE other END)) as tags",
+            );
           const result = await query.run(neogma.queryRunner);
-          return result.records.map(record =>
-            this.buildFromRecord(record.get("tag")).getDataValues(),
-          );
+          return result.records[0]
+            .get("tags")
+            .map(x => new TagEntity(x).getProperties());
         },
         getBlockedTags: async function (): Promise<Tag[]> {
           const query = new QueryBuilder()
