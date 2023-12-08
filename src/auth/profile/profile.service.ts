@@ -515,55 +515,40 @@ export class ProfileService {
     dto: UpdateUserSkillsInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $wallet})
-        OPTIONAL MATCH (user)-[r:HAS_SKILL]->(os:UserSkill)
-        DETACH DELETE r, os
-
-        WITH user
-        UNWIND $skills as data
-        WITH data, user
-        CREATE (user)-[:HAS_SKILL]->(skill:UserSkill)
-        SET skill.id = data.id
-        SET skill.name = data.name
-        SET skill.canTeach = data.canTeach
-      `,
-        { wallet, ...dto },
-      );
-      // const oldSkills = await this.models.Users.findRelationships({
-      //   alias: "skills",
-      //   where: { source: { wallet: wallet } },
-      // });
-      // const newSkills = dto.skills;
-      // for (const skill of oldSkills) {
-      //   await this.models.Users.delete({
-      //     where: {
-      //       source: {
-      //         wallet: skill.source.wallet,
-      //       },
-      //       target: {
-      //         id: skill.target.id,
-      //       },
-      //       relationship: {
-      //         canTeach: skill.relationship["canTeach"],
-      //       },
-      //     },
-      //   });
-      // }
-      // for (const skill of newSkills) {
-      //   await this.models.Users.relateTo({
-      //     alias: "showcases",
-      //     where: {
-      //       source: {
-      //         wallet: wallet,
-      //       },
-      //       target: {
-      //         id: skill.id,
-      //       },
-      //     },
-      //   });
-      // }
+      const oldSkills = await this.models.Users.findRelationships({
+        alias: "skills",
+        where: { source: { wallet: wallet } },
+      });
+      const newSkills = dto.skills;
+      for (const skill of oldSkills) {
+        await this.models.Users.deleteRelationships({
+          alias: "skills",
+          where: {
+            source: {
+              wallet: skill.source.wallet,
+            },
+            target: {
+              id: skill.target.id,
+            },
+            relationship: {
+              canTeach: skill.relationship["canTeach"],
+            },
+          },
+        });
+      }
+      for (const skill of newSkills) {
+        await this.models.Users.relateTo({
+          alias: "skills",
+          where: {
+            source: {
+              wallet: wallet,
+            },
+            target: {
+              id: skill.id,
+            },
+          },
+        });
+      }
 
       return {
         success: true,
