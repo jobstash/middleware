@@ -105,9 +105,7 @@ export class UserService {
       .run(
         `
           MATCH (u:User {wallet: $wallet})
-          CREATE (u)-[:HAS_EMAIL]->(email:UserEmail)
-          SET email.verified = false
-          SET email.email = $email
+          MERGE (u)-[:HAS_EMAIL]->(email:UserEmail {email: $email,  verified: false})
           RETURN u
         `,
         { wallet, email },
