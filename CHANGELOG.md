@@ -11,6 +11,22 @@
 * **profile:** fixed validation bug for get user orgs endpoint ([b494a64](https://github.com/jobstash/middleware/commit/b494a6480a66c55ebc019a87c9ab9239f55ac5fa))
 * **profile:** removed weirdo property from user org response interface ([33c35d9](https://github.com/jobstash/middleware/commit/33c35d95985f47d57685989fc4eb28f2cac46cbb))
 * **profile:** simplified the user organization response interface ([5555b66](https://github.com/jobstash/middleware/commit/5555b6666ddd3d3f78ae83543b0b5470742106ef))
+* **tags:** fixed issue with tags duplication again ([7be9395](https://github.com/jobstash/middleware/commit/7be93957d9bea8e383c1e5ff91c9dd3eb7a70b55))
+* **tags:** fixed issue with tags duplication and added tests to flag it next time ([766ed84](https://github.com/jobstash/middleware/commit/766ed847ab6693618166f8f4e360d15ec6ce7895))
+
+## [1.59.6](https://github.com/jobstash/middleware/compare/v1.59.5...v1.59.6) (2023-12-08)
+
+
+### Bug Fixes
+
+* **profile:** dropped role and flow props ([7e5eae7](https://github.com/jobstash/middleware/commit/7e5eae7a4dca53744fef078640e4f9356ea9c270))
+* **profile:** fixed bug in update user profile query ([c06a06b](https://github.com/jobstash/middleware/commit/c06a06ba7fab937ff0217eff25ca5f3215d7a992))
+* **profile:** fixed get user profile bug ([0858e4a](https://github.com/jobstash/middleware/commit/0858e4a46138e183d5cbcd8eff24324f6bd0ce09))
+* **profile:** fixed issue with org review vs. user org types ([8e41183](https://github.com/jobstash/middleware/commit/8e4118315563c950a099525ae39ed42b8c290982))
+* **profile:** fixed query bugs on get user organizations endpoint ([5a2e180](https://github.com/jobstash/middleware/commit/5a2e18011bfc5ada1ad596f203b48786578e394a))
+* **profile:** fixed validation bug for get user orgs endpoint ([b494a64](https://github.com/jobstash/middleware/commit/b494a6480a66c55ebc019a87c9ab9239f55ac5fa))
+* **profile:** removed weirdo property from user org response interface ([33c35d9](https://github.com/jobstash/middleware/commit/33c35d95985f47d57685989fc4eb28f2cac46cbb))
+* **profile:** simplified the user organization response interface ([5555b66](https://github.com/jobstash/middleware/commit/5555b6666ddd3d3f78ae83543b0b5470742106ef))
 * **tags:** fixed issue with tags duplication and added tests to flag it next time ([766ed84](https://github.com/jobstash/middleware/commit/766ed847ab6693618166f8f4e360d15ec6ce7895))
 
 ## [1.59.6](https://github.com/jobstash/middleware/compare/v1.59.5...v1.59.6) (2023-12-06)
