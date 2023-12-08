@@ -29,6 +29,7 @@ import { UpdateRepoContributionInput } from "./dto/update-repo-contribution.inpu
 import { UpdateRepoTagsUsedInput } from "./dto/update-repo-tags-used.input";
 import { UpdateUserShowCaseInput } from "./dto/update-user-showcase.input";
 import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
+import { ModelService } from "src/model/model.service";
 
 @Injectable()
 export class ProfileService {
@@ -37,6 +38,7 @@ export class ProfileService {
   constructor(
     @InjectConnection()
     private neogma: Neogma,
+    private models: ModelService,
   ) {}
 
   async getUserProfile(
@@ -49,6 +51,7 @@ export class ProfileService {
         OPTIONAL MATCH (user)-[:HAS_PROFILE]->(profile:UserProfile)
         RETURN {
           availableForWork: profile.availableForWork,
+          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
           contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0]
@@ -391,6 +394,7 @@ export class ProfileService {
         WITH user
         RETURN {
           availableForWork: [(user)-[:HAS_PROFILE]->(profile:UserProfile) | profile.availableForWork][0],
+          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
           contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0]
@@ -466,22 +470,7 @@ export class ProfileService {
     dto: UpdateUserShowCaseInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $wallet})
-        OPTIONAL MATCH (user)-[r:HAS_SHOWCASE]->(os:UserShowCase)
-        DETACH DELETE r, os
-
-        WITH user
-        UNWIND $showcase as data
-        WITH data, user
-        CREATE (user)-[:HAS_SHOWCASE]->(showcase:UserShowCase)
-        SET showcase.label = data.label
-        SET showcase.url = data.url
-      `,
-        { wallet, ...dto },
-      );
-
+      // const old = this.models.use
       return {
         success: true,
         message: "User showcase updated successfully",

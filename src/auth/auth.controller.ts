@@ -9,12 +9,17 @@ import {
   ValidationPipe,
 } from "@nestjs/common";
 import { MagicAuthStrategy } from "./magic/magic-auth.strategy";
-import { Request, Response } from "express";
+import { Request, Response as ExpressResponse } from "express";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { RBACGuard } from "./rbac.guard";
 import { CheckWalletFlows, CheckWalletRoles } from "src/shared/enums";
 import { ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
-import { ResponseWithNoData, User } from "src/shared/interfaces";
+import {
+  Response,
+  ResponseWithNoData,
+  User,
+  UserProfile,
+} from "src/shared/interfaces";
 import { UserService } from "../user/user.service";
 import { SendVerificationEmailInput } from "./dto/send-verification-email.input";
 import { AuthGuard } from "@nestjs/passport";
@@ -22,12 +27,14 @@ import { AuthUser } from "src/shared/decorators/auth-user.decorator";
 import { AuthService } from "./auth.service";
 import { WalletAdminMappingDto } from "../user/dto/wallet-admin-mapping-request.dto";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import { ProfileService } from "./profile/profile.service";
 
 @Controller("auth")
 export class AuthController {
   private logger = new CustomLogger(AuthController.name);
   constructor(
     private readonly userService: UserService,
+    private readonly profileService: ProfileService,
     private readonly authService: AuthService,
     private strategy: MagicAuthStrategy,
   ) {}
@@ -46,7 +53,7 @@ export class AuthController {
   })
   async sendMagicLink(
     @Req() req: Request,
-    @Res() res: Response,
+    @Res() res: ExpressResponse,
     @Body(new ValidationPipe({ transform: true }))
     body: SendVerificationEmailInput,
   ): Promise<void> {
@@ -56,13 +63,22 @@ export class AuthController {
   }
 
   @Get("magic/login/callback")
-  @UseGuards(AuthGuard("magiclogin"))
+  @UseGuards(AuthGuard("magic"))
   @ApiOkResponse({
     description: "Generates and sends email verification link",
     schema: { $ref: getSchemaPath(ResponseWithNoData) },
   })
-  async verifyMagicLink(@AuthUser() user: User): Promise<User> {
-    return user;
+  async verifyMagicLink(
+    @AuthUser() user: User,
+  ): Promise<Response<UserProfile>> {
+    const profile = (await this.profileService.getUserProfile(
+      user.wallet,
+    )) as Response<UserProfile>;
+    return {
+      success: true,
+      message: "Signed in with email successfully",
+      data: profile.data,
+    };
   }
 
   @Post("set-role/admin")

@@ -16,6 +16,7 @@ const envSchema = Joi.object({
   MAGIC_LINK_EXPIRES_IN: Joi.string(),
   MAGIC_LINK_SECRET: Joi.string(),
   MW_DOMAIN: Joi.string(),
+  FE_DOMAIN: Joi.string(),
   NEO4J_HOST: Joi.string(),
   NEO4J_PASSWORD: Joi.string(),
   NEO4J_PORT: Joi.number(),

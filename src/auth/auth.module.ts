@@ -7,6 +7,9 @@ import { AuthService } from "./auth.service";
 import { UserModule } from "../user/user.module";
 import { MailModule } from "src/mail/mail.module";
 import { MagicAuthModule } from "./magic/magic-auth.module";
+import { ProfileModule } from "./profile/profile.module";
+import { ProfileService } from "./profile/profile.service";
+import { ModelService } from "src/model/model.service";
 
 @Module({
   imports: [
@@ -15,6 +18,7 @@ import { MagicAuthModule } from "./magic/magic-auth.module";
     ConfigModule,
     MailModule,
     MagicAuthModule,
+    ProfileModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -27,6 +31,12 @@ import { MagicAuthModule } from "./magic/magic-auth.module";
     }),
   ],
   controllers: [AuthController],
-  providers: [JwtService, ConfigService, AuthService],
+  providers: [
+    JwtService,
+    ConfigService,
+    AuthService,
+    ProfileService,
+    ModelService,
+  ],
 })
 export class AuthModule {}

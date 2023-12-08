@@ -22,12 +22,18 @@ export class MagicAuthStrategy extends PassportStrategy(Strategy, "magic") {
       jwtOptions: {
         expiresIn: configService.get<string>("MAGIC_LINK_EXPIRES_IN"),
       },
-      callbackUrl: "/auth/magic/login/callback",
+      callbackUrl: "/callback/magic-login",
       sendMagicLink: async (destination: string, href: string) =>
         this.sendToken(destination, href),
       // eslint-disable-next-line @typescript-eslint/ban-types
-      verify: async (payload: { destination: string }, callback: Function) =>
-        callback(null, this.verifyUser(payload.destination)),
+      verify: async (payload: { destination: string }, callback: Function) => {
+        const user = await this.verifyUser(payload.destination);
+        if (user === null) {
+          callback({ success: false, message: "Sign up with email failed" });
+        } else {
+          callback(null, user);
+        }
+      },
     });
   }
 
@@ -35,7 +41,7 @@ export class MagicAuthStrategy extends PassportStrategy(Strategy, "magic") {
     destination: string,
     href: string,
   ): Promise<[SendGrid.ClientResponse, object]> {
-    const link = `${this.configService.get<string>("MW_DOMAIN")}${href}`;
+    const link = `${this.configService.get<string>("FE_DOMAIN")}${href}`;
     const msg = {
       to: destination,
       from: this.configService.get<string>("EMAIL"),
