@@ -25,3 +25,6 @@ export * from "./jobpost-location-type.model";
 export * from "./hack.model";
 export * from "./audit.model";
 export * from "./chain.model";
+export * from "./user-email.model";
+export * from "./user-showcase.model";
+export * from "./user.model";

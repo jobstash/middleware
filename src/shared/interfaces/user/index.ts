@@ -6,4 +6,5 @@ export * from "./user-role.interface";
 export * from "./user-profile.interface";
 export * from "./user-skill.interface";
 export * from "./user-flow.interface";
+export * from "./user-email.interface";
 export * from "./user-showcase.interface";

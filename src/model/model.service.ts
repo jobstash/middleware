@@ -68,6 +68,13 @@ import {
   Telegrams,
   TwitterProps,
   Twitters,
+  UserEmailProps,
+  UserEmails,
+  UserProps,
+  UserRelations,
+  UserShowcaseProps,
+  UserShowcases,
+  Users,
   WebsiteProps,
   Websites,
 } from "src/shared/models";
@@ -135,6 +142,9 @@ export class ModelService implements OnModuleInit {
   public Twitters: NeogmaModel<TwitterProps, NoRelations>;
   public Docsites: NeogmaModel<DocsiteProps, NoRelations>;
   public Websites: NeogmaModel<WebsiteProps, NoRelations>;
+  public Users: NeogmaModel<UserProps, UserRelations>;
+  public UserEmails: NeogmaModel<UserEmailProps, NoRelations>;
+  public UserShowcases: NeogmaModel<UserShowcaseProps, NoRelations>;
 
   onModuleInit = async (): Promise<void> => {
     // try {
@@ -171,5 +181,8 @@ export class ModelService implements OnModuleInit {
     this.Docsites = Docsites(this.neogma);
     this.Githubs = Githubs(this.neogma);
     this.Websites = Websites(this.neogma);
+    this.Users = Users(this.neogma);
+    this.UserEmails = UserEmails(this.neogma);
+    this.UserShowcases = UserShowcases(this.neogma);
   };
 }

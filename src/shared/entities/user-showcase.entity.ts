@@ -6,6 +6,7 @@ export class UserShowCaseEntity {
 
   getProperties(): UserShowCase {
     return new UserShowCase({
+      id: notStringOrNull(this.raw?.id),
       label: notStringOrNull(this.raw?.label),
       url: notStringOrNull(this.raw?.url),
     });

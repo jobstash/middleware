@@ -30,6 +30,7 @@ import { UpdateRepoTagsUsedInput } from "./dto/update-repo-tags-used.input";
 import { UpdateUserShowCaseInput } from "./dto/update-user-showcase.input";
 import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
 import { ModelService } from "src/model/model.service";
+import { randomUUID } from "crypto";
 
 @Injectable()
 export class ProfileService {
@@ -302,21 +303,17 @@ export class ProfileService {
     wallet: string,
   ): Promise<Response<{ label: string; url: string }[]> | ResponseWithNoData> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $wallet})-[:HAS_SHOWCASE]->(showcase:UserShowCase)
-        RETURN showcase { .* }
-      `,
-        { wallet },
-      );
+      const showcases = await this.models.Users.findRelationships({
+        alias: "showcases",
+        where: { source: { wallet: wallet } },
+      });
 
       return {
         success: true,
         message: "User showcase retrieved successfully",
-        data:
-          result.records.map(record =>
-            new UserShowCaseEntity(record.get("showcase")).getProperties(),
-          ) ?? [],
+        data: showcases.map(x =>
+          new UserShowCaseEntity(x.target.getDataValues()).getProperties(),
+        ),
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -344,8 +341,8 @@ export class ProfileService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        MATCH (user:User {wallet: $wallet})-[:HAS_SKILL]->(skill:UserSkill)
-        RETURN skill { .* }
+        MATCH (user:User {wallet: $wallet})-[r:HAS_SKILL]->(skill:Tag)
+        RETURN skill { id: skill.id, name: skill.name, canTeach: r.canTeach }
       `,
         { wallet },
       );
@@ -470,7 +467,28 @@ export class ProfileService {
     dto: UpdateUserShowCaseInput,
   ): Promise<ResponseWithNoData> {
     try {
-      // const old = this.models.use
+      const oldShowcases = await this.models.Users.findRelationships({
+        alias: "showcases",
+        where: { source: { wallet: wallet } },
+      });
+      const newShowcases = dto.showcase.map(x => ({ ...x, id: randomUUID() }));
+      for (const showcase of oldShowcases) {
+        await showcase.target.delete({ detach: true });
+      }
+      await this.models.UserShowcases.createMany(newShowcases, { merge: true });
+      for (const showcase of newShowcases) {
+        await this.models.Users.relateTo({
+          alias: "showcases",
+          where: {
+            source: {
+              wallet: wallet,
+            },
+            target: {
+              id: showcase.id,
+            },
+          },
+        });
+      }
       return {
         success: true,
         message: "User showcase updated successfully",
@@ -513,6 +531,39 @@ export class ProfileService {
       `,
         { wallet, ...dto },
       );
+      // const oldSkills = await this.models.Users.findRelationships({
+      //   alias: "skills",
+      //   where: { source: { wallet: wallet } },
+      // });
+      // const newSkills = dto.skills;
+      // for (const skill of oldSkills) {
+      //   await this.models.Users.delete({
+      //     where: {
+      //       source: {
+      //         wallet: skill.source.wallet,
+      //       },
+      //       target: {
+      //         id: skill.target.id,
+      //       },
+      //       relationship: {
+      //         canTeach: skill.relationship["canTeach"],
+      //       },
+      //     },
+      //   });
+      // }
+      // for (const skill of newSkills) {
+      //   await this.models.Users.relateTo({
+      //     alias: "showcases",
+      //     where: {
+      //       source: {
+      //         wallet: wallet,
+      //       },
+      //       target: {
+      //         id: skill.id,
+      //       },
+      //     },
+      //   });
+      // }
 
       return {
         success: true,

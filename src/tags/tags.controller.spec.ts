@@ -117,9 +117,7 @@ describe("TagsController", () => {
   it("should get tags list with no duplication", async () => {
     const result = await controller.getTags();
 
-    const uuids = (result as Response<Tag[]>).data.map(
-      tag => tag.normalizedName,
-    );
+    const uuids = (result as Response<Tag[]>).data.map(tag => tag.name);
     const setOfUuids = new Set([...uuids]);
 
     expect(result).toEqual({
@@ -128,7 +126,7 @@ describe("TagsController", () => {
       data: expect.any(Array<Tag>),
     });
 
-    printDuplicateItems(setOfUuids, uuids, "Tag with normalizedName");
+    printDuplicateItems(setOfUuids, uuids, "Tag with name");
 
     expect(uuids.length).toBe(setOfUuids.size);
   }, 6000000);

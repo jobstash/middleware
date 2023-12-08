@@ -1,7 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { GithubProfile } from "../github-profile.interface";
 
-export class User extends GithubProfile {
+export class User {
   @ApiPropertyOptional()
   wallet?: string;
   @ApiProperty()
