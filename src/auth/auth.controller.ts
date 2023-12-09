@@ -63,29 +63,25 @@ export class AuthController {
   }
 
   @Get("magic/login/callback")
-  @UseGuards(AuthGuard("magic"), RBACGuard)
-  @Roles(CheckWalletRoles.ANON)
+  @UseGuards(AuthGuard("magic"))
   @ApiOkResponse({
     description: "Generates and sends email verification link",
     schema: { $ref: getSchemaPath(ResponseWithNoData) },
   })
   async verifyMagicLink(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
     @AuthUser() user: User,
   ): Promise<Response<UserProfile>> {
-    const { wallet } = await this.authService.getSession(req, res);
     const profile = (await this.profileService.getUserProfile(
       user.wallet,
     )) as Response<UserProfile>;
 
     await this.userService.setFlowState({
       flow: CheckWalletFlows.ONBOARD_PROFILE,
-      wallet: wallet as string,
+      wallet: user.wallet,
     });
     await this.userService.setRoleState({
       role: CheckWalletRoles.DEV,
-      wallet: wallet as string,
+      wallet: user.wallet,
     });
 
     return {
