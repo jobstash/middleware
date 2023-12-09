@@ -475,19 +475,23 @@ export class ProfileService {
       for (const showcase of oldShowcases) {
         await showcase.target.delete({ detach: true });
       }
-      await this.models.UserShowcases.createMany(newShowcases, { merge: true });
-      for (const showcase of newShowcases) {
-        await this.models.Users.relateTo({
-          alias: "showcases",
-          where: {
-            source: {
-              wallet: wallet,
-            },
-            target: {
-              id: showcase.id,
-            },
-          },
+      if (newShowcases.length !== 0) {
+        await this.models.UserShowcases.createMany(newShowcases, {
+          merge: true,
         });
+        for (const showcase of newShowcases) {
+          await this.models.Users.relateTo({
+            alias: "showcases",
+            where: {
+              source: {
+                wallet: wallet,
+              },
+              target: {
+                id: showcase.id,
+              },
+            },
+          });
+        }
       }
       return {
         success: true,
@@ -536,18 +540,23 @@ export class ProfileService {
           },
         });
       }
-      for (const skill of newSkills) {
-        await this.models.Users.relateTo({
-          alias: "skills",
-          where: {
-            source: {
-              wallet: wallet,
+      if (newSkills.length !== 0) {
+        for (const skill of newSkills) {
+          await this.models.Users.relateTo({
+            alias: "skills",
+            where: {
+              source: {
+                wallet: wallet,
+              },
+              target: {
+                id: skill.id,
+              },
             },
-            target: {
-              id: skill.id,
+            properties: {
+              canTeach: skill.canTeach,
             },
-          },
-        });
+          });
+        }
       }
 
       return {
