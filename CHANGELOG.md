@@ -1,3 +1,10 @@
+## [1.60.1](https://github.com/jobstash/middleware/compare/v1.60.0...v1.60.1) (2023-12-09)
+
+
+### Bug Fixes
+
+* **auth:** fixed role requirement for magic login callback ([9491065](https://github.com/jobstash/middleware/commit/9491065ebc24871ad04653a7ca954935e468f782))
+
 # [1.60.0](https://github.com/jobstash/middleware/compare/v1.59.5...v1.60.0) (2023-12-09)
 
 
