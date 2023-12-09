@@ -1,3 +1,10 @@
+## [1.60.2](https://github.com/jobstash/middleware/compare/v1.60.1...v1.60.2) (2023-12-09)
+
+
+### Bug Fixes
+
+* **auth:** fixed wallet retrieval for magic link sign up ([bd31d20](https://github.com/jobstash/middleware/commit/bd31d2009f0aa42a474bbbb474db42a95a3b4792))
+
 ## [1.60.1](https://github.com/jobstash/middleware/compare/v1.60.0...v1.60.1) (2023-12-09)
 
 
