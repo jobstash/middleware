@@ -64,7 +64,7 @@ export class AuthController {
 
   @Get("magic/login/callback")
   @UseGuards(AuthGuard("magic"), RBACGuard)
-  @Roles(CheckWalletRoles.DEV)
+  @Roles(CheckWalletRoles.ANON)
   @ApiOkResponse({
     description: "Generates and sends email verification link",
     schema: { $ref: getSchemaPath(ResponseWithNoData) },
