@@ -1,3 +1,10 @@
+## [1.60.4](https://github.com/jobstash/middleware/compare/v1.60.3...v1.60.4) (2023-12-11)
+
+
+### Bug Fixes
+
+* **profile:** fixed data validation errors ([bf9ee80](https://github.com/jobstash/middleware/commit/bf9ee808845b1966a5095378ceb7fdbc188ac06b))
+
 ## [1.60.3](https://github.com/jobstash/middleware/compare/v1.60.2...v1.60.3) (2023-12-11)
 
 
