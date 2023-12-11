@@ -19,7 +19,12 @@ export interface UserRelations {
     ReturnType<typeof UserShowcases>,
     UserShowcaseInstance
   >;
-  skills: ModelRelatedNodesI<ReturnType<typeof Tags>, TagInstance>;
+  skills: ModelRelatedNodesI<
+    ReturnType<typeof Tags>,
+    TagInstance,
+    { canTeach: boolean },
+    { canTeach: boolean }
+  >;
   email: ModelRelatedNodesI<ReturnType<typeof UserEmails>, UserEmailInstance>;
 }
 
@@ -55,6 +60,14 @@ export const Users = (neogma: Neogma): NeogmaModel<UserProps, UserRelations> =>
           model: Tags(neogma),
           direction: "out",
           name: "HAS_SKILL",
+          properties: {
+            canTeach: {
+              property: "canTeach",
+              schema: {
+                type: "boolean",
+              },
+            },
+          },
         },
         email: {
           model: UserEmails(neogma),

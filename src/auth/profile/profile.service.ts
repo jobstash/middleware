@@ -18,7 +18,7 @@ import {
 } from "src/shared/interfaces";
 import { UpdateUserProfileInput } from "./dto/update-profile.input";
 import { ReviewListParams } from "./dto/review-list.input";
-import { paginate } from "src/shared/helpers";
+import { normalizeString, paginate } from "src/shared/helpers";
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { ReviewOrgSalaryInput } from "./dto/review-org-salary.input";
@@ -529,7 +529,7 @@ export class ProfileService {
           alias: "skills",
           where: {
             source: {
-              wallet: skill.source.wallet,
+              wallet: wallet,
             },
             target: {
               id: skill.target.id,
@@ -549,12 +549,13 @@ export class ProfileService {
                 wallet: wallet,
               },
               target: {
-                id: skill.id,
+                normalizedName: normalizeString(skill.name),
               },
             },
             properties: {
               canTeach: skill.canTeach,
             },
+            assertCreatedRelationships: 1,
           });
         }
       }
