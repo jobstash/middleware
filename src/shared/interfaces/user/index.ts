@@ -8,3 +8,5 @@ export * from "./user-skill.interface";
 export * from "./user-flow.interface";
 export * from "./user-email.interface";
 export * from "./user-showcase.interface";
+export * from "./user-org.interface";
+export * from "./user-repo.interface";

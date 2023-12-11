@@ -1,10 +1,10 @@
 import { isLeft } from "fp-ts/lib/Either";
 import * as t from "io-ts";
 import { report } from "io-ts-human-reporter";
-import { OrgInfo } from "./org-info.interface";
-import { OrgSalaryReview } from "./org-salary-review.interface";
-import { OrgRating } from "./org-ratings.interface";
-import { OrgStaffReview } from "./org-staff-review.interface";
+import { OrgInfo } from "../org-info.interface";
+import { OrgSalaryReview } from "../org-salary-review.interface";
+import { OrgRating } from "../org-ratings.interface";
+import { OrgStaffReview } from "../org-staff-review.interface";
 
 export class UserOrg {
   public static readonly UserOrgType = t.strict({
@@ -57,7 +57,7 @@ export class UserOrg {
     if (isLeft(result)) {
       report(result).forEach(x => {
         throw new Error(
-          `org review instance with id ${this.org.orgId} failed validation with error '${x}'`,
+          `user org instance with id ${this.org.orgId} failed validation with error '${x}'`,
         );
       });
     }

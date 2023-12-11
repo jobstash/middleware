@@ -12,7 +12,7 @@ export class OrgInfo {
     summary: t.string,
     altName: t.union([t.string, t.null]),
     jobsiteLink: t.union([t.string, t.null]),
-    updatedTimestamp: t.union([t.string, t.null]),
+    updatedTimestamp: t.union([t.number, t.null]),
     github: t.union([t.string, t.null]),
     twitter: t.union([t.string, t.null]),
     discord: t.union([t.string, t.null]),
