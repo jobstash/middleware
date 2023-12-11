@@ -1,3 +1,10 @@
+## [1.60.3](https://github.com/jobstash/middleware/compare/v1.60.2...v1.60.3) (2023-12-11)
+
+
+### Bug Fixes
+
+* **profile:** fixed bugs on user profile skills update endpoint ([ecbcbf1](https://github.com/jobstash/middleware/commit/ecbcbf18c73b8fb0e155ffa9a21d374795532901))
+
 ## [1.60.2](https://github.com/jobstash/middleware/compare/v1.60.1...v1.60.2) (2023-12-09)
 
 
