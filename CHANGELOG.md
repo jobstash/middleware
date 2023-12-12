@@ -1,3 +1,10 @@
+## [1.60.9](https://github.com/jobstash/middleware/compare/v1.60.8...v1.60.9) (2023-12-12)
+
+
+### Bug Fixes
+
+* **logs:** add more debugging ([548a18d](https://github.com/jobstash/middleware/commit/548a18d4809826133064878970efa4aa841fe7fe))
+
 ## [1.60.8](https://github.com/jobstash/middleware/compare/v1.60.7...v1.60.8) (2023-12-12)
 
 
