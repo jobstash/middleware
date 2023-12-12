@@ -225,9 +225,11 @@ export class ProfileService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER|HISTORICALLY_CONTRIBUTED_TO*2]->(repo:GithubRepository)<-[:HAS_REPOSITORY|HAS_GITHUB*2]-(organization: Organization)
+        MATCH (user:User {wallet: $wallet}), (organization: Organization)
+        MATCH (organization)-[:HAS_WEBSITE]->(website), (user)-[:HAS_EMAIL]->(email: UserEmail)
+        WHERE (user)-[:HAS_GITHUB_USER|HISTORICALLY_CONTRIBUTED_TO*2]->(:GithubRepository)<-[:HAS_REPOSITORY|HAS_GITHUB*2]-(organization) OR apoc.data.url(website.url).host CONTAINS apoc.data.email(email.email).domain
         OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
-        RETURN organization {
+        RETURN apoc.coll.toSet(COLLECT(organization {
           salary: {
             amount: review.amount,
             selectedCurrency: review.selectedCurrency,
@@ -267,15 +269,15 @@ export class ProfileService {
             telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
             twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0]
           }
-        }
-        ORDER BY review.reviewedTimestamp DESC
+        })) as organizations
+        // ORDER BY review.reviewedTimestamp DESC
       `,
         { wallet },
       );
 
-      const final = result.records.map(record =>
-        new UserOrgEntity(record?.get("organization")).getProperties(),
-      );
+      const final = result.records[0]
+        .get("organizations")
+        .map(record => new UserOrgEntity(record).getProperties());
 
       return {
         success: true,
