@@ -45,12 +45,12 @@ export class MagicAuthStrategy extends PassportStrategy(Strategy, "magic") {
     const msg = {
       to: destination,
       from: this.configService.get<string>("EMAIL"),
-      subject: "Sign in to JobStash.xyz",
+      subject: "Confirm your email for JobStash.xyz",
       text:
-        "Hello! Click the link below to finish signing in to JobStash.xyz.\r\n\r\n" +
+        "Hello! Click the link below to verify your email for JobStash.xyz\r\n\r\n" +
         link,
       html:
-        '<h3>Hello!</h3><p>Click the link below to finish signing in to JobStash.xyz.</p><p><a href="' +
+        '<h3>Hello!</h3><p>Click the link below to verify your email for JobStash.xyz</p><p><a href="' +
         link +
         '">Sign in</a></p>',
     };
