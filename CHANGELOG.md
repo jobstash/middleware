@@ -1,3 +1,10 @@
+## [1.60.7](https://github.com/jobstash/middleware/compare/v1.60.6...v1.60.7) (2023-12-12)
+
+
+### Bug Fixes
+
+* **user:** fixed email duplication ([bf272db](https://github.com/jobstash/middleware/commit/bf272dbeaf2645f783d19aa931e56a49adb08cd2))
+
 ## [1.60.6](https://github.com/jobstash/middleware/compare/v1.60.5...v1.60.6) (2023-12-12)
 
 
