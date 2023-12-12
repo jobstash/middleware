@@ -436,7 +436,8 @@ export class ProfileService {
         OPTIONAL MATCH (user)-[gr:HAS_GITHUB_USER]->(:GithubUser)
         OPTIONAL MATCH (user)-[scr:HAS_SHOWCASE]->(showcase:UserShowCase)
         OPTIONAL MATCH (user)-[sr:HAS_SKILLS]->(skills:UserSkills)
-        DETACH DELETE user, pr, profile, cr, contact, rr, gr, scr, showcase, sr, skills
+        OPTIONAL MATCH (user)-[er:HAS_EMAIL]->(email:UserEmail|UserUnverifiedEmail)
+        DETACH DELETE user, pr, profile, cr, contact, rr, gr, scr, showcase, sr, skills, er, email
       `,
         { wallet },
       );
