@@ -1,3 +1,10 @@
+## [1.60.5](https://github.com/jobstash/middleware/compare/v1.60.4...v1.60.5) (2023-12-12)
+
+
+### Bug Fixes
+
+* **profile:** fixed email verification and persistence strategy ([2d15a5e](https://github.com/jobstash/middleware/commit/2d15a5ef6d4f07bcf37f2c45303d8ac85dfe31d9))
+
 ## [1.60.4](https://github.com/jobstash/middleware/compare/v1.60.3...v1.60.4) (2023-12-11)
 
 
