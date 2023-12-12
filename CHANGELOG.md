@@ -1,3 +1,10 @@
+## [1.60.8](https://github.com/jobstash/middleware/compare/v1.60.7...v1.60.8) (2023-12-12)
+
+
+### Bug Fixes
+
+* **profile:** added delete email to profile delete ([1598e48](https://github.com/jobstash/middleware/commit/1598e486dd6717348697f1f09da5b67577ec4e33))
+
 ## [1.60.7](https://github.com/jobstash/middleware/compare/v1.60.6...v1.60.7) (2023-12-12)
 
 
