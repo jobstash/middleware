@@ -1,3 +1,10 @@
+# [1.61.0](https://github.com/jobstash/middleware/compare/v1.60.9...v1.61.0) (2023-12-12)
+
+
+### Features
+
+* **profile:** added support for loading orgs based on email ([80ef9d0](https://github.com/jobstash/middleware/commit/80ef9d01c385b1c48f38a8183d5204abb1f71ce8))
+
 ## [1.60.9](https://github.com/jobstash/middleware/compare/v1.60.8...v1.60.9) (2023-12-12)
 
 
