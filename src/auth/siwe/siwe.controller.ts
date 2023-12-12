@@ -230,6 +230,7 @@ export class SiweController {
       );
 
       if (session.address === undefined || session.address === null) {
+        this.logger.log("/siwe/check-wallet could not find session address");
         res.send({
           success: true,
           message: "Wallet checked successfully",
@@ -251,12 +252,15 @@ export class SiweController {
         if (userRole !== undefined) {
           role = userRole.getName();
         } else {
+          this.logger.log(`/siwe/check-wallet user role was ${userRole}`);
+
           role = CheckWalletRoles.ANON;
         }
 
         if (userFlow !== undefined) {
           flow = userFlow.getName();
         } else {
+          this.logger.log(`/siwe/check-wallet user flow was ${userFlow}`);
           flow = CheckWalletFlows.LOGIN;
         }
 
