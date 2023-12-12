@@ -105,7 +105,7 @@ export class UserService {
       .run(
         `
           MATCH (u:User {wallet: $wallet})
-          MERGE (u)-[:HAS_EMAIL]->(email:UserEmail {email: $email,  verified: false})
+          CREATE (u)-[:HAS_EMAIL]->(email:UserUnverifiedEmail {email: $email})
           RETURN u
         `,
         { wallet, email },
@@ -132,8 +132,11 @@ export class UserService {
     return this.neogma.queryRunner
       .run(
         `
-          MATCH (u:User)-[:HAS_EMAIL]->(email:UserEmail {email: $email})
-          SET email.verified = true
+          MATCH (u:User)-[r:HAS_EMAIL]->(email:UserUnverifiedEmail {email: $email})
+          DELETE r, email
+
+          WITH u
+          CREATE (u)-[:HAS_EMAIL]->(:UserEmail {email: $email})
           RETURN u
         `,
         { email },
