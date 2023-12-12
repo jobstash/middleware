@@ -1,3 +1,24 @@
+## [1.60.8](https://github.com/jobstash/middleware/compare/v1.60.7...v1.60.8) (2023-12-12)
+
+
+### Bug Fixes
+
+* **profile:** added delete email to profile delete ([1598e48](https://github.com/jobstash/middleware/commit/1598e486dd6717348697f1f09da5b67577ec4e33))
+
+## [1.60.7](https://github.com/jobstash/middleware/compare/v1.60.6...v1.60.7) (2023-12-12)
+
+
+### Bug Fixes
+
+* **user:** fixed email duplication ([bf272db](https://github.com/jobstash/middleware/commit/bf272dbeaf2645f783d19aa931e56a49adb08cd2))
+
+## [1.60.6](https://github.com/jobstash/middleware/compare/v1.60.5...v1.60.6) (2023-12-12)
+
+
+### Bug Fixes
+
+* **copy:** tweak email copy a bit ([203ad74](https://github.com/jobstash/middleware/commit/203ad74b9fda619d991cab3c41cbc2de3c1510bc))
+
 ## [1.60.5](https://github.com/jobstash/middleware/compare/v1.60.4...v1.60.5) (2023-12-12)
 
 

@@ -105,7 +105,7 @@ export class UserService {
       .run(
         `
           MATCH (u:User {wallet: $wallet})
-          CREATE (u)-[:HAS_EMAIL]->(email:UserUnverifiedEmail {email: $email})
+          MERGE (u)-[:HAS_EMAIL]->(email:UserUnverifiedEmail {email: $email})
           RETURN u
         `,
         { wallet, email },
@@ -136,7 +136,7 @@ export class UserService {
           DELETE r, email
 
           WITH u
-          CREATE (u)-[:HAS_EMAIL]->(:UserEmail {email: $email})
+          MERGE (u)-[:HAS_EMAIL]->(:UserEmail {email: $email})
           RETURN u
         `,
         { email },
