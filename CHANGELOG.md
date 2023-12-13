@@ -1,3 +1,11 @@
+# [1.62.0](https://github.com/jobstash/middleware/compare/v1.61.3...v1.62.0) (2023-12-13)
+
+
+### Features
+
+* **organizations:** added reviews to organizations interface ([58aae69](https://github.com/jobstash/middleware/commit/58aae69e017a3e199647112b37d78499647a0233))
+* **profile:** added delete job bookmark endpoint ([d66c689](https://github.com/jobstash/middleware/commit/d66c6896b0997089db4ebd97602f56913484794f))
+
 ## [1.61.3](https://github.com/jobstash/middleware/compare/v1.61.2...v1.61.3) (2023-12-13)
 
 
