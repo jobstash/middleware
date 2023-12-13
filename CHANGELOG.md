@@ -1,3 +1,10 @@
+## [1.61.2](https://github.com/jobstash/middleware/compare/v1.61.1...v1.61.2) (2023-12-13)
+
+
+### Bug Fixes
+
+* **profile:** fixed get user orgs query ([26ac324](https://github.com/jobstash/middleware/commit/26ac324093dd22b73daa82de7f83ef97fa97feac))
+
 ## [1.61.1](https://github.com/jobstash/middleware/compare/v1.61.0...v1.61.1) (2023-12-13)
 
 
