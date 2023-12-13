@@ -1,3 +1,10 @@
+## [1.61.1](https://github.com/jobstash/middleware/compare/v1.61.0...v1.61.1) (2023-12-13)
+
+
+### Bug Fixes
+
+* **helpers:** fixed normalizer function ([cb81b89](https://github.com/jobstash/middleware/commit/cb81b8994769b11f5db142690525c392e3c5459e))
+
 # [1.61.0](https://github.com/jobstash/middleware/compare/v1.60.9...v1.61.0) (2023-12-12)
 
 
