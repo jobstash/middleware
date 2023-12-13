@@ -376,7 +376,7 @@ export function propertiesMatch<T extends object, U extends object>(
 }
 
 export function normalizeString(original: string | null): string | null {
-  const specialChars = "!@#$%^&*()-+=,";
+  const specialChars = "!@#$%^&*<>()-+=,";
   const charToStringMap = new Map([
     ["!", "_bang_"],
     ["@", "_at_"],
@@ -395,7 +395,6 @@ export function normalizeString(original: string | null): string | null {
     ["+", "_plus_"],
     ["=", "_equals_"],
   ]);
-  // Remove all spaces and punctuation from the name and lowercase the string
   if (!original) {
     return null;
   }
@@ -409,7 +408,7 @@ export function normalizeString(original: string | null): string | null {
       }
     })
     .join("");
-  return normalized.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+  return normalized.toLowerCase();
 }
 
 export const paginate = <T>(
