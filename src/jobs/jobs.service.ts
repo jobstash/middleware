@@ -117,7 +117,30 @@ export class JobsService {
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
-              reviews: []
+              reviews: apoc.coll.toSet([
+                (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
+                  salary: {
+                    amount: review.amount,
+                    selectedCurrency: review.selectedCurrency,
+                    offersTokenAllocation: review.offersTokenAllocation
+                  },
+                  rating: {
+                    management: review.management,
+                    careerGrowth: review.careerGrowth,
+                    benefits: review.benefits,
+                    workLifeBalance: review.workLifeBalance,
+                    cultureValues: review.cultureValues,
+                    diversityInclusion: review.diversityInclusion,
+                    interviewProcess: review.interviewProcess
+                  },
+                  review: {
+                    headline: review.headline,
+                    pros: review.pros,
+                    cons: review.cons
+                  },
+                  reviewedTimestamp: review.reviewedTimestamp
+                }
+              ])
           }][0],
           tags: apoc.coll.toSet(tags)
       } AS result
@@ -191,8 +214,7 @@ export class JobsService {
                     }
                   ]
               }][0],
-            tags: apoc.coll.toSet(tags),
-            reviews: []
+            tags: apoc.coll.toSet(tags)
           } AS result
         `;
 
@@ -593,7 +615,30 @@ export class JobsService {
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
-              reviews: []
+              reviews: apoc.coll.toSet([
+                (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
+                  salary: {
+                    amount: review.amount,
+                    selectedCurrency: review.selectedCurrency,
+                    offersTokenAllocation: review.offersTokenAllocation
+                  },
+                  rating: {
+                    management: review.management,
+                    careerGrowth: review.careerGrowth,
+                    benefits: review.benefits,
+                    workLifeBalance: review.workLifeBalance,
+                    cultureValues: review.cultureValues,
+                    diversityInclusion: review.diversityInclusion,
+                    interviewProcess: review.interviewProcess
+                  },
+                  review: {
+                    headline: review.headline,
+                    pros: review.pros,
+                    cons: review.cons
+                  },
+                  reviewedTimestamp: review.reviewedTimestamp
+                }
+              ])
           }][0],
           tags: apoc.coll.toSet(tags)
       } AS result
@@ -813,7 +858,30 @@ export class JobsService {
                 investors: apoc.coll.toSet([
                   (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
                 ]),
-                reviews: []
+                reviews: apoc.coll.toSet([
+                (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
+                  salary: {
+                    amount: review.amount,
+                    selectedCurrency: review.selectedCurrency,
+                    offersTokenAllocation: review.offersTokenAllocation
+                  },
+                  rating: {
+                    management: review.management,
+                    careerGrowth: review.careerGrowth,
+                    benefits: review.benefits,
+                    workLifeBalance: review.workLifeBalance,
+                    cultureValues: review.cultureValues,
+                    diversityInclusion: review.diversityInclusion,
+                    interviewProcess: review.interviewProcess
+                  },
+                  review: {
+                    headline: review.headline,
+                    pros: review.pros,
+                    cons: review.cons
+                  },
+                  reviewedTimestamp: review.reviewedTimestamp
+                }
+              ])
             }][0],
             tags: apoc.coll.toSet(tags)
         } AS result

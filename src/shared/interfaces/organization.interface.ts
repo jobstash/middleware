@@ -207,6 +207,8 @@ export class ShortOrg {
     jobCount: t.number,
     headcountEstimate: t.number,
     projectCount: t.number,
+    aggregateRating: t.number,
+    reviewCount: t.number,
     lastFundingDate: t.number,
     lastFundingAmount: t.number,
     logoUrl: t.union([t.string, t.null]),
@@ -231,6 +233,12 @@ export class ShortOrg {
   projectCount: number;
 
   @ApiProperty()
+  aggregateRating: number;
+
+  @ApiProperty()
+  reviewCount: number;
+
+  @ApiProperty()
   headcountEstimate: number;
 
   @ApiProperty()
@@ -251,6 +259,8 @@ export class ShortOrg {
       location,
       jobCount,
       headcountEstimate,
+      aggregateRating,
+      reviewCount,
       projectCount,
       lastFundingDate,
       lastFundingAmount,
@@ -265,6 +275,8 @@ export class ShortOrg {
     this.location = location;
     this.jobCount = jobCount;
     this.headcountEstimate = headcountEstimate;
+    this.aggregateRating = aggregateRating;
+    this.reviewCount = reviewCount;
     this.projectCount = projectCount;
     this.lastFundingDate = lastFundingDate;
     this.lastFundingAmount = lastFundingAmount;

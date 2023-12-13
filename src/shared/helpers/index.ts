@@ -17,7 +17,12 @@ import {
 import { getSchemaPath } from "@nestjs/swagger";
 import { Response } from "../interfaces/response.interface";
 import { CustomLogger } from "../utils/custom-logger";
-import { OrgListResult, PaginatedData, ShortOrg } from "../interfaces";
+import {
+  OrgListResult,
+  OrgRating,
+  PaginatedData,
+  ShortOrg,
+} from "../interfaces";
 import { sort } from "fast-sort";
 import { TransformFnParams } from "class-transformer";
 import { Neo4jSupportedProperties, NeogmaInstance } from "neogma";
@@ -342,8 +347,32 @@ export const hasDuplicates = <A, B>(
 };
 
 export const toShortOrg = (org: OrgListResult): ShortOrg => {
+  const generateOrgAggregateRating = (rating: OrgRating): number => {
+    const {
+      benefits,
+      careerGrowth,
+      cultureValues,
+      diversityInclusion,
+      interviewProcess,
+      management,
+      workLifeBalance,
+    } = rating;
+    return (
+      (benefits +
+        careerGrowth +
+        cultureValues +
+        diversityInclusion +
+        interviewProcess +
+        management +
+        workLifeBalance) /
+      7
+    );
+  };
   const { orgId, website, name, logoUrl, location, headcountEstimate } = org;
   const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
+  const reviews = org.reviews.map(review =>
+    generateOrgAggregateRating(review.rating),
+  );
   return {
     orgId,
     url: website,
@@ -353,6 +382,8 @@ export const toShortOrg = (org: OrgListResult): ShortOrg => {
     headcountEstimate,
     jobCount: org.jobs.length,
     projectCount: org.projects.length,
+    aggregateRating: reviews.length > 0 ? reviews.reduce((a, b) => a + b) : 0,
+    reviewCount: reviews.length,
     lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
     lastFundingDate: lastFundingRound?.date ?? 0,
   };
