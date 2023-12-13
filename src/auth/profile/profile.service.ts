@@ -872,6 +872,42 @@ export class ProfileService {
     }
   }
 
+  async removeBookmarkInteraction(
+    wallet: string,
+    shortUUID: string,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $wallet}), (job:StructuredJobpost {shortUUID: $shortUUID})
+        MATCH (user)-[r:BOOKMARKED]->(job)
+        DELETE r
+      `,
+        { wallet, shortUUID },
+      );
+      return {
+        success: true,
+        message: "Unbookmarked job successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, shortUUID });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `ProfileService::removeBookmarkInteraction ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to unbookmark job",
+      };
+    }
+  }
+
   async logViewDetailsInteraction(
     wallet: string,
     shortUUID: string,

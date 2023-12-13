@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpStatus,
   Param,
@@ -560,10 +561,40 @@ export class ProfileController {
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body("shortUUID") job: string,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/profile/job/apply`);
+    this.logger.log(`/profile/job/bookmark`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       return this.profileService.logBookmarkInteraction(address as string, job);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Delete("jobs/bookmark")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Removes a bookmark on a job for the currently logged in user",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Response<UserProfile>),
+    }),
+  })
+  async removeBookmarkInteraction(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Body("shortUUID") job: string,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/profile/job/bookmark`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.profileService.removeBookmarkInteraction(
+        address as string,
+        job,
+      );
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
