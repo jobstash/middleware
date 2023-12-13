@@ -741,7 +741,7 @@ export class ProfileService {
         WITH ghu
         UNWIND $tagsUsed as data
         WITH data, ghu
-        MATCH (repo:GithubRepository {id: $id}), (tag: Tag {id: data.id})
+        MATCH (repo:GithubRepository {id: $id}), (tag: Tag {normalizedName: data.normalizedName})
         CREATE (ghu)-[r:USED_TAG]->(tag)-[:USED_ON]->(repo)
         SET r.canTeach = data.canTeach
       `,
