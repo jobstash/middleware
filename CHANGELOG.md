@@ -1,3 +1,10 @@
+## [1.61.3](https://github.com/jobstash/middleware/compare/v1.61.2...v1.61.3) (2023-12-13)
+
+
+### Bug Fixes
+
+* **profile:** fixed bug on update repo tags used endpoint ([8c5b1db](https://github.com/jobstash/middleware/commit/8c5b1db3dd7ba9882248e9a92c5de1bb453990ce))
+
 ## [1.61.2](https://github.com/jobstash/middleware/compare/v1.61.1...v1.61.2) (2023-12-13)
 
 
