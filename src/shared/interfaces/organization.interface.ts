@@ -11,6 +11,7 @@ import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
 import { ProjectWithRelations } from "./project-with-relations.interface";
 import { OrgReview } from "./org-review.interface";
+import { OrgRating } from "./org-ratings.interface";
 
 export class Organization {
   public static readonly OrganizationType = t.strict({
@@ -99,6 +100,7 @@ export class OrganizationWithRelations extends Organization {
     Organization.OrganizationType,
     t.strict({
       aggregateRating: t.number,
+      aggregateRatings: OrgRating.OrgRatingType,
       reviewCount: t.number,
       discord: t.union([t.string, t.null]),
       website: t.union([t.string, t.null]),
@@ -116,6 +118,9 @@ export class OrganizationWithRelations extends Organization {
 
   @ApiProperty()
   aggregateRating: number;
+
+  @ApiProperty()
+  aggregateRatings: OrgRating;
 
   @ApiProperty()
   reviewCount: number;

@@ -8,6 +8,7 @@ import {
 } from "../interfaces";
 import {
   generateOrgAggregateRating,
+  generateOrgAggregateRatings,
   nonZeroOrNull,
   notStringOrNull,
 } from "../helpers";
@@ -41,6 +42,9 @@ export class OrgListResultEntity {
         aggregateRatings.length > 0
           ? aggregateRatings.reduce((a, b) => a + b)
           : 0,
+      aggregateRatings: generateOrgAggregateRatings(
+        organization.reviews.map(x => x.rating),
+      ),
       reviewCount: reviews.length,
       docs: notStringOrNull(organization?.docs),
       logoUrl: notStringOrNull(organization?.logoUrl),

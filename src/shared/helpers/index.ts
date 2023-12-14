@@ -368,6 +368,41 @@ export const generateOrgAggregateRating = (rating: OrgRating): number => {
   );
 };
 
+export const generateOrgAggregateRatings = (
+  ratings: OrgRating[],
+): OrgRating => {
+  return {
+    benefits:
+      ratings.length > 0
+        ? ratings.map(x => x.benefits).reduce((x, y) => x + y)
+        : 0,
+    careerGrowth:
+      ratings.length > 0
+        ? ratings.map(x => x.careerGrowth).reduce((x, y) => x + y)
+        : 0,
+    cultureValues:
+      ratings.length > 0
+        ? ratings.map(x => x.cultureValues).reduce((x, y) => x + y)
+        : 0,
+    diversityInclusion:
+      ratings.length > 0
+        ? ratings.map(x => x.diversityInclusion).reduce((x, y) => x + y)
+        : 0,
+    interviewProcess:
+      ratings.length > 0
+        ? ratings.map(x => x.interviewProcess).reduce((x, y) => x + y)
+        : 0,
+    management:
+      ratings.length > 0
+        ? ratings.map(x => x.management).reduce((x, y) => x + y)
+        : 0,
+    workLifeBalance:
+      ratings.length > 0
+        ? ratings.map(x => x.workLifeBalance).reduce((x, y) => x + y)
+        : 0,
+  };
+};
+
 export const toShortOrg = (org: OrgListResult): ShortOrg => {
   const { orgId, website, name, logoUrl, location, headcountEstimate } = org;
   const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
