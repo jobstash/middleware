@@ -1,3 +1,10 @@
+## [1.62.4](https://github.com/jobstash/middleware/compare/v1.62.3...v1.62.4) (2023-12-14)
+
+
+### Bug Fixes
+
+* **profile:** fixed issue with all orgs showing up for users with no emails ([c18d18e](https://github.com/jobstash/middleware/commit/c18d18e1101694b8ac81fecd5b5c7198b692cb70))
+
 ## [1.62.3](https://github.com/jobstash/middleware/compare/v1.62.2...v1.62.3) (2023-12-14)
 
 
