@@ -173,6 +173,7 @@ export class OrganizationWithRelations extends Organization {
   constructor(raw: OrganizationWithRelations) {
     const {
       aggregateRating,
+      aggregateRatings,
       reviewCount,
       discord,
       website,
@@ -192,6 +193,7 @@ export class OrganizationWithRelations extends Organization {
       OrganizationWithRelations.OrganizationWithRelationsType.decode(raw);
 
     this.aggregateRating = aggregateRating;
+    this.aggregateRatings = aggregateRatings;
     this.reviewCount = reviewCount;
     this.discord = discord;
     this.website = website;
