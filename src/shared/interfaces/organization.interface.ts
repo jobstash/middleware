@@ -98,6 +98,8 @@ export class OrganizationWithRelations extends Organization {
   public static readonly OrganizationWithRelationsType = t.intersection([
     Organization.OrganizationType,
     t.strict({
+      aggregateRating: t.number,
+      reviewCount: t.number,
       discord: t.union([t.string, t.null]),
       website: t.union([t.string, t.null]),
       telegram: t.union([t.string, t.null]),
@@ -111,6 +113,12 @@ export class OrganizationWithRelations extends Organization {
       reviews: t.array(OrgReview.OrgReviewType),
     }),
   ]);
+
+  @ApiProperty()
+  aggregateRating: number;
+
+  @ApiProperty()
+  reviewCount: number;
 
   @ApiPropertyOptional()
   discord: string | null;
@@ -159,6 +167,8 @@ export class OrganizationWithRelations extends Organization {
 
   constructor(raw: OrganizationWithRelations) {
     const {
+      aggregateRating,
+      reviewCount,
       discord,
       website,
       telegram,
@@ -176,6 +186,8 @@ export class OrganizationWithRelations extends Organization {
     const result =
       OrganizationWithRelations.OrganizationWithRelationsType.decode(raw);
 
+    this.aggregateRating = aggregateRating;
+    this.reviewCount = reviewCount;
     this.discord = discord;
     this.website = website;
     this.telegram = telegram;

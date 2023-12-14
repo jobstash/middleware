@@ -6,7 +6,11 @@ import {
   Tag,
   OrgReview,
 } from "../interfaces";
-import { nonZeroOrNull, notStringOrNull } from "../helpers";
+import {
+  generateOrgAggregateRating,
+  nonZeroOrNull,
+  notStringOrNull,
+} from "../helpers";
 import { OrgListResult } from "../interfaces/org-list-result.interface";
 import { Investor } from "../interfaces/investor.interface";
 import { OrgReviewEntity } from "./org-review.entity";
@@ -27,9 +31,17 @@ export class OrgListResultEntity {
     const organization = this.raw;
     const { jobs, investors, fundingRounds, projects, tags, reviews } =
       organization;
+    const aggregateRatings = reviews.map(review =>
+      generateOrgAggregateRating(review.rating),
+    );
 
     return new OrgListResult({
       ...organization,
+      aggregateRating:
+        aggregateRatings.length > 0
+          ? aggregateRatings.reduce((a, b) => a + b)
+          : 0,
+      reviewCount: reviews.length,
       docs: notStringOrNull(organization?.docs),
       logoUrl: notStringOrNull(organization?.logoUrl),
       headcountEstimate: nonZeroOrNull(organization?.headcountEstimate),

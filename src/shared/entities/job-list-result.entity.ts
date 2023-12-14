@@ -3,7 +3,11 @@ import {
   OrganizationWithRelations,
   StructuredJobpostWithRelations,
 } from "../interfaces";
-import { nonZeroOrNull, notStringOrNull } from "../helpers";
+import {
+  generateOrgAggregateRating,
+  nonZeroOrNull,
+  notStringOrNull,
+} from "../helpers";
 
 type RawJobPost = StructuredJobpostWithRelations & {
   organization?: OrganizationWithRelations | null;
@@ -15,6 +19,9 @@ export class JobListResultEntity {
   getProperties(): JobListResult {
     const jobpost = this.raw;
     const { organization, tags } = jobpost;
+    const reviews = organization.reviews.map(review =>
+      generateOrgAggregateRating(review.rating),
+    );
 
     return new JobListResult({
       ...jobpost,
@@ -34,6 +41,9 @@ export class JobListResultEntity {
       timestamp: nonZeroOrNull(jobpost?.timestamp),
       organization: {
         ...organization,
+        aggregateRating:
+          reviews.length > 0 ? reviews.reduce((a, b) => a + b) : 0,
+        reviewCount: reviews.length,
         docs: notStringOrNull(organization?.docs),
         logoUrl: notStringOrNull(organization?.logoUrl),
         headcountEstimate: nonZeroOrNull(organization?.headcountEstimate),

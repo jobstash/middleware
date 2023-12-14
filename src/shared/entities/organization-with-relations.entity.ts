@@ -1,14 +1,23 @@
 import { OrganizationWithRelations } from "../interfaces";
-import { nonZeroOrNull, notStringOrNull } from "../helpers";
+import {
+  generateOrgAggregateRating,
+  nonZeroOrNull,
+  notStringOrNull,
+} from "../helpers";
 
 export class OrganizationWithRelationsEntity {
   constructor(private readonly raw: OrganizationWithRelations) {}
 
   getProperties(): OrganizationWithRelations {
     const organization = this.raw;
+    const reviews = organization.reviews.map(review =>
+      generateOrgAggregateRating(review.rating),
+    );
 
     return new OrganizationWithRelations({
       ...organization,
+      aggregateRating: reviews.length > 0 ? reviews.reduce((a, b) => a + b) : 0,
+      reviewCount: reviews.length,
       docs: notStringOrNull(organization?.docs),
       logoUrl: notStringOrNull(organization?.logoUrl),
       headcountEstimate: nonZeroOrNull(organization?.headcountEstimate),

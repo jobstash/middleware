@@ -346,28 +346,29 @@ export const hasDuplicates = <A, B>(
   }
 };
 
+export const generateOrgAggregateRating = (rating: OrgRating): number => {
+  const {
+    benefits,
+    careerGrowth,
+    cultureValues,
+    diversityInclusion,
+    interviewProcess,
+    management,
+    workLifeBalance,
+  } = rating;
+  return (
+    (benefits +
+      careerGrowth +
+      cultureValues +
+      diversityInclusion +
+      interviewProcess +
+      management +
+      workLifeBalance) /
+    7
+  );
+};
+
 export const toShortOrg = (org: OrgListResult): ShortOrg => {
-  const generateOrgAggregateRating = (rating: OrgRating): number => {
-    const {
-      benefits,
-      careerGrowth,
-      cultureValues,
-      diversityInclusion,
-      interviewProcess,
-      management,
-      workLifeBalance,
-    } = rating;
-    return (
-      (benefits +
-        careerGrowth +
-        cultureValues +
-        diversityInclusion +
-        interviewProcess +
-        management +
-        workLifeBalance) /
-      7
-    );
-  };
   const { orgId, website, name, logoUrl, location, headcountEstimate } = org;
   const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
   const reviews = org.reviews.map(review =>
