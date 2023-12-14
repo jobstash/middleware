@@ -1,3 +1,10 @@
+## [1.62.2](https://github.com/jobstash/middleware/compare/v1.62.1...v1.62.2) (2023-12-14)
+
+
+### Bug Fixes
+
+* **organizations:** added aggregate rating info ([c6b6797](https://github.com/jobstash/middleware/commit/c6b67979f48e17458345583d311c01daec1b7176))
+
 ## [1.62.1](https://github.com/jobstash/middleware/compare/v1.62.0...v1.62.1) (2023-12-14)
 
 
