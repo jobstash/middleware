@@ -1,3 +1,10 @@
+## [1.62.3](https://github.com/jobstash/middleware/compare/v1.62.2...v1.62.3) (2023-12-14)
+
+
+### Bug Fixes
+
+* fixed some mind boggling bugs ([824da11](https://github.com/jobstash/middleware/commit/824da111360966596f9f332fbd97bfb6fcd79d93))
+
 ## [1.62.2](https://github.com/jobstash/middleware/compare/v1.62.1...v1.62.2) (2023-12-14)
 
 
