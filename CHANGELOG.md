@@ -1,3 +1,10 @@
+## [1.62.1](https://github.com/jobstash/middleware/compare/v1.62.0...v1.62.1) (2023-12-14)
+
+
+### Bug Fixes
+
+* **organizations:** included aggregateRating and reviewCount props on orgs ([90aa47e](https://github.com/jobstash/middleware/commit/90aa47ed3d833bdbbb8470b6f7a11209641a371f))
+
 # [1.62.0](https://github.com/jobstash/middleware/compare/v1.61.3...v1.62.0) (2023-12-13)
 
 
