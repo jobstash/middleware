@@ -227,7 +227,7 @@ export class ProfileService {
         `
         MATCH (user:User {wallet: $wallet}), (organization: Organization)
         OPTIONAL MATCH (organization)-[:HAS_WEBSITE]->(website), (user)-[:HAS_EMAIL]->(email: UserEmail)
-        WHERE (user)-[:HAS_GITHUB_USER|HISTORICALLY_CONTRIBUTED_TO*2]->(:GithubRepository)<-[:HAS_REPOSITORY|HAS_GITHUB*2]-(organization) OR apoc.data.url(website.url).host CONTAINS apoc.data.email(email.email).domain
+        WHERE (user)-[:HAS_GITHUB_USER|HISTORICALLY_CONTRIBUTED_TO*2]->(:GithubRepository)<-[:HAS_REPOSITORY|HAS_GITHUB*2]-(organization) OR (email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email.email).domain)
         OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
         RETURN apoc.coll.toSet(COLLECT(organization {
           salary: {
