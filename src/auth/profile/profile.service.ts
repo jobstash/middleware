@@ -836,6 +836,35 @@ export class ProfileService {
     }
   }
 
+  async verifyApplyInteraction(
+    wallet: string,
+    shortUUID: string,
+  ): Promise<boolean> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $wallet}), (job:StructuredJobpost {shortUUID: $shortUUID})
+        RETURN EXISTS((user)-[r:APPLIED_TO]->(job)) AS hasApplied
+      `,
+        { wallet, shortUUID },
+      );
+      return result.records[0]?.get("hasApplied") as boolean;
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, shortUUID });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `ProfileService::verifyApplyInteraction ${err.message}`,
+      );
+      return false;
+    }
+  }
+
   async logBookmarkInteraction(
     wallet: string,
     shortUUID: string,
@@ -869,6 +898,35 @@ export class ProfileService {
         success: false,
         message: "Failed to bookmark job",
       };
+    }
+  }
+
+  async verifyBookmarkInteraction(
+    wallet: string,
+    shortUUID: string,
+  ): Promise<boolean> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $wallet}), (job:StructuredJobpost {shortUUID: $shortUUID})
+        RETURN EXISTS((user)-[r:BOOKMARKED]->(job)) as isBookmarked
+      `,
+        { wallet, shortUUID },
+      );
+      return result.records[0]?.get("isBookmarked") as boolean;
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, shortUUID });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `ProfileService::verifyBookmarkInteraction ${err.message}`,
+      );
+      return false;
     }
   }
 

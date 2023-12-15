@@ -536,7 +536,18 @@ export class ProfileController {
     this.logger.log(`/profile/job/apply`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.logApplyInteraction(address as string, job);
+      const hasApplied = this.profileService.verifyApplyInteraction(
+        address as string,
+        job,
+      );
+      if (hasApplied) {
+        return {
+          success: false,
+          message: "Job has already been applied to by this user",
+        };
+      } else {
+        return this.profileService.logApplyInteraction(address as string, job);
+      }
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -564,7 +575,21 @@ export class ProfileController {
     this.logger.log(`/profile/job/bookmark`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.logBookmarkInteraction(address as string, job);
+      const isBookmarked = this.profileService.verifyBookmarkInteraction(
+        address as string,
+        job,
+      );
+      if (isBookmarked) {
+        return {
+          success: false,
+          message: "Job is already bookmarked for this user",
+        };
+      } else {
+        return this.profileService.logBookmarkInteraction(
+          address as string,
+          job,
+        );
+      }
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
