@@ -1,3 +1,10 @@
+## [1.62.5](https://github.com/jobstash/middleware/compare/v1.62.4...v1.62.5) (2023-12-15)
+
+
+### Bug Fixes
+
+* **profile:** removed duplication on apply and bookmark interactions ([4d3b20c](https://github.com/jobstash/middleware/commit/4d3b20ca703e65cf0ebc473dc934261f8da5d6c9))
+
 ## [1.62.4](https://github.com/jobstash/middleware/compare/v1.62.3...v1.62.4) (2023-12-14)
 
 
