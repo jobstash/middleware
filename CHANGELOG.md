@@ -1,3 +1,10 @@
+## [1.62.7](https://github.com/jobstash/middleware/compare/v1.62.6...v1.62.7) (2023-12-15)
+
+
+### Bug Fixes
+
+* **organizations:** fixed borkage on aggregate ratings ([8696016](https://github.com/jobstash/middleware/commit/8696016e642a6eb2d930dcdfb4af2a9b83297463))
+
 ## [1.62.6](https://github.com/jobstash/middleware/compare/v1.62.5...v1.62.6) (2023-12-15)
 
 
