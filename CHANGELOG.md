@@ -1,3 +1,10 @@
+## [1.63.2](https://github.com/jobstash/middleware/compare/v1.63.1...v1.63.2) (2023-12-15)
+
+
+### Bug Fixes
+
+* **tags:** fixed resolution error on paired tags ([6dd32cc](https://github.com/jobstash/middleware/commit/6dd32cc54ee201402ca7aa9d57dd88aa670ec494))
+
 ## [1.63.1](https://github.com/jobstash/middleware/compare/v1.63.0...v1.63.1) (2023-12-15)
 
 
