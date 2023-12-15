@@ -113,10 +113,10 @@ export const Tags = (
               ],
             })
             .where(
-              "NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) OR NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)",
+              "NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation|PairedDesignation)",
             )
             .raw(
-              "OPTIONAL MATCH (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(other:Tag)--(:PairedDesignation|PreferredDesignation)",
+              "OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)",
             )
             .return(
               "apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag ELSE other END)) as tags",
