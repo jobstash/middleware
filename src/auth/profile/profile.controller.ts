@@ -536,7 +536,7 @@ export class ProfileController {
     this.logger.log(`/profile/job/apply`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      const hasApplied = this.profileService.verifyApplyInteraction(
+      const hasApplied = await this.profileService.verifyApplyInteraction(
         address as string,
         job,
       );
@@ -575,7 +575,7 @@ export class ProfileController {
     this.logger.log(`/profile/job/bookmark`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      const isBookmarked = this.profileService.verifyBookmarkInteraction(
+      const isBookmarked = await this.profileService.verifyBookmarkInteraction(
         address as string,
         job,
       );
