@@ -1,3 +1,10 @@
+## [1.63.4](https://github.com/jobstash/middleware/compare/v1.63.3...v1.63.4) (2023-12-15)
+
+
+### Bug Fixes
+
+* **tags:** fixed issue with paired terms resolver ([d66c2c3](https://github.com/jobstash/middleware/commit/d66c2c3fc50ad54651154178a070bacf31931143))
+
 ## [1.63.3](https://github.com/jobstash/middleware/compare/v1.63.2...v1.63.3) (2023-12-15)
 
 
