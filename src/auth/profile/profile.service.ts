@@ -225,11 +225,10 @@ export class ProfileService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        MATCH (user:User {wallet: $wallet}), (organization: Organization)
-        OPTIONAL MATCH (organization)-[:HAS_WEBSITE]->(website), (user)-[:HAS_EMAIL]->(email: UserEmail)
-        WHERE (user)-[:HAS_GITHUB_USER|HISTORICALLY_CONTRIBUTED_TO*2]->(:GithubRepository)<-[:HAS_REPOSITORY|HAS_GITHUB*2]-(organization) OR (email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email.email).domain)
+        MATCH (user:User {wallet: "0x921f80499A00aC6E95AAE0DAa411D338f41D5Da2"})
+        OPTIONAL MATCH (user)-[:HAS_GITHUB_USER|HISTORICALLY_CONTRIBUTED_TO*2]->(:GithubRepository)<-[:HAS_REPOSITORY|HAS_GITHUB*2]-(organization: Organization)
         OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
-        RETURN apoc.coll.toSet(COLLECT(organization {
+        WITH apoc.coll.toSet(COLLECT(organization {
           salary: {
             amount: review.amount,
             selectedCurrency: review.selectedCurrency,
@@ -269,8 +268,57 @@ export class ProfileService {
             telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
             twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0]
           }
-        })) as organizations
-        // ORDER BY review.reviewedTimestamp DESC
+        })) as orgsByRepo, user
+
+        CALL {
+          WITH user
+          MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
+          MATCH (user)-[:HAS_EMAIL]->(email: UserEmail)
+          WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email.email).domain
+          OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
+          RETURN apoc.coll.toSet(COLLECT(organization {
+            salary: {
+              amount: review.amount,
+              selectedCurrency: review.selectedCurrency,
+              offersTokenAllocation: review.offersTokenAllocation
+            },
+            rating: {
+              management: review.management,
+              careerGrowth: review.careerGrowth,
+              benefits: review.benefits,
+              workLifeBalance: review.workLifeBalance,
+              cultureValues: review.cultureValues,
+              diversityInclusion: review.diversityInclusion,
+              interviewProcess: review.interviewProcess
+            },
+            review: {
+              headline: review.headline,
+              pros: review.pros,
+              cons: review.cons
+            },
+            reviewedTimestamp: review.reviewedTimestamp,
+            org: {
+              id: organization.id,
+              name: organization.name,
+              logo: organization.logo,
+              orgId: organization.orgId,
+              summary: organization.summary,
+              altName: organization.altName,
+              location: organization.location,
+              headCount: organization.headCount,
+              description: organization.description,
+              jobsiteLink: organization.jobsiteLink,
+              updatedTimestamp: organization.updatedTimestamp,
+              docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
+              website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+              discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0]
+            }
+          })) as orgsByEmail
+        }
+        RETURN apoc.coll.union(orgsByRepo, orgsByEmail) as organizations        
       `,
         { wallet },
       );
