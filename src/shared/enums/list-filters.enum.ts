@@ -26,7 +26,8 @@ export type ProjectListOrderBy =
 export type OrgListOrderBy =
   | "recentFundingDate"
   | "headcountEstimate"
-  | "recentJobDate";
+  | "recentJobDate"
+  | "rating";
 export type DateRange =
   | "today"
   | "this-week"

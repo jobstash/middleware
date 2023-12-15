@@ -410,11 +410,17 @@ export const generateOrgAggregateRatings = (
 };
 
 export const toShortOrg = (org: OrgListResult): ShortOrg => {
-  const { orgId, website, name, logoUrl, location, headcountEstimate } = org;
+  const {
+    orgId,
+    website,
+    name,
+    logoUrl,
+    location,
+    headcountEstimate,
+    aggregateRating,
+    reviewCount,
+  } = org;
   const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
-  const reviews = org.reviews.map(review =>
-    generateOrgAggregateRating(review.rating),
-  );
   return {
     orgId,
     url: website,
@@ -424,9 +430,8 @@ export const toShortOrg = (org: OrgListResult): ShortOrg => {
     headcountEstimate,
     jobCount: org.jobs.length,
     projectCount: org.projects.length,
-    aggregateRating:
-      reviews.length > 0 ? reviews.reduce((a, b) => a + b) / reviews.length : 0,
-    reviewCount: reviews.length,
+    aggregateRating: aggregateRating,
+    reviewCount: reviewCount,
     lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
     lastFundingDate: lastFundingRound?.date ?? 0,
   };

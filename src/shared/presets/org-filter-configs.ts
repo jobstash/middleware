@@ -22,6 +22,7 @@ export const SINGLE_SELECT_OPTIONS = {
     { label: "Head Count", value: "headcountEstimate" },
     { label: "Most Recent Jobpost", value: "recentJobDate" },
     { label: "Most Recent Funding Date", value: "recentFundingDate" },
+    { label: "Rating", value: "rating" },
   ],
 };
 

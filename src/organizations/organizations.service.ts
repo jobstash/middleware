@@ -227,6 +227,8 @@ export class OrganizationsService {
           return lastJob?.timestamp ?? 0;
         case "headcountEstimate":
           return org?.headcountEstimate ?? 0;
+        case "rating":
+          return org?.aggregateRating ?? 0;
         default:
           return null;
       }

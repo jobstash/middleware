@@ -49,7 +49,7 @@ async function bootstrap(): Promise<void> {
     credentials: true,
     origin: process.env.ALLOWED_ORIGINS?.split(","),
     allowedHeaders: ["content-type"],
-    methods: ["GET", "OPTIONS", "POST"],
+    methods: ["GET", "OPTIONS", "POST", "DELETE"],
   });
   app.use(
     ["/api", "/api-json", "/api-yaml"],
