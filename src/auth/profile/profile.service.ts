@@ -892,7 +892,7 @@ export class ProfileService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet}), (job:StructuredJobpost {shortUUID: $shortUUID})
-        RETURN EXISTS((user)-[r:APPLIED_TO]->(job)) AS hasApplied
+        RETURN EXISTS((user)-[:APPLIED_TO]->(job)) AS hasApplied
       `,
         { wallet, shortUUID },
       );
@@ -957,7 +957,7 @@ export class ProfileService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet}), (job:StructuredJobpost {shortUUID: $shortUUID})
-        RETURN EXISTS((user)-[r:BOOKMARKED]->(job)) as isBookmarked
+        RETURN EXISTS((user)-[:BOOKMARKED]->(job)) as isBookmarked
       `,
         { wallet, shortUUID },
       );
