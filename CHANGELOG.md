@@ -1,3 +1,10 @@
+## [1.63.5](https://github.com/jobstash/middleware/compare/v1.63.4...v1.63.5) (2023-12-15)
+
+
+### Bug Fixes
+
+* **profile:** fixed issue with interaction verifiers ([bc5a6f6](https://github.com/jobstash/middleware/commit/bc5a6f6cdd1c030c854c4d3ddb010b30f6be56b1))
+
 ## [1.63.4](https://github.com/jobstash/middleware/compare/v1.63.3...v1.63.4) (2023-12-15)
 
 
