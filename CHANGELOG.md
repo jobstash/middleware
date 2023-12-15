@@ -1,3 +1,10 @@
+## [1.62.6](https://github.com/jobstash/middleware/compare/v1.62.5...v1.62.6) (2023-12-15)
+
+
+### Bug Fixes
+
+* **profile:** fixed bug on get user orgs endpoint ([6b2bedd](https://github.com/jobstash/middleware/commit/6b2bedd1c1ffce1f1f2b381caf35a6d851561315))
+
 ## [1.62.5](https://github.com/jobstash/middleware/compare/v1.62.4...v1.62.5) (2023-12-15)
 
 
