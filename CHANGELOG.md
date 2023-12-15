@@ -1,3 +1,10 @@
+# [1.63.0](https://github.com/jobstash/middleware/compare/v1.62.7...v1.63.0) (2023-12-15)
+
+
+### Features
+
+* **organizations:** added sort by rating ([663d286](https://github.com/jobstash/middleware/commit/663d286df25e5c144d21ef9200e05413a0cc1efb))
+
 ## [1.62.7](https://github.com/jobstash/middleware/compare/v1.62.6...v1.62.7) (2023-12-15)
 
 
