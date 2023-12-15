@@ -29,6 +29,16 @@ export class GithubUserService {
     private readonly userService: UserService,
   ) {}
 
+  async githubUserHasUser(githubId: number): Promise<boolean> {
+    const result = await this.neogma.queryRunner.run(
+      `
+        RETURN EXISTS((:User)-[:HAS_GITHUB_USER]->(:GithubUser {id: $githubUserId})) AS hasUser
+      `,
+      { githubId },
+    );
+    return result.records[0]?.get("hasUser") as boolean;
+  }
+
   async addGithubInfoToUser(
     args: GithubInfo,
   ): Promise<Response<User> | ResponseWithNoData> {
@@ -72,13 +82,21 @@ export class GithubUserService {
         await this.create(payload);
       }
 
-      await this.userService.addGithubUser(wallet, updateObject.githubLogin);
+      const hasUser = this.githubUserHasUser(githubUserNode.getId());
 
-      return {
-        success: true,
-        message: "Github data persisted",
-        data: storedUserNode.getProperties(),
-      };
+      if (!hasUser) {
+        await this.userService.addGithubUser(wallet, updateObject.githubLogin);
+        return {
+          success: true,
+          message: "Github data persisted",
+          data: storedUserNode.getProperties(),
+        };
+      } else {
+        return {
+          success: false,
+          message: "Github user node already has a user associated with it",
+        };
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({

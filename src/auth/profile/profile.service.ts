@@ -182,10 +182,10 @@ export class ProfileService {
             name: organization.name,
             logo: organization.logo
           }][0],
-          tags: [(user)-[m:USED_TAG]->(tag: Tag)-[:USED_ON]->(repo) | tag {
+          tags: apoc.coll.toSet([(user)-[m:USED_TAG]->(tag: Tag)-[:USED_ON]->(repo) | tag {
             .*,
             canTeach: [(user)-[m:USED_TAG]->(tag)-[:USED_ON]->(repo) | m.canTeach][0]
-          }],
+          }]),
           contribution: {
             summary: r.summary,
             count: r.commits
@@ -784,7 +784,7 @@ export class ProfileService {
         MATCH (user:User {wallet: $wallet})
         MATCH (user)-[:HAS_GITHUB_USER]->(ghu:GithubUser)-[:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository {id: $id})
         OPTIONAL MATCH (ghu)-[r1:USED_TAG]->(tag: Tag)-[r2:USED_ON]->(repo)
-        DETACH DELETE r1,tag,r2
+        DETACH DELETE r1,r2
 
         WITH ghu
         UNWIND $tagsUsed as data
