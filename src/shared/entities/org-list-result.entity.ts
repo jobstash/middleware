@@ -40,7 +40,7 @@ export class OrgListResultEntity {
       ...organization,
       aggregateRating:
         aggregateRatings.length > 0
-          ? aggregateRatings.reduce((a, b) => a + b)
+          ? aggregateRatings.reduce((a, b) => a + b) / aggregateRatings.length
           : 0,
       aggregateRatings: generateOrgAggregateRatings(
         organization.reviews.map(x => x.rating),

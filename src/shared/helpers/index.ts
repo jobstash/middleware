@@ -374,31 +374,37 @@ export const generateOrgAggregateRatings = (
   return {
     benefits:
       ratings.length > 0
-        ? ratings.map(x => x.benefits).reduce((x, y) => x + y)
+        ? ratings.map(x => x.benefits).reduce((x, y) => x + y) / ratings.length
         : 0,
     careerGrowth:
       ratings.length > 0
-        ? ratings.map(x => x.careerGrowth).reduce((x, y) => x + y)
+        ? ratings.map(x => x.careerGrowth).reduce((x, y) => x + y) /
+          ratings.length
         : 0,
     cultureValues:
       ratings.length > 0
-        ? ratings.map(x => x.cultureValues).reduce((x, y) => x + y)
+        ? ratings.map(x => x.cultureValues).reduce((x, y) => x + y) /
+          ratings.length
         : 0,
     diversityInclusion:
       ratings.length > 0
-        ? ratings.map(x => x.diversityInclusion).reduce((x, y) => x + y)
+        ? ratings.map(x => x.diversityInclusion).reduce((x, y) => x + y) /
+          ratings.length
         : 0,
     interviewProcess:
       ratings.length > 0
-        ? ratings.map(x => x.interviewProcess).reduce((x, y) => x + y)
+        ? ratings.map(x => x.interviewProcess).reduce((x, y) => x + y) /
+          ratings.length
         : 0,
     management:
       ratings.length > 0
-        ? ratings.map(x => x.management).reduce((x, y) => x + y)
+        ? ratings.map(x => x.management).reduce((x, y) => x + y) /
+          ratings.length
         : 0,
     workLifeBalance:
       ratings.length > 0
-        ? ratings.map(x => x.workLifeBalance).reduce((x, y) => x + y)
+        ? ratings.map(x => x.workLifeBalance).reduce((x, y) => x + y) /
+          ratings.length
         : 0,
   };
 };
@@ -418,7 +424,8 @@ export const toShortOrg = (org: OrgListResult): ShortOrg => {
     headcountEstimate,
     jobCount: org.jobs.length,
     projectCount: org.projects.length,
-    aggregateRating: reviews.length > 0 ? reviews.reduce((a, b) => a + b) : 0,
+    aggregateRating:
+      reviews.length > 0 ? reviews.reduce((a, b) => a + b) / reviews.length : 0,
     reviewCount: reviews.length,
     lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
     lastFundingDate: lastFundingRound?.date ?? 0,

@@ -17,7 +17,10 @@ export class OrganizationWithRelationsEntity {
 
     return new OrganizationWithRelations({
       ...organization,
-      aggregateRating: reviews.length > 0 ? reviews.reduce((a, b) => a + b) : 0,
+      aggregateRating:
+        reviews.length > 0
+          ? reviews.reduce((a, b) => a + b) / reviews.length
+          : 0,
       aggregateRatings: generateOrgAggregateRatings(
         organization.reviews.map(x => x.rating),
       ),
