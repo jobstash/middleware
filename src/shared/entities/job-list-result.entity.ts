@@ -9,6 +9,7 @@ import {
   nonZeroOrNull,
   notStringOrNull,
 } from "../helpers";
+import { OrgReviewEntity } from "./org-review.entity";
 
 type RawJobPost = StructuredJobpostWithRelations & {
   organization?: OrganizationWithRelations | null;
@@ -148,6 +149,9 @@ export class JobListResultEntity {
             id: investor.id,
             name: investor.name,
           })) ?? [],
+        reviews: organization?.reviews.map(review =>
+          new OrgReviewEntity(review).getProperties(),
+        ),
       },
       tags: tags ?? [],
     });
