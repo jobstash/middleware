@@ -46,27 +46,39 @@ export class ProfileService {
     wallet: string,
   ): Promise<Response<UserProfile> | ResponseWithNoData> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $wallet})
-        OPTIONAL MATCH (user)-[:HAS_PROFILE]->(profile:UserProfile)
-        RETURN {
-          availableForWork: profile.availableForWork,
-          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
-          username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-          avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-          contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0]
-        } as profile
-      `,
-        { wallet },
-      );
+      const userProfile = await this.models.Users.findRelationships({
+        where: { source: { wallet } },
+        alias: "profile",
+      });
+
+      const userEmail = await this.models.Users.findRelationships({
+        where: { source: { wallet } },
+        alias: "email",
+      });
+
+      const userContact = await this.models.Users.findRelationships({
+        where: { source: { wallet } },
+        alias: "contact",
+      });
+
+      const userGithub = await this.models.Users.findRelationships({
+        where: { source: { wallet } },
+        alias: "githubUser",
+      });
 
       return {
         success: true,
         message: "User Profile retrieved successfully",
-        data: new UserProfileEntity(
-          result.records[0]?.get("profile"),
-        ).getProperties(),
+        data: new UserProfileEntity({
+          availableForWork: userProfile[0]?.target.availableForWork,
+          avatar: userGithub[0]?.target.avatarUrl,
+          username: userGithub[0]?.target.login,
+          contact: {
+            value: userContact[0]?.target.value,
+            preferred: userContact[0]?.target.preferred,
+          },
+          email: userEmail[0]?.target.email,
+        }).getProperties(),
       };
     } catch (err) {
       Sentry.withScope(scope => {

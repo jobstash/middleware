@@ -77,6 +77,12 @@ import {
   Users,
   WebsiteProps,
   Websites,
+  GithubUserProps,
+  GithubUsers,
+  UserContactProps,
+  UserContacts,
+  UserProfileProps,
+  UserProfiles,
 } from "src/shared/models";
 import { NoRelations } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -104,6 +110,7 @@ export class ModelService implements OnModuleInit {
   >;
   public OrganizationAliases: NeogmaModel<OrganizationAliasProps, NoRelations>;
   public GithubOrganizations: NeogmaModel<GithubOrganizationProps, NoRelations>;
+  public GithubUsers: NeogmaModel<GithubUserProps, NoRelations>;
   public Projects: NeogmaModel<
     ProjectProps,
     ProjectRelations,
@@ -144,6 +151,8 @@ export class ModelService implements OnModuleInit {
   public Websites: NeogmaModel<WebsiteProps, NoRelations>;
   public Users: NeogmaModel<UserProps, UserRelations>;
   public UserEmails: NeogmaModel<UserEmailProps, NoRelations>;
+  public UserProfiles: NeogmaModel<UserProfileProps, NoRelations>;
+  public UserContacts: NeogmaModel<UserContactProps, NoRelations>;
   public UserShowcases: NeogmaModel<UserShowcaseProps, NoRelations>;
 
   onModuleInit = async (): Promise<void> => {
@@ -170,6 +179,7 @@ export class ModelService implements OnModuleInit {
     this.Chains = Chains(this.neogma);
     this.OrganizationAliases = OrganizationAliases(this.neogma);
     this.GithubOrganizations = GithubOrganizations(this.neogma);
+    this.GithubUsers = GithubUsers(this.neogma);
     this.JobpostClassifications = JobpostClassifications(this.neogma);
     this.JobpostCommitments = JobpostCommitments(this.neogma);
     this.JobpostLocationTypes = JobpostLocationTypes(this.neogma);
@@ -183,6 +193,8 @@ export class ModelService implements OnModuleInit {
     this.Websites = Websites(this.neogma);
     this.Users = Users(this.neogma);
     this.UserEmails = UserEmails(this.neogma);
+    this.UserContacts = UserContacts(this.neogma);
+    this.UserProfiles = UserProfiles(this.neogma);
     this.UserShowcases = UserShowcases(this.neogma);
   };
 }

@@ -6,6 +6,7 @@ import { CacheModule } from "@nestjs/cache-manager";
 import { UserModule } from "../../user/user.module";
 import { UserService } from "../../user/user.service";
 import { GithubUserService } from "./github-user.service";
+import { ModelService } from "src/model/model.service";
 
 @Module({
   imports: [
@@ -23,6 +24,6 @@ import { GithubUserService } from "./github-user.service";
     CacheModule.register(),
   ],
   controllers: [GithubController],
-  providers: [UserService, GithubUserService],
+  providers: [UserService, GithubUserService, ModelService],
 })
 export class GithubModule {}

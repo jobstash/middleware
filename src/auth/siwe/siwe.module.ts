@@ -9,6 +9,7 @@ import { GithubUserService } from "../github/github-user.service";
 import { UserRoleService } from "../../user/user-role.service";
 import { UserFlowService } from "../../user/user-flow.service";
 import { CacheModule } from "@nestjs/cache-manager";
+import { ModelService } from "src/model/model.service";
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { CacheModule } from "@nestjs/cache-manager";
     UserService,
     UserRoleService,
     UserFlowService,
+    ModelService,
     GithubUserService,
   ],
 })
