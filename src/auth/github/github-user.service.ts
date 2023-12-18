@@ -78,23 +78,31 @@ export class GithubUserService {
         }
 
         await this.update(githubUserNode.getId(), payload);
+        const hasUser = this.githubUserHasUser(githubUserNode.getId());
+
+        if (!hasUser) {
+          await this.userService.addGithubUser(
+            wallet,
+            updateObject.githubLogin,
+          );
+          return {
+            success: true,
+            message: "Github data persisted",
+            data: storedUserNode.getProperties(),
+          };
+        } else {
+          return {
+            success: false,
+            message: "Github user node already has a user associated with it",
+          };
+        }
       } else {
         await this.create(payload);
-      }
-
-      const hasUser = this.githubUserHasUser(githubUserNode.getId());
-
-      if (!hasUser) {
         await this.userService.addGithubUser(wallet, updateObject.githubLogin);
         return {
           success: true,
           message: "Github data persisted",
           data: storedUserNode.getProperties(),
-        };
-      } else {
-        return {
-          success: false,
-          message: "Github user node already has a user associated with it",
         };
       }
     } catch (err) {
