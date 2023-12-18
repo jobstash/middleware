@@ -1,3 +1,10 @@
+## [1.63.6](https://github.com/jobstash/middleware/compare/v1.63.5...v1.63.6) (2023-12-18)
+
+
+### Bug Fixes
+
+* **github:** fixed borkage on github persistence ([dcab764](https://github.com/jobstash/middleware/commit/dcab764b65e64f63190953876d76fca2b531a74b))
+
 ## [1.63.5](https://github.com/jobstash/middleware/compare/v1.63.4...v1.63.5) (2023-12-15)
 
 
