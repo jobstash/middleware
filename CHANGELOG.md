@@ -1,3 +1,10 @@
+## [1.63.7](https://github.com/jobstash/middleware/compare/v1.63.6...v1.63.7) (2023-12-18)
+
+
+### Bug Fixes
+
+* **profile:** fix for borked bookmarked jobs endpoint ([a59c60b](https://github.com/jobstash/middleware/commit/a59c60b09c869b5d268b7a57e02798be5aecf5cc))
+
 ## [1.63.6](https://github.com/jobstash/middleware/compare/v1.63.5...v1.63.6) (2023-12-18)
 
 
