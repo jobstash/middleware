@@ -5,21 +5,21 @@ import { report } from "io-ts-human-reporter";
 export class OrgSalaryReview {
   public static readonly OrgSalaryReviewType = t.strict({
     offersTokenAllocation: t.boolean,
-    amount: t.union([t.number, t.null]),
-    selectedCurrency: t.union([t.string, t.null]),
+    salary: t.union([t.number, t.null]),
+    currency: t.union([t.string, t.null]),
   });
 
-  selectedCurrency: string | null;
-  amount: number | null;
+  currency: string | null;
+  salary: number | null;
   offersTokenAllocation: boolean;
 
   constructor(raw: OrgSalaryReview) {
-    const { selectedCurrency, amount, offersTokenAllocation } = raw;
+    const { currency, salary, offersTokenAllocation } = raw;
 
     const result = OrgSalaryReview.OrgSalaryReviewType.decode(raw);
 
-    this.amount = amount;
-    this.selectedCurrency = selectedCurrency;
+    this.salary = salary;
+    this.currency = currency;
     this.offersTokenAllocation = offersTokenAllocation;
 
     if (isLeft(result)) {

@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsOptional, IsString } from "class-validator";
+import { IsNotEmpty, IsObject, IsOptional, IsString } from "class-validator";
 
 export class ReviewOrgInput {
   @ApiProperty()
@@ -10,7 +10,21 @@ export class ReviewOrgInput {
   @ApiProperty()
   @IsString()
   @IsOptional()
-  headline: string | null;
+  title: string | null;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  location: string | null;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  timezone: string | null;
+
+  @ApiProperty()
+  @IsObject()
+  workingHours: { start: string | null; end: string | null };
 
   @ApiProperty()
   @IsString()

@@ -12,34 +12,33 @@ import {
   UseGuards,
   ValidationPipe,
 } from "@nestjs/common";
-import { ProfileService } from "./profile.service";
+import { ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
+import { Response as ExpressResponse, Request } from "express";
+import { OrganizationsService } from "src/organizations/organizations.service";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { CheckWalletRoles } from "src/shared/enums";
-import { RBACGuard } from "../rbac.guard";
-import { ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import { responseSchemaWrapper } from "src/shared/helpers";
-import { AuthService } from "../auth.service";
-import { Request, Response as ExpressResponse } from "express";
 import {
-  UserOrg,
   PaginatedData,
   Response,
   ResponseWithNoData,
+  UserOrg,
   UserProfile,
   UserRepo,
 } from "src/shared/interfaces";
-import { UpdateUserProfileInput } from "./dto/update-profile.input";
 import { CustomLogger } from "src/shared/utils/custom-logger";
-import { ReviewListParams } from "./dto/review-list.input";
-import { ReviewOrgSalaryInput } from "./dto/review-org-salary.input";
+import { AuthService } from "../auth.service";
+import { RBACGuard } from "../rbac.guard";
 import { RateOrgInput } from "./dto/rate-org.input";
-import { ReviewOrgInput } from "./dto/review-org.input";
 import { RepoListParams } from "./dto/repo-list.input";
+import { ReviewOrgSalaryInput } from "./dto/review-org-salary.input";
+import { ReviewOrgInput } from "./dto/review-org.input";
+import { UpdateUserProfileInput } from "./dto/update-profile.input";
 import { UpdateRepoContributionInput } from "./dto/update-repo-contribution.input";
 import { UpdateRepoTagsUsedInput } from "./dto/update-repo-tags-used.input";
 import { UpdateUserShowCaseInput } from "./dto/update-user-showcase.input";
 import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
-import { OrganizationsService } from "src/organizations/organizations.service";
+import { ProfileService } from "./profile.service";
 
 @Controller("profile")
 export class ProfileController {
@@ -67,33 +66,6 @@ export class ProfileController {
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       return this.profileService.getUserProfile(address as string);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
-  }
-
-  @Get("reviews")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
-  @ApiOkResponse({
-    description: "Returns the org reviews of the currently logged in user",
-    schema: responseSchemaWrapper({
-      $ref: getSchemaPath(PaginatedData<UserOrg>),
-    }),
-  })
-  async getOrgReviews(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
-    @Query(new ValidationPipe({ transform: true })) params: ReviewListParams,
-  ): Promise<PaginatedData<UserOrg> | ResponseWithNoData> {
-    this.logger.log(`/profile/reviews`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.profileService.getOrgReviews(address as string, params);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {

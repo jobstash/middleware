@@ -16,12 +16,12 @@ export class ReviewOrgSalaryInput {
   @ApiProperty()
   @IsString()
   @IsOptional()
-  selectedCurrency: string | null;
+  currency: string | null;
 
   @ApiProperty()
   @IsNumber()
   @IsOptional()
-  amount: number | null;
+  salary: number | null;
 
   @ApiProperty()
   @IsBoolean()

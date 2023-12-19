@@ -1,6 +1,9 @@
 import { Injectable } from "@nestjs/common";
+import * as Sentry from "@sentry/node";
+import { randomUUID } from "crypto";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
+import { ModelService } from "src/model/model.service";
 import {
   UserOrgEntity,
   UserProfileEntity,
@@ -8,29 +11,25 @@ import {
   UserShowCaseEntity,
   UserSkillEntity,
 } from "src/shared/entities";
+import { normalizeString, paginate } from "src/shared/helpers";
 import {
-  UserOrg,
   PaginatedData,
   Response,
   ResponseWithNoData,
+  UserOrg,
   UserProfile,
   UserRepo,
 } from "src/shared/interfaces";
-import { UpdateUserProfileInput } from "./dto/update-profile.input";
-import { ReviewListParams } from "./dto/review-list.input";
-import { normalizeString, paginate } from "src/shared/helpers";
-import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
-import { ReviewOrgSalaryInput } from "./dto/review-org-salary.input";
 import { RateOrgInput } from "./dto/rate-org.input";
-import { ReviewOrgInput } from "./dto/review-org.input";
 import { RepoListParams } from "./dto/repo-list.input";
+import { ReviewOrgSalaryInput } from "./dto/review-org-salary.input";
+import { ReviewOrgInput } from "./dto/review-org.input";
+import { UpdateUserProfileInput } from "./dto/update-profile.input";
 import { UpdateRepoContributionInput } from "./dto/update-repo-contribution.input";
 import { UpdateRepoTagsUsedInput } from "./dto/update-repo-tags-used.input";
 import { UpdateUserShowCaseInput } from "./dto/update-user-showcase.input";
 import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
-import { ModelService } from "src/model/model.service";
-import { randomUUID } from "crypto";
 
 @Injectable()
 export class ProfileService {
@@ -93,83 +92,6 @@ export class ProfileService {
       return {
         success: false,
         message: "Error retrieving user profile",
-      };
-    }
-  }
-
-  async getOrgReviews(
-    wallet: string,
-    params: ReviewListParams,
-  ): Promise<PaginatedData<UserOrg> | ResponseWithNoData> {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $wallet})-[r:LEFT_REVIEW]->(review:OrgReview)
-        RETURN review {
-          salary: {
-            amount: review.amount,
-            selectedCurrency: review.selectedCurrency,
-            offersTokenAllocation: review.offersTokenAllocation
-          },
-          rating: {
-            management: review.management,
-            careerGrowth: review.careerGrowth,
-            benefits: review.benefits,
-            workLifeBalance: review.workLifeBalance,
-            cultureValues: review.cultureValues,
-            diversityInclusion: review.diversityInclusion,
-            interviewProcess: review.interviewProcess
-          },
-          review: {
-            headline: review.headline,
-            pros: review.pros,
-            cons: review.cons
-          },
-          reviewedTimestamp: review.reviewedTimestamp,
-          org: [(organization: Organization)-[:HAS_REVIEW]->(review) | organization {
-            id: organization.id,
-            name: organization.name,
-            logo: organization.logo,
-            orgId: organization.orgId,
-            summary: organization.summary,
-            altName: organization.altName,
-            location: organization.location,
-            headCount: organization.headCount,
-            description: organization.description,
-            jobsiteLink: organization.jobsiteLink,
-            updatedTimestamp: organization.updatedTimestamp,
-            docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-            github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
-            website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-            discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-            telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-            twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0]
-          }][0]
-        }
-        ORDER BY review.reviewedTimestamp DESC
-      `,
-        { wallet },
-      );
-
-      const final = result.records.map(record =>
-        new UserOrgEntity(record?.get("review")).getProperties(),
-      );
-
-      const { page, limit } = params;
-      return paginate<UserOrg>(page, limit, final);
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "profile.service",
-        });
-        scope.setExtra("input", { wallet, ...params });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`ProfileService::getOrgReviews ${err.message}`);
-      return {
-        success: false,
-        message: "Error retrieving user org reviews",
       };
     }
   }
@@ -241,22 +163,27 @@ export class ProfileService {
         OPTIONAL MATCH (user)-[:HAS_GITHUB_USER|HISTORICALLY_CONTRIBUTED_TO*2]->(:GithubRepository)<-[:HAS_REPOSITORY|HAS_GITHUB*2]-(organization: Organization)
         OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
         WITH apoc.coll.toSet(COLLECT(organization {
-          salary: {
-            amount: review.amount,
-            selectedCurrency: review.selectedCurrency,
+          compensation: {
+            salary: review.salary,
+            currency: review.currency,
             offersTokenAllocation: review.offersTokenAllocation
           },
           rating: {
-            management: review.management,
+            onboarding: review.onboarding,
             careerGrowth: review.careerGrowth,
             benefits: review.benefits,
             workLifeBalance: review.workLifeBalance,
-            cultureValues: review.cultureValues,
             diversityInclusion: review.diversityInclusion,
-            interviewProcess: review.interviewProcess
+            travel: review.travel
           },
           review: {
-            headline: review.headline,
+            title: review.title,
+            location: review.location,
+            timezone: review.timezone,
+            workingHours: {
+              start: review.workingHoursStart,
+              end: review.workingHoursEnd
+            },
             pros: review.pros,
             cons: review.cons
           },
@@ -289,22 +216,27 @@ export class ProfileService {
           WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email.email).domain
           OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
           RETURN apoc.coll.toSet(COLLECT(organization {
-            salary: {
-              amount: review.amount,
-              selectedCurrency: review.selectedCurrency,
+            compensation: {
+              salary: review.salary,
+              currency: review.currency,
               offersTokenAllocation: review.offersTokenAllocation
             },
             rating: {
-              management: review.management,
+              onboarding: review.onboarding,
               careerGrowth: review.careerGrowth,
               benefits: review.benefits,
               workLifeBalance: review.workLifeBalance,
-              cultureValues: review.cultureValues,
               diversityInclusion: review.diversityInclusion,
-              interviewProcess: review.interviewProcess
+              travel: review.travel
             },
             review: {
-              headline: review.headline,
+              title: review.title,
+              location: review.location,
+              timezone: review.timezone,
+              workingHours: {
+                start: review.workingHoursStart,
+                end: review.workingHoursEnd
+              },
               pros: review.pros,
               cons: review.cons
             },
@@ -653,8 +585,8 @@ export class ProfileService {
         `
         MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
         MERGE (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(org)
-        SET review.amount = $amount
-        SET review.selectedCurrency = $selectedCurrency
+        SET review.salary = $salary
+        SET review.currency = $currency
         SET review.offersTokenAllocation = $offersTokenAllocation
         SET review.reviewedTimestamp = timestamp()
       `,
@@ -687,18 +619,17 @@ export class ProfileService {
         `
         MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
         MERGE (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(org)
-        SET review.management = $management
+        SET review.onboarding = $onboarding
         SET review.careerGrowth = $careerGrowth
         SET review.benefits = $benefits
         SET review.workLifeBalance = $workLifeBalance
-        SET review.cultureValues = $cultureValues
         SET review.diversityInclusion = $diversityInclusion
-        SET review.interviewProcess = $interviewProcess
+        SET review.travel = $travel
         SET review.reviewedTimestamp = timestamp()
       `,
         { wallet, ...dto },
       );
-      return { success: true, message: "Org salary reviewed successfully" };
+      return { success: true, message: "Org rated successfully" };
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -725,14 +656,18 @@ export class ProfileService {
         `
         MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
         MERGE (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(org)
-        SET review.headline = $headline
+        SET review.title = $title
+        SET review.location = $location
+        SET review.timezone = $timezone
+        SET review.workingHoursStart = $workingHours.start
+        SET review.workingHoursEnd = $workingHours.end
         SET review.pros = $pros
         SET review.cons = $cons
         SET review.reviewedTimestamp = timestamp()
       `,
         { wallet, ...dto },
       );
-      return { success: true, message: "Org salary reviewed successfully" };
+      return { success: true, message: "Org reviewed successfully" };
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -839,7 +774,7 @@ export class ProfileService {
       await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
-        CREATE (user)-[r:BLOCKED_ORG_JOBS]->(org)
+        MERGE (user)-[r:BLOCKED_ORG_JOBS]->(org)
         SET r.timestamp = timestamp()
       `,
         { wallet, orgId },
@@ -870,7 +805,7 @@ export class ProfileService {
       await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet}), (job:StructuredJobpost {shortUUID: $shortUUID})
-        CREATE (user)-[r:APPLIED_TO]->(job)
+        MERGE (user)-[r:APPLIED_TO]->(job)
         SET r.timestamp = timestamp()
       `,
         { wallet, shortUUID },
@@ -933,7 +868,7 @@ export class ProfileService {
       await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet}), (job:StructuredJobpost {shortUUID: $shortUUID})
-        CREATE (user)-[r:BOOKMARKED]->(job)
+        MERGE (user)-[r:BOOKMARKED]->(job)
         SET r.timestamp = timestamp()
       `,
         { wallet, shortUUID },
@@ -1034,7 +969,7 @@ export class ProfileService {
       await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet}), (job:StructuredJobpost {shortUUID: $shortUUID})
-        CREATE (user)-[r:VIEWED_DETAILS]->(job)
+        MERGE (user)-[r:VIEWED_DETAILS]->(job)
         SET r.timestamp = timestamp()
       `,
         { wallet, shortUUID },
@@ -1059,7 +994,7 @@ export class ProfileService {
       await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})
-        CREATE (user)-[r:DID_SEARCH]->(:SearchHistory {query: $query})
+        MERGE (user)-[r:DID_SEARCH]->(:SearchHistory {query: $query})
         SET r.timestamp = timestamp()
       `,
         { wallet, query },

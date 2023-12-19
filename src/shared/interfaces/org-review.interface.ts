@@ -12,7 +12,7 @@ export class OrgReview {
     endDate: t.union([t.number, t.null]),
     reviewedTimestamp: t.union([t.number, t.null]),
     commitCount: t.union([t.number, t.null]),
-    salary: OrgSalaryReview.OrgSalaryReviewType,
+    compensation: OrgSalaryReview.OrgSalaryReviewType,
     rating: OrgRating.OrgRatingType,
     review: OrgStaffReview.OrgStaffReviewType,
   });
@@ -21,7 +21,7 @@ export class OrgReview {
   startDate: number | null;
   endDate: number | null;
   commitCount: number | null;
-  salary: OrgSalaryReview;
+  compensation: OrgSalaryReview;
   rating: OrgRating;
   review: OrgStaffReview;
   reviewedTimestamp: number;
@@ -32,7 +32,7 @@ export class OrgReview {
       startDate,
       endDate,
       commitCount,
-      salary,
+      compensation,
       rating,
       review,
       reviewedTimestamp,
@@ -44,7 +44,7 @@ export class OrgReview {
     this.startDate = startDate;
     this.endDate = endDate;
     this.commitCount = commitCount;
-    this.salary = salary;
+    this.compensation = compensation;
     this.rating = rating;
     this.review = review;
     this.reviewedTimestamp = reviewedTimestamp;

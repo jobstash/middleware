@@ -350,19 +350,17 @@ export const generateOrgAggregateRating = (rating: OrgRating): number => {
   const {
     benefits,
     careerGrowth,
-    cultureValues,
     diversityInclusion,
-    interviewProcess,
-    management,
+    travel,
+    onboarding,
     workLifeBalance,
   } = rating;
   return (
     (benefits +
       careerGrowth +
-      cultureValues +
       diversityInclusion +
-      interviewProcess +
-      management +
+      travel +
+      onboarding +
       workLifeBalance) /
     7
   );
@@ -381,24 +379,18 @@ export const generateOrgAggregateRatings = (
         ? ratings.map(x => x.careerGrowth).reduce((x, y) => x + y) /
           ratings.length
         : 0,
-    cultureValues:
-      ratings.length > 0
-        ? ratings.map(x => x.cultureValues).reduce((x, y) => x + y) /
-          ratings.length
-        : 0,
     diversityInclusion:
       ratings.length > 0
         ? ratings.map(x => x.diversityInclusion).reduce((x, y) => x + y) /
           ratings.length
         : 0,
-    interviewProcess:
+    travel:
       ratings.length > 0
-        ? ratings.map(x => x.interviewProcess).reduce((x, y) => x + y) /
-          ratings.length
+        ? ratings.map(x => x.travel).reduce((x, y) => x + y) / ratings.length
         : 0,
-    management:
+    onboarding:
       ratings.length > 0
-        ? ratings.map(x => x.management).reduce((x, y) => x + y) /
+        ? ratings.map(x => x.onboarding).reduce((x, y) => x + y) /
           ratings.length
         : 0,
     workLifeBalance:

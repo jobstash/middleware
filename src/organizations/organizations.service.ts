@@ -93,22 +93,27 @@ export class OrganizationsService {
           tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }],
           reviews: [
             (organization)-[:HAS_REVIEW]->(review: OrgReview) | review {
-              salary: {
-                amount: review.amount,
-                selectedCurrency: review.selectedCurrency,
+              compensation: {
+                salary: review.salary,
+                currency: review.currency,
                 offersTokenAllocation: review.offersTokenAllocation
               },
               rating: {
-                management: review.management,
+                onboarding: review.onboarding,
                 careerGrowth: review.careerGrowth,
                 benefits: review.benefits,
                 workLifeBalance: review.workLifeBalance,
-                cultureValues: review.cultureValues,
                 diversityInclusion: review.diversityInclusion,
-                interviewProcess: review.interviewProcess
+                travel: review.travel
               },
               review: {
-                headline: review.headline,
+                title: review.title,
+                location: review.location,
+                timezone: review.timezone,
+                workingHours: {
+                  start: review.workingHoursStart,
+                  end: review.workingHoursEnd
+                },
                 pros: review.pros,
                 cons: review.cons
               },
@@ -353,30 +358,35 @@ export class OrganizationsService {
               }
             ],
             tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }],
-            reviews: apoc.coll.toSet([
-              (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
-                salary: {
-                  amount: review.amount,
-                  selectedCurrency: review.selectedCurrency,
+            reviews: [
+              (organization)-[:HAS_REVIEW]->(review: OrgReview) | review {
+                compensation: {
+                  salary: review.salary,
+                  currency: review.currency,
                   offersTokenAllocation: review.offersTokenAllocation
                 },
                 rating: {
-                  management: review.management,
+                  onboarding: review.onboarding,
                   careerGrowth: review.careerGrowth,
                   benefits: review.benefits,
                   workLifeBalance: review.workLifeBalance,
-                  cultureValues: review.cultureValues,
                   diversityInclusion: review.diversityInclusion,
-                  interviewProcess: review.interviewProcess
+                  travel: review.travel
                 },
                 review: {
-                  headline: review.headline,
+                  title: review.title,
+                  location: review.location,
+                  timezone: review.timezone,
+                  workingHours: {
+                    start: review.workingHoursStart,
+                    end: review.workingHoursEnd
+                  },
                   pros: review.pros,
                   cons: review.cons
                 },
                 reviewedTimestamp: review.reviewedTimestamp
               }
-            ])
+            ]
           } as res
         `,
         { orgId },

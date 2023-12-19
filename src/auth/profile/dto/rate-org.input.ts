@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from "class-validator";
 
 export class RateOrgInput {
   @ApiProperty()
@@ -10,35 +17,42 @@ export class RateOrgInput {
   @ApiPropertyOptional()
   @IsNumber()
   @IsOptional()
-  management: number | null;
+  @Min(0)
+  @Max(5)
+  onboarding: number | null;
 
   @ApiPropertyOptional()
   @IsNumber()
   @IsOptional()
+  @Min(0)
+  @Max(5)
   careerGrowth: number | null;
 
   @ApiPropertyOptional()
   @IsNumber()
   @IsOptional()
+  @Min(0)
+  @Max(5)
   benefits: number | null;
 
   @ApiPropertyOptional()
   @IsNumber()
   @IsOptional()
+  @Min(0)
+  @Max(5)
   workLifeBalance: number | null;
 
   @ApiPropertyOptional()
   @IsNumber()
   @IsOptional()
-  cultureValues: number | null;
-
-  @ApiPropertyOptional()
-  @IsNumber()
-  @IsOptional()
+  @Min(0)
+  @Max(5)
   diversityInclusion: number | null;
 
   @ApiPropertyOptional()
   @IsNumber()
   @IsOptional()
-  interviewProcess: number | null;
+  @Min(0)
+  @Max(5)
+  travel: number | null;
 }
