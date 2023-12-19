@@ -1,3 +1,10 @@
+# [1.64.0](https://github.com/jobstash/middleware/compare/v1.63.9...v1.64.0) (2023-12-19)
+
+
+### Features
+
+* **profile:** updated the rating params ([cb9375b](https://github.com/jobstash/middleware/commit/cb9375b43c6b3f21470a2755a31f918d6066a9f5))
+
 ## [1.63.9](https://github.com/jobstash/middleware/compare/v1.63.8...v1.63.9) (2023-12-19)
 
 
