@@ -1,3 +1,10 @@
+## [1.63.9](https://github.com/jobstash/middleware/compare/v1.63.8...v1.63.9) (2023-12-19)
+
+
+### Bug Fixes
+
+* **github:** fixed borkage on github signup ([752b323](https://github.com/jobstash/middleware/commit/752b323a1e8c0ed48c99115f3418cdbf7fc0df7b))
+
 ## [1.63.8](https://github.com/jobstash/middleware/compare/v1.63.7...v1.63.8) (2023-12-19)
 
 
