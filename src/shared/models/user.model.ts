@@ -12,6 +12,10 @@ import { TagInstance, Tags } from "./tag.model";
 import { GithubUserInstance, GithubUsers } from "./github-user.model";
 import { UserProfileInstance, UserProfiles } from "./user-profile.model";
 import { UserContactInstance, UserContacts } from "./user-contact.model";
+import {
+  OrganizationReviewInstance,
+  OrganizationReviews,
+} from "./organization-review.model";
 
 export type UserProps = ExtractProps<User>;
 
@@ -40,6 +44,10 @@ export interface UserRelations {
   contact: ModelRelatedNodesI<
     ReturnType<typeof UserContacts>,
     UserContactInstance
+  >;
+  reviews: ModelRelatedNodesI<
+    ReturnType<typeof OrganizationReviews>,
+    OrganizationReviewInstance
   >;
 }
 
@@ -80,6 +88,8 @@ export const Users = (neogma: Neogma): NeogmaModel<UserProps, UserRelations> =>
               property: "canTeach",
               schema: {
                 type: "boolean",
+                required: true,
+                allowEmpty: false,
               },
             },
           },
@@ -103,6 +113,11 @@ export const Users = (neogma: Neogma): NeogmaModel<UserProps, UserRelations> =>
           model: GithubUsers(neogma),
           direction: "out",
           name: "HAS_GITHUB_USER",
+        },
+        reviews: {
+          model: OrganizationReviews(neogma),
+          direction: "out",
+          name: "LEFT_REVIEW",
         },
       },
     },

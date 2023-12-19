@@ -19,6 +19,7 @@ import {
   UserOrg,
   UserProfile,
   UserRepo,
+  UserSkill,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { RateOrgInput } from "./dto/rate-org.input";
@@ -328,25 +329,22 @@ export class ProfileService {
 
   async getUserSkills(
     wallet: string,
-  ): Promise<
-    | Response<{ id: string; name: string; canTeach: boolean }[]>
-    | ResponseWithNoData
-  > {
+  ): Promise<Response<UserSkill[]> | ResponseWithNoData> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $wallet})-[r:HAS_SKILL]->(skill:Tag)
-        RETURN skill { id: skill.id, name: skill.name, canTeach: r.canTeach }
-      `,
-        { wallet },
-      );
+      const skills = await this.models.Users.findRelationships({
+        alias: "skills",
+        where: { source: { wallet: wallet } },
+      });
 
       return {
         success: true,
         message: "User skills retrieved successfully",
         data:
-          result.records?.map(record =>
-            new UserSkillEntity(record.get("skill")).getProperties(),
+          skills.map(x =>
+            new UserSkillEntity({
+              ...x.target.getDataValues(),
+              canTeach: x.relationship.canTeach,
+            }).getProperties(),
           ) ?? [],
       };
     } catch (err) {
@@ -371,36 +369,30 @@ export class ProfileService {
     dto: UpdateUserProfileInput,
   ): Promise<Response<UserProfile> | ResponseWithNoData> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $wallet})
-        MERGE (user)-[:HAS_PROFILE]->(profile:UserProfile)
-        SET profile.availableForWork = $availableForWork
-
-        WITH user
-        MERGE (user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo)
-        SET contact.preferred = $preferred
-        SET contact.value = $value
-        
-        WITH user
-        RETURN {
-          availableForWork: [(user)-[:HAS_PROFILE]->(profile:UserProfile) | profile.availableForWork][0],
-          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
-          username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-          avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-          contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0]
-        } as profile
-
-      `,
-        { wallet, ...dto, ...dto.contact },
+      const userAvailability = await this.models.Users.updateRelationship(
+        { availableForWork: dto.availableForWork },
+        { alias: "profile", where: { source: { wallet: wallet } } },
       );
+
+      if (!userAvailability.summary.updateStatistics.containsUpdates()) {
+        throw new Error("Error updating user availability");
+      }
+
+      const userContact = await this.models.Users.updateRelationship(
+        dto.contact,
+        { alias: "contact", where: { source: { wallet: wallet } } },
+      );
+
+      if (!userContact.summary.updateStatistics.containsUpdates()) {
+        throw new Error("Error updating user contact info");
+      }
+
+      const newProfile = await this.getUserProfile(wallet);
 
       return {
         success: true,
         message: "User profile updated successfully",
-        data: new UserProfileEntity(
-          result.records[0]?.get("profile"),
-        ).getProperties(),
+        data: (newProfile as Response<UserProfile>).data,
       };
     } catch (err) {
       Sentry.withScope(scope => {

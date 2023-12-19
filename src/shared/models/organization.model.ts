@@ -29,6 +29,10 @@ import {
   OrganizationAliasInstance,
   OrganizationAliases,
 } from "./organization-alias.model";
+import {
+  OrganizationReviewInstance,
+  OrganizationReviews,
+} from "./organization-review.model";
 
 export type OrganizationProps = ExtractProps<Organization>;
 
@@ -72,6 +76,10 @@ export interface OrganizationRelations {
   twitter: ModelRelatedNodesI<ReturnType<typeof Twitters>, TwitterInstance>;
   telegram: ModelRelatedNodesI<ReturnType<typeof Telegrams>, TelegramInstance>;
   website: ModelRelatedNodesI<ReturnType<typeof Websites>, WebsiteInstance>;
+  reviews: ModelRelatedNodesI<
+    ReturnType<typeof OrganizationReviews>,
+    OrganizationReviewInstance
+  >;
 }
 
 export const Organizations = (
@@ -193,6 +201,11 @@ export const Organizations = (
           model: Websites(neogma),
           direction: "out",
           name: "HAS_WEBSITE",
+        },
+        reviews: {
+          model: OrganizationReviews(neogma),
+          direction: "out",
+          name: "HAS_REVIEW",
         },
       },
       methods: {

@@ -1,18 +1,40 @@
-import { ModelFactory, Neogma, NeogmaInstance, NeogmaModel } from "neogma";
+import {
+  ModelFactory,
+  ModelRelatedNodesI,
+  Neogma,
+  NeogmaInstance,
+  NeogmaModel,
+} from "neogma";
 import {
   ExtractProps,
   GithubUserProperties as GithubUser,
   NoRelations,
 } from "../types";
+import { Repositories, RepositoryInstance } from "./repository.model";
 
 export type GithubUserProps = ExtractProps<GithubUser>;
 
 export type GithubUserInstance = NeogmaInstance<GithubUserProps, NoRelations>;
 
+export interface GithubUserRelations {
+  repositories: ModelRelatedNodesI<
+    ReturnType<typeof Repositories>,
+    RepositoryInstance,
+    {
+      summary: string | null;
+      commits: number | null;
+    },
+    {
+      summary: string | null;
+      commits: number | null;
+    }
+  >;
+}
+
 export const GithubUsers = (
   neogma: Neogma,
-): NeogmaModel<GithubUserProps, NoRelations> =>
-  ModelFactory<GithubUserProps, NoRelations>(
+): NeogmaModel<GithubUserProps, GithubUserRelations> =>
+  ModelFactory<GithubUserProps, GithubUserRelations>(
     {
       label: "GithubUser",
       schema: {
@@ -27,6 +49,31 @@ export const GithubUsers = (
         avatarUrl: { type: "string", allowEmpty: false, required: true },
         accessToken: { type: "string", allowEmpty: false, required: true },
         refreshToken: { type: "string", allowEmpty: false, required: true },
+      },
+      relationships: {
+        repositories: {
+          model: Repositories(neogma),
+          direction: "out",
+          name: "HISTORICALLY_CONTRIBUTED_TO",
+          properties: {
+            summary: {
+              property: "summary",
+              schema: {
+                type: "string",
+                required: false,
+                allowEmpty: true,
+              },
+            },
+            commits: {
+              property: "commits",
+              schema: {
+                type: "number",
+                required: false,
+                allowEmpty: true,
+              },
+            },
+          },
+        },
       },
     },
     neogma,
