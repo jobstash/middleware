@@ -23,7 +23,7 @@ export const GithubUsers = (
         },
         login: { type: "string", allowEmpty: false, required: true },
         nodeId: { type: "string", allowEmpty: false, required: true },
-        gravatarId: { type: "string", allowEmpty: false, required: true },
+        gravatarId: { type: "string", allowEmpty: true, required: false },
         avatarUrl: { type: "string", allowEmpty: false, required: true },
         accessToken: { type: "string", allowEmpty: false, required: true },
         refreshToken: { type: "string", allowEmpty: false, required: true },

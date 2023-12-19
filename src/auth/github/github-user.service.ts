@@ -31,7 +31,7 @@ export class GithubUserService {
   async githubUserHasUser(githubId: number): Promise<boolean> {
     const result = await this.neogma.queryRunner.run(
       `
-        RETURN EXISTS((:User)-[:HAS_GITHUB_USER]->(:GithubUser {id: $githubUserId})) AS hasUser
+        RETURN EXISTS((:User)-[:HAS_GITHUB_USER]->(:GithubUser {id: $githubId})) AS hasUser
       `,
       { githubId },
     );
@@ -63,7 +63,7 @@ export class GithubUserService {
         id: updateObject.githubId,
         login: updateObject.githubLogin,
         nodeId: updateObject.githubNodeId,
-        gravatarId: updateObject.githubGravatarId,
+        gravatarId: updateObject.githubGravatarId ?? null,
         avatarUrl: updateObject.githubAvatarUrl,
         accessToken: updateObject.githubAccessToken,
         refreshToken: updateObject.githubRefreshToken,
@@ -77,7 +77,7 @@ export class GithubUserService {
         }
 
         await this.update(githubUserNode.getId(), payload);
-        const hasUser = this.githubUserHasUser(githubUserNode.getId());
+        const hasUser = await this.githubUserHasUser(githubUserNode.getId());
 
         if (!hasUser) {
           await this.userService.addGithubUser(
@@ -177,6 +177,7 @@ export class GithubUserService {
     if (oldNode) {
       const result = await this.models.GithubUsers.update(dto, {
         where: { id: id1 },
+        return: true,
       });
       return new GithubUserNode(instanceToNode(result[0][0]));
     } else {
