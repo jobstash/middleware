@@ -237,7 +237,7 @@ export class ProfileService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        MATCH (user:User {wallet: "0x921f80499A00aC6E95AAE0DAa411D338f41D5Da2"})
+        MATCH (user:User {wallet: $wallet})
         OPTIONAL MATCH (user)-[:HAS_GITHUB_USER|HISTORICALLY_CONTRIBUTED_TO*2]->(:GithubRepository)<-[:HAS_REPOSITORY|HAS_GITHUB*2]-(organization: Organization)
         OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
         WITH apoc.coll.toSet(COLLECT(organization {
