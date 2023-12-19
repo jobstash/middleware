@@ -1,3 +1,10 @@
+## [1.63.8](https://github.com/jobstash/middleware/compare/v1.63.7...v1.63.8) (2023-12-19)
+
+
+### Bug Fixes
+
+* **profile:** fixed bug on get user orgs service ([3279969](https://github.com/jobstash/middleware/commit/32799697fc24b4ff386ea84548f967029d71b2b1))
+
 ## [1.63.7](https://github.com/jobstash/middleware/compare/v1.63.6...v1.63.7) (2023-12-18)
 
 
