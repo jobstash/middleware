@@ -18,7 +18,7 @@ import { getSchemaPath } from "@nestjs/swagger";
 import { Response } from "../interfaces/response.interface";
 import { CustomLogger } from "../utils/custom-logger";
 import {
-  OrgListResult,
+  OrgDetailsResult,
   OrgRating,
   PaginatedData,
   ShortOrg,
@@ -401,7 +401,7 @@ export const generateOrgAggregateRatings = (
   };
 };
 
-export const toShortOrg = (org: OrgListResult): ShortOrg => {
+export const toShortOrg = (org: OrgDetailsResult): ShortOrg => {
   const {
     orgId,
     website,

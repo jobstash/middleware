@@ -37,7 +37,7 @@ import {
   ShortOrg,
   PaginatedData,
   OrgFilterConfigs,
-  OrgListResult,
+  OrgDetailsResult,
 } from "src/shared/types";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
@@ -222,7 +222,7 @@ export class OrganizationsController {
     schema: {
       allOf: [
         {
-          $ref: getSchemaPath(OrgListResult),
+          $ref: getSchemaPath(OrgDetailsResult),
         },
       ],
     },
@@ -240,7 +240,7 @@ export class OrganizationsController {
   async getOrgDetailsById(
     @Param("id") id: string,
     @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<OrgListResult | undefined> {
+  ): Promise<OrgDetailsResult | undefined> {
     this.logger.log(`/organizations/details/${id}`);
     const result = await this.organizationsService.getOrgDetailsById(id);
     if (result === undefined) {

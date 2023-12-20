@@ -6,8 +6,8 @@ import {
   PaginatedData,
   OrgFilterConfigs,
   OrgFilterConfigsEntity,
-  OrgListResult,
-  OrgListResultEntity,
+  OrgDetailsResult,
+  OrgDetailsResultEntity,
   OrganizationWithRelations,
   ResponseWithNoData,
 } from "src/shared/types";
@@ -33,8 +33,8 @@ export class OrganizationsService {
     private models: ModelService,
   ) {}
 
-  getOrgListResults = async (): Promise<OrgListResult[]> => {
-    const results: OrgListResult[] = [];
+  getOrgListResults = async (): Promise<OrgDetailsResult[]> => {
+    const results: OrgDetailsResult[] = [];
     const generatedQuery = `
         MATCH (organization:Organization)
         RETURN organization {
@@ -126,9 +126,9 @@ export class OrganizationsService {
     try {
       const resultSet = (
         await this.neogma.queryRunner.run(generatedQuery)
-      ).records?.map(record => record?.get("res") as OrgListResult);
+      ).records?.map(record => record?.get("res") as OrgDetailsResult);
       for (const result of resultSet) {
-        results.push(new OrgListResultEntity(result).getProperties());
+        results.push(new OrgDetailsResultEntity(result).getProperties());
       }
     } catch (err) {
       Sentry.withScope(scope => {
@@ -170,7 +170,7 @@ export class OrganizationsService {
       limit,
     } = paramsPassed;
 
-    const results: OrgListResult[] = [];
+    const results: OrgDetailsResult[] = [];
 
     try {
       const result = await this.getOrgListResults();
@@ -195,7 +195,7 @@ export class OrganizationsService {
       };
     }
 
-    const orgFilters = (org: OrgListResult): boolean => {
+    const orgFilters = (org: OrgDetailsResult): boolean => {
       const { headcountEstimate, jobCount, projectCount, location, name } =
         toShortOrg(org);
       const { fundingRounds, investors } = org;
@@ -222,7 +222,7 @@ export class OrganizationsService {
 
     const filtered = results.filter(orgFilters);
 
-    const getSortParam = (org: OrgListResult): number | null => {
+    const getSortParam = (org: OrgDetailsResult): number | null => {
       const shortOrg = toShortOrg(org);
       const lastJob = sort(org.jobs).desc(x => x.timestamp)[0];
       switch (orderBy) {
@@ -239,7 +239,7 @@ export class OrganizationsService {
       }
     };
 
-    let final: OrgListResult[] = [];
+    let final: OrgDetailsResult[] = [];
     const naturalSort = createNewSortInstance({
       comparer: new Intl.Collator(undefined, {
         numeric: true,
@@ -247,11 +247,11 @@ export class OrganizationsService {
       }).compare,
     });
     if (!order || order === "asc") {
-      final = naturalSort<OrgListResult>(filtered).asc(x =>
+      final = naturalSort<OrgDetailsResult>(filtered).asc(x =>
         params.orderBy ? getSortParam(x) : x.name,
       );
     } else {
-      final = naturalSort<OrgListResult>(filtered).desc(x =>
+      final = naturalSort<OrgDetailsResult>(filtered).desc(x =>
         params.orderBy ? getSortParam(x) : x.name,
       );
     }
@@ -299,7 +299,9 @@ export class OrganizationsService {
     }
   }
 
-  async getOrgDetailsById(orgId: string): Promise<OrgListResult | undefined> {
+  async getOrgDetailsById(
+    orgId: string,
+  ): Promise<OrgDetailsResult | undefined> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
@@ -391,7 +393,7 @@ export class OrganizationsService {
         `,
         { orgId },
       );
-      return new OrgListResultEntity(
+      return new OrgDetailsResultEntity(
         result.records[0]?.get("res"),
       ).getProperties();
     } catch (err) {

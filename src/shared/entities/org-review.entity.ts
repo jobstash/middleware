@@ -1,5 +1,5 @@
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
-import { OrgReview } from "../interfaces";
+import { LeanOrgReview, OrgReview } from "../interfaces";
 
 export class OrgReviewEntity {
   constructor(private readonly raw: OrgReview) {}
@@ -33,6 +33,41 @@ export class OrgReviewEntity {
         onboarding: nonZeroOrNull(rating?.onboarding),
         workLifeBalance: nonZeroOrNull(rating?.workLifeBalance),
       },
+      review: {
+        title: notStringOrNull(review?.title),
+        location: notStringOrNull(review?.location),
+        timezone: notStringOrNull(review?.timezone),
+        workingHours: {
+          start: notStringOrNull(review?.workingHours?.start),
+          end: notStringOrNull(review?.workingHours?.end),
+        },
+        pros: notStringOrNull(review?.pros),
+        cons: notStringOrNull(review?.cons),
+      },
+      reviewedTimestamp: nonZeroOrNull(reviewedTimestamp),
+    });
+  }
+}
+
+export class LeanOrgReviewEntity {
+  constructor(private readonly raw: OrgReview) {}
+
+  getProperties(): LeanOrgReview {
+    const {
+      membershipStatus,
+      startDate,
+      endDate,
+      reviewedTimestamp,
+      commitCount,
+      review,
+      rating,
+    } = this.raw;
+    return new LeanOrgReview({
+      membershipStatus: notStringOrNull(membershipStatus),
+      startDate: nonZeroOrNull(startDate),
+      endDate: nonZeroOrNull(endDate),
+      commitCount: nonZeroOrNull(commitCount),
+      rating: rating,
       review: {
         title: notStringOrNull(review?.title),
         location: notStringOrNull(review?.location),

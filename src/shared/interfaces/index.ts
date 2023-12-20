@@ -26,7 +26,7 @@ export * from "./paginated-data.interface";
 export * from "./tag-preference.interface";
 export * from "./jobpost-offline-status.interface";
 export * from "./jobpost-online-status.interface";
-export * from "./org-list-result.interface";
+export * from "./org-details-result.interface";
 export * from "./org-ratings.interface";
 export * from "./org-info.interface";
 export * from "./org-review.interface";

@@ -1,10 +1,9 @@
 import {
-  FundingRound,
+  LeanOrgReview,
   OrgJob,
-  OrganizationWithRelations,
-  ProjectMoreInfo,
-  Tag,
   OrgReview,
+  OrganizationWithRelations,
+  Tag,
 } from "../interfaces";
 import {
   generateOrgAggregateRating,
@@ -12,23 +11,38 @@ import {
   nonZeroOrNull,
   notStringOrNull,
 } from "../helpers";
-import { OrgListResult } from "../interfaces/org-list-result.interface";
-import { Investor } from "../interfaces/investor.interface";
-import { OrgReviewEntity } from "./org-review.entity";
+import { OrgDetailsResult } from "../interfaces/org-details-result.interface";
+import { LeanOrgReviewEntity } from "./org-review.entity";
+import { OmitType } from "@nestjs/swagger";
+import { isLeft } from "fp-ts/lib/Either";
+import { report } from "io-ts-human-reporter";
 
-type RawOrg = OrganizationWithRelations & {
-  jobs?: OrgJob[] | null;
-  tags: Tag[];
-  projects?: ProjectMoreInfo[] | null;
-  reviews?: OrgReview[] | null;
-  investors?: Investor[] | null;
-  fundingRounds?: FundingRound[] | null;
-};
+class RawOrg extends OmitType(OrganizationWithRelations, ["reviews"] as const) {
+  reviews: LeanOrgReview[] | OrgReview[] | null;
+  jobs: OrgJob[] | null;
+  tags: Tag[] | null;
+  constructor(raw: RawOrg) {
+    const { jobs, tags, ...orgProperties } = raw;
+    super(orgProperties);
+    const result = OrgDetailsResult.OrgListResultType.decode(raw);
 
-export class OrgListResultEntity {
+    this.jobs = jobs;
+    this.tags = tags;
+
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(
+          `org list result instance with id ${this.orgId} failed validation with error '${x}'`,
+        );
+      });
+    }
+  }
+}
+
+export class OrgDetailsResultEntity {
   constructor(private readonly raw: RawOrg) {}
 
-  getProperties(): OrgListResult {
+  getProperties(): OrgDetailsResult {
     const organization = this.raw;
     const { jobs, investors, fundingRounds, projects, tags, reviews } =
       organization;
@@ -36,7 +50,7 @@ export class OrgListResultEntity {
       generateOrgAggregateRating(review.rating),
     );
 
-    return new OrgListResult({
+    return new OrgDetailsResult({
       ...organization,
       aggregateRating:
         aggregateRatings.length > 0
@@ -149,7 +163,7 @@ export class OrgListResultEntity {
         timestamp: nonZeroOrNull(jobpost?.timestamp),
       })),
       tags: tags ?? [],
-      reviews: reviews.map(r => new OrgReviewEntity(r).getProperties()),
+      reviews: reviews.map(r => new LeanOrgReviewEntity(r).getProperties()),
     });
   }
 }

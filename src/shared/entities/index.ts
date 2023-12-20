@@ -6,7 +6,7 @@ export * from "./user-profile.entity";
 export * from "./organization.entity";
 export * from "./github-user.entity";
 export * from "./job-list-result.entity";
-export * from "./org-list-result.entity";
+export * from "./org-details-result.entity";
 export * from "./user-org.entity";
 export * from "./user-repo.entity";
 export * from "./user-showcase.entity";

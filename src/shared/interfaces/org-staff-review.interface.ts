@@ -3,6 +3,7 @@ import * as t from "io-ts";
 import { report } from "io-ts-human-reporter";
 
 const GMTTimezones = [
+  "ASYNC",
   "GMT-12",
   "GMT-11",
   "GMT-10",

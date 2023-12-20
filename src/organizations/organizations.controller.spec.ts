@@ -7,7 +7,7 @@ import { OrgListParams } from "./dto/org-list.input";
 import { Integer } from "neo4j-driver";
 import {
   OrgFilterConfigs,
-  OrgListResult,
+  OrgDetailsResult,
   Organization,
   ProjectWithRelations,
   ShortOrg,
@@ -49,7 +49,7 @@ describe("OrganizationsController", () => {
   };
 
   const olrHasArrayPropsDuplication = (
-    orgListResult: OrgListResult,
+    orgListResult: OrgDetailsResult,
   ): boolean => {
     const hasDuplicateProjects = hasDuplicates(
       orgListResult.projects,
