@@ -1,3 +1,10 @@
+## [1.65.1](https://github.com/jobstash/middleware/compare/v1.65.0...v1.65.1) (2023-12-20)
+
+
+### Bug Fixes
+
+* fixed bugs on orgs and profile endpoints ([0cdcd6b](https://github.com/jobstash/middleware/commit/0cdcd6bdc6fd2d828ed5c75d859885dd895e5cad))
+
 # [1.65.0](https://github.com/jobstash/middleware/compare/v1.64.0...v1.65.0) (2023-12-20)
 
 
