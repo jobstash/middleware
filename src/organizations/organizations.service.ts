@@ -886,4 +886,37 @@ export class OrganizationsService {
 
     return res.length !== 0;
   }
+
+  async relateToProject(
+    organizationId: string,
+    projectId: string,
+  ): Promise<boolean> {
+    try {
+      (
+        await this.models.Organizations.findOne({
+          where: {
+            id: organizationId,
+          },
+        })
+      ).relateTo({
+        alias: "projects",
+        where: {
+          id: projectId,
+        },
+        assertCreatedRelationships: 1,
+      });
+      return true;
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", { organizationId, projectId });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`OrganizationsService::relateToProject ${err.message}`);
+      return false;
+    }
+  }
 }
