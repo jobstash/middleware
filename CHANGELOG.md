@@ -1,3 +1,10 @@
+# [1.65.0](https://github.com/jobstash/middleware/compare/v1.64.0...v1.65.0) (2023-12-20)
+
+
+### Features
+
+* **organizations:** privated compensation info ([fe94328](https://github.com/jobstash/middleware/commit/fe943280a23be54a63c9f1b989b04a857f7cf2e4))
+
 # [1.64.0](https://github.com/jobstash/middleware/compare/v1.63.9...v1.64.0) (2023-12-19)
 
 
