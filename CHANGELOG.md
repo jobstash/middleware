@@ -1,3 +1,10 @@
+# [1.66.0](https://github.com/jobstash/middleware/compare/v1.65.1...v1.66.0) (2023-12-20)
+
+
+### Features
+
+* **organizations:** added support for extra review params ([09bd6d4](https://github.com/jobstash/middleware/commit/09bd6d4c9d5caa7e62de47be15aeee2bc025221d))
+
 ## [1.65.1](https://github.com/jobstash/middleware/compare/v1.65.0...v1.65.1) (2023-12-20)
 
 
