@@ -369,24 +369,89 @@ export class ProfileService {
     dto: UpdateUserProfileInput,
   ): Promise<Response<UserProfile> | ResponseWithNoData> {
     try {
-      const userAvailability = await this.models.Users.updateRelationship(
-        { availableForWork: dto.availableForWork },
-        { alias: "profile", where: { source: { wallet: wallet } } },
-      );
+      const hasProfile =
+        (
+          await this.models.Users.findRelationships({
+            alias: "profile",
+            limit: 1,
+            maxHops: 1,
+            where: {
+              source: {
+                wallet: wallet,
+              },
+            },
+          })
+        ).length === 1;
 
-      if (!userAvailability.summary.updateStatistics.containsUpdates()) {
-        throw new Error("Error updating user availability");
+      if (hasProfile) {
+        const userAvailability = await this.models.Users.updateRelationship(
+          { availableForWork: dto.availableForWork },
+          { alias: "profile", where: { source: { wallet: wallet } } },
+        );
+
+        if (!userAvailability.summary.updateStatistics.containsUpdates()) {
+          throw new Error("Error updating user availability");
+        }
+      } else {
+        const userProfile = await this.models.UserProfiles.createOne({
+          id: randomUUID(),
+          availableForWork: dto.availableForWork,
+        });
+        await this.models.Users.relateTo({
+          alias: "profile",
+          where: {
+            source: {
+              wallet: wallet,
+            },
+            target: {
+              id: userProfile.id,
+            },
+          },
+          assertCreatedRelationships: 1,
+        });
       }
 
-      const userContact = await this.models.Users.updateRelationship(
-        dto.contact,
-        { alias: "contact", where: { source: { wallet: wallet } } },
-      );
+      const hasContact =
+        (
+          await this.models.Users.findRelationships({
+            alias: "contact",
+            limit: 1,
+            maxHops: 1,
+            where: {
+              source: {
+                wallet: wallet,
+              },
+            },
+          })
+        ).length === 1;
 
-      if (!userContact.summary.updateStatistics.containsUpdates()) {
-        throw new Error("Error updating user contact info");
+      if (hasContact) {
+        const userContact = await this.models.Users.updateRelationship(
+          dto.contact,
+          { alias: "contact", where: { source: { wallet: wallet } } },
+        );
+
+        if (!userContact.summary.updateStatistics.containsUpdates()) {
+          throw new Error("Error updating user contact");
+        }
+      } else {
+        const userContact = await this.models.UserContacts.createOne({
+          id: randomUUID(),
+          ...dto.contact,
+        });
+        await this.models.Users.relateTo({
+          alias: "contact",
+          where: {
+            source: {
+              wallet: wallet,
+            },
+            target: {
+              id: userContact.id,
+            },
+          },
+          assertCreatedRelationships: 1,
+        });
       }
-
       const newProfile = await this.getUserProfile(wallet);
 
       return {

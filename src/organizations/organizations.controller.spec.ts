@@ -169,11 +169,13 @@ describe("OrganizationsController", () => {
       ...new OrgListParams(),
       page: 1,
       limit: 1,
-      order: "asc",
-      orderBy: "recentJobDate",
+      order: "desc",
+      orderBy: "rating",
     };
 
-    const org = (await controller.getOrgsListWithSearch(params)).data[0];
+    const result = await controller.getOrgsListWithSearch(params);
+
+    const org = result.data[0];
 
     const res: Partial<Response> = {};
 

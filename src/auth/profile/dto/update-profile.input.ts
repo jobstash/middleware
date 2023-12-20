@@ -10,7 +10,7 @@ export class UpdateUserProfileInput {
   @ApiProperty()
   @IsBoolean()
   @IsNotEmpty()
-  availableForWork: string;
+  availableForWork: boolean;
 
   @ApiProperty()
   @IsObject()

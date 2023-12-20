@@ -2,7 +2,6 @@ import {
   ApiExtraModels,
   ApiProperty,
   ApiPropertyOptional,
-  OmitType,
   getSchemaPath,
 } from "@nestjs/swagger";
 import {
@@ -21,29 +20,23 @@ import { Investor } from "./investor.interface";
 import { LeanOrgReview } from "./org-review.interface";
 
 @ApiExtraModels(OrganizationWithRelations, OrgDetailsResult, OrgJob)
-export class OrgDetailsResult extends OmitType(OrganizationWithRelations, [
-  "reviews",
-] as const) {
+export class OrgDetailsResult extends Organization {
   public static readonly OrgListResultType = t.intersection([
-    t.intersection([
-      Organization.OrganizationType,
-      t.strict({
-        aggregateRating: t.number,
-        aggregateRatings: OrgRating.OrgRatingType,
-        reviewCount: t.number,
-        discord: t.union([t.string, t.null]),
-        website: t.union([t.string, t.null]),
-        telegram: t.union([t.string, t.null]),
-        github: t.union([t.string, t.null]),
-        alias: t.union([t.string, t.null]),
-        twitter: t.union([t.string, t.null]),
-        docs: t.union([t.string, t.null]),
-        projects: t.array(ProjectWithRelations.ProjectWithRelationsType),
-        fundingRounds: t.array(FundingRound.FundingRoundType),
-        investors: t.array(Investor.InvestorType),
-      }),
-    ]),
+    Organization.OrganizationType,
     t.strict({
+      aggregateRating: t.number,
+      aggregateRatings: OrgRating.OrgRatingType,
+      reviewCount: t.number,
+      discord: t.union([t.string, t.null]),
+      website: t.union([t.string, t.null]),
+      telegram: t.union([t.string, t.null]),
+      github: t.union([t.string, t.null]),
+      alias: t.union([t.string, t.null]),
+      twitter: t.union([t.string, t.null]),
+      docs: t.union([t.string, t.null]),
+      projects: t.array(ProjectWithRelations.ProjectWithRelationsType),
+      fundingRounds: t.array(FundingRound.FundingRoundType),
+      investors: t.array(Investor.InvestorType),
       jobs: t.array(OrgJob.OrgJobType),
       tags: t.array(Tag.TagType),
       reviews: t.array(LeanOrgReview.LeanOrgReviewType),
