@@ -7,7 +7,6 @@ import { ModelService } from "src/model/model.service";
 import {
   AllJobListResultEntity,
   AllJobsFilterConfigsEntity,
-  StructuredJobpostWithRelationsEntity,
 } from "src/shared/entities";
 import {
   normalizeString,
@@ -26,7 +25,6 @@ import {
   PaginatedData,
   ResponseWithNoData,
   Response,
-  StructuredJobpostWithRelations,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { AllJobsParams } from "./dto/all-jobs.input";
@@ -948,19 +946,30 @@ export class JobsService {
     dto: ChangeJobClassificationInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (jc:JobpostClassification {name: $classification})
-        MATCH (structured_jobpost:StructuredJobpost WHERE structured_jobpost.shortUUID IN $shortUUIDs)-[c:HAS_CLASSIFICATION]->(:JobpostClassification)
-        DELETE c
-        
-        WITH structured_jobpost, jc
-        CREATE (structured_jobpost)-[nc:HAS_CLASSIFICATION]->(jc)
-        SET nc.creator = $wallet
-      `,
-        { wallet, ...dto },
-      );
-
+      for (const uuid of dto.shortUUIDs) {
+        await this.models.StructuredJobposts.deleteRelationships({
+          alias: "classification",
+          where: {
+            source: { shortUUID: uuid },
+            // target: { name: job.target.name },
+          },
+        });
+        await this.models.StructuredJobposts.relateTo({
+          alias: "classification",
+          where: {
+            source: {
+              shortUUID: uuid,
+            },
+            target: {
+              name: dto.classification,
+            },
+          },
+          assertCreatedRelationships: 1,
+          properties: {
+            creator: wallet,
+          },
+        });
+      }
       return {
         success: true,
         message: "Job classification changed successfully",
@@ -987,19 +996,44 @@ export class JobsService {
     dto: EditJobTagsInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID})
-        OPTIONAL MATCH (structured_jobpost)-[r:HAS_TAG]->(:Tag)
-        DELETE r
+      const oldSkills = await this.models.StructuredJobposts.findRelationships({
+        where: {
+          source: {
+            shortUUID: dto.shortUUID,
+          },
+        },
+        alias: "tags",
+      });
 
-        WITH structured_jobpost
-        MATCH (tag:Tag WHERE tag.normalizedName IN $tags)
-        MERGE (structured_jobpost)-[nc:HAS_TAG]->(tag)
-        SET nc.creator = $wallet
-      `,
-        { wallet, ...dto },
-      );
+      for (const skill of oldSkills) {
+        await this.models.StructuredJobposts.deleteRelationships({
+          alias: "tags",
+          where: {
+            source: { shortUUID: dto.shortUUID },
+            target: {
+              id: skill.target.id,
+              normalizedName: skill.target.normalizedName,
+            },
+          },
+        });
+      }
+
+      for (const skill of dto.tags) {
+        await this.models.StructuredJobposts.relateTo({
+          alias: "tags",
+          where: {
+            source: {
+              shortUUID: dto.shortUUID,
+            },
+            target: {
+              normalizedName: skill,
+            },
+          },
+          properties: {
+            creator: wallet,
+          },
+        });
+      }
 
       return {
         success: true,
@@ -1027,18 +1061,40 @@ export class JobsService {
     dto: ChangeJobCommitmentInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (jc:JobpostCommitment {name: $commitment}), (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID})
-        MATCH (structured_jobpost)-[c:HAS_COMMITMENT]->()
-        DELETE c
-        
-        WITH structured_jobpost, jc
-        CREATE (structured_jobpost)-[nc:HAS_COMMITMENT]->(jc)
-        SET nc.creator = $wallet
-      `,
-        { wallet, ...dto },
-      );
+      const job = (
+        await this.models.StructuredJobposts.findRelationships({
+          where: {
+            source: {
+              shortUUID: dto.shortUUID,
+            },
+          },
+          alias: "commitment",
+          limit: 1,
+        })
+      )[0];
+
+      await this.models.StructuredJobposts.deleteRelationships({
+        alias: "commitment",
+        where: {
+          source: { shortUUID: dto.shortUUID },
+          target: { name: job.target.name },
+        },
+      });
+      await this.models.StructuredJobposts.relateTo({
+        alias: "commitment",
+        where: {
+          source: {
+            shortUUID: dto.shortUUID,
+          },
+          target: {
+            name: dto.commitment,
+          },
+        },
+        assertCreatedRelationships: 1,
+        properties: {
+          creator: wallet,
+        },
+      });
 
       return {
         success: true,
@@ -1066,18 +1122,40 @@ export class JobsService {
     dto: ChangeJobLocationTypeInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (jlt:JobpostLocationType {name: $locationType})
-        MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID} )-[c:HAS_LOCATION_TYPE]->()
-        DELETE c
-        
-        WITH structured_jobpost, jlt
-        CREATE (structured_jobpost)-[nc:HAS_LOCATION_TYPE]->(jlt)
-        SET nc.creator = $wallet
-      `,
-        { wallet, ...dto },
-      );
+      const job = (
+        await this.models.StructuredJobposts.findRelationships({
+          where: {
+            source: {
+              shortUUID: dto.shortUUID,
+            },
+          },
+          alias: "locationType",
+          limit: 1,
+        })
+      )[0];
+
+      await this.models.StructuredJobposts.deleteRelationships({
+        alias: "locationType",
+        where: {
+          source: { shortUUID: dto.shortUUID },
+          target: { name: job.target.name },
+        },
+      });
+      await this.models.StructuredJobposts.relateTo({
+        alias: "locationType",
+        where: {
+          source: {
+            shortUUID: dto.shortUUID,
+          },
+          target: {
+            name: dto.locationType,
+          },
+        },
+        assertCreatedRelationships: 1,
+        properties: {
+          creator: wallet,
+        },
+      });
 
       return {
         success: true,
@@ -1105,18 +1183,39 @@ export class JobsService {
     dto: ChangeJobProjectInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-          MATCH (project:Project {id: $projectId})
-          MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID} )<-[c:HAS_JOB]-()
-          DELETE c
-
-          WITH structured_jobpost, project
-          CREATE (structured_jobpost)<-[nc:HAS_JOB]-(project)
-          SET nc.creator = $wallet
-        `,
-        { wallet, ...dto },
-      );
+      const oldProject = (
+        await this.models.Projects.findRelationships({
+          alias: "jobs",
+          limit: 1,
+          where: {
+            target: {
+              shortUUID: dto.shortUUID,
+            },
+          },
+        })
+      )[0];
+      await this.models.Projects.deleteRelationships({
+        alias: "jobs",
+        where: {
+          source: { id: oldProject.source.id },
+          target: { shortUUID: dto.shortUUID },
+        },
+      });
+      await this.models.Projects.relateTo({
+        alias: "jobs",
+        where: {
+          target: {
+            shortUUID: dto.shortUUID,
+          },
+          source: {
+            id: dto.projectId,
+          },
+        },
+        assertCreatedRelationships: 1,
+        properties: {
+          creator: wallet,
+        },
+      });
       return {
         success: true,
         message: "Job project changed successfully",
@@ -1150,56 +1249,14 @@ export class JobsService {
       | "isBlocked"
       | "isOnline"
     >,
-  ): Promise<StructuredJobpostWithRelations | undefined> {
-    const res = await this.neogma.queryRunner.run(
-      `
-        MATCH (structured_jobpost:StructuredJobpost { shortUUID: $shortUUID })
-        MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-        WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-        WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost
-        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
-        WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost
-        SET structured_jobpost += $properties
-        RETURN {
-          id: structured_jobpost.id,
-          url: structured_jobpost.url,
-          title: structured_jobpost.title,
-          salary: structured_jobpost.salary,
-          culture: structured_jobpost.culture,
-          location: structured_jobpost.location,
-          summary: structured_jobpost.summary,
-          benefits: structured_jobpost.benefits,
-          shortUUID: structured_jobpost.shortUUID,
-          seniority: structured_jobpost.seniority,
-          description: structured_jobpost.description,
-          requirements: structured_jobpost.requirements,
-          paysInCrypto: structured_jobpost.paysInCrypto,
-          minimumSalary: structured_jobpost.minimumSalary,
-          maximumSalary: structured_jobpost.maximumSalary,
-          salaryCurrency: structured_jobpost.salaryCurrency,
-          responsibilities: structured_jobpost.responsibilities,
-          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
-          offersTokenAllocation: structured_jobpost.offersTokenAllocation,
-          classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
-          commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
-          locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
-          tags: apoc.coll.toSet(tags)
-        } as res
-      `,
-      {
-        shortUUID,
-        properties: {
-          ...job,
-          updatedTimestamp: new Date().getTime(),
-        },
+  ): Promise<JobListResult | undefined> {
+    await this.models.StructuredJobposts.update(job, {
+      return: false,
+      where: {
+        shortUUID: shortUUID,
       },
-    );
-    return res.records.length
-      ? new StructuredJobpostWithRelationsEntity(
-          res.records[0].get("res"),
-        ).getProperties()
-      : undefined;
+    });
+    return this.getJobDetailsByUuid(shortUUID);
   }
 
   async blockJobs(
@@ -1207,13 +1264,23 @@ export class JobsService {
     dto: BlockJobsInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-        MERGE (structured_jobpost:StructuredJobpost WHERE structured_jobpost.shortUUID IN $shortUUIDs)-[br:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-        SET br.creator = $wallet
-      `,
-        { wallet, ...dto },
-      );
+      for (const uuid of dto.shortUUIDs) {
+        await this.models.StructuredJobposts.relateTo({
+          alias: "blocked",
+          where: {
+            source: {
+              shortUUID: uuid,
+            },
+            target: {
+              name: "BlockedDesignation",
+            },
+          },
+          properties: {
+            creator: wallet,
+          },
+          assertCreatedRelationships: 1,
+        });
+      }
 
       return {
         success: true,
@@ -1241,13 +1308,19 @@ export class JobsService {
     dto: BlockJobsInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (structured_jobpost:StructuredJobpost WHERE structured_jobpost.shortUUID IN $shortUUIDs)-[br:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-        DETACH DELETE br
-      `,
-        { wallet, ...dto },
-      );
+      for (const uuid of dto.shortUUIDs) {
+        await this.models.StructuredJobposts.deleteRelationships({
+          alias: "blocked",
+          where: {
+            source: {
+              shortUUID: uuid,
+            },
+            target: {
+              name: "BlockedDesignation",
+            },
+          },
+        });
+      }
 
       return {
         success: true,
@@ -1275,17 +1348,34 @@ export class JobsService {
     dto: BlockJobsInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (structured_jobpost:StructuredJobpost WHERE structured_jobpost.shortUUID IN $shortUUIDs)-[js:HAS_STATUS]->(:JobpostOnlineStatus)
-        DELETE js
-
-        WITH structured_jobpost
-        MERGE (structured_jobpost)-[js:HAS_STATUS]->(:JobpostOfflineStatus)
-        SET js.creator = $wallet
-      `,
-        { wallet, ...dto },
-      );
+      for (const uuid of dto.shortUUIDs) {
+        await this.models.StructuredJobposts.deleteRelationships({
+          alias: "onlineStatus",
+          where: {
+            source: {
+              shortUUID: uuid,
+            },
+            target: {
+              name: "online",
+            },
+          },
+        });
+        await this.models.StructuredJobposts.relateTo({
+          alias: "offlineStatus",
+          where: {
+            source: {
+              shortUUID: uuid,
+            },
+            target: {
+              name: "offline",
+            },
+          },
+          properties: {
+            creator: wallet,
+          },
+          assertCreatedRelationships: 1,
+        });
+      }
 
       return {
         success: true,
@@ -1313,18 +1403,34 @@ export class JobsService {
     dto: BlockJobsInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (structured_jobpost:StructuredJobpost WHERE structured_jobpost.shortUUID IN $shortUUIDs)-[js:HAS_STATUS]->(:JobpostOfflineStatus)
-        DELETE js
-
-        WITH structured_jobpost
-        MERGE (structured_jobpost)-[js:HAS_STATUS]->(:JobpostOnlineStatus)
-        SET js.creator = $wallet
-      `,
-        { wallet, ...dto },
-      );
-
+      for (const uuid of dto.shortUUIDs) {
+        await this.models.StructuredJobposts.deleteRelationships({
+          alias: "offlineStatus",
+          where: {
+            source: {
+              shortUUID: uuid,
+            },
+            target: {
+              name: "offline",
+            },
+          },
+        });
+        await this.models.StructuredJobposts.relateTo({
+          alias: "onlineStatus",
+          where: {
+            source: {
+              shortUUID: uuid,
+            },
+            target: {
+              name: "online",
+            },
+          },
+          properties: {
+            creator: wallet,
+          },
+          assertCreatedRelationships: 1,
+        });
+      }
       return {
         success: true,
         message: "Jobs made online successfully",

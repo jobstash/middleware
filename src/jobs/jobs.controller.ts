@@ -327,6 +327,7 @@ export class JobsController {
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body() dto: ChangeJobClassificationInput,
   ): Promise<ResponseWithNoData> {
+    this.logger.log(`/jobs/change-classification`);
     try {
       const { address } = await this.authService.getSession(req, res);
       return this.jobsService.changeJobClassification(address as string, dto);
@@ -367,9 +368,10 @@ export class JobsController {
       const tagsToAdd = [];
       for (const tag of tags) {
         const tagNormalizedName = this.tagsService.normalizeTagName(tag);
-        const tagNode =
-          this.tagsService.findByNormalizedName(tagNormalizedName);
-        if (!tagNode) {
+        const tagNode = await this.tagsService.findByNormalizedName(
+          tagNormalizedName,
+        );
+        if (tagNode === null) {
           return {
             success: false,
             message: `Tag ${tag} cannot be added to the job because it doen't exist`,
@@ -378,7 +380,7 @@ export class JobsController {
           tagsToAdd.push(tagNormalizedName);
         }
       }
-      this.logger.log(JSON.stringify(tagsToAdd));
+      this.logger.log(`/jobs/edit-tags ${JSON.stringify(tagsToAdd)}`);
       return this.jobsService.editJobTags(address as string, {
         ...dto,
         tags: tagsToAdd,
@@ -419,7 +421,7 @@ export class JobsController {
     @Res({ passthrough: true }) res: ExpressResponse,
     @Param("id") shortUUID: string,
     @Body(new ValidationPipe({ transform: true })) body: UpdateJobMetadataInput,
-  ): Promise<Response<StructuredJobpostWithRelations> | ResponseWithNoData> {
+  ): Promise<Response<JobListResult> | ResponseWithNoData> {
     this.logger.log(`/jobs/update/${shortUUID} ${JSON.stringify(body)}`);
     const { address } = await this.authService.getSession(req, res);
     const {
@@ -548,6 +550,7 @@ export class JobsController {
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body() dto: BlockJobsInput,
   ): Promise<ResponseWithNoData> {
+    this.logger.log(`/jobs/block`);
     try {
       const { address } = await this.authService.getSession(req, res);
       return this.jobsService.blockJobs(address as string, dto);
@@ -582,6 +585,7 @@ export class JobsController {
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body() dto: BlockJobsInput,
   ): Promise<ResponseWithNoData> {
+    this.logger.log(`/jobs/block`);
     try {
       const { address } = await this.authService.getSession(req, res);
       return this.jobsService.unblockJobs(address as string, dto);

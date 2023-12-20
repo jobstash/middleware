@@ -22,6 +22,18 @@ import {
   JobpostLocationTypeInstance,
   JobpostLocationTypes,
 } from "./jobpost-location-type.model";
+import {
+  JobpostOfflineStatusInstance,
+  JobpostOfflineStatuses,
+} from "./jobpost-offline-status.model";
+import {
+  JobpostOnlineStatusInstance,
+  JobpostOnlineStatuses,
+} from "./jobpost-online-status.model";
+import {
+  BlockedDesignationInstance,
+  BlockedDesignations,
+} from "./blocked-designation.model";
 
 export type StructuredJobpostProps = ExtractProps<
   Omit<StructuredJobpost, "tags">
@@ -47,15 +59,39 @@ export interface StructuredJobpostRelations {
   tags: ModelRelatedNodesI<ReturnType<typeof Tags>, TagInstance>;
   commitment: ModelRelatedNodesI<
     ReturnType<typeof JobpostCommitments>,
-    JobpostCommitmentInstance
+    JobpostCommitmentInstance,
+    { creator: string },
+    { creator: string }
   >;
   locationType: ModelRelatedNodesI<
     ReturnType<typeof JobpostLocationTypes>,
-    JobpostLocationTypeInstance
+    JobpostLocationTypeInstance,
+    { creator: string },
+    { creator: string }
   >;
   classification: ModelRelatedNodesI<
     ReturnType<typeof JobpostClassifications>,
-    JobpostCommitmentInstance
+    JobpostCommitmentInstance,
+    { creator: string },
+    { creator: string }
+  >;
+  onlineStatus: ModelRelatedNodesI<
+    ReturnType<typeof JobpostOnlineStatuses>,
+    JobpostOnlineStatusInstance,
+    { creator: string },
+    { creator: string }
+  >;
+  offlineStatus: ModelRelatedNodesI<
+    ReturnType<typeof JobpostOfflineStatuses>,
+    JobpostOfflineStatusInstance,
+    { creator: string },
+    { creator: string }
+  >;
+  blocked: ModelRelatedNodesI<
+    ReturnType<typeof BlockedDesignations>,
+    BlockedDesignationInstance,
+    { creator: string },
+    { creator: string }
   >;
 }
 
@@ -183,16 +219,91 @@ export const StructuredJobposts = (
           model: JobpostCommitments(neogma),
           direction: "out",
           name: "HAS_COMMITMENT",
+          properties: {
+            creator: {
+              property: "creator",
+              schema: {
+                type: "string",
+                allowEmpty: true,
+                required: false,
+              },
+            },
+          },
         },
         locationType: {
           model: JobpostLocationTypes(neogma),
           direction: "out",
           name: "HAS_LOCATION_TYPE",
+          properties: {
+            creator: {
+              property: "creator",
+              schema: {
+                type: "string",
+                allowEmpty: true,
+                required: false,
+              },
+            },
+          },
         },
         classification: {
           model: JobpostClassifications(neogma),
           direction: "out",
           name: "HAS_CLASSIFICATION",
+          properties: {
+            creator: {
+              property: "creator",
+              schema: {
+                type: "string",
+                allowEmpty: true,
+                required: false,
+              },
+            },
+          },
+        },
+        onlineStatus: {
+          model: JobpostOnlineStatuses(neogma),
+          direction: "out",
+          name: "HAS_STATUS",
+          properties: {
+            creator: {
+              property: "creator",
+              schema: {
+                type: "string",
+                allowEmpty: true,
+                required: false,
+              },
+            },
+          },
+        },
+        offlineStatus: {
+          model: JobpostOfflineStatuses(neogma),
+          direction: "out",
+          name: "HAS_STATUS",
+          properties: {
+            creator: {
+              property: "creator",
+              schema: {
+                type: "string",
+                allowEmpty: true,
+                required: false,
+              },
+            },
+          },
+        },
+        blocked: {
+          model: BlockedDesignations(neogma),
+          direction: "out",
+          name: "HAS_JOB_DESIGNATION",
+          properties: {
+            creator: {
+              property: "creator",
+              schema: {
+                type: "string",
+                allowEmpty: true,
+                required: false,
+              },
+            },
+          },
         },
       },
       methods: {
