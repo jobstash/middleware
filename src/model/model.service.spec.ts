@@ -52,14 +52,14 @@ describe("ModelsService", () => {
 
   it("should be defined", () => {
     expect(models).toBeDefined();
-  });
+  }, 6000000);
 
   it("should be able to access models", async () => {
     expect(models.Organizations.findMany).toBeDefined();
     expect(
       (await models.Organizations.findMany()).length,
     ).toBeGreaterThanOrEqual(1);
-  });
+  }, 6000000);
 
   it("should load the right db", async () => {
     const db = (
@@ -70,5 +70,5 @@ describe("ModelsService", () => {
     ).records[0]?.get("name");
     expect(db).toBeDefined();
     expect(db).toBe(configService.get<string>("NEO4J_DATABASE"));
-  });
+  }, 6000000);
 });

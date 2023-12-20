@@ -10,12 +10,17 @@ export class CreateOrganizationInput {
   @ApiPropertyOptional()
   @IsNotEmpty()
   @IsUrl()
-  logoUrl?: string;
+  logoUrl: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsString()
   name: string;
+
+  @ApiProperty()
+  @IsOptional()
+  @IsString()
+  alias?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -35,22 +40,17 @@ export class CreateOrganizationInput {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  location?: string;
+  location: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsUrl()
-  url: string;
+  website: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  githubOrganization?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  headcountEstimate?: string;
+  headcountEstimate: number;
 
   @ApiPropertyOptional()
   @IsOptional()

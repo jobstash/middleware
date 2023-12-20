@@ -33,6 +33,7 @@ import {
   OrganizationReviewInstance,
   OrganizationReviews,
 } from "./organization-review.model";
+import { Repositories, RepositoryInstance } from "./repository.model";
 
 export type OrganizationProps = ExtractProps<Organization>;
 
@@ -79,6 +80,10 @@ export interface OrganizationRelations {
   reviews: ModelRelatedNodesI<
     ReturnType<typeof OrganizationReviews>,
     OrganizationReviewInstance
+  >;
+  repositories: ModelRelatedNodesI<
+    ReturnType<typeof Repositories>,
+    RepositoryInstance
   >;
 }
 
@@ -206,6 +211,11 @@ export const Organizations = (
           model: OrganizationReviews(neogma),
           direction: "out",
           name: "HAS_REVIEW",
+        },
+        repositories: {
+          model: Repositories(neogma),
+          direction: "out",
+          name: "HAS_REPOSITORY",
         },
       },
       methods: {
