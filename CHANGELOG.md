@@ -1,3 +1,10 @@
+## [1.66.2](https://github.com/jobstash/middleware/compare/v1.66.1...v1.66.2) (2023-12-20)
+
+
+### Bug Fixes
+
+* **organizations:** fixed sleepytime bug ([b8553b9](https://github.com/jobstash/middleware/commit/b8553b9a065f7b439061fb97a049acf842a6f263))
+
 ## [1.66.1](https://github.com/jobstash/middleware/compare/v1.66.0...v1.66.1) (2023-12-20)
 
 
