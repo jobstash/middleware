@@ -175,7 +175,9 @@ export class ProfileService {
             benefits: review.benefits,
             workLifeBalance: review.workLifeBalance,
             diversityInclusion: review.diversityInclusion,
-            travel: review.travel
+            management: review.management,
+            product: review.product,
+            compensation: review.compensation
           },
           review: {
             title: review.title,
@@ -228,7 +230,9 @@ export class ProfileService {
               benefits: review.benefits,
               workLifeBalance: review.workLifeBalance,
               diversityInclusion: review.diversityInclusion,
-              travel: review.travel
+              management: review.management,
+              product: review.product,
+              compensation: review.compensation
             },
             review: {
               title: review.title,
@@ -681,7 +685,9 @@ export class ProfileService {
         SET review.benefits = $benefits
         SET review.workLifeBalance = $workLifeBalance
         SET review.diversityInclusion = $diversityInclusion
-        SET review.travel = $travel
+        SET review.management = $management
+        SET review.product = $product
+        SET review.compensation = $compensation
         SET review.reviewedTimestamp = timestamp()
       `,
         { wallet, ...dto },

@@ -92,7 +92,7 @@ export class OrganizationsService {
           ],
           tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }],
           reviews: [
-            (organization)-[:HAS_REVIEW]->(review: OrgReview) | review {
+            (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
               compensation: {
                 salary: review.salary,
                 currency: review.currency,
@@ -104,7 +104,9 @@ export class OrganizationsService {
                 benefits: review.benefits,
                 workLifeBalance: review.workLifeBalance,
                 diversityInclusion: review.diversityInclusion,
-                travel: review.travel
+                management: review.management,
+                product: review.product,
+                compensation: review.compensation
               },
               review: {
                 title: review.title,
@@ -361,7 +363,7 @@ export class OrganizationsService {
             ],
             tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }],
             reviews: [
-              (organization)-[:HAS_REVIEW]->(review: OrgReview) | review {
+              (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
                 compensation: {
                   salary: review.salary,
                   currency: review.currency,
@@ -373,7 +375,9 @@ export class OrganizationsService {
                   benefits: review.benefits,
                   workLifeBalance: review.workLifeBalance,
                   diversityInclusion: review.diversityInclusion,
-                  travel: review.travel
+                  management: review.management,
+                  product: review.product,
+                  compensation: review.compensation
                 },
                 review: {
                   title: review.title,

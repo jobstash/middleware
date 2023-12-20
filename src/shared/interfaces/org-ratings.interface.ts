@@ -9,7 +9,9 @@ export class OrgRating {
     benefits: t.union([t.number, t.null]),
     workLifeBalance: t.union([t.number, t.null]),
     diversityInclusion: t.union([t.number, t.null]),
-    travel: t.union([t.number, t.null]),
+    management: t.union([t.number, t.null]),
+    product: t.union([t.number, t.null]),
+    compensation: t.union([t.number, t.null]),
   });
 
   onboarding: number | null;
@@ -17,7 +19,9 @@ export class OrgRating {
   benefits: number | null;
   workLifeBalance: number | null;
   diversityInclusion: number | null;
-  travel: number | null;
+  management: number | null;
+  product: number | null;
+  compensation: number | null;
 
   constructor(raw: OrgRating) {
     const {
@@ -26,7 +30,9 @@ export class OrgRating {
       benefits,
       workLifeBalance,
       diversityInclusion,
-      travel,
+      management,
+      product,
+      compensation,
     } = raw;
 
     const result = OrgRating.OrgRatingType.decode(raw);
@@ -36,7 +42,9 @@ export class OrgRating {
     this.benefits = benefits;
     this.workLifeBalance = workLifeBalance;
     this.diversityInclusion = diversityInclusion;
-    this.travel = travel;
+    this.management = management;
+    this.product = product;
+    this.compensation = compensation;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

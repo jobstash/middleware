@@ -510,30 +510,37 @@ export const Projects = (
                     }
                   ],
                   tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:HAS_TAG_DESIGNATION]-() | tag { .* }],
-                  reviews: apoc.coll.toSet([
+                  reviews: [
                     (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
-                      salary: {
-                        amount: review.amount,
-                        selectedCurrency: review.selectedCurrency,
+                      compensation: {
+                        salary: review.salary,
+                        currency: review.currency,
                         offersTokenAllocation: review.offersTokenAllocation
                       },
                       rating: {
-                        management: review.management,
+                        onboarding: review.onboarding,
                         careerGrowth: review.careerGrowth,
                         benefits: review.benefits,
                         workLifeBalance: review.workLifeBalance,
-                        cultureValues: review.cultureValues,
                         diversityInclusion: review.diversityInclusion,
-                        interviewProcess: review.interviewProcess
+                        management: review.management,
+                        product: review.product,
+                        compensation: review.compensation
                       },
                       review: {
-                        headline: review.headline,
+                        title: review.title,
+                        location: review.location,
+                        timezone: review.timezone,
+                        workingHours: {
+                          start: review.workingHoursStart,
+                          end: review.workingHoursEnd
+                        },
                         pros: review.pros,
                         cons: review.cons
                       },
                       reviewedTimestamp: review.reviewedTimestamp
                     }
-                  ])
+                  ]
                 }][0],
                 hacks: [
                 (project)-[:HAS_HACK]->(hack) | hack { .* }

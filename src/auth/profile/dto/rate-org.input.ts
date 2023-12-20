@@ -54,5 +54,19 @@ export class RateOrgInput {
   @IsOptional()
   @Min(0)
   @Max(5)
-  travel: number | null;
+  management: number | null;
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(5)
+  product: number | null;
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(5)
+  compensation: number | null;
 }

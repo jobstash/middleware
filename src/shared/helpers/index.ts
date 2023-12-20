@@ -347,23 +347,8 @@ export const hasDuplicates = <A, B>(
 };
 
 export const generateOrgAggregateRating = (rating: OrgRating): number => {
-  const {
-    benefits,
-    careerGrowth,
-    diversityInclusion,
-    travel,
-    onboarding,
-    workLifeBalance,
-  } = rating;
-  return (
-    (benefits +
-      careerGrowth +
-      diversityInclusion +
-      travel +
-      onboarding +
-      workLifeBalance) /
-    7
-  );
+  const keys = Object.keys(rating);
+  return keys.map(x => rating[x]).reduce((a, b) => a + b / keys.length);
 };
 
 export const generateOrgAggregateRatings = (
@@ -384,13 +369,23 @@ export const generateOrgAggregateRatings = (
         ? ratings.map(x => x.diversityInclusion).reduce((x, y) => x + y) /
           ratings.length
         : 0,
-    travel:
+    management:
       ratings.length > 0
-        ? ratings.map(x => x.travel).reduce((x, y) => x + y) / ratings.length
+        ? ratings.map(x => x.management).reduce((x, y) => x + y) /
+          ratings.length
         : 0,
     onboarding:
       ratings.length > 0
         ? ratings.map(x => x.onboarding).reduce((x, y) => x + y) /
+          ratings.length
+        : 0,
+    product:
+      ratings.length > 0
+        ? ratings.map(x => x.product).reduce((x, y) => x + y) / ratings.length
+        : 0,
+    compensation:
+      ratings.length > 0
+        ? ratings.map(x => x.compensation).reduce((x, y) => x + y) /
           ratings.length
         : 0,
     workLifeBalance:

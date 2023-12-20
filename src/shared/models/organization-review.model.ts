@@ -8,6 +8,8 @@ export type OrganizationReviewProps = ExtractProps<{
   reviewedTimestamp: number | null;
   onboarding: number | null;
   careerGrowth: number | null;
+  product: string | null;
+  compensation: string | null;
   benefits: number | null;
   workLifeBalance: number | null;
   diversityInclusion: number | null;
@@ -49,6 +51,8 @@ export const OrganizationReviews = (
         careerGrowth: { type: "number", allowEmpty: true, required: false },
         benefits: { type: "number", allowEmpty: true, required: false },
         workLifeBalance: { type: "number", allowEmpty: true, required: false },
+        product: { type: "number", allowEmpty: true, required: false },
+        compensation: { type: "number", allowEmpty: true, required: false },
         diversityInclusion: {
           type: "number",
           allowEmpty: true,
