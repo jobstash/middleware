@@ -23,6 +23,12 @@ export class PublicService {
     const generatedQuery = `
       MATCH (structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
       WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+      MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+      OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
+      WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost
+      OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
+      WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost
       RETURN structured_jobpost {
           id: structured_jobpost.id,
           url: structured_jobpost.url,
@@ -41,8 +47,8 @@ export class PublicService {
           maximumSalary: structured_jobpost.maximumSalary,
           salaryCurrency: structured_jobpost.salaryCurrency,
           responsibilities: structured_jobpost.responsibilities,
-          offersTokenAllocation: structured_jobpost.offersTokenAllocation,
           timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+          offersTokenAllocation: structured_jobpost.offersTokenAllocation,
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
           commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
           locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
@@ -54,7 +60,7 @@ export class PublicService {
               telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
               github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
               alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
-              twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+              twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
@@ -65,7 +71,7 @@ export class PublicService {
                   telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
                   github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                  twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                  twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                   hacks: [
                     (project)-[:HAS_HACK]->(hack) | hack { .* }
                   ],
@@ -78,33 +84,52 @@ export class PublicService {
                 }
               ],
               fundingRounds: apoc.coll.toSet([
-                (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round {.*}
+                (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
               ]),
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
-              reviews: []
+              reviews: [
+                (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
+                  compensation: {
+                    salary: review.salary,
+                    currency: review.currency,
+                    offersTokenAllocation: review.offersTokenAllocation
+                  },
+                  rating: {
+                    onboarding: review.onboarding,
+                    careerGrowth: review.careerGrowth,
+                    benefits: review.benefits,
+                    workLifeBalance: review.workLifeBalance,
+                    diversityInclusion: review.diversityInclusion,
+                    management: review.management,
+                    product: review.product,
+                    compensation: review.compensation
+                  },
+                  review: {
+                    title: review.title,
+                    location: review.location,
+                    timezone: review.timezone,
+                    workingHours: {
+                      start: review.workingHoursStart,
+                      end: review.workingHoursEnd
+                    },
+                    pros: review.pros,
+                    cons: review.cons
+                  },
+                  reviewedTimestamp: review.reviewedTimestamp
+                }
+              ]
           }][0]
       } AS result
     `;
 
     try {
-      const projects = await this.models.Projects.getProjectsMoreInfoData();
       const resultSet = (
         await this.neogma.queryRunner.run(generatedQuery)
-      ).records.map(record => record?.get("result") as JobListResult);
+      ).records.map(record => record.get("result") as JobListResult);
       for (const result of resultSet) {
-        const projectList = projects.filter(
-          x => x.orgId === result.organization.orgId,
-        );
-        const updatedResult: JobListResult = {
-          ...result,
-          organization: {
-            ...result.organization,
-            projects: projectList,
-          },
-        };
-        results.push(new JobListResultEntity(updatedResult).getProperties());
+        results.push(new JobListResultEntity(result).getProperties());
       }
     } catch (err) {
       Sentry.withScope(scope => {

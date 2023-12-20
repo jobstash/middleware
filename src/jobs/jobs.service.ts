@@ -1360,6 +1360,17 @@ export class JobsService {
             },
           },
         });
+        await this.models.StructuredJobposts.deleteRelationships({
+          alias: "offlineStatus",
+          where: {
+            source: {
+              shortUUID: uuid,
+            },
+            target: {
+              name: "offline",
+            },
+          },
+        });
         await this.models.StructuredJobposts.relateTo({
           alias: "offlineStatus",
           where: {
@@ -1412,6 +1423,17 @@ export class JobsService {
             },
             target: {
               name: "offline",
+            },
+          },
+        });
+        await this.models.StructuredJobposts.deleteRelationships({
+          alias: "onlineStatus",
+          where: {
+            source: {
+              shortUUID: uuid,
+            },
+            target: {
+              name: "online",
             },
           },
         });
