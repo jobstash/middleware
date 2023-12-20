@@ -1,3 +1,10 @@
+## [1.66.1](https://github.com/jobstash/middleware/compare/v1.66.0...v1.66.1) (2023-12-20)
+
+
+### Bug Fixes
+
+* **jobs:** fixed bugs introduced by last commit ([b5fb55c](https://github.com/jobstash/middleware/commit/b5fb55cf9dc9ed066e34ae61a91289ec17e38d8e))
+
 # [1.66.0](https://github.com/jobstash/middleware/compare/v1.65.1...v1.66.0) (2023-12-20)
 
 
