@@ -8,7 +8,7 @@ export class CreateOrganizationInput {
   orgId: string;
 
   @ApiPropertyOptional()
-  @IsNotEmpty()
+  @IsOptional()
   @IsUrl()
   logoUrl: string;
 
@@ -42,10 +42,10 @@ export class CreateOrganizationInput {
   @IsString()
   location: string;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsUrl()
-  website: string;
+  website?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

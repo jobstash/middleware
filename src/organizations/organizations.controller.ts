@@ -425,7 +425,14 @@ export class OrganizationsController {
         data: result.getProperties(),
       };
     } catch (error) {
-      this.logger.error(error);
+      this.logger.error(`/organizations/update/${id} ${error}`);
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "projects.controller",
+        });
+        Sentry.captureException(error);
+      });
       return {
         success: false,
         message: `An unexpected error occured`,
@@ -450,7 +457,7 @@ export class OrganizationsController {
   async deleteOrganization(
     @Param("id") id: string,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/organizations/delete/${id}}`);
+    this.logger.log(`/organizations/delete/${id}`);
     return this.organizationsService.delete(id);
   }
 

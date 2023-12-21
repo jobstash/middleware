@@ -92,7 +92,7 @@ export class OrgDetailsResultEntity {
           createdTimestamp: nonZeroOrNull(project?.createdTimestamp),
           updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
           hacks:
-            project?.hacks.map(hack => ({
+            project?.hacks?.map(hack => ({
               ...hack,
               fundsLost: hack.fundsLost,
               date: nonZeroOrNull(hack.date),
@@ -100,7 +100,7 @@ export class OrgDetailsResultEntity {
               fundsReturned: nonZeroOrNull(hack.fundsReturned),
             })) ?? [],
           audits:
-            project?.audits.map(audit => ({
+            project?.audits?.map(audit => ({
               ...audit,
               id: notStringOrNull(audit?.id),
               name: notStringOrNull(audit?.name),
@@ -110,7 +110,7 @@ export class OrgDetailsResultEntity {
               link: notStringOrNull(audit?.link),
             })) ?? [],
           chains:
-            project.chains.map(chain => ({
+            project?.chains?.map(chain => ({
               id: notStringOrNull(chain?.id),
               name: notStringOrNull(chain?.name),
               logo: notStringOrNull(chain?.logo),
@@ -136,7 +136,7 @@ export class OrgDetailsResultEntity {
           repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
         })) ?? [],
       fundingRounds:
-        fundingRounds.map(fr => ({
+        fundingRounds?.map(fr => ({
           ...fr,
           raisedAmount: nonZeroOrNull(fr?.raisedAmount),
           roundName: notStringOrNull(fr?.roundName),
@@ -145,11 +145,11 @@ export class OrgDetailsResultEntity {
           updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
         })) ?? [],
       investors:
-        investors.map(investor => ({
+        investors?.map(investor => ({
           id: investor.id,
           name: investor.name,
         })) ?? [],
-      jobs: jobs.map(jobpost => ({
+      jobs: jobs?.map(jobpost => ({
         ...jobpost,
         salary: nonZeroOrNull(jobpost?.salary),
         minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
@@ -163,7 +163,7 @@ export class OrgDetailsResultEntity {
         timestamp: nonZeroOrNull(jobpost?.timestamp),
       })),
       tags: tags ?? [],
-      reviews: reviews.map(r => new LeanOrgReviewEntity(r).getProperties()),
+      reviews: reviews?.map(r => new LeanOrgReviewEntity(r).getProperties()),
     });
   }
 }

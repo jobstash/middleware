@@ -91,7 +91,7 @@ export class OrganizationEntity {
 
   getProperties(): Organization {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { ...properties } = <Record<string, any>>this.node.properties;
+    const properties = <Record<string, any>>this.node.properties;
     return {
       ...properties,
       logoUrl: notStringOrNull(properties?.logo),

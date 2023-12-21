@@ -26,7 +26,6 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
-import { randomUUID } from "crypto";
 
 @Injectable()
 export class OrganizationsService {
@@ -401,9 +400,11 @@ export class OrganizationsService {
         `,
         { orgId },
       );
-      return new OrgDetailsResultEntity(
-        result.records[0]?.get("res"),
-      ).getProperties();
+      return new OrgDetailsResultEntity({
+        ...result.records[0]?.get("res"),
+        jobs: result.records[0]?.get("res")?.jobs ?? [],
+        tags: result.records[0]?.get("res")?.tags ?? [],
+      }).getProperties();
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -551,7 +552,7 @@ export class OrganizationsService {
         } as res
         `;
 
-      const res = await this.neogma.queryRunner.run(generatedQuery);
+      const res = await this.neogma.queryRunner.run(generatedQuery, { id });
 
       return new ShortOrgEntity(
         toShortOrg(res.records[0]?.get("res") as OrgDetailsResult),
@@ -635,187 +636,75 @@ export class OrganizationsService {
   async create(
     organization: CreateOrganizationInput,
   ): Promise<OrganizationEntity> {
-    const { twitter, discord, docs, telegram, website, alias, ...dto } =
-      organization;
-    const org = await this.models.Organizations.createMany(
-      [
-        {
-          ...dto,
+    const res = await this.neogma.queryRunner.run(
+      `
+        CREATE (org: Organization {
           id: randomUUID(),
-          headcountEstimate: dto.headcountEstimate ?? null,
-          createdTimestamp: new Date().getTime(),
-          updatedTimestamp: null,
-          discord: discord
-            ? {
-                propertiesMergeConfig: {
-                  nodes: true,
-                  relationship: false,
-                },
-                properties: [
-                  {
-                    id: randomUUID(),
-                    invite: discord,
-                  },
-                ],
-              }
-            : undefined,
-          telegram: telegram
-            ? {
-                propertiesMergeConfig: {
-                  nodes: true,
-                  relationship: false,
-                },
-                properties: [
-                  {
-                    id: randomUUID(),
-                    username: telegram,
-                  },
-                ],
-              }
-            : undefined,
-          twitter: twitter
-            ? {
-                propertiesMergeConfig: {
-                  nodes: true,
-                  relationship: false,
-                },
-                properties: [
-                  {
-                    id: randomUUID(),
-                    username: twitter,
-                  },
-                ],
-              }
-            : undefined,
-          website: website
-            ? {
-                propertiesMergeConfig: {
-                  nodes: true,
-                  relationship: false,
-                },
-                properties: [
-                  {
-                    id: randomUUID(),
-                    url: website,
-                  },
-                ],
-              }
-            : undefined,
-          docs: docs
-            ? {
-                propertiesMergeConfig: {
-                  nodes: true,
-                  relationship: false,
-                },
-                properties: [
-                  {
-                    id: randomUUID(),
-                    url: docs,
-                  },
-                ],
-              }
-            : undefined,
-          alias: alias
-            ? {
-                propertiesMergeConfig: {
-                  nodes: true,
-                  relationship: false,
-                },
-                properties: [
-                  {
-                    id: randomUUID(),
-                    name: alias,
-                  },
-                ],
-              }
-            : undefined,
-        },
-      ],
-      {
-        merge: true,
-        validate: true,
-      },
+          orgId: $orgId, 
+          logoUrl: $logoUrl, 
+          name: $name, 
+          altName: $altName, 
+          description: $description, 
+          summary: $summary, 
+          location: $location, 
+          headcountEstimate: $headcountEstimate
+        })
+        CREATE (org)-[:HAS_DISCORD]->(discord:Discord {id: randomUUID(), invite: $discord}) 
+        CREATE (org)-[:HAS_WEBSITE]->(website:Website {id: randomUUID(), url: $website}) 
+        CREATE (org)-[:HAS_DOCSITE]->(docsite:DocSite {id: randomUUID(), url: $docs}) 
+        CREATE (org)-[:HAS_TELEGRAM]->(telegram:Telegram {id: randomUUID(), username: $telegram}) 
+        CREATE (org)-[:HAS_ORGANIZATION_ALIAS]->(alias:OrganizationAlias {id: randomUUID(), name: $alias}) 
+        CREATE (org)-[:HAS_TWITTER]->(twitter: Twitter {id: randomUUID(), username: $twitter}) 
+
+        RETURN org
+      `,
+      { ...organization },
     );
-    return new OrganizationEntity(instanceToNode(org[0]));
+
+    return new OrganizationEntity(res.records[0]?.get("org"));
   }
 
   async update(
     id: string,
     properties: UpdateOrganizationInput,
   ): Promise<OrganizationEntity> {
-    const { twitter, discord, docs, telegram, website, alias, ...dto } =
-      properties;
-    const org = (
-      await this.models.Organizations.update(
-        {
-          ...dto,
-          headcountEstimate: dto.headcountEstimate ?? null,
-          updatedTimestamp: new Date().getTime(),
-        },
-        {
-          return: true,
-          where: {
-            id: id,
-          },
-        },
-      )
-    )[0][0];
-    await org.updateRelationship(
-      {
-        invite: discord,
-      },
-      {
-        alias: "discord",
-      },
+    this.logger.log(JSON.stringify(properties));
+    const res = await this.neogma.queryRunner.run(
+      `
+        MATCH (org: Organization {orgId: $id})
+        MATCH (org)-[:HAS_DISCORD]->(discord) 
+        MATCH (org)-[:HAS_WEBSITE]->(website) 
+        MATCH (org)-[:HAS_DOCSITE]->(docsite) 
+        MATCH (org)-[:HAS_TELEGRAM]->(telegram) 
+        MATCH (org)-[:HAS_ORGANIZATION_ALIAS]->(alias) 
+        MATCH (org)-[:HAS_TWITTER]->(twitter) 
+        SET org.logoUrl = $logoUrl
+        SET org.name = $name
+        SET org.altName = $altName
+        SET org.description = $description
+        SET org.summary = $summary
+        SET org.location = $location
+        SET org.headcountEstimate = $headcountEstimate        
+        SET discord.invite = $discord
+        SET website.url = $website
+        SET docsite.url = $docs
+        SET telegram.username = $telegram
+        SET alias.name = $alias
+        SET twitter.username = $twitter
+
+        RETURN org
+      `,
+      { ...properties, id },
     );
-    await org.updateRelationship(
-      {
-        username: telegram,
-      },
-      {
-        alias: "telegram",
-      },
-    );
-    await org.updateRelationship(
-      {
-        username: twitter,
-      },
-      {
-        alias: "twitter",
-      },
-    );
-    await org.updateRelationship(
-      {
-        url: website,
-      },
-      {
-        alias: "website",
-      },
-    );
-    await org.updateRelationship(
-      {
-        url: docs,
-      },
-      {
-        alias: "docs",
-      },
-    );
-    await org.updateRelationship(
-      {
-        name: alias,
-      },
-      {
-        alias: "alias",
-      },
-    );
-    return new OrganizationEntity(instanceToNode(org));
+
+    return new OrganizationEntity(res.records[0]?.get("org"));
   }
 
   async delete(id: string): Promise<ResponseWithNoData> {
     try {
       await this.neogma.queryRunner.run(
         `
-            MATCH (organization:Organization { id: $id })
+            MATCH (organization:Organization { orgId: $id })
             OPTIONAL MATCH (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag)
             OPTIONAL MATCH (organization)-[:HAS_JOBSITE]->(jobsite)-[:HAS_JOBPOST]->(jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost)
             OPTIONAL MATCH (organization)-[:HAS_DISCORD]->(discord)
@@ -829,7 +718,7 @@ export class OrganizationsService {
               discord, website, docsite, telegram, github, alias, twitter, tag
 
             WITH organization
-            MATCH (organization)-[:HAS_PROJECT]->(project)
+            OPTIONAL MATCH (organization)-[:HAS_PROJECT]->(project)
             OPTIONAL MATCH (project)-[:HAS_AUDIT]->(audit)
             OPTIONAL MATCH (project)-[:HAS_HACK]->(hack)
             OPTIONAL MATCH (project)-[:HAS_DISCORD]->(discord2)
@@ -839,7 +728,7 @@ export class OrganizationsService {
             OPTIONAL MATCH (project)-[:HAS_TWITTER]->(twitter2)
             OPTIONAL MATCH (project)-[:HAS_WEBSITE]->(website2)
             DETACH DELETE audit, hack, discord2, docsite2,
-              github2, telegram2, twitter2, website2, organization
+              github2, telegram2, twitter2, website2, organization, project
         `,
         {
           id,

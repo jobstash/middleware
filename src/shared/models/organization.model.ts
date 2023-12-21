@@ -155,7 +155,7 @@ export const Organizations = (
           required: false,
         },
       },
-      primaryKeyField: "id",
+      primaryKeyField: "orgId",
       relationships: {
         jobsite: {
           model: Jobsites(neogma),
