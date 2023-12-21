@@ -60,6 +60,11 @@ export class CreateOrganizationInput {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  github?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   discord?: string;
 
   @ApiPropertyOptional()

@@ -603,7 +603,7 @@ export class ProjectsController {
 
     if (!storedOrganization) {
       return {
-        message: `Could not find organization with id: ${body.orgId} to match with project: ${body.name}`,
+        message: `Could not find organization with orgId: ${body.orgId} to match with project: ${body.name}`,
         success: false,
       };
     }

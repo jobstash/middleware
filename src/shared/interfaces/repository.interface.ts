@@ -1,10 +1,11 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { isLeft } from "fp-ts/lib/Either";
 import * as t from "io-ts";
 import { report } from "io-ts-human-reporter";
 
 export class Repository {
   public static readonly RepositoryType = t.strict({
+    id: t.number,
     name: t.string,
     fullName: t.string,
     description: t.string,
@@ -19,10 +20,13 @@ export class Repository {
     openIssuesCount: t.number,
     archived: t.boolean,
     disabled: t.boolean,
-    pushedAt: t.string,
-    createdAt: t.string,
-    updatedAt: t.string,
+    pushedAt: t.union([t.number, t.null]),
+    createdAt: t.union([t.number, t.null]),
+    updatedAt: t.union([t.number, t.null]),
   });
+
+  @ApiProperty()
+  id: number;
 
   @ApiProperty()
   name: string;
@@ -66,17 +70,18 @@ export class Repository {
   @ApiProperty()
   disabled: boolean;
 
-  @ApiProperty()
-  pushedAt: string;
+  @ApiPropertyOptional()
+  pushedAt: number | null;
 
-  @ApiProperty()
-  createdAt: string;
+  @ApiPropertyOptional()
+  createdAt: number | null;
 
-  @ApiProperty()
-  updatedAt: string;
+  @ApiPropertyOptional()
+  updatedAt: number | null;
 
   constructor(raw: Repository) {
     const {
+      id,
       name,
       fullName,
       description,
@@ -98,6 +103,7 @@ export class Repository {
 
     const result = Repository.RepositoryType.decode(raw);
 
+    this.id = id;
     this.name = name;
     this.fullName = fullName;
     this.description = description;

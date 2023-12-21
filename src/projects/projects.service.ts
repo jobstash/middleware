@@ -26,14 +26,12 @@ import {
 import { createNewSortInstance } from "fast-sort";
 import { ModelService } from "src/model/model.service";
 import { InjectConnection } from "nest-neogma";
-import { Neogma } from "neogma";
+import { Neogma, Op } from "neogma";
 import { ProjectProps } from "src/shared/models";
 import { UpdateProjectInput } from "./dto/update-project.input";
 import { CreateProjectInput } from "./dto/create-project.input";
-import NotFoundError from "src/shared/errors/not-found-error";
 import { LinkJobsToProjectInput } from "./dto/link-jobs-to-project.dto";
 import { LinkReposToProjectInput } from "./dto/link-repos-to-project.dto";
-import { randomUUID } from "crypto";
 import { CreateProjectMetricsInput } from "./dto/create-project-metrics.input";
 
 @Injectable()
@@ -371,134 +369,49 @@ export class ProjectsService {
   }
 
   async find(name: string): Promise<ProjectEntity | null> {
-    const res = await this.neogma.queryRunner.run(
-      `
-        MATCH (p:Project {name: $name})
-        RETURN p
-      `,
-      { name },
-    );
-    return res.records.length
-      ? new ProjectEntity(res.records[0].get("p"))
-      : undefined;
-  }
-
-  async findByDefiLlamaId(defiLlamaId: string): Promise<ProjectEntity | null> {
-    const res = await this.neogma.queryRunner.run(
-      `
-        MATCH (p:Project {name: $defiLlamaId})
-        RETURN p
-      `,
-      { defiLlamaId },
-    );
-    return res.records.length
-      ? new ProjectEntity(res.records[0].get("p"))
-      : undefined;
-  }
-
-  async findAll(): Promise<ProjectEntity[] | null> {
-    return this.neogma.queryRunner
-      .run(
-        `
-          MATCH (p:Project)
-          RETURN p
-        `,
-      )
-      .then(res =>
-        res.records.length
-          ? res.records.map(record => {
-              return new ProjectEntity(record.get("p"));
-            })
-          : undefined,
-      );
+    return this.models.Projects.findOne({
+      where: {
+        name: name,
+      },
+    }).then(res => (res ? new ProjectEntity(instanceToNode(res)) : null));
   }
 
   async create(project: CreateProjectInput): Promise<ProjectEntity> {
-    const {
-      website,
-      telegram,
-      twitter,
-      discord,
-      github,
-      docs,
-      category,
-      ...props
-    } = project;
     try {
-      const projectNode = await this.models.Projects.createOne(
-        {
-          id: randomUUID(),
-          description: props.description,
-          name: props.name,
-          orgId: props.orgId,
-          isMainnet: props.isMainnet,
-          logo: props.logo,
-          tokenSymbol: props.tokenSymbol,
-          tokenAddress: props.tokenAddress,
-          createdTimestamp: new Date().getTime(),
-          category: {
-            properties: [
-              {
-                id: randomUUID(),
-                name: category,
-              },
-            ],
-            propertiesMergeConfig: {
-              nodes: true,
-            },
-          },
-          docsite: {
-            properties: [
-              {
-                id: randomUUID(),
-                url: docs,
-              },
-            ],
-          },
-          discord: {
-            properties: [
-              {
-                id: randomUUID(),
-                invite: discord,
-              },
-            ],
-          },
-          twitter: {
-            properties: [
-              {
-                id: randomUUID(),
-                username: twitter,
-              },
-            ],
-          },
-          telegram: {
-            properties: [
-              {
-                id: randomUUID(),
-                username: telegram,
-              },
-            ],
-          },
-          github: {
-            properties: [
-              {
-                id: randomUUID(),
-                login: github,
-              },
-            ],
-          },
-          website: {
-            properties: [
-              {
-                id: randomUUID(),
-                url: website,
-              },
-            ],
-          },
-        },
-        { merge: true },
+      const result = await this.neogma.queryRunner.run(
+        `
+          CREATE (project:Project {
+            id: randomUUID(),
+            orgId: $orgId,
+            name: $name,
+            tvl: $tvl,
+            monthlyFees: $monthlyFees,
+            monthlyVolume: $monthlyVolume,
+            monthlyRevenue: $monthlyRevenue,
+            monthlyActiveUsers: $monthlyActiveUsers,
+            description: $description,
+            logo: $logo,
+            isMainnet: $isMainnet,
+            tokenAddress: $tokenAddress,
+            tokenSymbol: $tokenSymbol,
+            defiLlamaId: $defiLlamaId,
+            defiLlamaSlug: $defiLlamaSlug,
+            defiLlamaParent: $defiLlamaParent
+          })
+
+          WITH project
+          CREATE (project)-[:HAS_DISCORD]->(discord:Discord {id: randomUUID(), invite: $discord}) 
+          CREATE (project)-[:HAS_WEBSITE]->(website:Website {id: randomUUID(), url: $website}) 
+          CREATE (project)-[:HAS_DOCSITE]->(docsite:DocSite {id: randomUUID(), url: $docs}) 
+          CREATE (project)-[:HAS_TELEGRAM]->(telegram:Telegram {id: randomUUID(), username: $telegram}) 
+          CREATE (project)-[:HAS_TWITTER]->(twitter: Twitter {id: randomUUID(), username: $twitter}) 
+          CREATE (project)-[:HAS_GITHUB]->(github: Github {id: randomUUID(), login: $github})
+
+          RETURN project
+        `,
+        { ...project },
       );
-      return new ProjectEntity(instanceToNode(projectNode));
+      return new ProjectEntity(result?.records[0]?.get("project"));
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -517,59 +430,52 @@ export class ProjectsService {
     id: string,
     project: UpdateProjectInput,
   ): Promise<ProjectEntity> {
-    const {
-      website,
-      telegram,
-      twitter,
-      discord,
-      github,
-      docs,
-      category,
-      ...props
-    } = project;
     try {
-      const projectNode = await this.models.Projects.update(
-        {
-          description: props.description,
-          name: props.name,
-          orgId: props.orgId,
-          isMainnet: props.isMainnet,
-          logo: props.logo,
-          tokenSymbol: props.tokenSymbol,
-          tokenAddress: props.tokenAddress,
-          updatedTimestamp: new Date().getTime(),
-        },
-        { where: { id }, return: true },
+      const result = await this.neogma.queryRunner.run(
+        `
+          MATCH (project:Project {id: $id})
+          MATCH (project)-[:HAS_DISCORD]->(discord:Discord) 
+          MATCH (project)-[:HAS_WEBSITE]->(website:Website) 
+          MATCH (project)-[:HAS_DOCSITE]->(docsite:DocSite) 
+          MATCH (project)-[:HAS_TELEGRAM]->(telegram:Telegram) 
+          MATCH (project)-[:HAS_TWITTER]->(twitter: Twitter) 
+          MATCH (project)-[:HAS_GITHUB]->(github: Github)
+          
+          SET project.orgId = $orgId
+          SET project.name = $name
+          SET project.tvl = $tvl
+          SET project.monthlyFees = $monthlyFees
+          SET project.monthlyVolume = $monthlyVolume
+          SET project.monthlyRevenue = $monthlyRevenue
+          SET project.monthlyActiveUsers = $monthlyActiveUsers
+          SET project.description = $description
+          SET project.logo = $logo
+          SET project.isMainnet = $isMainnet
+          SET project.tokenAddress = $tokenAddress
+          SET project.tokenSymbol = $tokenSymbol
+          SET project.defiLlamaId = $defiLlamaId
+          SET project.defiLlamaSlug = $defiLlamaSlug
+          SET project.defiLlamaParent = $defiLlamaParent
+          SET discord.invite = $discord
+          SET website.url = $website
+          SET docsite.url = $docs
+          SET telegram.username = $telegram
+          SET twitter.username = $twitter
+          SET github.login = $github
+
+          WITH project
+          MATCH (project)-[r:HAS_CATEGORY]->(:ProjectCategory)
+          DETACH DELETE r
+          
+          WITH project
+          MERGE (project)-[:HAS_CATEGORY]->(:ProjectCategory {name: $category})
+
+          WITH project
+          RETURN project
+        `,
+        { ...project, id },
       );
-      await this.models.Projects.updateRelationship(
-        { invite: discord },
-        { alias: "discord", where: { source: { id } } },
-      );
-      await this.models.Projects.updateRelationship(
-        { name: category },
-        { alias: "category", where: { source: { id } } },
-      );
-      await this.models.Projects.updateRelationship(
-        { url: docs },
-        { alias: "docsite", where: { source: { id } } },
-      );
-      await this.models.Projects.updateRelationship(
-        { username: twitter },
-        { alias: "twitter", where: { source: { id } } },
-      );
-      await this.models.Projects.updateRelationship(
-        { username: telegram },
-        { alias: "telegram", where: { source: { id } } },
-      );
-      await this.models.Projects.updateRelationship(
-        { url: website },
-        { alias: "website", where: { source: { id } } },
-      );
-      await this.models.Projects.updateRelationship(
-        { login: github },
-        { alias: "github", where: { source: { id } } },
-      );
-      return new ProjectEntity(instanceToNode(projectNode[0][0]));
+      return new ProjectEntity(result?.records[0]?.get("project"));
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -598,7 +504,7 @@ export class ProjectsService {
             OPTIONAL MATCH (project)-[:HAS_TWITTER]->(twitter)
             OPTIONAL MATCH (project)-[:HAS_WEBSITE]->(website)
             DETACH DELETE audit, hack, discord, docsite,
-              github, telegram, twitter, website
+              github, telegram, twitter, website, project
         `,
         {
           id,
@@ -690,56 +596,61 @@ export class ProjectsService {
     projectId: string,
     projectCategoryId: string,
   ): Promise<boolean> {
-    const res = await this.neogma.queryRunner.run(
-      `
-        RETURN EXISTS( (p:Project {id: $projectId})-[:HAS_CATEGORY]->(c:ProjectCategory {id: $projectCategoryId}) ) AS result
-      `,
-      { projectId, projectCategoryId },
+    return (
+      (
+        await this.models.Projects.findRelationships({
+          alias: "category",
+          limit: 1,
+          where: {
+            source: {
+              id: projectId,
+            },
+            target: {
+              id: projectCategoryId,
+            },
+          },
+        })
+      ).length === 1
     );
-
-    return res.records[0]?.get("result") ?? false;
   }
 
   async relateToCategory(
     projectId: string,
     projectCategoryId: string,
-  ): Promise<unknown> {
-    const res = await this.neogma.queryRunner.run(
-      `
-        MERGE (p:Project {id: $projectId})-[r:HAS_CATEGORY]->(c:ProjectCategory {id: $projectCategoryId})
-        SET r.timestamp = timestamp()
-
-        RETURN p {
-          .*,
-        } AS project
-        `,
-      { projectId, projectCategoryId },
-    );
-
-    if (res.records.length === 0) {
-      throw new NotFoundError(
-        `Could not create relationship between Project ${projectId} to Project Category ${projectCategoryId}`,
-      );
-    }
-
-    const [first] = res.records;
-    const project = first.get("project");
-    return new ProjectWithRelations(project);
+  ): Promise<boolean> {
+    const result = await this.models.Projects.relateTo({
+      alias: "category",
+      where: {
+        source: {
+          id: projectId,
+        },
+        target: {
+          id: projectCategoryId,
+        },
+      },
+      assertCreatedRelationships: 1,
+    });
+    return result === 1;
   }
 
   async linkJobsToProject(
     dto: LinkJobsToProjectInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-          MATCH (project: Project {id: $projectId})
-          UNWIND $jobs AS shortUUID
-          MATCH (job:StructuredJobpost {shortUUID: shortUUID})
-          MERGE (project)-[:HAS_JOB]->(job)
-        `,
-        { ...dto },
-      );
+      await this.models.Projects.relateTo({
+        alias: "jobs",
+        where: {
+          source: {
+            id: dto.projectId,
+          },
+          target: {
+            shortUUID: {
+              [Op.in]: dto.jobs,
+            },
+          },
+        },
+        // assertCreatedRelationships: dto.jobs.length,
+      });
       return {
         success: true,
         message: "Jobs linked to project successfully",
@@ -765,15 +676,20 @@ export class ProjectsService {
     dto: LinkReposToProjectInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-          MATCH (project: Project {id: $projectId})
-          UNWIND $repos AS name
-          MATCH (repo:GithubRepository {name: name})
-          MERGE (project)-[:HAS_REPOSITORY]->(repo)
-        `,
-        { ...dto },
-      );
+      await this.models.Projects.relateTo({
+        alias: "repos",
+        where: {
+          source: {
+            id: dto.projectId,
+          },
+          target: {
+            fullName: {
+              [Op.in]: dto.repos,
+            },
+          },
+        },
+        // assertCreatedRelationships: dto.repos.length,
+      });
       return {
         success: true,
         message: "Repos linked to project successfully",
@@ -799,15 +715,19 @@ export class ProjectsService {
     dto: LinkJobsToProjectInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-          MATCH (project: Project {id: $projectId})
-          UNWIND $jobs AS shortUUID
-          MATCH (project)-[r:HAS_JOB]->(:StructuredJobpost {shortUUID: shortUUID})
-          DELETE r
-        `,
-        { ...dto },
-      );
+      for (const job of dto.jobs) {
+        await this.models.Projects.deleteRelationships({
+          alias: "jobs",
+          where: {
+            source: {
+              id: dto.projectId,
+            },
+            target: {
+              shortUUID: job,
+            },
+          },
+        });
+      }
       return {
         success: true,
         message: "Jobs unlinked from project successfully",
@@ -835,15 +755,19 @@ export class ProjectsService {
     dto: LinkReposToProjectInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-          MATCH (project: Project {id: $projectId})
-          UNWIND $repos AS name
-          MATCH (project)-[r:HAS_REPOSITORY]->(:GithubRepository {name: name})
-          DELETE r
-        `,
-        { ...dto },
-      );
+      for (const repo of dto.repos) {
+        await this.models.Projects.deleteRelationships({
+          alias: "repos",
+          where: {
+            source: {
+              id: dto.projectId,
+            },
+            target: {
+              fullName: repo,
+            },
+          },
+        });
+      }
       return {
         success: true,
         message: "Repos unlinked from project successfully",

@@ -655,6 +655,7 @@ export class OrganizationsService {
         CREATE (org)-[:HAS_TELEGRAM]->(telegram:Telegram {id: randomUUID(), username: $telegram}) 
         CREATE (org)-[:HAS_ORGANIZATION_ALIAS]->(alias:OrganizationAlias {id: randomUUID(), name: $alias}) 
         CREATE (org)-[:HAS_TWITTER]->(twitter: Twitter {id: randomUUID(), username: $twitter}) 
+        CREATE (org)-[:HAS_GITHUB]->(github: Github {id: randomUUID(), login: $github}) 
 
         RETURN org
       `,
@@ -676,6 +677,7 @@ export class OrganizationsService {
         MATCH (org)-[:HAS_WEBSITE]->(website) 
         MATCH (org)-[:HAS_DOCSITE]->(docsite) 
         MATCH (org)-[:HAS_TELEGRAM]->(telegram) 
+        MATCH (org)-[:HAS_GITHUB]->(github) 
         MATCH (org)-[:HAS_ORGANIZATION_ALIAS]->(alias) 
         MATCH (org)-[:HAS_TWITTER]->(twitter) 
         SET org.logoUrl = $logoUrl
@@ -691,6 +693,7 @@ export class OrganizationsService {
         SET telegram.username = $telegram
         SET alias.name = $alias
         SET twitter.username = $twitter
+        SET github.login = $github
 
         RETURN org
       `,

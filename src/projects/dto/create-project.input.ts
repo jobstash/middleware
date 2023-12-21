@@ -1,5 +1,13 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsOptional, IsString, IsUrl } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import {
+  IsBoolean,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+  IsUrl,
+} from "class-validator";
 
 export class CreateProjectInput {
   @ApiProperty()
@@ -17,20 +25,50 @@ export class CreateProjectInput {
   @IsString()
   category: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  tvl?: number | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  monthlyFees?: number | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  monthlyVolume?: number | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  monthlyRevenue?: number | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  monthlyActiveUsers?: number | null;
+
   @ApiProperty()
   @IsNotEmpty()
   @IsString()
   description: string;
 
   @ApiProperty()
-  @IsNotEmpty()
+  @IsOptional()
   @IsUrl()
-  website: string;
+  website?: string;
 
   @ApiProperty()
-  @IsNotEmpty()
+  @IsOptional()
   @IsUrl()
-  logo: string;
+  logo?: string;
 
   @ApiProperty()
   @IsOptional()
@@ -59,7 +97,7 @@ export class CreateProjectInput {
 
   @ApiProperty()
   @IsOptional()
-  @IsString()
+  @IsBoolean()
   isMainnet?: boolean;
 
   @ApiProperty()
@@ -71,4 +109,19 @@ export class CreateProjectInput {
   @IsOptional()
   @IsString()
   tokenSymbol?: string;
+
+  @ApiProperty()
+  @IsOptional()
+  @IsString()
+  defiLlamaId?: string | null;
+
+  @ApiProperty()
+  @IsOptional()
+  @IsString()
+  defiLlamaSlug?: string | null;
+
+  @ApiProperty()
+  @IsOptional()
+  @IsString()
+  defiLlamaParent?: string | null;
 }

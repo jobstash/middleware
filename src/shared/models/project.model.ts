@@ -32,7 +32,6 @@ import { TelegramInstance, Telegrams } from "./telegram.model";
 import { WebsiteInstance, Websites } from "./website.model";
 import { GithubOrganizationInstance } from "./github-organization.model";
 import { ProjectWithRelations } from "../interfaces/project-with-relations.interface";
-import { ProjectEntity } from "../entities/project.entity";
 import {
   StructuredJobpostInstance,
   StructuredJobposts,
@@ -365,6 +364,43 @@ export const Projects = (
                 },
               ],
             })
+            .raw(
+              `
+              OPTIONAL MATCH (project)-[:HAS_JOB]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+              WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+              OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+              WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+              OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
+              WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost, project, organization
+              OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
+              WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost, project, organization
+              WITH apoc.coll.toSet(COLLECT(structured_jobpost {
+                  id: structured_jobpost.id,
+                  url: structured_jobpost.url,
+                  title: structured_jobpost.title,
+                  salary: structured_jobpost.salary,
+                  culture: structured_jobpost.culture,
+                  location: structured_jobpost.location,
+                  summary: structured_jobpost.summary,
+                  benefits: structured_jobpost.benefits,
+                  shortUUID: structured_jobpost.shortUUID,
+                  seniority: structured_jobpost.seniority,
+                  description: structured_jobpost.description,
+                  requirements: structured_jobpost.requirements,
+                  paysInCrypto: structured_jobpost.paysInCrypto,
+                  minimumSalary: structured_jobpost.minimumSalary,
+                  maximumSalary: structured_jobpost.maximumSalary,
+                  salaryCurrency: structured_jobpost.salaryCurrency,
+                  responsibilities: structured_jobpost.responsibilities,
+                  timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+                  offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+                  classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
+                  commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
+                  locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
+                  tags: apoc.coll.toSet(tags)
+              })) AS jobs, project, organization
+            `,
+            )
             .return(
               `
               project {
@@ -387,9 +423,7 @@ export const Projects = (
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
-                  jobs: [
-                    (project)-[:HAS_JOB]->(job) | job { .* }
-                  ],
+                  jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                   ]
@@ -424,11 +458,49 @@ export const Projects = (
                 },
               ],
             })
+            .raw(
+              `
+              OPTIONAL MATCH (project)-[:HAS_JOB]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+              WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+              OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+              WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+              OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
+              WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost, project, organization
+              OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
+              WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost, project, organization
+              WITH apoc.coll.toSet(COLLECT(structured_jobpost {
+                  id: structured_jobpost.id,
+                  url: structured_jobpost.url,
+                  title: structured_jobpost.title,
+                  salary: structured_jobpost.salary,
+                  culture: structured_jobpost.culture,
+                  location: structured_jobpost.location,
+                  summary: structured_jobpost.summary,
+                  benefits: structured_jobpost.benefits,
+                  shortUUID: structured_jobpost.shortUUID,
+                  seniority: structured_jobpost.seniority,
+                  description: structured_jobpost.description,
+                  requirements: structured_jobpost.requirements,
+                  paysInCrypto: structured_jobpost.paysInCrypto,
+                  minimumSalary: structured_jobpost.minimumSalary,
+                  maximumSalary: structured_jobpost.maximumSalary,
+                  salaryCurrency: structured_jobpost.salaryCurrency,
+                  responsibilities: structured_jobpost.responsibilities,
+                  timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+                  offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+                  classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
+                  commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
+                  locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
+                  tags: apoc.coll.toSet(tags)
+              })) AS jobs, project, organization
+            `,
+            )
             .return(
               `
               project {
                   .*,
                   orgId: organization.orgId,
+                  orgName: organization.name,
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -445,9 +517,7 @@ export const Projects = (
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
-                  jobs: [
-                    (project)-[:HAS_JOB]->(job) | job { .* }
-                  ],
+                  jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                   ]
@@ -468,7 +538,10 @@ export const Projects = (
                   label: "Organization",
                   identifier: "organization",
                 },
-                { direction: "out", name: "HAS_PROJECT" },
+                {
+                  direction: "out",
+                  name: "HAS_PROJECT",
+                },
                 {
                   label: "Project",
                   identifier: "project",
@@ -478,92 +551,128 @@ export const Projects = (
                 },
               ],
             })
+            .raw(
+              `
+              OPTIONAL MATCH (project)-[:HAS_JOB]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+              WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+              OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+              WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+              OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
+              WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost, project, organization
+              OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
+              WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost, project, organization
+              WITH apoc.coll.toSet(COLLECT(structured_jobpost {
+                  id: structured_jobpost.id,
+                  url: structured_jobpost.url,
+                  title: structured_jobpost.title,
+                  salary: structured_jobpost.salary,
+                  culture: structured_jobpost.culture,
+                  location: structured_jobpost.location,
+                  summary: structured_jobpost.summary,
+                  benefits: structured_jobpost.benefits,
+                  shortUUID: structured_jobpost.shortUUID,
+                  seniority: structured_jobpost.seniority,
+                  description: structured_jobpost.description,
+                  requirements: structured_jobpost.requirements,
+                  paysInCrypto: structured_jobpost.paysInCrypto,
+                  minimumSalary: structured_jobpost.minimumSalary,
+                  maximumSalary: structured_jobpost.maximumSalary,
+                  salaryCurrency: structured_jobpost.salaryCurrency,
+                  responsibilities: structured_jobpost.responsibilities,
+                  timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+                  offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+                  classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
+                  commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
+                  locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
+                  tags: apoc.coll.toSet(tags)
+              })) AS jobs, project, organization
+            `,
+            )
             .return(
               `
               project {
-                .*,
-                orgId: organization.orgId,
-                discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-                website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
-                docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-                telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
-                category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
-                organization: [(organization)-[:HAS_PROJECT]->(project) | organization {
                   .*,
-                  discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-                  website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-                  docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-                  telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                  github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
-                  alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
-                  twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
-                  fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
-                  investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
-                  jobs: [
-                    (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost) | structured_jobpost {
-                      .*,
-                      classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
-                      commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
-                      locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0]
-                    }
-                  ],
-                  tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:HAS_TAG_DESIGNATION]-() | tag { .* }],
-                  reviews: [
-                    (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
-                      compensation: {
-                        salary: review.salary,
-                        currency: review.currency,
-                        offersTokenAllocation: review.offersTokenAllocation
-                      },
-                      rating: {
-                        onboarding: review.onboarding,
-                        careerGrowth: review.careerGrowth,
-                        benefits: review.benefits,
-                        workLifeBalance: review.workLifeBalance,
-                        diversityInclusion: review.diversityInclusion,
-                        management: review.management,
-                        product: review.product,
-                        compensation: review.compensation
-                      },
-                      review: {
-                        title: review.title,
-                        location: review.location,
-                        timezone: review.timezone,
-                        workingHours: {
-                          start: review.workingHoursStart,
-                          end: review.workingHoursEnd
+                  orgId: organization.orgId,
+                  orgName: organization.name,
+                  discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                  website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                  docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                  telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                  github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
+                  category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                  twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                  organization: [(organization)-[:HAS_PROJECT]->(project) | organization {
+                    .*,
+                    discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                    website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+                    docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                    telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                    github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
+                    alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
+                    twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                    fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
+                    investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
+                    jobs: [
+                      (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost) | structured_jobpost {
+                        .*,
+                        classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
+                        commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
+                        locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0]
+                      }
+                    ],
+                    tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:HAS_TAG_DESIGNATION]-() | tag { .* }],
+                    reviews: [
+                      (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
+                        compensation: {
+                          salary: review.salary,
+                          currency: review.currency,
+                          offersTokenAllocation: review.offersTokenAllocation
                         },
-                        pros: review.pros,
-                        cons: review.cons
-                      },
-                      reviewedTimestamp: review.reviewedTimestamp
-                    }
+                        rating: {
+                          onboarding: review.onboarding,
+                          careerGrowth: review.careerGrowth,
+                          benefits: review.benefits,
+                          workLifeBalance: review.workLifeBalance,
+                          diversityInclusion: review.diversityInclusion,
+                          management: review.management,
+                          product: review.product,
+                          compensation: review.compensation
+                        },
+                        review: {
+                          title: review.title,
+                          location: review.location,
+                          timezone: review.timezone,
+                          workingHours: {
+                            start: review.workingHoursStart,
+                            end: review.workingHoursEnd
+                          },
+                          pros: review.pros,
+                          cons: review.cons
+                        },
+                        reviewedTimestamp: review.reviewedTimestamp
+                      }
+                    ]
+                  }][0],
+                  hacks: [
+                    (project)-[:HAS_HACK]->(hack) | hack { .* }
+                  ],
+                  audits: [
+                    (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                  ],
+                  chains: [
+                    (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  jobs: jobs,
+                  repos: [
+                    (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                   ]
-                }][0],
-                hacks: [
-                (project)-[:HAS_HACK]->(hack) | hack { .* }
-                ],
-                audits: [
-                  (project)-[:HAS_AUDIT]->(audit) | audit { .* }
-                ],
-                chains: [
-                  (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
-                ],
-                jobs: [
-                  (project)-[:HAS_JOB]->(job) | job { .* }
-                ],
-                repos: [
-                  (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
-                ]
-              } AS project
+                } as result
             `,
             );
           const result = await query.run(neogma.queryRunner);
-          const project: ProjectDetails = result?.records[0]?.get("project")
+          const project: ProjectDetails = result?.records[0]?.get("result")
             ? new ProjectDetailsEntity(
-                result?.records[0]?.get("project"),
+                result?.records[0]?.get("result"),
               ).getProperties()
             : null;
           return project;
@@ -635,11 +744,49 @@ export const Projects = (
               ],
             })
             .raw("WHERE project.id <> $id")
+            .raw(
+              `
+              OPTIONAL MATCH (project)-[:HAS_JOB]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+              WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+              OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+              WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+              OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
+              WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost, project, organization
+              OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
+              WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost, project, organization
+              WITH apoc.coll.toSet(COLLECT(structured_jobpost {
+                  id: structured_jobpost.id,
+                  url: structured_jobpost.url,
+                  title: structured_jobpost.title,
+                  salary: structured_jobpost.salary,
+                  culture: structured_jobpost.culture,
+                  location: structured_jobpost.location,
+                  summary: structured_jobpost.summary,
+                  benefits: structured_jobpost.benefits,
+                  shortUUID: structured_jobpost.shortUUID,
+                  seniority: structured_jobpost.seniority,
+                  description: structured_jobpost.description,
+                  requirements: structured_jobpost.requirements,
+                  paysInCrypto: structured_jobpost.paysInCrypto,
+                  minimumSalary: structured_jobpost.minimumSalary,
+                  maximumSalary: structured_jobpost.maximumSalary,
+                  salaryCurrency: structured_jobpost.salaryCurrency,
+                  responsibilities: structured_jobpost.responsibilities,
+                  timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+                  offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+                  classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
+                  commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
+                  locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
+                  tags: apoc.coll.toSet(tags)
+              })) AS jobs, project, organization
+            `,
+            )
             .return(
               `
               project {
                   .*,
                   orgId: organization.orgId,
+                  orgName: organization.name,
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -656,9 +803,7 @@ export const Projects = (
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
-                  jobs: [
-                    (project)-[:HAS_JOB]->(job) | job { .* }
-                  ],
+                  jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                   ]
@@ -693,7 +838,7 @@ export const Projects = (
             `);
           const result = await query.run(neogma.queryRunner);
           return result?.records[0]?.get("project")
-            ? new ProjectEntity(
+            ? new ProjectMoreInfoEntity(
                 result?.records[0]?.get("project"),
               ).getProperties()
             : null;

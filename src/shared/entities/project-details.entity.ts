@@ -16,7 +16,7 @@ export class ProjectDetailsEntity {
 
   getProperties(): ProjectDetails {
     const { organization, ...project } = this.raw;
-    const reviews = organization.reviews.map(review =>
+    const reviews = organization?.reviews.map(review =>
       generateOrgAggregateRating(review.rating),
     );
 
@@ -101,6 +101,13 @@ export class ProjectDetailsEntity {
         tags: organization?.tags ?? [],
         projects: [],
       },
+      repos:
+        project?.repos?.map(repo => ({
+          ...repo,
+          pushedAt: nonZeroOrNull(repo.pushedAt),
+          updatedAt: nonZeroOrNull(repo.updatedAt),
+          createdAt: nonZeroOrNull(repo.createdAt),
+        })) ?? [],
     });
   }
 }

@@ -10,8 +10,13 @@ export const Repositories = (
 ): NeogmaModel<RepositoryProps, NoRelations> =>
   ModelFactory<RepositoryProps, NoRelations>(
     {
-      label: "Repository",
+      label: "GithubRepository",
       schema: {
+        id: {
+          type: "number",
+          allowEmpty: false,
+          required: true,
+        },
         name: {
           type: "string",
           allowEmpty: false,
@@ -98,6 +103,7 @@ export const Repositories = (
           required: true,
         },
       },
+      primaryKeyField: "id",
     },
     neogma,
   );

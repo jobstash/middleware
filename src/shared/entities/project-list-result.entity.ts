@@ -61,7 +61,13 @@ export class ProjectListResultEntity {
           commitment: notStringOrNull(jobpost?.commitment),
           timestamp: nonZeroOrNull(jobpost?.timestamp),
         })) ?? [],
-      repos: project?.repos.map(repo => ({ ...repo })) ?? [],
+      repos:
+        project?.repos?.map(repo => ({
+          ...repo,
+          pushedAt: nonZeroOrNull(repo.pushedAt),
+          updatedAt: nonZeroOrNull(repo.updatedAt),
+          createdAt: nonZeroOrNull(repo.createdAt),
+        })) ?? [],
     });
   }
 }
