@@ -1,3 +1,10 @@
+## [1.66.4](https://github.com/jobstash/middleware/compare/v1.66.3...v1.66.4) (2023-12-21)
+
+
+### Bug Fixes
+
+* **helper:** fixed aggregate rating calculation bug ([0a3b0de](https://github.com/jobstash/middleware/commit/0a3b0de6bf08df18581a7b88a737ff7502577a71))
+
 ## [1.66.3](https://github.com/jobstash/middleware/compare/v1.66.2...v1.66.3) (2023-12-21)
 
 
