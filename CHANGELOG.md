@@ -1,3 +1,10 @@
+## [1.66.3](https://github.com/jobstash/middleware/compare/v1.66.2...v1.66.3) (2023-12-21)
+
+
+### Bug Fixes
+
+* **organizations:** fixed bugs on orgs services ([79af9b6](https://github.com/jobstash/middleware/commit/79af9b689f98d5f41f3e0f0e3fa3755eb5c244c1))
+
 ## [1.66.2](https://github.com/jobstash/middleware/compare/v1.66.1...v1.66.2) (2023-12-20)
 
 
