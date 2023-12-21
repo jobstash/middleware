@@ -1,3 +1,10 @@
+## [1.66.6](https://github.com/jobstash/middleware/compare/v1.66.5...v1.66.6) (2023-12-21)
+
+
+### Bug Fixes
+
+* **profile:** updated profile skill can teach persistence ([a49839d](https://github.com/jobstash/middleware/commit/a49839d5022bdb67d8c0b02c2b5b71cafeee3064))
+
 ## [1.66.5](https://github.com/jobstash/middleware/compare/v1.66.4...v1.66.5) (2023-12-21)
 
 
