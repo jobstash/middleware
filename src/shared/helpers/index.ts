@@ -348,7 +348,7 @@ export const hasDuplicates = <A, B>(
 
 export const generateOrgAggregateRating = (rating: OrgRating): number => {
   const keys = Object.keys(rating);
-  return keys.map(x => rating[x]).reduce((a, b) => a + b / keys.length);
+  return keys.map(x => rating[x]).reduce((a, b) => b + a) / keys.length;
 };
 
 export const generateOrgAggregateRatings = (
