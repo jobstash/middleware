@@ -373,95 +373,36 @@ export class ProfileService {
     dto: UpdateUserProfileInput,
   ): Promise<Response<UserProfile> | ResponseWithNoData> {
     try {
-      const hasProfile =
-        (
-          await this.models.Users.findRelationships({
-            alias: "profile",
-            limit: 1,
-            maxHops: 1,
-            where: {
-              source: {
-                wallet: wallet,
-              },
-            },
-          })
-        ).length === 1;
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $wallet})
+        MERGE (user)-[:HAS_PROFILE]->(profile:UserProfile)
+        SET profile.availableForWork = $availableForWork
 
-      if (hasProfile) {
-        const userAvailability = await this.models.Users.updateRelationship(
-          { availableForWork: dto.availableForWork },
-          { alias: "profile", where: { source: { wallet: wallet } } },
-        );
+        WITH user
+        MERGE (user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo)
+        SET contact.preferred = $preferred
+        SET contact.value = $value
+        
+        WITH user
+        RETURN {
+          availableForWork: [(user)-[:HAS_PROFILE]->(profile:UserProfile) | profile.availableForWork][0],
+          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
+          username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
+          avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+          contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0]
+        } as profile
 
-        if (!userAvailability.summary.updateStatistics.containsUpdates()) {
-          throw new Error("Error updating user availability");
-        }
-      } else {
-        const userProfile = await this.models.UserProfiles.createOne({
-          id: randomUUID(),
-          availableForWork: dto.availableForWork,
-        });
-        await this.models.Users.relateTo({
-          alias: "profile",
-          where: {
-            source: {
-              wallet: wallet,
-            },
-            target: {
-              id: userProfile.id,
-            },
-          },
-          assertCreatedRelationships: 1,
-        });
-      }
-
-      const hasContact =
-        (
-          await this.models.Users.findRelationships({
-            alias: "contact",
-            limit: 1,
-            maxHops: 1,
-            where: {
-              source: {
-                wallet: wallet,
-              },
-            },
-          })
-        ).length === 1;
-
-      if (hasContact) {
-        const userContact = await this.models.Users.updateRelationship(
-          dto.contact,
-          { alias: "contact", where: { source: { wallet: wallet } } },
-        );
-
-        if (!userContact.summary.updateStatistics.containsUpdates()) {
-          throw new Error("Error updating user contact");
-        }
-      } else {
-        const userContact = await this.models.UserContacts.createOne({
-          id: randomUUID(),
-          ...dto.contact,
-        });
-        await this.models.Users.relateTo({
-          alias: "contact",
-          where: {
-            source: {
-              wallet: wallet,
-            },
-            target: {
-              id: userContact.id,
-            },
-          },
-          assertCreatedRelationships: 1,
-        });
-      }
-      const newProfile = await this.getUserProfile(wallet);
+      `,
+        { wallet, ...dto, ...dto.contact },
+      );
 
       return {
         success: true,
         message: "User profile updated successfully",
-        data: (newProfile as Response<UserProfile>).data,
+        data: new UserProfileEntity(
+          result.records[0]?.get("profile"),
+        ).getProperties(),
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -575,27 +516,15 @@ export class ProfileService {
     dto: UpdateUserSkillsInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const oldSkills = await this.models.Users.findRelationships({
-        alias: "skills",
-        where: { source: { wallet: wallet } },
-      });
       const newSkills = dto.skills;
-      for (const skill of oldSkills) {
-        await this.models.Users.deleteRelationships({
-          alias: "skills",
-          where: {
-            source: {
-              wallet: wallet,
-            },
-            target: {
-              id: skill.target.id,
-            },
-            relationship: {
-              canTeach: skill.relationship["canTeach"],
-            },
+      await this.models.Users.deleteRelationships({
+        alias: "skills",
+        where: {
+          source: {
+            wallet: wallet,
           },
-        });
-      }
+        },
+      });
       if (newSkills.length !== 0) {
         for (const skill of newSkills) {
           await this.models.Users.relateTo({
@@ -796,12 +725,15 @@ export class ProfileService {
         OPTIONAL MATCH (ghu)-[r1:USED_TAG]->(tag: Tag)-[r2:USED_ON]->(repo)
         DETACH DELETE r1,r2
 
-        WITH ghu
+        WITH ghu, user
         UNWIND $tagsUsed as data
-        WITH data, ghu
+        WITH data, ghu, user
         MATCH (repo:GithubRepository {id: $id}), (tag: Tag {normalizedName: data.normalizedName})
-        CREATE (ghu)-[r:USED_TAG]->(tag)-[:USED_ON]->(repo)
+        MERGE (tag)-[:USED_ON]->(repo)
+        MERGE (user)-[s:HAS_SKILL]->(tag)
+        CREATE (ghu)-[r:USED_TAG]->(tag)
         SET r.canTeach = data.canTeach
+        SET s.canTeach = data.canTeach
       `,
         { wallet, ...dto },
       );

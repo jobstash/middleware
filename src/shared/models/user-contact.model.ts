@@ -14,7 +14,7 @@ export const UserContacts = (
 ): NeogmaModel<UserContactProps, NoRelations> =>
   ModelFactory<UserContactProps, NoRelations>(
     {
-      label: "UserContact",
+      label: "UserContactInfo",
       schema: {
         id: {
           type: "string",

@@ -9,7 +9,7 @@ import { Neogma } from "neogma";
 import { UpdateTagDto } from "./dto/update-tag.dto";
 import { TagEntity } from "src/shared/entities/tag.entity";
 import NotFoundError from "src/shared/errors/not-found-error";
-import { normalizeString } from "src/shared/helpers";
+import { instanceToNode, normalizeString } from "src/shared/helpers";
 
 @Injectable()
 export class TagsService {
@@ -21,41 +21,27 @@ export class TagsService {
   ) {}
 
   async findAll(): Promise<Tag[]> {
-    const res = await this.neogma.queryRunner.run(`
-      MATCH (t:Tag)
-      RETURN t
-    `);
-
-    return res.records.length
-      ? res.records.map(resource => new Tag(resource.get("t")))
-      : [];
+    return this.models.Tags.findMany().then(res =>
+      res.map(tag => new TagEntity(instanceToNode(tag)).getProperties()),
+    );
   }
 
-  async findById(id: string): Promise<TagEntity> {
-    const res = await this.neogma.queryRunner.run(
-      `
-        MATCH (t:Tag {id: $id})
-        RETURN t
-      `,
-      {
+  async findById(id: string): Promise<TagEntity | undefined> {
+    return this.models.Tags.findOne({
+      where: {
         id,
       },
-    );
-
-    return res.records.length ? new TagEntity(res.records[0].get("t")) : null;
+    }).then(res => (res ? new TagEntity(instanceToNode(res)) : undefined));
   }
 
   async findByNormalizedName(
     normalizedName: string,
   ): Promise<TagEntity | null> {
-    const res = await this.neogma.queryRunner.run(
-      `
-        MATCH (t:Tag {normalizedName: $normalizedName})
-        RETURN t
-      `,
-      { normalizedName },
-    );
-    return res.records.length ? new TagEntity(res.records[0]?.get("t")) : null;
+    return this.models.Tags.findOne({
+      where: {
+        normalizedName,
+      },
+    }).then(res => (res ? new TagEntity(instanceToNode(res)) : undefined));
   }
 
   async findPreferredTagByNormalizedName(
