@@ -104,7 +104,7 @@ export class ProfileService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        MATCH (:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(user:GithubUser)-[r:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository)
+        MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(gu:GithubUser)-[r:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository)
         RETURN repo {
           id: repo.id,
           name: repo.fullName,
@@ -117,9 +117,9 @@ export class ProfileService {
             name: organization.name,
             logo: organization.logo
           }][0],
-          tags: apoc.coll.toSet([(user)-[m:USED_TAG]->(tag: Tag)-[:USED_ON]->(repo) | tag {
+          tags: apoc.coll.toSet([(gu)-[:USED_TAG]->(tag: Tag)-[:USED_ON]->(repo) | tag {
             .*,
-            canTeach: [(user)-[m:USED_TAG]->(tag)-[:USED_ON]->(repo) | m.canTeach][0]
+            canTeach: [(user)-[m:HAS_SKILL]->(tag)-[:USED_ON]->(repo) | m.canTeach][0]
           }]),
           contribution: {
             summary: r.summary,
@@ -729,10 +729,8 @@ export class ProfileService {
         UNWIND $tagsUsed as data
         WITH data, ghu, user
         MATCH (repo:GithubRepository {id: $id}), (tag: Tag {normalizedName: data.normalizedName})
-        MERGE (tag)-[:USED_ON]->(repo)
         MERGE (user)-[s:HAS_SKILL]->(tag)
-        CREATE (ghu)-[r:USED_TAG]->(tag)
-        SET r.canTeach = data.canTeach
+        MERGE (ghu)-[:USED_TAG]->(tag)-[:USED_ON]->(repo)
         SET s.canTeach = data.canTeach
       `,
         { wallet, ...dto },

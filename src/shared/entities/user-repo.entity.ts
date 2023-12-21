@@ -11,7 +11,11 @@ export class UserRepoEntity {
       timestamp: nonZeroOrNull(this.raw.timestamp),
       projectName: notStringOrNull(this.raw.projectName),
       committers: nonZeroOrNull(this.raw.committers),
-      tags: this.raw.tags ?? [],
+      tags:
+        this.raw.tags?.map(tag => ({
+          ...tag,
+          canTeach: tag.canTeach ?? false,
+        })) ?? [],
       org: {
         ...this.raw.org,
         logo: notStringOrNull(this.raw?.org?.logo),
