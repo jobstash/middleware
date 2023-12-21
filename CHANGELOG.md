@@ -1,3 +1,10 @@
+## [1.66.5](https://github.com/jobstash/middleware/compare/v1.66.4...v1.66.5) (2023-12-21)
+
+
+### Bug Fixes
+
+* **profile:** fixed bugs on availability and updated user skills persistence ([50e4405](https://github.com/jobstash/middleware/commit/50e4405320961fc38d7841a930c7b08376f53711))
+
 ## [1.66.4](https://github.com/jobstash/middleware/compare/v1.66.3...v1.66.4) (2023-12-21)
 
 
