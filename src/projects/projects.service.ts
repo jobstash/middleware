@@ -151,11 +151,13 @@ export class ProjectsService {
         case "chains":
           return p1.chains.length;
         case "monthlyVolume":
-          return p1.monthlyVolume;
+          return p1.monthlyVolume ?? 0;
         case "monthlyFees":
-          return p1.monthlyFees;
+          return p1.monthlyFees ?? 0;
         case "monthlyRevenue":
-          return p1.monthlyRevenue;
+          return p1.monthlyRevenue ?? 0;
+        case "tvl":
+          return p1.tvl ?? 0;
         default:
           return null;
       }

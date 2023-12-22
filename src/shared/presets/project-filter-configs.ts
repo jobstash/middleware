@@ -34,7 +34,6 @@ export const SINGLE_SELECT_OPTIONS = {
     { label: "Number of Chains", value: "chains" },
     { label: "Number of Hacks", value: "hacks" },
     { label: "TVL", value: "tvl" },
-    { label: "Team Size", value: "teamSize" },
   ],
 };
 

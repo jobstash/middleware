@@ -162,7 +162,6 @@ export class ProjectListParams {
       "audits",
       "hacks",
       "chains",
-      "teamSize",
     ],
   })
   @IsOptional()
@@ -174,7 +173,6 @@ export class ProjectListParams {
     "audits",
     "hacks",
     "chains",
-    "teamSize",
   ])
   @IsString()
   orderBy?: ProjectListOrderBy | null = null;

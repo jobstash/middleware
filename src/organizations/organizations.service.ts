@@ -251,13 +251,13 @@ export class OrganizationsService {
         sensitivity: "base",
       }).compare,
     });
-    if (!order || order === "asc") {
+    if (!order || order === "desc") {
       final = naturalSort<OrgDetailsResult>(filtered).asc(x =>
-        params.orderBy ? getSortParam(x) : x.name,
+        params.orderBy ? getSortParam(x) : x.aggregateRating,
       );
     } else {
       final = naturalSort<OrgDetailsResult>(filtered).desc(x =>
-        params.orderBy ? getSortParam(x) : x.name,
+        params.orderBy ? getSortParam(x) : x.aggregateRating,
       );
     }
 
