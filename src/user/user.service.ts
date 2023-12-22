@@ -22,13 +22,17 @@ import { UpdateUserDto } from "./dto/update-user.dto";
 import { SetRoleInput } from "../auth/dto/set-role.input";
 import { SetFlowStateInput } from "../auth/dto/set-flow-state.input";
 import { USER_FLOWS, USER_ROLES } from "src/shared/constants";
+import { ModelService } from "src/model/model.service";
+import { instanceToNode } from "src/shared/helpers";
+import { randomUUID } from "crypto";
 
 @Injectable()
 export class UserService {
   private readonly logger = new CustomLogger(UserService.name);
   constructor(
     @InjectConnection()
-    private readonly neogma: Neogma,
+    private neogma: Neogma,
+    private models: ModelService,
     private readonly userFlowService: UserFlowService,
     private readonly userRoleService: UserRoleService,
   ) {}
@@ -44,19 +48,8 @@ export class UserService {
   }
 
   async findById(id: string): Promise<UserEntity | undefined> {
-    return this.neogma.queryRunner
-      .run(
-        `
-        MATCH (u:User {id: $id})
-        RETURN u
-        `,
-        { id },
-      )
-      .then(res =>
-        res.records.length
-          ? new UserEntity(res.records[0].get("u"))
-          : undefined,
-      )
+    return this.models.Users.findOne({ where: { id } })
+      .then(res => (res ? new UserEntity(instanceToNode(res)) : undefined))
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -71,19 +64,8 @@ export class UserService {
   }
 
   async findByWallet(wallet: string): Promise<UserEntity | undefined> {
-    return this.neogma.queryRunner
-      .run(
-        `
-        MATCH (u:User {wallet: $wallet})
-        RETURN u
-        `,
-        { wallet },
-      )
-      .then(res =>
-        res.records.length
-          ? new UserEntity(res.records[0].get("u"))
-          : undefined,
-      )
+    return this.models.Users.findOne({ where: { wallet } })
+      .then(res => (res ? new UserEntity(instanceToNode(res)) : undefined))
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -154,24 +136,19 @@ export class UserService {
           });
           Sentry.captureException(err);
         });
-        this.logger.error(`UserService::addUserEmail ${err.message}`);
+        this.logger.error(`UserService::verifyUserEmail ${err.message}`);
         return undefined;
       });
   }
 
   async findByGithubNodeId(nodeId: string): Promise<UserEntity | undefined> {
-    return this.neogma.queryRunner
-      .run(
-        `
-        MATCH (u:User)-[:HAS_GITHUB_USER]->(:GithubUser {nodeId: $nodeId})
-        RETURN u
-        `,
-        { nodeId },
-      )
+    return this.models.Users.findRelationships({
+      where: { target: { nodeId } },
+      alias: "githubUser",
+      limit: 1,
+    })
       .then(res =>
-        res.records.length
-          ? new UserEntity(res.records[0].get("u"))
-          : undefined,
+        res ? new UserEntity(instanceToNode(res[0].source)) : undefined,
       )
       .catch(err => {
         Sentry.withScope(scope => {
@@ -186,47 +163,69 @@ export class UserService {
       });
   }
 
-  async findByGithubLogin(githubLogin: string): Promise<User | undefined> {
-    const res = await this.neogma.queryRunner.run(
-      `
-      MATCH (u:User)-[:HAS_GITHUB_USER]->(:GithubUser {login: $githubLogin})
-      RETURN u
-      `,
-      { githubLogin },
-    );
-    return res.records.length
-      ? new UserEntity(res.records[0].get("u")).getProperties()
-      : undefined;
+  async findByGithubLogin(login: string): Promise<User | undefined> {
+    return this.models.Users.findRelationships({
+      where: { target: { login } },
+      alias: "githubUser",
+      limit: 1,
+    })
+      .then(res =>
+        res
+          ? new UserEntity(instanceToNode(res[0].source)).getProperties()
+          : undefined,
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`UserService::findByGithubLogin ${err.message}`);
+        return undefined;
+      });
   }
 
   async create(dto: CreateUserDto): Promise<UserEntity> {
-    return this.neogma.queryRunner
-      .run(
-        `
-                CREATE (u:User { id: randomUUID() })
-                SET u += $properties
-                RETURN u
-            `,
-        {
-          properties: {
-            ...dto,
-          },
-        },
-      )
-      .then(res => new UserEntity(res.records[0].get("u")));
+    return this.models.Users.createOne({
+      id: randomUUID(),
+      ...dto,
+    })
+      .then(res => (res ? new UserEntity(instanceToNode(res)) : undefined))
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`UserService::create ${err.message}`);
+        return undefined;
+      });
   }
 
   async update(id: string, properties: UpdateUserDto): Promise<User> {
-    return this.neogma.queryRunner
-      .run(
-        `
-        MATCH (u:User { id: $id })
-        SET u += $properties
-        RETURN u
-        `,
-        { id, properties },
+    return this.models.Users.update(properties, {
+      where: { id },
+    })
+      .then(res =>
+        res
+          ? new UserEntity(instanceToNode(res[0][0])).getProperties()
+          : undefined,
       )
-      .then(res => new UserEntity(res.records[0].get("u")).getProperties());
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`UserService::update ${err.message}`);
+        return undefined;
+      });
   }
 
   async setFlow(flow: string, storedUser: UserEntity): Promise<void> {
@@ -498,7 +497,8 @@ export class UserService {
             availableForWork: profile.availableForWork,
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-            contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0]
+            contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
+            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0]
           } as user
         `,
       )

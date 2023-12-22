@@ -5,11 +5,19 @@ import { UserFlowService } from "./user-flow.service";
 import { UserRoleService } from "./user-role.service";
 import { GithubModule } from "../auth/github/github.module";
 import { UserController } from "./user.controller";
+import { ModelService } from "src/model/model.service";
+import { JwtService } from "@nestjs/jwt";
 
 @Module({
   imports: [forwardRef(() => GithubModule), ConfigModule],
   controllers: [UserController],
-  providers: [UserService, UserFlowService, UserRoleService],
-  exports: [UserService, UserFlowService, UserRoleService],
+  providers: [
+    UserService,
+    UserFlowService,
+    UserRoleService,
+    ModelService,
+    JwtService,
+  ],
+  exports: [UserService, UserFlowService, UserRoleService, ModelService],
 })
 export class UserModule {}

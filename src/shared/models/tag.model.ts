@@ -18,7 +18,6 @@ export type TagProps = ExtractProps<Tag>;
 
 export type TagInstance = NeogmaInstance<TagProps, NoRelations, TagMethods>;
 
-// export interface NoRelations {}
 export interface TagMethods {
   isBlockedTag: () => Promise<boolean>;
 }

@@ -6,6 +6,7 @@ import { UserService } from "../../user/user.service";
 import { JwtAuthStrategy } from "./jwt-auth.strategy";
 import { UserFlowService } from "../../user/user-flow.service";
 import { UserRoleService } from "../../user/user-role.service";
+import { ModelService } from "src/model/model.service";
 
 @Module({
   imports: [
@@ -22,6 +23,12 @@ import { UserRoleService } from "../../user/user-role.service";
     }),
     ConfigModule,
   ],
-  providers: [JwtAuthStrategy, UserService, UserFlowService, UserRoleService],
+  providers: [
+    JwtAuthStrategy,
+    UserService,
+    UserFlowService,
+    UserRoleService,
+    ModelService,
+  ],
 })
 export class JwtAuthModule {}

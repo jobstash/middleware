@@ -7,6 +7,7 @@ import { UserRoleService } from "../../user/user-role.service";
 import { MailModule } from "src/mail/mail.module";
 import { MailService } from "src/mail/mail.service";
 import { AuthModule } from "../auth.module";
+import { ModelService } from "src/model/model.service";
 
 @Module({
   imports: [forwardRef(() => AuthModule), ConfigModule, MailModule],
@@ -16,6 +17,7 @@ import { AuthModule } from "../auth.module";
     UserFlowService,
     UserRoleService,
     MailService,
+    ModelService,
   ],
   exports: [MagicAuthStrategy],
 })

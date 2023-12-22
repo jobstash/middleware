@@ -174,8 +174,8 @@ export class TagsService {
           DETACH DELETE r1, r2
 
           WITH bt, st, bd
-          CREATE (bt)-[r3:HAS_TAG_DESIGNATION]->(bd)
-          CREATE (st)-[r4:HAS_TAG_DESIGNATION]->(bd)
+          MERGE (bt)-[r3:HAS_TAG_DESIGNATION]->(bd)
+          MERGE (st)-[r4:HAS_TAG_DESIGNATION]->(bd)
           SET r3.creator = $creatorWallet
           SET r3.timestamp = timestamp()
           SET r4.creator = $creatorWallet
@@ -200,7 +200,7 @@ export class TagsService {
           MERGE (pd:PreferredDesignation {name: "PreferredDesignation"})
           WITH pd
           MATCH (pt:Tag {normalizedName: $normalizedName})
-          CREATE (pt)-[r:HAS_TAG_DESIGNATION]->(pd)
+          MERGE (pt)-[r:HAS_TAG_DESIGNATION]->(pd)
           SET r.creator = $creatorWallet
           SET r.timestamp = timestamp()
           RETURN pt
@@ -568,30 +568,21 @@ export class TagsService {
   }
 
   async update(id: string, properties: UpdateTagDto): Promise<Tag> {
-    return this.neogma.queryRunner
-      .run(
-        `
-          MATCH (t:Tag { id: $id })
-          SET t += $properties
-          RETURN t
-        `,
-        { id, properties },
-      )
-      .then(res => new Tag(res.records[0].get("t")));
+    return this.models.Tags.update(properties, {
+      where: {
+        id: id,
+      },
+      return: true,
+    }).then(res => new Tag(res[0][0].getDataValues()));
   }
 
-  async deleteById(id: string): Promise<Tag> {
-    const res = await this.neogma.queryRunner.run(
-      `
-      MATCH (t:Tag {id: $id})
-      DETACH DELETE t
-    `,
-      {
-        id,
+  async deleteById(id: string): Promise<boolean> {
+    await this.models.Tags.delete({
+      where: {
+        id: id,
       },
-    );
-
-    return res.records.length ? new Tag(res.records[0].get("t")) : null;
+    });
+    return true;
   }
 
   normalizeTagName(name: string): string {
