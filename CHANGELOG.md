@@ -1,3 +1,10 @@
+## [1.66.7](https://github.com/jobstash/middleware/compare/v1.66.6...v1.66.7) (2023-12-22)
+
+
+### Bug Fixes
+
+* **filters:** fixed issues with sorting on orgs and projects lists ([613eba4](https://github.com/jobstash/middleware/commit/613eba4b15d2cb3b3e86233140fe9732a16a8658))
+
 ## [1.66.6](https://github.com/jobstash/middleware/compare/v1.66.5...v1.66.6) (2023-12-21)
 
 
