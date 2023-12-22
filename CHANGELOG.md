@@ -1,3 +1,10 @@
+## [1.66.8](https://github.com/jobstash/middleware/compare/v1.66.7...v1.66.8) (2023-12-22)
+
+
+### Bug Fixes
+
+* **profile:** set user repo skills used lookup to only find skills added by that user ([0256789](https://github.com/jobstash/middleware/commit/0256789d0e5142eb2ef7ea58d948e6c9a887dbd8))
+
 ## [1.66.7](https://github.com/jobstash/middleware/compare/v1.66.6...v1.66.7) (2023-12-22)
 
 
