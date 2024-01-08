@@ -431,9 +431,9 @@ export class ProfileService {
         OPTIONAL MATCH (user)-[rr:LEFT_REVIEW]->(:OrgReview)
         OPTIONAL MATCH (user)-[gr:HAS_GITHUB_USER]->(:GithubUser)
         OPTIONAL MATCH (user)-[scr:HAS_SHOWCASE]->(showcase:UserShowCase)
-        OPTIONAL MATCH (user)-[sr:HAS_SKILLS]->(skills:UserSkills)
+        OPTIONAL MATCH (user)-[sr:HAS_SKILL]->(skill:Tag)
         OPTIONAL MATCH (user)-[er:HAS_EMAIL]->(email:UserEmail|UserUnverifiedEmail)
-        DETACH DELETE user, pr, profile, cr, contact, rr, gr, scr, showcase, sr, skills, er, email
+        DETACH DELETE user, pr, profile, cr, contact, rr, gr, scr, showcase, sr, er, email
       `,
         { wallet },
       );
@@ -730,8 +730,8 @@ export class ProfileService {
         WITH data, ghu, user
         MATCH (repo:GithubRepository {id: $id}), (tag: Tag {normalizedName: data.normalizedName})
         MERGE (user)-[s:HAS_SKILL]->(tag)
-        MERGE (ghu)-[:USED_TAG]->(tag)-[:USED_ON]->(repo)
         SET s.canTeach = data.canTeach
+        MERGE (ghu)-[:USED_TAG]->(tag)-[:USED_ON]->(repo)
       `,
         { wallet, ...dto },
       );
