@@ -1,3 +1,10 @@
+## [1.66.9](https://github.com/jobstash/middleware/compare/v1.66.8...v1.66.9) (2024-01-08)
+
+
+### Bug Fixes
+
+* **profile:** fixed weirdness with profile skills and repo tags used ([392aa89](https://github.com/jobstash/middleware/commit/392aa8970153abab494222e677d60e4a6f65fc6b))
+
 ## [1.66.8](https://github.com/jobstash/middleware/compare/v1.66.7...v1.66.8) (2023-12-22)
 
 
