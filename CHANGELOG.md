@@ -1,3 +1,10 @@
+# [1.67.0](https://github.com/jobstash/middleware/compare/v1.66.9...v1.67.0) (2024-01-08)
+
+
+### Features
+
+* **profile:** added support for location on user profile ([b4109a0](https://github.com/jobstash/middleware/commit/b4109a0c5bca9d6fb883d4bc57f04d7e02b72f2e))
+
 ## [1.66.9](https://github.com/jobstash/middleware/compare/v1.66.8...v1.66.9) (2024-01-08)
 
 
