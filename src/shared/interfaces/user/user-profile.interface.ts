@@ -11,6 +11,10 @@ export class UserProfile {
       value: t.union([t.string, t.null]),
       preferred: t.union([t.string, t.null]),
     }),
+    location: t.strict({
+      country: t.union([t.string, t.null]),
+      city: t.union([t.string, t.null]),
+    }),
     availableForWork: t.union([t.boolean, t.null]),
   });
 
@@ -21,10 +25,15 @@ export class UserProfile {
     value: string | null;
     preferred: string | null;
   };
+  location: {
+    country: string | null;
+    city: string | null;
+  };
   availableForWork: boolean | null;
 
   constructor(raw: UserProfile) {
-    const { avatar, username, email, availableForWork, contact } = raw;
+    const { avatar, username, email, availableForWork, contact, location } =
+      raw;
 
     const result = UserProfile.UserProfileType.decode(raw);
 
@@ -32,6 +41,7 @@ export class UserProfile {
     this.email = email;
     this.username = username;
     this.contact = contact;
+    this.location = location;
     this.availableForWork = availableForWork;
 
     if (isLeft(result)) {

@@ -16,6 +16,7 @@ import {
   OrganizationReviewInstance,
   OrganizationReviews,
 } from "./organization-review.model";
+import { UserLocationInstance, UserLocations } from "./user-location.model";
 
 export type UserProps = ExtractProps<User>;
 
@@ -40,6 +41,10 @@ export interface UserRelations {
   profile: ModelRelatedNodesI<
     ReturnType<typeof UserProfiles>,
     UserProfileInstance
+  >;
+  location: ModelRelatedNodesI<
+    ReturnType<typeof UserLocations>,
+    UserLocationInstance
   >;
   contact: ModelRelatedNodesI<
     ReturnType<typeof UserContacts>,
@@ -118,6 +123,11 @@ export const Users = (neogma: Neogma): NeogmaModel<UserProps, UserRelations> =>
           model: OrganizationReviews(neogma),
           direction: "out",
           name: "LEFT_REVIEW",
+        },
+        location: {
+          model: UserLocations(neogma),
+          direction: "out",
+          name: "HAS_LOCATION",
         },
       },
     },

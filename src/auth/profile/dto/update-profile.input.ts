@@ -16,4 +16,9 @@ export class UpdateUserProfileInput {
   @IsObject()
   @IsNotEmptyObject()
   contact: { preferred: string | null; value: string | null };
+
+  @ApiProperty()
+  @IsObject()
+  @IsNotEmptyObject()
+  location: { country: string | null; city: string | null };
 }

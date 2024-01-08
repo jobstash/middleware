@@ -15,6 +15,10 @@ export class UserProfileEntity {
         value: notStringOrNull(this.raw?.contact?.value),
         preferred: notStringOrNull(this.raw?.contact?.preferred),
       },
+      location: {
+        country: notStringOrNull(this.raw?.location?.country),
+        city: notStringOrNull(this.raw?.location?.city),
+      },
     });
   }
 }

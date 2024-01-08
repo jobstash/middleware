@@ -66,6 +66,11 @@ export class ProfileService {
         alias: "githubUser",
       });
 
+      const userLocation = await this.models.Users.findRelationships({
+        where: { source: { wallet } },
+        alias: "location",
+      });
+
       return {
         success: true,
         message: "User Profile retrieved successfully",
@@ -76,6 +81,10 @@ export class ProfileService {
           contact: {
             value: userContact[0]?.target.value,
             preferred: userContact[0]?.target.preferred,
+          },
+          location: {
+            country: userLocation[0]?.target.country,
+            city: userLocation[0]?.target.city,
           },
           email: userEmail[0]?.target.email,
         }).getProperties(),
@@ -383,6 +392,11 @@ export class ProfileService {
         MERGE (user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo)
         SET contact.preferred = $preferred
         SET contact.value = $value
+
+        WITH user
+        MERGE (user)-[:HAS_LOCATION]->(location: UserLocation)
+        SET location.country = $country
+        SET location.city = $city
         
         WITH user
         RETURN {
@@ -390,11 +404,12 @@ export class ProfileService {
           email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-          contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0]
+          contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
+          location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
         } as profile
 
       `,
-        { wallet, ...dto, ...dto.contact },
+        { wallet, ...dto, ...dto.contact, ...dto.location },
       );
 
       return {
@@ -431,9 +446,10 @@ export class ProfileService {
         OPTIONAL MATCH (user)-[rr:LEFT_REVIEW]->(:OrgReview)
         OPTIONAL MATCH (user)-[gr:HAS_GITHUB_USER]->(:GithubUser)
         OPTIONAL MATCH (user)-[scr:HAS_SHOWCASE]->(showcase:UserShowCase)
+        OPTIONAL MATCH (user)-[ul:HAS_LOCATION]->(location:UserLocation)
         OPTIONAL MATCH (user)-[sr:HAS_SKILL]->(skill:Tag)
         OPTIONAL MATCH (user)-[er:HAS_EMAIL]->(email:UserEmail|UserUnverifiedEmail)
-        DETACH DELETE user, pr, profile, cr, contact, rr, gr, scr, showcase, sr, er, email
+        DETACH DELETE user, pr, profile, cr, contact, rr, gr, scr, showcase, ul, location, sr, er, email
       `,
         { wallet },
       );
