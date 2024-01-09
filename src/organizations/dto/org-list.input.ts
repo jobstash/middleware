@@ -81,10 +81,22 @@ export class OrgListParams {
   order?: ListOrder | null = null;
 
   @ApiPropertyOptional({
-    enum: ["recentFundingDate", "headcountEstimate", "recentJobDate", "rating"],
+    enum: [
+      "recentFundingDate",
+      "headcountEstimate",
+      "recentJobDate",
+      "rating",
+      "name",
+    ],
   })
   @IsOptional()
-  @IsIn(["recentFundingDate", "headcountEstimate", "recentJobDate", "rating"])
+  @IsIn([
+    "recentFundingDate",
+    "headcountEstimate",
+    "recentJobDate",
+    "rating",
+    "name",
+  ])
   @IsString()
   orderBy?: OrgListOrderBy | null = null;
 

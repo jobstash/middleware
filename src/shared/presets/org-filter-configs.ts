@@ -23,6 +23,7 @@ export const SINGLE_SELECT_OPTIONS = {
     { label: "Most Recent Jobpost", value: "recentJobDate" },
     { label: "Most Recent Funding Date", value: "recentFundingDate" },
     { label: "Rating", value: "rating" },
+    { label: "Name", value: "name" },
   ],
 };
 

@@ -63,6 +63,7 @@ export class ProjectFilterConfigsEntity {
         caseFirst: "lower",
         sensitivity: "case",
       }).compare,
+      inPlaceSorting: true,
     });
 
     const isValidFilterConfig = (value: string): boolean =>

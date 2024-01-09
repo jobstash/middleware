@@ -169,6 +169,7 @@ export class ProjectsService {
         numeric: true,
         sensitivity: "base",
       }).compare,
+      inPlaceSorting: true,
     });
     if (!order || order === "asc") {
       final = naturalSort<ProjectListResult>(filtered).asc(x =>

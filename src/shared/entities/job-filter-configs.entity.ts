@@ -72,6 +72,7 @@ export class JobFilterConfigsEntity {
         caseFirst: "lower",
         sensitivity: "case",
       }).compare,
+      inPlaceSorting: true,
     });
 
     const isValidFilterConfig = (value: string): boolean =>

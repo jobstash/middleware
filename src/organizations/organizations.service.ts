@@ -250,15 +250,22 @@ export class OrganizationsService {
         numeric: true,
         sensitivity: "base",
       }).compare,
+      inPlaceSorting: true,
     });
     if (!order || order === "desc") {
-      final = naturalSort<OrgDetailsResult>(filtered).asc(x =>
-        params.orderBy ? getSortParam(x) : x.aggregateRating,
-      );
+      final = naturalSort<OrgDetailsResult>(filtered).by([
+        {
+          desc: x => (params.orderBy ? getSortParam(x) : x.aggregateRating),
+        },
+        { desc: x => x.name },
+      ]);
     } else {
-      final = naturalSort<OrgDetailsResult>(filtered).desc(x =>
-        params.orderBy ? getSortParam(x) : x.aggregateRating,
-      );
+      final = naturalSort<OrgDetailsResult>(filtered).by([
+        {
+          asc: x => (params.orderBy ? getSortParam(x) : x.aggregateRating),
+        },
+        { asc: x => x.name },
+      ]);
     }
 
     return paginate<ShortOrg>(
