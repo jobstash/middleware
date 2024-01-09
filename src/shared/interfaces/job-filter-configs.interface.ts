@@ -35,6 +35,7 @@ export class JobFilterConfigs {
     projects: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     investors: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     classifications: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+    commitments: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     fundingRounds: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     organizations: MultiSelectSearchFilter.MultiSelectSearchFilterType,
   });
@@ -63,6 +64,8 @@ export class JobFilterConfigs {
   projects: MultiSelectSearchFilter;
   @ApiProperty()
   classifications: MultiSelectSearchFilter;
+  @ApiProperty()
+  commitments: MultiSelectSearchFilter;
   @ApiProperty()
   tvl: RangeFilter;
   @ApiProperty()
@@ -102,6 +105,7 @@ export class JobFilterConfigs {
       headcountEstimate,
       investors,
       classifications,
+      commitments,
       monthlyFees,
       fundingRounds,
       organizations,
@@ -134,6 +138,7 @@ export class JobFilterConfigs {
     this.monthlyRevenue = monthlyRevenue;
     this.publicationDate = publicationDate;
     this.classifications = classifications;
+    this.commitments = commitments;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

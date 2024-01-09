@@ -283,6 +283,7 @@ export class JobsService {
       investors: investorFilterList,
       fundingRounds: fundingRoundFilterList,
       classifications: classificationFilterList,
+      commitments: commitmentFilterList,
       token,
       mainNet,
       query,
@@ -329,6 +330,7 @@ export class JobsService {
         seniority,
         locationType,
         classification,
+        commitment,
         salary: salary,
         timestamp,
       } = jlr;
@@ -356,6 +358,8 @@ export class JobsService {
           ).length > 0) &&
         (!classificationFilterList ||
           classificationFilterList.includes(normalizeString(classification))) &&
+        (!commitmentFilterList ||
+          commitmentFilterList.includes(normalizeString(commitment))) &&
         (!token ||
           projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
             .length > 0) &&
@@ -521,6 +525,10 @@ export class JobsService {
               classifications: apoc.coll.toSet([
                 (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification)
                 WHERE (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | classification.name
+              ]),
+              commitments: apoc.coll.toSet([
+                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_COMMITMENT]->(commitment:JobpostCommitment)
+                WHERE (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | commitment.name
               ]),
               chains: apoc.coll.toSet([
                 (org)-[:HAS_PROJECT|IS_DEPLOYED_ON*2]->(chain: Chain) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus))

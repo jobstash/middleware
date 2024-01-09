@@ -208,6 +208,14 @@ export class JobListParams {
   classifications?: string[] | null = null;
 
   @ApiPropertyOptional({
+    example: "T3B0aW9ucw==,WWllbGQ=",
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  commitments?: string[] | null = null;
+
+  @ApiPropertyOptional({
     example: "U2VlZA==,U2VyaWVzIEE=",
   })
   @IsOptional()

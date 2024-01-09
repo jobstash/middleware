@@ -66,6 +66,13 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "filter_joblist_classifications",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
+  commitments: {
+    position: 1,
+    label: "Commitment",
+    show: true,
+    googleAnalyticsEventName: "filter_joblist_commitments",
+    kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
+  },
   salary: {
     position: 2,
     label: "Salary",
@@ -241,6 +248,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
   chains: "chains",
   projects: "projects",
   classifications: "classifications",
+  commitments: "commitments",
   tvl: {
     lowest: "minTvl",
     highest: "maxTvl",
