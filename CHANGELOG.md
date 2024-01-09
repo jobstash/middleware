@@ -1,3 +1,10 @@
+# [1.68.0](https://github.com/jobstash/middleware/compare/v1.67.1...v1.68.0) (2024-01-09)
+
+
+### Features
+
+* **jobs:** added support for filtering jobs by commitment ([65078ab](https://github.com/jobstash/middleware/commit/65078ab66bdb3e984cdad79550202b8590baf033))
+
 ## [1.67.1](https://github.com/jobstash/middleware/compare/v1.67.0...v1.67.1) (2024-01-09)
 
 
