@@ -42,7 +42,7 @@ import {
   CACHE_DURATION,
   CACHE_EXPIRY,
 } from "src/shared/presets/cache-control";
-import { btoa, responseSchemaWrapper } from "src/shared/helpers";
+import { responseSchemaWrapper } from "src/shared/helpers";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { Response as ExpressResponse, Request } from "express";
@@ -111,11 +111,7 @@ export class JobsController {
     @Query(new ValidationPipe({ transform: true }))
     params: JobListParams,
   ): Promise<PaginatedData<JobListResult>> {
-    const paramsParsed = {
-      ...params,
-      query: btoa(params.query),
-    };
-    const queryString = JSON.stringify(paramsParsed);
+    const queryString = JSON.stringify(params);
     this.logger.log(`/jobs/list ${queryString}`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
@@ -124,7 +120,7 @@ export class JobsController {
         queryString,
       );
     }
-    return this.jobsService.getJobsListWithSearch(paramsParsed);
+    return this.jobsService.getJobsListWithSearch(params);
   }
 
   @Get("/filters")
@@ -238,12 +234,8 @@ export class JobsController {
     @Query(new ValidationPipe({ transform: true }))
     params: AllJobsParams,
   ): Promise<Response<AllJobsListResult[]>> {
-    const paramsParsed = {
-      ...params,
-      query: btoa(params.query),
-    };
-    this.logger.log(`/jobs/all ${JSON.stringify(paramsParsed)}`);
-    return this.jobsService.getAllJobsWithSearch(paramsParsed);
+    this.logger.log(`/jobs/all ${JSON.stringify(params)}`);
+    return this.jobsService.getAllJobsWithSearch(params);
   }
 
   @Get("/all/filters")

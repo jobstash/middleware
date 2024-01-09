@@ -241,16 +241,6 @@ export const toList = ({ value }: TransformFnParams): string[] | null => {
   }
 };
 
-export const btoa = (value: string): string | null => {
-  if (typeof value === "string") {
-    return Buffer.from(value, "base64").toString("ascii");
-  } else if (typeof value === "undefined") {
-    return null;
-  } else {
-    return value;
-  }
-};
-
 export const transformToNullIfUndefined = (
   value: unknown | undefined,
 ): unknown => {

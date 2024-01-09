@@ -9,8 +9,8 @@ export class ReviewOrgInput {
 
   @ApiProperty()
   @IsString()
-  @IsOptional()
-  title: string | null;
+  @IsNotEmpty()
+  title: string;
 
   @ApiProperty()
   @IsString()

@@ -28,7 +28,7 @@ import {
 import { Response as ExpressResponse } from "express";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { Roles } from "src/shared/decorators/role.decorator";
-import { btoa, responseSchemaWrapper } from "src/shared/helpers";
+import { responseSchemaWrapper } from "src/shared/helpers";
 import {
   Repository,
   Organization,
@@ -150,12 +150,8 @@ export class OrganizationsController {
     @Query(new ValidationPipe({ transform: true }))
     params: OrgListParams,
   ): Promise<PaginatedData<ShortOrg>> {
-    const paramsParsed = {
-      ...params,
-      query: btoa(params.query),
-    };
-    this.logger.log(`/organizations/list ${JSON.stringify(paramsParsed)}`);
-    return this.organizationsService.getOrgsListWithSearch(paramsParsed);
+    this.logger.log(`/organizations/list ${JSON.stringify(params)}`);
+    return this.organizationsService.getOrgsListWithSearch(params);
   }
 
   @Get("/filters")

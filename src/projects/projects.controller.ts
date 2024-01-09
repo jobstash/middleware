@@ -28,7 +28,7 @@ import {
 import { Response as ExpressResponse } from "express";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { Roles } from "src/shared/decorators/role.decorator";
-import { btoa, responseSchemaWrapper } from "src/shared/helpers";
+import { responseSchemaWrapper } from "src/shared/helpers";
 import {
   PaginatedData,
   ProjectFilterConfigs,
@@ -165,12 +165,8 @@ export class ProjectsController {
     @Query(new ValidationPipe({ transform: true }))
     params: ProjectListParams,
   ): Promise<PaginatedData<ProjectListResult>> {
-    const paramsParsed = {
-      ...params,
-      query: btoa(params.query),
-    };
-    this.logger.log(`/projects/list ${JSON.stringify(paramsParsed)}`);
-    return this.projectsService.getProjectsListWithSearch(paramsParsed);
+    this.logger.log(`/projects/list ${JSON.stringify(params)}`);
+    return this.projectsService.getProjectsListWithSearch(params);
   }
 
   @Get("/filters")
