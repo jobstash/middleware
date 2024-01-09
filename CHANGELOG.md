@@ -1,3 +1,10 @@
+## [1.67.1](https://github.com/jobstash/middleware/compare/v1.67.0...v1.67.1) (2024-01-09)
+
+
+### Bug Fixes
+
+* fixed org ordering and added sort by name option ([83a928f](https://github.com/jobstash/middleware/commit/83a928f99e1b2ea7acdcba7b1260f9dcdd832c86))
+
 # [1.67.0](https://github.com/jobstash/middleware/compare/v1.66.9...v1.67.0) (2024-01-08)
 
 
