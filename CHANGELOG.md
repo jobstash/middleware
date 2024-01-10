@@ -1,3 +1,10 @@
+## [1.68.1](https://github.com/jobstash/middleware/compare/v1.68.0...v1.68.1) (2024-01-10)
+
+
+### Bug Fixes
+
+* disabled chains filter ([d4c888d](https://github.com/jobstash/middleware/commit/d4c888d14edb231c8672176db7bc809e4317ca63))
+
 # [1.68.0](https://github.com/jobstash/middleware/compare/v1.67.1...v1.68.0) (2024-01-09)
 
 
