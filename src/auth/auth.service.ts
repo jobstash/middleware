@@ -31,7 +31,6 @@ export class AuthService {
       password: configService.get<string>("SESSION_SECRET"),
       cookieOptions: {
         secure: configService.get<string>("NODE_ENV") === "production",
-        sameSite: "none",
       },
     };
   }

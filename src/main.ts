@@ -20,7 +20,6 @@ const ironOptions: IronSessionOptions = {
   cookieName: "session",
   cookieOptions: {
     secure: process.env.NODE_ENV === "production",
-    sameSite: "none",
   },
 };
 
