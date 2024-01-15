@@ -2,14 +2,6 @@
 
 This project is a NestJS middleware that feeds read-only info to a frontend from a Neo4J DB. [Click me to learn more](https://www.notion.so/recruitersrip/Middleware-48bec9431b894af29e5198ac77e2d711)
 
-## SSL JOY
-
-make sure to have in .env
-`LOCAL_HTTPS=yes`
-
-and copy certificates from app over to `certs` folder in the root of the project
-then run using `yarn start:ssl`
-
 ## Getting Started
 
 Welcome to the team! Let's get you situated.  
