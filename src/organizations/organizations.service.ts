@@ -257,7 +257,7 @@ export class OrganizationsService {
         {
           desc: x => (params.orderBy ? getSortParam(x) : x.aggregateRating),
         },
-        { desc: x => x.name },
+        { asc: x => x.name },
       ]);
     } else {
       final = naturalSort<OrgDetailsResult>(filtered).by([
