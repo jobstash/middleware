@@ -236,7 +236,7 @@ export class SiweController {
           message: "Wallet checked successfully",
           data: {
             role: CheckWalletRoles.ANON,
-            flow: CheckWalletFlows.PICK_ROLE,
+            flow: CheckWalletFlows.LOGIN,
           },
         });
       } else {
@@ -261,7 +261,7 @@ export class SiweController {
           flow = userFlow.getName();
         } else {
           this.logger.log(`/siwe/check-wallet user flow was ${userFlow}`);
-          flow = CheckWalletFlows.PICK_ROLE;
+          flow = CheckWalletFlows.LOGIN;
         }
 
         session.token = this.authService.createToken({
