@@ -1,3 +1,10 @@
+## [1.68.2](https://github.com/jobstash/middleware/compare/v1.68.1...v1.68.2) (2024-01-18)
+
+
+### Bug Fixes
+
+* **signup:** Fix signup flow ([caecdf3](https://github.com/jobstash/middleware/commit/caecdf34fa1e15af2af18bed8750cdcabaac80fe))
+
 ## [1.68.1](https://github.com/jobstash/middleware/compare/v1.68.0...v1.68.1) (2024-01-10)
 
 
