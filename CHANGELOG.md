@@ -1,3 +1,10 @@
+## [1.68.3](https://github.com/jobstash/middleware/compare/v1.68.2...v1.68.3) (2024-01-18)
+
+
+### Bug Fixes
+
+* **login:** revert last change ([47ac7a8](https://github.com/jobstash/middleware/commit/47ac7a8e3fbcaa916687804ab0d6b2695069cadf))
+
 ## [1.68.2](https://github.com/jobstash/middleware/compare/v1.68.1...v1.68.2) (2024-01-18)
 
 
