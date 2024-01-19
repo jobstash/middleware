@@ -20,7 +20,6 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@neo4j-labs/temp-dbs": "^0.2.4",
     "@nestjs/cache-manager": "^1.0.0",
     "@nestjs/common": "^9.4.0",
     "@nestjs/config": "^2.3.1",
@@ -56,7 +55,7 @@
     "mime": "^3.0.0",
     "neo4j-driver": "^5.8.0",
     "neogma": "^1.12.3",
-    "nest-neogma": "^0.4.3",
+    "nest-neogma": "^0.5.0",
     "nft.storage": "^7.0.3",
     "passport": "^0.6.0",
     "passport-jwt": "^4.0.1",

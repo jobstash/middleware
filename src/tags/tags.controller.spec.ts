@@ -13,15 +13,6 @@ import { ModelModule } from "src/model/model.module";
 import { AuthService } from "src/auth/auth.service";
 import { JwtService } from "@nestjs/jwt";
 import { ModelService } from "src/model/model.service";
-import Neo4jTempDB from "@neo4j-labs/temp-dbs";
-import {
-  // Neogma,
-  // Runnable,
-  // getRunnable,
-  // getSession,
-  // getTransaction,
-  neo4jDriver,
-} from "neogma";
 import { TagsService } from "./tags.service";
 import { Response, Tag } from "src/shared/interfaces";
 import { printDuplicateItems } from "src/shared/helpers";
@@ -58,28 +49,13 @@ describe("TagsController", () => {
               scheme: configService.get<string>("NEO4J_SCHEME"),
               username: configService.get<string>("NEO4J_USERNAME"),
               // database: tempDbName,
+              useTempDB: true,
             } as NeogmaModuleOptions),
         }),
         ModelModule,
       ],
       controllers: [TagsController],
       providers: [
-        {
-          provide: "TEMP_DB",
-          inject: [ConfigService],
-          useFactory: (configService: ConfigService) =>
-            new Neo4jTempDB(
-              `${configService.get<string>(
-                "NEO4J_SCHEME",
-              )}://${configService.get<string>(
-                "NEO4J_HOST",
-              )}:${configService.get<string>("NEO4J_PORT")}`,
-              neo4jDriver.auth.basic(
-                configService.get<string>("NEO4J_USERNAME"),
-                configService.get<string>("NEO4J_PASSWORD"),
-              ),
-            ),
-        },
         TagsService,
         AuthService,
         JwtService,
