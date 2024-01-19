@@ -1,3 +1,10 @@
+## [1.68.4](https://github.com/jobstash/middleware/compare/v1.68.3...v1.68.4) (2024-01-19)
+
+
+### Bug Fixes
+
+* **profile:** fixed bugs with creating user profiles on siwe ([a51c928](https://github.com/jobstash/middleware/commit/a51c928da8cbc7bc99759ebaac5bf27b59ba1ea6))
+
 ## [1.68.3](https://github.com/jobstash/middleware/compare/v1.68.2...v1.68.3) (2024-01-18)
 
 
