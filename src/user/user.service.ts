@@ -191,6 +191,7 @@ export class UserService {
     return this.models.Users.createOne({
       id: randomUUID(),
       ...dto,
+      available: false,
     })
       .then(res => (res ? new UserEntity(instanceToNode(res)) : undefined))
       .catch(err => {
@@ -313,7 +314,9 @@ export class UserService {
         `/user/createSIWEUser: Creating user with wallet ${wallet}`,
       );
       const storedUser = await this.findByWallet(wallet);
-      this.logger.log(JSON.stringify(storedUser));
+      this.logger.log(
+        JSON.stringify(storedUser) ?? "No user found for that wallet",
+      );
 
       if (storedUser) {
         return storedUser.getProperties();
@@ -324,6 +327,8 @@ export class UserService {
       };
 
       const newUser = await this.create(newUserDto);
+
+      this.logger.log(JSON.stringify(newUser));
 
       await this.setRole(USER_ROLES.ANON, newUser);
       await this.setFlow(USER_FLOWS.PICK_ROLE, newUser);

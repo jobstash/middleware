@@ -74,8 +74,8 @@ export class AuthService {
     };
   }
 
-  createToken(claim: string | object): string {
-    const token = this.jwtService.sign(JSON.stringify(claim), this.jwtConfig);
+  createToken(claim: object): string {
+    const token = this.jwtService.sign(claim, this.jwtConfig);
 
     return token;
   }

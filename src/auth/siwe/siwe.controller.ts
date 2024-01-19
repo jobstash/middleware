@@ -175,14 +175,14 @@ export class SiweController {
 
       await this.userService.createSIWEUser(siweMessage.address);
 
-      session.token = this.authService.createToken(fields.address);
+      session.token = this.authService.createToken({ address: fields.address });
       session.address = fields.address;
       session.chainId = fields.chainId;
       await session.save();
 
       res.status(HttpStatus.OK).end();
     } catch (error) {
-      this.logger.error(`/siwe/verify`);
+      this.logger.error(`/siwe/verify ${JSON.stringify(error)}`);
       Sentry.withScope(scope => {
         scope.setTags({
           action: "service-action",
