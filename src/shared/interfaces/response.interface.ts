@@ -20,6 +20,8 @@ export class ResponseWithNoData extends OmitType(Response<null>, [
   override message: string;
 }
 
+export type ResponseWithOptionalData<T> = Response<T> | ResponseWithNoData;
+
 export class ValidationError {
   @ApiProperty()
   statusCode: number;
@@ -28,3 +30,6 @@ export class ValidationError {
   @ApiProperty()
   error: string;
 }
+
+export const data = <X>(value: Response<X> | ResponseWithNoData): X | null =>
+  (value as Response<X>)?.data;

@@ -39,7 +39,7 @@ export const GithubUsers = (
       label: "GithubUser",
       schema: {
         id: {
-          type: "string",
+          type: "number",
           allowEmpty: false,
           required: true,
         },
@@ -48,7 +48,7 @@ export const GithubUsers = (
         gravatarId: { type: "string", allowEmpty: true, required: false },
         avatarUrl: { type: "string", allowEmpty: false, required: true },
         accessToken: { type: "string", allowEmpty: false, required: true },
-        refreshToken: { type: "string", allowEmpty: false, required: true },
+        refreshToken: { type: "string", allowEmpty: true, required: false },
       },
       relationships: {
         repositories: {

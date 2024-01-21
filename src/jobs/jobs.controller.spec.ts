@@ -30,6 +30,7 @@ import { forwardRef } from "@nestjs/common";
 import { UserModule } from "src/user/user.module";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { TagsService } from "src/tags/tags.service";
+import { DEV_TEST_WALLET } from "src/shared/constants/testing";
 
 describe("JobsController", () => {
   let controller: JobsController;
@@ -181,7 +182,7 @@ describe("JobsController", () => {
       limit: Number(Integer.MAX_VALUE),
     };
     jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-      address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
+      address: DEV_TEST_WALLET,
       destroy: async (): Promise<void> => {
         console.log("session destroyed");
       },

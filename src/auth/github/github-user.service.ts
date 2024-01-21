@@ -69,6 +69,8 @@ export class GithubUserService {
         refreshToken: updateObject.githubRefreshToken,
       };
 
+      this.logger.log(JSON.stringify(payload));
+
       if (githubUserNode) {
         const githubUserNodeData: GithubUserProperties =
           githubUserNode.getProperties();
@@ -136,7 +138,9 @@ export class GithubUserService {
       where: { login: login },
     });
 
-    return new GithubUserNode(instanceToNode(githubNode));
+    return githubNode
+      ? new GithubUserNode(instanceToNode(githubNode))
+      : undefined;
   }
 
   async findAll(): Promise<GithubUserNode[]> {
@@ -152,6 +156,9 @@ export class GithubUserService {
   ): Promise<GithubUserNode> {
     const newGithubNode = await this.models.GithubUsers.createOne(
       createGithubUserDto,
+      {
+        validate: false,
+      },
     );
     return new GithubUserNode(instanceToNode(newGithubNode));
   }
