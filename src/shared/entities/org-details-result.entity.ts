@@ -62,6 +62,7 @@ export class OrgDetailsResultEntity {
       reviewCount: reviews.length,
       docs: notStringOrNull(organization?.docs),
       logoUrl: notStringOrNull(organization?.logoUrl),
+      location: notStringOrNull(organization?.location),
       headcountEstimate: nonZeroOrNull(organization?.headcountEstimate),
       github: notStringOrNull(organization?.github),
       twitter: notStringOrNull(organization?.twitter),

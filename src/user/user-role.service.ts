@@ -72,10 +72,7 @@ export class UserRoleService {
     return res.records[0]?.get("result") ?? false;
   }
 
-  async relateUserToUserRole(
-    userId: string,
-    userRoleId: string,
-  ): Promise<unknown> {
+  async linkUserToRole(userId: string, userRoleId: string): Promise<unknown> {
     return this.neogma.queryRunner.run(
       `
       MATCH (u:User {id: $userId})
@@ -86,7 +83,7 @@ export class UserRoleService {
     );
   }
 
-  async unrelateUserFromUserRole(
+  async unlinkUserFromRole(
     userId: string,
     userRoleId: string,
   ): Promise<unknown> {

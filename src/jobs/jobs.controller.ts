@@ -14,7 +14,6 @@ import {
 } from "@nestjs/common";
 import { JobsService } from "./jobs.service";
 import {
-  CheckWalletRoles,
   JobFilterConfigs,
   JobListResult,
   PaginatedData,
@@ -41,7 +40,7 @@ import {
   CACHE_CONTROL_HEADER,
   CACHE_DURATION,
   CACHE_EXPIRY,
-} from "src/shared/presets/cache-control";
+} from "src/shared/constants/cache-control";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { Roles } from "src/shared/decorators/role.decorator";
@@ -53,6 +52,7 @@ import { ProfileService } from "src/auth/profile/profile.service";
 import { EditJobTagsInput } from "./dto/edit-tags.input";
 import { TagsService } from "src/tags/tags.service";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
+import { CheckWalletRoles } from "src/shared/constants";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)

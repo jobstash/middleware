@@ -18,6 +18,7 @@ import { ModelService } from "src/model/model.service";
 import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
 import { OrganizationsService } from "src/organizations/organizations.service";
 import { ProjectCategoryService } from "./project-category.service";
+import { REALLY_LONG_TIME } from "src/shared/constants";
 
 describe("ProjectsController", () => {
   let controller: ProjectsController;
@@ -91,72 +92,88 @@ describe("ProjectsController", () => {
     expect(controller).toBeDefined();
   });
 
-  it("should be able to access models", async () => {
-    expect(models.Organizations.findMany).toBeDefined();
-    expect(
-      (await models.Organizations.findMany()).length,
-    ).toBeGreaterThanOrEqual(1);
-  }, 10000);
+  it(
+    "should access models",
+    async () => {
+      expect(models.Organizations.findMany).toBeDefined();
+      expect(
+        (await models.Organizations.findMany()).length,
+      ).toBeGreaterThanOrEqual(1);
+    },
+    REALLY_LONG_TIME,
+  );
 
-  it("should get projects list with no duplication", async () => {
-    const params: ProjectListParams = {
-      ...new ProjectListParams(),
-      page: 1,
-      limit: Number(Integer.MAX_VALUE),
-    };
-    const res = await controller.getProjectsListWithSearch(params);
+  it(
+    "should get projects list with no duplication",
+    async () => {
+      const params: ProjectListParams = {
+        ...new ProjectListParams(),
+        page: 1,
+        limit: Number(Integer.MAX_VALUE),
+      };
+      const res = await controller.getProjectsListWithSearch(params);
 
-    const uuids = res.data.map(project => project.id);
-    const setOfUuids = new Set([...uuids]);
+      const uuids = res.data.map(project => project.id);
+      const setOfUuids = new Set([...uuids]);
 
-    expect(res).toEqual({
-      page: 1,
-      count: expect.any(Number),
-      total: expect.any(Number),
-      data: expect.any(Array<Project>),
-    });
-
-    printDuplicateItems(setOfUuids, uuids, "Project with ID");
-
-    expect(setOfUuids.size).toBe(uuids.length);
-  }, 300000);
-
-  it("should get correctly formatted filter configs", async () => {
-    const configs = await controller.getFilterConfigs();
-
-    expect(configs).toBeDefined();
-
-    const validationResult =
-      ProjectFilterConfigs.ProjectFilterConfigsType.decode(configs);
-    if (isRight(validationResult)) {
-      // The result is of the expected type
-      const validatedResult = validationResult.right;
-      expect(validatedResult).toEqual(configs);
-    } else {
-      // The result is not of the expected type
-      report(validationResult).forEach(x => {
-        throw new Error(x);
+      expect(res).toEqual({
+        page: 1,
+        count: expect.any(Number),
+        total: expect.any(Number),
+        data: expect.any(Array<Project>),
       });
-    }
-  }, 100000);
 
-  it("should get project details with no array property duplication", async () => {
-    const params: ProjectListParams = {
-      ...new ProjectListParams(),
-      page: 1,
-      limit: 1,
-    };
+      printDuplicateItems(setOfUuids, uuids, "Project with ID");
 
-    const project = (await controller.getProjectsListWithSearch(params))
-      .data[0];
+      expect(setOfUuids.size).toBe(uuids.length);
+    },
+    REALLY_LONG_TIME,
+  );
 
-    const res: Partial<Response> = {};
+  it(
+    "should get correctly formatted filter configs",
+    async () => {
+      const configs = await controller.getFilterConfigs();
 
-    const details = await controller.getProjectDetailsById(
-      project.id,
-      res as Response,
-    );
+      expect(configs).toBeDefined();
 
-    expect(projectHasArrayPropsDuplication(details)).toBe(false);
-  }, 10000);
+      const validationResult =
+        ProjectFilterConfigs.ProjectFilterConfigsType.decode(configs);
+      if (isRight(validationResult)) {
+        // The result is of the expected type
+        const validatedResult = validationResult.right;
+        expect(validatedResult).toEqual(configs);
+      } else {
+        // The result is not of the expected type
+        report(validationResult).forEach(x => {
+          throw new Error(x);
+        });
+      }
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should get project details with no array property duplication",
+    async () => {
+      const params: ProjectListParams = {
+        ...new ProjectListParams(),
+        page: 1,
+        limit: 1,
+      };
+
+      const project = (await controller.getProjectsListWithSearch(params))
+        .data[0];
+
+      const res: Partial<Response> = {};
+
+      const details = await controller.getProjectDetailsById(
+        project.id,
+        res as Response,
+      );
+
+      expect(projectHasArrayPropsDuplication(details)).toBe(false);
+    },
+    REALLY_LONG_TIME,
+  );
 });

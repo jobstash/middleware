@@ -12,7 +12,7 @@ import { MagicAuthStrategy } from "./magic/magic-auth.strategy";
 import { Request, Response as ExpressResponse } from "express";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { RBACGuard } from "./rbac.guard";
-import { CheckWalletFlows, CheckWalletRoles } from "src/shared/enums";
+import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
 import { ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import {
   Response,
@@ -75,11 +75,11 @@ export class AuthController {
       user.wallet,
     )) as Response<UserProfile>;
 
-    await this.userService.setFlowState({
+    await this.userService.setWalletFlow({
       flow: CheckWalletFlows.ONBOARD_PROFILE,
       wallet: user.wallet,
     });
-    await this.userService.setRoleState({
+    await this.userService.setWalletRole({
       role: CheckWalletRoles.DEV,
       wallet: user.wallet,
     });
@@ -104,10 +104,16 @@ export class AuthController {
     const user = await this.userService.findByWallet(wallet);
 
     if (user) {
-      this.userService.setRole(CheckWalletRoles.ADMIN, user);
-      this.userService.setFlow(CheckWalletFlows.ADMIN_COMPLETE, user);
+      this.userService.setWalletRole({
+        role: CheckWalletRoles.ADMIN,
+        wallet: user.getWallet(),
+      });
+      this.userService.setWalletFlow({
+        flow: CheckWalletFlows.ADMIN_COMPLETE,
+        wallet: user.getWallet(),
+      });
 
-      this.logger.log(`admin priviliedges set.`);
+      this.logger.log(`admin priviliedges set for ${wallet}`);
       return { success: true, message: "Wallet is now admin" };
     } else {
       return { success: false, message: "No user associated with wallet" };

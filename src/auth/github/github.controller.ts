@@ -2,13 +2,7 @@ import { GithubLoginInput } from "./dto/github-login.input";
 import { GithubAuthenticatedUserResponse } from "./dto/github-authenticated-user.response";
 import { Controller, Get, Post, Body, Redirect } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import {
-  CheckWalletRoles,
-  CheckWalletFlows,
-  GithubConfig,
-  ResponseWithNoData,
-  User,
-} from "src/shared/types";
+import { GithubConfig, ResponseWithNoData, User } from "src/shared/types";
 import {
   ApiExtraModels,
   ApiNotFoundResponse,
@@ -21,6 +15,7 @@ import axios from "axios";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { GithubUserService } from "./github-user.service";
+import { CheckWalletRoles, CheckWalletFlows } from "src/shared/constants";
 
 @Controller("github")
 @ApiExtraModels(User)
@@ -141,12 +136,12 @@ export class GithubController {
       return res1;
     }
 
-    await this.userService.setFlowState({
+    await this.userService.setWalletFlow({
       flow: CheckWalletFlows.ONBOARD_REPO,
       wallet: wallet,
     });
 
-    await this.userService.setRoleState({
+    await this.userService.setWalletRole({
       role: CheckWalletRoles.DEV,
       wallet: wallet,
     });

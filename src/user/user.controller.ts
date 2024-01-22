@@ -1,9 +1,9 @@
 import { Controller, Get, UseGuards } from "@nestjs/common";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { UserService } from "./user.service";
-import { Roles } from "src/shared/decorators/role.decorator";
+import { Roles } from "src/shared/decorators";
 import { RBACGuard } from "src/auth/rbac.guard";
-import { CheckWalletRoles } from "src/shared/enums";
+import { CheckWalletRoles } from "src/shared/constants";
 import { UserProfile } from "src/shared/interfaces";
 
 @Controller("users")
@@ -18,6 +18,6 @@ export class UserController {
   @Roles(CheckWalletRoles.ADMIN)
   async getAllUsers(): Promise<UserProfile[]> {
     this.logger.log("/users");
-    return this.userService.getAll();
+    return this.userService.findAll();
   }
 }

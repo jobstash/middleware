@@ -115,7 +115,7 @@ describe("GithubUserService", () => {
   });
 
   it(
-    "should be able to access models",
+    "should access models",
     async () => {
       expect(models.GithubUsers).toBeDefined();
     },
@@ -141,7 +141,7 @@ describe("GithubUserService", () => {
   );
 
   it(
-    "should be able to find a github user node by its login",
+    "should find a github user node by its login",
     async () => {
       const githubData = await githubUserService.findByLogin(
         EPHEMERAL_TEST_GITHUB_USER,
@@ -153,7 +153,7 @@ describe("GithubUserService", () => {
   );
 
   it(
-    "should be able to find a github user node by its id",
+    "should find a github user node by its id",
     async () => {
       const githubData = await githubUserService.findById(
         EPHEMERAL_TEST_GITHUB_ID,
@@ -165,7 +165,7 @@ describe("GithubUserService", () => {
   );
 
   it(
-    "should be able to find all github user nodes",
+    "should find all github user nodes",
     async () => {
       const githubData = await githubUserService.findAll();
       expect(githubData).toStrictEqual(expect.any(Array<GithubUserEntity>));
@@ -234,7 +234,7 @@ describe("GithubUserService", () => {
   );
 
   it(
-    "should add github info to a users profile",
+    "should add github info to a user's profile",
     async () => {
       const githubData = await githubUserService.findByLogin(TEST_GITHUB_USER);
       const mockId = REALLY_LONG_TIME;

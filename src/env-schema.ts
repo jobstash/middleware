@@ -30,6 +30,19 @@ const envSchema = Joi.object({
   ),
   NEO4J_USERNAME: Joi.string(),
   NEO4J_DATABASE: Joi.string(),
+  NEO4J_HOST_TEST: Joi.string(),
+  NEO4J_PASSWORD_TEST: Joi.string(),
+  NEO4J_PORT_TEST: Joi.number(),
+  NEO4J_SCHEME_TEST: Joi.string().valid(
+    "bolt",
+    "bolt+s",
+    "bolt+scc",
+    "neo4j",
+    "neo4j+s",
+    "neo4j+scc",
+  ),
+  NEO4J_USERNAME_TEST: Joi.string(),
+  NEO4J_DATABASE_TEST: Joi.string(),
   NFT_STORAGE_API_KEY: Joi.string(),
   NODE_ENV: Joi.string()
     .valid("development", "production", "test", "staging")

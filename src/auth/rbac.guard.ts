@@ -8,7 +8,7 @@ import { ConfigService } from "@nestjs/config";
 import { Request, Response as ExpressResponse } from "express";
 import { getIronSession, IronSession, IronSessionOptions } from "iron-session";
 import { Reflector } from "@nestjs/core";
-import { CheckWalletRoles } from "src/shared/enums";
+import { CheckWalletRoles } from "src/shared/constants";
 
 @Injectable()
 export class RBACGuard implements CanActivate {

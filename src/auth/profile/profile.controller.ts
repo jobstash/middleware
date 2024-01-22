@@ -16,7 +16,7 @@ import { ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import { Response as ExpressResponse, Request } from "express";
 import { OrganizationsService } from "src/organizations/organizations.service";
 import { Roles } from "src/shared/decorators/role.decorator";
-import { CheckWalletRoles } from "src/shared/enums";
+import { CheckWalletRoles } from "src/shared/constants";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
   PaginatedData,

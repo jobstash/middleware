@@ -1,7 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsEthereumAddress, IsIn, IsString } from "class-validator";
 
-import { CheckWalletRoles } from "src/shared/enums/check-wallet-result.enum";
+import { CheckWalletRoles } from "src/shared/constants/check-wallet-result";
 
 export class SetRoleInput {
   @ApiProperty()

@@ -1,7 +1,7 @@
 import { IsNotEmpty, IsIn, IsString, IsEthereumAddress } from "class-validator";
 
-import { USER_ROLES, USER_FLOWS } from "src/shared/constants";
-const userFlows = Object.values(USER_FLOWS);
+import { CheckWalletRoles, CheckWalletFlows } from "src/shared/constants";
+const userFlows = Object.values(CheckWalletFlows);
 
 export class AssignRoleAndFlowToUserRequestDto {
   @IsNotEmpty()
@@ -9,7 +9,7 @@ export class AssignRoleAndFlowToUserRequestDto {
   wallet: string;
 
   @IsNotEmpty()
-  @IsIn([USER_ROLES.DEV, USER_ROLES.ORG, USER_ROLES.ADMIN])
+  @IsIn([CheckWalletRoles.DEV, CheckWalletRoles.ORG, CheckWalletRoles.ADMIN])
   @IsString()
   role: string;
 

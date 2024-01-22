@@ -30,7 +30,10 @@ import { forwardRef } from "@nestjs/common";
 import { UserModule } from "src/user/user.module";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { TagsService } from "src/tags/tags.service";
-import { DEV_TEST_WALLET } from "src/shared/constants/testing";
+import {
+  DEV_TEST_WALLET,
+  REALLY_LONG_TIME,
+} from "src/shared/constants/testing";
 
 describe("JobsController", () => {
   let controller: JobsController;
@@ -158,7 +161,7 @@ describe("JobsController", () => {
     await models.onModuleInit();
     controller = module.get<JobsController>(JobsController);
     authService = module.get<AuthService>(AuthService);
-  }, 1000000);
+  }, REALLY_LONG_TIME);
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -168,265 +171,301 @@ describe("JobsController", () => {
     expect(controller).toBeDefined();
   });
 
-  it("should be able to access models", async () => {
-    expect(models.Organizations.findMany).toBeDefined();
-    expect(
-      (await models.Organizations.findMany()).length,
-    ).toBeGreaterThanOrEqual(1);
-  }, 10000);
+  it(
+    "should access models",
+    async () => {
+      expect(models.Organizations.findMany).toBeDefined();
+      expect(
+        (await models.Organizations.findMany()).length,
+      ).toBeGreaterThanOrEqual(1);
+    },
+    REALLY_LONG_TIME,
+  );
 
-  it("should get jobs list with no jobpost and array property duplication", async () => {
-    const params: JobListParams = {
-      ...new JobListParams(),
-      page: 1,
-      limit: Number(Integer.MAX_VALUE),
-    };
-    jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-      address: DEV_TEST_WALLET,
-      destroy: async (): Promise<void> => {
-        console.log("session destroyed");
-      },
-      save: async (): Promise<void> => {
-        console.log("session saved");
-      },
-    }));
-    const req: Partial<Request> = {};
-    const res: Partial<Response> = {};
-    const result = await controller.getJobsListWithSearch(
-      req as Request,
-      res as Response,
-      params,
-    );
-
-    const uuids = result.data.map(job => job.shortUUID);
-    const setOfUuids = new Set([...uuids]);
-
-    expect(result).toEqual({
-      page: 1,
-      count: expect.any(Number),
-      total: expect.any(Number),
-      data: expect.any(Array<JobListResult>),
-    });
-
-    printDuplicateItems(setOfUuids, uuids, "StructuredJobpost with UUID");
-
-    expect(uuids.length).toBe(setOfUuids.size);
-
-    expect(
-      result.data.every(x => jlrHasArrayPropsDuplication(x) === false),
-    ).toBe(true);
-  }, 6000000);
-
-  it("should get all jobs list with no jobpost and array property duplication", async () => {
-    const params: JobListParams = {
-      ...new JobListParams(),
-      page: 1,
-      limit: Number(Integer.MAX_VALUE),
-    };
-    jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-      address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
-      destroy: async (): Promise<void> => {
-        console.log("session destroyed");
-      },
-      save: async (): Promise<void> => {
-        console.log("session saved");
-      },
-    }));
-    const res = await controller.getAllJobsWithSearch(params);
-
-    const uuids = res.data.map(job => job.shortUUID);
-    const setOfUuids = new Set([...uuids]);
-
-    expect(res).toEqual({
-      success: true,
-      message: expect.any(String),
-      data: expect.any(Array<JobListResult>),
-    });
-
-    printDuplicateItems(setOfUuids, uuids, "StructuredJobpost with UUID");
-
-    expect(uuids.length).toBe(setOfUuids.size);
-
-    expect(res.data.every(x => ajlrHasArrayPropsDuplication(x) === false)).toBe(
-      true,
-    );
-  }, 60000000);
-
-  it("should get job details with no array property duplication", async () => {
-    const params: JobListParams = {
-      ...new JobListParams(),
-      page: 1,
-      limit: 1,
-    };
-    jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-      address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
-      destroy: async (): Promise<void> => {
-        console.log("session destroyed");
-      },
-      save: async (): Promise<void> => {
-        console.log("session saved");
-      },
-    }));
-
-    const req: Partial<Request> = {};
-    const res: Partial<Response> = {};
-    const job = (
-      await controller.getJobsListWithSearch(
+  it(
+    "should get jobs list with no jobpost and array property duplication",
+    async () => {
+      const params: JobListParams = {
+        ...new JobListParams(),
+        page: 1,
+        limit: Number(Integer.MAX_VALUE),
+      };
+      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+        address: DEV_TEST_WALLET,
+        destroy: async (): Promise<void> => {
+          console.log("session destroyed");
+        },
+        save: async (): Promise<void> => {
+          console.log("session saved");
+        },
+      }));
+      const req: Partial<Request> = {};
+      const res: Partial<Response> = {};
+      const result = await controller.getJobsListWithSearch(
         req as Request,
         res as Response,
         params,
-      )
-    ).data[0];
-
-    const details = await controller.getJobDetailsByUuid(
-      job.shortUUID,
-      req as Request,
-      res as Response,
-    );
-
-    expect(jlrHasArrayPropsDuplication(details)).toBe(false);
-  }, 60000000);
-
-  it("should get job for an org with no array property duplication", async () => {
-    const params: JobListParams = {
-      ...new JobListParams(),
-      page: 1,
-      limit: 1,
-    };
-
-    const req: Partial<Request> = {};
-    const res: Partial<Response> = {};
-    jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-      address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
-      destroy: async (): Promise<void> => {
-        console.log("session destroyed");
-      },
-      save: async (): Promise<void> => {
-        console.log("session saved");
-      },
-    }));
-    const job = (
-      await controller.getJobsListWithSearch(
-        req as Request,
-        res as Response,
-        params,
-      )
-    ).data[0];
-
-    const details = await controller.getOrgJobsList(job.organization.orgId);
-
-    const uuids = details.map(job => job.shortUUID);
-    const setOfUuids = new Set([...uuids]);
-
-    printDuplicateItems(setOfUuids, uuids, "StructuredJobpost with UUID");
-
-    expect(uuids.length).toBe(setOfUuids.size);
-
-    expect(details.every(x => jlrHasArrayPropsDuplication(x) === false)).toBe(
-      true,
-    );
-  }, 60000000);
-
-  it("should respond with the correct page ", async () => {
-    const page = 1;
-    const params: JobListParams = {
-      ...new JobListParams(),
-      page: page,
-      limit: 1,
-    };
-    jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-      address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
-      destroy: async (): Promise<void> => {
-        console.log("session destroyed");
-      },
-      save: async (): Promise<void> => {
-        console.log("session saved");
-      },
-    }));
-
-    const req: Partial<Request> = {};
-    const res: Partial<Response> = {};
-    const result = await controller.getJobsListWithSearch(
-      req as Request,
-      res as Response,
-      params,
-    );
-
-    expect(result.page).toEqual(page);
-  }, 1000000000);
-
-  it("should respond with the correct results for publicationDate filter", async () => {
-    const dateRange: DateRange = "this-week";
-    const params: JobListParams = {
-      ...new JobListParams(),
-      page: 1,
-      limit: Number(Integer.MAX_VALUE),
-      publicationDate: dateRange,
-    };
-    jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-      address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
-      destroy: async (): Promise<void> => {
-        console.log("session destroyed");
-      },
-      save: async (): Promise<void> => {
-        console.log("session saved");
-      },
-    }));
-
-    const matchesPublicationDateRange = (
-      jobListResult: JobListResult,
-    ): boolean => {
-      const { startDate, endDate } = publicationDateRangeGenerator(dateRange);
-      return (
-        startDate <= jobListResult.timestamp &&
-        jobListResult.timestamp <= endDate
       );
-    };
 
-    const req: Partial<Request> = {};
-    const res: Partial<Response> = {};
-    const result = await controller.getJobsListWithSearch(
-      req as Request,
-      res as Response,
-      params,
-    );
-    const results = result.data;
-    expect(results.every(x => matchesPublicationDateRange(x) === true)).toBe(
-      true,
-    );
-  }, 1000000);
+      const uuids = result.data.map(job => job.shortUUID);
+      const setOfUuids = new Set([...uuids]);
 
-  it("should get correctly formatted filter configs", async () => {
-    const configs = await controller.getFilterConfigs();
-
-    expect(configs).toBeDefined();
-
-    const validationResult =
-      JobFilterConfigs.JobFilterConfigsType.decode(configs);
-    if (isRight(validationResult)) {
-      const validatedResult = validationResult.right;
-      expect(validatedResult).toEqual(configs);
-    } else {
-      report(validationResult).forEach(x => {
-        throw new Error(x);
+      expect(result).toEqual({
+        page: 1,
+        count: expect.any(Number),
+        total: expect.any(Number),
+        data: expect.any(Array<JobListResult>),
       });
-    }
-  }, 100000);
 
-  it("should get correctly formatted all jobs filter configs", async () => {
-    const configs = await controller.getAllJobsListFilterConfigs();
+      printDuplicateItems(setOfUuids, uuids, "StructuredJobpost with UUID");
 
-    expect(configs).toBeDefined();
+      expect(uuids.length).toBe(setOfUuids.size);
 
-    const validationResult =
-      AllJobsFilterConfigs.AllJobsFilterConfigsType.decode(configs);
-    if (isRight(validationResult)) {
-      const validatedResult = validationResult.right;
-      expect(validatedResult).toEqual(configs);
-    } else {
-      report(validationResult).forEach(x => {
-        throw new Error(x);
+      expect(
+        result.data.every(x => jlrHasArrayPropsDuplication(x) === false),
+      ).toBe(true);
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should get all jobs list with no jobpost and array property duplication",
+    async () => {
+      const params: JobListParams = {
+        ...new JobListParams(),
+        page: 1,
+        limit: Number(Integer.MAX_VALUE),
+      };
+      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+        address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
+        destroy: async (): Promise<void> => {
+          console.log("session destroyed");
+        },
+        save: async (): Promise<void> => {
+          console.log("session saved");
+        },
+      }));
+      const res = await controller.getAllJobsWithSearch(params);
+
+      const uuids = res.data.map(job => job.shortUUID);
+      const setOfUuids = new Set([...uuids]);
+
+      expect(res).toEqual({
+        success: true,
+        message: expect.any(String),
+        data: expect.any(Array<JobListResult>),
       });
-    }
-  }, 100000);
+
+      printDuplicateItems(setOfUuids, uuids, "StructuredJobpost with UUID");
+
+      expect(uuids.length).toBe(setOfUuids.size);
+
+      expect(
+        res.data.every(x => ajlrHasArrayPropsDuplication(x) === false),
+      ).toBe(true);
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should get job details with no array property duplication",
+    async () => {
+      const params: JobListParams = {
+        ...new JobListParams(),
+        page: 1,
+        limit: 1,
+      };
+      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+        address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
+        destroy: async (): Promise<void> => {
+          console.log("session destroyed");
+        },
+        save: async (): Promise<void> => {
+          console.log("session saved");
+        },
+      }));
+
+      const req: Partial<Request> = {};
+      const res: Partial<Response> = {};
+      const job = (
+        await controller.getJobsListWithSearch(
+          req as Request,
+          res as Response,
+          params,
+        )
+      ).data[0];
+
+      const details = await controller.getJobDetailsByUuid(
+        job.shortUUID,
+        req as Request,
+        res as Response,
+      );
+
+      expect(jlrHasArrayPropsDuplication(details)).toBe(false);
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should get job for an org with no array property duplication",
+    async () => {
+      const params: JobListParams = {
+        ...new JobListParams(),
+        page: 1,
+        limit: 1,
+      };
+
+      const req: Partial<Request> = {};
+      const res: Partial<Response> = {};
+      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+        address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
+        destroy: async (): Promise<void> => {
+          console.log("session destroyed");
+        },
+        save: async (): Promise<void> => {
+          console.log("session saved");
+        },
+      }));
+      const job = (
+        await controller.getJobsListWithSearch(
+          req as Request,
+          res as Response,
+          params,
+        )
+      ).data[0];
+
+      const details = await controller.getOrgJobsList(job.organization.orgId);
+
+      const uuids = details.map(job => job.shortUUID);
+      const setOfUuids = new Set([...uuids]);
+
+      printDuplicateItems(setOfUuids, uuids, "StructuredJobpost with UUID");
+
+      expect(uuids.length).toBe(setOfUuids.size);
+
+      expect(details.every(x => jlrHasArrayPropsDuplication(x) === false)).toBe(
+        true,
+      );
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should respond with the correct page ",
+    async () => {
+      const page = 1;
+      const params: JobListParams = {
+        ...new JobListParams(),
+        page: page,
+        limit: 1,
+      };
+      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+        address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
+        destroy: async (): Promise<void> => {
+          console.log("session destroyed");
+        },
+        save: async (): Promise<void> => {
+          console.log("session saved");
+        },
+      }));
+
+      const req: Partial<Request> = {};
+      const res: Partial<Response> = {};
+      const result = await controller.getJobsListWithSearch(
+        req as Request,
+        res as Response,
+        params,
+      );
+
+      expect(result.page).toEqual(page);
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should respond with the correct results for publicationDate filter",
+    async () => {
+      const dateRange: DateRange = "this-week";
+      const params: JobListParams = {
+        ...new JobListParams(),
+        page: 1,
+        limit: Number(Integer.MAX_VALUE),
+        publicationDate: dateRange,
+      };
+      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+        address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
+        destroy: async (): Promise<void> => {
+          console.log("session destroyed");
+        },
+        save: async (): Promise<void> => {
+          console.log("session saved");
+        },
+      }));
+
+      const matchesPublicationDateRange = (
+        jobListResult: JobListResult,
+      ): boolean => {
+        const { startDate, endDate } = publicationDateRangeGenerator(dateRange);
+        return (
+          startDate <= jobListResult.timestamp &&
+          jobListResult.timestamp <= endDate
+        );
+      };
+
+      const req: Partial<Request> = {};
+      const res: Partial<Response> = {};
+      const result = await controller.getJobsListWithSearch(
+        req as Request,
+        res as Response,
+        params,
+      );
+      const results = result.data;
+      expect(results.every(x => matchesPublicationDateRange(x) === true)).toBe(
+        true,
+      );
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should get correctly formatted filter configs",
+    async () => {
+      const configs = await controller.getFilterConfigs();
+
+      expect(configs).toBeDefined();
+
+      const validationResult =
+        JobFilterConfigs.JobFilterConfigsType.decode(configs);
+      if (isRight(validationResult)) {
+        const validatedResult = validationResult.right;
+        expect(validatedResult).toEqual(configs);
+      } else {
+        report(validationResult).forEach(x => {
+          throw new Error(x);
+        });
+      }
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should get correctly formatted all jobs filter configs",
+    async () => {
+      const configs = await controller.getAllJobsListFilterConfigs();
+
+      expect(configs).toBeDefined();
+
+      const validationResult =
+        AllJobsFilterConfigs.AllJobsFilterConfigsType.decode(configs);
+      if (isRight(validationResult)) {
+        const validatedResult = validationResult.right;
+        expect(validatedResult).toEqual(configs);
+      } else {
+        report(validationResult).forEach(x => {
+          throw new Error(x);
+        });
+      }
+    },
+    REALLY_LONG_TIME,
+  );
 });

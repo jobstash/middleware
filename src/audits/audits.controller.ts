@@ -19,7 +19,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { Audit, Response, ResponseWithNoData } from "src/shared/interfaces";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { Roles } from "src/shared/decorators/role.decorator";
-import { CheckWalletRoles } from "src/shared/enums";
+import { CheckWalletRoles } from "src/shared/constants";
 import {
   ApiOkResponse,
   ApiUnprocessableEntityResponse,

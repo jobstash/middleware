@@ -134,7 +134,7 @@ describe("OrganizationsController", () => {
     expect(controller).toBeDefined();
   });
 
-  it("should be able to access models", async () => {
+  it("should access models", async () => {
     expect(models.Organizations.findMany).toBeDefined();
     expect(
       (await models.Organizations.findMany()).length,

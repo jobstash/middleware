@@ -42,7 +42,7 @@ import {
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
 import { OrganizationsService } from "./organizations.service";
-import { CheckWalletRoles } from "src/shared/types";
+import { CheckWalletRoles } from "src/shared/constants";
 import { NFTStorage, File } from "nft.storage";
 import { ConfigService } from "@nestjs/config";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -51,7 +51,7 @@ import {
   CACHE_CONTROL_HEADER,
   CACHE_DURATION,
   CACHE_EXPIRY,
-} from "src/shared/presets/cache-control";
+} from "src/shared/constants/cache-control";
 import { ValidationError } from "class-validator";
 import { OrgListParams } from "./dto/org-list.input";
 // eslint-disable-next-line @typescript-eslint/no-var-requires

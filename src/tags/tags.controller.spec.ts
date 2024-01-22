@@ -76,14 +76,6 @@ describe("TagsController", () => {
     expect(controller).toBeDefined();
   });
 
-  // it("should hit dev db", async () => {
-  //   const res = await neogma.queryRunner.run(
-  //     "MATCH (n:Tag) RETURN count(n) as res",
-  //   );
-  //   const count = res.records[0]?.get("res");
-  //   expect(nonZeroOrNull(count)).toBe(0);
-  // }, 300000);
-
   // afterAll(async () => {
   //   await tempDb.cleanAllDatabases();
   //   jest.restoreAllMocks();

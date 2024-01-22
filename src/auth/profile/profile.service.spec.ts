@@ -22,7 +22,7 @@ import { AuthService } from "../auth.service";
 import { UserService } from "src/user/user.service";
 import { UserRoleService } from "src/user/user-role.service";
 import { UserFlowService } from "src/user/user-flow.service";
-import { CheckWalletFlows, CheckWalletRoles } from "src/shared/enums";
+import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
 import {
   DEV_TEST_WALLET,
   EPHEMERAL_TEST_WALLET,
@@ -132,7 +132,7 @@ describe("ProfileService", () => {
   });
 
   it(
-    "should be able to access models",
+    "should access models",
     async () => {
       expect(models.UserProfiles).toBeDefined();
     },
@@ -140,7 +140,7 @@ describe("ProfileService", () => {
   );
 
   it(
-    "should update a users profile",
+    "should update a user's profile",
     async () => {
       const user = await userService.createSIWEUser(EPHEMERAL_TEST_WALLET);
       const github = await githubUserService.linkGithubUser(
@@ -154,12 +154,12 @@ describe("ProfileService", () => {
       expect(github).toBeDefined();
       expect(github.login).toBe(TEST_GITHUB_USER);
 
-      await userService.setFlowState({
+      await userService.setWalletFlow({
         flow: CheckWalletFlows.ONBOARD_REPO,
         wallet: EPHEMERAL_TEST_WALLET,
       });
 
-      await userService.setRoleState({
+      await userService.setWalletRole({
         role: CheckWalletRoles.DEV,
         wallet: EPHEMERAL_TEST_WALLET,
       });
@@ -197,7 +197,7 @@ describe("ProfileService", () => {
   );
 
   it(
-    "should update a users showcases",
+    "should update a user's showcases",
     async () => {
       const showcase = [
         {
@@ -238,7 +238,7 @@ describe("ProfileService", () => {
   );
 
   it(
-    "should update a users skills",
+    "should update a user's skills",
     async () => {
       const skills = (await tagsService.getAllUnblockedTags())
         .slice(undefined, 5)
@@ -276,7 +276,7 @@ describe("ProfileService", () => {
   );
 
   it(
-    "should review a users org salary",
+    "should review a user's org salary",
     async () => {
       const reviewData = {
         currency: "USD",
@@ -308,7 +308,7 @@ describe("ProfileService", () => {
   );
 
   it(
-    "should rate a users org",
+    "should rate a user's org",
     async () => {
       const reviewData = {
         onboarding: 1,
@@ -345,7 +345,7 @@ describe("ProfileService", () => {
   );
 
   it(
-    "should review a users org",
+    "should review a user's org",
     async () => {
       const reviewData = {
         title: "This is a test review",
@@ -383,7 +383,7 @@ describe("ProfileService", () => {
   );
 
   it(
-    "should update a users repo contribution",
+    "should update a user's repo contribution",
     async () => {
       const repo = (await profileService.getUserRepos(EPHEMERAL_TEST_WALLET, {
         limit: Integer.MAX_SAFE_VALUE.toNumber(),
@@ -420,7 +420,7 @@ describe("ProfileService", () => {
   );
 
   it(
-    "should update a users repo tags used",
+    "should update a user's repo tags used",
     async () => {
       const repo = (await profileService.getUserRepos(EPHEMERAL_TEST_WALLET, {
         limit: Integer.MAX_SAFE_VALUE.toNumber(),
@@ -459,7 +459,7 @@ describe("ProfileService", () => {
   );
 
   it(
-    "should get a users profile",
+    "should get a user's profile",
     async () => {
       const profile = await profileService.getUserProfile(DEV_TEST_WALLET);
       expect(profile).toEqual({
@@ -472,7 +472,7 @@ describe("ProfileService", () => {
   );
 
   it(
-    "should get a users repos",
+    "should get a user's repos",
     async () => {
       const repos = await profileService.getUserRepos(DEV_TEST_WALLET, {
         limit: 1,
@@ -489,7 +489,7 @@ describe("ProfileService", () => {
   );
 
   it(
-    "should get a users orgs",
+    "should get a user's orgs",
     async () => {
       const orgs = await profileService.getUserOrgs(DEV_TEST_WALLET);
       expect(orgs).toEqual({
@@ -502,7 +502,7 @@ describe("ProfileService", () => {
   );
 
   it(
-    "should get a users showcases",
+    "should get a user's showcases",
     async () => {
       const showcases = await profileService.getUserShowCase(DEV_TEST_WALLET);
       expect(showcases).toEqual({
@@ -515,7 +515,7 @@ describe("ProfileService", () => {
   );
 
   it(
-    "should get a users skills",
+    "should get a user's skills",
     async () => {
       const skills = await profileService.getUserShowCase(DEV_TEST_WALLET);
       expect(skills).toEqual({
@@ -528,7 +528,7 @@ describe("ProfileService", () => {
   );
 
   it(
-    "should delete a users account",
+    "should delete a user's account",
     async () => {
       const user = await userService.createSIWEUser(EPHEMERAL_TEST_WALLET);
 
