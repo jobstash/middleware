@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsNumber, IsUrl } from "class-validator";
+import { IsOptional, IsString, IsUrl } from "class-validator";
 
 export class UpdateGithubUserDto {
   @IsOptional()
@@ -16,10 +16,6 @@ export class UpdateGithubUserDto {
   @IsOptional()
   @IsUrl()
   avatarUrl?: string;
-
-  @IsOptional()
-  @IsNumber()
-  id?: number;
 
   @IsOptional()
   @IsString()

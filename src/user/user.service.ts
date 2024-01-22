@@ -1,8 +1,6 @@
 import { UserRoleEntity } from "../shared/entities/user-role.entity";
 import { Injectable } from "@nestjs/common";
 import {
-  GithubUserEntity,
-  GithubUserProperties,
   Response,
   ResponseWithNoData,
   User,
@@ -400,42 +398,6 @@ export class UserService {
 
     this.logger.log(`Role ${role} set for wallet ${wallet}.`);
     return { success: true, message: "Role set" };
-  }
-
-  async addGithubUser(
-    wallet: string,
-    githubLogin: string,
-  ): Promise<GithubUserProperties | undefined> {
-    const res = await this.neogma.queryRunner.run(
-      `
-      MATCH (u:User {wallet: $wallet}), (gu:GithubUser {login: $githubLogin})
-      CREATE (u)-[:HAS_GITHUB_USER]->(gu)
-      RETURN gu
-      `,
-      { wallet, githubLogin },
-    );
-
-    return res.records.length
-      ? new GithubUserEntity(res.records[0].get("gu")).getProperties()
-      : undefined;
-  }
-
-  async removeGithubUser(
-    userId: string,
-    githubUserId: string,
-  ): Promise<GithubUserProperties | undefined> {
-    const res = await this.neogma.queryRunner.run(
-      `
-      MATCH (u:User {id: $userId})-[r:HAS_GITHUB_USER]->(gu:GithubUser {id: $githubUserId})
-      DELETE r
-      RETURN gu
-      `,
-      { userId, githubUserId },
-    );
-
-    return res.records.length
-      ? new GithubUserEntity(res.records[0].get("gu")).getProperties()
-      : undefined;
   }
 
   async getRoleForWallet(wallet: string): Promise<UserRoleEntity | undefined> {

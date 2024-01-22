@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@nestjs/axios": "^3.0.1",
     "@nestjs/cache-manager": "^1.0.0",
     "@nestjs/common": "^9.4.0",
     "@nestjs/config": "^2.3.1",
@@ -32,7 +33,7 @@
     "@sendgrid/mail": "^7.7.0",
     "@sentry/node": "^7.51.2",
     "@sentry/tracing": "^7.51.2",
-    "axios": "^1.4.0",
+    "axios": "^1.6.5",
     "bcrypt": "^5.1.0",
     "cache-manager": "^5.2.1",
     "class-transformer": "^0.5.1",
@@ -48,6 +49,7 @@
     "fast-sort": "^3.4.0",
     "fp-ts": "^2.15.0",
     "helmet": "^7.0.0",
+    "https": "^1.0.0",
     "io-ts": "^2.2.20",
     "io-ts-human-reporter": "^0.1.2",
     "iron-session": "^6.3.1",

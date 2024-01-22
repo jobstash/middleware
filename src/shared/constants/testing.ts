@@ -9,4 +9,8 @@ export const TEST_EMAIL = "test@jobstash.xyz";
 
 export const TEST_GITHUB_USER = "AndySakov";
 
+export const EPHEMERAL_TEST_GITHUB_USER = "AndySmakov";
+
 export const REALLY_LONG_TIME = 300000000;
+
+export const EPHEMERAL_TEST_GITHUB_ID = REALLY_LONG_TIME;

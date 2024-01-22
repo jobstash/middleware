@@ -17,6 +17,7 @@ import {
   data,
 } from "src/shared/interfaces";
 import { JwtModule, JwtService } from "@nestjs/jwt";
+import { HttpModule, HttpService } from "@nestjs/axios";
 import { AuthService } from "../auth.service";
 import { UserService } from "src/user/user.service";
 import { UserRoleService } from "src/user/user-role.service";
@@ -31,12 +32,21 @@ import {
 } from "src/shared/constants";
 import { TagsService } from "src/tags/tags.service";
 import { Integer } from "neo4j-driver";
+import { CustomLogger } from "src/shared/utils/custom-logger";
+import { resetTestDB } from "src/shared/helpers";
+import * as https from "https";
+import { GithubUserService } from "../github/github-user.service";
 
 describe("ProfileService", () => {
   let models: ModelService;
   let profileService: ProfileService;
+  let githubUserService: GithubUserService;
   let userService: UserService;
   let tagsService: TagsService;
+  let httpService: HttpService;
+
+  const logger = new CustomLogger(`${ProfileService.name}TestSuite`);
+
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
@@ -74,6 +84,20 @@ describe("ProfileService", () => {
           }),
         }),
         ModelModule,
+        HttpModule.registerAsync({
+          imports: [ConfigModule],
+          inject: [ConfigService],
+          useFactory: (configService: ConfigService) => ({
+            headers: {
+              "X-Secret-Key": configService.get<string>(
+                "TEST_DB_MANAGER_API_KEY",
+              ),
+            },
+            httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+            timeout: REALLY_LONG_TIME,
+            baseURL: configService.get<string>("TEST_DB_MANAGER_URL"),
+          }),
+        }),
       ],
       providers: [
         ProfileService,
@@ -83,6 +107,7 @@ describe("ProfileService", () => {
         UserRoleService,
         UserFlowService,
         ModelService,
+        GithubUserService,
         TagsService,
       ],
     }).compile();
@@ -91,13 +116,17 @@ describe("ProfileService", () => {
     models = module.get<ModelService>(ModelService);
     await models.onModuleInit();
     profileService = module.get<ProfileService>(ProfileService);
+    githubUserService = module.get<GithubUserService>(GithubUserService);
     userService = module.get<UserService>(UserService);
     tagsService = module.get<TagsService>(TagsService);
+    httpService = module.get<HttpService>(HttpService);
   }, REALLY_LONG_TIME);
 
-  afterEach(() => {
+  afterAll(async () => {
+    await resetTestDB(httpService, logger);
     jest.restoreAllMocks();
-  });
+  }, REALLY_LONG_TIME);
+
   it("should be instantiated correctly", () => {
     expect(profileService).toBeDefined();
   });
@@ -114,7 +143,7 @@ describe("ProfileService", () => {
     "should update a users profile",
     async () => {
       const user = await userService.createSIWEUser(EPHEMERAL_TEST_WALLET);
-      const github = await userService.addGithubUser(
+      const github = await githubUserService.linkGithubUser(
         EPHEMERAL_TEST_WALLET,
         TEST_GITHUB_USER,
       );
