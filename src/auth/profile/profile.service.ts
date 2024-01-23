@@ -117,14 +117,14 @@ export class ProfileService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(gu:GithubUser)-[r:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository)
+        MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(gu:GithubUser)-[r:CONTRIBUTED_TO]->(repo:GithubRepository)
         RETURN repo {
           id: repo.id,
-          name: repo.fullName,
+          name: repo.nameWithOwner,
           description: repo.description,
           timestamp: repo.updatedAt.epochMillis,
           projectName: r.projectName,
-          committers: apoc.coll.sum([(:GithubUser)-[:HISTORICALLY_CONTRIBUTED_TO]->(repo) | 1]),
+          committers: apoc.coll.sum([(:GithubUser)-[:CONTRIBUTED_TO]->(repo) | 1]),
           org: [(organization: Organization)-[:HAS_GITHUB|HAS_REPOSITORY*2]->(repo) | organization {
             url: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
             name: organization.name,
@@ -136,7 +136,7 @@ export class ProfileService {
           }]),
           contribution: {
             summary: r.summary,
-            count: r.commits
+            count: r.committedCount
           }
         }
         ORDER BY repo.updatedAt DESC
@@ -174,7 +174,7 @@ export class ProfileService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})
-        OPTIONAL MATCH (user)-[:HAS_GITHUB_USER|HISTORICALLY_CONTRIBUTED_TO*2]->(:GithubRepository)<-[:HAS_REPOSITORY|HAS_GITHUB*2]-(organization: Organization)
+        OPTIONAL MATCH (user)-[:HAS_GITHUB_USER|CONTRIBUTED_TO*2]->(:GithubRepository)<-[:HAS_REPOSITORY|HAS_GITHUB*2]-(organization: Organization)
         OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
         WITH apoc.coll.toSet(COLLECT(organization {
           compensation: {
@@ -739,7 +739,7 @@ export class ProfileService {
       if (userRepos.data.find(x => x.id === dto.id)) {
         await this.neogma.queryRunner.run(
           `
-        MATCH (:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(:GithubUser)-[r:HISTORICALLY_CONTRIBUTED_TO]->(:GithubRepository {id: $id})
+        MATCH (:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(:GithubUser)-[r:CONTRIBUTED_TO]->(:GithubRepository {id: $id})
         SET r.summary = $contribution
       `,
           { wallet, ...dto },
@@ -787,7 +787,7 @@ export class ProfileService {
         await this.neogma.queryRunner.run(
           `
         MATCH (user:User {wallet: $wallet})
-        MATCH (user)-[:HAS_GITHUB_USER]->(ghu:GithubUser)-[:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository {id: $id})
+        MATCH (user)-[:HAS_GITHUB_USER]->(ghu:GithubUser)-[:CONTRIBUTED_TO]->(repo:GithubRepository {id: $id})
         OPTIONAL MATCH (ghu)-[r1:USED_TAG]->(tag: Tag)-[r2:USED_ON]->(repo)
         DETACH DELETE r1,r2
 

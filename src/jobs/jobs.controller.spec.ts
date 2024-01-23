@@ -32,6 +32,7 @@ import { ProfileService } from "src/auth/profile/profile.service";
 import { TagsService } from "src/tags/tags.service";
 import {
   DEV_TEST_WALLET,
+  EPHEMERAL_TEST_WALLET,
   REALLY_LONG_TIME,
 } from "src/shared/constants/testing";
 
@@ -237,7 +238,7 @@ describe("JobsController", () => {
         limit: Number(Integer.MAX_VALUE),
       };
       jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
+        address: EPHEMERAL_TEST_WALLET,
         destroy: async (): Promise<void> => {
           console.log("session destroyed");
         },
@@ -276,7 +277,7 @@ describe("JobsController", () => {
         limit: 1,
       };
       jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
+        address: EPHEMERAL_TEST_WALLET,
         destroy: async (): Promise<void> => {
           console.log("session destroyed");
         },
@@ -318,7 +319,7 @@ describe("JobsController", () => {
       const req: Partial<Request> = {};
       const res: Partial<Response> = {};
       jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
+        address: EPHEMERAL_TEST_WALLET,
         destroy: async (): Promise<void> => {
           console.log("session destroyed");
         },
@@ -360,7 +361,7 @@ describe("JobsController", () => {
         limit: 1,
       };
       jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
+        address: EPHEMERAL_TEST_WALLET,
         destroy: async (): Promise<void> => {
           console.log("session destroyed");
         },
@@ -393,7 +394,7 @@ describe("JobsController", () => {
         publicationDate: dateRange,
       };
       jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: "0xbDc6A3B4A6f9C18Dc2a12b006133E2bbcD81Fe61",
+        address: EPHEMERAL_TEST_WALLET,
         destroy: async (): Promise<void> => {
           console.log("session destroyed");
         },

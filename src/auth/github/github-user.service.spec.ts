@@ -8,9 +8,9 @@ import { ModelModule } from "src/model/model.module";
 import { UserModule } from "src/user/user.module";
 import { ModelService } from "src/model/model.service";
 import {
-  EPHEMERAL_TEST_GITHUB_ID,
   EPHEMERAL_TEST_GITHUB_USER,
   EPHEMERAL_TEST_WALLET,
+  NOT_SO_RANDOM_TEST_UUID,
   REALLY_LONG_TIME,
   TEST_GITHUB_USER,
 } from "src/shared/constants";
@@ -129,7 +129,7 @@ describe("GithubUserService", () => {
 
       const dto = {
         ...githubData?.getProperties(),
-        id: EPHEMERAL_TEST_GITHUB_ID,
+        id: NOT_SO_RANDOM_TEST_UUID,
         login: "AndySmakov",
       };
 
@@ -156,7 +156,7 @@ describe("GithubUserService", () => {
     "should find a github user node by its id",
     async () => {
       const githubData = await githubUserService.findById(
-        EPHEMERAL_TEST_GITHUB_ID,
+        NOT_SO_RANDOM_TEST_UUID,
       );
       expect(githubData).toBeDefined();
       expect(githubData).toEqual(expect.any(GithubUserEntity));
@@ -170,7 +170,7 @@ describe("GithubUserService", () => {
       const githubData = await githubUserService.findAll();
       expect(githubData).toStrictEqual(expect.any(Array<GithubUserEntity>));
       expect(
-        githubData.find(x => x.getId() === EPHEMERAL_TEST_GITHUB_ID),
+        githubData.find(x => x.getId() === NOT_SO_RANDOM_TEST_UUID),
       ).toBeDefined();
     },
     REALLY_LONG_TIME,
@@ -182,7 +182,6 @@ describe("GithubUserService", () => {
       const githubData = await githubUserService.findByLogin(
         EPHEMERAL_TEST_GITHUB_USER,
       );
-      const mockId = REALLY_LONG_TIME;
       const updatedGravatarId = randomUUID();
 
       const dto = {
@@ -190,7 +189,10 @@ describe("GithubUserService", () => {
         gravatarId: updatedGravatarId,
       };
 
-      const updatedNode = await githubUserService.update(mockId, dto);
+      const updatedNode = await githubUserService.update(
+        NOT_SO_RANDOM_TEST_UUID,
+        dto,
+      );
 
       expect(updatedNode.getProperties()).toEqual(dto);
     },
@@ -200,9 +202,7 @@ describe("GithubUserService", () => {
   it(
     "should delete a github user node",
     async () => {
-      const mockId = REALLY_LONG_TIME;
-
-      await githubUserService.delete(mockId);
+      await githubUserService.delete(NOT_SO_RANDOM_TEST_UUID);
 
       const githubData = await githubUserService.findByLogin(
         EPHEMERAL_TEST_GITHUB_USER,
@@ -221,7 +221,7 @@ describe("GithubUserService", () => {
 
       const dto = {
         ...githubData?.getProperties(),
-        id: EPHEMERAL_TEST_GITHUB_ID * 2,
+        id: NOT_SO_RANDOM_TEST_UUID.replace("e", "p"),
         login: EPHEMERAL_TEST_GITHUB_USER + "2",
         gravatarId: updatedGravatarId,
       };
@@ -237,10 +237,9 @@ describe("GithubUserService", () => {
     "should add github info to a user's profile",
     async () => {
       const githubData = await githubUserService.findByLogin(TEST_GITHUB_USER);
-      const mockId = REALLY_LONG_TIME;
       const args: GithubInfo = {
         wallet: EPHEMERAL_TEST_WALLET,
-        githubId: mockId,
+        githubId: NOT_SO_RANDOM_TEST_UUID,
         githubLogin: EPHEMERAL_TEST_GITHUB_USER,
         githubNodeId: githubData?.getNodeId(),
         githubAccessToken: githubData?.getAccessToken(),
@@ -262,7 +261,9 @@ describe("GithubUserService", () => {
         },
       });
 
-      const verifyAction = await githubUserService.githubUserHasUser(mockId);
+      const verifyAction = await githubUserService.githubUserHasUser(
+        NOT_SO_RANDOM_TEST_UUID,
+      );
 
       expect(verifyAction).toBe(true);
     },

@@ -1,13 +1,13 @@
-import { IsOptional, IsString, IsNumber, IsUrl } from "class-validator";
+import { IsOptional, IsString, IsUrl } from "class-validator";
 
 export class CreateGithubUserDto {
   @IsOptional()
   @IsString()
-  login?: string;
+  login: string;
 
   @IsOptional()
   @IsString()
-  nodeId?: string;
+  nodeId: string;
 
   @IsOptional()
   @IsString()
@@ -15,17 +15,17 @@ export class CreateGithubUserDto {
 
   @IsOptional()
   @IsUrl()
-  avatarUrl?: string;
-
-  @IsOptional()
-  @IsNumber()
-  id?: number;
+  avatarUrl: string;
 
   @IsOptional()
   @IsString()
-  accessToken?: string;
+  id: string;
 
   @IsOptional()
   @IsString()
-  refreshToken?: string;
+  accessToken: string;
+
+  @IsOptional()
+  @IsString()
+  refreshToken: string;
 }

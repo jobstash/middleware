@@ -3,7 +3,7 @@ import { CustomLogger } from "../../shared/utils/custom-logger";
 import {
   GithubUserEntity,
   GithubUserEntity as GithubUserNode,
-  GithubUserProperties,
+  GithubUser,
   Response,
   ResponseWithNoData,
   User,
@@ -29,7 +29,7 @@ export class GithubUserService {
     private readonly userService: UserService,
   ) {}
 
-  async githubUserHasUser(githubId: number): Promise<boolean> {
+  async githubUserHasUser(githubId: string): Promise<boolean> {
     const result = await this.neogma.queryRunner.run(
       `
         RETURN EXISTS((:User)-[:HAS_GITHUB_USER]->(:GithubUser {id: $githubId})) AS hasUser
@@ -42,7 +42,7 @@ export class GithubUserService {
   async linkGithubUser(
     wallet: string,
     githubLogin: string,
-  ): Promise<GithubUserProperties | undefined> {
+  ): Promise<GithubUser | undefined> {
     const res = await this.neogma.queryRunner.run(
       `
       MATCH (u:User {wallet: $wallet}), (gu:GithubUser {login: $githubLogin})
@@ -60,7 +60,7 @@ export class GithubUserService {
   async unlinkGithubUser(
     userId: string,
     githubUserId: string,
-  ): Promise<GithubUserProperties | undefined> {
+  ): Promise<GithubUser | undefined> {
     const res = await this.neogma.queryRunner.run(
       `
       MATCH (u:User {id: $userId})-[r:HAS_GITHUB_USER]->(gu:GithubUser {id: $githubUserId})
@@ -109,8 +109,7 @@ export class GithubUserService {
       this.logger.log(JSON.stringify(payload));
 
       if (githubUserNode) {
-        const githubUserNodeData: GithubUserProperties =
-          githubUserNode.getProperties();
+        const githubUserNodeData: GithubUser = githubUserNode.getProperties();
         if (propertiesMatch(githubUserNodeData, updateObject)) {
           return { success: false, message: "Github data is identical" };
         }
@@ -159,7 +158,7 @@ export class GithubUserService {
     }
   }
 
-  async findById(id: number): Promise<GithubUserNode | undefined> {
+  async findById(id: string): Promise<GithubUserNode | undefined> {
     const githubNode = await this.models.GithubUsers.findOne({
       where: { id: id },
     });
@@ -199,9 +198,7 @@ export class GithubUserService {
     return new GithubUserNode(instanceToNode(newGithubNode));
   }
 
-  async upsert(
-    githubUser: GithubUserProperties,
-  ): Promise<GithubUserNode | undefined> {
+  async upsert(githubUser: GithubUser): Promise<GithubUserNode | undefined> {
     const oldNode = await this.findByLogin(githubUser.login);
 
     if (oldNode) {
@@ -212,7 +209,7 @@ export class GithubUserService {
   }
 
   async update(
-    id: number,
+    id: string,
     updateGithubUserDto: UpdateGithubUserDto,
   ): Promise<GithubUserNode | undefined> {
     const oldNode = await this.findById(id);
@@ -223,12 +220,12 @@ export class GithubUserService {
       });
       return new GithubUserNode(instanceToNode(result[0][0]));
     } else {
-      this.logger.error(`GithubUserService::update Node not found`);
+      this.logger.error(`GithubUserService::update node not found`);
       return undefined;
     }
   }
 
-  async delete(id: number): Promise<boolean> {
+  async delete(id: string): Promise<boolean> {
     try {
       const result = await this.models.GithubUsers.delete({
         where: { id: id },

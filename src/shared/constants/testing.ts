@@ -14,3 +14,5 @@ export const EPHEMERAL_TEST_GITHUB_USER = "AndySmakov";
 export const REALLY_LONG_TIME = 300000000;
 
 export const EPHEMERAL_TEST_GITHUB_ID = REALLY_LONG_TIME;
+
+export const NOT_SO_RANDOM_TEST_UUID = "9ef41cee-9186-430d-8710-c8b3604210dd";

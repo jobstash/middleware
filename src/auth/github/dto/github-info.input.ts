@@ -26,7 +26,7 @@ export class GithubInfo {
 
   @ApiProperty()
   @IsNumber()
-  githubId: number;
+  githubId: string;
 
   @ApiProperty()
   @IsString()

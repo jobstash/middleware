@@ -22,7 +22,6 @@ export * from "./structured-jobpost.entity";
 export * from "./structured-jobpost-with-relations.entity";
 export * from "./job-filter-configs.entity";
 export * from "./org-filter-configs.entity";
-export * from "./github-organization.entity";
 export * from "./all-jobs-list-result.entity";
 export * from "./project-filter-configs.entity";
 export * from "./project-more-info.entity";

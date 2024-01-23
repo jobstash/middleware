@@ -13,7 +13,7 @@ export const Repositories = (
       label: "GithubRepository",
       schema: {
         id: {
-          type: "number",
+          type: "string",
           allowEmpty: false,
           required: true,
         },

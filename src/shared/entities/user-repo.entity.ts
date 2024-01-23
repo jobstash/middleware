@@ -7,7 +7,7 @@ export class UserRepoEntity {
   getProperties(): UserRepo {
     return new UserRepo({
       ...this.raw,
-      id: nonZeroOrNull(this.raw.id),
+      id: notStringOrNull(this.raw.id),
       timestamp: nonZeroOrNull(this.raw.timestamp),
       projectName: notStringOrNull(this.raw.projectName),
       committers: nonZeroOrNull(this.raw.committers),

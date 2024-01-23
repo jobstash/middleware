@@ -5,11 +5,7 @@ import {
   NeogmaInstance,
   NeogmaModel,
 } from "neogma";
-import {
-  ExtractProps,
-  GithubUserProperties as GithubUser,
-  NoRelations,
-} from "../types";
+import { ExtractProps, GithubUser, NoRelations } from "../types";
 import { Repositories, RepositoryInstance } from "./repository.model";
 
 export type GithubUserProps = ExtractProps<GithubUser>;
@@ -22,11 +18,27 @@ export interface GithubUserRelations {
     RepositoryInstance,
     {
       summary: string | null;
-      commits: number | null;
+      authoredCount: number | null;
+      committedCount: number | null;
+      mergedPrCount: number | null;
+      firstAuthoredDate: number | null;
+      firstCommittedDate: number | null;
+      firstMergedDate: number | null;
+      lastAuthoredDate: number | null;
+      lastCommittedDate: number | null;
+      lastMergedDate: number | null;
     },
     {
       summary: string | null;
-      commits: number | null;
+      authoredCount: number | null;
+      committedCount: number | null;
+      mergedPrCount: number | null;
+      firstAuthoredDate: number | null;
+      firstCommittedDate: number | null;
+      firstMergedDate: number | null;
+      lastAuthoredDate: number | null;
+      lastCommittedDate: number | null;
+      lastMergedDate: number | null;
     }
   >;
 }
@@ -39,7 +51,7 @@ export const GithubUsers = (
       label: "GithubUser",
       schema: {
         id: {
-          type: "number",
+          type: "string",
           allowEmpty: false,
           required: true,
         },
@@ -54,7 +66,7 @@ export const GithubUsers = (
         repositories: {
           model: Repositories(neogma),
           direction: "out",
-          name: "HISTORICALLY_CONTRIBUTED_TO",
+          name: "CONTRIBUTED_TO",
           properties: {
             summary: {
               property: "summary",
@@ -64,8 +76,72 @@ export const GithubUsers = (
                 allowEmpty: true,
               },
             },
-            commits: {
-              property: "commits",
+            authoredCount: {
+              property: "authoredCount",
+              schema: {
+                type: "number",
+                required: false,
+                allowEmpty: true,
+              },
+            },
+            committedCount: {
+              property: "committedCount",
+              schema: {
+                type: "number",
+                required: false,
+                allowEmpty: true,
+              },
+            },
+            mergedPrCount: {
+              property: "mergedPrCount",
+              schema: {
+                type: "number",
+                required: false,
+                allowEmpty: true,
+              },
+            },
+            firstAuthoredDate: {
+              property: "firstAuthoredDate",
+              schema: {
+                type: "number",
+                required: false,
+                allowEmpty: true,
+              },
+            },
+            firstCommittedDate: {
+              property: "firstCommittedDate",
+              schema: {
+                type: "number",
+                required: false,
+                allowEmpty: true,
+              },
+            },
+            firstMergedDate: {
+              property: "firstMergedDate",
+              schema: {
+                type: "number",
+                required: false,
+                allowEmpty: true,
+              },
+            },
+            lastAuthoredDate: {
+              property: "lastAuthoredDate",
+              schema: {
+                type: "number",
+                required: false,
+                allowEmpty: true,
+              },
+            },
+            lastCommittedDate: {
+              property: "lastCommittedDate",
+              schema: {
+                type: "number",
+                required: false,
+                allowEmpty: true,
+              },
+            },
+            lastMergedDate: {
+              property: "lastMergedDate",
               schema: {
                 type: "number",
                 required: false,

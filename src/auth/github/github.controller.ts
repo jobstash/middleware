@@ -124,7 +124,7 @@ export class GithubController {
       githubAccessToken: accessToken,
       githubRefreshToken: "",
       githubLogin: profileData.login,
-      githubId: profileData.id,
+      githubId: profileData.id.toString(),
       githubNodeId: profileData.node_id,
       githubGravatarId:
         profileData.gravatar_id === "" ? undefined : profileData.gravatar_id,

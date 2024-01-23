@@ -113,7 +113,7 @@ describe("ProjectsController", () => {
       };
       const res = await controller.getProjectsListWithSearch(params);
 
-      const uuids = res.data.map(project => project.id);
+      const uuids = res.data.map(project => project.id + project.orgId);
       const setOfUuids = new Set([...uuids]);
 
       expect(res).toEqual({

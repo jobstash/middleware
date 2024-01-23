@@ -186,8 +186,8 @@ describe("ProfileService", () => {
         success: true,
         message: expect.stringMatching("success"),
         data: {
-          avatar: null,
-          username: null,
+          avatar: expect.any(String),
+          username: TEST_GITHUB_USER,
           email: TEST_EMAIL,
           ...profileData,
         },
@@ -390,8 +390,6 @@ describe("ProfileService", () => {
         page: 1,
       })) as PaginatedData<UserRepo>;
 
-      // console.log(JSON.stringify(repo));
-
       const contributionData = {
         id: repo?.data[0]?.id,
         contribution: "I designed the pizza maker",
@@ -414,7 +412,9 @@ describe("ProfileService", () => {
         })) as PaginatedData<UserRepo>
       )?.data.find(x => x.id === contributionData.id);
 
-      expect(updatedRepo.contribution).toBe(contributionData.contribution);
+      expect(updatedRepo.contribution.summary).toBe(
+        contributionData.contribution,
+      );
     },
     REALLY_LONG_TIME,
   );

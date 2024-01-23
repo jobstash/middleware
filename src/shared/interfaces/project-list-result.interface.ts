@@ -16,6 +16,7 @@ export class ProjectListResult {
   public static readonly ProjectListResultType = t.strict({
     id: t.string,
     name: t.string,
+    orgId: t.string,
     website: t.union([t.string, t.null]),
     logo: t.union([t.string, t.null]),
     category: t.union([t.string, t.null]),
@@ -40,6 +41,9 @@ export class ProjectListResult {
 
   @ApiProperty()
   name: string;
+
+  @ApiProperty()
+  orgId: string;
 
   @ApiPropertyOptional()
   website?: string | null;
@@ -105,6 +109,7 @@ export class ProjectListResult {
     const {
       id,
       name,
+      orgId,
       website,
       logo,
       category,
@@ -127,6 +132,7 @@ export class ProjectListResult {
     this.id = id;
     this.tvl = tvl;
     this.name = name;
+    this.orgId = orgId;
     this.logo = logo;
     this.hacks = hacks;
     this.audits = audits;

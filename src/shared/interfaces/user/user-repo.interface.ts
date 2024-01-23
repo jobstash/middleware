@@ -5,10 +5,10 @@ import { report } from "io-ts-human-reporter";
 
 export class UserRepo {
   public static readonly UserRepoType = t.strict({
-    id: t.number,
+    id: t.string,
     name: t.string,
     description: t.string,
-    timestamp: t.number,
+    timestamp: t.union([t.number, t.null]),
     projectName: t.union([t.string, t.null]),
     committers: t.union([t.number, t.null]),
     org: t.strict({
@@ -31,7 +31,7 @@ export class UserRepo {
   });
 
   @ApiProperty()
-  id: number;
+  id: string;
 
   @ApiProperty()
   name: string;
@@ -39,8 +39,8 @@ export class UserRepo {
   @ApiProperty()
   description: string;
 
-  @ApiProperty()
-  timestamp: number;
+  @ApiPropertyOptional()
+  timestamp: number | null;
 
   @ApiPropertyOptional()
   projectName: string | null;
