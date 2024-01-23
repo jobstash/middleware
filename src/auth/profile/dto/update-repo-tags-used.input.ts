@@ -1,11 +1,11 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsArray, IsNotEmpty, IsNumber } from "class-validator";
+import { IsArray, IsNotEmpty, IsString } from "class-validator";
 
 export class UpdateRepoTagsUsedInput {
   @ApiProperty()
-  @IsNumber()
+  @IsString()
   @IsNotEmpty()
-  id: number;
+  id: string;
 
   @ApiProperty()
   @IsArray()

@@ -48,8 +48,7 @@ describe("TagsController", () => {
               port: configService.get<string>("NEO4J_PORT"),
               scheme: configService.get<string>("NEO4J_SCHEME"),
               username: configService.get<string>("NEO4J_USERNAME"),
-              // database: tempDbName,
-              useTempDB: true,
+              database: configService.get<string>("NEO4J_DATABASE"),
             } as NeogmaModuleOptions),
         }),
         ModelModule,
@@ -76,14 +75,6 @@ describe("TagsController", () => {
   it("should be defined", () => {
     expect(controller).toBeDefined();
   });
-
-  // it("should hit dev db", async () => {
-  //   const res = await neogma.queryRunner.run(
-  //     "MATCH (n:Tag) RETURN count(n) as res",
-  //   );
-  //   const count = res.records[0]?.get("res");
-  //   expect(nonZeroOrNull(count)).toBe(0);
-  // }, 300000);
 
   // afterAll(async () => {
   //   await tempDb.cleanAllDatabases();

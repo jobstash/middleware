@@ -26,5 +26,5 @@ export class ReviewOrgSalaryInput {
   @ApiProperty()
   @IsBoolean()
   @IsNotEmpty()
-  offersTokenAllocation: string;
+  offersTokenAllocation: boolean;
 }

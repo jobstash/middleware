@@ -27,6 +27,9 @@ import { sort } from "fast-sort";
 import { TransformFnParams } from "class-transformer";
 import { Neo4jSupportedProperties, NeogmaInstance } from "neogma";
 import { randomUUID } from "crypto";
+import { AxiosError } from "axios";
+import { firstValueFrom, catchError } from "rxjs";
+import { HttpService } from "@nestjs/axios";
 
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
@@ -489,4 +492,20 @@ export const instanceToNode = <M extends Neo4jSupportedProperties, V, K>(
     identity: Integer.MAX_VALUE,
     elementId: randomUUID(),
   };
+};
+
+export const resetTestDB = async (
+  httpService: HttpService,
+  logger: CustomLogger,
+): Promise<void> => {
+  await firstValueFrom(
+    httpService.post<string>("execute-commands").pipe(
+      catchError((err: AxiosError) => {
+        logger.error(`${err.name} ${err.message}`);
+        throw Error(
+          "There was an unexpected error refreshing the test database",
+        );
+      }),
+    ),
+  );
 };

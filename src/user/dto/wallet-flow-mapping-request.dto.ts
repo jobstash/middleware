@@ -1,7 +1,7 @@
 import { IsNotEmpty, IsEthereumAddress, IsString, IsIn } from "class-validator";
-import { USER_FLOWS } from "src/shared/constants";
+import { CheckWalletFlows } from "src/shared/constants";
 
-const flows = Object.values(USER_FLOWS);
+const flows = Object.values(CheckWalletFlows);
 
 export class WalletFlowMappingDto {
   @IsNotEmpty()

@@ -16,10 +16,13 @@ import {
   PaginatedData,
   Response,
   ResponseWithNoData,
+  ResponseWithOptionalData,
   UserOrg,
   UserProfile,
   UserRepo,
+  UserShowCase,
   UserSkill,
+  data,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { RateOrgInput } from "./dto/rate-org.input";
@@ -31,6 +34,7 @@ import { UpdateRepoContributionInput } from "./dto/update-repo-contribution.inpu
 import { UpdateRepoTagsUsedInput } from "./dto/update-repo-tags-used.input";
 import { UpdateUserShowCaseInput } from "./dto/update-user-showcase.input";
 import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
+import { Integer } from "neo4j-driver";
 
 @Injectable()
 export class ProfileService {
@@ -44,7 +48,7 @@ export class ProfileService {
 
   async getUserProfile(
     wallet: string,
-  ): Promise<Response<UserProfile> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<UserProfile>> {
     try {
       const userProfile = await this.models.Users.findRelationships({
         where: { source: { wallet } },
@@ -75,7 +79,7 @@ export class ProfileService {
         success: true,
         message: "User Profile retrieved successfully",
         data: new UserProfileEntity({
-          availableForWork: userProfile[0]?.target.availableForWork,
+          availableForWork: userProfile[0]?.target.availableForWork ?? false,
           avatar: userGithub[0]?.target.avatarUrl,
           username: userGithub[0]?.target.login,
           contact: {
@@ -113,14 +117,14 @@ export class ProfileService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(gu:GithubUser)-[r:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository)
+        MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(gu:GithubUser)-[r:CONTRIBUTED_TO]->(repo:GithubRepository)
         RETURN repo {
           id: repo.id,
-          name: repo.fullName,
+          name: repo.nameWithOwner,
           description: repo.description,
           timestamp: repo.updatedAt.epochMillis,
           projectName: r.projectName,
-          committers: apoc.coll.sum([(:GithubUser)-[:HISTORICALLY_CONTRIBUTED_TO]->(repo) | 1]),
+          committers: apoc.coll.sum([(:GithubUser)-[:CONTRIBUTED_TO]->(repo) | 1]),
           org: [(organization: Organization)-[:HAS_GITHUB|HAS_REPOSITORY*2]->(repo) | organization {
             url: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
             name: organization.name,
@@ -132,7 +136,7 @@ export class ProfileService {
           }]),
           contribution: {
             summary: r.summary,
-            count: r.commits
+            count: r.committedCount
           }
         }
         ORDER BY repo.updatedAt DESC
@@ -165,12 +169,12 @@ export class ProfileService {
 
   async getUserOrgs(
     wallet: string,
-  ): Promise<Response<UserOrg[]> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<UserOrg[]>> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})
-        OPTIONAL MATCH (user)-[:HAS_GITHUB_USER|HISTORICALLY_CONTRIBUTED_TO*2]->(:GithubRepository)<-[:HAS_REPOSITORY|HAS_GITHUB*2]-(organization: Organization)
+        OPTIONAL MATCH (user)-[:HAS_GITHUB_USER|CONTRIBUTED_TO*2]->(:GithubRepository)<-[:HAS_REPOSITORY|HAS_GITHUB*2]-(organization: Organization)
         OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
         WITH apoc.coll.toSet(COLLECT(organization {
           compensation: {
@@ -281,13 +285,14 @@ export class ProfileService {
         { wallet },
       );
 
-      const final = result.records[0]
-        .get("organizations")
-        .map(record => new UserOrgEntity(record).getProperties());
+      const final =
+        result?.records[0]
+          ?.get("organizations")
+          ?.map(record => new UserOrgEntity(record).getProperties()) ?? [];
 
       return {
         success: true,
-        message: "Retrieved user orgs",
+        message: "Retrieved user orgs successfully",
         data: final,
       };
     } catch (err) {
@@ -309,7 +314,7 @@ export class ProfileService {
 
   async getUserShowCase(
     wallet: string,
-  ): Promise<Response<{ label: string; url: string }[]> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<UserShowCase[]>> {
     try {
       const showcases = await this.models.Users.findRelationships({
         alias: "showcases",
@@ -342,7 +347,7 @@ export class ProfileService {
 
   async getUserSkills(
     wallet: string,
-  ): Promise<Response<UserSkill[]> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<UserSkill[]>> {
     try {
       const skills = await this.models.Users.findRelationships({
         alias: "skills",
@@ -380,7 +385,7 @@ export class ProfileService {
   async updateUserProfile(
     wallet: string,
     dto: UpdateUserProfileInput,
-  ): Promise<Response<UserProfile> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<UserProfile>> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
@@ -409,7 +414,12 @@ export class ProfileService {
         } as profile
 
       `,
-        { wallet, ...dto, ...dto.contact, ...dto.location },
+        {
+          wallet,
+          availableForWork: dto.availableForWork,
+          ...dto.contact,
+          ...dto.location,
+        },
       );
 
       return {
@@ -587,8 +597,10 @@ export class ProfileService {
     dto: ReviewOrgSalaryInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
+      const userOrgs = data(await this.getUserOrgs(wallet));
+      if (userOrgs?.find(x => x.org.orgId === dto.orgId)) {
+        await this.neogma.queryRunner.run(
+          `
         MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
         MERGE (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(org)
         SET review.salary = $salary
@@ -596,9 +608,15 @@ export class ProfileService {
         SET review.offersTokenAllocation = $offersTokenAllocation
         SET review.reviewedTimestamp = timestamp()
       `,
-        { wallet, ...dto },
-      );
-      return { success: true, message: "Org salary reviewed successfully" };
+          { wallet, ...dto },
+        );
+        return { success: true, message: "Org salary reviewed successfully" };
+      } else {
+        return {
+          success: false,
+          message: "You are unauthorized to perform this action",
+        };
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -608,7 +626,7 @@ export class ProfileService {
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
       });
-      this.logger.error(`ProfileService::updateUserProfile ${err.message}`);
+      this.logger.error(`ProfileService::reviewOrgSalary ${err.message}`);
       return {
         success: false,
         message: "Error reviewing org salary",
@@ -621,8 +639,10 @@ export class ProfileService {
     dto: RateOrgInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
+      const userOrgs = data(await this.getUserOrgs(wallet));
+      if (userOrgs?.find(x => x.org.orgId === dto.orgId)) {
+        await this.neogma.queryRunner.run(
+          `
         MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
         MERGE (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(org)
         SET review.onboarding = $onboarding
@@ -635,9 +655,15 @@ export class ProfileService {
         SET review.compensation = $compensation
         SET review.reviewedTimestamp = timestamp()
       `,
-        { wallet, ...dto },
-      );
-      return { success: true, message: "Org rated successfully" };
+          { wallet, ...dto },
+        );
+        return { success: true, message: "Org rated successfully" };
+      } else {
+        return {
+          success: false,
+          message: "You are unauthorized to perform this action",
+        };
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -647,10 +673,10 @@ export class ProfileService {
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
       });
-      this.logger.error(`ProfileService::updateUserProfile ${err.message}`);
+      this.logger.error(`ProfileService::rateOrg ${err.message}`);
       return {
         success: false,
-        message: "Error reviewing org salary",
+        message: "Error rating org",
       };
     }
   }
@@ -660,8 +686,10 @@ export class ProfileService {
     dto: ReviewOrgInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
+      const userOrgs = data(await this.getUserOrgs(wallet));
+      if (userOrgs?.find(x => x.org.orgId === dto.orgId)) {
+        await this.neogma.queryRunner.run(
+          `
         MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
         MERGE (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(org)
         SET review.title = $title
@@ -673,9 +701,15 @@ export class ProfileService {
         SET review.cons = $cons
         SET review.reviewedTimestamp = timestamp()
       `,
-        { wallet, ...dto },
-      );
-      return { success: true, message: "Org reviewed successfully" };
+          { wallet, ...dto },
+        );
+        return { success: true, message: "Org reviewed successfully" };
+      } else {
+        return {
+          success: false,
+          message: "You are unauthorized to perform this action",
+        };
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -685,10 +719,10 @@ export class ProfileService {
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
       });
-      this.logger.error(`ProfileService::updateUserProfile ${err.message}`);
+      this.logger.error(`ProfileService::reviewOrg ${err.message}`);
       return {
         success: false,
-        message: "Error reviewing org salary",
+        message: "Error reviewing org",
       };
     }
   }
@@ -698,18 +732,29 @@ export class ProfileService {
     dto: UpdateRepoContributionInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(:GithubUser)-[r:HISTORICALLY_CONTRIBUTED_TO]->(:GithubRepository {id: $id})
+      const userRepos = (await this.getUserRepos(wallet, {
+        limit: Integer.MAX_SAFE_VALUE.toNumber(),
+        page: 1,
+      })) as Response<UserRepo[]>;
+      if (userRepos.data.find(x => x.id === dto.id)) {
+        await this.neogma.queryRunner.run(
+          `
+        MATCH (:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(:GithubUser)-[r:CONTRIBUTED_TO]->(:GithubRepository {id: $id})
         SET r.summary = $contribution
       `,
-        { wallet, ...dto },
-      );
+          { wallet, ...dto },
+        );
 
-      return {
-        success: true,
-        message: "User repo contribution updated successfully",
-      };
+        return {
+          success: true,
+          message: "User repo contribution updated successfully",
+        };
+      } else {
+        return {
+          success: false,
+          message: "You are unauthorized to perform this action",
+        };
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -734,10 +779,15 @@ export class ProfileService {
     dto: UpdateRepoTagsUsedInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
+      const userRepos = (await this.getUserRepos(wallet, {
+        limit: Integer.MAX_SAFE_VALUE.toNumber(),
+        page: 1,
+      })) as Response<UserRepo[]>;
+      if (userRepos.data.find(x => x.id === dto.id)) {
+        await this.neogma.queryRunner.run(
+          `
         MATCH (user:User {wallet: $wallet})
-        MATCH (user)-[:HAS_GITHUB_USER]->(ghu:GithubUser)-[:HISTORICALLY_CONTRIBUTED_TO]->(repo:GithubRepository {id: $id})
+        MATCH (user)-[:HAS_GITHUB_USER]->(ghu:GithubUser)-[:CONTRIBUTED_TO]->(repo:GithubRepository {id: $id})
         OPTIONAL MATCH (ghu)-[r1:USED_TAG]->(tag: Tag)-[r2:USED_ON]->(repo)
         DETACH DELETE r1,r2
 
@@ -749,13 +799,19 @@ export class ProfileService {
         SET s.canTeach = data.canTeach
         MERGE (ghu)-[:USED_TAG]->(tag)-[:USED_ON]->(repo)
       `,
-        { wallet, ...dto },
-      );
+          { wallet, ...dto },
+        );
 
-      return {
-        success: true,
-        message: "User repo tags used updated successfully",
-      };
+        return {
+          success: true,
+          message: "User repo tags used updated successfully",
+        };
+      } else {
+        return {
+          success: false,
+          message: "You are unauthorized to perform this action",
+        };
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({

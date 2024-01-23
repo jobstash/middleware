@@ -6,7 +6,7 @@ import {
   CACHE_CONTROL_HEADER,
   CACHE_DURATION,
   CACHE_EXPIRY,
-} from "./shared/presets/cache-control";
+} from "./shared/constants/cache-control";
 
 @Controller("app")
 @ApiExtraModels(Response, ResponseWithNoData)

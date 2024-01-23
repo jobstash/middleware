@@ -1,9 +1,6 @@
 import { UserRoleEntity } from "../shared/entities/user-role.entity";
 import { Injectable } from "@nestjs/common";
 import {
-  GithubUserEntity,
-  GithubUserProperties,
-  Response,
   ResponseWithNoData,
   User,
   UserEntity,
@@ -18,13 +15,12 @@ import { InjectConnection } from "nest-neogma";
 import { UserFlowService } from "./user-flow.service";
 import { UserRoleService } from "./user-role.service";
 import { CreateUserDto } from "./dto/create-user.dto";
-import { UpdateUserDto } from "./dto/update-user.dto";
 import { SetRoleInput } from "../auth/dto/set-role.input";
 import { SetFlowStateInput } from "../auth/dto/set-flow-state.input";
-import { USER_FLOWS, USER_ROLES } from "src/shared/constants";
 import { ModelService } from "src/model/model.service";
 import { instanceToNode } from "src/shared/helpers";
 import { randomUUID } from "crypto";
+import { CheckWalletRoles, CheckWalletFlows } from "src/shared/constants";
 
 @Injectable()
 export class UserService {
@@ -36,32 +32,6 @@ export class UserService {
     private readonly userFlowService: UserFlowService,
     private readonly userRoleService: UserRoleService,
   ) {}
-
-  async validateUser(id: string): Promise<User | undefined> {
-    const user = await this.findById(id);
-
-    if (user) {
-      return user.getProperties();
-    }
-
-    return undefined;
-  }
-
-  async findById(id: string): Promise<UserEntity | undefined> {
-    return this.models.Users.findOne({ where: { id } })
-      .then(res => (res ? new UserEntity(instanceToNode(res)) : undefined))
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
-          });
-          Sentry.captureException(err);
-        });
-        this.logger.error(`UserService::find ${err.message}`);
-        return undefined;
-      });
-  }
 
   async findByWallet(wallet: string): Promise<UserEntity | undefined> {
     return this.models.Users.findOne({ where: { wallet } })
@@ -75,6 +45,30 @@ export class UserService {
           Sentry.captureException(err);
         });
         this.logger.error(`UserService::findByWallet ${err.message}`);
+        return undefined;
+      });
+  }
+
+  async findByGithubNodeId(nodeId: string): Promise<UserEntity | undefined> {
+    return this.models.Users.findRelationships({
+      where: { target: { nodeId } },
+      alias: "githubUser",
+      limit: 1,
+    })
+      .then(res =>
+        res[0]?.source
+          ? new UserEntity(instanceToNode(res[0].source))
+          : undefined,
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`UserService::findByNodeId ${err.message}`);
         return undefined;
       });
   }
@@ -141,53 +135,7 @@ export class UserService {
       });
   }
 
-  async findByGithubNodeId(nodeId: string): Promise<UserEntity | undefined> {
-    return this.models.Users.findRelationships({
-      where: { target: { nodeId } },
-      alias: "githubUser",
-      limit: 1,
-    })
-      .then(res =>
-        res ? new UserEntity(instanceToNode(res[0].source)) : undefined,
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
-          });
-          Sentry.captureException(err);
-        });
-        this.logger.error(`UserService::findByNodeId ${err.message}`);
-        return undefined;
-      });
-  }
-
-  async findByGithubLogin(login: string): Promise<User | undefined> {
-    return this.models.Users.findRelationships({
-      where: { target: { login } },
-      alias: "githubUser",
-      limit: 1,
-    })
-      .then(res =>
-        res
-          ? new UserEntity(instanceToNode(res[0].source)).getProperties()
-          : undefined,
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
-          });
-          Sentry.captureException(err);
-        });
-        this.logger.error(`UserService::findByGithubLogin ${err.message}`);
-        return undefined;
-      });
-  }
-
-  async create(dto: CreateUserDto): Promise<UserEntity> {
+  private async create(dto: CreateUserDto): Promise<UserEntity> {
     return this.models.Users.createOne({
       id: randomUUID(),
       ...dto,
@@ -207,29 +155,7 @@ export class UserService {
       });
   }
 
-  async update(id: string, properties: UpdateUserDto): Promise<User> {
-    return this.models.Users.update(properties, {
-      where: { id },
-    })
-      .then(res =>
-        res
-          ? new UserEntity(instanceToNode(res[0][0])).getProperties()
-          : undefined,
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
-          });
-          Sentry.captureException(err);
-        });
-        this.logger.error(`UserService::update ${err.message}`);
-        return undefined;
-      });
-  }
-
-  async setFlow(flow: string, storedUser: UserEntity): Promise<void> {
+  private async setFlow(flow: string, storedUser: UserEntity): Promise<void> {
     // Flow
     // Find a flow node
     let storedFlowNode = await this.userFlowService.find(flow);
@@ -269,7 +195,7 @@ export class UserService {
     this.logger.log(`Flow ${flow} set for wallet ${storedUser.getWallet()}.`);
   }
 
-  async setRole(role: string, storedUser: UserEntity): Promise<void> {
+  private async setRole(role: string, storedUser: UserEntity): Promise<void> {
     // Find a role node
     let storedRoleNode = await this.userRoleService.find(role);
 
@@ -292,14 +218,14 @@ export class UserService {
 
     // If user has a different role, unrelate it
     if (currentRole && currentRole.getName()) {
-      await this.userRoleService.unrelateUserFromUserRole(
+      await this.userRoleService.unlinkUserFromRole(
         storedUser.getId(),
         currentRole.getId(),
       );
     }
 
     // Relate user to desired role
-    await this.userRoleService.relateUserToUserRole(
+    await this.userRoleService.linkUserToRole(
       storedUser.getId(),
       storedRoleNode.getId(),
     );
@@ -330,8 +256,8 @@ export class UserService {
 
       this.logger.log(JSON.stringify(newUser));
 
-      await this.setRole(USER_ROLES.ANON, newUser);
-      await this.setFlow(USER_FLOWS.PICK_ROLE, newUser);
+      await this.setRole(CheckWalletRoles.ANON, newUser);
+      await this.setFlow(CheckWalletFlows.PICK_ROLE, newUser);
 
       return newUser.getProperties();
     } catch (err) {
@@ -348,10 +274,8 @@ export class UserService {
     }
   }
 
-  async setFlowState(
-    input: SetFlowStateInput,
-  ): Promise<Response<string> | ResponseWithNoData> {
-    this.logger.log(`/user/setFlowState: ${JSON.stringify(input)}`);
+  async setWalletFlow(input: SetFlowStateInput): Promise<ResponseWithNoData> {
+    this.logger.log(`/user/setWalletFlow: ${JSON.stringify(input)}`);
 
     try {
       const { wallet, flow } = input;
@@ -367,7 +291,7 @@ export class UserService {
       await this.setFlow(flow, user);
 
       this.logger.log(`Flow ${flow} set for wallet ${wallet}.`);
-      return { success: true, message: "Flow set" };
+      return { success: true, message: "Flow set successfully" };
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -377,68 +301,49 @@ export class UserService {
         scope.setExtra("input", input);
         Sentry.captureException(err);
       });
-      this.logger.error(`UserService::setFlowState ${err.message}`);
-      return undefined;
-    }
-  }
-
-  async setRoleState(
-    input: SetRoleInput,
-  ): Promise<Response<string> | ResponseWithNoData> {
-    const { wallet, role } = input;
-    this.logger.log(`/user/setRole: Setting ${role} role for ${wallet}`);
-    const user = await this.findByWallet(wallet);
-    if (!user) {
-      this.logger.log(`User with wallet ${wallet} not found!`);
+      this.logger.error(`UserService::setWalletFlow ${err.message}`);
       return {
         success: false,
-        message: "Role not set because wallet could not be found",
+        message: "Flow not set because of unexpected error",
       };
     }
-
-    await this.setRole(role, user);
-
-    this.logger.log(`Role ${role} set for wallet ${wallet}.`);
-    return { success: true, message: "Role set" };
   }
 
-  async addGithubUser(
-    wallet: string,
-    githubLogin: string,
-  ): Promise<GithubUserProperties | undefined> {
-    const res = await this.neogma.queryRunner.run(
-      `
-      MATCH (u:User {wallet: $wallet}), (gu:GithubUser {login: $githubLogin})
-      CREATE (u)-[:HAS_GITHUB_USER]->(gu)
-      RETURN gu
-      `,
-      { wallet, githubLogin },
-    );
+  async setWalletRole(input: SetRoleInput): Promise<ResponseWithNoData> {
+    this.logger.log(`/user/setWalletRole: ${JSON.stringify(input)}`);
+    try {
+      const { wallet, role } = input;
+      const user = await this.findByWallet(wallet);
+      if (!user) {
+        this.logger.log(`User with wallet ${wallet} not found!`);
+        return {
+          success: false,
+          message: "Role not set because wallet could not be found",
+        };
+      }
 
-    return res.records.length
-      ? new GithubUserEntity(res.records[0].get("gu")).getProperties()
-      : undefined;
+      await this.setRole(role, user);
+
+      this.logger.log(`Role ${role} set for wallet ${wallet}.`);
+      return { success: true, message: "Role set successfully" };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "user.service",
+        });
+        scope.setExtra("input", input);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`UserService::setWalletRole ${err.message}`);
+      return {
+        success: false,
+        message: "Flow not set because of unexpected error",
+      };
+    }
   }
 
-  async removeGithubUser(
-    userId: string,
-    githubUserId: string,
-  ): Promise<GithubUserProperties | undefined> {
-    const res = await this.neogma.queryRunner.run(
-      `
-      MATCH (u:User {id: $userId})-[r:HAS_GITHUB_USER]->(gu:GithubUser {id: $githubUserId})
-      DELETE r
-      RETURN gu
-      `,
-      { userId, githubUserId },
-    );
-
-    return res.records.length
-      ? new GithubUserEntity(res.records[0].get("gu")).getProperties()
-      : undefined;
-  }
-
-  async getRoleForWallet(wallet: string): Promise<UserRoleEntity | undefined> {
+  async getWalletRole(wallet: string): Promise<UserRoleEntity | undefined> {
     return this.neogma.queryRunner
       .run(
         `
@@ -465,7 +370,7 @@ export class UserService {
       });
   }
 
-  async getFlowForWallet(wallet: string): Promise<UserFlowEntity | undefined> {
+  async getWalletFlow(wallet: string): Promise<UserFlowEntity | undefined> {
     return this.neogma.queryRunner
       .run(
         `
@@ -492,7 +397,7 @@ export class UserService {
       });
   }
 
-  async getAll(): Promise<UserProfile[]> {
+  async findAll(): Promise<UserProfile[]> {
     return this.neogma.queryRunner
       .run(
         `
@@ -522,7 +427,7 @@ export class UserService {
           });
           Sentry.captureException(err);
         });
-        this.logger.error(`UserService::getAll ${err.message}`);
+        this.logger.error(`UserService::findAll ${err.message}`);
         return [];
       });
   }

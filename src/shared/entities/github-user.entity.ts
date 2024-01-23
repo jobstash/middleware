@@ -1,11 +1,11 @@
 import { Node } from "neo4j-driver";
-import { GithubUserProperties } from "../interfaces/github-user-properties.interface";
+import { GithubUser } from "../interfaces/github-user.interface";
 
 export class GithubUserEntity {
   constructor(private readonly node: Node) {}
 
-  getId(): number {
-    return (<Record<string, number>>this.node.properties).id;
+  getId(): string {
+    return (<Record<string, string>>this.node.properties).id;
   }
 
   getLogin(): string | undefined {
@@ -32,10 +32,10 @@ export class GithubUserEntity {
     return (<Record<string, string>>this.node.properties).refreshToken;
   }
 
-  getProperties(): GithubUserProperties {
+  getProperties(): GithubUser {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { ...properties } = <Record<string, any>>this.node.properties;
 
-    return properties as GithubUserProperties;
+    return properties as GithubUser;
   }
 }

@@ -1,8 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { CustomLogger } from "../../shared/utils/custom-logger";
 import {
+  GithubUserEntity,
   GithubUserEntity as GithubUserNode,
-  GithubUserProperties,
+  GithubUser,
   Response,
   ResponseWithNoData,
   User,
@@ -28,7 +29,7 @@ export class GithubUserService {
     private readonly userService: UserService,
   ) {}
 
-  async githubUserHasUser(githubId: number): Promise<boolean> {
+  async githubUserHasUser(githubId: string): Promise<boolean> {
     const result = await this.neogma.queryRunner.run(
       `
         RETURN EXISTS((:User)-[:HAS_GITHUB_USER]->(:GithubUser {id: $githubId})) AS hasUser
@@ -36,6 +37,42 @@ export class GithubUserService {
       { githubId },
     );
     return result.records[0]?.get("hasUser") as boolean;
+  }
+
+  async linkGithubUser(
+    wallet: string,
+    githubLogin: string,
+  ): Promise<GithubUser | undefined> {
+    const res = await this.neogma.queryRunner.run(
+      `
+      MATCH (u:User {wallet: $wallet}), (gu:GithubUser {login: $githubLogin})
+      CREATE (u)-[:HAS_GITHUB_USER]->(gu)
+      RETURN gu
+      `,
+      { wallet, githubLogin },
+    );
+
+    return res.records.length
+      ? new GithubUserEntity(res.records[0].get("gu")).getProperties()
+      : undefined;
+  }
+
+  async unlinkGithubUser(
+    userId: string,
+    githubUserId: string,
+  ): Promise<GithubUser | undefined> {
+    const res = await this.neogma.queryRunner.run(
+      `
+      MATCH (u:User {id: $userId})-[r:HAS_GITHUB_USER]->(gu:GithubUser {id: $githubUserId})
+      DELETE r
+      RETURN gu
+      `,
+      { userId, githubUserId },
+    );
+
+    return res.records.length
+      ? new GithubUserEntity(res.records[0].get("gu")).getProperties()
+      : undefined;
   }
 
   async addGithubInfoToUser(
@@ -69,9 +106,10 @@ export class GithubUserService {
         refreshToken: updateObject.githubRefreshToken,
       };
 
+      this.logger.log(JSON.stringify(payload));
+
       if (githubUserNode) {
-        const githubUserNodeData: GithubUserProperties =
-          githubUserNode.getProperties();
+        const githubUserNodeData: GithubUser = githubUserNode.getProperties();
         if (propertiesMatch(githubUserNodeData, updateObject)) {
           return { success: false, message: "Github data is identical" };
         }
@@ -80,13 +118,10 @@ export class GithubUserService {
         const hasUser = await this.githubUserHasUser(githubUserNode.getId());
 
         if (!hasUser) {
-          await this.userService.addGithubUser(
-            wallet,
-            updateObject.githubLogin,
-          );
+          await this.linkGithubUser(wallet, updateObject.githubLogin);
           return {
             success: true,
-            message: "Github data persisted",
+            message: "Github data persisted successfully",
             data: storedUserNode.getProperties(),
           };
         } else {
@@ -97,10 +132,10 @@ export class GithubUserService {
         }
       } else {
         await this.create(payload);
-        await this.userService.addGithubUser(wallet, updateObject.githubLogin);
+        await this.linkGithubUser(wallet, updateObject.githubLogin);
         return {
           success: true,
-          message: "Github data persisted",
+          message: "Github data persisted successfully",
           data: storedUserNode.getProperties(),
         };
       }
@@ -123,12 +158,14 @@ export class GithubUserService {
     }
   }
 
-  async findById(id: number): Promise<GithubUserNode | undefined> {
+  async findById(id: string): Promise<GithubUserNode | undefined> {
     const githubNode = await this.models.GithubUsers.findOne({
       where: { id: id },
     });
 
-    return new GithubUserNode(instanceToNode(githubNode));
+    return githubNode
+      ? new GithubUserNode(instanceToNode(githubNode))
+      : undefined;
   }
 
   async findByLogin(login: string): Promise<GithubUserNode | undefined> {
@@ -136,7 +173,9 @@ export class GithubUserService {
       where: { login: login },
     });
 
-    return new GithubUserNode(instanceToNode(githubNode));
+    return githubNode
+      ? new GithubUserNode(instanceToNode(githubNode))
+      : undefined;
   }
 
   async findAll(): Promise<GithubUserNode[]> {
@@ -152,13 +191,14 @@ export class GithubUserService {
   ): Promise<GithubUserNode> {
     const newGithubNode = await this.models.GithubUsers.createOne(
       createGithubUserDto,
+      {
+        validate: false,
+      },
     );
     return new GithubUserNode(instanceToNode(newGithubNode));
   }
 
-  async upsert(
-    githubUser: GithubUserProperties,
-  ): Promise<GithubUserNode | undefined> {
+  async upsert(githubUser: GithubUser): Promise<GithubUserNode | undefined> {
     const oldNode = await this.findByLogin(githubUser.login);
 
     if (oldNode) {
@@ -169,27 +209,27 @@ export class GithubUserService {
   }
 
   async update(
-    id: number,
+    id: string,
     updateGithubUserDto: UpdateGithubUserDto,
   ): Promise<GithubUserNode | undefined> {
-    const { id: id1, ...dto } = updateGithubUserDto;
     const oldNode = await this.findById(id);
     if (oldNode) {
-      const result = await this.models.GithubUsers.update(dto, {
-        where: { id: id1 },
+      const result = await this.models.GithubUsers.update(updateGithubUserDto, {
+        where: { id },
         return: true,
       });
       return new GithubUserNode(instanceToNode(result[0][0]));
     } else {
-      this.logger.error(`GithubUserService::update Node not found`);
+      this.logger.error(`GithubUserService::update node not found`);
       return undefined;
     }
   }
 
-  async delete(id: number): Promise<boolean> {
+  async delete(id: string): Promise<boolean> {
     try {
       const result = await this.models.GithubUsers.delete({
         where: { id: id },
+        detach: true,
       });
       return result === 1;
     } catch (err) {

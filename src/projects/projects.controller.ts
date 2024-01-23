@@ -15,6 +15,7 @@ import {
   UseInterceptors,
   ValidationPipe,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { FileInterceptor } from "@nestjs/platform-express";
 import {
   ApiBadRequestResponse,
@@ -25,48 +26,47 @@ import {
   ApiUnprocessableEntityResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
-import { Response as ExpressResponse } from "express";
-import { RBACGuard } from "src/auth/rbac.guard";
-import { Roles } from "src/shared/decorators/role.decorator";
-import { responseSchemaWrapper } from "src/shared/helpers";
-import {
-  PaginatedData,
-  ProjectFilterConfigs,
-  Project,
-  ProjectDetails,
-  Response,
-  ResponseWithNoData,
-  ProjectWithRelations,
-  ProjectListResult,
-  ProjectMoreInfo,
-  DefiLlamaProject,
-  DexSummary,
-  OptionsSummary,
-  FeeOverview,
-} from "src/shared/types";
-import { CreateProjectInput } from "./dto/create-project.input";
-import { ProjectsService } from "./projects.service";
-import { CheckWalletRoles } from "src/shared/types";
-import { NFTStorage, File } from "nft.storage";
-import { ConfigService } from "@nestjs/config";
-import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
+import axios from "axios";
+import { ValidationError } from "class-validator";
+import { randomUUID } from "crypto";
+import { Response as ExpressResponse } from "express";
+import { File, NFTStorage } from "nft.storage";
+import { RBACGuard } from "src/auth/rbac.guard";
+import { OrganizationsService } from "src/organizations/organizations.service";
+import { CheckWalletRoles } from "src/shared/constants";
 import {
   CACHE_CONTROL_HEADER,
   CACHE_DURATION,
   CACHE_EXPIRY,
-} from "src/shared/presets/cache-control";
-import { ValidationError } from "class-validator";
-import { ProjectListParams } from "./dto/project-list.input";
+} from "src/shared/constants/cache-control";
+import { Roles } from "src/shared/decorators";
+import { responseSchemaWrapper } from "src/shared/helpers";
 import { ProjectProps } from "src/shared/models";
-import { OrganizationsService } from "src/organizations/organizations.service";
-import { ProjectCategoryService } from "./project-category.service";
-import { UpdateProjectInput } from "./dto/update-project.input";
+import {
+  DefiLlamaProject,
+  DexSummary,
+  FeeOverview,
+  OptionsSummary,
+  PaginatedData,
+  Project,
+  ProjectDetails,
+  ProjectFilterConfigs,
+  ProjectListResult,
+  ProjectMoreInfo,
+  ProjectWithRelations,
+  Response,
+  ResponseWithNoData,
+} from "src/shared/types";
+import { CustomLogger } from "src/shared/utils/custom-logger";
+import { CreateProjectMetricsInput } from "./dto/create-project-metrics.input";
+import { CreateProjectInput } from "./dto/create-project.input";
 import { LinkJobsToProjectInput } from "./dto/link-jobs-to-project.dto";
 import { LinkReposToProjectInput } from "./dto/link-repos-to-project.dto";
-import { CreateProjectMetricsInput } from "./dto/create-project-metrics.input";
-import axios from "axios";
-import { randomUUID } from "crypto";
+import { ProjectListParams } from "./dto/project-list.input";
+import { UpdateProjectInput } from "./dto/update-project.input";
+import { ProjectCategoryService } from "./project-category.service";
+import { ProjectsService } from "./projects.service";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 

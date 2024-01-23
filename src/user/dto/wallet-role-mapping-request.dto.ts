@@ -1,8 +1,8 @@
 import { IsNotEmpty, IsEthereumAddress, IsString, IsIn } from "class-validator";
-import { USER_ROLES } from "src/shared/constants";
+import { CheckWalletRoles } from "src/shared/constants";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const { ADMIN, ANON, ...userRoles } = USER_ROLES;
+const { ADMIN, ANON, ...userRoles } = CheckWalletRoles;
 
 const userRolesArray = Object.values(userRoles);
 

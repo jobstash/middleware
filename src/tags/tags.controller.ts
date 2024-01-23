@@ -12,25 +12,25 @@ import * as Sentry from "@sentry/node";
 import { Response as ExpressResponse, Request } from "express";
 import { AuthService } from "src/auth/auth.service";
 import { RBACGuard } from "src/auth/rbac.guard";
+import { CheckWalletRoles } from "src/shared/constants";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
-  CheckWalletRoles,
-  TagPair,
-  TagPreference,
   Response,
   ResponseWithNoData,
   Tag,
+  TagPair,
+  TagPreference,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { CreateBlockedTagsInput } from "./dto/create-blocked-tags.input";
 import { CreatePairedTagsInput } from "./dto/create-paired-tags.input";
 import { CreatePreferredTagInput } from "./dto/create-preferred-tag.input";
 import { CreateTagDto } from "./dto/create-tag.dto";
+import { DeletePreferredTagSynonymsInput } from "./dto/delete-preferred-tag-synonym.input";
 import { DeletePreferredTagInput } from "./dto/delete-preferred-tag.input";
 import { LinkTagSynonymDto } from "./dto/link-tag-synonym.dto";
 import { TagsService } from "./tags.service";
-import { DeletePreferredTagSynonymsInput } from "./dto/delete-preferred-tag-synonym.input";
 @Controller("tags")
 @ApiExtraModels(TagPreference, TagPreference)
 export class TagsController {

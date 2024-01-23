@@ -18,8 +18,8 @@ import { AuthService } from "src/auth/auth.service";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { Hack, Response, ResponseWithNoData } from "src/shared/interfaces";
 import { RBACGuard } from "src/auth/rbac.guard";
-import { Roles } from "src/shared/decorators/role.decorator";
-import { CheckWalletRoles } from "src/shared/enums";
+import { Roles } from "src/shared/decorators";
+import { CheckWalletRoles } from "src/shared/constants";
 import {
   ApiOkResponse,
   ApiUnprocessableEntityResponse,

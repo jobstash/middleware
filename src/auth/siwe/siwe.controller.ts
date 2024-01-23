@@ -15,13 +15,7 @@ import { VerifyMessageInput } from "../dto/verify-message.input";
 import { generateNonce, SiweMessage } from "siwe";
 import { ConfigService } from "@nestjs/config";
 import { AlchemyProvider } from "ethers";
-import {
-  CheckWalletFlows,
-  CheckWalletRoles,
-  ResponseWithNoData,
-  SessionObject,
-  User,
-} from "src/shared/types";
+import { ResponseWithNoData, SessionObject, User } from "src/shared/types";
 import {
   ApiBadRequestResponse,
   ApiExtraModels,
@@ -34,7 +28,8 @@ import { responseSchemaWrapper } from "src/shared/helpers";
 import * as Sentry from "@sentry/node";
 import { UserService } from "../../user/user.service";
 import { CustomLogger } from "src/shared/utils/custom-logger";
-import { NO_CACHE } from "src/shared/presets/cache-control";
+import { NO_CACHE } from "src/shared/constants/cache-control";
+import { CheckWalletRoles, CheckWalletFlows } from "src/shared/constants";
 
 @Controller("siwe")
 @ApiExtraModels(SessionObject, User)
@@ -240,10 +235,10 @@ export class SiweController {
           },
         });
       } else {
-        const userRole = await this.userService.getRoleForWallet(
+        const userRole = await this.userService.getWalletRole(
           session.address as string,
         );
-        const userFlow = await this.userService.getFlowForWallet(
+        const userFlow = await this.userService.getWalletFlow(
           session.address as string,
         );
 
@@ -342,7 +337,7 @@ export class SiweController {
             (role !== undefined || role !== null) &&
             (role === CheckWalletRoles.DEV || role === CheckWalletRoles.ORG)
           ) {
-            await this.userService.setFlowState({
+            await this.userService.setWalletFlow({
               wallet: address as string,
               flow: flow,
             });
