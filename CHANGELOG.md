@@ -1,3 +1,11 @@
+## [1.68.5](https://github.com/jobstash/middleware/compare/v1.68.4...v1.68.5) (2024-01-23)
+
+
+### Bug Fixes
+
+* fixed integration and service level bugs ([15002ab](https://github.com/jobstash/middleware/commit/15002abb33b332c77c68b6033d23cb66c83912a9))
+* **user:** fixed bugs and reformed the user service and added tests for all crucial user service calls ([ad0621e](https://github.com/jobstash/middleware/commit/ad0621ebc2fad8ab5db885174dbf169f1306ebc7))
+
 ## [1.68.4](https://github.com/jobstash/middleware/compare/v1.68.3...v1.68.4) (2024-01-19)
 
 
