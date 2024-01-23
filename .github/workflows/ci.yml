@@ -60,21 +60,25 @@ jobs:
       - name: Run Staging Tests
         run: yarn test --detectOpenHandles --forceExit
         env:
-          NEO4J_HOST: ${{ secrets.NEO4J_HOST_STAGING }}
-          NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD_STAGING }}
-          NEO4J_PORT: ${{ secrets.NEO4J_PORT_STAGING }}
-          NEO4J_SCHEME: ${{ secrets.NEO4J_SCHEME_STAGING }}
-          NEO4J_USERNAME: ${{ secrets.NEO4J_USERNAME_STAGING }}
-          NEO4J_DATABASE: ${{ secrets.NEO4J_DATABASE_STAGING }}
+          NEO4J_HOST_TEST: ${{ secrets.NEO4J_HOST_TEST }}
+          NEO4J_PASSWORD_TEST: ${{ secrets.NEO4J_PASSWORD_TEST }}
+          NEO4J_PORT_TEST: ${{ secrets.NEO4J_PORT_TEST }}
+          NEO4J_SCHEME_TEST: ${{ secrets.NEO4J_SCHEME_TEST }}
+          NEO4J_USERNAME_TEST: ${{ secrets.NEO4J_USERNAME_TEST }}
+          NEO4J_DATABASE_TEST: ${{ secrets.NEO4J_DATABASE_TEST }}
+          TEST_DB_MANAGER_URL: ${{ secrets.TEST_DB_MANAGER_URL }}
+          TEST_DB_MANAGER_API_KEY: ${{ secrets.TEST_DB_MANAGER_API_KEY }}
       ##################
       # Run prod tests #
       ##################
       - name: Run Prod Tests
         run: yarn test --detectOpenHandles --forceExit
         env:
-          NEO4J_HOST: ${{ secrets.NEO4J_HOST_PROD }}
-          NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD_PROD }}
-          NEO4J_PORT: ${{ secrets.NEO4J_PORT_PROD }}
-          NEO4J_SCHEME: ${{ secrets.NEO4J_SCHEME_PROD }}
-          NEO4J_USERNAME: ${{ secrets.NEO4J_USERNAME_PROD }}
-          NEO4J_DATABASE: ${{ secrets.NEO4J_DATABASE_PROD }}
+          NEO4J_HOST_TEST: ${{ secrets.NEO4J_HOST_TEST }}
+          NEO4J_PASSWORD_TEST: ${{ secrets.NEO4J_PASSWORD_TEST }}
+          NEO4J_PORT_TEST: ${{ secrets.NEO4J_PORT_TEST }}
+          NEO4J_SCHEME_TEST: ${{ secrets.NEO4J_SCHEME_TEST }}
+          NEO4J_USERNAME_TEST: ${{ secrets.NEO4J_USERNAME_TEST }}
+          NEO4J_DATABASE_TEST: ${{ secrets.NEO4J_DATABASE_TEST }}
+          TEST_DB_MANAGER_URL: ${{ secrets.TEST_DB_MANAGER_URL }}
+          TEST_DB_MANAGER_API_KEY: ${{ secrets.TEST_DB_MANAGER_API_KEY }}
