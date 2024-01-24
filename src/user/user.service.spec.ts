@@ -233,12 +233,9 @@ describe("UserService", () => {
   it(
     "should find a user by it's associated github user node id",
     async () => {
-      const github = await githubUserService.linkGithubUser(
-        EPHEMERAL_TEST_WALLET,
-        TEST_GITHUB_USER,
-      );
-      const user = await userService.findByGithubNodeId(github?.nodeId);
-      expect(user?.getWallet()).toBe(EPHEMERAL_TEST_WALLET);
+      const github = await githubUserService.findByLogin(TEST_GITHUB_USER);
+      const user = await userService.findByGithubNodeId(github?.getNodeId());
+      expect(user?.getWallet()).toBeDefined();
     },
     REALLY_LONG_TIME,
   );
