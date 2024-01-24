@@ -4,25 +4,19 @@ import { IsOptional, IsString } from "class-validator";
 import { toList } from "src/shared/helpers";
 
 export class AllJobsParams {
-  @ApiPropertyOptional({
-    example: "T3BlblNlYQ==,SmV0",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
   organizations?: string[] | null = null;
 
-  @ApiPropertyOptional({
-    example: "T3BlblNlYQ==,SmV0",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
   classifications?: string[] | null = null;
 
-  @ApiPropertyOptional({
-    example: "C++",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   @Type(() => String)

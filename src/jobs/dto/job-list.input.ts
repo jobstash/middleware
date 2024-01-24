@@ -14,7 +14,7 @@ import { Compare } from "src/shared/validators";
 
 export class JobListParams {
   @ApiPropertyOptional({
-    example: "This Week",
+    example: "this-week",
     enum: [
       "today",
       "this-week",
@@ -37,18 +37,14 @@ export class JobListParams {
   @Type(() => String)
   publicationDate?: DateRange | null = null;
 
-  @ApiPropertyOptional({
-    example: 90000,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
   minSalaryRange?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 150000,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -56,18 +52,14 @@ export class JobListParams {
   @Type(() => Number)
   maxSalaryRange?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 10,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
   minHeadCount?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 100,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -75,18 +67,14 @@ export class JobListParams {
   @Type(() => Number)
   maxHeadCount?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 1890503.6980031824,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
   minTvl?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 5000503.698003182,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -94,18 +82,14 @@ export class JobListParams {
   @Type(() => Number)
   maxTvl?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 1000000,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
   minMonthlyVolume?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 1000000000,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -113,18 +97,14 @@ export class JobListParams {
   @Type(() => Number)
   maxMonthlyVolume?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 50000,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
   minMonthlyFees?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 3000000,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -132,18 +112,14 @@ export class JobListParams {
   @Type(() => Number)
   maxMonthlyFees?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 1000000,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
   minMonthlyRevenue?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 5000000,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -151,113 +127,85 @@ export class JobListParams {
   @Type(() => Number)
   maxMonthlyRevenue?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: true,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
   @Type(() => Boolean)
   audits?: boolean | null = null;
 
-  @ApiPropertyOptional({
-    example: true,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
   @Type(() => Boolean)
   hacks?: boolean | null = null;
 
-  @ApiPropertyOptional({
-    example: "U3RyaW5n,Qysr",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
   tags?: string[] | null = null;
 
-  @ApiPropertyOptional({
-    example: "T3BlblNlYQ==,SmV0",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
   organizations?: string[] | null = null;
 
-  @ApiPropertyOptional({
-    example: "N/A",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
   chains?: string[] | null = null;
 
-  @ApiPropertyOptional({
-    example: "T3BlbnNlYQ==,QWNyb3Nz",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
   projects?: string[] | null = null;
 
-  @ApiPropertyOptional({
-    example: "T3B0aW9ucw==,WWllbGQ=",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
   classifications?: string[] | null = null;
 
-  @ApiPropertyOptional({
-    example: "T3B0aW9ucw==,WWllbGQ=",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
   commitments?: string[] | null = null;
 
-  @ApiPropertyOptional({
-    example: "U2VlZA==,U2VyaWVzIEE=",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
   fundingRounds?: string[] | null = null;
 
-  @ApiPropertyOptional({
-    example: "TGVtbmlzY2Fw,M0FD",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
   investors?: string[] | null = null;
 
-  @ApiPropertyOptional({
-    example: "MQ==,Mg==",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
   seniority?: string[] | null = null;
 
-  @ApiPropertyOptional({
-    example: "UmVtb3Rl,T25zaXRl",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
   locations?: string[] | null = null;
 
-  @ApiPropertyOptional({
-    example: true,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
   @Type(() => Boolean)
   token?: boolean | null = null;
 
-  @ApiPropertyOptional({
-    example: true,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
   @Type(() => Boolean)
@@ -306,7 +254,7 @@ export class JobListParams {
   orderBy?: JobListOrderBy | null = null;
 
   @ApiPropertyOptional({
-    example: 500,
+    example: 1,
   })
   @IsOptional()
   @IsNumber()
@@ -314,16 +262,14 @@ export class JobListParams {
   page?: number | null = null;
 
   @ApiPropertyOptional({
-    example: 100,
+    example: 2000,
   })
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
   limit?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: "C++",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   @Type(() => String)
