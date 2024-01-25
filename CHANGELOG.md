@@ -1,3 +1,10 @@
+## [1.68.6](https://github.com/jobstash/middleware/compare/v1.68.5...v1.68.6) (2024-01-25)
+
+
+### Bug Fixes
+
+* **user:** added check to ensure no two users have the same email ([7a4443e](https://github.com/jobstash/middleware/commit/7a4443e0c97913619e1e8c37e2bacf0b5b1c273e))
+
 ## [1.68.5](https://github.com/jobstash/middleware/compare/v1.68.4...v1.68.5) (2024-01-23)
 
 
