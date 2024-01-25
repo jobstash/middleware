@@ -39,7 +39,7 @@ export class GithubUserService {
     return result.records[0]?.get("hasUser") as boolean;
   }
 
-  async linkGithubUser(
+  async unsafe__linkGithubUser(
     wallet: string,
     githubLogin: string,
   ): Promise<GithubUser | undefined> {
@@ -118,7 +118,7 @@ export class GithubUserService {
         const hasUser = await this.githubUserHasUser(githubUserNode.getId());
 
         if (!hasUser) {
-          await this.linkGithubUser(wallet, updateObject.githubLogin);
+          await this.unsafe__linkGithubUser(wallet, updateObject.githubLogin);
           return {
             success: true,
             message: "Github data persisted successfully",
@@ -132,7 +132,7 @@ export class GithubUserService {
         }
       } else {
         await this.create(payload);
-        await this.linkGithubUser(wallet, updateObject.githubLogin);
+        await this.unsafe__linkGithubUser(wallet, updateObject.githubLogin);
         return {
           success: true,
           message: "Github data persisted successfully",

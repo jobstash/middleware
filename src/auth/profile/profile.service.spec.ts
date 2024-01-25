@@ -143,7 +143,7 @@ describe("ProfileService", () => {
     "should update a user's profile",
     async () => {
       const user = await userService.createSIWEUser(EPHEMERAL_TEST_WALLET);
-      const github = await githubUserService.linkGithubUser(
+      const github = await githubUserService.unsafe__linkGithubUser(
         EPHEMERAL_TEST_WALLET,
         TEST_GITHUB_USER,
       );

@@ -130,9 +130,8 @@ describe("UserService", () => {
   it(
     "should add a siwe user's email",
     async () => {
-      const user = await userService.addUserEmail(
-        EPHEMERAL_TEST_WALLET,
-        TEST_EMAIL,
+      const user = data(
+        await userService.addUserEmail(EPHEMERAL_TEST_WALLET, TEST_EMAIL),
       );
       expect(user.getProperties()).toStrictEqual({
         wallet: EPHEMERAL_TEST_WALLET,

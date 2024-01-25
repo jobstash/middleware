@@ -2,6 +2,7 @@ import { UserRoleEntity } from "../shared/entities/user-role.entity";
 import { Injectable } from "@nestjs/common";
 import {
   ResponseWithNoData,
+  ResponseWithOptionalData,
   User,
   UserEntity,
   UserFlowEntity,
@@ -73,49 +74,99 @@ export class UserService {
       });
   }
 
+  async userHasEmail(email: string): Promise<boolean> {
+    const normalizedEmail = this.normalizeEmail(email);
+
+    const result = await this.neogma.queryRunner.run(
+      `
+        RETURN EXISTS((:User)-[:HAS_EMAIL]->(:UserEmail|UserUnverifiedEmail {normalized: $normalizedEmail})) AS hasEmail
+      `,
+      { normalizedEmail },
+    );
+
+    return result.records[0]?.get("hasEmail") as boolean;
+  }
+
+  normalizeEmail(original: string | null): string | null {
+    const specialChars = "!@#$%^&*<>()-+=,";
+    if (!original) {
+      return null;
+    }
+    const normalized = original
+      .split("")
+      .map(x => {
+        if (specialChars.includes(x)) {
+          return "";
+        } else {
+          return x;
+        }
+      })
+      .join("");
+    return normalized.toLowerCase();
+  }
+
   async addUserEmail(
     wallet: string,
     email: string,
-  ): Promise<UserEntity | undefined> {
-    return this.neogma.queryRunner
-      .run(
-        `
+  ): Promise<ResponseWithOptionalData<UserEntity>> {
+    if (await this.userHasEmail(email)) {
+      return {
+        success: false,
+        message: "Email already has a user associated with it",
+      };
+    } else {
+      const normalizedEmail = this.normalizeEmail(email);
+      return this.neogma.queryRunner
+        .run(
+          `
           MATCH (u:User {wallet: $wallet})
-          MERGE (u)-[:HAS_EMAIL]->(email:UserUnverifiedEmail {email: $email})
+          MERGE (u)-[:HAS_EMAIL]->(email:UserUnverifiedEmail {email: $email, normalized: $normalizedEmail})
           RETURN u
         `,
-        { wallet, email },
-      )
-      .then(res =>
-        res.records.length
-          ? new UserEntity(res.records[0].get("u"))
-          : undefined,
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
+          { wallet, email, normalizedEmail },
+        )
+        .then(res =>
+          res.records.length
+            ? {
+                success: true,
+                message: "User email added successfully",
+                data: new UserEntity(res.records[0].get("u")),
+              }
+            : {
+                success: false,
+                message: "Failed to add user email",
+              },
+        )
+        .catch(err => {
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "db-call",
+              source: "user.service",
+            });
+            Sentry.captureException(err);
           });
-          Sentry.captureException(err);
+          this.logger.error(`UserService::addUserEmail ${err.message}`);
+          return {
+            success: false,
+            message: "Failed to add user email",
+          };
         });
-        this.logger.error(`UserService::addUserEmail ${err.message}`);
-        return undefined;
-      });
+    }
   }
 
   async verifyUserEmail(email: string): Promise<UserEntity | undefined> {
+    const normalizedEmail = this.normalizeEmail(email);
     return this.neogma.queryRunner
       .run(
         `
-          MATCH (u:User)-[r:HAS_EMAIL]->(email:UserUnverifiedEmail {email: $email})
+          MATCH (u:User)-[r:HAS_EMAIL]->(email:UserUnverifiedEmail {normalized: $normalizedEmail})
           DELETE r, email
 
           WITH u
-          MERGE (u)-[:HAS_EMAIL]->(:UserEmail {email: $email})
+          MERGE (u)-[:HAS_EMAIL]->(:UserEmail {email: $email, normalized: $normalizedEmail})
           RETURN u
         `,
-        { email },
+        { email, normalizedEmail },
       )
       .then(res =>
         res.records.length

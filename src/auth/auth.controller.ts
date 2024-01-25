@@ -56,10 +56,22 @@ export class AuthController {
     @Res() res: ExpressResponse,
     @Body(new ValidationPipe({ transform: true }))
     body: SendVerificationEmailInput,
-  ): Promise<void> {
+  ): Promise<ResponseWithNoData> {
     const { address } = await this.authService.getSession(req, res);
-    await this.userService.addUserEmail(address as string, body.destination);
-    return this.strategy.send(req, res);
+    const result = await this.userService.addUserEmail(
+      address as string,
+      body.destination,
+    );
+    if (result.success) {
+      this.strategy.send(req, res);
+      return {
+        success: result.success,
+        message: result.message,
+      };
+    } else {
+      res.status(400);
+      return result;
+    }
   }
 
   @Get("magic/login/callback")
