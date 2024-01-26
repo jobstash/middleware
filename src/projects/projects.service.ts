@@ -114,7 +114,7 @@ export class ProjectsService {
           categoryFilterList.includes(normalizeString(project.category))) &&
         (!organizationFilterList ||
           organizationFilterList.includes(normalizeString(project.orgName))) &&
-        (!mainNet || project.isMainnet) &&
+        (mainNet === null || project.isMainnet === mainNet) &&
         (!minTvl || (project?.tvl ?? 0) >= minTvl) &&
         (!maxTvl || (project?.tvl ?? 0) < maxTvl) &&
         (!minMonthlyVolume ||
@@ -127,14 +127,17 @@ export class ProjectsService {
           (project?.monthlyRevenue ?? 0) >= minMonthlyRevenue) &&
         (!maxMonthlyRevenue ||
           (project?.monthlyRevenue ?? 0) < maxMonthlyRevenue) &&
-        (!auditFilter || (project?.audits.length ?? 0) > 0 === auditFilter) &&
-        (!hackFilter || (project?.hacks.length ?? 0) > 0 === hackFilter) &&
+        (auditFilter === null ||
+          (project?.audits.length ?? 0) > 0 === auditFilter) &&
+        (hackFilter === null ||
+          (project?.hacks.length ?? 0) > 0 === hackFilter) &&
         (!chainFilterList ||
           (chainFilterList.find(x =>
             project.chains.map(x => normalizeString(x.name)).includes(x),
           ) ??
             false)) &&
-        (!token || notStringOrNull(project.tokenSymbol) !== null)
+        (token === null ||
+          (notStringOrNull(project.tokenAddress) !== null) === token)
       );
     };
 

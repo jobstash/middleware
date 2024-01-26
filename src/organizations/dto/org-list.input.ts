@@ -60,16 +60,20 @@ export class OrgListParams {
     example: true,
   })
   @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
   @IsBoolean()
-  @Type(() => Boolean)
   hasProjects?: boolean | null = null;
 
   @ApiPropertyOptional({
     example: true,
   })
   @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
   @IsBoolean()
-  @Type(() => Boolean)
   hasJobs?: boolean | null = null;
 
   @ApiPropertyOptional({

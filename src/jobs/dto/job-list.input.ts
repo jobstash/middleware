@@ -129,14 +129,18 @@ export class JobListParams {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
   @IsBoolean()
-  @Type(() => Boolean)
   audits?: boolean | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
   @IsBoolean()
-  @Type(() => Boolean)
   hacks?: boolean | null = null;
 
   @ApiPropertyOptional()
@@ -201,14 +205,18 @@ export class JobListParams {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
   @IsBoolean()
-  @Type(() => Boolean)
   token?: boolean | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
   @IsBoolean()
-  @Type(() => Boolean)
   mainNet?: boolean | null = null;
 
   @ApiPropertyOptional({

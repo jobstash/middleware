@@ -206,8 +206,8 @@ export class OrganizationsService {
       const { fundingRounds, investors } = org;
       return (
         (!query || name.match(query)) &&
-        (!hasJobs || jobCount > 0) &&
-        (!hasProjects || projectCount > 0) &&
+        (hasJobs === null || jobCount > 0 === hasJobs) &&
+        (hasProjects === null || projectCount > 0 === hasProjects) &&
         (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
         (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
         (!locationFilterList ||

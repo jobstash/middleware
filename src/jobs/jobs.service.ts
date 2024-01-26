@@ -360,10 +360,10 @@ export class JobsService {
           classificationFilterList.includes(normalizeString(classification))) &&
         (!commitmentFilterList ||
           commitmentFilterList.includes(normalizeString(commitment))) &&
-        (!token ||
+        (token === null ||
           projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
             .length > 0) &&
-        (!mainNet || projects.filter(x => x.isMainnet).length > 0) &&
+        (mainNet === null || projects.filter(x => x.isMainnet).length > 0) &&
         (!minTvl || projects.filter(x => (x?.tvl ?? 0) >= minTvl).length > 0) &&
         (!maxTvl || projects.filter(x => (x?.tvl ?? 0) < maxTvl).length > 0) &&
         (!minMonthlyVolume ||
@@ -384,10 +384,10 @@ export class JobsService {
         (!maxMonthlyRevenue ||
           projects.filter(x => (x?.monthlyRevenue ?? 0) < maxMonthlyRevenue)
             .length > 0) &&
-        (!auditFilter ||
+        (auditFilter === null ||
           projects.filter(x => x.audits.length > 0).length > 0 ===
             auditFilter) &&
-        (!hackFilter ||
+        (hackFilter === null ||
           projects.filter(x => x.hacks.length > 0).length > 0 === hackFilter) &&
         (!chainFilterList ||
           projects.filter(
