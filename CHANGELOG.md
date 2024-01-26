@@ -1,3 +1,10 @@
+# [1.69.0](https://github.com/jobstash/middleware/compare/v1.68.6...v1.69.0) (2024-01-26)
+
+
+### Features
+
+* **profile:** added report review feature ([c8498fc](https://github.com/jobstash/middleware/commit/c8498fc83c92c6af6e95122ca8c9cb3f0a0eb769))
+
 ## [1.68.6](https://github.com/jobstash/middleware/compare/v1.68.5...v1.68.6) (2024-01-25)
 
 
