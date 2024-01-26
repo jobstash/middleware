@@ -1,3 +1,10 @@
+# [1.70.0](https://github.com/jobstash/middleware/compare/v1.69.2...v1.70.0) (2024-01-26)
+
+
+### Features
+
+* **projects:** implemented investors filter for projects list ([2b4f247](https://github.com/jobstash/middleware/commit/2b4f2472463031bb8bd4d7e17c4b60b21a5325dc))
+
 ## [1.69.2](https://github.com/jobstash/middleware/compare/v1.69.1...v1.69.2) (2024-01-26)
 
 
