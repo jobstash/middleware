@@ -1,3 +1,10 @@
+## [1.69.1](https://github.com/jobstash/middleware/compare/v1.69.0...v1.69.1) (2024-01-26)
+
+
+### Bug Fixes
+
+* **organizations:** fixed organizations filter config bug ([dcfe2cd](https://github.com/jobstash/middleware/commit/dcfe2cd9973bdda5f48df4ccd49974c5498d675f))
+
 # [1.69.0](https://github.com/jobstash/middleware/compare/v1.68.6...v1.69.0) (2024-01-26)
 
 
