@@ -135,6 +135,13 @@ export class OrgDetailsResultEntity {
               timestamp: nonZeroOrNull(jobpost?.timestamp),
             })) ?? [],
           repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
+          investors:
+            project?.investors ??
+            organization?.investors.map(investor => ({
+              id: investor.id,
+              name: investor.name,
+            })) ??
+            [],
         })) ?? [],
       fundingRounds:
         fundingRounds?.map(fr => ({

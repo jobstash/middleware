@@ -13,18 +13,14 @@ import { ListOrder, ProjectListOrderBy } from "src/shared/types";
 import { Compare } from "src/shared/validators";
 
 export class ProjectListParams {
-  @ApiPropertyOptional({
-    example: 1890503.6980031824,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
   minTvl?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 5000503.698003182,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -32,18 +28,14 @@ export class ProjectListParams {
   @Type(() => Number)
   maxTvl?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 1000000,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
   minMonthlyVolume?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 1000000000,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -51,18 +43,14 @@ export class ProjectListParams {
   @Type(() => Number)
   maxMonthlyVolume?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 50000,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
   minMonthlyFees?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 3000000,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -70,18 +58,14 @@ export class ProjectListParams {
   @Type(() => Number)
   maxMonthlyFees?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 1000000,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
   minMonthlyRevenue?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 5000000,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -89,9 +73,7 @@ export class ProjectListParams {
   @Type(() => Number)
   maxMonthlyRevenue?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: true,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Transform(({ value }) =>
     value === "true" ? true : value === "false" ? false : value,
@@ -99,9 +81,7 @@ export class ProjectListParams {
   @IsBoolean()
   audits?: boolean | null = null;
 
-  @ApiPropertyOptional({
-    example: true,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Transform(({ value }) =>
     value === "true" ? true : value === "false" ? false : value,
@@ -109,33 +89,31 @@ export class ProjectListParams {
   @IsBoolean()
   hacks?: boolean | null = null;
 
-  @ApiPropertyOptional({
-    example: "T3BlblNlYQ==,SmV0",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
   organizations?: string[] | null = null;
 
-  @ApiPropertyOptional({
-    example: "N/A",
-  })
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  investors?: string[] | null = null;
+
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
   chains?: string[] | null = null;
 
-  @ApiPropertyOptional({
-    example: "T3B0aW9ucw==,WWllbGQ=",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
   categories?: string[] | null = null;
 
-  @ApiPropertyOptional({
-    example: true,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Transform(({ value }) =>
     value === "true" ? true : value === "false" ? false : value,
@@ -143,9 +121,7 @@ export class ProjectListParams {
   @IsBoolean()
   token?: boolean | null = null;
 
-  @ApiPropertyOptional({
-    example: true,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Transform(({ value }) =>
     value === "true" ? true : value === "false" ? false : value,

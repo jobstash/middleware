@@ -68,6 +68,7 @@ export class ProjectsService {
       hacks: hackFilter,
       chains: chainFilterList,
       organizations: organizationFilterList,
+      investors: investorFilterList,
       categories: categoryFilterList,
       token,
       mainNet,
@@ -136,6 +137,10 @@ export class ProjectsService {
             project.chains.map(x => normalizeString(x.name)).includes(x),
           ) ??
             false)) &&
+        (!investorFilterList ||
+          project.investors.filter(investor =>
+            investorFilterList.includes(normalizeString(investor.name)),
+          ).length > 0) &&
         (token === null ||
           (notStringOrNull(project.tokenAddress) !== null) === token)
       );
@@ -224,6 +229,10 @@ export class ProjectsService {
               maxMonthlyRevenue: apoc.coll.max([
                 (org)-[:HAS_PROJECT]->(project:Project) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus))
                 AND NOT EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)) | project.monthlyRevenue
+              ]),
+              investors: apoc.coll.toSet([
+                (org: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus))
+                AND NOT EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)) | investor.name
               ]),
               categories: apoc.coll.toSet([(org)-[:HAS_PROJECT|HAS_CATEGORY*2]->(category: ProjectCategory) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)) | category.name]),
               chains: apoc.coll.toSet([(org)-[:HAS_PROJECT|IS_DEPLOYED_ON*2]->(chain: Chain) WHERE EXISTS((org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)) | chain.name]),

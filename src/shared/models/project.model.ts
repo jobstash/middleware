@@ -413,7 +413,7 @@ export const Projects = (
                   telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
                   github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                  twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                  twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                   hacks: [
                     (project)-[:HAS_HACK]->(hack) | hack { .* }
                   ],
@@ -423,6 +423,7 @@ export const Projects = (
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
+                  investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
@@ -507,7 +508,7 @@ export const Projects = (
                   telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
                   github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                  twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                  twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                   hacks: [
                     (project)-[:HAS_HACK]->(hack) | hack { .* }
                   ],
@@ -517,6 +518,7 @@ export const Projects = (
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
+                  investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
@@ -600,7 +602,7 @@ export const Projects = (
                   telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
                   github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                  twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                  twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                   organization: [(organization)-[:HAS_PROJECT]->(project) | organization {
                     .*,
                     discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
@@ -609,7 +611,7 @@ export const Projects = (
                     telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
                     github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
                     alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
-                    twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                    twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                     fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
                     investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                     jobs: [
@@ -662,6 +664,7 @@ export const Projects = (
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
+                  investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
@@ -793,7 +796,7 @@ export const Projects = (
                   telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
                   github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                  twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                  twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                   hacks: [
                     (project)-[:HAS_HACK]->(hack) | hack { .* }
                   ],
@@ -803,6 +806,7 @@ export const Projects = (
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
+                  investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }

@@ -59,8 +59,15 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "filter_projectlist_categories",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
-  tvl: {
+  investors: {
     position: 4,
+    label: "Investors",
+    show: true,
+    googleAnalyticsEventName: "filter_projectlist_investors",
+    kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
+  },
+  tvl: {
+    position: 5,
     label: "TVL",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_tvl",
@@ -68,7 +75,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   monthlyVolume: {
-    position: 5,
+    position: 6,
     label: "Volume/mo",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_monthly_volume",
@@ -76,7 +83,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   monthlyFees: {
-    position: 6,
+    position: 7,
     label: "Fees/mo",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_monthly_fees",
@@ -84,7 +91,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   monthlyRevenue: {
-    position: 7,
+    position: 8,
     label: "Revenue/mo",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_monthly_revenue",
@@ -92,7 +99,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   audits: {
-    position: 8,
+    position: 9,
     label: "Audits",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_audits",
@@ -100,7 +107,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.audits,
   },
   hacks: {
-    position: 9,
+    position: 10,
     label: "Hacks",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_hacks",
@@ -108,7 +115,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.hacks,
   },
   mainNet: {
-    position: 10,
+    position: 11,
     label: "Mainnet",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_is_mainnet",
@@ -116,7 +123,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.mainNet,
   },
   token: {
-    position: 11,
+    position: 12,
     label: "Has Token",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_has_token",
@@ -124,7 +131,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.token,
   },
   order: {
-    position: 12,
+    position: 13,
     label: "Order",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_order",
@@ -132,7 +139,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.order,
   },
   orderBy: {
-    position: 13,
+    position: 14,
     label: "Order By",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_order_by",
@@ -145,6 +152,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
   organizations: "organizations",
   chains: "chains",
   categories: "categories",
+  investors: "investors",
   tvl: {
     lowest: "minTvl",
     highest: "maxTvl",

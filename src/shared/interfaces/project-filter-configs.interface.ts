@@ -25,6 +25,7 @@ export class ProjectFilterConfigs {
     mainNet: SingleSelectFilter.SingleSelectFilterType,
     orderBy: SingleSelectFilter.SingleSelectFilterType,
     chains: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+    investors: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     categories: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     organizations: MultiSelectSearchFilter.MultiSelectSearchFilterType,
   });
@@ -33,6 +34,8 @@ export class ProjectFilterConfigs {
   organizations: MultiSelectSearchFilter;
   @ApiProperty()
   chains: MultiSelectSearchFilter;
+  @ApiProperty()
+  investors: MultiSelectSearchFilter;
   @ApiProperty()
   categories: MultiSelectSearchFilter;
   @ApiProperty()
@@ -66,6 +69,7 @@ export class ProjectFilterConfigs {
       audits,
       mainNet,
       orderBy,
+      investors,
       categories,
       monthlyFees,
       organizations,
@@ -83,6 +87,7 @@ export class ProjectFilterConfigs {
     this.audits = audits;
     this.mainNet = mainNet;
     this.orderBy = orderBy;
+    this.investors = investors;
     this.categories = categories;
     this.monthlyFees = monthlyFees;
     this.organizations = organizations;
