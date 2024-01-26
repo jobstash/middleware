@@ -36,6 +36,7 @@ export class OrgReviewEntity {
         workLifeBalance: nonZeroOrNull(rating?.workLifeBalance),
       },
       review: {
+        id: notStringOrNull(review?.id),
         title: notStringOrNull(review?.title),
         location: notStringOrNull(review?.location),
         timezone: notStringOrNull(review?.timezone),
@@ -71,6 +72,7 @@ export class LeanOrgReviewEntity {
       commitCount: nonZeroOrNull(commitCount),
       rating: rating,
       review: {
+        id: notStringOrNull(review?.id),
         title: notStringOrNull(review?.title),
         location: notStringOrNull(review?.location),
         timezone: notStringOrNull(review?.timezone),

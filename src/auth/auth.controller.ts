@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpStatus,
   Post,
   Req,
   Res,
@@ -69,7 +70,7 @@ export class AuthController {
         message: result.message,
       };
     } else {
-      res.status(400);
+      res.status(HttpStatus.BAD_REQUEST);
       return result;
     }
   }

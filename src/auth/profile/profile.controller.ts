@@ -25,6 +25,7 @@ import {
   UserOrg,
   UserProfile,
   UserRepo,
+  data,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { AuthService } from "../auth.service";
@@ -39,6 +40,10 @@ import { UpdateRepoTagsUsedInput } from "./dto/update-repo-tags-used.input";
 import { UpdateUserShowCaseInput } from "./dto/update-user-showcase.input";
 import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
 import { ProfileService } from "./profile.service";
+import { ReportReviewEmailInput } from "./dto/report-review.input";
+import { MailService } from "src/mail/mail.service";
+import { ConfigService } from "@nestjs/config";
+import { Throttle } from "@nestjs/throttler";
 
 @Controller("profile")
 export class ProfileController {
@@ -47,6 +52,8 @@ export class ProfileController {
     private readonly authService: AuthService,
     private readonly profileService: ProfileService,
     private readonly organizationsService: OrganizationsService,
+    private readonly mailService: MailService,
+    private readonly configService: ConfigService,
   ) {}
 
   @Get("info")
@@ -393,6 +400,73 @@ export class ProfileController {
       return {
         success: false,
         message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Post("reviews/report")
+  @Throttle({
+    default: {
+      ttl: 60000,
+      limit: 5,
+    },
+  })
+  @UseGuards(RBACGuard)
+  @Roles(
+    CheckWalletRoles.ANON,
+    CheckWalletRoles.ADMIN,
+    CheckWalletRoles.DEV,
+    CheckWalletRoles.ORG,
+  )
+  @ApiOkResponse({
+    description: "Generates and sends email reporting a fishy review",
+    schema: { $ref: getSchemaPath(ResponseWithNoData) },
+  })
+  async reportReview(
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Body(new ValidationPipe({ transform: true }))
+    body: ReportReviewEmailInput,
+  ): Promise<ResponseWithNoData> {
+    const { id, url } = body;
+    const parsedUrl = new URL(url);
+    if (parsedUrl.host.endsWith("jobstash.xyz")) {
+      const reviewVerification = await this.profileService.findReviewById(id);
+      if (reviewVerification.success) {
+        const { id, title, pros, cons } = data(reviewVerification);
+        await this.mailService.sendEmail({
+          from: this.configService.getOrThrow<string>("EMAIL"),
+          to: this.configService.getOrThrow<string>("REPORT_CONTENT_TO_EMAIL"),
+          subject: "Org review reported by user",
+          text: "[URGENT] Reported content alert",
+          html: `
+              <h3>A review left on <a href="${url}">this org</a> has been reported by a user for potentially bad content.</h3>
+              
+              <h4>Relevant information</h4>
+
+              <ul>
+                <li><strong>ID:</strong> ${id}</li>
+                <li><strong>Title:</strong> ${title}</li>
+                <li><strong>Pros:</strong> <p>${pros}</p></li>
+                <li><strong>Cons:</strong> <p>${cons}</p></li>
+              </ul>
+              `,
+        });
+        return {
+          success: true,
+          message: "Report filed successfully",
+        };
+      } else {
+        res.status(HttpStatus.BAD_REQUEST);
+        return {
+          success: false,
+          message: "Invalid review",
+        };
+      }
+    } else {
+      res.status(HttpStatus.BAD_REQUEST);
+      return {
+        success: false,
+        message: "Invalid url",
       };
     }
   }

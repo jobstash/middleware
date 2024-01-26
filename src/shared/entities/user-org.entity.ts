@@ -46,6 +46,7 @@ export class UserOrgEntity {
         workLifeBalance: nonZeroOrNull(rating?.workLifeBalance),
       },
       review: {
+        id: review.id,
         title: notStringOrNull(review?.title),
         location: notStringOrNull(review?.location),
         timezone: notStringOrNull(review?.timezone),

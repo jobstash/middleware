@@ -46,6 +46,7 @@ const Timezone = t.keyof({
 });
 export class OrgStaffReview {
   public static readonly OrgStaffReviewType = t.strict({
+    id: t.union([t.string, t.null]),
     title: t.union([t.string, t.null]),
     location: t.union([
       t.literal("ONSITE"),
@@ -62,6 +63,7 @@ export class OrgStaffReview {
     cons: t.union([t.string, t.null]),
   });
 
+  id: string | null;
   title: string | null;
   location: string | null;
   timezone: string | null;
@@ -70,10 +72,11 @@ export class OrgStaffReview {
   cons: string | null;
 
   constructor(raw: OrgStaffReview) {
-    const { title, pros, cons, location, timezone, workingHours } = raw;
+    const { id, title, pros, cons, location, timezone, workingHours } = raw;
 
     const result = OrgStaffReview.OrgStaffReviewType.decode(raw);
 
+    this.id = id;
     this.title = title;
     this.location = location;
     this.timezone = timezone;

@@ -13,6 +13,7 @@ import {
 } from "src/shared/entities";
 import { normalizeString, paginate } from "src/shared/helpers";
 import {
+  OrgStaffReview,
   PaginatedData,
   Response,
   ResponseWithNoData,
@@ -35,6 +36,7 @@ import { UpdateRepoTagsUsedInput } from "./dto/update-repo-tags-used.input";
 import { UpdateUserShowCaseInput } from "./dto/update-user-showcase.input";
 import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
 import { Integer } from "neo4j-driver";
+import { OrgStaffReviewEntity } from "src/shared/entities/org-staff-review.entity";
 
 @Injectable()
 export class ProfileService {
@@ -193,6 +195,7 @@ export class ProfileService {
             compensation: review.compensation
           },
           review: {
+            id: review.id,
             title: review.title,
             location: review.location,
             timezone: review.timezone,
@@ -248,6 +251,7 @@ export class ProfileService {
               compensation: review.compensation
             },
             review: {
+              id: review.id,
               title: review.title,
               location: review.location,
               timezone: review.timezone,
@@ -692,6 +696,7 @@ export class ProfileService {
           `
         MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
         MERGE (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(org)
+        SET review.id = randomUUID()
         SET review.title = $title
         SET review.location = $location
         SET review.timezone = $timezone
@@ -723,6 +728,59 @@ export class ProfileService {
       return {
         success: false,
         message: "Error reviewing org",
+      };
+    }
+  }
+
+  async findReviewById(
+    id: string,
+  ): Promise<ResponseWithOptionalData<OrgStaffReview>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (review:OrgReview {id: $id})<-[:HAS_REVIEW]-(:Organization)
+        RETURN {
+          id: review.id,
+          title: review.title,
+          location: review.location,
+          timezone: review.timezone,
+          workingHours: {
+            start: review.workingHoursStart,
+            end: review.workingHoursEnd
+          },
+          pros: review.pros,
+          cons: review.cons
+        } as review
+      `,
+        { id },
+      );
+      const review = result?.records[0]?.get("review");
+
+      if (review) {
+        return {
+          success: true,
+          message: "Review verification successful",
+          data: new OrgStaffReviewEntity(review).getProperties(),
+        };
+      } else {
+        return {
+          success: false,
+          message: "Review not found",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { id });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::verifyOrgReview ${err.message}`);
+      return {
+        success: false,
+        message: "Error verifying org review",
       };
     }
   }

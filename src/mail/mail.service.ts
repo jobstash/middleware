@@ -14,7 +14,7 @@ export class MailService {
     mail: SendGrid.MailDataRequired,
   ): Promise<[SendGrid.ClientResponse, object]> {
     const transport = await SendGrid.send(mail);
-    // this.logger.log(`E-Mail sent to ${mail.to}`);
+    this.logger.log(`Mail sent to ${mail.to}`);
     return transport;
   }
 }

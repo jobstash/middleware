@@ -17,6 +17,7 @@ import {
   hasDuplicates,
   printDuplicateItems,
   publicationDateRangeGenerator,
+  resetTestDB,
 } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
@@ -25,7 +26,7 @@ import { ModelModule } from "src/model/model.module";
 import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
 import { ModelService } from "src/model/model.service";
 import { AuthService } from "src/auth/auth.service";
-import { JwtService } from "@nestjs/jwt";
+import { JwtModule, JwtService } from "@nestjs/jwt";
 import { forwardRef } from "@nestjs/common";
 import { UserModule } from "src/user/user.module";
 import { ProfileService } from "src/auth/profile/profile.service";
@@ -34,12 +35,18 @@ import {
   DEV_TEST_WALLET,
   EPHEMERAL_TEST_WALLET,
   REALLY_LONG_TIME,
-} from "src/shared/constants/testing";
+} from "src/shared/constants";
+import { HttpModule, HttpService } from "@nestjs/axios";
+import * as https from "https";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 
 describe("JobsController", () => {
   let controller: JobsController;
   let models: ModelService;
   let authService: AuthService;
+  let httpService: HttpService;
+
+  const logger = new CustomLogger(`${JobsController.name}TestSuite`);
 
   const projectHasArrayPropsDuplication = (
     project: ProjectWithRelations,
@@ -136,15 +143,41 @@ describe("JobsController", () => {
           inject: [ConfigService],
           useFactory: (configService: ConfigService) =>
             ({
-              host: configService.get<string>("NEO4J_HOST"),
-              password: configService.get<string>("NEO4J_PASSWORD"),
-              port: configService.get<string>("NEO4J_PORT"),
-              scheme: configService.get<string>("NEO4J_SCHEME"),
-              username: configService.get<string>("NEO4J_USERNAME"),
-              database: configService.get<string>("NEO4J_DATABASE"),
+              host: configService.get<string>("NEO4J_HOST_TEST"),
+              password: configService.get<string>("NEO4J_PASSWORD_TEST"),
+              port: configService.get<string>("NEO4J_PORT_TEST"),
+              scheme: configService.get<string>("NEO4J_SCHEME_TEST"),
+              username: configService.get<string>("NEO4J_USERNAME_TEST"),
+              database: configService.get<string>("NEO4J_DATABASE_TEST"),
+              retryAttempts: 5,
+              retryDelay: 1000,
             } as NeogmaModuleOptions),
         }),
+        JwtModule.registerAsync({
+          imports: [ConfigModule],
+          inject: [ConfigService],
+          useFactory: (configService: ConfigService) => ({
+            secret: configService.get<string>("JWT_SECRET"),
+            signOptions: {
+              expiresIn: configService.get<string>("JWT_EXPIRES_IN"),
+            },
+          }),
+        }),
         ModelModule,
+        HttpModule.registerAsync({
+          imports: [ConfigModule],
+          inject: [ConfigService],
+          useFactory: (configService: ConfigService) => ({
+            headers: {
+              "X-Secret-Key": configService.get<string>(
+                "TEST_DB_MANAGER_API_KEY",
+              ),
+            },
+            httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+            timeout: REALLY_LONG_TIME,
+            baseURL: configService.get<string>("TEST_DB_MANAGER_URL"),
+          }),
+        }),
       ],
       controllers: [JobsController],
       providers: [
@@ -162,11 +195,13 @@ describe("JobsController", () => {
     await models.onModuleInit();
     controller = module.get<JobsController>(JobsController);
     authService = module.get<AuthService>(AuthService);
+    httpService = module.get<HttpService>(HttpService);
   }, REALLY_LONG_TIME);
 
-  afterEach(() => {
+  afterAll(async () => {
+    await resetTestDB(httpService, logger);
     jest.restoreAllMocks();
-  });
+  }, REALLY_LONG_TIME);
 
   it("should be defined", () => {
     expect(controller).toBeDefined();
@@ -194,10 +229,10 @@ describe("JobsController", () => {
       jest.spyOn(authService, "getSession").mockImplementation(async () => ({
         address: DEV_TEST_WALLET,
         destroy: async (): Promise<void> => {
-          console.log("session destroyed");
+          logger.log("session destroyed");
         },
         save: async (): Promise<void> => {
-          console.log("session saved");
+          logger.log("session saved");
         },
       }));
       const req: Partial<Request> = {};
@@ -240,10 +275,10 @@ describe("JobsController", () => {
       jest.spyOn(authService, "getSession").mockImplementation(async () => ({
         address: EPHEMERAL_TEST_WALLET,
         destroy: async (): Promise<void> => {
-          console.log("session destroyed");
+          logger.log("session destroyed");
         },
         save: async (): Promise<void> => {
-          console.log("session saved");
+          logger.log("session saved");
         },
       }));
       const res = await controller.getAllJobsWithSearch(params);
@@ -279,10 +314,10 @@ describe("JobsController", () => {
       jest.spyOn(authService, "getSession").mockImplementation(async () => ({
         address: EPHEMERAL_TEST_WALLET,
         destroy: async (): Promise<void> => {
-          console.log("session destroyed");
+          logger.log("session destroyed");
         },
         save: async (): Promise<void> => {
-          console.log("session saved");
+          logger.log("session saved");
         },
       }));
 
@@ -321,10 +356,10 @@ describe("JobsController", () => {
       jest.spyOn(authService, "getSession").mockImplementation(async () => ({
         address: EPHEMERAL_TEST_WALLET,
         destroy: async (): Promise<void> => {
-          console.log("session destroyed");
+          logger.log("session destroyed");
         },
         save: async (): Promise<void> => {
-          console.log("session saved");
+          logger.log("session saved");
         },
       }));
       const job = (
@@ -363,10 +398,10 @@ describe("JobsController", () => {
       jest.spyOn(authService, "getSession").mockImplementation(async () => ({
         address: EPHEMERAL_TEST_WALLET,
         destroy: async (): Promise<void> => {
-          console.log("session destroyed");
+          logger.log("session destroyed");
         },
         save: async (): Promise<void> => {
-          console.log("session saved");
+          logger.log("session saved");
         },
       }));
 
@@ -396,10 +431,10 @@ describe("JobsController", () => {
       jest.spyOn(authService, "getSession").mockImplementation(async () => ({
         address: EPHEMERAL_TEST_WALLET,
         destroy: async (): Promise<void> => {
-          console.log("session destroyed");
+          logger.log("session destroyed");
         },
         save: async (): Promise<void> => {
-          console.log("session saved");
+          logger.log("session saved");
         },
       }));
 
