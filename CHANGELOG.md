@@ -1,3 +1,10 @@
+## [1.69.2](https://github.com/jobstash/middleware/compare/v1.69.1...v1.69.2) (2024-01-26)
+
+
+### Bug Fixes
+
+* fixed bugs on boolean filters on project, jobs and orgs list endpoints ([7d09f5d](https://github.com/jobstash/middleware/commit/7d09f5deebda98830df500783f2bbdb6d473b9e8))
+
 ## [1.69.1](https://github.com/jobstash/middleware/compare/v1.69.0...v1.69.1) (2024-01-26)
 
 
