@@ -5,6 +5,20 @@
 
 * **auth:** fixed bug that causes request hanging on the magic auth endpoint ([93a2069](https://github.com/jobstash/middleware/commit/93a20693786dd737bd2875c0eca6201530494030))
 * bug fix for nullable reviews ([cf677ba](https://github.com/jobstash/middleware/commit/cf677ba0a2c80914bbea91dc117ed424a991c7c6))
+* fixed dumb bug ([3dcc8b9](https://github.com/jobstash/middleware/commit/3dcc8b971c3fd63f46fdee6f6446796afeb1838d))
+
+
+### Features
+
+* **projects:** implemented investors filter for projects list ([2b4f247](https://github.com/jobstash/middleware/commit/2b4f2472463031bb8bd4d7e17c4b60b21a5325dc))
+
+# [1.70.0](https://github.com/jobstash/middleware/compare/v1.69.2...v1.70.0) (2024-01-30)
+
+
+### Bug Fixes
+
+* **auth:** fixed bug that causes request hanging on the magic auth endpoint ([93a2069](https://github.com/jobstash/middleware/commit/93a20693786dd737bd2875c0eca6201530494030))
+* bug fix for nullable reviews ([cf677ba](https://github.com/jobstash/middleware/commit/cf677ba0a2c80914bbea91dc117ed424a991c7c6))
 
 
 ### Features
