@@ -1,3 +1,10 @@
+## [1.70.1](https://github.com/jobstash/middleware/compare/v1.70.0...v1.70.1) (2024-01-30)
+
+
+### Bug Fixes
+
+* bug fix for nullable reviews ([84a138b](https://github.com/jobstash/middleware/commit/84a138b4dc8207ab36597f5da8f71699598e74f7))
+
 # [1.70.0](https://github.com/jobstash/middleware/compare/v1.69.2...v1.70.0) (2024-01-26)
 
 
