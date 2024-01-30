@@ -1,3 +1,10 @@
+## [1.70.2](https://github.com/jobstash/middleware/compare/v1.70.1...v1.70.2) (2024-01-30)
+
+
+### Bug Fixes
+
+* **auth:** fixed bug that causes request hanging on the magic auth endpoint ([4ca3aef](https://github.com/jobstash/middleware/commit/4ca3aef838719482daa2686c55b22f2b416cd674))
+
 ## [1.70.1](https://github.com/jobstash/middleware/compare/v1.70.0...v1.70.1) (2024-01-30)
 
 
