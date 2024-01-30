@@ -35,6 +35,5 @@ export * from "./audit.model";
 export * from "./chain.model";
 export * from "./user-email.model";
 export * from "./user-showcase.model";
-export * from "./user-profile.model";
 export * from "./user-contact.model";
 export * from "./user.model";
