@@ -21,9 +21,10 @@ export class JobListResultEntity {
   getProperties(): JobListResult {
     const jobpost = this.raw;
     const { organization, tags } = jobpost;
-    const reviews = organization.reviews.map(review =>
-      generateOrgAggregateRating(review.rating),
-    );
+    const reviews =
+      organization?.reviews?.map(review =>
+        generateOrgAggregateRating(review.rating),
+      ) ?? [];
 
     return new JobListResult({
       ...jobpost,
@@ -48,7 +49,7 @@ export class JobListResultEntity {
             ? reviews.reduce((a, b) => a + b) / reviews.length
             : 0,
         aggregateRatings: generateOrgAggregateRatings(
-          organization.reviews.map(x => x.rating),
+          organization?.reviews?.map(x => x.rating) ?? [],
         ),
         reviewCount: reviews.length,
         docs: notStringOrNull(organization?.docs),
@@ -158,9 +159,10 @@ export class JobListResultEntity {
             id: investor.id,
             name: investor.name,
           })) ?? [],
-        reviews: organization?.reviews.map(review =>
-          new OrgReviewEntity(review).getProperties(),
-        ),
+        reviews:
+          organization?.reviews?.map(review =>
+            new OrgReviewEntity(review).getProperties(),
+          ) ?? [],
       },
       tags: tags ?? [],
     });

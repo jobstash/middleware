@@ -46,9 +46,8 @@ export class OrgDetailsResultEntity {
     const organization = this.raw;
     const { jobs, investors, fundingRounds, projects, tags, reviews } =
       organization;
-    const aggregateRatings = reviews.map(review =>
-      generateOrgAggregateRating(review.rating),
-    );
+    const aggregateRatings =
+      reviews?.map(review => generateOrgAggregateRating(review.rating)) ?? [];
 
     return new OrgDetailsResult({
       ...organization,
@@ -57,7 +56,7 @@ export class OrgDetailsResultEntity {
           ? aggregateRatings.reduce((a, b) => a + b) / aggregateRatings.length
           : 0,
       aggregateRatings: generateOrgAggregateRatings(
-        organization.reviews.map(x => x.rating),
+        organization?.reviews?.map(x => x.rating) ?? [],
       ),
       reviewCount: reviews.length,
       docs: notStringOrNull(organization?.docs),

@@ -11,9 +11,10 @@ export class OrganizationWithRelationsEntity {
 
   getProperties(): OrganizationWithRelations {
     const organization = this.raw;
-    const reviews = organization.reviews.map(review =>
-      generateOrgAggregateRating(review.rating),
-    );
+    const reviews =
+      organization?.reviews?.map(review =>
+        generateOrgAggregateRating(review.rating),
+      ) ?? [];
 
     return new OrganizationWithRelations({
       ...organization,
@@ -22,7 +23,7 @@ export class OrganizationWithRelationsEntity {
           ? reviews.reduce((a, b) => a + b) / reviews.length
           : 0,
       aggregateRatings: generateOrgAggregateRatings(
-        organization.reviews.map(x => x.rating),
+        organization?.reviews?.map(x => x.rating) ?? [],
       ),
       reviewCount: reviews.length,
       docs: notStringOrNull(organization?.docs),
