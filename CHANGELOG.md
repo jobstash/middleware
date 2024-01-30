@@ -1,3 +1,10 @@
+## [1.70.5](https://github.com/jobstash/middleware/compare/v1.70.4...v1.70.5) (2024-01-30)
+
+
+### Bug Fixes
+
+* fixed null pointer bug on user profile ([e004d27](https://github.com/jobstash/middleware/commit/e004d277878a7cabe6fead4049adb8a6af16ec99))
+
 ## [1.70.4](https://github.com/jobstash/middleware/compare/v1.70.3...v1.70.4) (2024-01-30)
 
 
