@@ -1,3 +1,10 @@
+## [1.70.4](https://github.com/jobstash/middleware/compare/v1.70.3...v1.70.4) (2024-01-30)
+
+
+### Bug Fixes
+
+* **user:** zapped the last of the user profile node references ([e9f1e8d](https://github.com/jobstash/middleware/commit/e9f1e8ddfff3d49ff1d937d15dd21e6f5c7fd4cc))
+
 ## [1.70.3](https://github.com/jobstash/middleware/compare/v1.70.2...v1.70.3) (2024-01-30)
 
 
