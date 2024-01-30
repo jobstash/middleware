@@ -1,3 +1,10 @@
+## [1.70.3](https://github.com/jobstash/middleware/compare/v1.70.2...v1.70.3) (2024-01-30)
+
+
+### Bug Fixes
+
+* fixed dumb bug ([67318d7](https://github.com/jobstash/middleware/commit/67318d7b00247a35d758a79efc62807f0c77a1b2))
+
 ## [1.70.2](https://github.com/jobstash/middleware/compare/v1.70.1...v1.70.2) (2024-01-30)
 
 
