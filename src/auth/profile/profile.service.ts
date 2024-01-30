@@ -460,7 +460,7 @@ export class ProfileService {
         OPTIONAL MATCH (user)-[ul:HAS_LOCATION]->(location:UserLocation)
         OPTIONAL MATCH (user)-[sr:HAS_SKILL]->(skill:Tag)
         OPTIONAL MATCH (user)-[er:HAS_EMAIL]->(email:UserEmail|UserUnverifiedEmail)
-        DETACH DELETE user, pr, profile, cr, contact, rr, gr, scr, showcase, ul, location, sr, er, email
+        DETACH DELETE user, cr, contact, rr, gr, scr, showcase, ul, location, sr, er, email
       `,
         { wallet },
       );
