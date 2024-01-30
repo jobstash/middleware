@@ -6,6 +6,23 @@
 * **auth:** fixed bug that causes request hanging on the magic auth endpoint ([93a2069](https://github.com/jobstash/middleware/commit/93a20693786dd737bd2875c0eca6201530494030))
 * bug fix for nullable reviews ([cf677ba](https://github.com/jobstash/middleware/commit/cf677ba0a2c80914bbea91dc117ed424a991c7c6))
 * fixed dumb bug ([3dcc8b9](https://github.com/jobstash/middleware/commit/3dcc8b971c3fd63f46fdee6f6446796afeb1838d))
+* fixed null pointer bug on user profile ([1b45d39](https://github.com/jobstash/middleware/commit/1b45d398e0dc45b6f64f3a3f56bb7b4b3be73578))
+* fixed query bug on delete profile endpoint ([a5f34a5](https://github.com/jobstash/middleware/commit/a5f34a518911705a09942e94a5c2d45b182b4206))
+* **user:** zapped the last of the user profile node references ([88eb430](https://github.com/jobstash/middleware/commit/88eb430913c579394e9737755d61dc11cf5c9a6c))
+
+
+### Features
+
+* **projects:** implemented investors filter for projects list ([2b4f247](https://github.com/jobstash/middleware/commit/2b4f2472463031bb8bd4d7e17c4b60b21a5325dc))
+
+# [1.70.0](https://github.com/jobstash/middleware/compare/v1.69.2...v1.70.0) (2024-01-30)
+
+
+### Bug Fixes
+
+* **auth:** fixed bug that causes request hanging on the magic auth endpoint ([93a2069](https://github.com/jobstash/middleware/commit/93a20693786dd737bd2875c0eca6201530494030))
+* bug fix for nullable reviews ([cf677ba](https://github.com/jobstash/middleware/commit/cf677ba0a2c80914bbea91dc117ed424a991c7c6))
+* fixed dumb bug ([3dcc8b9](https://github.com/jobstash/middleware/commit/3dcc8b971c3fd63f46fdee6f6446796afeb1838d))
 * fixed query bug on delete profile endpoint ([a5f34a5](https://github.com/jobstash/middleware/commit/a5f34a518911705a09942e94a5c2d45b182b4206))
 * **user:** zapped the last of the user profile node references ([88eb430](https://github.com/jobstash/middleware/commit/88eb430913c579394e9737755d61dc11cf5c9a6c))
 
