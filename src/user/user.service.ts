@@ -453,9 +453,8 @@ export class UserService {
       .run(
         `
           MATCH (user:User)
-          OPTIONAL MATCH (user)-[:HAS_PROFILE]->(profile:UserProfile)
           RETURN {
-            availableForWork: profile.availableForWork,
+            availableForWork: user.available,
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
             contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
