@@ -52,9 +52,8 @@ export class ProfileService {
     wallet: string,
   ): Promise<ResponseWithOptionalData<UserProfile>> {
     try {
-      const userProfile = await this.models.Users.findRelationships({
-        where: { source: { wallet } },
-        alias: "profile",
+      const userProfile = await this.models.Users.findOne({
+        where: { wallet },
       });
 
       const userEmail = await this.models.Users.findRelationships({
@@ -81,7 +80,7 @@ export class ProfileService {
         success: true,
         message: "User Profile retrieved successfully",
         data: new UserProfileEntity({
-          availableForWork: userProfile[0]?.target.availableForWork ?? false,
+          availableForWork: userProfile.available,
           avatar: userGithub[0]?.target.avatarUrl,
           username: userGithub[0]?.target.login,
           contact: {
@@ -394,8 +393,7 @@ export class ProfileService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})
-        MERGE (user)-[:HAS_PROFILE]->(profile:UserProfile)
-        SET profile.availableForWork = $availableForWork
+        SET user.available = $availableForWork
 
         WITH user
         MERGE (user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo)
@@ -409,7 +407,7 @@ export class ProfileService {
         
         WITH user
         RETURN {
-          availableForWork: [(user)-[:HAS_PROFILE]->(profile:UserProfile) | profile.availableForWork][0],
+          availableForWork: user.available,
           email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
@@ -455,7 +453,6 @@ export class ProfileService {
       await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})
-        OPTIONAL MATCH (user)-[pr:HAS_PROFILE]->(profile:UserProfile)
         OPTIONAL MATCH (user)-[cr:HAS_CONTACT_INFO]->(contact: UserContactInfo)
         OPTIONAL MATCH (user)-[rr:LEFT_REVIEW]->(:OrgReview)
         OPTIONAL MATCH (user)-[gr:HAS_GITHUB_USER]->(:GithubUser)

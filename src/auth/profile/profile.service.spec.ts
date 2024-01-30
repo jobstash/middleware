@@ -134,7 +134,7 @@ describe("ProfileService", () => {
   it(
     "should access models",
     async () => {
-      expect(models.UserProfiles).toBeDefined();
+      expect(models.Users).toBeDefined();
     },
     REALLY_LONG_TIME,
   );
