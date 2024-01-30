@@ -54,7 +54,7 @@ export class AuthController {
   })
   async sendMagicLink(
     @Req() req: Request,
-    @Res() res: ExpressResponse,
+    @Res({ passthrough: true }) res: ExpressResponse,
     @Body(new ValidationPipe({ transform: true }))
     body: SendVerificationEmailInput,
   ): Promise<ResponseWithNoData> {
