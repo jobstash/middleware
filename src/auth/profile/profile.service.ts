@@ -80,7 +80,7 @@ export class ProfileService {
         success: true,
         message: "User Profile retrieved successfully",
         data: new UserProfileEntity({
-          availableForWork: userProfile.available,
+          availableForWork: userProfile?.available ?? false,
           avatar: userGithub[0]?.target.avatarUrl,
           username: userGithub[0]?.target.login,
           contact: {
