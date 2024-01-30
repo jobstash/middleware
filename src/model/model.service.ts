@@ -81,8 +81,6 @@ import {
   GithubUsers,
   UserContactProps,
   UserContacts,
-  UserProfileProps,
-  UserProfiles,
 } from "src/shared/models";
 import { NoRelations } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -151,7 +149,6 @@ export class ModelService implements OnModuleInit {
   public Websites: NeogmaModel<WebsiteProps, NoRelations>;
   public Users: NeogmaModel<UserProps, UserRelations>;
   public UserEmails: NeogmaModel<UserEmailProps, NoRelations>;
-  public UserProfiles: NeogmaModel<UserProfileProps, NoRelations>;
   public UserContacts: NeogmaModel<UserContactProps, NoRelations>;
   public UserShowcases: NeogmaModel<UserShowcaseProps, NoRelations>;
 
@@ -194,7 +191,6 @@ export class ModelService implements OnModuleInit {
     this.Users = Users(this.neogma);
     this.UserEmails = UserEmails(this.neogma);
     this.UserContacts = UserContacts(this.neogma);
-    this.UserProfiles = UserProfiles(this.neogma);
     this.UserShowcases = UserShowcases(this.neogma);
   };
 }
