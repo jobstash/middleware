@@ -1,3 +1,10 @@
+## [1.70.7](https://github.com/jobstash/middleware/compare/v1.70.6...v1.70.7) (2024-01-31)
+
+
+### Bug Fixes
+
+* **user:** restricted email validation to verified emails ([4e01bc8](https://github.com/jobstash/middleware/commit/4e01bc897d1134bed397223468698e2bf709178a))
+
 ## [1.70.6](https://github.com/jobstash/middleware/compare/v1.70.5...v1.70.6) (2024-01-30)
 
 
