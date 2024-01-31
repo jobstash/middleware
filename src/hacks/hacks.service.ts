@@ -6,6 +6,7 @@ import { ModelService } from "src/model/model.service";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { randomUUID } from "crypto";
 import * as Sentry from "@sentry/node";
+import { HackEntity } from "src/shared/entities";
 
 @Injectable()
 export class HacksService {
@@ -66,13 +67,13 @@ export class HacksService {
 
   async findAll(): Promise<Response<Hack[]> | ResponseWithNoData> {
     try {
-      const hacks = await this.models.Hacks.findMany({
-        plain: true,
-      });
+      const hacks = await this.models.Hacks.findMany();
       return {
         success: true,
         message: "Retrieved all hacks successfully",
-        data: hacks.map(hack => new Hack(hack)),
+        data: hacks.map(hack =>
+          new HackEntity(hack.getDataValues()).getProperties(),
+        ),
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -93,13 +94,19 @@ export class HacksService {
         where: {
           id: id,
         },
-        plain: true,
       });
-      return {
-        success: true,
-        message: "Retrieved hack successfully",
-        data: new Hack(hack),
-      };
+      if (hack) {
+        return {
+          success: true,
+          message: "Retrieved hack successfully",
+          data: new HackEntity(hack.getDataValues()).getProperties(),
+        };
+      } else {
+        return {
+          success: false,
+          message: "Hack not found",
+        };
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
