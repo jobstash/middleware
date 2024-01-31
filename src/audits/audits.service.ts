@@ -6,6 +6,7 @@ import { ModelService } from "src/model/model.service";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { randomUUID } from "crypto";
 import * as Sentry from "@sentry/node";
+import { AuditEntity } from "src/shared/entities";
 
 @Injectable()
 export class AuditsService {
@@ -70,7 +71,7 @@ export class AuditsService {
       return {
         success: true,
         message: "Retrieved all audits successfully",
-        data: audits.map(audit => new Audit(audit)),
+        data: audits.map(audit => new AuditEntity(audit).getProperties()),
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -91,13 +92,20 @@ export class AuditsService {
         where: {
           id: id,
         },
-        plain: true,
       });
-      return {
-        success: true,
-        message: "Retrieved audit successfully",
-        data: new Audit(audit),
-      };
+
+      if (audit) {
+        return {
+          success: true,
+          message: "Retrieved audit successfully",
+          data: new Audit(audit.getDataValues()),
+        };
+      } else {
+        return {
+          success: false,
+          message: "Audit not found",
+        };
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -117,16 +125,10 @@ export class AuditsService {
     props: UpdateAuditDto,
   ): Promise<Response<Audit> | ResponseWithNoData> {
     try {
-      const audit = await this.models.Audits.update(
-        {
-          link: props.link,
-          name: props.name,
-          defiId: props.defiId,
-          date: props.date,
-          techIssues: props.techIssues,
-        },
-        { where: { id }, return: true },
-      );
+      const audit = await this.models.Audits.update(props, {
+        where: { id },
+        return: true,
+      });
       return {
         success: true,
         message: "Updated audit successfully",
