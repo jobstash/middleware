@@ -79,7 +79,7 @@ export class UserService {
 
     const result = await this.neogma.queryRunner.run(
       `
-        RETURN EXISTS((:User)-[:HAS_EMAIL]->(:UserEmail|UserUnverifiedEmail {normalized: $normalizedEmail})) AS hasEmail
+        RETURN EXISTS((:User)-[:HAS_EMAIL]->(:UserEmail {normalized: $normalizedEmail})) AS hasEmail
       `,
       { normalizedEmail },
     );

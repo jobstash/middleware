@@ -265,9 +265,9 @@ export class JobsController {
 
   @Get("/bookmarked")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @Roles(CheckWalletRoles.DEV)
   @ApiOkResponse({
-    description: "Returns the skills of the currently logged in user",
+    description: "Returns the bookmarked jobs of the currently logged in user",
     schema: {
       allOf: [
         {
