@@ -1,3 +1,10 @@
+# [1.71.0](https://github.com/jobstash/middleware/compare/v1.70.7...v1.71.0) (2024-02-01)
+
+
+### Features
+
+* **jobs:** added support for featured jobs ([d1b24d4](https://github.com/jobstash/middleware/commit/d1b24d43b61ae8eee2c99fecaf3735e35049ba43))
+
 ## [1.70.7](https://github.com/jobstash/middleware/compare/v1.70.6...v1.70.7) (2024-01-31)
 
 
