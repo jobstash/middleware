@@ -132,6 +132,9 @@ export class OrgDetailsResultEntity {
               description: notStringOrNull(jobpost?.description),
               commitment: notStringOrNull(jobpost?.commitment),
               timestamp: nonZeroOrNull(jobpost?.timestamp),
+              featureStartDate: nonZeroOrNull(jobpost?.featureStartDate),
+              featureEndDate: nonZeroOrNull(jobpost?.featureEndDate),
+              featured: jobpost?.featured ?? false,
             })) ?? [],
           repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
           investors:

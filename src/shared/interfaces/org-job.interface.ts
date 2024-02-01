@@ -14,6 +14,9 @@ export class OrgJob {
     summary: t.union([t.string, t.null]),
     seniority: t.union([t.string, t.null]),
     paysInCrypto: t.union([t.boolean, t.null]),
+    featured: t.union([t.boolean, t.null]),
+    featureStartDate: t.union([t.number, t.null]),
+    featureEndDate: t.union([t.number, t.null]),
     minimumSalary: t.union([t.number, t.null]),
     maximumSalary: t.union([t.number, t.null]),
     salaryCurrency: t.union([t.string, t.null]),
@@ -63,6 +66,15 @@ export class OrgJob {
   offersTokenAllocation: boolean | null;
 
   @ApiPropertyOptional()
+  featured: boolean | null;
+
+  @ApiPropertyOptional()
+  featureStartDate: number | null;
+
+  @ApiPropertyOptional()
+  featureEndDate: number | null;
+
+  @ApiPropertyOptional()
   commitment: string | null;
 
   @ApiProperty()
@@ -87,6 +99,9 @@ export class OrgJob {
       salaryCurrency,
       offersTokenAllocation,
       commitment,
+      featured,
+      featureStartDate,
+      featureEndDate,
       timestamp,
       locationType,
     } = raw;
@@ -106,6 +121,9 @@ export class OrgJob {
     this.commitment = commitment;
     this.timestamp = timestamp;
     this.locationType = locationType;
+    this.featured = featured;
+    this.featureStartDate = featureStartDate;
+    this.featureEndDate = featureEndDate;
 
     const result = OrgJob.OrgJobType.decode(raw);
 

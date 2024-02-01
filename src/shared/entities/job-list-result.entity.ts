@@ -42,6 +42,9 @@ export class JobListResultEntity {
       description: notStringOrNull(jobpost?.description),
       commitment: notStringOrNull(jobpost?.commitment),
       timestamp: nonZeroOrNull(jobpost?.timestamp),
+      featureStartDate: nonZeroOrNull(jobpost?.featureStartDate),
+      featureEndDate: nonZeroOrNull(jobpost?.featureEndDate),
+      featured: jobpost?.featured ?? false,
       organization: {
         ...organization,
         aggregateRating:

@@ -9,6 +9,7 @@ import {
   OrgDetailsResult,
   OrgDetailsResultEntity,
   ResponseWithNoData,
+  ResponseWithOptionalData,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -64,6 +65,9 @@ export class OrganizationsService {
               minimumSalary: structured_jobpost.minimumSalary,
               maximumSalary: structured_jobpost.maximumSalary,
               salaryCurrency: structured_jobpost.salaryCurrency,
+              featured: structured_jobpost.featured,
+              featureStartDate: structured_jobpost.featureStartDate,
+              featureEndDate: structured_jobpost.featureEndDate,
               offersTokenAllocation: structured_jobpost.offersTokenAllocation,
               classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
               commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -275,6 +279,37 @@ export class OrganizationsService {
     );
   }
 
+  async getFeaturedOrgs(): Promise<ResponseWithOptionalData<ShortOrg[]>> {
+    try {
+      const jobs = await this.getOrgListResults();
+      const now = new Date().getTime();
+      return {
+        success: true,
+        message: "Featured jobs retrieved successfully",
+        data: jobs
+          .filter(org =>
+            org.jobs.some(
+              job =>
+                job.featured === true &&
+                job.featureStartDate <= now &&
+                now <= job.featureEndDate,
+            ),
+          )
+          .map(x => new ShortOrgEntity(toShortOrg(x)).getProperties()),
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getFeaturedJobs ${err.message}`);
+      return { success: false, message: "Failed to retrieve featured jobs" };
+    }
+  }
+
   async getFilterConfigs(): Promise<OrgFilterConfigs> {
     try {
       return await this.neogma.queryRunner
@@ -348,6 +383,9 @@ export class OrganizationsService {
                 minimumSalary: structured_jobpost.minimumSalary,
                 maximumSalary: structured_jobpost.maximumSalary,
                 salaryCurrency: structured_jobpost.salaryCurrency,
+                featured: structured_jobpost.featured,
+                featureStartDate: structured_jobpost.featureStartDate,
+                featureEndDate: structured_jobpost.featureEndDate,
                 offersTokenAllocation: structured_jobpost.offersTokenAllocation,
                 classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
                 commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -502,6 +540,9 @@ export class OrganizationsService {
               maximumSalary: structured_jobpost.maximumSalary,
               salaryCurrency: structured_jobpost.salaryCurrency,
               offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+              featured: structured_jobpost.featured,
+              featureStartDate: structured_jobpost.featureStartDate,
+              featureEndDate: structured_jobpost.featureEndDate,
               classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
               commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
               locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],

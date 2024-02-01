@@ -25,6 +25,7 @@ import {
   PaginatedData,
   ResponseWithNoData,
   Response,
+  ResponseWithOptionalData,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { AllJobsParams } from "./dto/all-jobs.input";
@@ -36,6 +37,7 @@ import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
 import { ChangeJobCommitmentInput } from "./dto/change-commitment.input";
 import { ChangeJobLocationTypeInput } from "./dto/change-location-type.input";
 import { ChangeJobProjectInput } from "./dto/update-job-project.input";
+import { FeatureJobsInput } from "./dto/feature-jobs.input";
 
 @Injectable()
 export class JobsService {
@@ -75,6 +77,9 @@ export class JobsService {
           maximumSalary: structured_jobpost.maximumSalary,
           salaryCurrency: structured_jobpost.salaryCurrency,
           responsibilities: structured_jobpost.responsibilities,
+          featured: structured_jobpost.featured,
+          featureStartDate: structured_jobpost.featureStartDate,
+          featureEndDate: structured_jobpost.featureEndDate,
           timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
@@ -296,8 +301,8 @@ export class JobsService {
     const results: JobListResult[] = [];
 
     try {
-      const orgJobs = await this.getJobsListResults();
-      results.push(...orgJobs);
+      const jobs = await this.getJobsListResults();
+      results.push(...jobs);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -563,6 +568,35 @@ export class JobsService {
     }
   }
 
+  async getFeaturedJobs(): Promise<ResponseWithOptionalData<JobListResult[]>> {
+    try {
+      const jobs = await this.getJobsListResults();
+      const now = new Date().getTime();
+      return {
+        success: true,
+        message: "Featured jobs retrieved successfully",
+        data: jobs
+          .map(x => new JobListResultEntity(x).getProperties())
+          .filter(
+            job =>
+              job.featured === true &&
+              job.featureStartDate <= now &&
+              now <= job.featureEndDate,
+          ),
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getFeaturedJobs ${err.message}`);
+      return { success: false, message: "Failed to retrieve featured jobs" };
+    }
+  }
+
   async getJobDetailsByUuid(uuid: string): Promise<JobListResult | undefined> {
     try {
       const generatedQuery = `
@@ -592,6 +626,9 @@ export class JobsService {
           maximumSalary: structured_jobpost.maximumSalary,
           salaryCurrency: structured_jobpost.salaryCurrency,
           responsibilities: structured_jobpost.responsibilities,
+          featured: structured_jobpost.featured,
+          featureStartDate: structured_jobpost.featureStartDate,
+          featureEndDate: structured_jobpost.featureEndDate,
           timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
@@ -838,6 +875,9 @@ export class JobsService {
             maximumSalary: structured_jobpost.maximumSalary,
             salaryCurrency: structured_jobpost.salaryCurrency,
             responsibilities: structured_jobpost.responsibilities,
+            featured: structured_jobpost.featured,
+            featureStartDate: structured_jobpost.featureStartDate,
+            featureEndDate: structured_jobpost.featureEndDate,
             timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
@@ -986,7 +1026,7 @@ export class JobsService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "profile.service",
+          source: "jobs.service",
         });
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
@@ -1051,7 +1091,7 @@ export class JobsService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "profile.service",
+          source: "jobs.service",
         });
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
@@ -1112,7 +1152,7 @@ export class JobsService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "profile.service",
+          source: "jobs.service",
         });
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
@@ -1173,7 +1213,7 @@ export class JobsService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "profile.service",
+          source: "jobs.service",
         });
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
@@ -1298,7 +1338,7 @@ export class JobsService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "profile.service",
+          source: "jobs.service",
         });
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
@@ -1338,7 +1378,7 @@ export class JobsService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "profile.service",
+          source: "jobs.service",
         });
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
@@ -1404,7 +1444,7 @@ export class JobsService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "profile.service",
+          source: "jobs.service",
         });
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
@@ -1469,7 +1509,7 @@ export class JobsService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "profile.service",
+          source: "jobs.service",
         });
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
@@ -1478,6 +1518,50 @@ export class JobsService {
       return {
         success: false,
         message: "Error making jobs online",
+      };
+    }
+  }
+
+  async makeJobFeatured(
+    wallet: string,
+    dto: FeatureJobsInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      const { endDate, startDate, shortUUID } = dto;
+      const result = await this.models.StructuredJobposts.update(
+        {
+          featured: true,
+          featureStartDate: new Date(startDate).getTime(),
+          featureEndDate: new Date(endDate).getTime(),
+        },
+        { where: { shortUUID }, return: true },
+      );
+
+      const job = result[0];
+      if (job) {
+        return {
+          success: true,
+          message: "Job made featured successfully",
+        };
+      } else {
+        return {
+          success: false,
+          message: "Job feature failed",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::makeJobFeatured ${err.message}`);
+      return {
+        success: false,
+        message: "Error making job featured",
       };
     }
   }

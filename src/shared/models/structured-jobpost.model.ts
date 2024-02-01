@@ -187,6 +187,21 @@ export const StructuredJobposts = (
           allowEmpty: true,
           required: false,
         },
+        featured: {
+          type: "boolean",
+          allowEmpty: true,
+          required: false,
+        },
+        featureStartDate: {
+          type: "number",
+          allowEmpty: true,
+          required: false,
+        },
+        featureEndDate: {
+          type: "number",
+          allowEmpty: true,
+          required: false,
+        },
         minimumSalary: {
           type: "number",
           allowEmpty: true,

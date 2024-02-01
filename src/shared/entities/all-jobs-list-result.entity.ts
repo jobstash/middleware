@@ -26,6 +26,9 @@ export class AllJobListResultEntity {
         ...organization,
         projects: organization?.projects ?? [],
       },
+      featureStartDate: nonZeroOrNull(jobpost?.featureStartDate),
+      featureEndDate: nonZeroOrNull(jobpost?.featureEndDate),
+      featured: jobpost?.featured ?? false,
       project: project ?? null,
       tags: tags ?? [],
     });

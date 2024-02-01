@@ -23,6 +23,7 @@ import {
   AllJobsFilterConfigs,
   Response,
   StructuredJobpostWithRelations,
+  ResponseWithOptionalData,
 } from "src/shared/types";
 import {
   ApiBadRequestResponse,
@@ -53,6 +54,7 @@ import { EditJobTagsInput } from "./dto/edit-tags.input";
 import { TagsService } from "src/tags/tags.service";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
 import { CheckWalletRoles } from "src/shared/constants";
+import { FeatureJobsInput } from "./dto/feature-jobs.input";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
@@ -187,6 +189,33 @@ export class JobsController {
       res.status(HttpStatus.NOT_FOUND);
     }
     return result;
+  }
+
+  @Get("/featured")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ANON)
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiOkResponse({
+    description: "Returns a list of featured jobs",
+    type: Response<JobListResult[]>,
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ValidationError),
+        },
+      ],
+    },
+  })
+  async getFeaturedJobsList(): Promise<
+    ResponseWithOptionalData<JobListResult[]>
+  > {
+    this.logger.log(`/jobs/featured`);
+    return this.jobsService.getFeaturedJobs();
   }
 
   @Get("/org/:id")
@@ -336,6 +365,41 @@ export class JobsController {
       return {
         success: false,
         message: `Failed to change job classification`,
+      };
+    }
+  }
+
+  @Post("/feature")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Make a job featured",
+    schema: {
+      $ref: getSchemaPath(ResponseWithNoData),
+    },
+  })
+  async makeFeatured(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Body() dto: FeatureJobsInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/jobs/feature`);
+    try {
+      const { address } = await this.authService.getSession(req, res);
+      return this.jobsService.makeJobFeatured(address as string, dto);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "jobs.controller",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsController::makeFeatured ${err.message}`);
+      return {
+        success: false,
+        message: `Failed to make job featured`,
       };
     }
   }

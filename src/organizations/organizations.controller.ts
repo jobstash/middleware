@@ -38,6 +38,7 @@ import {
   PaginatedData,
   OrgFilterConfigs,
   OrgDetailsResult,
+  ResponseWithOptionalData,
 } from "src/shared/types";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
@@ -175,6 +176,31 @@ export class OrganizationsController {
   async getFilterConfigs(): Promise<OrgFilterConfigs> {
     this.logger.log(`/jobs/filters`);
     return this.organizationsService.getFilterConfigs();
+  }
+
+  @Get("/featured")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ANON)
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiOkResponse({
+    description: "Returns a list of orgs with featured jobs",
+    type: Response<ShortOrg[]>,
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ValidationError),
+        },
+      ],
+    },
+  })
+  async getFeaturedJobsList(): Promise<ResponseWithOptionalData<ShortOrg[]>> {
+    this.logger.log(`/organizations/featured`);
+    return this.organizationsService.getFeaturedOrgs();
   }
 
   @Get("/search")

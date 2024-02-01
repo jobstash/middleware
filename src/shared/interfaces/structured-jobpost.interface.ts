@@ -19,6 +19,9 @@ export class StructuredJobpost {
     location: t.union([t.string, t.null]),
     seniority: t.union([t.string, t.null]),
     paysInCrypto: t.union([t.boolean, t.null]),
+    featured: t.union([t.boolean, t.null]),
+    featureStartDate: t.union([t.number, t.null]),
+    featureEndDate: t.union([t.number, t.null]),
     minimumSalary: t.union([t.number, t.null]),
     maximumSalary: t.union([t.number, t.null]),
     salaryCurrency: t.union([t.string, t.null]),
@@ -78,6 +81,15 @@ export class StructuredJobpost {
   paysInCrypto: boolean | null;
 
   @ApiPropertyOptional()
+  featured: boolean | null;
+
+  @ApiPropertyOptional()
+  featureStartDate: number | null;
+
+  @ApiPropertyOptional()
+  featureEndDate: number | null;
+
+  @ApiPropertyOptional()
   offersTokenAllocation: boolean | null;
 
   @ApiProperty()
@@ -97,6 +109,9 @@ export class StructuredJobpost {
       shortUUID,
       seniority,
       paysInCrypto,
+      featured,
+      featureStartDate,
+      featureEndDate,
       requirements,
       minimumSalary,
       maximumSalary,
@@ -123,6 +138,9 @@ export class StructuredJobpost {
     this.paysInCrypto = paysInCrypto;
     this.minimumSalary = minimumSalary;
     this.maximumSalary = maximumSalary;
+    this.featured = featured;
+    this.featureStartDate = featureStartDate;
+    this.featureEndDate = featureEndDate;
     this.salaryCurrency = salaryCurrency;
     this.responsibilities = responsibilities;
     this.timestamp = timestamp;
