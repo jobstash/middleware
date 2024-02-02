@@ -162,6 +162,7 @@ export class JobListResultEntity {
             id: investor.id,
             name: investor.name,
           })) ?? [],
+        community: organization?.community ?? [],
         reviews:
           organization?.reviews?.map(review =>
             new OrgReviewEntity(review).getProperties(),

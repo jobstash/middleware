@@ -399,6 +399,7 @@ export const toShortOrg = (org: OrgDetailsResult): ShortOrg => {
     headcountEstimate,
     aggregateRating,
     reviewCount,
+    community,
   } = org;
   const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
   return {
@@ -408,10 +409,11 @@ export const toShortOrg = (org: OrgDetailsResult): ShortOrg => {
     logoUrl,
     location,
     headcountEstimate,
+    aggregateRating,
+    reviewCount,
+    community,
     jobCount: org.jobs.length,
     projectCount: org.projects.length,
-    aggregateRating: aggregateRating,
-    reviewCount: reviewCount,
     lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
     lastFundingDate: lastFundingRound?.date ?? 0,
   };

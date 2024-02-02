@@ -623,6 +623,7 @@ export const Projects = (
                     twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                     fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
                     investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
+                    community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
                     jobs: [
                       (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost) | structured_jobpost {
                         .*,

@@ -34,6 +34,10 @@ import {
   OrganizationReviews,
 } from "./organization-review.model";
 import { Repositories, RepositoryInstance } from "./repository.model";
+import {
+  OrganizationCommunities,
+  OrganizationCommunityInstance,
+} from "./organization-community.model";
 
 export type OrganizationProps = ExtractProps<Organization>;
 
@@ -68,6 +72,10 @@ export interface OrganizationRelations {
   alias: ModelRelatedNodesI<
     ReturnType<typeof OrganizationAliases>,
     OrganizationAliasInstance
+  >;
+  community: ModelRelatedNodesI<
+    ReturnType<typeof OrganizationCommunities>,
+    OrganizationCommunityInstance
   >;
   docs: ModelRelatedNodesI<ReturnType<typeof Docsites>, DocsiteInstance>;
   github: ModelRelatedNodesI<
@@ -196,6 +204,11 @@ export const Organizations = (
           model: OrganizationAliases(neogma),
           direction: "out",
           name: "HAS_ORGANIZATION_ALIAS",
+        },
+        community: {
+          model: OrganizationCommunities(neogma),
+          direction: "out",
+          name: "IS_MEMBER_OF_COMMUNITY",
         },
         twitter: {
           model: Twitters(neogma),

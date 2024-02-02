@@ -35,6 +35,7 @@ export class OrganizationWithRelationsEntity {
       telegram: notStringOrNull(organization?.telegram),
       website: notStringOrNull(organization?.website),
       alias: notStringOrNull(organization?.alias),
+      community: organization?.community ?? [],
       createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
       updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
     });

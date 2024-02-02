@@ -112,6 +112,7 @@ export class OrganizationWithRelations extends Organization {
       projects: t.array(ProjectWithRelations.ProjectWithRelationsType),
       fundingRounds: t.array(FundingRound.FundingRoundType),
       investors: t.array(Investor.InvestorType),
+      community: t.array(t.string),
       reviews: t.array(OrgReview.OrgReviewType),
     }),
   ]);
@@ -146,13 +147,16 @@ export class OrganizationWithRelations extends Organization {
   @ApiPropertyOptional()
   docs: string | null;
 
-  @ApiPropertyOptional({
+  @ApiProperty()
+  community: string[];
+
+  @ApiProperty({
     type: "array",
     items: { $ref: getSchemaPath(ProjectWithRelations) },
   })
   projects: ProjectWithRelations[];
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     type: "array",
     items: { $ref: getSchemaPath(FundingRound) },
   })
@@ -185,6 +189,7 @@ export class OrganizationWithRelations extends Organization {
       projects,
       fundingRounds,
       investors,
+      community,
       reviews,
       ...orgProperties
     } = raw;
@@ -205,6 +210,7 @@ export class OrganizationWithRelations extends Organization {
     this.projects = projects;
     this.fundingRounds = fundingRounds;
     this.investors = investors;
+    this.community = community;
     this.reviews = reviews;
 
     if (isLeft(result)) {
@@ -230,6 +236,7 @@ export class ShortOrg {
     reviewCount: t.number,
     lastFundingDate: t.number,
     lastFundingAmount: t.number,
+    community: t.array(t.string),
     logoUrl: t.union([t.string, t.null]),
   });
 
@@ -269,6 +276,9 @@ export class ShortOrg {
   @ApiProperty()
   url: string;
 
+  @ApiProperty()
+  community: string[];
+
   constructor(raw: ShortOrg) {
     const {
       orgId,
@@ -277,6 +287,7 @@ export class ShortOrg {
       logoUrl,
       location,
       jobCount,
+      community,
       headcountEstimate,
       aggregateRating,
       reviewCount,
@@ -293,6 +304,7 @@ export class ShortOrg {
     this.logoUrl = logoUrl;
     this.location = location;
     this.jobCount = jobCount;
+    this.community = community;
     this.headcountEstimate = headcountEstimate;
     this.aggregateRating = aggregateRating;
     this.reviewCount = reviewCount;

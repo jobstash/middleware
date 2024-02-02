@@ -37,6 +37,7 @@ export class OrgDetailsResult extends Organization {
       projects: t.array(ProjectWithRelations.ProjectWithRelationsType),
       fundingRounds: t.array(FundingRound.FundingRoundType),
       investors: t.array(Investor.InvestorType),
+      community: t.array(t.string),
       jobs: t.array(OrgJob.OrgJobType),
       tags: t.array(Tag.TagType),
       reviews: t.array(LeanOrgReview.LeanOrgReviewType),
@@ -73,13 +74,16 @@ export class OrgDetailsResult extends Organization {
   @ApiPropertyOptional()
   docs: string | null;
 
-  @ApiPropertyOptional({
+  @ApiProperty()
+  community: string[];
+
+  @ApiProperty({
     type: "array",
     items: { $ref: getSchemaPath(ProjectWithRelations) },
   })
   projects: ProjectWithRelations[];
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     type: "array",
     items: { $ref: getSchemaPath(FundingRound) },
   })
@@ -97,13 +101,13 @@ export class OrgDetailsResult extends Organization {
   })
   reviews: LeanOrgReview[];
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     type: "array",
     items: { $ref: getSchemaPath(OrgJob) },
   })
   jobs: OrgJob[];
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     type: "array",
     items: { $ref: getSchemaPath(Tag) },
   })
@@ -124,6 +128,7 @@ export class OrgDetailsResult extends Organization {
       projects,
       fundingRounds,
       investors,
+      community,
       reviews,
       jobs,
       tags,
@@ -145,6 +150,7 @@ export class OrgDetailsResult extends Organization {
     this.projects = projects;
     this.fundingRounds = fundingRounds;
     this.investors = investors;
+    this.community = community;
     this.reviews = reviews;
     this.jobs = jobs;
     this.tags = tags;

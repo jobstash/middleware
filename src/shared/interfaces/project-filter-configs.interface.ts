@@ -26,6 +26,7 @@ export class ProjectFilterConfigs {
     orderBy: SingleSelectFilter.SingleSelectFilterType,
     chains: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     investors: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+    communities: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     categories: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     organizations: MultiSelectSearchFilter.MultiSelectSearchFilterType,
   });
@@ -38,6 +39,8 @@ export class ProjectFilterConfigs {
   investors: MultiSelectSearchFilter;
   @ApiProperty()
   categories: MultiSelectSearchFilter;
+  @ApiProperty()
+  communities: MultiSelectSearchFilter;
   @ApiProperty()
   tvl: RangeFilter;
   @ApiProperty()
@@ -71,6 +74,7 @@ export class ProjectFilterConfigs {
       orderBy,
       investors,
       categories,
+      communities,
       monthlyFees,
       organizations,
       monthlyVolume,
@@ -89,6 +93,7 @@ export class ProjectFilterConfigs {
     this.orderBy = orderBy;
     this.investors = investors;
     this.categories = categories;
+    this.communities = communities;
     this.monthlyFees = monthlyFees;
     this.organizations = organizations;
     this.monthlyVolume = monthlyVolume;

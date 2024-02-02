@@ -159,6 +159,7 @@ export class OrgDetailsResultEntity {
           id: investor.id,
           name: investor.name,
         })) ?? [],
+      community: organization?.community ?? [],
       jobs: jobs?.map(jobpost => ({
         ...jobpost,
         salary: nonZeroOrNull(jobpost?.salary),

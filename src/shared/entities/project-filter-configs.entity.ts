@@ -25,6 +25,7 @@ type RawProjectFilters = {
   chains?: string[] | null;
   audits?: string[] | null;
   investors?: string[] | null;
+  communities?: string[] | null;
   organizations?: string[] | null;
 };
 
@@ -99,6 +100,7 @@ export class ProjectFilterConfigsEntity {
       chains: this.getMultiValuePresets("chains"),
       categories: this.getMultiValuePresets("categories"),
       investors: this.getMultiValuePresets("investors"),
+      communities: this.getMultiValuePresets("communities"),
       mainNet: this.getSingleSelectPresets("mainNet"),
       token: this.getSingleSelectPresets("token"),
       order: this.getSingleSelectPresets("order"),

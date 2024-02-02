@@ -57,8 +57,15 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "filter_orglist_investors",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
-  hasJobs: {
+  communities: {
     position: 5,
+    label: "Communities",
+    show: false,
+    googleAnalyticsEventName: "filter_joblist_communities",
+    kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
+  },
+  hasJobs: {
+    position: 6,
     label: "Has Jobs",
     show: true,
     googleAnalyticsEventName: "filter_orglist_has_jobs",
@@ -66,7 +73,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.hasJobs,
   },
   hasProjects: {
-    position: 6,
+    position: 7,
     label: "Has Projects",
     show: true,
     googleAnalyticsEventName: "filter_orglist_has_projects",
@@ -74,7 +81,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.hasProjects,
   },
   order: {
-    position: 7,
+    position: 8,
     label: "Order",
     show: true,
     googleAnalyticsEventName: "filter_orglist_order",
@@ -82,7 +89,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.order,
   },
   orderBy: {
-    position: 8,
+    position: 9,
     label: "Order By",
     show: true,
     googleAnalyticsEventName: "filter_orglist_order_by",
@@ -99,6 +106,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
   },
   fundingRounds: "fundingRounds",
   investors: "investors",
+  communities: "communities",
   hasJobs: "hasJobs",
   hasProjects: "hasProjects",
   order: "order",

@@ -114,8 +114,15 @@ export const FILTER_CONFIG_PRESETS = {
     kind: FilterKind.SINGLE_SELECT,
     options: SINGLE_SELECT_OPTIONS.hacks,
   },
-  mainNet: {
+  communities: {
     position: 11,
+    label: "Communities",
+    show: false,
+    googleAnalyticsEventName: "filter_joblist_communities",
+    kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
+  },
+  mainNet: {
+    position: 12,
     label: "Mainnet",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_is_mainnet",
@@ -123,7 +130,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.mainNet,
   },
   token: {
-    position: 12,
+    position: 13,
     label: "Has Token",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_has_token",
@@ -131,7 +138,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.token,
   },
   order: {
-    position: 13,
+    position: 14,
     label: "Order",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_order",
@@ -139,7 +146,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.order,
   },
   orderBy: {
-    position: 14,
+    position: 15,
     label: "Order By",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_order_by",
@@ -153,6 +160,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
   chains: "chains",
   categories: "categories",
   investors: "investors",
+  communities: "communities",
   tvl: {
     lowest: "minTvl",
     highest: "maxTvl",

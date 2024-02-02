@@ -32,29 +32,29 @@ export class OrgListParams {
   @Type(() => Number)
   maxHeadCount?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: "U2VlZA==,U2VyaWVzIEE=",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
   fundingRounds?: string[] | null = null;
 
-  @ApiPropertyOptional({
-    example: "U2VlZA==,U2VyaWVzIEE=",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
   investors?: string[] | null = null;
 
-  @ApiPropertyOptional({
-    example: "UmVtb3Rl,T25zaXRl",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
   locations?: string[] | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  communities?: string[] | null = null;
 
   @ApiPropertyOptional({
     example: true,

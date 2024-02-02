@@ -165,6 +165,12 @@ export class JobListParams {
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
+  communities?: string[] | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
   projects?: string[] | null = null;
 
   @ApiPropertyOptional()

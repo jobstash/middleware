@@ -94,6 +94,7 @@ export class ProjectDetailsEntity {
             createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
             updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
           })) ?? [],
+        community: organization?.community ?? [],
         investors:
           organization?.investors.map(investor => ({
             id: investor.id,
