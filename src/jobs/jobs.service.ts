@@ -38,6 +38,7 @@ import { ChangeJobCommitmentInput } from "./dto/change-commitment.input";
 import { ChangeJobLocationTypeInput } from "./dto/change-location-type.input";
 import { ChangeJobProjectInput } from "./dto/update-job-project.input";
 import { FeatureJobsInput } from "./dto/feature-jobs.input";
+import { differenceInHours } from "date-fns";
 
 @Injectable()
 export class JobsService {
@@ -419,7 +420,9 @@ export class JobsService {
       );
     };
 
-    const filtered = results.filter(jobFilters);
+    const filtered = results
+      .filter(jobFilters)
+      .map(x => new JobListResultEntity(x).getProperties());
 
     const getSortParam = (jlr: JobListResult): number => {
       const p1 = jlr.organization.projects.sort(
@@ -458,16 +461,28 @@ export class JobsService {
 
     let final = [];
     if (!order || order === "desc") {
-      final = sort<JobListResult>(filtered).desc(getSortParam);
+      final = sort<JobListResult>(filtered).by([
+        { desc: job => job.featured },
+        { asc: job => job.featureStartDate },
+        {
+          desc: job =>
+            differenceInHours(job.featureEndDate, job.featureStartDate),
+        },
+        { desc: job => getSortParam(job) },
+      ]);
     } else {
-      final = sort<JobListResult>(filtered).asc(getSortParam);
+      final = sort<JobListResult>(filtered).by([
+        { desc: job => job.featured },
+        { asc: job => job.featureStartDate },
+        {
+          desc: job =>
+            differenceInHours(job.featureEndDate, job.featureStartDate),
+        },
+        { asc: job => getSortParam(job) },
+      ]);
     }
 
-    return paginate<JobListResult>(
-      page,
-      limit,
-      final.map(x => new JobListResultEntity(x).getProperties()),
-    );
+    return paginate<JobListResult>(page, limit, final);
   }
 
   async getFilterConfigs(): Promise<JobFilterConfigs> {
@@ -577,17 +592,26 @@ export class JobsService {
     try {
       const jobs = await this.getJobsListResults();
       const now = new Date().getTime();
+      const featured = jobs
+        .map(x => new JobListResultEntity(x).getProperties())
+        .filter(
+          job =>
+            job.featured === true &&
+            job.featureStartDate <= now &&
+            now <= job.featureEndDate,
+        );
+      const result = sort<JobListResult>(featured).by([
+        { desc: job => job.featured },
+        {
+          desc: job =>
+            differenceInHours(job.featureEndDate, job.featureStartDate),
+        },
+        { asc: job => job.featureStartDate },
+      ]);
       return {
         success: true,
         message: "Featured jobs retrieved successfully",
-        data: jobs
-          .map(x => new JobListResultEntity(x).getProperties())
-          .filter(
-            job =>
-              job.featured === true &&
-              job.featureStartDate <= now &&
-              now <= job.featureEndDate,
-          ),
+        data: result,
       };
     } catch (err) {
       Sentry.withScope(scope => {

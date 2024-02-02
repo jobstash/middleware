@@ -3,6 +3,7 @@ import {
   OrganizationWithRelations,
 } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
+import { isAfter, isBefore } from "date-fns";
 
 type RawJobPost = StructuredJobpostWithRelations & {
   organization?: OrganizationWithRelations | null;
@@ -13,6 +14,13 @@ export class StructuredJobpostWithRelationsEntity {
 
   getProperties(): StructuredJobpostWithRelations {
     const jobpost = this.raw;
+
+    const now = new Date().getTime();
+
+    const isStillFeatured =
+      jobpost?.featured === true &&
+      isAfter(now, jobpost?.featureStartDate ?? now) &&
+      isBefore(now, jobpost?.featureEndDate ?? now);
 
     return new StructuredJobpostWithRelations({
       ...jobpost,
@@ -32,7 +40,7 @@ export class StructuredJobpostWithRelationsEntity {
       timestamp: nonZeroOrNull(jobpost?.timestamp),
       featureStartDate: nonZeroOrNull(jobpost?.featureStartDate),
       featureEndDate: nonZeroOrNull(jobpost?.featureEndDate),
-      featured: jobpost?.featured ?? false,
+      featured: isStillFeatured,
       tags: jobpost.tags ?? [],
     });
   }

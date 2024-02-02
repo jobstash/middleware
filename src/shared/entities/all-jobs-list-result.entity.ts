@@ -1,3 +1,4 @@
+import { isAfter, isBefore } from "date-fns";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { AllJobsListResult } from "../interfaces/all-jobs-list-result.interface";
 
@@ -7,6 +8,13 @@ export class AllJobListResultEntity {
   getProperties(): AllJobsListResult {
     const jobpost = this.raw;
     const { organization, tags, project } = jobpost;
+
+    const now = new Date().getTime();
+
+    const isStillFeatured =
+      jobpost?.featured === true &&
+      isAfter(now, jobpost?.featureStartDate ?? now) &&
+      isBefore(now, jobpost?.featureEndDate ?? now);
 
     return new AllJobsListResult({
       ...jobpost,
@@ -28,7 +36,7 @@ export class AllJobListResultEntity {
       },
       featureStartDate: nonZeroOrNull(jobpost?.featureStartDate),
       featureEndDate: nonZeroOrNull(jobpost?.featureEndDate),
-      featured: jobpost?.featured ?? false,
+      featured: isStillFeatured,
       project: project ?? null,
       tags: tags ?? [],
     });

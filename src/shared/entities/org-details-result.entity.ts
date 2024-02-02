@@ -16,6 +16,7 @@ import { LeanOrgReviewEntity } from "./org-review.entity";
 import { OmitType } from "@nestjs/swagger";
 import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
+import { isAfter, isBefore } from "date-fns";
 
 class RawOrg extends OmitType(OrganizationWithRelations, ["reviews"] as const) {
   reviews: LeanOrgReview[] | OrgReview[] | null;
@@ -116,26 +117,36 @@ export class OrgDetailsResultEntity {
               logo: notStringOrNull(chain?.logo),
             })) ?? [],
           jobs:
-            project?.jobs?.map(jobpost => ({
-              ...jobpost,
-              salary: nonZeroOrNull(jobpost?.salary),
-              minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
-              maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
-              seniority: notStringOrNull(jobpost?.seniority, ["", "undefined"]),
-              culture: notStringOrNull(jobpost?.culture, ["", "undefined"]),
-              salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
-              paysInCrypto: jobpost?.paysInCrypto ?? null,
-              offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
-              url: notStringOrNull(jobpost?.url),
-              title: notStringOrNull(jobpost?.title),
-              summary: notStringOrNull(jobpost?.summary),
-              description: notStringOrNull(jobpost?.description),
-              commitment: notStringOrNull(jobpost?.commitment),
-              timestamp: nonZeroOrNull(jobpost?.timestamp),
-              featureStartDate: nonZeroOrNull(jobpost?.featureStartDate),
-              featureEndDate: nonZeroOrNull(jobpost?.featureEndDate),
-              featured: jobpost?.featured ?? false,
-            })) ?? [],
+            project?.jobs?.map(jobpost => {
+              const now = new Date().getTime();
+              const isStillFeatured =
+                jobpost?.featured === true &&
+                isAfter(now, jobpost?.featureStartDate ?? now) &&
+                isBefore(now, jobpost?.featureEndDate ?? now);
+              return {
+                ...jobpost,
+                salary: nonZeroOrNull(jobpost?.salary),
+                minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
+                maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
+                seniority: notStringOrNull(jobpost?.seniority, [
+                  "",
+                  "undefined",
+                ]),
+                culture: notStringOrNull(jobpost?.culture, ["", "undefined"]),
+                salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
+                paysInCrypto: jobpost?.paysInCrypto ?? null,
+                offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
+                url: notStringOrNull(jobpost?.url),
+                title: notStringOrNull(jobpost?.title),
+                summary: notStringOrNull(jobpost?.summary),
+                description: notStringOrNull(jobpost?.description),
+                commitment: notStringOrNull(jobpost?.commitment),
+                timestamp: nonZeroOrNull(jobpost?.timestamp),
+                featureStartDate: nonZeroOrNull(jobpost?.featureStartDate),
+                featureEndDate: nonZeroOrNull(jobpost?.featureEndDate),
+                featured: isStillFeatured,
+              };
+            }) ?? [],
           repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
           investors:
             project?.investors ??

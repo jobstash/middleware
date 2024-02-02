@@ -370,8 +370,8 @@ export class JobsController {
   }
 
   @Post("/feature")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  // @UseGuards(RBACGuard)
+  // @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Make a job featured",
     schema: {

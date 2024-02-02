@@ -10,6 +10,7 @@ import {
   notStringOrNull,
 } from "../helpers";
 import { OrgReviewEntity } from "./org-review.entity";
+import { isAfter, isBefore } from "date-fns";
 
 type RawJobPost = StructuredJobpostWithRelations & {
   organization?: OrganizationWithRelations | null;
@@ -25,6 +26,13 @@ export class JobListResultEntity {
       organization?.reviews?.map(review =>
         generateOrgAggregateRating(review.rating),
       ) ?? [];
+
+    const now = new Date().getTime();
+
+    const isStillFeatured =
+      jobpost?.featured === true &&
+      isAfter(now, jobpost?.featureStartDate ?? now) &&
+      isBefore(now, jobpost?.featureEndDate ?? now);
 
     return new JobListResult({
       ...jobpost,
@@ -44,7 +52,7 @@ export class JobListResultEntity {
       timestamp: nonZeroOrNull(jobpost?.timestamp),
       featureStartDate: nonZeroOrNull(jobpost?.featureStartDate),
       featureEndDate: nonZeroOrNull(jobpost?.featureEndDate),
-      featured: jobpost?.featured ?? false,
+      featured: isStillFeatured,
       organization: {
         ...organization,
         aggregateRating:
