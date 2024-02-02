@@ -1,3 +1,10 @@
+# [1.72.0](https://github.com/jobstash/middleware/compare/v1.71.0...v1.72.0) (2024-02-02)
+
+
+### Features
+
+* **orgs:** added community support ([100b5cd](https://github.com/jobstash/middleware/commit/100b5cdbac76e9f26a3c0ab0fc25a1af12b0abfa))
+
 # [1.71.0](https://github.com/jobstash/middleware/compare/v1.70.7...v1.71.0) (2024-02-01)
 
 
