@@ -1,3 +1,10 @@
+# [1.73.0](https://github.com/jobstash/middleware/compare/v1.72.0...v1.73.0) (2024-02-02)
+
+
+### Features
+
+* **jobs:** added preferential sorting for featured jobs and featured status automation ([ff7c1ff](https://github.com/jobstash/middleware/commit/ff7c1ff71101f24a5463534a744b3fa1907d462d))
+
 # [1.72.0](https://github.com/jobstash/middleware/compare/v1.71.0...v1.72.0) (2024-02-02)
 
 
