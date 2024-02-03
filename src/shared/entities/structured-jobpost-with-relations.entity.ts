@@ -19,8 +19,8 @@ export class StructuredJobpostWithRelationsEntity {
 
     const isStillFeatured =
       jobpost?.featured === true &&
-      isAfter(now, jobpost?.featureStartDate ?? now) &&
-      isBefore(now, jobpost?.featureEndDate ?? now);
+      isAfter(now, nonZeroOrNull(jobpost?.featureStartDate) ?? now) &&
+      isBefore(now, nonZeroOrNull(jobpost?.featureEndDate) ?? now);
 
     return new StructuredJobpostWithRelations({
       ...jobpost,

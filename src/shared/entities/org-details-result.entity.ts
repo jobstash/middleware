@@ -121,8 +121,8 @@ export class OrgDetailsResultEntity {
               const now = new Date().getTime();
               const isStillFeatured =
                 jobpost?.featured === true &&
-                isAfter(now, jobpost?.featureStartDate ?? now) &&
-                isBefore(now, jobpost?.featureEndDate ?? now);
+                isAfter(now, nonZeroOrNull(jobpost?.featureStartDate) ?? now) &&
+                isBefore(now, nonZeroOrNull(jobpost?.featureEndDate) ?? now);
               return {
                 ...jobpost,
                 salary: nonZeroOrNull(jobpost?.salary),
@@ -171,19 +171,31 @@ export class OrgDetailsResultEntity {
           name: investor.name,
         })) ?? [],
       community: organization?.community ?? [],
-      jobs: jobs?.map(jobpost => ({
-        ...jobpost,
-        salary: nonZeroOrNull(jobpost?.salary),
-        minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
-        maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
-        seniority: notStringOrNull(jobpost?.seniority, ["", "undefined"]),
-        salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
-        paysInCrypto: jobpost?.paysInCrypto ?? null,
-        offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
-        commitment: notStringOrNull(jobpost?.commitment),
-        title: notStringOrNull(jobpost?.title),
-        timestamp: nonZeroOrNull(jobpost?.timestamp),
-      })),
+      jobs:
+        jobs?.map(jobpost => {
+          const now = new Date().getTime();
+          const isStillFeatured =
+            jobpost?.featured === true &&
+            isAfter(now, nonZeroOrNull(jobpost?.featureStartDate) ?? now) &&
+            isBefore(now, nonZeroOrNull(jobpost?.featureEndDate) ?? now);
+          return {
+            ...jobpost,
+            salary: nonZeroOrNull(jobpost?.salary),
+            minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
+            maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
+            seniority: notStringOrNull(jobpost?.seniority, ["", "undefined"]),
+            salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
+            paysInCrypto: jobpost?.paysInCrypto ?? null,
+            offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
+            title: notStringOrNull(jobpost?.title),
+            summary: notStringOrNull(jobpost?.summary),
+            commitment: notStringOrNull(jobpost?.commitment),
+            timestamp: nonZeroOrNull(jobpost?.timestamp),
+            featureStartDate: nonZeroOrNull(jobpost?.featureStartDate),
+            featureEndDate: nonZeroOrNull(jobpost?.featureEndDate),
+            featured: isStillFeatured,
+          };
+        }) ?? [],
       tags: tags ?? [],
       reviews: reviews?.map(r => new LeanOrgReviewEntity(r).getProperties()),
     });
