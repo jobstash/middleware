@@ -1,3 +1,10 @@
+## [1.73.1](https://github.com/jobstash/middleware/compare/v1.73.0...v1.73.1) (2024-02-03)
+
+
+### Bug Fixes
+
+* fixed featured dates parsing error ([1af153b](https://github.com/jobstash/middleware/commit/1af153b385fd9b11b4667a8613aede48cf2e22a4))
+
 # [1.73.0](https://github.com/jobstash/middleware/compare/v1.72.0...v1.73.0) (2024-02-02)
 
 
