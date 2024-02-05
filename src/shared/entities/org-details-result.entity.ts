@@ -59,7 +59,7 @@ export class OrgDetailsResultEntity {
       aggregateRatings: generateOrgAggregateRatings(
         organization?.reviews?.map(x => x.rating) ?? [],
       ),
-      reviewCount: reviews.length,
+      reviewCount: reviews?.length ?? 0,
       docs: notStringOrNull(organization?.docs),
       logoUrl: notStringOrNull(organization?.logoUrl),
       location: notStringOrNull(organization?.location),
@@ -197,7 +197,8 @@ export class OrgDetailsResultEntity {
           };
         }) ?? [],
       tags: tags ?? [],
-      reviews: reviews?.map(r => new LeanOrgReviewEntity(r).getProperties()),
+      reviews:
+        reviews?.map(r => new LeanOrgReviewEntity(r).getProperties()) ?? [],
     });
   }
 }
