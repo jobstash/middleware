@@ -1,3 +1,10 @@
+## [1.73.2](https://github.com/jobstash/middleware/compare/v1.73.1...v1.73.2) (2024-02-05)
+
+
+### Bug Fixes
+
+* **orgs:** fixed null bug on org details endpoint ([077e39f](https://github.com/jobstash/middleware/commit/077e39f5cc2aed156fa912e1c1570da6237c1095))
+
 ## [1.73.1](https://github.com/jobstash/middleware/compare/v1.73.0...v1.73.1) (2024-02-03)
 
 
