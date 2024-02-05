@@ -457,11 +457,13 @@ export class OrganizationsService {
         `,
         { orgId },
       );
-      return new OrgDetailsResultEntity({
-        ...result.records[0]?.get("res"),
-        jobs: result.records[0]?.get("res")?.jobs ?? [],
-        tags: result.records[0]?.get("res")?.tags ?? [],
-      }).getProperties();
+      return result.records[0]?.get("res")
+        ? new OrgDetailsResultEntity({
+            ...result.records[0]?.get("res"),
+            jobs: result.records[0]?.get("res")?.jobs ?? [],
+            tags: result.records[0]?.get("res")?.tags ?? [],
+          }).getProperties()
+        : undefined;
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
