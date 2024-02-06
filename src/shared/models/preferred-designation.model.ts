@@ -11,7 +11,7 @@ export type PreferredDesignationInstance = NeogmaInstance<
   NoRelations
 >;
 
-export const PreferredDesignationes = (
+export const PreferredDesignations = (
   neogma: Neogma,
 ): NeogmaModel<PreferredDesignationProps, NoRelations> =>
   ModelFactory<PreferredDesignationProps, NoRelations>(

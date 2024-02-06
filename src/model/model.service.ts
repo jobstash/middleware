@@ -81,6 +81,14 @@ import {
   GithubUsers,
   UserContactProps,
   UserContacts,
+  BlockedDesignationProps,
+  DefaultDesignationProps,
+  PairedDesignationProps,
+  PreferredDesignationProps,
+  BlockedDesignations,
+  DefaultDesignations,
+  PairedDesignations,
+  PreferredDesignations,
 } from "src/shared/models";
 import { NoRelations } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -117,6 +125,13 @@ export class ModelService implements OnModuleInit {
   >;
   public Tags: NeogmaModel<TagProps, NoRelations, TagMethods, TagStatics>;
   public ProjectCategories: NeogmaModel<ProjectCategoryProps, NoRelations>;
+  public BlockedDesignation: NeogmaModel<BlockedDesignationProps, NoRelations>;
+  public PreferredDesignation: NeogmaModel<
+    PreferredDesignationProps,
+    NoRelations
+  >;
+  public PairedDesignation: NeogmaModel<PairedDesignationProps, NoRelations>;
+  public DefaultDesignation: NeogmaModel<DefaultDesignationProps, NoRelations>;
   public JobpostOnlineStatuses: NeogmaModel<
     JobpostOnlineStatusProps,
     NoRelations
@@ -167,6 +182,10 @@ export class ModelService implements OnModuleInit {
     this.Projects = Projects(this.neogma);
     this.Tags = Tags(this.neogma);
     this.ProjectCategories = ProjectCategories(this.neogma);
+    this.BlockedDesignation = BlockedDesignations(this.neogma);
+    this.PreferredDesignation = PreferredDesignations(this.neogma);
+    this.PairedDesignation = PairedDesignations(this.neogma);
+    this.DefaultDesignation = DefaultDesignations(this.neogma);
     this.JobpostOnlineStatuses = JobpostOnlineStatuses(this.neogma);
     this.JobpostOfflineStatuses = JobpostOfflineStatuses(this.neogma);
     this.FundingRounds = FundingRounds(this.neogma);

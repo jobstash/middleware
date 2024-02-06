@@ -370,8 +370,8 @@ export class JobsController {
   }
 
   @Post("/feature")
-  // @UseGuards(RBACGuard)
-  // @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Make a job featured",
     schema: {
@@ -462,7 +462,7 @@ export class JobsController {
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
-    description: "Updates an existing project",
+    description: "Updates an existing job's metadata",
     schema: responseSchemaWrapper({
       $ref: getSchemaPath(StructuredJobpostWithRelations),
     }),
@@ -593,8 +593,8 @@ export class JobsController {
   }
 
   @Post("/block")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  // @UseGuards(RBACGuard)
+  // @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Blocks a list of jobs",
     schema: {

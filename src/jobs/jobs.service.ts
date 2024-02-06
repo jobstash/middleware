@@ -39,6 +39,7 @@ import { ChangeJobLocationTypeInput } from "./dto/change-location-type.input";
 import { ChangeJobProjectInput } from "./dto/update-job-project.input";
 import { FeatureJobsInput } from "./dto/feature-jobs.input";
 import { differenceInHours } from "date-fns";
+import { randomUUID } from "crypto";
 
 @Injectable()
 export class JobsService {
@@ -291,6 +292,7 @@ export class JobsService {
       fundingRounds: fundingRoundFilterList,
       classifications: classificationFilterList,
       commitments: commitmentFilterList,
+      communities: communityFilterList,
       token,
       mainNet,
       query,
@@ -330,6 +332,7 @@ export class JobsService {
         fundingRounds,
         name: orgName,
         headcountEstimate,
+        community,
       } = jlr.organization;
       const {
         title,
@@ -367,6 +370,10 @@ export class JobsService {
           classificationFilterList.includes(normalizeString(classification))) &&
         (!commitmentFilterList ||
           commitmentFilterList.includes(normalizeString(commitment))) &&
+        (!communityFilterList ||
+          community.filter(community =>
+            communityFilterList.includes(normalizeString(community)),
+          ).length > 0) &&
         (token === null ||
           projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
             .length > 0) &&
@@ -1343,6 +1350,13 @@ export class JobsService {
     dto: BlockJobsInput,
   ): Promise<ResponseWithNoData> {
     try {
+      await this.models.BlockedDesignation.createOne(
+        { id: randomUUID(), name: "BlockedDesignation" },
+        {
+          merge: true,
+          assertRelationshipsOfWhere: 0,
+        },
+      );
       for (const uuid of dto.shortUUIDs) {
         await this.models.StructuredJobposts.relateTo({
           alias: "blocked",
@@ -1354,10 +1368,10 @@ export class JobsService {
               name: "BlockedDesignation",
             },
           },
+          assertCreatedRelationships: 1,
           properties: {
             creator: wallet,
           },
-          assertCreatedRelationships: 1,
         });
       }
 
