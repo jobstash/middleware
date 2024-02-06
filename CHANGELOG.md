@@ -1,3 +1,17 @@
+# [1.74.0](https://github.com/jobstash/middleware/compare/v1.73.0...v1.74.0) (2024-02-06)
+
+
+### Bug Fixes
+
+* fixed featured dates parsing error ([1af153b](https://github.com/jobstash/middleware/commit/1af153b385fd9b11b4667a8613aede48cf2e22a4))
+* **orgs:** fixed null bug on org details endpoint ([f1b3407](https://github.com/jobstash/middleware/commit/f1b340768314316925b26b5257827ae81c57641c))
+* **orgs:** fixed undefined bug on get org details endpoint ([f75bd03](https://github.com/jobstash/middleware/commit/f75bd03c5a696ee5cea7f7019c1622963ca499e7))
+
+
+### Features
+
+* **report:** extended report endpoint to support broad spectrum reporting ([a234cb8](https://github.com/jobstash/middleware/commit/a234cb8af87eaa2adb7c8315ecca7297bbd66bf5))
+
 ## [1.73.1](https://github.com/jobstash/middleware/compare/v1.73.0...v1.73.1) (2024-02-03)
 
 
