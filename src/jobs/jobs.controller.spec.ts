@@ -6,11 +6,12 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import envSchema from "src/env-schema";
 import {
   AllJobsFilterConfigs,
-  DateRange,
   JobFilterConfigs,
   JobListResult,
   AllJobsListResult,
   ProjectWithRelations,
+  data,
+  DateRange,
 } from "src/shared/types";
 import { Integer } from "neo4j-driver";
 import {
@@ -39,11 +40,15 @@ import {
 import { HttpModule, HttpService } from "@nestjs/axios";
 import * as https from "https";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import { ProfileController } from "src/auth/profile/profile.controller";
+import { OrganizationsService } from "src/organizations/organizations.service";
+import { MailService } from "src/mail/mail.service";
 
 describe("JobsController", () => {
   let controller: JobsController;
   let models: ModelService;
   let authService: AuthService;
+  let profileController: ProfileController;
   let httpService: HttpService;
 
   const logger = new CustomLogger(`${JobsController.name}TestSuite`);
@@ -179,7 +184,7 @@ describe("JobsController", () => {
           }),
         }),
       ],
-      controllers: [JobsController],
+      controllers: [JobsController, ProfileController],
       providers: [
         JobsService,
         TagsService,
@@ -187,6 +192,8 @@ describe("JobsController", () => {
         JwtService,
         ModelService,
         ProfileService,
+        OrganizationsService,
+        MailService,
       ],
     }).compile();
 
@@ -195,6 +202,7 @@ describe("JobsController", () => {
     await models.onModuleInit();
     controller = module.get<JobsController>(JobsController);
     authService = module.get<AuthService>(AuthService);
+    profileController = module.get<ProfileController>(ProfileController);
     httpService = module.get<HttpService>(HttpService);
   }, REALLY_LONG_TIME);
 
@@ -260,6 +268,51 @@ describe("JobsController", () => {
       expect(
         result.data.every(x => jlrHasArrayPropsDuplication(x) === false),
       ).toBe(true);
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should respond with the correct results for publicationDate filter",
+    async () => {
+      const dateRange: DateRange = "this-week";
+      const params: JobListParams = {
+        ...new JobListParams(),
+        page: 1,
+        limit: Number(Integer.MAX_VALUE),
+        publicationDate: dateRange,
+      };
+      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+        address: EPHEMERAL_TEST_WALLET,
+        destroy: async (): Promise<void> => {
+          logger.log("session destroyed");
+        },
+        save: async (): Promise<void> => {
+          logger.log("session saved");
+        },
+      }));
+
+      const matchesPublicationDateRange = (
+        jobListResult: JobListResult,
+      ): boolean => {
+        const { startDate, endDate } = publicationDateRangeGenerator(dateRange);
+        return (
+          startDate <= jobListResult.timestamp &&
+          jobListResult.timestamp <= endDate
+        );
+      };
+
+      const req: Partial<Request> = {};
+      const res: Partial<Response> = {};
+      const result = await controller.getJobsListWithSearch(
+        req as Request,
+        res as Response,
+        params,
+      );
+      const results = result.data;
+      expect(results.every(x => matchesPublicationDateRange(x) === true)).toBe(
+        true,
+      );
     },
     REALLY_LONG_TIME,
   );
@@ -343,7 +396,31 @@ describe("JobsController", () => {
   );
 
   it(
-    "should get job for an org with no array property duplication",
+    "should get featured jobs",
+    async () => {
+      const result = await controller.getFeaturedJobsList();
+      const uuids = data(result).map(job => job.shortUUID);
+      const setOfUuids = new Set([...uuids]);
+
+      expect(result).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+        data: expect.any(Array<JobListResult>),
+      });
+
+      printDuplicateItems(setOfUuids, uuids, "Featured Job with UUID");
+
+      expect(uuids.length).toBe(setOfUuids.size);
+
+      expect(
+        data(result).every(x => jlrHasArrayPropsDuplication(x) === false),
+      ).toBe(true);
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should get jobs for an org with no array property duplication",
     async () => {
       const params: JobListParams = {
         ...new JobListParams(),
@@ -387,6 +464,71 @@ describe("JobsController", () => {
   );
 
   it(
+    "should get a users bookmarked jobs",
+    async () => {
+      const params: JobListParams = {
+        ...new JobListParams(),
+        page: 1,
+        limit: 1,
+      };
+
+      const req: Partial<Request> = {};
+      const res: Partial<Response> = {};
+
+      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+        address: EPHEMERAL_TEST_WALLET,
+        destroy: async (): Promise<void> => {
+          logger.log("session destroyed");
+        },
+        save: async (): Promise<void> => {
+          logger.log("session saved");
+        },
+      }));
+
+      const job = (
+        await controller.getJobsListWithSearch(
+          req as Request,
+          res as Response,
+          params,
+        )
+      ).data[0];
+
+      const jobs = await controller.getOrgJobsList(job.organization.orgId);
+
+      for (const job of jobs) {
+        const result = await profileController.logBookmarkInteraction(
+          req as Request,
+          res as Response,
+          job.shortUUID,
+        );
+
+        expect(result).toEqual({
+          success: true,
+          message: expect.stringMatching("success"),
+        });
+      }
+
+      const bookmarked = await controller.getUserBookmarkedJobs(
+        req as Request,
+        res as Response,
+      );
+
+      expect(bookmarked).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+        data: expect.any(Array<JobListResult>),
+      });
+
+      console.log(JSON.stringify(data(bookmarked).map(job => job.shortUUID)));
+
+      expect(data(bookmarked).map(job => job.shortUUID)).toEqual(
+        expect.arrayContaining(jobs.map(job => job.shortUUID)),
+      );
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
     "should respond with the correct page ",
     async () => {
       const page = 1;
@@ -414,51 +556,6 @@ describe("JobsController", () => {
       );
 
       expect(result.page).toEqual(page);
-    },
-    REALLY_LONG_TIME,
-  );
-
-  it(
-    "should respond with the correct results for publicationDate filter",
-    async () => {
-      const dateRange: DateRange = "this-week";
-      const params: JobListParams = {
-        ...new JobListParams(),
-        page: 1,
-        limit: Number(Integer.MAX_VALUE),
-        publicationDate: dateRange,
-      };
-      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: EPHEMERAL_TEST_WALLET,
-        destroy: async (): Promise<void> => {
-          logger.log("session destroyed");
-        },
-        save: async (): Promise<void> => {
-          logger.log("session saved");
-        },
-      }));
-
-      const matchesPublicationDateRange = (
-        jobListResult: JobListResult,
-      ): boolean => {
-        const { startDate, endDate } = publicationDateRangeGenerator(dateRange);
-        return (
-          startDate <= jobListResult.timestamp &&
-          jobListResult.timestamp <= endDate
-        );
-      };
-
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
-      const result = await controller.getJobsListWithSearch(
-        req as Request,
-        res as Response,
-        params,
-      );
-      const results = result.data;
-      expect(results.every(x => matchesPublicationDateRange(x) === true)).toBe(
-        true,
-      );
     },
     REALLY_LONG_TIME,
   );
