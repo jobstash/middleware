@@ -1,3 +1,10 @@
+## [1.73.3](https://github.com/jobstash/middleware/compare/v1.73.2...v1.73.3) (2024-02-06)
+
+
+### Bug Fixes
+
+* **orgs:** fixed undefined bug on get org details endpoint ([835e797](https://github.com/jobstash/middleware/commit/835e797ebc09f715a3bf28e97326222b364f7340))
+
 ## [1.73.2](https://github.com/jobstash/middleware/compare/v1.73.1...v1.73.2) (2024-02-05)
 
 
