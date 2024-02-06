@@ -25,7 +25,6 @@ import {
   UserOrg,
   UserProfile,
   UserRepo,
-  data,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { AuthService } from "../auth.service";
@@ -40,7 +39,7 @@ import { UpdateRepoTagsUsedInput } from "./dto/update-repo-tags-used.input";
 import { UpdateUserShowCaseInput } from "./dto/update-user-showcase.input";
 import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
 import { ProfileService } from "./profile.service";
-import { ReportReviewEmailInput } from "./dto/report-review.input";
+import { ReportInput } from "./dto/report.input";
 import { MailService } from "src/mail/mail.service";
 import { ConfigService } from "@nestjs/config";
 import { Throttle } from "@nestjs/throttler";
@@ -404,7 +403,7 @@ export class ProfileController {
     }
   }
 
-  @Post("reviews/report")
+  @Post("report")
   @Throttle({
     default: {
       ttl: 60000,
@@ -419,49 +418,51 @@ export class ProfileController {
     CheckWalletRoles.ORG,
   )
   @ApiOkResponse({
-    description: "Generates and sends email reporting a fishy review",
+    description: "Generates and sends email reporting info from the user",
     schema: { $ref: getSchemaPath(ResponseWithNoData) },
   })
   async reportReview(
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body(new ValidationPipe({ transform: true }))
-    body: ReportReviewEmailInput,
+    body: ReportInput,
   ): Promise<ResponseWithNoData> {
-    const { id, url } = body;
-    const parsedUrl = new URL(url);
+    const { subject, description, ctx, attachments } = body;
+    const parsedUrl = new URL(ctx.url);
     if (parsedUrl.host.endsWith("jobstash.xyz")) {
-      const reviewVerification = await this.profileService.findReviewById(id);
-      if (reviewVerification.success) {
-        const { id, title, pros, cons } = data(reviewVerification);
-        await this.mailService.sendEmail({
-          from: this.configService.getOrThrow<string>("EMAIL"),
-          to: this.configService.getOrThrow<string>("REPORT_CONTENT_TO_EMAIL"),
-          subject: "Org review reported by user",
-          text: "[URGENT] Reported content alert",
-          html: `
-              <h3>A review left on <a href="${url}">this org</a> has been reported by a user for potentially bad content.</h3>
-              
-              <h4>Relevant information</h4>
+      await this.mailService.sendEmail({
+        from: this.configService.getOrThrow<string>("EMAIL"),
+        to: this.configService.getOrThrow<string>("REPORT_CONTENT_TO_EMAIL"),
+        subject: subject,
+        text: description,
+        html: `
+          <h2>User generated report</h2>
 
-              <ul>
-                <li><strong>ID:</strong> ${id}</li>
-                <li><strong>Title:</strong> ${title}</li>
-                <li><strong>Pros:</strong> <p>${pros}</p></li>
-                <li><strong>Cons:</strong> <p>${cons}</p></li>
-              </ul>
-              `,
-        });
-        return {
-          success: true,
-          message: "Report filed successfully",
-        };
-      } else {
-        res.status(HttpStatus.BAD_REQUEST);
-        return {
-          success: false,
-          message: "Invalid review",
-        };
-      }
+          <h4>Relevant Information</h4>
+          <ul>
+            <li>UI: ${ctx.ui}</li>
+            <li>URL: ${ctx.url}</li>
+            <li>User Role: ${ctx.user.role}</li>
+            <li>User Flow: ${ctx.user.flow}</li>
+            <li>Wallet Connected: ${ctx.user.isConnected}</li>
+            <li>Signed In: ${ctx.user.isSignedIn}</li>
+            <li>Time: ${new Date(ctx.ts).toDateString()}</li>
+          </ul>
+          
+        `,
+        attachments: attachments.map((x, index) => {
+          const content = x.path.replace(/^data:image\/png;base64,/, "");
+          return {
+            content: content,
+            filename: `attachment${index + 1}.png`,
+            contentId: `${index + 1}`,
+            disposition: "attachment",
+          };
+        }),
+      });
+      return {
+        success: true,
+        message: "Report filed successfully",
+      };
     } else {
       res.status(HttpStatus.BAD_REQUEST);
       return {

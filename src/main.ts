@@ -9,6 +9,7 @@ import { ironSession } from "iron-session/express";
 import { IronSessionOptions } from "iron-session";
 import * as dotenv from "dotenv";
 import * as fs from "fs";
+import * as express from "express";
 import * as basicAuth from "express-basic-auth";
 import * as compression from "compression";
 dotenv.config();
@@ -57,6 +58,7 @@ async function bootstrap(): Promise<void> {
       users: { [process.env.SWAGGER_USER]: process.env.SWAGGER_PASSWORD },
     }),
   );
+  app.use(express.json({ limit: "50mb" }));
 
   const config = new DocumentBuilder()
     .setTitle("JobStash Middleware")
