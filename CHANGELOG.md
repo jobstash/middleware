@@ -1,3 +1,10 @@
+## [1.73.4](https://github.com/jobstash/middleware/compare/v1.73.3...v1.73.4) (2024-02-07)
+
+
+### Bug Fixes
+
+* **jobs:** fixed issue with sorting jobs pre or post feature duration ([d54d642](https://github.com/jobstash/middleware/commit/d54d642ac181fd056b9c194060b8a0133c4bd886))
+
 ## [1.73.3](https://github.com/jobstash/middleware/compare/v1.73.2...v1.73.3) (2024-02-06)
 
 
