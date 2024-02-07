@@ -435,10 +435,9 @@ export class ProfileController {
         from: this.configService.getOrThrow<string>("EMAIL"),
         to: this.configService.getOrThrow<string>("REPORT_CONTENT_TO_EMAIL"),
         subject: subject,
-        text: description,
         html: `
           <h2>User generated report</h2>
-
+          <p>${description}</p>
           <h4>Relevant Information</h4>
           <ul>
             <li>UI: ${ctx.ui}</li>
@@ -448,7 +447,11 @@ export class ProfileController {
             <li>User Flow: ${session.flow ?? "N/A"}</li>
             <li>Wallet Connected: ${session.nonce !== undefined}</li>
             <li>Signed In: ${session.address !== undefined}</li>
-            <li>Other Info: ${ctx.other}</li>
+            <li>Other Info: ${JSON.stringify(
+              JSON.parse(ctx.other),
+              undefined,
+              2,
+            )}</li>
             <li>Time: ${new Date(ctx.ts).toDateString()}</li>
           </ul>
         `,
