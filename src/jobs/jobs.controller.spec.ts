@@ -83,7 +83,7 @@ describe("JobsController", () => {
     );
     const hasDuplicateTechs = hasDuplicates(
       jobListResult.tags,
-      x => x.normalizedName,
+      x => x.name,
       `Technologies for Jobpost ${jobListResult.shortUUID}`,
     );
     const hasDuplicateInvestors = hasDuplicates(

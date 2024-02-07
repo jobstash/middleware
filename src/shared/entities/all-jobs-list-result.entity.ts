@@ -34,8 +34,12 @@ export class AllJobListResultEntity {
         ...organization,
         projects: organization?.projects ?? [],
       },
-      featureStartDate: nonZeroOrNull(jobpost?.featureStartDate),
-      featureEndDate: nonZeroOrNull(jobpost?.featureEndDate),
+      featureStartDate: isStillFeatured
+        ? nonZeroOrNull(jobpost?.featureStartDate)
+        : null,
+      featureEndDate: isStillFeatured
+        ? nonZeroOrNull(jobpost?.featureEndDate)
+        : null,
       featured: isStillFeatured,
       project: project ?? null,
       tags: tags ?? [],
