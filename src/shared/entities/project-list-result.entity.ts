@@ -69,8 +69,12 @@ export class ProjectListResultEntity {
             description: notStringOrNull(jobpost?.description),
             commitment: notStringOrNull(jobpost?.commitment),
             timestamp: nonZeroOrNull(jobpost?.timestamp),
-            featureStartDate: nonZeroOrNull(jobpost?.featureStartDate),
-            featureEndDate: nonZeroOrNull(jobpost?.featureEndDate),
+            featureStartDate: isStillFeatured
+              ? nonZeroOrNull(jobpost?.featureStartDate)
+              : null,
+            featureEndDate: isStillFeatured
+              ? nonZeroOrNull(jobpost?.featureEndDate)
+              : null,
             featured: isStillFeatured,
           };
         }) ?? [],
