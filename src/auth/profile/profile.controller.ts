@@ -422,10 +422,12 @@ export class ProfileController {
     schema: { $ref: getSchemaPath(ResponseWithNoData) },
   })
   async reportReview(
+    @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body(new ValidationPipe({ transform: true }))
     body: ReportInput,
   ): Promise<ResponseWithNoData> {
+    const session = await this.authService.getSession(req, res);
     const { subject, description, ctx, attachments } = body;
     const parsedUrl = new URL(ctx.url);
     if (parsedUrl.host.endsWith("jobstash.xyz")) {
@@ -441,13 +443,14 @@ export class ProfileController {
           <ul>
             <li>UI: ${ctx.ui}</li>
             <li>URL: ${ctx.url}</li>
-            <li>User Role: ${ctx.user.role}</li>
-            <li>User Flow: ${ctx.user.flow}</li>
-            <li>Wallet Connected: ${ctx.user.isConnected}</li>
-            <li>Signed In: ${ctx.user.isSignedIn}</li>
+            <li>User Address: ${session.address ?? "N/A"}</li>
+            <li>User Role: ${session.role ?? "N/A"}</li>
+            <li>User Flow: ${session.flow ?? "N/A"}</li>
+            <li>Wallet Connected: ${session.nonce !== undefined}</li>
+            <li>Signed In: ${session.address !== undefined}</li>
+            <li>Other Info: ${ctx.other}</li>
             <li>Time: ${new Date(ctx.ts).toDateString()}</li>
           </ul>
-          
         `,
         attachments: attachments.map((x, index) => {
           const content = x.path.replace(/^data:image\/png;base64,/, "");

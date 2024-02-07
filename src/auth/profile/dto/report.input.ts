@@ -15,13 +15,8 @@ export class ReportInput {
   ctx: {
     ui: string;
     url: string;
-    user: {
-      role: string;
-      flow: string;
-      isConnected: boolean;
-      isSignedIn: boolean;
-    };
     ts: number;
+    other: string;
   };
 
   @ApiProperty()
