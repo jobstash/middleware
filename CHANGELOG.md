@@ -1,3 +1,10 @@
+# [1.75.0](https://github.com/jobstash/middleware/compare/v1.74.0...v1.75.0) (2024-02-07)
+
+
+### Features
+
+* **report:** updated report endpoint to extract user info from session ([372ff99](https://github.com/jobstash/middleware/commit/372ff9994c28fa0b16065bcd19ba4f8f0c35b9d6))
+
 # [1.74.0](https://github.com/jobstash/middleware/compare/v1.73.0...v1.74.0) (2024-02-06)
 
 
