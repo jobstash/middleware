@@ -1,3 +1,10 @@
+## [1.75.2](https://github.com/jobstash/middleware/compare/v1.75.1...v1.75.2) (2024-02-07)
+
+
+### Bug Fixes
+
+* **profile:** added description to email body and pretty printing for json context ([6febc72](https://github.com/jobstash/middleware/commit/6febc72316d48bef4b99e832d3cf87851db4291f))
+
 ## [1.75.1](https://github.com/jobstash/middleware/compare/v1.75.0...v1.75.1) (2024-02-07)
 
 
