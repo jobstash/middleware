@@ -34,6 +34,7 @@
     "@sendgrid/mail": "^7.7.0",
     "@sentry/node": "^7.51.2",
     "@sentry/tracing": "^7.51.2",
+    "@types/uuid": "^9.0.8",
     "axios": "^1.6.5",
     "bcrypt": "^5.1.0",
     "cache-manager": "^5.2.1",
@@ -66,7 +67,8 @@
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
     "siwe": "^2.1.4",
-    "ts-morph": "^18.0.0"
+    "ts-morph": "^18.0.0",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "@golevelup/ts-jest": "^0.3.7",

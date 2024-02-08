@@ -27,6 +27,8 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
+import { AddOrgAliasInput } from "./dto/add-organization-alias.input";
+import { v5 as uuidV5 } from "uuid";
 
 @Injectable()
 export class OrganizationsService {
@@ -872,6 +874,70 @@ export class OrganizationsService {
       });
       this.logger.error(`OrganizationsService::relateToProject ${err.message}`);
       return false;
+    }
+  }
+
+  async addAlias(dto: AddOrgAliasInput): Promise<ResponseWithNoData> {
+    try {
+      const relation = (
+        await this.models.Organizations.findRelationships({
+          alias: "alias",
+          where: {
+            source: {
+              orgId: dto.orgId,
+            },
+            target: {
+              name: dto.aliasName,
+            },
+          },
+        })
+      )[0];
+
+      if (!relation?.target?.__existsInDatabase) {
+        this.logger.debug("Alias not found, creating...");
+        const org = await this.models.Organizations.findOne({
+          where: {
+            orgId: dto.orgId,
+          },
+        });
+        const alias = await this.models.OrganizationAliases.createOne(
+          {
+            id: uuidV5(dto.aliasName, uuidV5.URL),
+            name: dto.aliasName,
+          },
+          {
+            merge: true,
+          },
+        );
+        if (!alias.__existsInDatabase) {
+          return {
+            success: false,
+            message: "Failed to create alias",
+          };
+        }
+        await org.relateTo({
+          alias: "alias",
+          where: {
+            name: dto.aliasName,
+          },
+          assertCreatedRelationships: 1,
+        });
+        return {
+          success: true,
+          message: "Organization alias added successfully",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`OrganizationsService::addAlias ${err.message}`);
+      return { success: false, message: "Failed to add org alias" };
     }
   }
 }

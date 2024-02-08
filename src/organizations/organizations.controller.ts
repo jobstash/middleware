@@ -55,6 +55,7 @@ import {
 } from "src/shared/constants/cache-control";
 import { ValidationError } from "class-validator";
 import { OrgListParams } from "./dto/org-list.input";
+import { AddOrgAliasInput } from "./dto/add-organization-alias.input";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -481,6 +482,27 @@ export class OrganizationsController {
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/organizations/delete/${id}`);
     return this.organizationsService.delete(id);
+  }
+
+  @Post("/add-alias")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Upserts an org with a new alias",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Organization),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong updating the organization alias on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async addOrgAlias(
+    @Body() body: AddOrgAliasInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/organizations/add-alias ${JSON.stringify(body)}`);
+    return this.organizationsService.addAlias(body);
   }
 
   @Get("/repositories/:id")

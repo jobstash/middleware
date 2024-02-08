@@ -93,8 +93,7 @@ export class GithubController {
           : this.ghConfig.dev.clientSecret
       }&code=${code}`,
     );
-    // Note: tokenParamsString returns just a string like
-    // access_token=gho_6YqtJ2nrwDKM2d5EwegweOVIpETwegu34Vp6Iq&scope=read%3Aorg%2Cread%3Auser&token_type=bearer
+
     const params = new URLSearchParams(tokenParamsString);
     const accessToken = params.get("access_token");
 
@@ -142,7 +141,7 @@ export class GithubController {
     });
 
     await this.userService.setWalletRole({
-      role: CheckWalletRoles.DEV,
+      role: role,
       wallet: wallet,
     });
 
