@@ -1,3 +1,10 @@
+# [1.76.0](https://github.com/jobstash/middleware/compare/v1.75.2...v1.76.0) (2024-02-08)
+
+
+### Features
+
+* **orgs:** added godmode feature to add/create aliases to orgs ([bb5d097](https://github.com/jobstash/middleware/commit/bb5d0973c885338d386a29352177f8eaef0eb9df))
+
 ## [1.75.2](https://github.com/jobstash/middleware/compare/v1.75.1...v1.75.2) (2024-02-07)
 
 
