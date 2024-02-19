@@ -10,8 +10,11 @@ import * as SendGrid from "@sendgrid/mail";
 import { MailService } from "src/mail/mail.service";
 
 @Injectable()
-export class MagicAuthStrategy extends PassportStrategy(Strategy, "magic") {
-  private readonly logger = new CustomLogger(MagicAuthStrategy.name);
+export class DevMagicAuthStrategy extends PassportStrategy(
+  Strategy,
+  "dev-magic",
+) {
+  private readonly logger = new CustomLogger(DevMagicAuthStrategy.name);
   constructor(
     private readonly configService: ConfigService,
     private readonly userService: UserService,
@@ -22,7 +25,7 @@ export class MagicAuthStrategy extends PassportStrategy(Strategy, "magic") {
       jwtOptions: {
         expiresIn: configService.get<string>("MAGIC_LINK_EXPIRES_IN"),
       },
-      callbackUrl: "/callback/magic-login",
+      callbackUrl: "/callback/dev/magic-login",
       sendMagicLink: async (destination: string, href: string) =>
         this.sendToken(destination, href),
       // eslint-disable-next-line @typescript-eslint/ban-types
@@ -71,12 +74,12 @@ export class MagicAuthStrategy extends PassportStrategy(Strategy, "magic") {
         Sentry.withScope(scope => {
           scope.setTags({
             action: "token-validate",
-            source: "magic-auth.strategy",
+            source: "dev.magic-auth.strategy",
           });
           scope.setExtra("input", payload);
           Sentry.captureException(err);
         });
-        this.logger.error(`MagicAuthStrategy::verifyUser ${err.message}`);
+        this.logger.error(`DevMagicAuthStrategy::verifyUser ${err.message}`);
         return null;
       });
   }
