@@ -33,14 +33,6 @@ const GMTTimezones = [
   "GMT+14",
 ] as const;
 
-const HoursOfDay: readonly string[] = Array.from({ length: 24 }, (_, index) =>
-  index.toString(),
-);
-
-const HourOfDay = t.keyof({
-  ...HoursOfDay.reduce((acc, hour) => ({ ...acc, [hour]: null }), {}),
-});
-
 const Timezone = t.keyof({
   ...GMTTimezones.reduce((acc, timezone) => ({ ...acc, [timezone]: null }), {}),
 });
@@ -55,10 +47,6 @@ export class OrgStaffReview {
       t.null,
     ]),
     timezone: t.union([Timezone, t.null]),
-    workingHours: t.strict({
-      start: t.union([HourOfDay, t.null]),
-      end: t.union([HourOfDay, t.null]),
-    }),
     pros: t.union([t.string, t.null]),
     cons: t.union([t.string, t.null]),
   });
@@ -67,12 +55,11 @@ export class OrgStaffReview {
   title: string | null;
   location: string | null;
   timezone: string | null;
-  workingHours: { start: string | null; end: string | null };
   pros: string | null;
   cons: string | null;
 
   constructor(raw: OrgStaffReview) {
-    const { id, title, pros, cons, location, timezone, workingHours } = raw;
+    const { id, title, pros, cons, location, timezone } = raw;
 
     const result = OrgStaffReview.OrgStaffReviewType.decode(raw);
 
@@ -80,7 +67,6 @@ export class OrgStaffReview {
     this.title = title;
     this.location = location;
     this.timezone = timezone;
-    this.workingHours = workingHours;
     this.pros = pros;
     this.cons = cons;
 

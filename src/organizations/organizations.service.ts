@@ -122,10 +122,6 @@ export class OrganizationsService {
                 title: review.title,
                 location: review.location,
                 timezone: review.timezone,
-                workingHours: {
-                  start: review.workingHoursStart,
-                  end: review.workingHoursEnd
-                },
                 pros: review.pros,
                 cons: review.cons
               },
@@ -445,10 +441,6 @@ export class OrganizationsService {
                   title: review.title,
                   location: review.location,
                   timezone: review.timezone,
-                  workingHours: {
-                    start: review.workingHoursStart,
-                    end: review.workingHoursEnd
-                  },
                   pros: review.pros,
                   cons: review.cons
                 },
@@ -604,10 +596,6 @@ export class OrganizationsService {
                 title: review.title,
                 location: review.location,
                 timezone: review.timezone,
-                workingHours: {
-                  start: review.workingHoursStart,
-                  end: review.workingHoursEnd
-                },
                 pros: review.pros,
                 cons: review.cons
               },

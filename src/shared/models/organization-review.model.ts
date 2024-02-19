@@ -17,8 +17,6 @@ export type OrganizationReviewProps = ExtractProps<{
   title: string | null;
   location: string | null;
   timezone: string | null;
-  workingHoursStart: string | null;
-  workingHoursEnd: string | null;
   pros: string | null;
   cons: string | null;
 }>;
@@ -62,12 +60,6 @@ export const OrganizationReviews = (
         title: { type: "string", allowEmpty: true, required: false },
         location: { type: "string", allowEmpty: true, required: false },
         timezone: { type: "string", allowEmpty: true, required: false },
-        workingHoursStart: {
-          type: "string",
-          allowEmpty: true,
-          required: false,
-        },
-        workingHoursEnd: { type: "string", allowEmpty: true, required: false },
         pros: { type: "string", allowEmpty: true, required: false },
         cons: { type: "string", allowEmpty: true, required: false },
       },

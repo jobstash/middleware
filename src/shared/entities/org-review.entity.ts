@@ -40,10 +40,6 @@ export class OrgReviewEntity {
         title: notStringOrNull(review?.title),
         location: notStringOrNull(review?.location),
         timezone: notStringOrNull(review?.timezone),
-        workingHours: {
-          start: notStringOrNull(review?.workingHours?.start),
-          end: notStringOrNull(review?.workingHours?.end),
-        },
         pros: notStringOrNull(review?.pros),
         cons: notStringOrNull(review?.cons),
       },
@@ -76,10 +72,6 @@ export class LeanOrgReviewEntity {
         title: notStringOrNull(review?.title),
         location: notStringOrNull(review?.location),
         timezone: notStringOrNull(review?.timezone),
-        workingHours: {
-          start: notStringOrNull(review?.workingHours?.start),
-          end: notStringOrNull(review?.workingHours?.end),
-        },
         pros: notStringOrNull(review?.pros),
         cons: notStringOrNull(review?.cons),
       },

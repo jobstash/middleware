@@ -10,10 +10,6 @@ export class OrgStaffReviewEntity {
       title: notStringOrNull(this.raw?.title),
       location: notStringOrNull(this.raw?.location),
       timezone: notStringOrNull(this.raw?.timezone),
-      workingHours: {
-        start: notStringOrNull(this.raw?.workingHours?.start),
-        end: notStringOrNull(this.raw?.workingHours?.end),
-      },
       pros: notStringOrNull(this.raw?.pros),
       cons: notStringOrNull(this.raw?.cons),
     });

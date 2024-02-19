@@ -81,17 +81,17 @@ export class ProfileService {
         message: "User Profile retrieved successfully",
         data: new UserProfileEntity({
           availableForWork: userProfile?.available ?? false,
-          avatar: userGithub[0]?.target.avatarUrl,
-          username: userGithub[0]?.target.login,
+          avatar: userGithub[0]?.target?.avatarUrl,
+          username: userGithub[0]?.target?.login,
           contact: {
-            value: userContact[0]?.target.value,
-            preferred: userContact[0]?.target.preferred,
+            value: userContact[0]?.target?.value,
+            preferred: userContact[0]?.target?.preferred,
           },
           location: {
-            country: userLocation[0]?.target.country,
-            city: userLocation[0]?.target.city,
+            country: userLocation[0]?.target?.country,
+            city: userLocation[0]?.target?.city,
           },
-          email: userEmail[0]?.target.email,
+          email: userEmail[0]?.target?.email,
         }).getProperties(),
       };
     } catch (err) {
@@ -198,10 +198,6 @@ export class ProfileService {
             title: review.title,
             location: review.location,
             timezone: review.timezone,
-            workingHours: {
-              start: review.workingHoursStart,
-              end: review.workingHoursEnd
-            },
             pros: review.pros,
             cons: review.cons
           },
@@ -254,10 +250,6 @@ export class ProfileService {
               title: review.title,
               location: review.location,
               timezone: review.timezone,
-              workingHours: {
-                start: review.workingHoursStart,
-                end: review.workingHoursEnd
-              },
               pros: review.pros,
               cons: review.cons
             },
@@ -697,8 +689,6 @@ export class ProfileService {
         SET review.title = $title
         SET review.location = $location
         SET review.timezone = $timezone
-        SET review.workingHoursStart = $workingHours.start
-        SET review.workingHoursEnd = $workingHours.end
         SET review.pros = $pros
         SET review.cons = $cons
         SET review.reviewedTimestamp = timestamp()
@@ -741,10 +731,6 @@ export class ProfileService {
           title: review.title,
           location: review.location,
           timezone: review.timezone,
-          workingHours: {
-            start: review.workingHoursStart,
-            end: review.workingHoursEnd
-          },
           pros: review.pros,
           cons: review.cons
         } as review

@@ -436,7 +436,7 @@ export const Projects = (
             );
           const result = await query.run(neogma.queryRunner);
           const projects: (ProjectWithRelations & { orgName: string })[] =
-            result?.records.map(
+            result?.records?.map(
               record =>
                 record.get("result") as ProjectWithRelations & {
                   orgName: string;
@@ -533,7 +533,7 @@ export const Projects = (
             `,
             );
           const result = await query.run(neogma.queryRunner);
-          const projects: ProjectWithRelations[] = result?.records.map(
+          const projects: ProjectWithRelations[] = result?.records?.map(
             record => record.get("result") as ProjectWithRelations,
           );
           return projects;
@@ -654,10 +654,6 @@ export const Projects = (
                           title: review.title,
                           location: review.location,
                           timezone: review.timezone,
-                          workingHours: {
-                            start: review.workingHoursStart,
-                            end: review.workingHoursEnd
-                          },
                           pros: review.pros,
                           cons: review.cons
                         },
@@ -828,7 +824,7 @@ export const Projects = (
             `,
             );
           const result = await query.run(neogma.queryRunner);
-          const projects: ProjectWithRelations[] = result?.records.map(
+          const projects: ProjectWithRelations[] = result?.records?.map(
             record => record.get("result") as ProjectWithRelations,
           );
           return projects;

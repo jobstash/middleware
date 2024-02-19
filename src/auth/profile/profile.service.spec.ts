@@ -353,10 +353,6 @@ describe("ProfileService", () => {
         timezone: "GMT+01",
         pros: "We have pizza",
         cons: "It's got pineapples",
-        workingHours: {
-          start: "1",
-          end: "2",
-        },
       };
       const response = await profileService.reviewOrg(EPHEMERAL_TEST_WALLET, {
         ...reviewData,
@@ -411,7 +407,7 @@ describe("ProfileService", () => {
           limit: Integer.MAX_SAFE_VALUE.toNumber(),
           page: 1,
         })) as PaginatedData<UserRepo>
-      )?.data.find(x => x.id === contributionData.id);
+      )?.data?.find(x => x.id === contributionData.id);
 
       expect(updatedRepo.contribution.summary).toBe(
         contributionData.contribution,
@@ -452,7 +448,7 @@ describe("ProfileService", () => {
           limit: Integer.MAX_SAFE_VALUE.toNumber(),
           page: 1,
         })) as PaginatedData<UserRepo>
-      )?.data.find(x => x.id === contributionData.id);
+      )?.data?.find(x => x.id === contributionData.id);
 
       expect(updatedRepo.tags).toEqual(expect.arrayContaining(skills));
     },
