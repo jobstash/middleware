@@ -341,7 +341,8 @@ export class JobsService {
         locationType,
         classification,
         commitment,
-        salary: salary,
+        salary,
+        salaryCurrency,
         timestamp,
       } = jlr;
       const matchesQuery =
@@ -358,8 +359,10 @@ export class JobsService {
           locationFilterList.includes(normalizeString(locationType))) &&
         (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
         (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
-        (!minSalaryRange || (salary ?? 0) >= minSalaryRange) &&
-        (!maxSalaryRange || (salary ?? 0) < maxSalaryRange) &&
+        (!minSalaryRange ||
+          ((salary ?? 0) >= minSalaryRange && salaryCurrency === "USD")) &&
+        (!maxSalaryRange ||
+          ((salary ?? 0) < maxSalaryRange && salaryCurrency === "USD")) &&
         (!startDate || timestamp >= startDate) &&
         (!endDate || timestamp < endDate) &&
         (!projectFilterList ||
@@ -437,11 +440,11 @@ export class JobsService {
       )[0];
       switch (orderBy) {
         case "audits":
-          return p1?.audits.length ?? 0;
+          return p1?.audits?.length ?? 0;
         case "hacks":
-          return p1?.hacks.length ?? 0;
+          return p1?.hacks?.length ?? 0;
         case "chains":
-          return p1?.chains.length ?? 0;
+          return p1?.chains?.length ?? 0;
         case "tvl":
           return p1?.tvl ?? 0;
         case "monthlyVolume":
@@ -530,8 +533,8 @@ export class JobsService {
                 (org)-[:HAS_PROJECT]->(project:Project) WHERE EXISTS((org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus))
                 AND NOT EXISTS((org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)) | project.monthlyRevenue
               ]),
-              minSalaryRange: apoc.coll.min([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | j.salary]),
-              maxSalaryRange: apoc.coll.max([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | j.salary]),
+              minSalaryRange: apoc.coll.min([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) WHERE j.currency == "USD" | j.salary]),
+              maxSalaryRange: apoc.coll.max([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) WHERE j.currency == "USD" | j.salary]),
               minHeadCount: apoc.coll.min([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | org.headcountEstimate]),
               maxHeadCount: apoc.coll.max([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | org.headcountEstimate]),
               tags: apoc.coll.toSet([
