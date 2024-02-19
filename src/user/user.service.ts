@@ -154,57 +154,6 @@ export class UserService {
     }
   }
 
-  async stageUserEmailForApproval(
-    wallet: string,
-    email: string,
-  ): Promise<ResponseWithOptionalData<UserEntity>> {
-    if (await this.userHasEmail(email)) {
-      return {
-        success: false,
-        message: "Email already has a user associated with it",
-      };
-    } else {
-      const normalizedEmail = this.normalizeEmail(email);
-      return this.neogma.queryRunner
-        .run(
-          `
-          MATCH (u:User {wallet: $wallet})
-          MERGE (u)-[:HAS_EMAIL]->(email:UserUnapprovedEmail {email: $email, normalized: $normalizedEmail})
-          RETURN u
-        `,
-          { wallet, email, normalizedEmail },
-        )
-        .then(res =>
-          res.records.length
-            ? {
-                success: true,
-                message: "User email queued for approval successfully",
-                data: new UserEntity(res.records[0].get("u")),
-              }
-            : {
-                success: false,
-                message: "Failed to add user email",
-              },
-        )
-        .catch(err => {
-          Sentry.withScope(scope => {
-            scope.setTags({
-              action: "db-call",
-              source: "user.service",
-            });
-            Sentry.captureException(err);
-          });
-          this.logger.error(
-            `UserService::addUserUnapprovedEmail ${err.message}`,
-          );
-          return {
-            success: false,
-            message: "Failed to add user email",
-          };
-        });
-    }
-  }
-
   async verifyUserEmail(email: string): Promise<UserEntity | undefined> {
     const normalizedEmail = this.normalizeEmail(email);
     return this.neogma.queryRunner

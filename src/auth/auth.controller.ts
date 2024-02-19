@@ -30,7 +30,6 @@ import { DevMagicAuthStrategy } from "./magic/dev.magic-auth.strategy";
 import { OrgMagicAuthStrategy } from "./magic/org.magic-auth.strategy";
 import { ProfileService } from "./profile/profile.service";
 import { RBACGuard } from "./rbac.guard";
-import { OrgApplyInput } from "./dto/org-apply.input";
 
 @Controller("auth")
 export class AuthController {
@@ -45,12 +44,7 @@ export class AuthController {
 
   @Post("magic/dev/login")
   @UseGuards(RBACGuard)
-  @Roles(
-    CheckWalletRoles.ANON,
-    CheckWalletRoles.ADMIN,
-    CheckWalletRoles.DEV,
-    CheckWalletRoles.ORG,
-  )
+  @Roles(CheckWalletRoles.DEV)
   @ApiOkResponse({
     description: "Generates and sends email verification link for devs",
     schema: { $ref: getSchemaPath(ResponseWithNoData) },
@@ -80,7 +74,7 @@ export class AuthController {
 
   @Post("magic/org/login")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @Roles(CheckWalletRoles.ORG)
   @ApiOkResponse({
     description: "Generates and sends email verification link for orgs",
     schema: { $ref: getSchemaPath(ResponseWithNoData) },
@@ -151,7 +145,7 @@ export class AuthController {
     )) as Response<UserProfile>;
 
     await this.userService.setWalletFlow({
-      flow: CheckWalletFlows.ORG_SETUP,
+      flow: CheckWalletFlows.ORG_APPROVAL,
       wallet: user.wallet,
     });
     await this.userService.setWalletRole({
@@ -164,28 +158,6 @@ export class AuthController {
       message: "Signed in with email successfully",
       data: profile.data,
     };
-  }
-
-  @Post("org/apply")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ORG)
-  async orgApply(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
-    @Body() body: OrgApplyInput,
-  ): Promise<ResponseWithNoData> {
-    const { address: wallet } = await this.authService.getSession(req, res);
-    const { email } = body;
-    const user = await this.userService.findByWallet(wallet as string);
-
-    if (user) {
-      return this.userService.stageUserEmailForApproval(
-        wallet as string,
-        email,
-      );
-    } else {
-      return { success: false, message: "Unauthorized" };
-    }
   }
 
   @Post("set-role/admin")
