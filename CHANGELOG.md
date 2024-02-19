@@ -1,3 +1,10 @@
+## [1.76.2](https://github.com/jobstash/middleware/compare/v1.76.1...v1.76.2) (2024-02-19)
+
+
+### Bug Fixes
+
+* **siwe:** switched to infura provider for siwe and yeeted deprecated validate fn ([4055fdc](https://github.com/jobstash/middleware/commit/4055fdcc4a1e55a94c226bf8fd8d400d44eab3c9))
+
 ## [1.76.1](https://github.com/jobstash/middleware/compare/v1.76.0...v1.76.1) (2024-02-19)
 
 
