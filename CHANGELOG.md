@@ -1,3 +1,10 @@
+# [1.77.0](https://github.com/jobstash/middleware/compare/v1.76.2...v1.77.0) (2024-02-19)
+
+
+### Features
+
+* **magic:** updated magic auth services to support both org and dev signup ([6d85f21](https://github.com/jobstash/middleware/commit/6d85f219baf804da31e940e92cf4fac2985975f7))
+
 ## [1.76.2](https://github.com/jobstash/middleware/compare/v1.76.1...v1.76.2) (2024-02-19)
 
 
