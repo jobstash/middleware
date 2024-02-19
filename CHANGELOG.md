@@ -1,3 +1,10 @@
+## [1.78.1](https://github.com/jobstash/middleware/compare/v1.78.0...v1.78.1) (2024-02-19)
+
+
+### Bug Fixes
+
+* **filters:** fixed bug with skills filter ([57ae425](https://github.com/jobstash/middleware/commit/57ae4250769bd9cb9afb37fb30e4f25647b1e584))
+
 # [1.78.0](https://github.com/jobstash/middleware/compare/v1.77.1...v1.78.0) (2024-02-19)
 
 
