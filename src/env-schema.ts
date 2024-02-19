@@ -2,7 +2,6 @@ import * as Joi from "joi";
 
 const envSchema = Joi.object({
   ALLOWED_ORIGINS: Joi.string(),
-  ALCHEMY_API_KEY: Joi.string(),
   APP_PORT: Joi.number().default(8080),
   EMAIL: Joi.string(),
   VCDATA_API_KEY: Joi.string(),
@@ -10,6 +9,7 @@ const envSchema = Joi.object({
   GITHUB_DEV_OAUTH_CLIENT_SECRET: Joi.string(),
   GITHUB_ORG_OAUTH_CLIENT_ID: Joi.string(),
   GITHUB_ORG_OAUTH_CLIENT_SECRET: Joi.string(),
+  INFURA_API_KEY: Joi.string(),
   JWT_EXPIRES_IN: Joi.string().alphanum(),
   JWT_SECRET: Joi.string().alphanum(),
   LOCAL_HTTPS: Joi.string().valid("no", "yes").default("no"),

@@ -14,7 +14,7 @@ import { AuthService } from "../auth.service";
 import { VerifyMessageInput } from "../dto/verify-message.input";
 import { generateNonce, SiweMessage } from "siwe";
 import { ConfigService } from "@nestjs/config";
-import { AlchemyProvider } from "ethers";
+import { InfuraProvider } from "ethers";
 import { ResponseWithNoData, SessionObject, User } from "src/shared/types";
 import {
   ApiBadRequestResponse,
@@ -146,9 +146,10 @@ export class SiweController {
     @Body() body: VerifyMessageInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const provider = new AlchemyProvider(
+      const provider = new InfuraProvider(
         1,
-        this.configService.get<string>("ALCHEMY_API_KEY"),
+        null,
+        this.configService.get<string>("INFURA_API_KEY"),
       );
 
       const session = await this.authService.getSession(req, res);
@@ -159,12 +160,22 @@ export class SiweController {
       );
       const { message, signature } = body;
       const siweMessage = new SiweMessage(message);
-      const fields = await siweMessage.validate(signature, provider);
-      if (fields.nonce !== session.nonce) {
-        res.status(HttpStatus.UNPROCESSABLE_ENTITY);
+      const {
+        data: fields,
+        success,
+        error,
+      } = await siweMessage.verify(
+        {
+          signature,
+          nonce: session.nonce as string,
+        },
+        { provider },
+      );
+      if (!success) {
+        res.status(HttpStatus.BAD_REQUEST);
         return {
           success: false,
-          message: "Invalid nonce!",
+          message: error.type,
         };
       }
 

@@ -287,9 +287,6 @@ export class UserService {
 
   async createSIWEUser(wallet: string): Promise<User | undefined> {
     try {
-      this.logger.log(
-        `/user/createSIWEUser: Creating user with wallet ${wallet}`,
-      );
       const storedUser = await this.findByWallet(wallet);
       this.logger.log(
         JSON.stringify(storedUser) ?? "No user found for that wallet",
@@ -302,6 +299,10 @@ export class UserService {
       const newUserDto = {
         wallet: wallet,
       };
+
+      this.logger.log(
+        `/user/createSIWEUser: Creating user with wallet ${wallet}`,
+      );
 
       const newUser = await this.create(newUserDto);
 
