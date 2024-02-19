@@ -1,3 +1,10 @@
+## [1.77.1](https://github.com/jobstash/middleware/compare/v1.77.0...v1.77.1) (2024-02-19)
+
+
+### Bug Fixes
+
+* **filters:** fixed bug on filter configs ([adb69e4](https://github.com/jobstash/middleware/commit/adb69e4fdcf8dc68bc31e9998fd1be86aa87aa63))
+
 # [1.77.0](https://github.com/jobstash/middleware/compare/v1.76.2...v1.77.0) (2024-02-19)
 
 
