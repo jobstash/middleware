@@ -26,6 +26,7 @@ type RawJobFilters = {
   minHeadCount?: number | null;
   maxHeadCount?: number | null;
   tags?: string[] | null;
+  skills?: { name: string; jobs: number }[] | null;
   fundingRounds?: string[] | null;
   projects?: string[] | null;
   classifications?: string[] | null;
@@ -42,7 +43,10 @@ export class JobFilterConfigsEntity {
   configPresets = FILTER_CONFIG_PRESETS;
   paramKeyPresets = FILTER_PARAM_KEY_PRESETS;
 
-  constructor(private readonly raw: RawJobFilters) {}
+  constructor(
+    private readonly raw: RawJobFilters,
+    private readonly threshold: number,
+  ) {}
 
   getRangePresets(key: string): RangeFilter {
     const range = {
@@ -90,6 +94,38 @@ export class JobFilterConfigsEntity {
     };
   }
 
+  getMultiValuePresetsWithFilterAndTransform<Y>(
+    key: string,
+    filter: (x: Y) => boolean,
+    transform: (x: Y) => string,
+  ): MultiSelectFilter | MultiSelectSearchFilter {
+    const sort = createNewSortInstance({
+      comparer: new Intl.Collator(undefined, {
+        numeric: true,
+        caseFirst: "lower",
+        sensitivity: "case",
+      }).compare,
+      inPlaceSorting: true,
+    });
+
+    const isValidFilterConfig = (value: string): boolean =>
+      value !== "unspecified" &&
+      value !== "undefined" &&
+      value !== "" &&
+      value !== "null";
+
+    return {
+      ...this.configPresets[key],
+      options: sort(
+        this.raw[key]
+          ?.filter(isValidFilterConfig)
+          ?.filter(filter)
+          .map(transform) ?? [],
+      ).asc(),
+      paramKey: this.paramKeyPresets[key],
+    };
+  }
+
   getSingleSelectPresets(key: string): SingleSelectFilter {
     return {
       ...this.configPresets[key],
@@ -111,6 +147,14 @@ export class JobFilterConfigsEntity {
       fundingRounds: this.getMultiValuePresets("fundingRounds"),
       investors: this.getMultiValuePresets("investors"),
       tags: this.getMultiValuePresets("tags"),
+      skills: this.getMultiValuePresetsWithFilterAndTransform<{
+        name: string;
+        jobs: number;
+      }>(
+        "skills",
+        (x: { name: string; jobs: number }) => x.jobs >= this.threshold,
+        (x: { name: string; jobs: number }) => x.name,
+      ),
       organizations: this.getMultiValuePresets("organizations"),
       chains: this.getMultiValuePresets("chains"),
       projects: this.getMultiValuePresets("projects"),

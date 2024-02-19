@@ -53,6 +53,7 @@ const envSchema = Joi.object({
   SESSION_SECRET: Joi.string(),
   SWAGGER_USER: Joi.string(),
   SWAGGER_PASSWORD: Joi.string(),
+  SKILL_THRESHOLD: Joi.number(),
   TEST_DB_MANAGER_URL: Joi.string(),
   TEST_DB_MANAGER_API_KEY: Joi.string(),
 });

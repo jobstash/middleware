@@ -40,6 +40,7 @@ import { ChangeJobProjectInput } from "./dto/update-job-project.input";
 import { FeatureJobsInput } from "./dto/feature-jobs.input";
 import { differenceInHours } from "date-fns";
 import { randomUUID } from "crypto";
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class JobsService {
@@ -48,6 +49,7 @@ export class JobsService {
     @InjectConnection()
     private neogma: Neogma,
     private models: ModelService,
+    private readonly configService: ConfigService,
   ) {}
 
   getJobsListResults = async (): Promise<JobListResult[]> => {
@@ -279,6 +281,7 @@ export class JobsService {
       seniority: seniorityFilterList,
       locations: locationFilterList,
       tags: tagFilterList,
+      skills: skillFilterList,
       audits: auditFilter,
       hacks: hackFilter,
       chains: chainFilterList,
@@ -422,7 +425,11 @@ export class JobsService {
         (!query || matchesQuery) &&
         (!tagFilterList ||
           tags.filter(tag => tagFilterList.includes(normalizeString(tag.name)))
-            .length > 0)
+            .length > 0) &&
+        (!skillFilterList ||
+          tags.filter(tag =>
+            skillFilterList.includes(normalizeString(tag.name)),
+          ).length > 0)
       );
     };
 
@@ -537,6 +544,10 @@ export class JobsService {
                 (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
                 WHERE (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag.name
               ]),
+              skills: apoc.coll.toSet([
+                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+                WHERE (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | { name: tag.name, jobs: apoc.coll.sum([(j:StructuredJobpost)-[:HAS_TAG]->(tag) | 1]) }
+              ]),
               fundingRounds: apoc.coll.toSet([
                 (org: Organization)-[:HAS_FUNDING_ROUND]->(round: FundingRound) WHERE EXISTS((org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus))
                 AND NOT EXISTS((org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)) | round.roundName
@@ -578,6 +589,7 @@ export class JobsService {
           res.records.length
             ? new JobFilterConfigsEntity(
                 res.records[0].get("res"),
+                this.configService.get<number>("SKILL_THRESHOLD"),
               ).getProperties()
             : undefined,
         );

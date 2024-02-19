@@ -117,29 +117,36 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "filter_joblist_tags",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
-  fundingRounds: {
+  skills: {
     position: 9,
+    label: "Skills",
+    show: false,
+    googleAnalyticsEventName: "filter_joblist_skills",
+    kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
+  },
+  fundingRounds: {
+    position: 10,
     label: "Funding Rounds",
     show: true,
     googleAnalyticsEventName: "filter_joblist_funding_rounds",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   investors: {
-    position: 10,
+    position: 11,
     label: "Investors",
     show: true,
     googleAnalyticsEventName: "filter_joblist_investors",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   organizations: {
-    position: 11,
+    position: 12,
     label: "Organizations",
     show: true,
     googleAnalyticsEventName: "filter_joblist_organizations",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   audits: {
-    position: 12,
+    position: 13,
     label: "Audits",
     show: false,
     googleAnalyticsEventName: "filter_joblist_audits",
@@ -147,7 +154,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.audits,
   },
   hacks: {
-    position: 13,
+    position: 14,
     label: "Hacks",
     show: false,
     googleAnalyticsEventName: "filter_joblist_hacks",
@@ -155,14 +162,14 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.hacks,
   },
   chains: {
-    position: 14,
+    position: 15,
     label: "Chains",
     show: false,
     googleAnalyticsEventName: "filter_joblist_chains",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   projects: {
-    position: 15,
+    position: 16,
     label: "Projects",
     show: false,
     googleAnalyticsEventName: "filter_joblist_projects",
@@ -170,7 +177,7 @@ export const FILTER_CONFIG_PRESETS = {
   },
 
   tvl: {
-    position: 16,
+    position: 17,
     label: "TVL",
     show: false,
     googleAnalyticsEventName: "filter_joblist_tvl",
@@ -178,7 +185,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   monthlyVolume: {
-    position: 17,
+    position: 18,
     label: "Volume/mo",
     show: false,
     googleAnalyticsEventName: "filter_joblist_monthly_volume",
@@ -186,7 +193,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   monthlyFees: {
-    position: 18,
+    position: 19,
     label: "Fees/mo",
     show: false,
     googleAnalyticsEventName: "filter_joblist_monthly_fees",
@@ -194,7 +201,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   monthlyRevenue: {
-    position: 19,
+    position: 20,
     label: "Revenue/mo",
     show: false,
     googleAnalyticsEventName: "filter_joblist_monthly_revenue",
@@ -202,7 +209,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   mainNet: {
-    position: 20,
+    position: 21,
     label: "Mainnet",
     show: false,
     googleAnalyticsEventName: "filter_joblist_is_mainet",
@@ -210,7 +217,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.mainNet,
   },
   token: {
-    position: 21,
+    position: 22,
     label: "Has Token",
     show: false,
     googleAnalyticsEventName: "filter_joblist_has_token",
@@ -218,7 +225,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.token,
   },
   order: {
-    position: 22,
+    position: 23,
     label: "Order",
     show: true,
     googleAnalyticsEventName: "filter_joblist_order",
@@ -226,7 +233,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.order,
   },
   orderBy: {
-    position: 23,
+    position: 24,
     label: "Order By",
     show: true,
     googleAnalyticsEventName: "filter_joblist_order_by",
@@ -248,6 +255,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
     highest: "maxHeadCount",
   },
   tags: "tags",
+  skills: "skills",
   fundingRounds: "fundingRounds",
   investors: "investors",
   organizations: "organizations",

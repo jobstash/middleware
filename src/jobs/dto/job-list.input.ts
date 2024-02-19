@@ -153,6 +153,12 @@ export class JobListParams {
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
+  skills?: string[] | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
   organizations?: string[] | null = null;
 
   @ApiPropertyOptional()

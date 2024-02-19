@@ -10,6 +10,7 @@ import { UpdateTagDto } from "./dto/update-tag.dto";
 import { TagEntity } from "src/shared/entities/tag.entity";
 import NotFoundError from "src/shared/errors/not-found-error";
 import { instanceToNode, normalizeString } from "src/shared/helpers";
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class TagsService {
@@ -18,6 +19,7 @@ export class TagsService {
     @InjectConnection()
     private neogma: Neogma,
     private models: ModelService,
+    private readonly configService: ConfigService,
   ) {}
 
   async findAll(): Promise<Tag[]> {
@@ -77,7 +79,9 @@ export class TagsService {
 
   async getAllUnblockedTags(): Promise<Tag[]> {
     try {
-      return this.models.Tags.getUnblockedTags();
+      return this.models.Tags.getUnblockedTags(
+        this.configService.get<number>("SKILL_THRESHOLD"),
+      );
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({

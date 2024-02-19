@@ -1,4 +1,5 @@
 import {
+  BindParam,
   ModelFactory,
   Neogma,
   NeogmaInstance,
@@ -25,7 +26,7 @@ export interface TagMethods {
 export interface TagStatics {
   getPreferredTags: () => Promise<TagPreference[]>;
   getBlockedTags: () => Promise<Tag[]>;
-  getUnblockedTags: () => Promise<Tag[]>;
+  getUnblockedTags: (threshold: number) => Promise<Tag[]>;
   getPairedTags: () => Promise<TagPair[]>;
 }
 
@@ -99,10 +100,12 @@ export const Tags = (
           const result = await query.run(neogma.queryRunner);
           return result.records.map(record => record.get("res") as TagPair);
         },
-        getUnblockedTags: async function (): Promise<Tag[]> {
-          const query = new QueryBuilder()
+        getUnblockedTags: async function (threshold: number): Promise<Tag[]> {
+          const query = new QueryBuilder(new BindParam({ threshold }))
             .match({
               related: [
+                { label: "StructuredJobpost", identifier: "job" },
+                { name: "HAS_TAG", direction: "out" },
                 {
                   label: "Tag",
                   identifier: "tag",
@@ -117,7 +120,10 @@ export const Tags = (
             .raw(
               "OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)",
             )
-            .with("(CASE WHEN other IS NULL THEN tag ELSE other END) AS tag")
+            .with(
+              "(CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, COUNT(DISTINCT job) AS jobCount",
+            )
+            .where("jobCount >= $threshold")
             .raw(
               "OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)",
             )
