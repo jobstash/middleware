@@ -1,3 +1,10 @@
+## [1.76.1](https://github.com/jobstash/middleware/compare/v1.76.0...v1.76.1) (2024-02-19)
+
+
+### Bug Fixes
+
+* **jobs:** fixed currency restrictions for salary filters ([015c027](https://github.com/jobstash/middleware/commit/015c027e97649fb8522a2cc4da1533b4b745272e))
+
 # [1.76.0](https://github.com/jobstash/middleware/compare/v1.75.2...v1.76.0) (2024-02-08)
 
 
