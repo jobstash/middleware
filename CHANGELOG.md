@@ -1,3 +1,11 @@
+# [1.78.0](https://github.com/jobstash/middleware/compare/v1.77.1...v1.78.0) (2024-02-19)
+
+
+### Features
+
+* **orgs:** updated magic login spec for orgs and implemented godmode endpoint for org approval ([bc0f1a2](https://github.com/jobstash/middleware/commit/bc0f1a2845927bcecf72fe50b580021f92f15ab4))
+* **tags:** added skills filter and added support for popular tags ([5e6c827](https://github.com/jobstash/middleware/commit/5e6c8279eaac41dcd58a0cbabda8e8d465c1fe83))
+
 ## [1.77.1](https://github.com/jobstash/middleware/compare/v1.77.0...v1.77.1) (2024-02-19)
 
 
