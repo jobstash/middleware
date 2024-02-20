@@ -5,13 +5,17 @@ import { Roles } from "src/shared/decorators";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
 import { ResponseWithNoData, UserProfile } from "src/shared/interfaces";
-import { ApproveOrgInput } from "./dto/approve-org.dto";
+import { AuthorizeOrgApplicationInput } from "./dto/authorize-org-application.dto";
+import { MailService } from "src/mail/mail.service";
+import { ConfigService } from "@nestjs/config";
 
 @Controller("users")
 export class UserController {
   private logger = new CustomLogger(UserController.name);
   constructor(
-    private readonly userService: UserService, // private readonly authService: AuthService,
+    private readonly userService: UserService,
+    private readonly mailService: MailService,
+    private readonly configService: ConfigService,
   ) {}
 
   @Get("")
@@ -30,27 +34,68 @@ export class UserController {
     return this.userService.getOrgsAwaitingApproval();
   }
 
-  @Post("orgs/approve")
+  @Post("orgs/authorize")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
-  async approveOrgApplication(
-    @Body() body: ApproveOrgInput,
+  async authorizeOrgApplication(
+    @Body() body: AuthorizeOrgApplicationInput,
   ): Promise<ResponseWithNoData> {
-    const { wallet } = body;
-    const org = await this.userService.findByWallet(wallet);
+    const { wallet, verdict } = body;
+    this.logger.log(`/users/orgs/authorize ${wallet}`);
+    const org = await this.userService.findProfileByWallet(wallet);
 
     if (org) {
-      this.logger.log(
-        `/users/orgs/approve Approving org with wallet ${wallet}`,
-      );
       await this.userService.setWalletFlow({
-        flow: CheckWalletFlows.ORG_COMPLETE,
+        flow:
+          verdict === "approve"
+            ? CheckWalletFlows.ORG_COMPLETE
+            : CheckWalletFlows.ORG_REJECTED,
         wallet: wallet,
       });
+      await this.mailService.sendEmail({
+        from: this.configService.getOrThrow<string>("EMAIL"),
+        to: org.email,
+        subject: "Application Review Outcome",
+        text:
+          verdict === "approve"
+            ? `
+          Good Day,
 
+          I hope this email finds you well. We appreciate your interest in our crypto job aggregator service and your recent application for inclusion in our platform. After a thorough review of your application, we are pleased to inform you that your organization has been approved.
+
+          We believe that your company's commitment to the crypto industry aligns well with our mission, and we are excited to showcase your job opportunities on our platform. Your organization will now be featured alongside other prominent players in the field, providing greater visibility to your job listings.
+
+          We will proceed with the necessary steps to integrate your job postings into our system. Our team will be in touch with you shortly to guide you through the onboarding process and answer any questions you may have.
+
+          Thank you for choosing our crypto job aggregator service. We look forward to a successful collaboration and helping you connect with top talent in the crypto space.
+
+          Best regards,
+
+          Bill Hader
+          Organization Review Lead
+          JobStash.xyz
+          `
+            : `
+          Dear $RECRUITER,
+
+          I wanted to take a moment to express my appreciation for taking the time to apply as an organization at JobStash. We received a lot of interest, and we were impressed with your desire to contribute.
+
+          However, after careful consideration, we have decided to move forward with another candidate from another organization whose qualifications more closely match our needs. I know this news may be disappointing, but please know that we appreciated your interest in our platform and enjoyed getting to know you during the review process.
+
+          We wish you all the best in your talent search and hope that you will find the perfect opportunity to utilize your skills and expertise. If any new openings arise in the future, we will keep your profile in mind.
+
+          Thank you again for your time and for considering hiring with us.
+
+          Best regards,
+
+          Bill Harder
+          Organization Review Lead
+          JobStash.xyz
+          `,
+      });
       return {
         success: true,
-        message: "Org approved successfully",
+        message: "Org authorized successfully",
       };
     } else {
       return {

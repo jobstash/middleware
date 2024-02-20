@@ -7,9 +7,11 @@ import { GithubModule } from "../auth/github/github.module";
 import { UserController } from "./user.controller";
 import { ModelService } from "src/model/model.service";
 import { JwtService } from "@nestjs/jwt";
+import { MailModule } from "src/mail/mail.module";
+import { MailService } from "src/mail/mail.service";
 
 @Module({
-  imports: [forwardRef(() => GithubModule), ConfigModule],
+  imports: [forwardRef(() => GithubModule), ConfigModule, MailModule],
   controllers: [UserController],
   providers: [
     UserService,
@@ -17,6 +19,7 @@ import { JwtService } from "@nestjs/jwt";
     UserRoleService,
     ModelService,
     JwtService,
+    MailService,
   ],
   exports: [UserService, UserFlowService, UserRoleService, ModelService],
 })

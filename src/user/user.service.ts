@@ -50,6 +50,39 @@ export class UserService {
       });
   }
 
+  async findProfileByWallet(wallet: string): Promise<UserProfile | undefined> {
+    return this.neogma.queryRunner
+      .run(
+        `
+          MATCH (user:User {wallet: $wallet})
+          RETURN {
+            availableForWork: user.available,
+            username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
+            avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+            contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
+            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0]
+          } as user
+        `,
+        { wallet },
+      )
+      .then(res =>
+        res.records.length
+          ? new UserProfileEntity(res.records[0].get("user")).getProperties()
+          : undefined,
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`UserService::findProfileByWallet ${err.message}`);
+        return undefined;
+      });
+  }
+
   async findByGithubNodeId(nodeId: string): Promise<UserEntity | undefined> {
     return this.models.Users.findRelationships({
       where: { target: { nodeId } },
