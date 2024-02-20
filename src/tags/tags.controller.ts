@@ -16,8 +16,8 @@ import { CheckWalletRoles } from "src/shared/constants";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
-  Response,
   ResponseWithNoData,
+  ResponseWithOptionalData,
   Tag,
   TagPair,
   TagPreference,
@@ -31,6 +31,7 @@ import { DeletePreferredTagSynonymsInput } from "./dto/delete-preferred-tag-syno
 import { DeletePreferredTagInput } from "./dto/delete-preferred-tag.input";
 import { LinkTagSynonymDto } from "./dto/link-tag-synonym.dto";
 import { TagsService } from "./tags.service";
+import { MatchTagsInput } from "./dto/match-tags.input";
 @Controller("tags")
 @ApiExtraModels(TagPreference, TagPreference)
 export class TagsController {
@@ -45,7 +46,7 @@ export class TagsController {
     description: "Returns a list of all tags",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Tag) }),
   })
-  async getTags(): Promise<Response<Tag[]> | ResponseWithNoData> {
+  async getTags(): Promise<ResponseWithOptionalData<Tag[]>> {
     this.logger.log(`/tags`);
     return this.tagsService
       .getAllUnblockedTags()
@@ -77,7 +78,7 @@ export class TagsController {
     description: "Returns a list of all blocked tags",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Tag) }),
   })
-  async getBlockedTags(): Promise<Response<Tag[]> | ResponseWithNoData> {
+  async getBlockedTags(): Promise<ResponseWithOptionalData<Tag[]>> {
     this.logger.log(`/tags/blocked`);
     return this.tagsService
       .getBlockedTags()
@@ -111,9 +112,7 @@ export class TagsController {
       $ref: getSchemaPath(TagPreference),
     }),
   })
-  async getPreferredTags(): Promise<
-    Response<TagPreference[]> | ResponseWithNoData
-  > {
+  async getPreferredTags(): Promise<ResponseWithOptionalData<TagPreference[]>> {
     this.logger.log(`/tags/preferred`);
     return this.tagsService
       .getPreferredTags()
@@ -147,7 +146,7 @@ export class TagsController {
       $ref: getSchemaPath(TagPair),
     }),
   })
-  async getPairedTags(): Promise<Response<TagPair[]> | ResponseWithNoData> {
+  async getPairedTags(): Promise<ResponseWithOptionalData<TagPair[]>> {
     this.logger.log(`/tags/paired`);
     return this.tagsService
       .getPairedTags()
@@ -183,7 +182,7 @@ export class TagsController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body() createTagDto: CreateTagDto,
-  ): Promise<Response<Tag> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<Tag>> {
     try {
       const { address: creatorWallet } = await this.authService.getSession(
         req,
@@ -235,6 +234,22 @@ export class TagsController {
     }
   }
 
+  @Post("/match")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Return matching tags for a list of tags",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Tag) }),
+  })
+  async matchTags(@Body() body: MatchTagsInput): Promise<
+    ResponseWithOptionalData<{
+      recognized_tags: string[];
+      unrecognized_tags: string[];
+    }>
+  > {
+    return this.tagsService.matchTags(body.tags);
+  }
+
   @Post("link-synonym")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
@@ -246,7 +261,7 @@ export class TagsController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body() linkTagSynonymDto: LinkTagSynonymDto,
-  ): Promise<Response<Tag[]> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<Tag[]>> {
     try {
       const { address: creatorWallet } = await this.authService.getSession(
         req,
@@ -443,7 +458,7 @@ export class TagsController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body() input: CreatePairedTagsInput,
-  ): Promise<Response<Tag[]> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<Tag[]>> {
     this.logger.log(`/tags/pair ${JSON.stringify(input)}`);
     const { address: creatorWallet } = await this.authService.getSession(
       req,
@@ -524,7 +539,7 @@ export class TagsController {
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body() input: CreatePreferredTagInput,
   ): Promise<
-    Response<{ preferredName: string; synonyms: Tag[] }> | ResponseWithNoData
+    ResponseWithOptionalData<{ preferredName: string; synonyms: Tag[] }>
   > {
     this.logger.log(`/tags/create-preference ${JSON.stringify(input)}`);
     const { address: creatorWallet } = await this.authService.getSession(
@@ -669,7 +684,7 @@ export class TagsController {
   })
   async deletePreferredTag(
     @Body() input: DeletePreferredTagInput,
-  ): Promise<Response<TagPreference> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<TagPreference>> {
     this.logger.log(`/tags/delete-preference ${JSON.stringify(input)}`);
     try {
       const { preferredName } = input;
@@ -720,7 +735,7 @@ export class TagsController {
   })
   async deletePreferredTagSynonym(
     @Body() input: DeletePreferredTagSynonymsInput,
-  ): Promise<Response<TagPreference> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<TagPreference>> {
     this.logger.log(`/tags/delete-synonyms ${JSON.stringify(input)}`);
     try {
       const { preferredName, synonyms } = input;

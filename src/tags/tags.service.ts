@@ -1,5 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import { TagPair, Tag, TagPreference } from "src/shared/types";
+import {
+  TagPair,
+  Tag,
+  TagPreference,
+  ResponseWithOptionalData,
+} from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { ModelService } from "src/model/model.service";
@@ -591,5 +596,57 @@ export class TagsService {
 
   normalizeTagName(name: string): string {
     return normalizeString(name);
+  }
+
+  async matchTags(tags: string[]): Promise<
+    ResponseWithOptionalData<{
+      recognized_tags: string[];
+      unrecognized_tags: string[];
+    }>
+  > {
+    try {
+      const recognizedTags = [];
+      const unrecognizedTags = [];
+      for (const tag of tags) {
+        const result = await this.neogma.queryRunner.run(
+          `
+          CALL db.index.fulltext.queryNodes("tagNames", $query) YIELD node as tag, score
+          WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
+          WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, score
+          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
+          WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS node, score
+          RETURN node.name as name, score
+          ORDER BY score DESC
+
+          `,
+          { query: `name:${tag}~` },
+        );
+        const mostMatching = result.records[0]?.get("name");
+        if (mostMatching) {
+          recognizedTags.push(mostMatching);
+        } else {
+          unrecognizedTags.push(tag);
+        }
+      }
+      return {
+        success: true,
+        message: "Matched tags successfully",
+        data: {
+          recognized_tags: recognizedTags,
+          unrecognized_tags: unrecognizedTags,
+        },
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "tags.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`TagsService::matchTags ${err.message}`);
+      return { success: false, message: err.message };
+    }
   }
 }
