@@ -3,6 +3,14 @@
 
 ### Features
 
+* **users:** implemented authorize org application endpoint ([d0ced23](https://github.com/jobstash/middleware/commit/d0ced23e5d8a13f827813e5265d95d70684897da))
+* **users:** implemented endpoint to get org users awaiting approval ([512e199](https://github.com/jobstash/middleware/commit/512e19988c249aa6c3a41b11d5856050084f851c))
+
+# [1.79.0](https://github.com/jobstash/middleware/compare/v1.78.1...v1.79.0) (2024-02-20)
+
+
+### Features
+
 * **users:** implemented endpoint to get org users awaiting approval ([512e199](https://github.com/jobstash/middleware/commit/512e19988c249aa6c3a41b11d5856050084f851c))
 
 ## [1.78.1](https://github.com/jobstash/middleware/compare/v1.78.0...v1.78.1) (2024-02-19)
