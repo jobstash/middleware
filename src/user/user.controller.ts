@@ -22,7 +22,15 @@ export class UserController {
     return this.userService.findAll();
   }
 
-  @Post("/orgs/approve")
+  @Get("orgs/pending")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  async getOrgsAwaitingApproval(): Promise<UserProfile[]> {
+    this.logger.log("/users/orgs/pending");
+    return this.userService.getOrgsAwaitingApproval();
+  }
+
+  @Post("orgs/approve")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
   async approveOrgApplication(

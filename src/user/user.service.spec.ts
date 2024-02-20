@@ -248,4 +248,14 @@ describe("UserService", () => {
     },
     REALLY_LONG_TIME,
   );
+
+  it(
+    "should find all org users awaiting approval",
+    async () => {
+      const users = await userService.getOrgsAwaitingApproval();
+
+      expect(users).toStrictEqual(expect.any(Array<UserProfile>));
+    },
+    REALLY_LONG_TIME,
+  );
 });
