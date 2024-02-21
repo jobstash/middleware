@@ -44,7 +44,7 @@ export class AuthController {
 
   @Post("magic/dev/login")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV)
+  @Roles(CheckWalletRoles.ANON)
   @ApiOkResponse({
     description: "Generates and sends email verification link for devs",
     schema: { $ref: getSchemaPath(ResponseWithNoData) },
@@ -74,7 +74,7 @@ export class AuthController {
 
   @Post("magic/org/login")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ORG)
+  @Roles(CheckWalletRoles.ANON)
   @ApiOkResponse({
     description: "Generates and sends email verification link for orgs",
     schema: { $ref: getSchemaPath(ResponseWithNoData) },
@@ -103,7 +103,7 @@ export class AuthController {
   }
 
   @Get("magic/dev/login/callback")
-  @UseGuards(AuthGuard("magic"))
+  @UseGuards(AuthGuard("dev-magic"))
   @ApiOkResponse({
     description: "Callback for email verification link for devs",
     schema: { $ref: getSchemaPath(ResponseWithNoData) },
@@ -132,7 +132,7 @@ export class AuthController {
   }
 
   @Get("magic/org/login/callback")
-  @UseGuards(AuthGuard("magic"))
+  @UseGuards(AuthGuard("org-magic"))
   @ApiOkResponse({
     description: "Callback for email verification link for orgs",
     schema: { $ref: getSchemaPath(ResponseWithNoData) },
