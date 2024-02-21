@@ -34,6 +34,14 @@ export class UserController {
     return this.userService.getOrgsAwaitingApproval();
   }
 
+  @Get("orgs/approved")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  async getApprovedrgs(): Promise<UserProfile[]> {
+    this.logger.log("/users/orgs/approved");
+    return this.userService.getApprovedOrgs();
+  }
+
   @Post("orgs/authorize")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
