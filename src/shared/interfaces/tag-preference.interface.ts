@@ -27,7 +27,7 @@ export class TagPreference {
     if (isLeft(result)) {
       report(result).forEach(x => {
         throw new Error(
-          `preferred tag instance with id ${this.tag.id} failed validation with error '${x}'`,
+          `preferred tag instance with id ${this.tag.normalizedName} failed validation with error '${x}'`,
         );
       });
     }

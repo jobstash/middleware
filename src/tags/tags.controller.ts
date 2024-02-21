@@ -291,11 +291,17 @@ export class TagsController {
         };
       }
 
-      await this.tagsService.linkSynonyms(
+      const tags = await this.tagsService.linkSynonyms(
         firstTagNode.getNormalizedName(),
         secondTagNode.getNormalizedName(),
         creatorWallet as string,
       );
+
+      return {
+        success: true,
+        message: "Linked synonyms successfully",
+        data: tags,
+      };
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -465,7 +471,7 @@ export class TagsController {
       res,
     );
     try {
-      const { originTag: originTag, pairedTagList: pairedTagList } = input;
+      const { originTag, pairedTagList } = input;
 
       const normalizedOriginTagName =
         this.tagsService.normalizeTagName(originTag);
@@ -509,6 +515,10 @@ export class TagsController {
       return {
         success: true,
         message: "Tags paired successfully",
+        data: [
+          normalizedOriginTagNameNode.getProperties(),
+          ...normalizedPairTagListNodes.map(tag => tag.getProperties()),
+        ],
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -538,9 +548,7 @@ export class TagsController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body() input: CreatePreferredTagInput,
-  ): Promise<
-    ResponseWithOptionalData<{ preferredName: string; synonyms: Tag[] }>
-  > {
+  ): Promise<ResponseWithOptionalData<TagPreference>> {
     this.logger.log(`/tags/create-preference ${JSON.stringify(input)}`);
     const { address: creatorWallet } = await this.authService.getSession(
       req,
@@ -548,8 +556,6 @@ export class TagsController {
     );
     try {
       const { preferredName, synonyms } = input;
-
-      const results: Tag[] = [];
 
       const normalizedPreferredName =
         this.tagsService.normalizeTagName(preferredName);
@@ -646,16 +652,18 @@ export class TagsController {
               preferredTag.getNormalizedName(),
               storedTagNode.getNormalizedName(),
             );
-
-            results.push(storedTagNode.getProperties());
             oldSynonymList.push(storedTagNode.getProperties());
           }
         }
       }
 
+      const result = await this.tagsService.findPreferredTagByNormalizedName(
+        preferredTag.getNormalizedName(),
+      );
+
       return {
         success: true,
-        data: { preferredName: preferredName, synonyms: results },
+        data: result,
         message: "Tag preference created successfully",
       };
     } catch (err) {

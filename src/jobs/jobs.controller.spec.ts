@@ -43,7 +43,6 @@ import {
 import { HttpModule, HttpService } from "@nestjs/axios";
 import * as https from "https";
 import { CustomLogger } from "src/shared/utils/custom-logger";
-import { ProfileController } from "src/auth/profile/profile.controller";
 import { OrganizationsService } from "src/organizations/organizations.service";
 import { MailService } from "src/mail/mail.service";
 import { addWeeks, subWeeks } from "date-fns";
@@ -52,7 +51,6 @@ describe("JobsController", () => {
   let controller: JobsController;
   let models: ModelService;
   let authService: AuthService;
-  // let profileController: ProfileController;
   let httpService: HttpService;
 
   const logger = new CustomLogger(`${JobsController.name}TestSuite`);
@@ -188,7 +186,7 @@ describe("JobsController", () => {
           }),
         }),
       ],
-      controllers: [JobsController, ProfileController],
+      controllers: [JobsController],
       providers: [
         JobsService,
         TagsService,
@@ -206,7 +204,6 @@ describe("JobsController", () => {
     await models.onModuleInit();
     controller = module.get<JobsController>(JobsController);
     authService = module.get<AuthService>(AuthService);
-    // profileController = module.get<ProfileController>(ProfileController);
     httpService = module.get<HttpService>(HttpService);
   }, REALLY_LONG_TIME);
 

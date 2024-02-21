@@ -64,8 +64,10 @@ export class TagsService {
       `,
       { normalizedPreferredName },
     );
-    return res.records.length
-      ? new TagPreference(res.records[0].get("res"))
+
+    // console.log(JSON.stringify(res.records[0].get("res")));
+    return res.records[0].get("res")
+      ? new TagPreference(res.records[0].get("res") as TagPreference)
       : null;
   }
 
@@ -212,6 +214,7 @@ export class TagsService {
           MERGE (pt)-[r:HAS_TAG_DESIGNATION]->(pd)
           SET r.creator = $creatorWallet
           SET r.timestamp = timestamp()
+          WITH pt
           RETURN pt
           `,
         {
@@ -339,20 +342,32 @@ export class TagsService {
   async getSynonymPreferredTag(
     synonymNormalizedName: string,
   ): Promise<TagPreference | undefined> {
-    const res = await this.neogma.queryRunner.run(
-      `
-        MATCH (t:Tag {normalizedName: $synonymNormalizedName})-[:IS_SYNONYM_OF]->(pt:Tag)-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
-        RETURN pt {
+    try {
+      const res = await this.neogma.queryRunner.run(
+        `
+        MATCH (:Tag {normalizedName: $synonymNormalizedName})-[:IS_SYNONYM_OF]->(pt:Tag)-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
+        RETURN {
           tag: pt { .* },
           synonyms: apoc.coll.toSet([(pt)-[:IS_SYNONYM_OF]-(t2) | t2 { .* }])
         } as res
         `,
-      { synonymNormalizedName },
-    );
+        { synonymNormalizedName },
+      );
 
-    return res.records[0]?.get("res")
-      ? new TagPreference(res.records[0]?.get("res") as TagPreference)
-      : undefined;
+      return res.records[0]?.get("res")
+        ? new TagPreference(res.records[0]?.get("res") as TagPreference)
+        : undefined;
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "tags.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`TagsService::getSynonymPreferredTag ${err.message}`);
+      return undefined;
+    }
   }
 
   async relatePairedTags(
@@ -520,19 +535,17 @@ export class TagsService {
   ): Promise<Tag[]> {
     const res = await this.neogma.queryRunner.run(
       `
-      MATCH (t1:Tag {normalizedName: $originTagNormalizedName}), (t2:Tag {normalizedName: $synonymNormalizedName})
-      
-      CREATE (t1)<-[ts:IS_SYNONYM_OF]-(t2)
+      MERGE (t1:Tag {normalizedName: $originTagNormalizedName})<-[ts:IS_SYNONYM_OF]-(t2:Tag {normalizedName: $synonymNormalizedName})
 
       SET ts.timestamp = timestamp()
-      SET ts.synonymNodeId = $secondTagNodeId
       SET ts.creator = $synonymSuggesterWallet
 
+      WITH t1,t2
       OPTIONAL MATCH (ty)-[:IS_SYNONYM_OF]-(t2)
 
-      MERGE (ty)-[:IS_SYNONYM_OF]->(t1)
+      WHERE ty.id <> t1.id AND ty.id <> t2.id
 
-      WITH t1, t2
+      MERGE (ty)-[:IS_SYNONYM_OF]->(t1)
 
       RETURN t1, t2
       `,
@@ -549,9 +562,9 @@ export class TagsService {
       );
     }
 
-    const [first, second] = res.records;
-    const firstNode = new Tag(first.get("t1"));
-    const secondNode = new Tag(second.get("t2"));
+    const result = res.records[0];
+    const firstNode = new TagEntity(result.get("t1")).getProperties();
+    const secondNode = new TagEntity(result.get("t2")).getProperties();
 
     return [firstNode, secondNode];
   }
@@ -582,16 +595,28 @@ export class TagsService {
         id: id,
       },
       return: true,
-    }).then(res => new Tag(res[0][0].getDataValues()));
+    }).then(res => new TagEntity(instanceToNode(res[0][0])).getProperties());
   }
 
   async deleteById(id: string): Promise<boolean> {
-    await this.models.Tags.delete({
-      where: {
-        id: id,
-      },
-    });
-    return true;
+    try {
+      await this.models.Tags.delete({
+        where: {
+          id: id,
+        },
+      });
+      return true;
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "tags.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`TagsService::deleteById ${err.message}`);
+      return false;
+    }
   }
 
   normalizeTagName(name: string): string {
