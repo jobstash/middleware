@@ -4,6 +4,25 @@
 ### Bug Fixes
 
 * **jobs:** fixed bug in update jobs endpoint ([78d36eb](https://github.com/jobstash/middleware/commit/78d36eb330f234ed1f46ea3c09b6125bdf369d1b))
+* **jobs:** fixed bug that made jobs dissappear on update ([08e587d](https://github.com/jobstash/middleware/commit/08e587dee7649b5dbb1d29ab0db12ea0e3594242))
+* **jobs:** fixed filter bug in salary currency ([8baae2f](https://github.com/jobstash/middleware/commit/8baae2f46dedb42f2eb5461b17e728928a98fcc1))
+* **jobs:** refactored update jobs endpoint to match FE interface ([6e29aa1](https://github.com/jobstash/middleware/commit/6e29aa14ce288190cdd97d3768c282cd9519ccc4))
+* **magic:** fixed bugs with magic link sign up experience ([af1336d](https://github.com/jobstash/middleware/commit/af1336dafacc87f469137d502a8d7a5997a9a4f2))
+
+
+### Features
+
+* **tags:** implemented tag matching endpoint ([b1d0d98](https://github.com/jobstash/middleware/commit/b1d0d988e12db571c0842fd051256915abec9d66))
+* **users:** added get approved orgs endpoint ([80b3879](https://github.com/jobstash/middleware/commit/80b387967292a4c58d8b4324615976a6d6de3633))
+* **users:** implemented authorize org application endpoint ([d0ced23](https://github.com/jobstash/middleware/commit/d0ced23e5d8a13f827813e5265d95d70684897da))
+* **users:** implemented endpoint to get org users awaiting approval ([512e199](https://github.com/jobstash/middleware/commit/512e19988c249aa6c3a41b11d5856050084f851c))
+
+# [1.79.0](https://github.com/jobstash/middleware/compare/v1.78.1...v1.79.0) (2024-02-22)
+
+
+### Bug Fixes
+
+* **jobs:** fixed bug in update jobs endpoint ([78d36eb](https://github.com/jobstash/middleware/commit/78d36eb330f234ed1f46ea3c09b6125bdf369d1b))
 * **jobs:** fixed filter bug in salary currency ([8baae2f](https://github.com/jobstash/middleware/commit/8baae2f46dedb42f2eb5461b17e728928a98fcc1))
 * **jobs:** refactored update jobs endpoint to match FE interface ([6e29aa1](https://github.com/jobstash/middleware/commit/6e29aa14ce288190cdd97d3768c282cd9519ccc4))
 * **magic:** fixed bugs with magic link sign up experience ([af1336d](https://github.com/jobstash/middleware/commit/af1336dafacc87f469137d502a8d7a5997a9a4f2))
