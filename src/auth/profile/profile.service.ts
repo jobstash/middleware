@@ -561,7 +561,6 @@ export class ProfileService {
             properties: {
               canTeach: skill.canTeach,
             },
-            assertCreatedRelationships: 1,
           });
         }
       }

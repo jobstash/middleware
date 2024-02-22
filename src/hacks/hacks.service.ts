@@ -44,7 +44,6 @@ export class HacksService {
         properties: {
           creator: wallet,
         },
-        assertCreatedRelationships: 1,
       });
       return {
         success: true,

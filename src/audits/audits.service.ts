@@ -42,7 +42,6 @@ export class AuditsService {
         properties: {
           creator: wallet,
         },
-        assertCreatedRelationships: 1,
       });
       return {
         success: true,

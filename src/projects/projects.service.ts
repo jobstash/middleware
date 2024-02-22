@@ -671,7 +671,6 @@ export class ProjectsService {
           id: projectCategoryId,
         },
       },
-      assertCreatedRelationships: 1,
     });
     return result === 1;
   }
@@ -692,7 +691,6 @@ export class ProjectsService {
             },
           },
         },
-        // assertCreatedRelationships: dto.jobs.length,
       });
       return {
         success: true,
@@ -731,7 +729,6 @@ export class ProjectsService {
             },
           },
         },
-        // assertCreatedRelationships: dto.repos.length,
       });
       return {
         success: true,

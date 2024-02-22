@@ -1053,7 +1053,6 @@ export class JobsService {
               name: dto.classification,
             },
           },
-          assertCreatedRelationships: 1,
           properties: {
             creator: wallet,
           },
@@ -1162,13 +1161,15 @@ export class JobsService {
         })
       )[0];
 
-      await this.models.StructuredJobposts.deleteRelationships({
-        alias: "commitment",
-        where: {
-          source: { shortUUID: dto.shortUUID },
-          target: { name: job.target.name },
-        },
-      });
+      if (job?.target?.__existsInDatabase) {
+        await this.models.StructuredJobposts.deleteRelationships({
+          alias: "commitment",
+          where: {
+            source: { shortUUID: dto.shortUUID },
+            target: { name: job.target.name },
+          },
+        });
+      }
       await this.models.StructuredJobposts.relateTo({
         alias: "commitment",
         where: {
@@ -1179,7 +1180,6 @@ export class JobsService {
             name: dto.commitment,
           },
         },
-        assertCreatedRelationships: 1,
         properties: {
           creator: wallet,
         },
@@ -1240,7 +1240,6 @@ export class JobsService {
             name: dto.locationType,
           },
         },
-        assertCreatedRelationships: 1,
         properties: {
           creator: wallet,
         },
@@ -1300,7 +1299,6 @@ export class JobsService {
             id: dto.projectId,
           },
         },
-        assertCreatedRelationships: 1,
         properties: {
           creator: wallet,
         },
@@ -1371,7 +1369,6 @@ export class JobsService {
               name: "BlockedDesignation",
             },
           },
-          assertCreatedRelationships: 1,
           properties: {
             creator: wallet,
           },

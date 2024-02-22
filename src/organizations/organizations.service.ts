@@ -848,7 +848,6 @@ export class OrganizationsService {
         where: {
           id: projectId,
         },
-        assertCreatedRelationships: 1,
       });
       return true;
     } catch (err) {
@@ -908,7 +907,6 @@ export class OrganizationsService {
           where: {
             name: dto.aliasName,
           },
-          assertCreatedRelationships: 1,
         });
         return {
           success: true,
