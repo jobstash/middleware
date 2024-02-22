@@ -560,7 +560,7 @@ export class JobsController {
       return res4;
     }
 
-    if (project !== null) {
+    if (project) {
       const res5 = await this.jobsService.changeJobProject(address as string, {
         shortUUID,
         projectId: project,

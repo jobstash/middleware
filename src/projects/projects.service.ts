@@ -129,9 +129,9 @@ export class ProjectsService {
         (!maxMonthlyRevenue ||
           (project?.monthlyRevenue ?? 0) < maxMonthlyRevenue) &&
         (auditFilter === null ||
-          (project?.audits.length ?? 0) > 0 === auditFilter) &&
+          (project?.audits?.length ?? 0) > 0 === auditFilter) &&
         (hackFilter === null ||
-          (project?.hacks.length ?? 0) > 0 === hackFilter) &&
+          (project?.hacks?.length ?? 0) > 0 === hackFilter) &&
         (!chainFilterList ||
           (chainFilterList.find(x =>
             project.chains.map(x => normalizeString(x.name)).includes(x),
