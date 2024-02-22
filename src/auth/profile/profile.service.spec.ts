@@ -189,6 +189,7 @@ describe("ProfileService", () => {
           avatar: expect.any(String),
           username: TEST_GITHUB_USER,
           email: TEST_EMAIL,
+          wallet: EPHEMERAL_TEST_WALLET,
           ...profileData,
         },
       });
@@ -563,6 +564,7 @@ describe("ProfileService", () => {
           avatar: null,
           username: null,
           email: null,
+          wallet: EPHEMERAL_TEST_WALLET,
           ...newProfileData,
         },
       });

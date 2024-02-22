@@ -56,6 +56,7 @@ export class UserService {
         `
           MATCH (user:User {wallet: $wallet})
           RETURN {
+            wallet: user.wallet,
             availableForWork: user.available,
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
@@ -488,6 +489,7 @@ export class UserService {
         `
           MATCH (user:User)
           RETURN {
+            wallet: user.wallet,
             availableForWork: user.available,
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
@@ -524,6 +526,7 @@ export class UserService {
           WHERE (user)-[:HAS_ROLE]->(:UserRole { name: "ORG" })
           AND (user)-[:HAS_USER_FLOW_STAGE]->(:UserFlow { name: "ORG-APPROVAL" })
           RETURN {
+            wallet: user.wallet,
             availableForWork: user.available,
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
@@ -560,6 +563,7 @@ export class UserService {
           WHERE (user)-[:HAS_ROLE]->(:UserRole { name: "ORG" })
           AND (user)-[:HAS_USER_FLOW_STAGE]->(:UserFlow { name: "ORG-COMPLETE" })
           RETURN {
+            wallet: user.wallet,
             availableForWork: user.available,
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],

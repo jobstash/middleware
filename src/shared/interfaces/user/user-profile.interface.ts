@@ -4,6 +4,7 @@ import { report } from "io-ts-human-reporter";
 
 export class UserProfile {
   public static readonly UserProfileType = t.strict({
+    wallet: t.string,
     avatar: t.union([t.string, t.null]),
     username: t.union([t.string, t.null]),
     email: t.union([t.string, t.null]),
@@ -18,6 +19,7 @@ export class UserProfile {
     availableForWork: t.union([t.boolean, t.null]),
   });
 
+  wallet: string;
   avatar: string | null;
   username: string | null;
   email: string | null;
@@ -32,11 +34,19 @@ export class UserProfile {
   availableForWork: boolean | null;
 
   constructor(raw: UserProfile) {
-    const { avatar, username, email, availableForWork, contact, location } =
-      raw;
+    const {
+      wallet,
+      avatar,
+      username,
+      email,
+      availableForWork,
+      contact,
+      location,
+    } = raw;
 
     const result = UserProfile.UserProfileType.decode(raw);
 
+    this.wallet = wallet;
     this.avatar = avatar;
     this.email = email;
     this.username = username;

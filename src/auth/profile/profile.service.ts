@@ -83,6 +83,7 @@ export class ProfileService {
           availableForWork: userProfile?.available ?? false,
           avatar: userGithub[0]?.target?.avatarUrl,
           username: userGithub[0]?.target?.login,
+          wallet,
           contact: {
             value: userContact[0]?.target?.value,
             preferred: userContact[0]?.target?.preferred,
@@ -399,6 +400,7 @@ export class ProfileService {
         
         WITH user
         RETURN {
+          wallet: $wallet,
           availableForWork: user.available,
           email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],

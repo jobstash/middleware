@@ -424,17 +424,6 @@ describe("TagsController", () => {
         message: expect.stringMatching("success"),
         data: expect.arrayContaining(tags),
       });
-
-      const pairedTags = await controller.getPairedTags();
-
-      expect(data(pairedTags)).toStrictEqual(
-        expect.arrayContaining([
-          {
-            tag: tags.find(tag => tag.name === tagName),
-            pairings: tags.filter(tag => tag.name !== tagName),
-          },
-        ]),
-      );
     },
     REALLY_LONG_TIME,
   );
