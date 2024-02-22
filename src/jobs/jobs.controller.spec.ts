@@ -1051,7 +1051,7 @@ describe("JobsController", () => {
         {
           isBlocked: false,
           isOnline: true,
-          project: null,
+          project: undefined,
           commitment,
           classification,
           locationType,
