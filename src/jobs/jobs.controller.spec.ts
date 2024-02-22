@@ -46,6 +46,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { OrganizationsService } from "src/organizations/organizations.service";
 import { MailService } from "src/mail/mail.service";
 import { addWeeks, subWeeks } from "date-fns";
+import { randomUUID } from "crypto";
 
 describe("JobsController", () => {
   let controller: JobsController;
@@ -1006,7 +1007,11 @@ describe("JobsController", () => {
       const commitment = "INTERNSHIP";
       const classification = "OPERATIONS";
       const locationType = "REMOTE";
-      const newTags = ["TypeScript", "Neo4j"];
+      const newTags = ["TypeScript", "Neo4j"].map(x => ({
+        id: randomUUID(),
+        name: x,
+        normalizedName: x,
+      }));
 
       jest.spyOn(authService, "getSession").mockImplementation(async () => ({
         address: EPHEMERAL_TEST_WALLET,
@@ -1088,7 +1093,7 @@ describe("JobsController", () => {
       );
 
       expect(details.tags.map(x => x.name)).toStrictEqual(
-        expect.arrayContaining(newTags),
+        expect.arrayContaining(newTags.map(x => x.name)),
       );
       expect(details.commitment).toEqual(commitment);
       expect(details.classification).toEqual(classification);

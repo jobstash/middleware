@@ -571,7 +571,10 @@ export class JobsController {
       }
     }
 
-    const res6 = await this.editTags(req, res, { shortUUID, tags });
+    const res6 = await this.editTags(req, res, {
+      shortUUID,
+      tags: tags.map(x => x.name),
+    });
     if (res6.success === false) {
       this.logger.error(res6.message);
       return res6;

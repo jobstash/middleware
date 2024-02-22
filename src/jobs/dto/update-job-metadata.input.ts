@@ -8,6 +8,7 @@ import {
   IsPositive,
   IsString,
 } from "class-validator";
+import { Tag } from "src/shared/interfaces";
 
 export class UpdateJobMetadataInput {
   @ApiProperty()
@@ -122,5 +123,5 @@ export class UpdateJobMetadataInput {
 
   @ApiProperty()
   @IsArray()
-  tags: string[];
+  tags: Tag[];
 }
