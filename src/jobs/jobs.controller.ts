@@ -491,7 +491,7 @@ export class JobsController {
       ...dto
     } = body;
 
-    if (isBlocked) {
+    if (isBlocked === true) {
       const res1a = await this.jobsService.blockJobs(address as string, {
         shortUUIDs: [shortUUID],
       });
@@ -500,16 +500,18 @@ export class JobsController {
         return res1a;
       }
     } else {
-      const res1a = await this.jobsService.unblockJobs(address as string, {
-        shortUUIDs: [shortUUID],
-      });
-      if (res1a.success === false) {
-        this.logger.error(res1a.message);
-        return res1a;
+      if (isBlocked === false) {
+        const res1a = await this.jobsService.unblockJobs(address as string, {
+          shortUUIDs: [shortUUID],
+        });
+        if (res1a.success === false) {
+          this.logger.error(res1a.message);
+          return res1a;
+        }
       }
     }
 
-    if (isOnline) {
+    if (isOnline === true) {
       const res1b = await this.jobsService.makeJobsOnline(address as string, {
         shortUUIDs: [shortUUID],
       });
@@ -518,12 +520,17 @@ export class JobsController {
         return res1b;
       }
     } else {
-      const res1b = await this.jobsService.makeJobsOffline(address as string, {
-        shortUUIDs: [shortUUID],
-      });
-      if (res1b.success === false) {
-        this.logger.error(res1b.message);
-        return res1b;
+      if (isOnline === false) {
+        const res1b = await this.jobsService.makeJobsOffline(
+          address as string,
+          {
+            shortUUIDs: [shortUUID],
+          },
+        );
+        if (res1b.success === false) {
+          this.logger.error(res1b.message);
+          return res1b;
+        }
       }
     }
 
@@ -596,8 +603,8 @@ export class JobsController {
   }
 
   @Post("/block")
-  // @UseGuards(RBACGuard)
-  // @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Blocks a list of jobs",
     schema: {
