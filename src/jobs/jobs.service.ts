@@ -1480,7 +1480,6 @@ export class JobsService {
           properties: {
             creator: wallet,
           },
-          assertCreatedRelationships: 1,
         });
       }
 
@@ -1546,7 +1545,6 @@ export class JobsService {
           properties: {
             creator: wallet,
           },
-          assertCreatedRelationships: 1,
         });
       }
       return {
