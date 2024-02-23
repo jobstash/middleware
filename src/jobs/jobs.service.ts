@@ -1040,7 +1040,6 @@ export class JobsService {
           alias: "classification",
           where: {
             source: { shortUUID: uuid },
-            // target: { name: job.target.name },
           },
         });
         await this.models.StructuredJobposts.relateTo({
@@ -1149,27 +1148,12 @@ export class JobsService {
     dto: ChangeJobCommitmentInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const job = (
-        await this.models.StructuredJobposts.findRelationships({
-          where: {
-            source: {
-              shortUUID: dto.shortUUID,
-            },
-          },
-          alias: "commitment",
-          limit: 1,
-        })
-      )[0];
-
-      if (job?.target?.__existsInDatabase) {
-        await this.models.StructuredJobposts.deleteRelationships({
-          alias: "commitment",
-          where: {
-            source: { shortUUID: dto.shortUUID },
-            target: { name: job.target.name },
-          },
-        });
-      }
+      await this.models.StructuredJobposts.deleteRelationships({
+        alias: "commitment",
+        where: {
+          source: { shortUUID: dto.shortUUID },
+        },
+      });
       await this.models.StructuredJobposts.relateTo({
         alias: "commitment",
         where: {
@@ -1211,23 +1195,10 @@ export class JobsService {
     dto: ChangeJobLocationTypeInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const job = (
-        await this.models.StructuredJobposts.findRelationships({
-          where: {
-            source: {
-              shortUUID: dto.shortUUID,
-            },
-          },
-          alias: "locationType",
-          limit: 1,
-        })
-      )[0];
-
       await this.models.StructuredJobposts.deleteRelationships({
         alias: "locationType",
         where: {
           source: { shortUUID: dto.shortUUID },
-          target: { name: job.target.name },
         },
       });
       await this.models.StructuredJobposts.relateTo({
@@ -1282,13 +1253,15 @@ export class JobsService {
           },
         })
       )[0];
-      await this.models.Projects.deleteRelationships({
-        alias: "jobs",
-        where: {
-          source: { id: oldProject.source.id },
-          target: { shortUUID: dto.shortUUID },
-        },
-      });
+      if (oldProject.target) {
+        await this.models.Projects.deleteRelationships({
+          alias: "jobs",
+          where: {
+            source: { id: oldProject.source.id },
+            target: { shortUUID: dto.shortUUID },
+          },
+        });
+      }
       await this.models.Projects.relateTo({
         alias: "jobs",
         where: {
@@ -1351,13 +1324,20 @@ export class JobsService {
     dto: BlockJobsInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.models.BlockedDesignation.createOne(
-        { id: randomUUID(), name: "BlockedDesignation" },
-        {
-          merge: true,
-          assertRelationshipsOfWhere: 0,
+      const blockedDesignation = await this.models.BlockedDesignation.findOne({
+        where: {
+          name: "BlockedDesignation",
         },
-      );
+      });
+      if (!blockedDesignation?.__existsInDatabase) {
+        await this.models.BlockedDesignation.createOne(
+          { id: randomUUID(), name: "BlockedDesignation" },
+          {
+            merge: true,
+            assertRelationshipsOfWhere: 0,
+          },
+        );
+      }
       for (const uuid of dto.shortUUIDs) {
         await this.models.StructuredJobposts.relateTo({
           alias: "blocked",

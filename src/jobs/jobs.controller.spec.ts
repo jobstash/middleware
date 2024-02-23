@@ -229,6 +229,371 @@ describe("JobsController", () => {
   );
 
   it(
+    "should change a job's classification",
+    async () => {
+      const params: JobListParams = {
+        ...new JobListParams(),
+        page: 1,
+        limit: 5,
+      };
+
+      const req: Partial<Request> = {};
+      const res: Partial<Response> = {};
+
+      const newClassification = "OPERATIONS";
+
+      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+        address: EPHEMERAL_TEST_WALLET,
+        destroy: async (): Promise<void> => {
+          logger.log("session destroyed");
+        },
+        save: async (): Promise<void> => {
+          logger.log("session saved");
+        },
+      }));
+
+      const job = (
+        await controller.getJobsListWithSearch(
+          req as Request,
+          res as Response,
+          params,
+        )
+      ).data.find(job => job.classification !== newClassification);
+
+      const result = await controller.changeClassification(
+        req as Request,
+        res as Response,
+        { classification: newClassification, shortUUIDs: [job.shortUUID] },
+      );
+
+      expect(result).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+      });
+
+      const details = await controller.getJobDetailsByUuid(
+        job.shortUUID,
+        req as Request,
+        res as Response,
+      );
+
+      expect(details.classification).toBe(newClassification);
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should make a job featured",
+    async () => {
+      const params: JobListParams = {
+        ...new JobListParams(),
+        page: 10,
+        limit: 5,
+      };
+
+      const req: Partial<Request> = {};
+      const res: Partial<Response> = {};
+
+      const startDate = subWeeks(new Date(), 1);
+      const endDate = addWeeks(startDate, 10);
+
+      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+        address: EPHEMERAL_TEST_WALLET,
+        destroy: async (): Promise<void> => {
+          logger.log("session destroyed");
+        },
+        save: async (): Promise<void> => {
+          logger.log("session saved");
+        },
+      }));
+
+      const job = (
+        await controller.getJobsListWithSearch(
+          req as Request,
+          res as Response,
+          params,
+        )
+      ).data.find(job => !job.featured);
+
+      const result = await controller.makeFeatured(
+        req as Request,
+        res as Response,
+        {
+          shortUUID: job.shortUUID,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+      );
+
+      expect(result).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+      });
+
+      const details = await controller.getJobDetailsByUuid(
+        job.shortUUID,
+        req as Request,
+        res as Response,
+      );
+
+      expect(details.featured).toBe(true);
+      expect(details.featureStartDate).toBe(startDate.getTime());
+      expect(details.featureEndDate).toBe(endDate.getTime());
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should edit a job's tags",
+    async () => {
+      const params: JobListParams = {
+        ...new JobListParams(),
+        page: 1,
+        limit: 1,
+      };
+
+      const req: Partial<Request> = {};
+      const res: Partial<Response> = {};
+
+      const newTags = ["TypeScript", "Neo4j"];
+
+      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+        address: EPHEMERAL_TEST_WALLET,
+        destroy: async (): Promise<void> => {
+          logger.log("session destroyed");
+        },
+        save: async (): Promise<void> => {
+          logger.log("session saved");
+        },
+      }));
+
+      const job = (
+        await controller.getJobsListWithSearch(
+          req as Request,
+          res as Response,
+          params,
+        )
+      ).data[0];
+
+      const result = await controller.editTags(
+        req as Request,
+        res as Response,
+        {
+          shortUUID: job.shortUUID,
+          tags: newTags,
+        },
+      );
+
+      expect(result).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+      });
+
+      const details = await controller.getJobDetailsByUuid(
+        job.shortUUID,
+        req as Request,
+        res as Response,
+      );
+
+      expect(details.tags.map(x => x.name)).toStrictEqual(
+        expect.arrayContaining(newTags),
+      );
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should update a job's metadata",
+    async () => {
+      const params: JobListParams = {
+        ...new JobListParams(),
+        page: 1,
+        limit: 1,
+      };
+
+      const req: Partial<Request> = {};
+      const res: Partial<Response> = {};
+
+      const commitment = "INTERNSHIP";
+      const classification = "OPERATIONS";
+      const locationType = "REMOTE";
+      const newTags = ["TypeScript", "Neo4j"].map(x => ({
+        id: randomUUID(),
+        name: x,
+        normalizedName: x,
+      }));
+
+      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+        address: EPHEMERAL_TEST_WALLET,
+        destroy: async (): Promise<void> => {
+          logger.log("session destroyed");
+        },
+        save: async (): Promise<void> => {
+          logger.log("session saved");
+        },
+      }));
+
+      const {
+        shortUUID,
+        benefits,
+        culture,
+        description,
+        location,
+        maximumSalary,
+        minimumSalary,
+        offersTokenAllocation,
+        paysInCrypto,
+        requirements,
+        responsibilities,
+        salary,
+        salaryCurrency,
+        seniority,
+        summary,
+        title,
+        url,
+      } = (
+        await controller.getJobsListWithSearch(
+          req as Request,
+          res as Response,
+          params,
+        )
+      ).data[0];
+
+      const result = await controller.updateJobMetadata(
+        req as Request,
+        res as Response,
+        shortUUID,
+        {
+          isBlocked: false,
+          isOnline: true,
+          project: undefined,
+          commitment,
+          classification,
+          locationType,
+          benefits,
+          culture,
+          description,
+          location,
+          maximumSalary,
+          minimumSalary,
+          offersTokenAllocation,
+          paysInCrypto,
+          requirements,
+          responsibilities,
+          salary,
+          salaryCurrency,
+          seniority,
+          summary,
+          title,
+          url,
+          tags: newTags,
+        },
+      );
+
+      expect(result).toStrictEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+        data: expect.any(JobListResult),
+      });
+
+      const details = await controller.getJobDetailsByUuid(
+        shortUUID,
+        req as Request,
+        res as Response,
+      );
+
+      expect(details.tags.map(x => x.name)).toStrictEqual(
+        expect.arrayContaining(newTags.map(x => x.name)),
+      );
+      expect(details.commitment).toEqual(commitment);
+      expect(details.classification).toEqual(classification);
+      expect(details.locationType).toEqual(locationType);
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should block a job",
+    async () => {
+      const req: Partial<Request> = {};
+      const res: Partial<Response> = {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        status: _ => {
+          return {} as Response;
+        },
+      };
+
+      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+        address: EPHEMERAL_TEST_WALLET,
+        destroy: async (): Promise<void> => {
+          logger.log("session destroyed");
+        },
+        save: async (): Promise<void> => {
+          logger.log("session saved");
+        },
+      }));
+
+      const result = await controller.blockJobs(
+        req as Request,
+        res as Response,
+        { shortUUIDs: [NOT_SO_RANDOM_TEST_SHORT_UUID] },
+      );
+
+      expect(result).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+      });
+
+      const details = await controller.getJobDetailsByUuid(
+        NOT_SO_RANDOM_TEST_SHORT_UUID,
+        req as Request,
+        res as Response,
+      );
+
+      expect(details).toBeUndefined();
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should unblock a job",
+    async () => {
+      const req: Partial<Request> = {};
+      const res: Partial<Response> = {};
+
+      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+        address: EPHEMERAL_TEST_WALLET,
+        destroy: async (): Promise<void> => {
+          logger.log("session destroyed");
+        },
+        save: async (): Promise<void> => {
+          logger.log("session saved");
+        },
+      }));
+
+      const result = await controller.unblockJobs(
+        req as Request,
+        res as Response,
+        { shortUUIDs: [NOT_SO_RANDOM_TEST_SHORT_UUID] },
+      );
+
+      expect(result).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+      });
+
+      const details = await controller.getJobDetailsByUuid(
+        NOT_SO_RANDOM_TEST_SHORT_UUID,
+        req as Request,
+        res as Response,
+      );
+
+      expect(details).toStrictEqual(expect.any(JobListResult));
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
     "should get jobs list with no jobpost and array property duplication",
     async () => {
       const params: JobListParams = {
@@ -814,371 +1179,6 @@ describe("JobsController", () => {
           throw new Error(x);
         });
       }
-    },
-    REALLY_LONG_TIME,
-  );
-
-  it(
-    "should change a job's classification",
-    async () => {
-      const params: JobListParams = {
-        ...new JobListParams(),
-        page: 1,
-        limit: 5,
-      };
-
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
-
-      const newClassification = "OPERATIONS";
-
-      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: EPHEMERAL_TEST_WALLET,
-        destroy: async (): Promise<void> => {
-          logger.log("session destroyed");
-        },
-        save: async (): Promise<void> => {
-          logger.log("session saved");
-        },
-      }));
-
-      const job = (
-        await controller.getJobsListWithSearch(
-          req as Request,
-          res as Response,
-          params,
-        )
-      ).data.find(job => job.classification !== newClassification);
-
-      const result = await controller.changeClassification(
-        req as Request,
-        res as Response,
-        { classification: newClassification, shortUUIDs: [job.shortUUID] },
-      );
-
-      expect(result).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-      });
-
-      const details = await controller.getJobDetailsByUuid(
-        job.shortUUID,
-        req as Request,
-        res as Response,
-      );
-
-      expect(details.classification).toBe(newClassification);
-    },
-    REALLY_LONG_TIME,
-  );
-
-  it(
-    "should make a job featured",
-    async () => {
-      const params: JobListParams = {
-        ...new JobListParams(),
-        page: 10,
-        limit: 5,
-      };
-
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
-
-      const startDate = subWeeks(new Date(), 1);
-      const endDate = addWeeks(startDate, 10);
-
-      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: EPHEMERAL_TEST_WALLET,
-        destroy: async (): Promise<void> => {
-          logger.log("session destroyed");
-        },
-        save: async (): Promise<void> => {
-          logger.log("session saved");
-        },
-      }));
-
-      const job = (
-        await controller.getJobsListWithSearch(
-          req as Request,
-          res as Response,
-          params,
-        )
-      ).data.find(job => !job.featured);
-
-      const result = await controller.makeFeatured(
-        req as Request,
-        res as Response,
-        {
-          shortUUID: job.shortUUID,
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-        },
-      );
-
-      expect(result).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-      });
-
-      const details = await controller.getJobDetailsByUuid(
-        job.shortUUID,
-        req as Request,
-        res as Response,
-      );
-
-      expect(details.featured).toBe(true);
-      expect(details.featureStartDate).toBe(startDate.getTime());
-      expect(details.featureEndDate).toBe(endDate.getTime());
-    },
-    REALLY_LONG_TIME,
-  );
-
-  it(
-    "should edit a job's tags",
-    async () => {
-      const params: JobListParams = {
-        ...new JobListParams(),
-        page: 1,
-        limit: 1,
-      };
-
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
-
-      const newTags = ["TypeScript", "Neo4j"];
-
-      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: EPHEMERAL_TEST_WALLET,
-        destroy: async (): Promise<void> => {
-          logger.log("session destroyed");
-        },
-        save: async (): Promise<void> => {
-          logger.log("session saved");
-        },
-      }));
-
-      const job = (
-        await controller.getJobsListWithSearch(
-          req as Request,
-          res as Response,
-          params,
-        )
-      ).data[0];
-
-      const result = await controller.editTags(
-        req as Request,
-        res as Response,
-        {
-          shortUUID: job.shortUUID,
-          tags: newTags,
-        },
-      );
-
-      expect(result).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-      });
-
-      const details = await controller.getJobDetailsByUuid(
-        job.shortUUID,
-        req as Request,
-        res as Response,
-      );
-
-      expect(details.tags.map(x => x.name)).toStrictEqual(
-        expect.arrayContaining(newTags),
-      );
-    },
-    REALLY_LONG_TIME,
-  );
-
-  it(
-    "should update a job's metadata",
-    async () => {
-      const params: JobListParams = {
-        ...new JobListParams(),
-        page: 1,
-        limit: 1,
-      };
-
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
-
-      const commitment = "INTERNSHIP";
-      const classification = "OPERATIONS";
-      const locationType = "REMOTE";
-      const newTags = ["TypeScript", "Neo4j"].map(x => ({
-        id: randomUUID(),
-        name: x,
-        normalizedName: x,
-      }));
-
-      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: EPHEMERAL_TEST_WALLET,
-        destroy: async (): Promise<void> => {
-          logger.log("session destroyed");
-        },
-        save: async (): Promise<void> => {
-          logger.log("session saved");
-        },
-      }));
-
-      const {
-        shortUUID,
-        benefits,
-        culture,
-        description,
-        location,
-        maximumSalary,
-        minimumSalary,
-        offersTokenAllocation,
-        paysInCrypto,
-        requirements,
-        responsibilities,
-        salary,
-        salaryCurrency,
-        seniority,
-        summary,
-        title,
-        url,
-      } = (
-        await controller.getJobsListWithSearch(
-          req as Request,
-          res as Response,
-          params,
-        )
-      ).data[0];
-
-      const result = await controller.updateJobMetadata(
-        req as Request,
-        res as Response,
-        shortUUID,
-        {
-          isBlocked: false,
-          isOnline: true,
-          project: undefined,
-          commitment,
-          classification,
-          locationType,
-          benefits,
-          culture,
-          description,
-          location,
-          maximumSalary,
-          minimumSalary,
-          offersTokenAllocation,
-          paysInCrypto,
-          requirements,
-          responsibilities,
-          salary,
-          salaryCurrency,
-          seniority,
-          summary,
-          title,
-          url,
-          tags: newTags,
-        },
-      );
-
-      expect(result).toStrictEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-        data: expect.any(JobListResult),
-      });
-
-      const details = await controller.getJobDetailsByUuid(
-        shortUUID,
-        req as Request,
-        res as Response,
-      );
-
-      expect(details.tags.map(x => x.name)).toStrictEqual(
-        expect.arrayContaining(newTags.map(x => x.name)),
-      );
-      expect(details.commitment).toEqual(commitment);
-      expect(details.classification).toEqual(classification);
-      expect(details.locationType).toEqual(locationType);
-    },
-    REALLY_LONG_TIME,
-  );
-
-  it(
-    "should block a job",
-    async () => {
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        status: _ => {
-          return {} as Response;
-        },
-      };
-
-      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: EPHEMERAL_TEST_WALLET,
-        destroy: async (): Promise<void> => {
-          logger.log("session destroyed");
-        },
-        save: async (): Promise<void> => {
-          logger.log("session saved");
-        },
-      }));
-
-      const result = await controller.blockJobs(
-        req as Request,
-        res as Response,
-        { shortUUIDs: [NOT_SO_RANDOM_TEST_SHORT_UUID] },
-      );
-
-      expect(result).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-      });
-
-      const details = await controller.getJobDetailsByUuid(
-        NOT_SO_RANDOM_TEST_SHORT_UUID,
-        req as Request,
-        res as Response,
-      );
-
-      expect(details).toBeUndefined();
-    },
-    REALLY_LONG_TIME,
-  );
-
-  it(
-    "should unblock a job",
-    async () => {
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
-
-      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: EPHEMERAL_TEST_WALLET,
-        destroy: async (): Promise<void> => {
-          logger.log("session destroyed");
-        },
-        save: async (): Promise<void> => {
-          logger.log("session saved");
-        },
-      }));
-
-      const result = await controller.unblockJobs(
-        req as Request,
-        res as Response,
-        { shortUUIDs: [NOT_SO_RANDOM_TEST_SHORT_UUID] },
-      );
-
-      expect(result).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-      });
-
-      const details = await controller.getJobDetailsByUuid(
-        NOT_SO_RANDOM_TEST_SHORT_UUID,
-        req as Request,
-        res as Response,
-      );
-
-      expect(details).toStrictEqual(expect.any(JobListResult));
     },
     REALLY_LONG_TIME,
   );
