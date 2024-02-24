@@ -235,8 +235,6 @@ export class TagsController {
   }
 
   @Post("/match")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Return matching tags for a list of tags",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Tag) }),
