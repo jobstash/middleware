@@ -3,6 +3,31 @@
 
 ### Bug Fixes
 
+* **filters:** refactored date calculation for this week job date filter ([3f00d15](https://github.com/jobstash/middleware/commit/3f00d155597e6e94c2646e3d785dda32174d3373))
+* fixed neogma misunderstandingssss ([c21d04c](https://github.com/jobstash/middleware/commit/c21d04cfed8187c6c0b2687af8e6defe8e427b96))
+* **github:** added support for org github signup ([38a59df](https://github.com/jobstash/middleware/commit/38a59dfdf12e65e3bb8c4a13890ff8d977173caf))
+* **jobs:** fixed bug in update jobs endpoint ([78d36eb](https://github.com/jobstash/middleware/commit/78d36eb330f234ed1f46ea3c09b6125bdf369d1b))
+* **jobs:** fixed bug that made jobs dissappear on update ([08e587d](https://github.com/jobstash/middleware/commit/08e587dee7649b5dbb1d29ab0db12ea0e3594242))
+* **jobs:** fixed bugs on update job metadata endpoint ([be38c9e](https://github.com/jobstash/middleware/commit/be38c9e6e8131ef10b810fdd560118d0b03a17fe))
+* **jobs:** fixed filter bug in salary currency ([8baae2f](https://github.com/jobstash/middleware/commit/8baae2f46dedb42f2eb5461b17e728928a98fcc1))
+* **jobs:** fixed neogma misunderstanding ([4afa5e8](https://github.com/jobstash/middleware/commit/4afa5e8293d36689ff932dae101b02edc802175d))
+* **jobs:** refactored update jobs endpoint to match FE interface ([6e29aa1](https://github.com/jobstash/middleware/commit/6e29aa14ce288190cdd97d3768c282cd9519ccc4))
+* **magic:** fixed bugs with magic link sign up experience ([af1336d](https://github.com/jobstash/middleware/commit/af1336dafacc87f469137d502a8d7a5997a9a4f2))
+* **users:** temporarily disabled email step in org approval process for github signups ([e13038b](https://github.com/jobstash/middleware/commit/e13038b39db3434807aa68b57a427c4d3dc84e51))
+
+
+### Features
+
+* **tags:** implemented tag matching endpoint ([b1d0d98](https://github.com/jobstash/middleware/commit/b1d0d988e12db571c0842fd051256915abec9d66))
+* **users:** added get approved orgs endpoint ([80b3879](https://github.com/jobstash/middleware/commit/80b387967292a4c58d8b4324615976a6d6de3633))
+* **users:** implemented authorize org application endpoint ([d0ced23](https://github.com/jobstash/middleware/commit/d0ced23e5d8a13f827813e5265d95d70684897da))
+* **users:** implemented endpoint to get org users awaiting approval ([512e199](https://github.com/jobstash/middleware/commit/512e19988c249aa6c3a41b11d5856050084f851c))
+
+# [1.79.0](https://github.com/jobstash/middleware/compare/v1.78.1...v1.79.0) (2024-02-26)
+
+
+### Bug Fixes
+
 * fixed neogma misunderstandingssss ([c21d04c](https://github.com/jobstash/middleware/commit/c21d04cfed8187c6c0b2687af8e6defe8e427b96))
 * **github:** added support for org github signup ([38a59df](https://github.com/jobstash/middleware/commit/38a59dfdf12e65e3bb8c4a13890ff8d977173caf))
 * **jobs:** fixed bug in update jobs endpoint ([78d36eb](https://github.com/jobstash/middleware/commit/78d36eb330f234ed1f46ea3c09b6125bdf369d1b))
