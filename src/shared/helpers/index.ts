@@ -3,12 +3,11 @@ import { DateRange, JobListOrderBy } from "../enums";
 import {
   startOfDay,
   endOfDay,
-  startOfWeek,
-  endOfWeek,
   startOfMonth,
   endOfMonth,
   subWeeks,
   subMonths,
+  subDays,
 } from "date-fns";
 import {
   ReferenceObject,
@@ -182,9 +181,10 @@ export const publicationDateRangeGenerator = (
         endDate: endOfDay(now).getTime(),
       };
     case "this-week":
+      const sevenDaysAgo = subDays(now, 7);
       return {
-        startDate: startOfWeek(now).getTime(),
-        endDate: endOfWeek(now).getTime(),
+        startDate: startOfDay(sevenDaysAgo).getTime(),
+        endDate: endOfDay(now).getTime(),
       };
     case "this-month":
       return {
