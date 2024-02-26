@@ -136,7 +136,10 @@ export class GithubController {
     }
 
     await this.userService.setWalletFlow({
-      flow: CheckWalletFlows.ONBOARD_REPO,
+      flow:
+        role === CheckWalletRoles.DEV
+          ? CheckWalletFlows.ONBOARD_REPO
+          : CheckWalletFlows.ORG_APPROVAL,
       wallet: wallet,
     });
 
