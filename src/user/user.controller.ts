@@ -53,20 +53,21 @@ export class UserController {
     const org = await this.userService.findProfileByWallet(wallet);
 
     if (org) {
-      await this.userService.setWalletFlow({
-        flow:
-          verdict === "approve"
-            ? CheckWalletFlows.ORG_COMPLETE
-            : CheckWalletFlows.ORG_REJECTED,
-        wallet: wallet,
-      });
-      await this.mailService.sendEmail({
-        from: this.configService.getOrThrow<string>("EMAIL"),
-        to: org.email,
-        subject: "Application Review Outcome",
-        text:
-          verdict === "approve"
-            ? `
+      if (org.email) {
+        await this.userService.setWalletFlow({
+          flow:
+            verdict === "approve"
+              ? CheckWalletFlows.ORG_COMPLETE
+              : CheckWalletFlows.ORG_REJECTED,
+          wallet: wallet,
+        });
+        await this.mailService.sendEmail({
+          from: this.configService.getOrThrow<string>("EMAIL"),
+          to: org.email,
+          subject: "Application Review Outcome",
+          text:
+            verdict === "approve"
+              ? `
           Good Day,
 
           I hope this email finds you well. We appreciate your interest in our crypto job aggregator service and your recent application for inclusion in our platform. After a thorough review of your application, we are pleased to inform you that your organization has been approved.
@@ -83,7 +84,7 @@ export class UserController {
           Organization Review Lead
           JobStash.xyz
           `
-            : `
+              : `
           Dear $RECRUITER,
 
           I wanted to take a moment to express my appreciation for taking the time to apply as an organization at JobStash. We received a lot of interest, and we were impressed with your desire to contribute.
@@ -100,7 +101,8 @@ export class UserController {
           Organization Review Lead
           JobStash.xyz
           `,
-      });
+        });
+      }
       return {
         success: true,
         message: "Org authorized successfully",
