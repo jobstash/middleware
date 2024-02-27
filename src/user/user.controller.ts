@@ -26,6 +26,14 @@ export class UserController {
     return this.userService.findAll();
   }
 
+  @Get("devs/available")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
+  async getDevsAvailableForWork(): Promise<UserProfile[]> {
+    this.logger.log("/users/devs/available¬");
+    return this.userService.getDevsAvailableForWork();
+  }
+
   @Get("orgs/pending")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)

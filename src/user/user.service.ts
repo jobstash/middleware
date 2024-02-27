@@ -567,6 +567,44 @@ export class UserService {
       });
   }
 
+  async getDevsAvailableForWork(): Promise<UserProfile[]> {
+    return this.neogma.queryRunner
+      .run(
+        `
+          MATCH (user:User)
+          WHERE (user)-[:HAS_ROLE]->(:UserRole { name: "DEV" })
+          AND (user)-[:HAS_USER_FLOW_STAGE]->(:UserFlow { name: "SIGNUP-COMPLETE" })
+          AND user.available <> false
+          RETURN {
+            wallet: user.wallet,
+            availableForWork: user.available,
+            username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
+            avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+            contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
+            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0]
+          } as user
+        `,
+      )
+      .then(res =>
+        res.records.length
+          ? res.records.map(record =>
+              new UserProfileEntity(record.get("user")).getProperties(),
+            )
+          : [],
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`UserService::findAll ${err.message}`);
+        return [];
+      });
+  }
+
   async getOrgsAwaitingApproval(): Promise<UserProfile[]> {
     return this.neogma.queryRunner
       .run(
