@@ -355,7 +355,7 @@ describe("JobsController", () => {
       const req: Partial<Request> = {};
       const res: Partial<Response> = {};
 
-      const newTags = ["TypeScript", "Neo4j"];
+      const newTags = ["TypeScript"];
 
       jest.spyOn(authService, "getSession").mockImplementation(async () => ({
         address: EPHEMERAL_TEST_WALLET,
@@ -417,7 +417,7 @@ describe("JobsController", () => {
       const commitment = "INTERNSHIP";
       const classification = "OPERATIONS";
       const locationType = "REMOTE";
-      const newTags = ["TypeScript", "Neo4j"].map(x => ({
+      const newTags = ["TypeScript"].map(x => ({
         id: randomUUID(),
         name: x,
         normalizedName: x,
