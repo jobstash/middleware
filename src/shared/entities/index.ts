@@ -20,6 +20,7 @@ export * from "./org-review.entity";
 export * from "./organization-with-relations.entity";
 export * from "./structured-jobpost.entity";
 export * from "./structured-jobpost-with-relations.entity";
+export * from "./structured-jobpost-with-applicants.entity";
 export * from "./job-filter-configs.entity";
 export * from "./org-filter-configs.entity";
 export * from "./all-jobs-list-result.entity";

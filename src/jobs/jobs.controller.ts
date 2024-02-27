@@ -24,6 +24,7 @@ import {
   Response,
   StructuredJobpostWithRelations,
   ResponseWithOptionalData,
+  StructuredJobpostWithApplicants,
 } from "src/shared/types";
 import {
   ApiBadRequestResponse,
@@ -55,6 +56,7 @@ import { TagsService } from "src/tags/tags.service";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
 import { CheckWalletRoles } from "src/shared/constants";
 import { FeatureJobsInput } from "./dto/feature-jobs.input";
+import { UserService } from "src/user/user.service";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
@@ -65,6 +67,7 @@ export class JobsController {
     private readonly authService: AuthService,
     private readonly tagsService: TagsService,
     private readonly profileService: ProfileService,
+    private readonly userService: UserService,
   ) {}
 
   @Get("/list")
@@ -246,6 +249,55 @@ export class JobsController {
   async getOrgJobsList(@Param("id") id: string): Promise<JobListResult[]> {
     this.logger.log(`/jobs/org/${id}`);
     return this.jobsService.getJobsByOrgId(id);
+  }
+
+  @Get("/org/:id/applicants")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiOkResponse({
+    description:
+      "Returns a list of jobs posted by an org with corresponding applicants",
+    schema: {
+      allOf: [
+        {
+          type: "array",
+          items: { $ref: getSchemaPath(JobListResult) },
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ValidationError),
+        },
+      ],
+    },
+  })
+  async getOrgJobsListWithApplicants(
+    @Param("id") id: string,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ): Promise<ResponseWithOptionalData<StructuredJobpostWithApplicants[]>> {
+    this.logger.log(`/jobs/org/${id}/applicants`);
+    const { address, role } = await this.authService.getSession(req, res);
+    if (role === CheckWalletRoles.ORG) {
+      if (await this.userService.userAuthorizedForOrg(address as string, id)) {
+        return this.jobsService.getJobsByOrgIdWithApplicants(id);
+      } else {
+        res.status(HttpStatus.UNAUTHORIZED);
+        return {
+          success: false,
+          message: "You are not authorized to access this resource",
+        };
+      }
+    }
+    return this.jobsService.getJobsByOrgIdWithApplicants(id);
   }
 
   @Get("/all")

@@ -121,6 +121,17 @@ export class UserService {
     return result.records[0]?.get("hasEmail") as boolean;
   }
 
+  async userAuthorizedForOrg(wallet: string, orgId: string): Promise<boolean> {
+    const result = await this.neogma.queryRunner.run(
+      `
+        RETURN EXISTS((:User {wallet: $wallet})-[:HAS_ORGANIZATION_AUTHORIZATION]->(:Organization {orgId: $orgId})) AS hasOrgAuthorization
+      `,
+      { wallet, orgId },
+    );
+
+    return result.records[0]?.get("hasOrgAuthorization") as boolean;
+  }
+
   normalizeEmail(original: string | null): string | null {
     const specialChars = "!@#$%^&*<>()-+=,";
     if (!original) {
@@ -481,6 +492,44 @@ export class UserService {
         this.logger.error(`UserService::getFlowForWallet ${err.message}`);
         return undefined;
       });
+  }
+
+  async authorizeUserForOrg(
+    wallet: string,
+    orgId: string,
+  ): Promise<ResponseWithNoData> {
+    return (
+      this.neogma.queryRunner
+        .run(
+          `
+          MATCH (u:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
+          MERGE (u)-[:HAS_ORGANIZATION_AUTHORIZATION]->(org)
+          RETURN true as res
+        `,
+          { wallet, orgId },
+        )
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        .then(_ => {
+          return {
+            success: true,
+            message: "Set user authorization for org successfully",
+          };
+        })
+        .catch(err => {
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "db-call",
+              source: "user.service",
+            });
+            Sentry.captureException(err);
+          });
+          this.logger.error(`UserService::getFlowForWallet ${err.message}`);
+          return {
+            success: false,
+            message: "Setting user authorization for org failed",
+          };
+        })
+    );
   }
 
   async findAll(): Promise<UserProfile[]> {

@@ -37,7 +37,7 @@ export class UserController {
   @Get("orgs/approved")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
-  async getApprovedrgs(): Promise<UserProfile[]> {
+  async getApprovedOrgs(): Promise<UserProfile[]> {
     this.logger.log("/users/orgs/approved");
     return this.userService.getApprovedOrgs();
   }
@@ -48,11 +48,27 @@ export class UserController {
   async authorizeOrgApplication(
     @Body() body: AuthorizeOrgApplicationInput,
   ): Promise<ResponseWithNoData> {
-    const { wallet, verdict } = body;
+    const { wallet, verdict, orgId } = body;
     this.logger.log(`/users/orgs/authorize ${wallet}`);
     const org = await this.userService.findProfileByWallet(wallet);
 
     if (org) {
+      if (verdict === "approve") {
+        if (orgId) {
+          const result = await this.userService.authorizeUserForOrg(
+            wallet as string,
+            orgId,
+          );
+          if (!result.success) {
+            return result;
+          }
+        } else {
+          return {
+            success: false,
+            message: "Org must be included if the verdict is approved",
+          };
+        }
+      }
       if (org.email) {
         await this.userService.setWalletFlow({
           flow:
