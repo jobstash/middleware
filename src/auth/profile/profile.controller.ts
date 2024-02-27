@@ -274,7 +274,7 @@ export class ProfileController {
 
   @Post("delete")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
   @ApiOkResponse({
     description: "Updates the profile of the currently logged in user",
     schema: responseSchemaWrapper({
