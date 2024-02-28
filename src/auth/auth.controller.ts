@@ -16,10 +16,12 @@ import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
 import { AuthUser } from "src/shared/decorators/auth-user.decorator";
 import { Roles } from "src/shared/decorators/role.decorator";
 import {
+  OrgUserProfile,
   Response,
   ResponseWithNoData,
   User,
   UserProfile,
+  data,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { WalletAdminMappingDto } from "../user/dto/wallet-admin-mapping-request.dto";
@@ -111,9 +113,9 @@ export class AuthController {
   async verifyDevMagicLink(
     @AuthUser() user: User,
   ): Promise<Response<UserProfile>> {
-    const profile = (await this.profileService.getUserProfile(
-      user.wallet,
-    )) as Response<UserProfile>;
+    const profile = data(
+      await this.profileService.getDevUserProfile(user.wallet),
+    );
 
     await this.userService.setWalletFlow({
       flow: CheckWalletFlows.ONBOARD_PROFILE,
@@ -127,7 +129,7 @@ export class AuthController {
     return {
       success: true,
       message: "Signed in with email successfully",
-      data: profile.data,
+      data: profile,
     };
   }
 
@@ -139,10 +141,10 @@ export class AuthController {
   })
   async verifyOrgMagicLink(
     @AuthUser() user: User,
-  ): Promise<Response<UserProfile>> {
-    const profile = (await this.profileService.getUserProfile(
-      user.wallet,
-    )) as Response<UserProfile>;
+  ): Promise<Response<OrgUserProfile>> {
+    const profile = data(
+      await this.profileService.getOrgUserProfile(user.wallet),
+    );
 
     await this.userService.setWalletFlow({
       flow: CheckWalletFlows.ORG_APPROVAL,
@@ -156,7 +158,7 @@ export class AuthController {
     return {
       success: true,
       message: "Signed in with email successfully",
-      data: profile.data,
+      data: profile,
     };
   }
 

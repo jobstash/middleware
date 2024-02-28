@@ -1,0 +1,87 @@
+import { isLeft } from "fp-ts/lib/Either";
+import * as t from "io-ts";
+import { report } from "io-ts-human-reporter";
+
+export class OrgUserProfile {
+  public static readonly OrgUserProfileType = t.strict({
+    wallet: t.string,
+    avatar: t.union([t.string, t.null]),
+    username: t.union([t.string, t.null]),
+    email: t.union([t.string, t.null]),
+    linkedin: t.union([t.string, t.null]),
+    calendly: t.union([t.string, t.null]),
+    organizationId: t.union([t.string, t.null]),
+    contact: t.strict({
+      value: t.union([t.string, t.null]),
+      preferred: t.union([t.string, t.null]),
+    }),
+    subscriberStatus: t.strict({
+      status: t.boolean,
+      expires: t.union([t.number, t.null]),
+    }),
+    internalReference: t.strict({
+      referencePersonName: t.union([t.string, t.null]),
+      referencePersonRole: t.union([t.string, t.null]),
+      referenceContact: t.union([t.string, t.null]),
+      referenceContactPlatform: t.union([t.string, t.null]),
+    }),
+  });
+
+  wallet: string;
+  username: string | null;
+  email: string | null;
+  linkedin: string | null;
+  calendly: string | null;
+  avatar: string | null;
+  organizationId: string | null;
+  contact: {
+    value: string | null;
+    preferred: string | null;
+  };
+  subscriberStatus: {
+    status: boolean;
+    expires: number | null;
+  };
+  internalReference: {
+    referencePersonName: string | null;
+    referencePersonRole: string | null;
+    referenceContact: string | null;
+    referenceContactPlatform: string | null;
+  };
+
+  constructor(raw: OrgUserProfile) {
+    const {
+      wallet,
+      linkedin,
+      calendly,
+      organizationId,
+      username,
+      avatar,
+      contact,
+      email,
+      subscriberStatus,
+      internalReference,
+    } = raw;
+
+    const result = OrgUserProfile.OrgUserProfileType.decode(raw);
+
+    this.wallet = wallet;
+    this.linkedin = linkedin;
+    this.calendly = calendly;
+    this.organizationId = organizationId;
+    this.username = username;
+    this.avatar = avatar;
+    this.contact = contact;
+    this.email = email;
+    this.subscriberStatus = subscriberStatus;
+    this.internalReference = internalReference;
+
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(
+          `org user profile instance with username ${this.username} failed validation with error '${x}'`,
+        );
+      });
+    }
+  }
+}

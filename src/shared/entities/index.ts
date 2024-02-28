@@ -3,6 +3,7 @@ export * from "./user-role.entity";
 export * from "./user-flow.entity";
 export * from "./repository.entity";
 export * from "./user-profile.entity";
+export * from "./org-user-profile.entity";
 export * from "./organization.entity";
 export * from "./github-user.entity";
 export * from "./job-list-result.entity";

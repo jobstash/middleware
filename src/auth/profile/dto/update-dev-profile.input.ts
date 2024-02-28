@@ -6,7 +6,7 @@ import {
   IsObject,
 } from "class-validator";
 
-export class UpdateUserProfileInput {
+export class UpdateDevUserProfileInput {
   @ApiProperty()
   @IsBoolean()
   @IsNotEmpty()
