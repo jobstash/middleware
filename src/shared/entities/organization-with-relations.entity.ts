@@ -34,7 +34,7 @@ export class OrganizationWithRelationsEntity {
       discord: notStringOrNull(organization?.discord),
       telegram: notStringOrNull(organization?.telegram),
       website: notStringOrNull(organization?.website),
-      alias: notStringOrNull(organization?.alias),
+      aliases: organization?.aliases ?? [],
       community: organization?.community ?? [],
       createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
       updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),

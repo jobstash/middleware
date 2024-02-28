@@ -154,7 +154,7 @@ export class OrgDetailsResultEntity {
           repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
           investors:
             project?.investors ??
-            organization?.investors.map(investor => ({
+            organization?.investors?.map(investor => ({
               id: investor.id,
               name: investor.name,
             })) ??

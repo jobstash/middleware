@@ -31,7 +31,7 @@ export class OrgDetailsResult extends Organization {
       website: t.union([t.string, t.null]),
       telegram: t.union([t.string, t.null]),
       github: t.union([t.string, t.null]),
-      alias: t.union([t.string, t.null]),
+      aliases: t.array(t.string),
       twitter: t.union([t.string, t.null]),
       docs: t.union([t.string, t.null]),
       projects: t.array(ProjectWithRelations.ProjectWithRelationsType),
@@ -66,7 +66,7 @@ export class OrgDetailsResult extends Organization {
   github: string | null;
 
   @ApiPropertyOptional()
-  alias: string | null;
+  aliases: string[];
 
   @ApiPropertyOptional()
   twitter: string | null;
@@ -124,7 +124,7 @@ export class OrgDetailsResult extends Organization {
       github,
       twitter,
       docs,
-      alias,
+      aliases,
       projects,
       fundingRounds,
       investors,
@@ -144,7 +144,7 @@ export class OrgDetailsResult extends Organization {
     this.website = website;
     this.telegram = telegram;
     this.github = github;
-    this.alias = alias;
+    this.aliases = aliases;
     this.twitter = twitter;
     this.docs = docs;
     this.projects = projects;

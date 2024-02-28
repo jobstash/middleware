@@ -28,7 +28,6 @@ import { InjectConnection } from "nest-neogma";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
 import { AddOrgAliasInput } from "./dto/add-organization-alias.input";
-import { v5 as uuidV5 } from "uuid";
 
 @Injectable()
 export class OrganizationsService {
@@ -50,7 +49,7 @@ export class OrganizationsService {
           docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
           telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
           github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
-          alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
+          aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
           twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
           fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
           investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
@@ -369,7 +368,7 @@ export class OrganizationsService {
             docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
             telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
             github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
-            alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
+            aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
             twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
             fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
             investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
@@ -524,7 +523,7 @@ export class OrganizationsService {
           docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
           telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
           github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
-          alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
+          aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
           twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
           fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
           investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
@@ -864,55 +863,32 @@ export class OrganizationsService {
     }
   }
 
-  async addAlias(dto: AddOrgAliasInput): Promise<ResponseWithNoData> {
+  async addAlias(
+    dto: AddOrgAliasInput,
+  ): Promise<ResponseWithOptionalData<string[]>> {
     try {
-      const relation = (
-        await this.models.Organizations.findRelationships({
-          alias: "alias",
-          where: {
-            source: {
-              orgId: dto.orgId,
-            },
-            target: {
-              name: dto.aliasName,
-            },
-          },
-        })
-      )[0];
+      const result = await this.neogma.queryRunner.run(
+        `
+          MATCH (org:Organization {orgId: $orgId})
+          OPTIONAL MATCH (org)-[:HAS_ORGANIZATION_ALIAS]->(alias:OrganizationAlias)
+          DETACH DELETE alias
 
-      if (!relation?.target?.__existsInDatabase) {
-        this.logger.debug("Alias not found, creating...");
-        const org = await this.models.Organizations.findOne({
-          where: {
-            orgId: dto.orgId,
-          },
-        });
-        const alias = await this.models.OrganizationAliases.createOne(
-          {
-            id: uuidV5(dto.aliasName, uuidV5.URL),
-            name: dto.aliasName,
-          },
-          {
-            merge: true,
-          },
-        );
-        if (!alias.__existsInDatabase) {
-          return {
-            success: false,
-            message: "Failed to create alias",
-          };
-        }
-        await org.relateTo({
-          alias: "alias",
-          where: {
-            name: dto.aliasName,
-          },
-        });
-        return {
-          success: true,
-          message: "Organization alias added successfully",
-        };
-      }
+          WITH org
+          UNWIND $aliases as name
+          CREATE (alias:OrganizationAlias {id: randomUUID(), name: name})
+          MERGE (org)-[:HAS_ORGANIZATION_ALIAS]->(alias)
+          RETURN name
+        `,
+        { ...dto },
+      );
+      const aliases = result.records.map(
+        record => record.get("name") as string,
+      );
+      return {
+        success: true,
+        message: "Added organization aliases successfully",
+        data: aliases,
+      };
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -923,7 +899,7 @@ export class OrganizationsService {
         Sentry.captureException(err);
       });
       this.logger.error(`OrganizationsService::addAlias ${err.message}`);
-      return { success: false, message: "Failed to add org alias" };
+      return { success: false, message: "Failed to add org aliases" };
     }
   }
 }

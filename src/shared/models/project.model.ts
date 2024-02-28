@@ -619,7 +619,7 @@ export const Projects = (
                     docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
                     telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
                     github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
-                    alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
+                    aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
                     twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                     fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
                     investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],

@@ -98,7 +98,7 @@ export class JobsService {
               docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
               telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
               github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
-              alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
+              aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
               twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
@@ -690,7 +690,7 @@ export class JobsService {
               docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
               telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
               github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
-              alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
+              aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
               twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
@@ -1018,7 +1018,7 @@ export class JobsService {
                 docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
                 telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
                 github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
-                alias: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name][0],
+                aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
                 twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                 community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
                 projects: [

@@ -75,7 +75,7 @@ export class JobListResultEntity {
         discord: notStringOrNull(organization?.discord),
         telegram: notStringOrNull(organization?.telegram),
         website: notStringOrNull(organization?.website),
-        alias: notStringOrNull(organization?.alias),
+        aliases: organization?.aliases ?? [],
         createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
         updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
         projects:
@@ -101,7 +101,7 @@ export class JobListResultEntity {
             updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
             createdTimestamp: nonZeroOrNull(project?.createdTimestamp),
             hacks:
-              project?.hacks.map(hack => ({
+              project?.hacks?.map(hack => ({
                 ...hack,
                 id: notStringOrNull(hack?.id),
                 defiId: notStringOrNull(hack?.defiId),
@@ -113,7 +113,7 @@ export class JobListResultEntity {
                 fundsReturned: nonZeroOrNull(hack?.fundsReturned),
               })) ?? [],
             audits:
-              project?.audits.map(audit => ({
+              project?.audits?.map(audit => ({
                 ...audit,
                 id: notStringOrNull(audit?.id),
                 name: notStringOrNull(audit?.name),
@@ -123,7 +123,7 @@ export class JobListResultEntity {
                 link: notStringOrNull(audit?.link),
               })) ?? [],
             chains:
-              project?.chains.map(chain => ({
+              project?.chains?.map(chain => ({
                 id: notStringOrNull(chain?.id),
                 name: notStringOrNull(chain?.name),
                 logo: notStringOrNull(chain?.logo),
@@ -171,7 +171,7 @@ export class JobListResultEntity {
             repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
             investors:
               project?.investors ??
-              organization?.investors.map(investor => ({
+              organization?.investors?.map(investor => ({
                 id: investor.id,
                 name: investor.name,
               })) ??
@@ -179,7 +179,7 @@ export class JobListResultEntity {
           })) ?? [],
         fundingRounds:
           organization?.fundingRounds
-            .map(fr => ({
+            ?.map(fr => ({
               ...fr,
               raisedAmount: nonZeroOrNull(fr?.raisedAmount),
               createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
@@ -189,7 +189,7 @@ export class JobListResultEntity {
             }))
             .sort((a, b) => b.date - a.date) ?? [],
         investors:
-          organization?.investors.map(investor => ({
+          organization?.investors?.map(investor => ({
             id: investor.id,
             name: investor.name,
           })) ?? [],
