@@ -869,11 +869,12 @@ export class OrganizationsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-          MATCH (org:Organization {orgId: $orgId})
-          OPTIONAL MATCH (org)-[:HAS_ORGANIZATION_ALIAS]->(alias:OrganizationAlias)
-          DETACH DELETE alias
+          CALL {
+            MATCH (org:Organization {orgId: $orgId})-[:HAS_ORGANIZATION_ALIAS]->(alias:OrganizationAlias)
+            DETACH DELETE alias
+          }
 
-          WITH org
+          MATCH (org:Organization {orgId: $orgId})
           UNWIND $aliases as name
           CREATE (alias:OrganizationAlias {id: randomUUID(), name: name})
           MERGE (org)-[:HAS_ORGANIZATION_ALIAS]->(alias)
