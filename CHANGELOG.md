@@ -1,3 +1,18 @@
+# [2.0.0](https://github.com/jobstash/middleware/compare/v1.79.0...v2.0.0) (2024-02-28)
+
+
+### Features
+
+* **users:** separated profile interfaces for org and dev users ([82da55f](https://github.com/jobstash/middleware/commit/82da55f907569db843656bb6a1c35ce3ad8c1b83))
+
+
+### BREAKING CHANGES
+
+* **users:** GET /magic/org/login/callback - now returns the new org user profile interface
+GET /profile/info -> /profile/{dev|org}/info and the org version returns the new org user profile interface
+POST /profile/info -> /profile/{dev|org}/info and the org version takes a different body see src/auth/profile/dto/update-org-profile.input.ts for the shape
+GET /users/orgs/{pending|approved} these now return the new org user profile interface
+
 # [1.79.0](https://github.com/jobstash/middleware/compare/v1.78.1...v1.79.0) (2024-02-28)
 
 
