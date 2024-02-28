@@ -1,7 +1,7 @@
 name: Continous Deployment
 on:
   push:
-    branches: [prod, main, dev]
+    branches: [main, staging, dev]
 jobs:
   release:
     name: Update Semver and Release
@@ -26,20 +26,20 @@ jobs:
             @semantic-release/release-notes-generator
             @semantic-release/github
             semantic-release-slack-bot
-      - name: Sentry Release
-        if: steps.semver.outputs.new_release_published == 'true'
-        uses: getsentry/action-release@v1.4.1
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-        with:
-          environment: ${{ github.ref_name }}
-          version: ${{ steps.semver.outputs.new_release_version }}
-          ignore_empty: true
-          ignore_missing: true
+      # - name: Sentry Release
+      #   if: steps.semver.outputs.new_release_published == 'true'
+      #   uses: getsentry/action-release@v1.4.1
+      #   env:
+      #     SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      #     SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      #     SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      #   with:
+      #     environment: ${{ github.ref_name }}
+      #     version: ${{ steps.semver.outputs.new_release_version }}
+      #     ignore_empty: true
+      #     ignore_missing: true
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+      # SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
       SEMANTIC_RELEASE_PACKAGE: "middleware"

@@ -1,8 +1,11 @@
 {
   "branches": [
-    "prod",
     "main",
-    "dev"
+    {
+      "name": "dev",
+      "channel": false,
+      "prerelease": false
+    }
   ],
   "plugins": [
     "@semantic-release/changelog",

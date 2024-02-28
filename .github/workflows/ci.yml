@@ -10,7 +10,7 @@ on:
       - "src/**.js"
       - "src/**.ts"
   pull_request:
-    branches: [prod, main, dev]
+    branches: [main, staging, dev]
 
 ###############
 # Set the Job #
