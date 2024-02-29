@@ -1,3 +1,10 @@
+## [1.79.1](https://github.com/jobstash/middleware/compare/v1.79.0...v1.79.1) (2024-02-29)
+
+
+### Bug Fixes
+
+* **report:** fixed url validation to be based on ALLOWED ORIGINS env ([f3cb139](https://github.com/jobstash/middleware/commit/f3cb1394910c7e5e3a807fbf6ee694715cb79d0a))
+
 # [1.79.0](https://github.com/jobstash/middleware/compare/v1.78.1...v1.79.0) (2024-02-28)
 
 
