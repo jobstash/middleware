@@ -10,7 +10,7 @@ export class OrgUserProfile {
     email: t.union([t.string, t.null]),
     linkedin: t.union([t.string, t.null]),
     calendly: t.union([t.string, t.null]),
-    organizationId: t.union([t.string, t.null]),
+    orgId: t.union([t.string, t.null]),
     contact: t.strict({
       value: t.union([t.string, t.null]),
       preferred: t.union([t.string, t.null]),
@@ -33,7 +33,7 @@ export class OrgUserProfile {
   linkedin: string | null;
   calendly: string | null;
   avatar: string | null;
-  organizationId: string | null;
+  orgId: string | null;
   contact: {
     value: string | null;
     preferred: string | null;
@@ -54,7 +54,7 @@ export class OrgUserProfile {
       wallet,
       linkedin,
       calendly,
-      organizationId,
+      orgId,
       username,
       avatar,
       contact,
@@ -68,7 +68,7 @@ export class OrgUserProfile {
     this.wallet = wallet;
     this.linkedin = linkedin;
     this.calendly = calendly;
-    this.organizationId = organizationId;
+    this.orgId = orgId;
     this.username = username;
     this.avatar = avatar;
     this.contact = contact;

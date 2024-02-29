@@ -811,7 +811,7 @@ export class OrganizationsService {
   }
 
   async hasProjectRelationship(
-    organizationId: string,
+    orgId: string,
     projectId: string,
   ): Promise<boolean> {
     const res = await this.models.Organizations.findRelationships({
@@ -820,7 +820,7 @@ export class OrganizationsService {
       maxHops: 1,
       where: {
         source: {
-          id: organizationId,
+          id: orgId,
         },
         target: {
           id: projectId,
@@ -831,15 +831,12 @@ export class OrganizationsService {
     return res.length !== 0;
   }
 
-  async relateToProject(
-    organizationId: string,
-    projectId: string,
-  ): Promise<boolean> {
+  async relateToProject(orgId: string, projectId: string): Promise<boolean> {
     try {
       (
         await this.models.Organizations.findOne({
           where: {
-            id: organizationId,
+            id: orgId,
           },
         })
       ).relateTo({
@@ -855,7 +852,7 @@ export class OrganizationsService {
           action: "db-call",
           source: "projects.service",
         });
-        scope.setExtra("input", { organizationId, projectId });
+        scope.setExtra("input", { orgId, projectId });
         Sentry.captureException(err);
       });
       this.logger.error(`OrganizationsService::relateToProject ${err.message}`);

@@ -12,7 +12,7 @@ export class OrgUserProfileEntity {
       calendly: notStringOrNull(this.raw?.calendly),
       username: notStringOrNull(this.raw?.username),
       linkedin: notStringOrNull(this.raw?.linkedin),
-      organizationId: notStringOrNull(this.raw?.organizationId),
+      orgId: notStringOrNull(this.raw?.orgId),
       contact: {
         value: notStringOrNull(this.raw?.contact?.value),
         preferred: notStringOrNull(this.raw?.contact?.preferred),

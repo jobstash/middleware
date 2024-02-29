@@ -70,7 +70,7 @@ export class ProfileController {
   async getDevUserProfile(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<Response<UserProfile> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<UserProfile>> {
     this.logger.log(`/profile/dev/info`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
@@ -96,11 +96,11 @@ export class ProfileController {
   async getOrgUserProfile(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<Response<UserProfile> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<OrgUserProfile>> {
     this.logger.log(`/profile/org/info`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.getDevUserProfile(address as string);
+      return this.profileService.getOrgUserProfile(address as string);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
