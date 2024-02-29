@@ -483,10 +483,17 @@ export class ProfileController {
     @Body(new ValidationPipe({ transform: true }))
     body: ReportInput,
   ): Promise<ResponseWithNoData> {
-    const session = await this.authService.getSession(req, res);
     const { subject, description, ctx, attachments } = body;
+    this.logger.log(
+      `/profile/report ${JSON.stringify({ description, subject, ctx })}`,
+    );
+    const session = await this.authService.getSession(req, res);
     const parsedUrl = new URL(ctx.url);
-    if (parsedUrl.host.endsWith("jobstash.xyz")) {
+    const allowedHosts = this.configService
+      .get<string>("ALLOWED_ORIGINS")
+      .split(",")
+      .map(origin => new URL(origin).host);
+    if (allowedHosts.includes(parsedUrl.host)) {
       await this.mailService.sendEmail({
         from: this.configService.getOrThrow<string>("EMAIL"),
         to: this.configService.getOrThrow<string>("REPORT_CONTENT_TO_EMAIL"),
@@ -504,7 +511,7 @@ export class ProfileController {
             <li>Wallet Connected: ${session.nonce !== undefined}</li>
             <li>Signed In: ${session.address !== undefined}</li>
             <li>Other Info: ${JSON.stringify(
-              JSON.parse(ctx.other),
+              ctx.other !== "" ? JSON.parse(ctx.other) : {},
               undefined,
               2,
             )}</li>
