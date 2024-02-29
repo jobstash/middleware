@@ -45,6 +45,7 @@ import { responseSchemaWrapper } from "src/shared/helpers";
 import { ProjectProps } from "src/shared/models";
 import {
   DefiLlamaProject,
+  DefiLlamaProjectPrefill,
   DexSummary,
   FeeOverview,
   OptionsSummary,
@@ -54,9 +55,11 @@ import {
   ProjectFilterConfigs,
   ProjectListResult,
   ProjectMoreInfo,
+  ProjectMoreInfoEntity,
   ProjectWithRelations,
   Response,
   ResponseWithNoData,
+  ResponseWithOptionalData,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { CreateProjectMetricsInput } from "./dto/create-project-metrics.input";
@@ -236,7 +239,7 @@ export class ProjectsController {
   })
   async getProjectsByCategory(
     @Param("category") category: string,
-  ): Promise<Response<ProjectProps[]> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<ProjectProps[]>> {
     this.logger.log(`/projects/category/${category}`);
     return this.projectsService
       .getProjectsByCategory(category)
@@ -307,7 +310,7 @@ export class ProjectsController {
   })
   async getProjectsByOrgId(
     @Param("id") id: string,
-  ): Promise<Response<ProjectProps[]> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<ProjectProps[]>> {
     this.logger.log(`/projects/all/${id}`);
     return this.projectsService
       .getProjectsByOrgId(id)
@@ -343,7 +346,7 @@ export class ProjectsController {
   })
   async searchProjects(
     @Query("query") query: string,
-  ): Promise<Response<ProjectProps[]> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<ProjectProps[]>> {
     this.logger.log(`/projects/search?query=${query}`);
     return this.projectsService
       .searchProjects(query)
@@ -377,7 +380,7 @@ export class ProjectsController {
   })
   async getProjectDetailsFromDefillama(
     @Query("url") url: string,
-  ): Promise<Response<ProjectProps> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<DefiLlamaProjectPrefill>> {
     this.logger.log(`/prefiller?url=${url}`);
 
     try {
@@ -437,20 +440,23 @@ export class ProjectsController {
             success: true,
             message: "Project details retrieved successfully",
             data: {
-              id: randomUUID(),
-              orgId: "-1",
-              name: project.name,
-              logo: project.logo,
-              tokenSymbol: project.symbol,
+              ...new ProjectMoreInfoEntity({
+                id: randomUUID(),
+                orgId: "-1",
+                name: project.name,
+                logo: project.logo,
+                tokenSymbol: project.symbol,
+                tvl: thisProjectsData?.tvl,
+                monthlyVolume:
+                  (dexOverview?.total30d || 0) +
+                  (optionOverview?.total30d || 0),
+                monthlyFees: feesOverview?.total30d ?? 0,
+                monthlyRevenue: revenueOverview?.total30d ?? 0,
+                tokenAddress: thisProjectsData?.address,
+                description: project.description,
+              }).getProperties(),
               url: project.url,
-              tvl: thisProjectsData?.tvl,
-              monthlyVolume:
-                (dexOverview?.total30d || 0) + (optionOverview?.total30d || 0),
-              monthlyFees: feesOverview?.total30d,
-              monthlyRevenue: revenueOverview?.total30d,
-              tokenAddress: thisProjectsData?.address,
-              description: project.description,
-            } as ProjectProps,
+            },
           };
         }
       } else {
@@ -478,7 +484,7 @@ export class ProjectsController {
   async getProjectDetails(
     @Param("id") id: string,
     @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<Response<ProjectProps> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<ProjectProps>> {
     this.logger.log(`/projects/${id}`);
     const result = await this.projectsService.getProjectById(id);
 
@@ -612,37 +618,41 @@ export class ProjectsController {
     }
 
     this.logger.log(`Project ${body.name} ready for creation`);
-    const storedProject = await this.projectsService.create(body);
+    const storedProject = (
+      await this.projectsService.create(body)
+    ).getProperties();
 
     const projectCategoryRelationshipExists =
       await this.projectsService.hasRelationshipToCategory(
-        storedProject.getId(),
+        storedProject.id,
         storedCategory.getId(),
       );
 
     if (projectCategoryRelationshipExists === false) {
       this.logger.log(
-        `Relating ${storedProject.getName()} to ${storedCategory.getName()}`,
+        `Relating ${storedProject.name} to ${storedCategory.getName()}`,
       );
       await this.projectsService.relateToCategory(
-        storedProject.getId(),
+        storedProject.id,
         storedCategory.getId(),
       );
       this.logger.log(
-        `Created relationship between ${storedProject.getName()} and ${storedCategory.getName()}`,
+        `Created relationship between ${
+          storedProject.name
+        } and ${storedCategory.getName()}`,
       );
     }
 
     const organizationProjectRelationshipExists =
       await this.organizationsService.hasProjectRelationship(
         storedOrganization.getId(),
-        storedProject.getId(),
+        storedProject.id,
       );
 
     if (organizationProjectRelationshipExists === false) {
       await this.organizationsService.relateToProject(
         storedOrganization.getId(),
-        storedProject.getId(),
+        storedProject.id,
       );
       this.logger.log(
         `Related project ${
@@ -653,8 +663,8 @@ export class ProjectsController {
 
     return {
       success: true,
-      message: `Successfully created ${body.name}`,
-      data: storedProject.getProperties(),
+      message: `Project created successfully`,
+      data: storedProject,
     };
   }
 
@@ -675,7 +685,7 @@ export class ProjectsController {
   async updateProject(
     @Param("id") id: string,
     @Body() body: UpdateProjectInput,
-  ): Promise<Response<ProjectWithRelations> | ResponseWithNoData> {
+  ): Promise<Response<ProjectMoreInfo> | ResponseWithNoData> {
     this.logger.log(`/projects/update ${JSON.stringify(body)}`);
     const result = await this.projectsService.update(id, body);
     if (result !== undefined) {
