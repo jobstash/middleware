@@ -1,3 +1,10 @@
+## [2.0.1](https://github.com/jobstash/middleware/compare/v2.0.0...v2.0.1) (2024-02-29)
+
+
+### Bug Fixes
+
+* **profile:** fixed lame copypasta bug ([90e0588](https://github.com/jobstash/middleware/commit/90e0588a376f6113df7872cc9c702d0b70a79741))
+
 # [2.0.0](https://github.com/jobstash/middleware/compare/v1.79.0...v2.0.0) (2024-02-28)
 
 
