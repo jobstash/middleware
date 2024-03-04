@@ -40,6 +40,8 @@ import { Integer } from "neo4j-driver";
 import { OrgStaffReviewEntity } from "src/shared/entities/org-staff-review.entity";
 import { UpdateOrgUserProfileInput } from "./dto/update-org-profile.input";
 import { UpdateDevUserProfileInput } from "./dto/update-dev-profile.input";
+import { UserService } from "src/user/user.service";
+import { CheckWalletFlows } from "src/shared/constants";
 
 @Injectable()
 export class ProfileService {
@@ -49,6 +51,7 @@ export class ProfileService {
     @InjectConnection()
     private neogma: Neogma,
     private models: ModelService,
+    private readonly userService: UserService,
   ) {}
 
   async getDevUserProfile(
@@ -518,6 +521,11 @@ export class ProfileService {
           ...dto.internalReference,
         },
       );
+
+      await this.userService.setWalletFlow({
+        flow: CheckWalletFlows.ORG_APPROVAL_PENDING,
+        wallet,
+      });
 
       return {
         success: true,

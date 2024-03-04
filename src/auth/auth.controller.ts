@@ -147,7 +147,7 @@ export class AuthController {
     );
 
     await this.userService.setWalletFlow({
-      flow: CheckWalletFlows.ORG_APPROVAL,
+      flow: CheckWalletFlows.ORG_PROFILE,
       wallet: user.wallet,
     });
     await this.userService.setWalletRole({
