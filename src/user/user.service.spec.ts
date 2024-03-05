@@ -140,7 +140,7 @@ describe("UserService", () => {
       });
 
       const profile = data<UserProfile>(
-        await profileService.getUserProfile(EPHEMERAL_TEST_WALLET),
+        await profileService.getDevUserProfile(EPHEMERAL_TEST_WALLET),
       );
 
       expect(profile.email).toBe(null);
@@ -160,7 +160,7 @@ describe("UserService", () => {
       });
 
       const profile = data<UserProfile>(
-        await profileService.getUserProfile(EPHEMERAL_TEST_WALLET),
+        await profileService.getDevUserProfile(EPHEMERAL_TEST_WALLET),
       );
 
       expect(profile.email).toBe(TEST_EMAIL);

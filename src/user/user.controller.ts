@@ -4,7 +4,11 @@ import { UserService } from "./user.service";
 import { Roles } from "src/shared/decorators";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
-import { ResponseWithNoData, UserProfile } from "src/shared/interfaces";
+import {
+  OrgUserProfile,
+  ResponseWithNoData,
+  UserProfile,
+} from "src/shared/interfaces";
 import { AuthorizeOrgApplicationInput } from "./dto/authorize-org-application.dto";
 import { MailService } from "src/mail/mail.service";
 import { ConfigService } from "@nestjs/config";
@@ -37,7 +41,7 @@ export class UserController {
   @Get("orgs/pending")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
-  async getOrgsAwaitingApproval(): Promise<UserProfile[]> {
+  async getOrgsAwaitingApproval(): Promise<OrgUserProfile[]> {
     this.logger.log("/users/orgs/pending");
     return this.userService.getOrgsAwaitingApproval();
   }
@@ -45,7 +49,7 @@ export class UserController {
   @Get("orgs/approved")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
-  async getApprovedOrgs(): Promise<UserProfile[]> {
+  async getApprovedOrgs(): Promise<OrgUserProfile[]> {
     this.logger.log("/users/orgs/approved");
     return this.userService.getApprovedOrgs();
   }

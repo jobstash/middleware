@@ -139,7 +139,7 @@ export class GithubController {
       flow:
         role === CheckWalletRoles.DEV
           ? CheckWalletFlows.ONBOARD_REPO
-          : CheckWalletFlows.ORG_APPROVAL,
+          : CheckWalletFlows.ORG_PROFILE,
       wallet: wallet,
     });
 

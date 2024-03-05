@@ -19,9 +19,11 @@ import { Roles } from "src/shared/decorators/role.decorator";
 import { CheckWalletRoles } from "src/shared/constants";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
+  OrgUserProfile,
   PaginatedData,
   Response,
   ResponseWithNoData,
+  ResponseWithOptionalData,
   UserOrg,
   UserProfile,
   UserRepo,
@@ -33,7 +35,6 @@ import { RateOrgInput } from "./dto/rate-org.input";
 import { RepoListParams } from "./dto/repo-list.input";
 import { ReviewOrgSalaryInput } from "./dto/review-org-salary.input";
 import { ReviewOrgInput } from "./dto/review-org.input";
-import { UpdateUserProfileInput } from "./dto/update-profile.input";
 import { UpdateRepoContributionInput } from "./dto/update-repo-contribution.input";
 import { UpdateRepoTagsUsedInput } from "./dto/update-repo-tags-used.input";
 import { UpdateUserShowCaseInput } from "./dto/update-user-showcase.input";
@@ -43,6 +44,8 @@ import { ReportInput } from "./dto/report.input";
 import { MailService } from "src/mail/mail.service";
 import { ConfigService } from "@nestjs/config";
 import { Throttle } from "@nestjs/throttler";
+import { UpdateDevUserProfileInput } from "./dto/update-dev-profile.input";
+import { UpdateOrgUserProfileInput } from "./dto/update-org-profile.input";
 
 @Controller("profile")
 export class ProfileController {
@@ -55,23 +58,49 @@ export class ProfileController {
     private readonly configService: ConfigService,
   ) {}
 
-  @Get("info")
+  @Get("dev/info")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
   @ApiOkResponse({
-    description: "Returns the profile of the currently logged in user",
+    description: "Returns the profile of the currently logged in dev user",
     schema: responseSchemaWrapper({
       $ref: getSchemaPath(Response<UserProfile>),
     }),
   })
-  async getUserProfile(
+  async getDevUserProfile(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<Response<UserProfile> | ResponseWithNoData> {
-    this.logger.log(`/profile/info`);
+  ): Promise<ResponseWithOptionalData<UserProfile>> {
+    this.logger.log(`/profile/dev/info`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.getUserProfile(address as string);
+      return this.profileService.getDevUserProfile(address as string);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Get("org/info")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ORG, CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Returns the profile of the currently logged in org user",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Response<UserProfile>),
+    }),
+  })
+  async getOrgUserProfile(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ): Promise<ResponseWithOptionalData<OrgUserProfile>> {
+    this.logger.log(`/profile/org/info`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.profileService.getOrgUserProfile(address as string);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -191,24 +220,51 @@ export class ProfileController {
     }
   }
 
-  @Post("info")
+  @Post("dev/info")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
   @ApiOkResponse({
-    description: "Updates the profile of the currently logged in user",
+    description: "Updates the profile of the currently logged in dev user",
     schema: responseSchemaWrapper({
       $ref: getSchemaPath(Response<UserProfile>),
     }),
   })
-  async setUserProfile(
+  async setDevUserProfile(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
-    @Body() body: UpdateUserProfileInput,
+    @Body() body: UpdateDevUserProfileInput,
   ): Promise<Response<UserProfile> | ResponseWithNoData> {
-    this.logger.log(`/profile/info ${JSON.stringify(body)}`);
+    this.logger.log(`/profile/dev/info ${JSON.stringify(body)}`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.updateUserProfile(address as string, body);
+      return this.profileService.updateDevUserProfile(address as string, body);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Post("org/info")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ORG, CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Updates the profile of the currently logged in org user",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Response<OrgUserProfile>),
+    }),
+  })
+  async setOrgUserProfile(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Body() body: UpdateOrgUserProfileInput,
+  ): Promise<ResponseWithOptionalData<OrgUserProfile>> {
+    this.logger.log(`/profile/org/info ${JSON.stringify(body)}`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.profileService.updateOrgUserProfile(address as string, body);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {

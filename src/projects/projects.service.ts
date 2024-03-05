@@ -419,7 +419,7 @@ export class ProjectsService {
     }).then(res => (res ? new ProjectEntity(instanceToNode(res)) : null));
   }
 
-  async create(project: CreateProjectInput): Promise<ProjectEntity> {
+  async create(project: CreateProjectInput): Promise<ProjectMoreInfoEntity> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
@@ -439,10 +439,13 @@ export class ProjectsService {
             tokenSymbol: $tokenSymbol,
             defiLlamaId: $defiLlamaId,
             defiLlamaSlug: $defiLlamaSlug,
-            defiLlamaParent: $defiLlamaParent
+            defiLlamaParent: $defiLlamaParent,
+            createdTimestamp: timestamp()
           })
 
           WITH project
+          MATCH (cat:ProjectCategory {name: $category})
+          CREATE (project)-[:HAS_CATEGORY]->(cat)
           CREATE (project)-[:HAS_DISCORD]->(discord:Discord {id: randomUUID(), invite: $discord}) 
           CREATE (project)-[:HAS_WEBSITE]->(website:Website {id: randomUUID(), url: $website}) 
           CREATE (project)-[:HAS_DOCSITE]->(docsite:DocSite {id: randomUUID(), url: $docs}) 
@@ -450,11 +453,11 @@ export class ProjectsService {
           CREATE (project)-[:HAS_TWITTER]->(twitter: Twitter {id: randomUUID(), username: $twitter}) 
           CREATE (project)-[:HAS_GITHUB]->(github: Github {id: randomUUID(), login: $github})
 
-          RETURN project
+          RETURN project { .* } as project
         `,
         { ...project },
       );
-      return new ProjectEntity(result?.records[0]?.get("project"));
+      return new ProjectMoreInfoEntity(result?.records[0]?.get("project"));
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -472,7 +475,7 @@ export class ProjectsService {
   async update(
     id: string,
     project: UpdateProjectInput,
-  ): Promise<ProjectEntity> {
+  ): Promise<ProjectMoreInfoEntity> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
@@ -499,6 +502,7 @@ export class ProjectsService {
           SET project.defiLlamaId = $defiLlamaId
           SET project.defiLlamaSlug = $defiLlamaSlug
           SET project.defiLlamaParent = $defiLlamaParent
+          SET project.updatedTimestamp = timestamp()
           SET discord.invite = $discord
           SET website.url = $website
           SET docsite.url = $docs
@@ -514,11 +518,11 @@ export class ProjectsService {
           MERGE (project)-[:HAS_CATEGORY]->(:ProjectCategory {name: $category})
 
           WITH project
-          RETURN project
+          RETURN project { .* } as project
         `,
         { ...project, id },
       );
-      return new ProjectEntity(result?.records[0]?.get("project"));
+      return new ProjectMoreInfoEntity(result?.records[0]?.get("project"));
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({

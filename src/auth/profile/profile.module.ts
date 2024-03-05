@@ -10,6 +10,7 @@ import { MailModule } from "src/mail/mail.module";
 import { ConfigModule } from "@nestjs/config";
 import { MailService } from "src/mail/mail.service";
 import { ThrottlerModule } from "@nestjs/throttler";
+import { UserService } from "src/user/user.service";
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { ThrottlerModule } from "@nestjs/throttler";
     JwtService,
     ModelService,
     MailService,
+    UserService,
     OrganizationsService,
   ],
 })

@@ -1,3 +1,32 @@
+## [2.0.2](https://github.com/jobstash/middleware/compare/v2.0.1...v2.0.2) (2024-02-29)
+
+
+### Bug Fixes
+
+* **report:** fixed url validation to be based on ALLOWED ORIGINS env ([9de56ef](https://github.com/jobstash/middleware/commit/9de56ef85008b8bd22a8eba73a11748f45fbcad5))
+
+## [2.0.1](https://github.com/jobstash/middleware/compare/v2.0.0...v2.0.1) (2024-02-29)
+
+
+### Bug Fixes
+
+* **profile:** fixed lame copypasta bug ([90e0588](https://github.com/jobstash/middleware/commit/90e0588a376f6113df7872cc9c702d0b70a79741))
+
+# [2.0.0](https://github.com/jobstash/middleware/compare/v1.79.0...v2.0.0) (2024-02-28)
+
+
+### Features
+
+* **users:** separated profile interfaces for org and dev users ([82da55f](https://github.com/jobstash/middleware/commit/82da55f907569db843656bb6a1c35ce3ad8c1b83))
+
+
+### BREAKING CHANGES
+
+* **users:** GET /magic/org/login/callback - now returns the new org user profile interface
+GET /profile/info -> /profile/{dev|org}/info and the org version returns the new org user profile interface
+POST /profile/info -> /profile/{dev|org}/info and the org version takes a different body see src/auth/profile/dto/update-org-profile.input.ts for the shape
+GET /users/orgs/{pending|approved} these now return the new org user profile interface
+
 # [1.79.0](https://github.com/jobstash/middleware/compare/v1.78.1...v1.79.0) (2024-02-28)
 
 

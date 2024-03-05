@@ -1,6 +1,8 @@
 import { UserRoleEntity } from "../shared/entities/user-role.entity";
 import { Injectable } from "@nestjs/common";
 import {
+  OrgUserProfile,
+  OrgUserProfileEntity,
   ResponseWithNoData,
   ResponseWithOptionalData,
   User,
@@ -600,32 +602,38 @@ export class UserService {
           });
           Sentry.captureException(err);
         });
-        this.logger.error(`UserService::findAll ${err.message}`);
+        this.logger.error(
+          `UserService::getDevsAvailableForWork ${err.message}`,
+        );
         return [];
       });
   }
 
-  async getOrgsAwaitingApproval(): Promise<UserProfile[]> {
+  async getOrgsAwaitingApproval(): Promise<OrgUserProfile[]> {
     return this.neogma.queryRunner
       .run(
         `
           MATCH (user:User)
           WHERE (user)-[:HAS_ROLE]->(:UserRole { name: "ORG" })
-          AND (user)-[:HAS_USER_FLOW_STAGE]->(:UserFlow { name: "ORG-APPROVAL" })
+          AND (user)-[:HAS_USER_FLOW_STAGE]->(:UserFlow { name: "ORG-APPROVAL-PENDING" })
           RETURN {
             wallet: user.wallet,
-            availableForWork: user.available,
+            linkedin: user.linkedin,
+            calendly: user.calendly,
+            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
             contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0]
+            orgId: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization:Organization) | organization.orgId][0],
+            internalReference: [(user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo) | reference { .* }][0],
+            subscriberStatus: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION|HAS_SUBSCRIPTION*2]->(subscription:Subscription) | subscription { .* }][0]
           } as user
         `,
       )
       .then(res =>
         res.records.length
           ? res.records.map(record =>
-              new UserProfileEntity(record.get("user")).getProperties(),
+              new OrgUserProfileEntity(record.get("user")).getProperties(),
             )
           : [],
       )
@@ -637,12 +645,14 @@ export class UserService {
           });
           Sentry.captureException(err);
         });
-        this.logger.error(`UserService::findAll ${err.message}`);
+        this.logger.error(
+          `UserService::getOrgsAwaitingApproval ${err.message}`,
+        );
         return [];
       });
   }
 
-  async getApprovedOrgs(): Promise<UserProfile[]> {
+  async getApprovedOrgs(): Promise<OrgUserProfile[]> {
     return this.neogma.queryRunner
       .run(
         `
@@ -651,18 +661,22 @@ export class UserService {
           AND (user)-[:HAS_USER_FLOW_STAGE]->(:UserFlow { name: "ORG-COMPLETE" })
           RETURN {
             wallet: user.wallet,
-            availableForWork: user.available,
+            linkedin: user.linkedin,
+            calendly: user.calendly,
+            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
             contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0]
+            orgId: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization:Organization) | organization.orgId][0],
+            internalReference: [(user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo) | reference { .* }][0],
+            subscriberStatus: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION|HAS_SUBSCRIPTION*2]->(subscription:Subscription) | subscription { .* }][0]
           } as user
         `,
       )
       .then(res =>
         res.records.length
           ? res.records.map(record =>
-              new UserProfileEntity(record.get("user")).getProperties(),
+              new OrgUserProfileEntity(record.get("user")).getProperties(),
             )
           : [],
       )
@@ -674,7 +688,7 @@ export class UserService {
           });
           Sentry.captureException(err);
         });
-        this.logger.error(`UserService::findAll ${err.message}`);
+        this.logger.error(`UserService::getApprovedOrgs ${err.message}`);
         return [];
       });
   }

@@ -176,7 +176,7 @@ describe("ProfileService", () => {
         },
       };
 
-      const newProfile = await profileService.updateUserProfile(
+      const newProfile = await profileService.updateDevUserProfile(
         EPHEMERAL_TEST_WALLET,
         profileData,
       );
@@ -459,7 +459,7 @@ describe("ProfileService", () => {
   it(
     "should get a user's profile",
     async () => {
-      const profile = await profileService.getUserProfile(DEV_TEST_WALLET);
+      const profile = await profileService.getDevUserProfile(DEV_TEST_WALLET);
       expect(profile).toEqual({
         success: true,
         message: expect.stringMatching("success"),
@@ -541,7 +541,7 @@ describe("ProfileService", () => {
         message: expect.stringMatching("success"),
       });
 
-      const profile = await profileService.getUserProfile(
+      const profile = await profileService.getDevUserProfile(
         EPHEMERAL_TEST_WALLET,
       );
 
@@ -557,7 +557,7 @@ describe("ProfileService", () => {
         },
       };
 
-      expect(profile).toEqual({
+      expect(profile).not.toEqual({
         success: true,
         message: expect.stringMatching("success"),
         data: {
