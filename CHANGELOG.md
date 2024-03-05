@@ -1,3 +1,11 @@
+## [2.0.3-RC.1](https://github.com/jobstash/middleware/compare/v2.0.2...v2.0.3-RC.1) (2024-03-05)
+
+
+### Bug Fixes
+
+* **report:** fixed url validation to be based on ALLOWED ORIGINS env ([03be734](https://github.com/jobstash/middleware/commit/03be734a4afef5479803183c4ae94162f47c41cf))
+* **users:** fixed bug with org profile flows ([793cc65](https://github.com/jobstash/middleware/commit/793cc6580e0f74002172d7c7bcead179096d0e7f))
+
 ## [2.0.2](https://github.com/jobstash/middleware/compare/v2.0.1...v2.0.2) (2024-02-29)
 
 
