@@ -3,6 +3,7 @@ import {
   IsNotEmpty,
   IsNotEmptyObject,
   IsObject,
+  IsOptional,
   IsString,
 } from "class-validator";
 
@@ -19,7 +20,7 @@ export class UpdateOrgUserProfileInput {
 
   @ApiProperty()
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   calendly: string;
 
   @ApiProperty()

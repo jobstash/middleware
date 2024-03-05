@@ -615,7 +615,7 @@ export class UserService {
         `
           MATCH (user:User)
           WHERE (user)-[:HAS_ROLE]->(:UserRole { name: "ORG" })
-          AND (user)-[:HAS_USER_FLOW_STAGE]->(:UserFlow { name: "ORG-APPROVAL" })
+          AND (user)-[:HAS_USER_FLOW_STAGE]->(:UserFlow { name: "ORG-APPROVAL-PENDING" })
           RETURN {
             wallet: user.wallet,
             linkedin: user.linkedin,
