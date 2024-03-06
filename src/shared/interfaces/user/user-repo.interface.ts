@@ -7,7 +7,7 @@ export class UserRepo {
   public static readonly UserRepoType = t.strict({
     id: t.string,
     name: t.string,
-    description: t.string,
+    description: t.union([t.string, t.null]),
     timestamp: t.union([t.number, t.null]),
     projectName: t.union([t.string, t.null]),
     committers: t.union([t.number, t.null]),
