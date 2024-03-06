@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/jobstash/middleware/compare/v2.0.4...v2.1.0) (2024-03-06)
+
+
+### Features
+
+* **jobs:** added ecosystem filtering for jobs endpoints ([10666f1](https://github.com/jobstash/middleware/commit/10666f154141d097672ccad9b67f5475aceb34ef))
+
 ## [2.0.4](https://github.com/jobstash/middleware/compare/v2.0.3...v2.0.4) (2024-03-06)
 
 
