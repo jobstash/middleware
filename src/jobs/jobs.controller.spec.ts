@@ -257,6 +257,7 @@ describe("JobsController", () => {
           req as Request,
           res as Response,
           params,
+          undefined,
         )
       ).data.find(job => job.classification !== newClassification);
 
@@ -275,6 +276,7 @@ describe("JobsController", () => {
         job.shortUUID,
         req as Request,
         res as Response,
+        undefined,
       );
 
       expect(details.classification).toBe(newClassification);
@@ -312,6 +314,7 @@ describe("JobsController", () => {
           req as Request,
           res as Response,
           params,
+          undefined,
         )
       ).data.find(job => !job.featured);
 
@@ -334,6 +337,7 @@ describe("JobsController", () => {
         job.shortUUID,
         req as Request,
         res as Response,
+        undefined,
       );
 
       expect(details.featured).toBe(true);
@@ -372,6 +376,7 @@ describe("JobsController", () => {
           req as Request,
           res as Response,
           params,
+          undefined,
         )
       ).data[0];
 
@@ -393,6 +398,7 @@ describe("JobsController", () => {
         job.shortUUID,
         req as Request,
         res as Response,
+        undefined,
       );
 
       expect(details.tags.map(x => x.name)).toStrictEqual(
@@ -456,6 +462,7 @@ describe("JobsController", () => {
           req as Request,
           res as Response,
           params,
+          undefined,
         )
       ).data[0];
 
@@ -500,6 +507,7 @@ describe("JobsController", () => {
         shortUUID,
         req as Request,
         res as Response,
+        undefined,
       );
 
       expect(details.tags.map(x => x.name)).toStrictEqual(
@@ -548,6 +556,7 @@ describe("JobsController", () => {
         NOT_SO_RANDOM_TEST_SHORT_UUID,
         req as Request,
         res as Response,
+        undefined,
       );
 
       expect(details).toBeUndefined();
@@ -586,6 +595,7 @@ describe("JobsController", () => {
         NOT_SO_RANDOM_TEST_SHORT_UUID,
         req as Request,
         res as Response,
+        undefined,
       );
 
       expect(details).toStrictEqual(expect.any(JobListResult));
@@ -616,6 +626,7 @@ describe("JobsController", () => {
         req as Request,
         res as Response,
         params,
+        undefined,
       );
 
       const uuids = result.data.map(job => job.shortUUID);
@@ -720,6 +731,7 @@ describe("JobsController", () => {
         req as Request,
         res as Response,
         params,
+        undefined,
       );
       const results = result.data;
       expect(results.every(x => matchesSalaryRange(x) === true)).toBe(true);
@@ -783,6 +795,7 @@ describe("JobsController", () => {
         req as Request,
         res as Response,
         params,
+        undefined,
       );
       const results = result.data;
       expect(results.every(x => matchesHeadCountRange(x) === true)).toBe(true);
@@ -891,6 +904,7 @@ describe("JobsController", () => {
         req as Request,
         res as Response,
         params,
+        undefined,
       );
       const results = result.data;
       expect(results.every(x => matchesProjects(x) === true)).toBe(true);
@@ -962,6 +976,7 @@ describe("JobsController", () => {
           req as Request,
           res as Response,
           params,
+          undefined,
         )
       ).data[0];
 
@@ -969,6 +984,7 @@ describe("JobsController", () => {
         job.shortUUID,
         req as Request,
         res as Response,
+        undefined,
       );
 
       expect(jlrHasArrayPropsDuplication(details)).toBe(false);
@@ -979,7 +995,7 @@ describe("JobsController", () => {
   it(
     "should get featured jobs",
     async () => {
-      const result = await controller.getFeaturedJobsList();
+      const result = await controller.getFeaturedJobsList(undefined);
       const uuids = data(result).map(job => job.shortUUID);
       const setOfUuids = new Set([...uuids]);
 
@@ -1025,10 +1041,14 @@ describe("JobsController", () => {
           req as Request,
           res as Response,
           params,
+          undefined,
         )
       ).data[0];
 
-      const details = await controller.getOrgJobsList(job.organization.orgId);
+      const details = await controller.getOrgJobsList(
+        job.organization.orgId,
+        undefined,
+      );
 
       const uuids = details.map(job => job.shortUUID);
       const setOfUuids = new Set([...uuids]);
@@ -1134,6 +1154,7 @@ describe("JobsController", () => {
         req as Request,
         res as Response,
         params,
+        undefined,
       );
 
       expect(result.page).toEqual(page);

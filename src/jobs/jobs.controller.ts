@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Header,
+  Headers,
   HttpStatus,
   Param,
   Post,
@@ -43,7 +44,7 @@ import {
   CACHE_DURATION,
   CACHE_EXPIRY,
 } from "src/shared/constants/cache-control";
-import { responseSchemaWrapper } from "src/shared/helpers";
+import { normalizeString, responseSchemaWrapper } from "src/shared/helpers";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { Response as ExpressResponse, Request } from "express";
@@ -54,7 +55,7 @@ import { ProfileService } from "src/auth/profile/profile.service";
 import { EditJobTagsInput } from "./dto/edit-tags.input";
 import { TagsService } from "src/tags/tags.service";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
-import { CheckWalletRoles } from "src/shared/constants";
+import { CheckWalletRoles, ECOSYSTEM_HEADER } from "src/shared/constants";
 import { FeatureJobsInput } from "./dto/feature-jobs.input";
 import { UserService } from "src/user/user.service";
 
@@ -115,8 +116,16 @@ export class JobsController {
     @Res({ passthrough: true }) res: ExpressResponse,
     @Query(new ValidationPipe({ transform: true }))
     params: JobListParams,
+    @Headers(ECOSYSTEM_HEADER)
+    ecosystem: string | undefined,
   ): Promise<PaginatedData<JobListResult>> {
-    const queryString = JSON.stringify(params);
+    const enrichedParams = {
+      ...params,
+      communities: ecosystem
+        ? [...(params.communities ?? []), normalizeString(ecosystem)]
+        : params.communities,
+    };
+    const queryString = JSON.stringify(enrichedParams);
     this.logger.log(`/jobs/list ${queryString}`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
@@ -125,7 +134,7 @@ export class JobsController {
         queryString,
       );
     }
-    return this.jobsService.getJobsListWithSearch(params);
+    return this.jobsService.getJobsListWithSearch(enrichedParams);
   }
 
   @Get("/filters")
@@ -146,9 +155,12 @@ export class JobsController {
       "Returns an error message with a list of values that failed validation",
     type: ValidationError,
   })
-  async getFilterConfigs(): Promise<JobFilterConfigs> {
+  async getFilterConfigs(
+    @Headers(ECOSYSTEM_HEADER)
+    ecosystem: string | undefined,
+  ): Promise<JobFilterConfigs> {
     this.logger.log(`/jobs/filters`);
-    return this.jobsService.getFilterConfigs();
+    return this.jobsService.getFilterConfigs(ecosystem);
   }
 
   @Get("details/:uuid")
@@ -178,6 +190,8 @@ export class JobsController {
     @Param("uuid") uuid: string,
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
+    @Headers(ECOSYSTEM_HEADER)
+    ecosystem: string | undefined,
   ): Promise<JobListResult | undefined> {
     this.logger.log(`/jobs/details/${uuid}`);
     const { address } = await this.authService.getSession(req, res);
@@ -187,7 +201,7 @@ export class JobsController {
         uuid,
       );
     }
-    const result = await this.jobsService.getJobDetailsByUuid(uuid);
+    const result = await this.jobsService.getJobDetailsByUuid(uuid, ecosystem);
     if (result === undefined) {
       res.status(HttpStatus.NOT_FOUND);
     }
@@ -214,11 +228,12 @@ export class JobsController {
       ],
     },
   })
-  async getFeaturedJobsList(): Promise<
-    ResponseWithOptionalData<JobListResult[]>
-  > {
+  async getFeaturedJobsList(
+    @Headers(ECOSYSTEM_HEADER)
+    ecosystem: string | undefined,
+  ): Promise<ResponseWithOptionalData<JobListResult[]>> {
     this.logger.log(`/jobs/featured`);
-    return this.jobsService.getFeaturedJobs();
+    return this.jobsService.getFeaturedJobs(ecosystem);
   }
 
   @Get("/org/:id")
@@ -246,9 +261,13 @@ export class JobsController {
       ],
     },
   })
-  async getOrgJobsList(@Param("id") id: string): Promise<JobListResult[]> {
+  async getOrgJobsList(
+    @Param("id") id: string,
+    @Headers(ECOSYSTEM_HEADER)
+    ecosystem: string | undefined,
+  ): Promise<JobListResult[]> {
     this.logger.log(`/jobs/org/${id}`);
-    return this.jobsService.getJobsByOrgId(id);
+    return this.jobsService.getJobsByOrgId(id, ecosystem);
   }
 
   @Get("/org/:id/applicants")
@@ -372,11 +391,16 @@ export class JobsController {
   async getUserBookmarkedJobs(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
+    @Headers(ECOSYSTEM_HEADER)
+    ecosystem: string | undefined,
   ): Promise<Response<JobListResult[]> | ResponseWithNoData> {
     this.logger.log(`/jobs/bookmarked`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.jobsService.getUserBookmarkedJobs(address as string);
+      return this.jobsService.getUserBookmarkedJobs(
+        address as string,
+        ecosystem,
+      );
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
