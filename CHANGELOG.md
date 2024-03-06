@@ -1,3 +1,10 @@
+## [2.0.4](https://github.com/jobstash/middleware/compare/v2.0.3...v2.0.4) (2024-03-06)
+
+
+### Bug Fixes
+
+* **users:** flipped repo.description to nullable field ([5ed4686](https://github.com/jobstash/middleware/commit/5ed4686e9d139646fa890d6eb9b348f644641358))
+
 ## [2.0.3](https://github.com/jobstash/middleware/compare/v2.0.2...v2.0.3) (2024-03-05)
 
 
