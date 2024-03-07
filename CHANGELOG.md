@@ -1,3 +1,10 @@
+# [2.2.0](https://github.com/jobstash/middleware/compare/v2.1.0...v2.2.0) (2024-03-07)
+
+
+### Features
+
+* **tags:** added ecosystem support for tags ([13419ec](https://github.com/jobstash/middleware/commit/13419ec54866352ed5d459206f18b3aa2dc09cbb))
+
 # [2.1.0](https://github.com/jobstash/middleware/compare/v2.0.4...v2.1.0) (2024-03-06)
 
 
