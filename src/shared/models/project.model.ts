@@ -92,12 +92,15 @@ export interface ProjectMethods {
 
 export interface ProjectStatics {
   getProjectsData: () => Promise<
-    (ProjectWithRelations & { orgName: string })[]
+    (ProjectWithRelations & { orgName: string; communities: string[] })[]
   >;
   getProjectsMoreInfoData: () => Promise<ProjectWithRelations[]>;
   getProjectDetailsById: (id: string) => Promise<ProjectDetails | null>;
   getProjectsByCategory: (category: string) => Promise<ProjectProps[]>;
-  getProjectCompetitors: (id: string) => Promise<ProjectWithRelations[]>;
+  getProjectCompetitors: (
+    id: string,
+    ecosystem: string | undefined,
+  ) => Promise<ProjectWithRelations[]>;
   searchProjects: (query: string) => Promise<ProjectProps[]>;
   getProjectById: (id: string) => Promise<ProjectProps | null>;
 }
@@ -417,6 +420,9 @@ export const Projects = (
                   github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
                   twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+                  communities: [
+                    (organization)-[:IS_MEMBER_OF_COMMUNITY]->(community: OrganizationCommunity) | community.name
+                  ],
                   hacks: [
                     (project)-[:HAS_HACK]->(hack) | hack { .* }
                   ],
@@ -435,13 +441,16 @@ export const Projects = (
             `,
             );
           const result = await query.run(neogma.queryRunner);
-          const projects: (ProjectWithRelations & { orgName: string })[] =
-            result?.records?.map(
-              record =>
-                record.get("result") as ProjectWithRelations & {
-                  orgName: string;
-                },
-            );
+          const projects: (ProjectWithRelations & {
+            orgName: string;
+            communities: string[];
+          })[] = result?.records?.map(
+            record =>
+              record.get("result") as ProjectWithRelations & {
+                orgName: string;
+                communities: string[];
+              },
+          );
           return projects;
         },
         getProjectsMoreInfoData: async function () {
@@ -717,8 +726,11 @@ export const Projects = (
             new ProjectMoreInfoEntity(record.get("project")).getProperties(),
           );
         },
-        getProjectCompetitors: async function (id: string) {
-          const params = new BindParam({ id });
+        getProjectCompetitors: async function (
+          id: string,
+          ecosystem: string | undefined,
+        ) {
+          const params = new BindParam({ id, ecosystem: ecosystem ?? null });
           const query = new QueryBuilder(params)
             .match({
               related: [
@@ -752,7 +764,10 @@ export const Projects = (
                 },
               ],
             })
-            .raw("WHERE project.id <> $id")
+            .where(
+              "CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $ecosystem})) END",
+            )
+            .raw("AND project.id <> $id")
             .raw(
               `
               OPTIONAL MATCH (project)-[:HAS_JOB]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)

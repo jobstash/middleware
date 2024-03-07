@@ -126,6 +126,7 @@ describe("AuditsService", () => {
 
       const projectDetails = await projectsService.getProjectDetailsById(
         project.id,
+        undefined,
       );
       expect(projectDetails.audits).toEqual(
         expect.arrayContaining<Audit>([

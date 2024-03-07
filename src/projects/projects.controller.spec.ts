@@ -291,7 +291,7 @@ describe("ProjectsController", () => {
         page: 1,
         limit: Number(Integer.MAX_VALUE),
       };
-      const res = await controller.getProjectsListWithSearch(params);
+      const res = await controller.getProjectsListWithSearch(params, undefined);
 
       const uuids = res.data.map(project => project.id + project.orgId);
       const setOfUuids = new Set([...uuids]);
@@ -313,7 +313,7 @@ describe("ProjectsController", () => {
   it(
     "should get correctly formatted filter configs",
     async () => {
-      const configs = await controller.getFilterConfigs();
+      const configs = await controller.getFilterConfigs(undefined);
 
       expect(configs).toBeDefined();
 
@@ -342,14 +342,16 @@ describe("ProjectsController", () => {
         limit: 1,
       };
 
-      const project = (await controller.getProjectsListWithSearch(params))
-        .data[0];
+      const project = (
+        await controller.getProjectsListWithSearch(params, undefined)
+      ).data[0];
 
       const res: Partial<Response> = {};
 
       const details = await controller.getProjectDetailsById(
         project.id,
         res as Response,
+        undefined,
       );
 
       expect(projectHasArrayPropsDuplication(details)).toBe(false);
@@ -382,10 +384,14 @@ describe("ProjectsController", () => {
         limit: 1,
       };
 
-      const project = (await controller.getProjectsListWithSearch(params))
-        .data[0];
+      const project = (
+        await controller.getProjectsListWithSearch(params, undefined)
+      ).data[0];
 
-      const competitors = await controller.getProjectCompetitors(project.id);
+      const competitors = await controller.getProjectCompetitors(
+        project.id,
+        undefined,
+      );
 
       expect(competitors).toEqual({
         success: true,
@@ -445,8 +451,9 @@ describe("ProjectsController", () => {
         limit: 1,
       };
 
-      const project = (await controller.getProjectsListWithSearch(params))
-        .data[0];
+      const project = (
+        await controller.getProjectsListWithSearch(params, undefined)
+      ).data[0];
 
       const res: Partial<Response> = {};
 

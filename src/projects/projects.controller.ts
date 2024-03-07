@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Header,
+  Headers,
   HttpStatus,
   Param,
   ParseFilePipeBuilder,
@@ -34,14 +35,14 @@ import { Response as ExpressResponse } from "express";
 import { File, NFTStorage } from "nft.storage";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { OrganizationsService } from "src/organizations/organizations.service";
-import { CheckWalletRoles } from "src/shared/constants";
+import { CheckWalletRoles, ECOSYSTEM_HEADER } from "src/shared/constants";
 import {
   CACHE_CONTROL_HEADER,
   CACHE_DURATION,
   CACHE_EXPIRY,
 } from "src/shared/constants/cache-control";
 import { Roles } from "src/shared/decorators";
-import { responseSchemaWrapper } from "src/shared/helpers";
+import { normalizeString, responseSchemaWrapper } from "src/shared/helpers";
 import { ProjectProps } from "src/shared/models";
 import {
   DefiLlamaProject,
@@ -167,9 +168,16 @@ export class ProjectsController {
   async getProjectsListWithSearch(
     @Query(new ValidationPipe({ transform: true }))
     params: ProjectListParams,
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
   ): Promise<PaginatedData<ProjectListResult>> {
-    this.logger.log(`/projects/list ${JSON.stringify(params)}`);
-    return this.projectsService.getProjectsListWithSearch(params);
+    const enrichedParams = {
+      ...params,
+      communities: ecosystem
+        ? [...(params.communities ?? []), normalizeString(ecosystem)]
+        : params.communities,
+    };
+    this.logger.log(`/projects/list ${JSON.stringify(enrichedParams)}`);
+    return this.projectsService.getProjectsListWithSearch(enrichedParams);
   }
 
   @Get("/filters")
@@ -190,9 +198,11 @@ export class ProjectsController {
       "Returns an error message with a list of values that failed validation",
     type: ValidationError,
   })
-  async getFilterConfigs(): Promise<ProjectFilterConfigs> {
+  async getFilterConfigs(
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+  ): Promise<ProjectFilterConfigs> {
     this.logger.log(`/projects/filters`);
-    return this.projectsService.getFilterConfigs();
+    return this.projectsService.getFilterConfigs(ecosystem);
   }
 
   @Get("details/:id")
@@ -219,9 +229,13 @@ export class ProjectsController {
   async getProjectDetailsById(
     @Param("id") id: string,
     @Res({ passthrough: true }) res: ExpressResponse,
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
   ): Promise<ProjectDetails | undefined> {
     this.logger.log(`/projects/details/${id}`);
-    const result = await this.projectsService.getProjectDetailsById(id);
+    const result = await this.projectsService.getProjectDetailsById(
+      id,
+      ecosystem,
+    );
     if (result === undefined) {
       res.status(HttpStatus.NOT_FOUND);
     }
@@ -274,10 +288,11 @@ export class ProjectsController {
   })
   async getProjectCompetitors(
     @Param("id") id: string,
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
   ): Promise<Response<ProjectProps[]> | ResponseWithNoData> {
     this.logger.log(`/projects/competitors/${id}`);
     return this.projectsService
-      .getProjectCompetitors(id)
+      .getProjectCompetitors(id, ecosystem)
       .then(res => ({
         success: true,
         message: "Retrieved all competing projects successfully",

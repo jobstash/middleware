@@ -128,6 +128,7 @@ describe("HacksService", () => {
 
       const projectDetails = await projectsService.getProjectDetailsById(
         project.id,
+        undefined,
       );
       expect(projectDetails.hacks).toEqual(
         expect.arrayContaining<Hack>([
