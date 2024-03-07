@@ -1,3 +1,10 @@
+# [2.3.0](https://github.com/jobstash/middleware/compare/v2.2.0...v2.3.0) (2024-03-07)
+
+
+### Features
+
+* **organizations:** added ecosystem support for organization endpoints ([481a97d](https://github.com/jobstash/middleware/commit/481a97d5b476422210679ded3361254b00be654b))
+
 # [2.2.0](https://github.com/jobstash/middleware/compare/v2.1.0...v2.2.0) (2024-03-07)
 
 
