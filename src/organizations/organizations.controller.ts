@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Header,
+  Headers,
   HttpStatus,
   Param,
   ParseFilePipeBuilder,
@@ -28,7 +29,7 @@ import {
 import { Response as ExpressResponse } from "express";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { Roles } from "src/shared/decorators/role.decorator";
-import { responseSchemaWrapper } from "src/shared/helpers";
+import { normalizeString, responseSchemaWrapper } from "src/shared/helpers";
 import {
   Repository,
   Organization,
@@ -43,7 +44,7 @@ import {
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
 import { OrganizationsService } from "./organizations.service";
-import { CheckWalletRoles } from "src/shared/constants";
+import { CheckWalletRoles, ECOSYSTEM_HEADER } from "src/shared/constants";
 import { NFTStorage, File } from "nft.storage";
 import { ConfigService } from "@nestjs/config";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -151,9 +152,16 @@ export class OrganizationsController {
   async getOrgsListWithSearch(
     @Query(new ValidationPipe({ transform: true }))
     params: OrgListParams,
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
   ): Promise<PaginatedData<ShortOrg>> {
-    this.logger.log(`/organizations/list ${JSON.stringify(params)}`);
-    return this.organizationsService.getOrgsListWithSearch(params);
+    const enrichedParams = {
+      ...params,
+      communities: ecosystem
+        ? [...(params.communities ?? []), normalizeString(ecosystem)]
+        : params.communities,
+    };
+    this.logger.log(`/organizations/list ${JSON.stringify(enrichedParams)}`);
+    return this.organizationsService.getOrgsListWithSearch(enrichedParams);
   }
 
   @Get("/filters")
@@ -174,9 +182,11 @@ export class OrganizationsController {
       "Returns an error message with a list of values that failed validation",
     type: ValidationError,
   })
-  async getFilterConfigs(): Promise<OrgFilterConfigs> {
+  async getFilterConfigs(
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+  ): Promise<OrgFilterConfigs> {
     this.logger.log(`/jobs/filters`);
-    return this.organizationsService.getFilterConfigs();
+    return this.organizationsService.getFilterConfigs(ecosystem);
   }
 
   @Get("/featured")
@@ -199,44 +209,11 @@ export class OrganizationsController {
       ],
     },
   })
-  async getFeaturedJobsList(): Promise<ResponseWithOptionalData<ShortOrg[]>> {
+  async getFeaturedOrgsList(
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+  ): Promise<ResponseWithOptionalData<ShortOrg[]>> {
     this.logger.log(`/organizations/featured`);
-    return this.organizationsService.getFeaturedOrgs();
-  }
-
-  @Get("/search")
-  @ApiOkResponse({
-    description:
-      "Returns a list of all organizations with names matching the query",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(ShortOrg) }),
-  })
-  async searchOrganizations(
-    @Query("query") query: string,
-  ): Promise<Response<ShortOrg[]> | ResponseWithNoData> {
-    this.logger.log(`/organizations/search?query=${query}`);
-    return this.organizationsService
-      .searchOrganizations(query)
-      .then(res => ({
-        success: true,
-        message: "Retrieved matching organizations successfully",
-        data: res,
-      }))
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "service-call",
-            source: "organizations.controller",
-          });
-          Sentry.captureException(err);
-        });
-        this.logger.error(
-          `/organizations/search?query=${query} ${err.message}`,
-        );
-        return {
-          success: false,
-          message: `Error retrieving organizations for query!`,
-        };
-      });
+    return this.organizationsService.getFeaturedOrgs(ecosystem);
   }
 
   @Get("details/:id")
@@ -263,9 +240,13 @@ export class OrganizationsController {
   async getOrgDetailsById(
     @Param("id") id: string,
     @Res({ passthrough: true }) res: ExpressResponse,
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
   ): Promise<OrgDetailsResult | undefined> {
     this.logger.log(`/organizations/details/${id}`);
-    const result = await this.organizationsService.getOrgDetailsById(id);
+    const result = await this.organizationsService.getOrgDetailsById(
+      id,
+      ecosystem,
+    );
     if (result === undefined) {
       res.status(HttpStatus.NOT_FOUND);
     }

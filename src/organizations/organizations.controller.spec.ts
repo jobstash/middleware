@@ -147,7 +147,7 @@ describe("OrganizationsController", () => {
       page: 1,
       limit: Number(Integer.MAX_VALUE),
     };
-    const res = await controller.getOrgsListWithSearch(params);
+    const res = await controller.getOrgsListWithSearch(params, undefined);
 
     const uuids = res.data.map(org => org.orgId);
     const setOfUuids = new Set([...uuids]);
@@ -173,7 +173,7 @@ describe("OrganizationsController", () => {
       orderBy: "rating",
     };
 
-    const result = await controller.getOrgsListWithSearch(params);
+    const result = await controller.getOrgsListWithSearch(params, undefined);
 
     const org = result.data[0];
 
@@ -182,6 +182,7 @@ describe("OrganizationsController", () => {
     const details = await controller.getOrgDetailsById(
       org.orgId,
       res as Response,
+      undefined,
     );
 
     expect(details).toBeDefined();
@@ -197,7 +198,7 @@ describe("OrganizationsController", () => {
       limit: 1,
     };
 
-    const res = await controller.getOrgsListWithSearch(params);
+    const res = await controller.getOrgsListWithSearch(params, undefined);
 
     expect(res.page).toEqual(page);
   }, 300000);
@@ -226,13 +227,13 @@ describe("OrganizationsController", () => {
       }
     };
 
-    const res = await controller.getOrgsListWithSearch(params);
+    const res = await controller.getOrgsListWithSearch(params, undefined);
     const results = res.data;
     expect(results.every(x => matchesHeadCountRange(x) === true)).toBe(true);
   }, 30000000);
 
   it("should get correctly formatted filter configs", async () => {
-    const configs = await controller.getFilterConfigs();
+    const configs = await controller.getFilterConfigs(undefined);
 
     expect(configs).toBeDefined();
 

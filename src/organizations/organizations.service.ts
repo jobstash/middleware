@@ -168,6 +168,7 @@ export class OrganizationsService {
       locations: locationFilterList,
       investors: investorFilterList,
       fundingRounds: fundingRoundFilterList,
+      communities: communityFilterList,
       hasJobs,
       hasProjects,
       query,
@@ -205,7 +206,7 @@ export class OrganizationsService {
     const orgFilters = (org: OrgDetailsResult): boolean => {
       const { headcountEstimate, jobCount, projectCount, location, name } =
         toShortOrg(org);
-      const { fundingRounds, investors } = org;
+      const { fundingRounds, investors, community } = org;
       return (
         (!query || name.match(query)) &&
         (hasJobs === null || jobCount > 0 === hasJobs) &&
@@ -217,6 +218,10 @@ export class OrganizationsService {
         (!investorFilterList ||
           investors.filter(investor =>
             investorFilterList.includes(normalizeString(investor.name)),
+          ).length > 0) &&
+        (!communityFilterList ||
+          community.filter(community =>
+            communityFilterList.includes(normalizeString(community)),
           ).length > 0) &&
         (!fundingRoundFilterList ||
           fundingRounds.filter(fundingRound =>
@@ -277,21 +282,25 @@ export class OrganizationsService {
     );
   }
 
-  async getFeaturedOrgs(): Promise<ResponseWithOptionalData<ShortOrg[]>> {
+  async getFeaturedOrgs(
+    ecosystem: string | undefined,
+  ): Promise<ResponseWithOptionalData<ShortOrg[]>> {
     try {
-      const jobs = await this.getOrgListResults();
+      const orgs = await this.getOrgListResults();
       const now = new Date().getTime();
       return {
         success: true,
-        message: "Featured jobs retrieved successfully",
-        data: jobs
-          .filter(org =>
-            org.jobs.some(
-              job =>
-                job.featured === true &&
-                job.featureStartDate <= now &&
-                now <= job.featureEndDate,
-            ),
+        message: "Featured orgs retrieved successfully",
+        data: orgs
+          .filter(
+            org =>
+              (ecosystem ? org.community.includes(ecosystem) : true) &&
+              org.jobs.some(
+                job =>
+                  job.featured === true &&
+                  job.featureStartDate <= now &&
+                  now <= job.featureEndDate,
+              ),
           )
           .map(x => new ShortOrgEntity(toShortOrg(x)).getProperties()),
       };
@@ -308,29 +317,48 @@ export class OrganizationsService {
     }
   }
 
-  async getFilterConfigs(): Promise<OrgFilterConfigs> {
+  async getFilterConfigs(
+    ecosystem: string | undefined,
+  ): Promise<OrgFilterConfigs> {
     try {
       return await this.neogma.queryRunner
         .run(
           `
           RETURN {
-              minHeadCount: apoc.coll.min([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | org.headcountEstimate]),
-              maxHeadCount: apoc.coll.max([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | org.headcountEstimate]),
+              minHeadCount: apoc.coll.min([
+                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) 
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $ecosystem})) END | org.headcountEstimate
+              ]),
+              maxHeadCount: apoc.coll.max([
+                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) 
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $ecosystem})) END | org.headcountEstimate
+              ]),
               fundingRounds: apoc.coll.toSet([
-                (org: Organization)-[:HAS_FUNDING_ROUND]->(round: FundingRound) WHERE EXISTS((org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus))
-                AND NOT EXISTS((org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)) | round.roundName
+                (org: Organization)-[:HAS_FUNDING_ROUND]->(round: FundingRound)
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $ecosystem})) END
+                AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | round.roundName
               ]),
               investors: apoc.coll.toSet([
-                (org: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) WHERE EXISTS((org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus))
-                AND NOT EXISTS((org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)) | investor.name
+                (org: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor)
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $ecosystem})) END
+                AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | investor.name
               ]),
               communities: apoc.coll.toSet([
-                (org: Organization)-[:IS_MEMBER_OF_COMMUNITY]->(community: OrganizationCommunity) WHERE EXISTS((org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus))
-                AND NOT EXISTS((org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)) | community.name
+                (org: Organization)-[:IS_MEMBER_OF_COMMUNITY]->(community: OrganizationCommunity)
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $ecosystem})) END
+                AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | community.name
               ]),
-              locations: apoc.coll.toSet([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | org.location])
+              locations: apoc.coll.toSet([
+                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_LOCATION_TYPE]->(location: JobpostLocationType)
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $ecosystem})) END
+                AND (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | location.name
+              ])
           } AS res
       `,
+          { ecosystem: ecosystem ?? null },
         )
         .then(res =>
           res.records.length
@@ -356,12 +384,14 @@ export class OrganizationsService {
 
   async getOrgDetailsById(
     orgId: string,
+    ecosystem: string | undefined,
   ): Promise<OrgDetailsResult | undefined> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (organization:Organization {orgId: $orgId})
-          RETURN organization {
+        WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $ecosystem})) END
+        RETURN organization {
             .*,
             discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
             website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
@@ -448,7 +478,7 @@ export class OrganizationsService {
             ]
           } as res
         `,
-        { orgId },
+        { orgId, ecosystem: ecosystem ?? null },
       );
       return result.records[0]?.get("res")
         ? new OrgDetailsResultEntity({
