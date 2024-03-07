@@ -1,3 +1,10 @@
+# [2.5.0](https://github.com/jobstash/middleware/compare/v2.4.0...v2.5.0) (2024-03-07)
+
+
+### Features
+
+* **tags:** implemented get popular tags endpoint ([b85f413](https://github.com/jobstash/middleware/commit/b85f413b5615cfd9ed62bcb5fed28eab8c88addb))
+
 # [2.4.0](https://github.com/jobstash/middleware/compare/v2.3.0...v2.4.0) (2024-03-07)
 
 
