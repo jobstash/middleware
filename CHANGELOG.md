@@ -1,3 +1,10 @@
+# [2.4.0](https://github.com/jobstash/middleware/compare/v2.3.0...v2.4.0) (2024-03-07)
+
+
+### Features
+
+* **projects:** added ecosystem support for projects ([7d6b925](https://github.com/jobstash/middleware/commit/7d6b925ddf8980aff441ee293045b2add21d80de))
+
 # [2.3.0](https://github.com/jobstash/middleware/compare/v2.2.0...v2.3.0) (2024-03-07)
 
 
