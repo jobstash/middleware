@@ -30,6 +30,10 @@ export interface TagStatics {
     ecosystem: string | undefined,
     threshold: number,
   ) => Promise<Tag[]>;
+  getPopularTags: (
+    count: number,
+    ecosystem: string | undefined,
+  ) => Promise<Tag[]>;
   getPairedTags: () => Promise<TagPair[]>;
 }
 
@@ -150,6 +154,68 @@ export const Tags = (
           return result.records[0]
             .get("tags")
             .map(x => new TagEntity(x).getProperties());
+        },
+        getPopularTags: async function (
+          count: number,
+          ecosystem: string | undefined,
+        ): Promise<Tag[]> {
+          const query = new QueryBuilder(
+            new BindParam({ ecosystem: ecosystem ?? null }),
+          )
+            .match({
+              related: [
+                { label: "Organization", identifier: "org" },
+                {
+                  name: "HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4",
+                  direction: "out",
+                },
+                {
+                  label: "Tag",
+                  identifier: "tag",
+                },
+                { name: "HAS_TAG_DESIGNATION", direction: "out" },
+                { label: "AllowedDesignation|DefaultDesignation" },
+              ],
+            })
+            .where(
+              "CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $ecosystem})) END",
+            )
+            .raw(
+              "AND NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)",
+            )
+            .raw(
+              "OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)",
+            )
+            .with("(CASE WHEN other IS NULL THEN tag ELSE other END) AS tag")
+            .raw(
+              "OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)",
+            )
+            .with("(CASE WHEN other IS NULL THEN tag ELSE other END) AS tag")
+            .with(
+              `
+                {
+                  tag: tag,
+                  popularity: apoc.coll.sum([
+                    (job:StructuredJobpost)-[:HAS_TAG]->(tag)
+                    WHERE (job)-[:HAS_STATUS]->(:JobpostOnlineStatus) | 1
+                  ])
+                } as res
+              `,
+            )
+            .where("res.popularity IS NOT NULL")
+            .return("apoc.coll.toSet(COLLECT(res)) as result");
+          const result = (await query.run(neogma.queryRunner))?.records[0]?.get(
+            "result",
+          );
+          return result
+            ? result
+                .sort(
+                  (a: { [x: string]: number }, b: { [x: string]: number }) =>
+                    ((b["popularity"] as number) - a["popularity"]) as number,
+                )
+                .map(res => new TagEntity(res["tag"]).getProperties())
+                .slice(0, count) ?? []
+            : [];
         },
         getBlockedTags: async function (): Promise<Tag[]> {
           const query = new QueryBuilder()

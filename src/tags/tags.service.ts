@@ -98,7 +98,26 @@ export class TagsService {
         });
         Sentry.captureException(err);
       });
-      this.logger.error(`TagsService::getAll ${err.message}`);
+      this.logger.error(`TagsService::getAllUnblockedTags ${err.message}`);
+      return undefined;
+    }
+  }
+
+  async getPopularTags(
+    count: number,
+    ecosystem: string | undefined,
+  ): Promise<Tag[]> {
+    try {
+      return this.models.Tags.getPopularTags(count, ecosystem);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "tags.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`TagsService::getPopularTags ${err.message}`);
       return undefined;
     }
   }

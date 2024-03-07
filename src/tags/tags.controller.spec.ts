@@ -21,6 +21,7 @@ import { HttpModule, HttpService } from "@nestjs/axios";
 import * as https from "https";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { Request, Response } from "express";
+import { Integer } from "neo4j-driver";
 
 describe("TagsController", () => {
   let controller: TagsController;
@@ -114,6 +115,30 @@ describe("TagsController", () => {
     "should get tags list with no duplication",
     async () => {
       const result = await controller.getTags(undefined);
+
+      const uuids = data(result).map(tag => tag.id);
+      const setOfUuids = new Set([...uuids]);
+
+      expect(result).toEqual({
+        success: true,
+        message: expect.any(String),
+        data: expect.any(Array<Tag>),
+      });
+
+      printDuplicateItems(setOfUuids, uuids, "Tag with name");
+
+      expect(uuids.length).toBe(setOfUuids.size);
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should get popular tags list with no duplication",
+    async () => {
+      const result = await controller.getPopularTags(
+        Integer.MAX_SAFE_VALUE.toNumber(),
+        undefined,
+      );
 
       const uuids = data(result).map(tag => tag.id);
       const setOfUuids = new Set([...uuids]);

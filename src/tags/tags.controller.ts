@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Headers,
+  Param,
   Post,
   Req,
   Res,
@@ -70,6 +71,40 @@ export class TagsController {
         return {
           success: false,
           message: `Error retrieving tags`,
+        };
+      });
+  }
+
+  @Get("/popular/:n")
+  @ApiOkResponse({
+    description:
+      "Returns a list of n most popular tags ranked by their popularity",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Tag) }),
+  })
+  async getPopularTags(
+    @Param("n") count: number,
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string,
+  ): Promise<ResponseWithOptionalData<Tag[]>> {
+    this.logger.log(`/tags/popular/${count}`);
+    return this.tagsService
+      .getPopularTags(count, ecosystem)
+      .then(res => ({
+        success: true,
+        message: "Retrieved popular tags",
+        data: res,
+      }))
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-call",
+            source: "tags.controller",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`/tags/popular ${err.message}`);
+        return {
+          success: false,
+          message: `Error retrieving popular tags`,
         };
       });
   }
