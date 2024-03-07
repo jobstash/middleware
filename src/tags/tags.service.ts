@@ -84,9 +84,10 @@ export class TagsService {
     return res.records.length ? new TagEntity(res.records[0].get("bt")) : null;
   }
 
-  async getAllUnblockedTags(): Promise<Tag[]> {
+  async getAllUnblockedTags(ecosystem: string | undefined): Promise<Tag[]> {
     try {
       return this.models.Tags.getUnblockedTags(
+        ecosystem,
         this.configService.get<number>("SKILL_THRESHOLD"),
       );
     } catch (err) {

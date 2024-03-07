@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Post,
   Req,
   Res,
@@ -12,7 +13,7 @@ import * as Sentry from "@sentry/node";
 import { Response as ExpressResponse, Request } from "express";
 import { AuthService } from "src/auth/auth.service";
 import { RBACGuard } from "src/auth/rbac.guard";
-import { CheckWalletRoles } from "src/shared/constants";
+import { CheckWalletRoles, ECOSYSTEM_HEADER } from "src/shared/constants";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
@@ -46,10 +47,12 @@ export class TagsController {
     description: "Returns a list of all tags",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Tag) }),
   })
-  async getTags(): Promise<ResponseWithOptionalData<Tag[]>> {
+  async getTags(
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string,
+  ): Promise<ResponseWithOptionalData<Tag[]>> {
     this.logger.log(`/tags`);
     return this.tagsService
-      .getAllUnblockedTags()
+      .getAllUnblockedTags(ecosystem)
       .then(res => ({
         success: true,
         message: "Retrieved all tags",

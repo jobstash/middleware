@@ -26,7 +26,10 @@ export interface TagMethods {
 export interface TagStatics {
   getPreferredTags: () => Promise<TagPreference[]>;
   getBlockedTags: () => Promise<Tag[]>;
-  getUnblockedTags: (threshold: number) => Promise<Tag[]>;
+  getUnblockedTags: (
+    ecosystem: string | undefined,
+    threshold: number,
+  ) => Promise<Tag[]>;
   getPairedTags: () => Promise<TagPair[]>;
 }
 
@@ -100,10 +103,20 @@ export const Tags = (
           const result = await query.run(neogma.queryRunner);
           return result.records.map(record => record.get("res") as TagPair);
         },
-        getUnblockedTags: async function (threshold: number): Promise<Tag[]> {
-          const query = new QueryBuilder(new BindParam({ threshold }))
+        getUnblockedTags: async function (
+          ecosystem: string | undefined,
+          threshold: number,
+        ): Promise<Tag[]> {
+          const query = new QueryBuilder(
+            new BindParam({ threshold, ecosystem: ecosystem ?? null }),
+          )
             .match({
               related: [
+                { label: "Organization", identifier: "org" },
+                {
+                  name: "HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3",
+                  direction: "out",
+                },
                 { label: "StructuredJobpost", identifier: "job" },
                 { name: "HAS_TAG", direction: "out" },
                 {
@@ -115,7 +128,10 @@ export const Tags = (
               ],
             })
             .where(
-              "NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)",
+              "CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $ecosystem})) END",
+            )
+            .raw(
+              "AND NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)",
             )
             .raw(
               "OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)",

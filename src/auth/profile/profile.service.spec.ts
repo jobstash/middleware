@@ -241,7 +241,7 @@ describe("ProfileService", () => {
   it(
     "should update a user's skills",
     async () => {
-      const skills = (await tagsService.getAllUnblockedTags())
+      const skills = (await tagsService.getAllUnblockedTags(undefined))
         .slice(undefined, 5)
         .map(x => ({ ...x, canTeach: false }));
 
@@ -425,7 +425,7 @@ describe("ProfileService", () => {
         page: 1,
       })) as PaginatedData<UserRepo>;
 
-      const skills = (await tagsService.getAllUnblockedTags())
+      const skills = (await tagsService.getAllUnblockedTags(undefined))
         .slice(undefined, 5)
         .map(x => ({ ...x, canTeach: false }));
 

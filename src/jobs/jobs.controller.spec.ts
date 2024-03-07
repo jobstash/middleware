@@ -1165,7 +1165,7 @@ describe("JobsController", () => {
   it(
     "should get correctly formatted filter configs",
     async () => {
-      const configs = await controller.getFilterConfigs();
+      const configs = await controller.getFilterConfigs(undefined);
 
       expect(configs).toBeDefined();
 
