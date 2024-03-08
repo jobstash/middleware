@@ -29,7 +29,7 @@ import {
 import { Response as ExpressResponse } from "express";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { Roles } from "src/shared/decorators/role.decorator";
-import { normalizeString, responseSchemaWrapper } from "src/shared/helpers";
+import { responseSchemaWrapper } from "src/shared/helpers";
 import {
   Repository,
   Organization,
@@ -56,7 +56,8 @@ import {
 } from "src/shared/constants/cache-control";
 import { ValidationError } from "class-validator";
 import { OrgListParams } from "./dto/org-list.input";
-import { AddOrgAliasInput } from "./dto/add-organization-alias.input";
+import { UpdateOrgAliasesInput } from "./dto/update-organization-aliases.input";
+import { UpdateOrgCommunitiesInput } from "./dto/update-organization-communities.input";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -157,7 +158,7 @@ export class OrganizationsController {
     const enrichedParams = {
       ...params,
       communities: ecosystem
-        ? [...(params.communities ?? []), normalizeString(ecosystem)]
+        ? [...(params.communities ?? []), ecosystem]
         : params.communities,
     };
     this.logger.log(`/organizations/list ${JSON.stringify(enrichedParams)}`);
@@ -479,11 +480,32 @@ export class OrganizationsController {
       "Something went wrong updating the organization alias on the destination service",
     schema: responseSchemaWrapper({ type: "string" }),
   })
-  async addOrgAlias(
-    @Body() body: AddOrgAliasInput,
+  async updateOrgAliases(
+    @Body() body: UpdateOrgAliasesInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/organizations/add-alias ${JSON.stringify(body)}`);
-    return this.organizationsService.addAlias(body);
+    return this.organizationsService.updateOrgAliases(body);
+  }
+
+  @Post("/communities")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Upserts an org with a new set of communities",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Organization),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong updating the organization communities on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async updateOrgCommunities(
+    @Body() body: UpdateOrgCommunitiesInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/organizations/communities ${JSON.stringify(body)}`);
+    return this.organizationsService.updateOrgCommunities(body);
   }
 
   @Get("/repositories/:id")

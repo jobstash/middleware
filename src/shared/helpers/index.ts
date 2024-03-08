@@ -29,6 +29,7 @@ import { randomUUID } from "crypto";
 import { AxiosError } from "axios";
 import { firstValueFrom, catchError } from "rxjs";
 import { HttpService } from "@nestjs/axios";
+import { emojiRegex } from "./emoji-regex";
 
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
@@ -468,7 +469,8 @@ export function normalizeString(original: string | null): string | null {
         return x;
       }
     })
-    .join("");
+    .join("")
+    .replace(emojiRegex(), "");
   return normalized.toLowerCase();
 }
 

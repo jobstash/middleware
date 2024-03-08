@@ -44,7 +44,7 @@ import {
   CACHE_DURATION,
   CACHE_EXPIRY,
 } from "src/shared/constants/cache-control";
-import { normalizeString, responseSchemaWrapper } from "src/shared/helpers";
+import { responseSchemaWrapper } from "src/shared/helpers";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { Response as ExpressResponse, Request } from "express";
@@ -122,7 +122,7 @@ export class JobsController {
     const enrichedParams = {
       ...params,
       communities: ecosystem
-        ? [...(params.communities ?? []), normalizeString(ecosystem)]
+        ? [...(params.communities ?? []), ecosystem]
         : params.communities,
     };
     const queryString = JSON.stringify(enrichedParams);

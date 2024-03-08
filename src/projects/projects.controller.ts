@@ -42,7 +42,7 @@ import {
   CACHE_EXPIRY,
 } from "src/shared/constants/cache-control";
 import { Roles } from "src/shared/decorators";
-import { normalizeString, responseSchemaWrapper } from "src/shared/helpers";
+import { responseSchemaWrapper } from "src/shared/helpers";
 import { ProjectProps } from "src/shared/models";
 import {
   DefiLlamaProject,
@@ -173,7 +173,7 @@ export class ProjectsController {
     const enrichedParams = {
       ...params,
       communities: ecosystem
-        ? [...(params.communities ?? []), normalizeString(ecosystem)]
+        ? [...(params.communities ?? []), ecosystem]
         : params.communities,
     };
     this.logger.log(`/projects/list ${JSON.stringify(enrichedParams)}`);

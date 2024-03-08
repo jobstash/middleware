@@ -1,7 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsArray, IsNotEmpty, IsString } from "class-validator";
 
-export class AddOrgAliasInput {
+export class UpdateOrgCommunitiesInput {
   @ApiProperty()
   @IsNotEmpty()
   @IsString()
@@ -10,5 +10,5 @@ export class AddOrgAliasInput {
   @ApiProperty()
   @IsNotEmpty()
   @IsArray()
-  aliases: string[];
+  communities: string[];
 }

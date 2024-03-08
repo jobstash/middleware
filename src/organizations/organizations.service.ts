@@ -27,7 +27,8 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
-import { AddOrgAliasInput } from "./dto/add-organization-alias.input";
+import { UpdateOrgAliasesInput } from "./dto/update-organization-aliases.input";
+import { UpdateOrgCommunitiesInput } from "./dto/update-organization-communities.input";
 
 @Injectable()
 export class OrganizationsService {
@@ -327,33 +328,33 @@ export class OrganizationsService {
           RETURN {
               minHeadCount: apoc.coll.min([
                 (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) 
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $ecosystem})) END | org.headcountEstimate
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END | org.headcountEstimate
               ]),
               maxHeadCount: apoc.coll.max([
                 (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) 
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $ecosystem})) END | org.headcountEstimate
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END | org.headcountEstimate
               ]),
               fundingRounds: apoc.coll.toSet([
                 (org: Organization)-[:HAS_FUNDING_ROUND]->(round: FundingRound)
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $ecosystem})) END
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
                 AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
                 AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | round.roundName
               ]),
               investors: apoc.coll.toSet([
                 (org: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor)
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $ecosystem})) END
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
                 AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
                 AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | investor.name
               ]),
               communities: apoc.coll.toSet([
                 (org: Organization)-[:IS_MEMBER_OF_COMMUNITY]->(community: OrganizationCommunity)
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $ecosystem})) END
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
                 AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
                 AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | community.name
               ]),
               locations: apoc.coll.toSet([
                 (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_LOCATION_TYPE]->(location: JobpostLocationType)
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $ecosystem})) END
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
                 AND (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | location.name
               ])
           } AS res
@@ -890,8 +891,8 @@ export class OrganizationsService {
     }
   }
 
-  async addAlias(
-    dto: AddOrgAliasInput,
+  async updateOrgAliases(
+    dto: UpdateOrgAliasesInput,
   ): Promise<ResponseWithOptionalData<string[]>> {
     try {
       const result = await this.neogma.queryRunner.run(
@@ -914,7 +915,7 @@ export class OrganizationsService {
       );
       return {
         success: true,
-        message: "Added organization aliases successfully",
+        message: "Updated organization aliases successfully",
         data: aliases,
       };
     } catch (err) {
@@ -926,8 +927,59 @@ export class OrganizationsService {
         scope.setExtra("input", dto);
         Sentry.captureException(err);
       });
-      this.logger.error(`OrganizationsService::addAlias ${err.message}`);
-      return { success: false, message: "Failed to add org aliases" };
+      this.logger.error(
+        `OrganizationsService::updateOrgAliases ${err.message}`,
+      );
+      return { success: false, message: "Failed to update org aliases" };
+    }
+  }
+
+  async updateOrgCommunities(
+    dto: UpdateOrgCommunitiesInput,
+  ): Promise<ResponseWithOptionalData<string[]>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          CALL {
+            MATCH (org:Organization {orgId: $orgId})-[:IS_MEMBER_OF_COMMUNITY]->(community:OrganizationCommunity)
+            DETACH DELETE community
+          }
+
+          MATCH (org:Organization {orgId: $orgId})
+          UNWIND $communities as community
+          CREATE (communities:OrganizationCommunity {id: randomUUID(), name: community.name, normalizedName: community.normalizedName})
+          MERGE (org)-[:IS_MEMBER_OF_COMMUNITY]->(communities)
+          RETURN community.name as name
+        `,
+        {
+          orgId: dto.orgId,
+          communities: dto.communities.map(c => ({
+            name: c,
+            normalizedName: normalizeString(c),
+          })),
+        },
+      );
+      const communities = result.records.map(
+        record => record.get("name") as string,
+      );
+      return {
+        success: true,
+        message: "Updated organization communities successfully",
+        data: communities,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::updateOrgCommunities ${err.message}`,
+      );
+      return { success: false, message: "Failed to update org communities" };
     }
   }
 }
