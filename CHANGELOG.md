@@ -1,3 +1,10 @@
+# [2.6.0](https://github.com/jobstash/middleware/compare/v2.5.0...v2.6.0) (2024-03-08)
+
+
+### Features
+
+* **organizations:** implemented update org alias endpoint and set ecosystem header to check for normalized values ([4b77b8d](https://github.com/jobstash/middleware/commit/4b77b8de8787173715162920e80a05960191eeaf))
+
 # [2.5.0](https://github.com/jobstash/middleware/compare/v2.4.0...v2.5.0) (2024-03-07)
 
 
