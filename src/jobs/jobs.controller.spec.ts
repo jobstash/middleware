@@ -12,6 +12,7 @@ import {
   ProjectWithRelations,
   data,
   DateRange,
+  JobpostFolder,
 } from "src/shared/types";
 import { Integer } from "neo4j-driver";
 import {
@@ -47,12 +48,16 @@ import { OrganizationsService } from "src/organizations/organizations.service";
 import { MailService } from "src/mail/mail.service";
 import { addWeeks, subWeeks } from "date-fns";
 import { randomUUID } from "crypto";
+import { UserService } from "src/user/user.service";
 
 describe("JobsController", () => {
   let controller: JobsController;
   let models: ModelService;
   let authService: AuthService;
+  let userService: UserService;
   let httpService: HttpService;
+
+  let jobFolderId: string;
 
   const logger = new CustomLogger(`${JobsController.name}TestSuite`);
 
@@ -197,6 +202,7 @@ describe("JobsController", () => {
         ProfileService,
         OrganizationsService,
         MailService,
+        UserService,
       ],
     }).compile();
 
@@ -205,6 +211,7 @@ describe("JobsController", () => {
     await models.onModuleInit();
     controller = module.get<JobsController>(JobsController);
     authService = module.get<AuthService>(AuthService);
+    userService = module.get<UserService>(UserService);
     httpService = module.get<HttpService>(HttpService);
   }, REALLY_LONG_TIME);
 
@@ -599,6 +606,163 @@ describe("JobsController", () => {
       );
 
       expect(details).toStrictEqual(expect.any(JobListResult));
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should create a job folder for a user",
+    async () => {
+      const req: Partial<Request> = {};
+      const res: Partial<Response> = {};
+
+      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+        address: EPHEMERAL_TEST_WALLET,
+        destroy: async (): Promise<void> => {
+          logger.log("session destroyed");
+        },
+        save: async (): Promise<void> => {
+          logger.log("session saved");
+        },
+      }));
+
+      await userService.createSIWEUser(EPHEMERAL_TEST_WALLET);
+
+      const result = await controller.createUserJobFolder(
+        req as Request,
+        res as Response,
+        {
+          name: "Demo Folder",
+          isPublic: true,
+          jobs: [],
+        },
+      );
+
+      expect(result).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+      });
+
+      const details = await controller.getUserJobFolderById(
+        req as Request,
+        res as Response,
+        data(result).id,
+      );
+
+      expect(details).toStrictEqual(expect.any(JobpostFolder));
+
+      jobFolderId = data(result).id;
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should update a job folder",
+    async () => {
+      const req: Partial<Request> = {};
+      const res: Partial<Response> = {};
+
+      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+        address: EPHEMERAL_TEST_WALLET,
+        destroy: async (): Promise<void> => {
+          logger.log("session destroyed");
+        },
+        save: async (): Promise<void> => {
+          logger.log("session saved");
+        },
+      }));
+
+      const result = await controller.updateUserJobFolder(
+        req as Request,
+        res as Response,
+        jobFolderId,
+        {
+          name: "Demo Folder",
+          isPublic: true,
+          jobs: [NOT_SO_RANDOM_TEST_SHORT_UUID],
+        },
+      );
+
+      expect(result).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+      });
+
+      const details = await controller.getUserJobFolderById(
+        req as Request,
+        res as Response,
+        data(result).id,
+      );
+
+      expect(data(details)).toStrictEqual(expect.any(JobpostFolder));
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should get a users job folders",
+    async () => {
+      const req: Partial<Request> = {};
+      const res: Partial<Response> = {};
+
+      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+        address: EPHEMERAL_TEST_WALLET,
+        destroy: async (): Promise<void> => {
+          logger.log("session destroyed");
+        },
+        save: async (): Promise<void> => {
+          logger.log("session saved");
+        },
+      }));
+
+      const result = await controller.getUserJobFolders(
+        req as Request,
+        res as Response,
+      );
+
+      expect(result).toStrictEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+        data: expect.any(Array<JobpostFolder>),
+      });
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should delete a job folder",
+    async () => {
+      const req: Partial<Request> = {};
+      const res: Partial<Response> = {};
+
+      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
+        address: EPHEMERAL_TEST_WALLET,
+        destroy: async (): Promise<void> => {
+          logger.log("session destroyed");
+        },
+        save: async (): Promise<void> => {
+          logger.log("session saved");
+        },
+      }));
+
+      const result = await controller.deleteUserJobFolder(
+        req as Request,
+        res as Response,
+        jobFolderId,
+      );
+
+      expect(result).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+      });
+
+      const details = await controller.getUserJobFolderById(
+        req as Request,
+        res as Response,
+        jobFolderId,
+      );
+
+      expect(data(details)).toBeUndefined();
     },
     REALLY_LONG_TIME,
   );

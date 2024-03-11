@@ -34,7 +34,7 @@ import {
   JobpostOnlineStatusProps,
   JobpostOnlineStatuses,
   JobpostProps,
-  JobpostRelations,
+  JobpostFolderRelations,
   Jobposts,
   JobsiteMethods,
   JobsiteProps,
@@ -89,13 +89,16 @@ import {
   DefaultDesignations,
   PairedDesignations,
   PreferredDesignations,
+  JobpostFolderProps,
+  JobpostRelations,
+  JobpostFolders,
 } from "src/shared/models";
 import { NoRelations } from "src/shared/types";
-import { CustomLogger } from "src/shared/utils/custom-logger";
+// import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Injectable()
 export class ModelService implements OnModuleInit {
-  private readonly logger = new CustomLogger(ModelService.name);
+  // private readonly logger = new CustomLogger(ModelService.name);
   constructor(
     @InjectConnection()
     private neogma: Neogma,
@@ -143,6 +146,10 @@ export class ModelService implements OnModuleInit {
   public JobpostClassifications: NeogmaModel<
     JobpostClassificationProps,
     NoRelations
+  >;
+  public JobpostFolders: NeogmaModel<
+    JobpostFolderProps,
+    JobpostFolderRelations
   >;
   public JobpostCommitments: NeogmaModel<JobpostCommitmentProps, NoRelations>;
   public JobpostLocationTypes: NeogmaModel<
@@ -197,6 +204,7 @@ export class ModelService implements OnModuleInit {
     this.GithubOrganizations = GithubOrganizations(this.neogma);
     this.GithubUsers = GithubUsers(this.neogma);
     this.JobpostClassifications = JobpostClassifications(this.neogma);
+    this.JobpostFolders = JobpostFolders(this.neogma);
     this.JobpostCommitments = JobpostCommitments(this.neogma);
     this.JobpostLocationTypes = JobpostLocationTypes(this.neogma);
     this.Auditors = Auditors(this.neogma);

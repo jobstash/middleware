@@ -16,6 +16,7 @@ import {
   OrganizationReviews,
 } from "./organization-review.model";
 import { UserLocationInstance, UserLocations } from "./user-location.model";
+import { JobpostFolderInstance, JobpostFolders } from "./jobpost-folder.model";
 
 export type UserProps = ExtractProps<User>;
 
@@ -48,6 +49,10 @@ export interface UserRelations {
   reviews: ModelRelatedNodesI<
     ReturnType<typeof OrganizationReviews>,
     OrganizationReviewInstance
+  >;
+  folders: ModelRelatedNodesI<
+    ReturnType<typeof JobpostFolders>,
+    JobpostFolderInstance
   >;
 }
 
@@ -113,6 +118,11 @@ export const Users = (neogma: Neogma): NeogmaModel<UserProps, UserRelations> =>
           model: OrganizationReviews(neogma),
           direction: "out",
           name: "LEFT_REVIEW",
+        },
+        folders: {
+          model: JobpostFolders(neogma),
+          direction: "out",
+          name: "CREATED_FOLDER",
         },
         location: {
           model: UserLocations(neogma),

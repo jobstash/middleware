@@ -134,6 +134,20 @@ export class UserService {
     return result.records[0]?.get("hasOrgAuthorization") as boolean;
   }
 
+  async userAuthorizedForJobFolder(
+    wallet: string,
+    id: string,
+  ): Promise<boolean> {
+    const result = await this.neogma.queryRunner.run(
+      `
+        RETURN EXISTS((:User {wallet: $wallet})-[:CREATED_FOLDER]->(:JobpostFolder {id: $id})) AS hasFolderAuthorization
+      `,
+      { wallet, id },
+    );
+
+    return result.records[0]?.get("hasFolderAuthorization") as boolean;
+  }
+
   normalizeEmail(original: string | null): string | null {
     const specialChars = "!@#$%^&*<>()-+=,";
     if (!original) {

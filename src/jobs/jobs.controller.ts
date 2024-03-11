@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   Headers,
@@ -26,6 +27,8 @@ import {
   StructuredJobpostWithRelations,
   ResponseWithOptionalData,
   StructuredJobpostWithApplicants,
+  JobpostFolder,
+  data,
 } from "src/shared/types";
 import {
   ApiBadRequestResponse,
@@ -58,6 +61,8 @@ import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
 import { CheckWalletRoles, ECOSYSTEM_HEADER } from "src/shared/constants";
 import { FeatureJobsInput } from "./dto/feature-jobs.input";
 import { UserService } from "src/user/user.service";
+import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
+import { CreateJobFolderInput } from "./dto/create-job-folder.input";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
@@ -371,19 +376,7 @@ export class JobsController {
     schema: {
       allOf: [
         {
-          $ref: getSchemaPath(PaginatedData),
-          properties: {
-            page: {
-              type: "number",
-            },
-            count: {
-              type: "number",
-            },
-            data: {
-              type: "array",
-              items: { $ref: getSchemaPath(JobListResult) },
-            },
-          },
+          $ref: getSchemaPath(Response<JobListResult[]>),
         },
       ],
     },
@@ -401,6 +394,189 @@ export class JobsController {
         address as string,
         ecosystem,
       );
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Get("/folders")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV)
+  @ApiOkResponse({
+    description: "Returns the job folders of the currently logged in user",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(Response<JobpostFolder[]>),
+        },
+      ],
+    },
+  })
+  async getUserJobFolders(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ): Promise<Response<JobpostFolder[]> | ResponseWithNoData> {
+    this.logger.log(`/jobs/folders`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.jobsService.getUserJobFolders(address as string);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Get("/folders/:id")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ANON)
+  @ApiOkResponse({
+    description: "Returns the details of the job folder with the passed id",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(Response<JobpostFolder>),
+        },
+      ],
+    },
+  })
+  async getUserJobFolderById(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Param("id") id: string,
+  ): Promise<Response<JobpostFolder> | ResponseWithNoData> {
+    this.logger.log(`/jobs/folders/:id`);
+    const { address } = await this.authService.getSession(req, res);
+    const result = await this.jobsService.getUserJobFolderById(id);
+    if (address) {
+      return result;
+    } else {
+      if (data(result)?.isPublic) {
+        return result;
+      } else {
+        return {
+          success: false,
+          message: "Public job folder not found for that id",
+        };
+      }
+    }
+  }
+
+  @Post("/folders")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV)
+  @ApiOkResponse({
+    description: "Creates a new job folder",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(Response<JobpostFolder>),
+        },
+      ],
+    },
+  })
+  async createUserJobFolder(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Body() body: CreateJobFolderInput,
+  ): Promise<Response<JobpostFolder> | ResponseWithNoData> {
+    this.logger.log(`/jobs/folders`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.jobsService.createUserJobFolder(address as string, body);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Post("/folders/:id")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV)
+  @ApiOkResponse({
+    description: "Updates the details of the job folder with the passed id",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(Response<JobpostFolder>),
+        },
+      ],
+    },
+  })
+  async updateUserJobFolder(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Param("id") id: string,
+    @Body() body: UpdateJobFolderInput,
+  ): Promise<Response<JobpostFolder> | ResponseWithNoData> {
+    this.logger.log(`/jobs/folders/:id`);
+    const { address } = await this.authService.getSession(req, res);
+
+    if (address) {
+      const canEditFolder = await this.userService.userAuthorizedForJobFolder(
+        address as string,
+        id,
+      );
+      if (canEditFolder) {
+        return this.jobsService.updateUserJobFolder(id, body);
+      } else {
+        return {
+          success: false,
+          message: "You are not authorized to perform this action",
+        };
+      }
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Delete("/folders/:id")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV)
+  @ApiOkResponse({
+    description: "Deletes the job folder with the passed id",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(Response<JobpostFolder>),
+        },
+      ],
+    },
+  })
+  async deleteUserJobFolder(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Param("id") id: string,
+  ): Promise<Response<JobpostFolder> | ResponseWithNoData> {
+    this.logger.log(`/jobs/folders/:id`);
+    const { address } = await this.authService.getSession(req, res);
+
+    if (address) {
+      const canEditFolder = await this.userService.userAuthorizedForJobFolder(
+        address as string,
+        id,
+      );
+      if (canEditFolder) {
+        return this.jobsService.deleteUserJobFolder(id);
+      } else {
+        return {
+          success: false,
+          message: "You are not authorized to perform this action",
+        };
+      }
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {

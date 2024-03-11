@@ -22,6 +22,7 @@ export * from "./default-designation.model";
 export * from "./preferred-designation.model";
 export * from "./jobpost-classification.model";
 export * from "./jobpost-commitment.model";
+export * from "./jobpost-folder.model";
 export * from "./project-category.model";
 export * from "./jobpost-offline-status.model";
 export * from "./jobpost-online-status.model";

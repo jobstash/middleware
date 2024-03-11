@@ -16,6 +16,7 @@ export * from "./project-details.entity";
 export * from "./project-category.entity";
 export * from "./project.entity";
 export * from "./audit.entity";
+export * from "./jobpost-folder.entity";
 export * from "./hack.entity";
 export * from "./org-review.entity";
 export * from "./organization-with-relations.entity";
