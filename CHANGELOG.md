@@ -1,3 +1,10 @@
+# [2.7.0](https://github.com/jobstash/middleware/compare/v2.6.0...v2.7.0) (2024-03-11)
+
+
+### Features
+
+* **jobs:** implemented user job folders feature wip ([45dde52](https://github.com/jobstash/middleware/commit/45dde5252059407773e83126e651517b84c7d9c6))
+
 # [2.6.0](https://github.com/jobstash/middleware/compare/v2.5.0...v2.6.0) (2024-03-08)
 
 
