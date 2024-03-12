@@ -8,7 +8,7 @@ import {
   AllJobListResultEntity,
   AllJobsFilterConfigsEntity,
   JobpostFolderEntity,
-  StructuredJobpostWithApplicantsEntity,
+  JobApplicantEntity,
 } from "src/shared/entities";
 import {
   normalizeString,
@@ -28,7 +28,7 @@ import {
   ResponseWithNoData,
   Response,
   ResponseWithOptionalData,
-  StructuredJobpostWithApplicants,
+  JobApplicant,
   JobpostFolder,
   data,
 } from "src/shared/types";
@@ -889,55 +889,87 @@ export class JobsService {
 
   async getJobsByOrgIdWithApplicants(
     id: string,
-  ): Promise<ResponseWithOptionalData<StructuredJobpostWithApplicants[]>> {
+  ): Promise<ResponseWithOptionalData<JobApplicant[]>> {
     try {
       const generatedQuery = `
-      MATCH (:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
-      WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-      MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-      OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-      WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost
-      OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
-      WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost
-      RETURN structured_jobpost {
-          id: structured_jobpost.id,
-          url: structured_jobpost.url,
-          title: structured_jobpost.title,
-          salary: structured_jobpost.salary,
-          culture: structured_jobpost.culture,
-          location: structured_jobpost.location,
-          summary: structured_jobpost.summary,
-          benefits: structured_jobpost.benefits,
-          shortUUID: structured_jobpost.shortUUID,
-          seniority: structured_jobpost.seniority,
-          description: structured_jobpost.description,
-          requirements: structured_jobpost.requirements,
-          paysInCrypto: structured_jobpost.paysInCrypto,
-          minimumSalary: structured_jobpost.minimumSalary,
-          maximumSalary: structured_jobpost.maximumSalary,
-          salaryCurrency: structured_jobpost.salaryCurrency,
-          responsibilities: structured_jobpost.responsibilities,
-          featured: structured_jobpost.featured,
-          featureStartDate: structured_jobpost.featureStartDate,
-          featureEndDate: structured_jobpost.featureEndDate,
-          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
-          offersTokenAllocation: structured_jobpost.offersTokenAllocation,
-          classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
-          commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
-          locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
-          tags: apoc.coll.toSet(tags),
-          applicants: [(user:User)-[:APPLIED_TO]->(structured_jobpost) | {
-            wallet: user.wallet,
-            availableForWork: user.available,
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
-            username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-            avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-            contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-            location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
-          }]
-      } AS result
-    `;
+        MATCH (:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
+        WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost
+        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
+        WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost
+      
+        MATCH (user:User)-[r:APPLIED_TO]->(structured_jobpost)
+      
+        RETURN {
+          oss: null,
+          calendly: null,
+          interviewed: null,
+          cryptoNative: null,
+          upcomingTalent: null,
+          attestations: {
+            upvotes: null,
+            downvotes: null
+          },
+          appliedTimestamp: r.timestamp,
+          user: {
+              wallet: user.wallet,
+              availableForWork: user.available,
+              email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
+              username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
+              avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+              contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
+              location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
+              matchingSkills: apoc.coll.sum([
+                (user)-[:HAS_SKILL]->(tag)
+                WHERE (structured_jobpost)-[:HAS_TAG]->(tag) | 1
+              ]),
+              skills: apoc.coll.toSet([
+                (user)-[r:HAS_SKILL]->(tag) |
+                tag {
+                  .*,
+                  canTeach: r.canTeach
+                }
+              ]),
+              showcases: apoc.coll.toSet([
+                (user)-[:HAS_SHOWCASE]->(showcase) |
+                showcase {
+                  .*
+                }
+              ])
+          },
+          job: structured_jobpost {
+            id: structured_jobpost.id,
+            url: structured_jobpost.url,
+            title: structured_jobpost.title,
+            salary: structured_jobpost.salary,
+            culture: structured_jobpost.culture,
+            location: structured_jobpost.location,
+            summary: structured_jobpost.summary,
+            benefits: structured_jobpost.benefits,
+            shortUUID: structured_jobpost.shortUUID,
+            seniority: structured_jobpost.seniority,
+            description: structured_jobpost.description,
+            requirements: structured_jobpost.requirements,
+            paysInCrypto: structured_jobpost.paysInCrypto,
+            minimumSalary: structured_jobpost.minimumSalary,
+            maximumSalary: structured_jobpost.maximumSalary,
+            salaryCurrency: structured_jobpost.salaryCurrency,
+            responsibilities: structured_jobpost.responsibilities,
+            featured: structured_jobpost.featured,
+            featureStartDate: structured_jobpost.featureStartDate,
+            featureEndDate: structured_jobpost.featureEndDate,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+            classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
+            commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
+            locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
+            tags: apoc.coll.toSet(tags)
+          }
+        } as result
+      `;
       const result = await this.neogma.queryRunner.run(generatedQuery, {
         orgId: id,
       });
@@ -945,9 +977,7 @@ export class JobsService {
         success: true,
         message: "Org jobs and applicants retrieved successfully",
         data: result.records.map(record =>
-          new StructuredJobpostWithApplicantsEntity(
-            record.get("result"),
-          ).getProperties(),
+          new JobApplicantEntity(record.get("result")).getProperties(),
         ),
       };
     } catch (err) {

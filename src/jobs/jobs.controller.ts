@@ -26,7 +26,7 @@ import {
   Response,
   StructuredJobpostWithRelations,
   ResponseWithOptionalData,
-  StructuredJobpostWithApplicants,
+  JobApplicant,
   JobpostFolder,
   data,
 } from "src/shared/types";
@@ -303,11 +303,11 @@ export class JobsController {
       ],
     },
   })
-  async getOrgJobsListWithApplicants(
+  async getOrgJobApplicantList(
     @Param("id") id: string,
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<ResponseWithOptionalData<StructuredJobpostWithApplicants[]>> {
+  ): Promise<ResponseWithOptionalData<JobApplicant[]>> {
     this.logger.log(`/jobs/org/${id}/applicants`);
     const { address, role } = await this.authService.getSession(req, res);
     if (role === CheckWalletRoles.ORG) {
