@@ -641,6 +641,7 @@ describe("JobsController", () => {
       expect(result).toEqual({
         success: true,
         message: expect.stringMatching("success"),
+        data: expect.any(JobpostFolder),
       });
 
       const details = await controller.getUserJobFolderById(
@@ -649,7 +650,11 @@ describe("JobsController", () => {
         data(result).id,
       );
 
-      expect(details).toStrictEqual(expect.any(JobpostFolder));
+      expect(details).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+        data: expect.any(JobpostFolder),
+      });
 
       jobFolderId = data(result).id;
     },
@@ -686,15 +691,8 @@ describe("JobsController", () => {
       expect(result).toEqual({
         success: true,
         message: expect.stringMatching("success"),
+        data: expect.any(JobpostFolder),
       });
-
-      const details = await controller.getUserJobFolderById(
-        req as Request,
-        res as Response,
-        data(result).id,
-      );
-
-      expect(data(details)).toStrictEqual(expect.any(JobpostFolder));
     },
     REALLY_LONG_TIME,
   );

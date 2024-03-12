@@ -1376,7 +1376,7 @@ export class JobsService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (folder: JobpostFolder {id: $id})
-        MATCH (folder)-[:CONTAINS_JOBPOST]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        OPTIONAL MATCH (folder)-[:CONTAINS_JOBPOST]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
         
         CALL {
@@ -1545,7 +1545,7 @@ export class JobsService {
 
         WITH folder
 
-        MATCH (job:StructuredJobpost WHERE job.shortUUID IN $jobs)
+        OPTIONAL MATCH (job:StructuredJobpost WHERE job.shortUUID IN $jobs)
         CREATE (folder)-[:CONTAINS_JOBPOST]->(job)
 
         RETURN folder { .* } as folder
@@ -1554,6 +1554,7 @@ export class JobsService {
       );
 
       const res = result.records[0]?.get("folder");
+
       if (res) {
         const details = data(await this.getUserJobFolderById(res.id));
         return {
@@ -1591,15 +1592,19 @@ export class JobsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        MATCH (folder:JobpostFolder {id: $id})-[r:CONTAINS_JOBPOST]->(:StructuredJobpost)
+        MATCH (folder:JobpostFolder {id: $id})
         SET folder.name = $name
         SET folder.isPublic = $isPublic
+
+        WITH folder
+        OPTIONAL MATCH (folder)-[r:CONTAINS_JOBPOST]->(:StructuredJobpost)
         DETACH DELETE r
 
-        MATCH (job:StructuredJobpost WHERE job.shortUUID IN $jobs), (folder:JobpostFolder {id: $id})
+        WITH folder
+        OPTIONAL MATCH (job:StructuredJobpost WHERE job.shortUUID IN $jobs)
         CREATE (folder)-[:CONTAINS_JOBPOST]->(job)
 
-        RETURN folder
+        RETURN folder { .* } as folder
         `,
         { id, ...dto },
       );
@@ -1640,7 +1645,7 @@ export class JobsService {
       await this.neogma.queryRunner.run(
         `
         MATCH (folder:JobpostFolder {id: $id})
-        DETACH DELETE r
+        DETACH DELETE folder
         `,
         { id },
       );
