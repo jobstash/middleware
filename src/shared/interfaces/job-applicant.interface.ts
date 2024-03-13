@@ -22,7 +22,7 @@ export class JobApplicant {
       t.strict({
         skills: t.array(UserSkill.UserSkillType),
         showcases: t.array(UserShowCase.UserShowCaseType),
-        matchingSkills: t.number,
+        matchingSkills: t.union([t.number, t.null]),
       }),
     ]),
     job: JobListResult.JobListResultType,
@@ -53,6 +53,7 @@ export class JobApplicant {
   user: UserProfile & {
     skills: UserSkill[];
     showcases: UserShowCase[];
+    matchingSkills: number | null;
   };
 
   @ApiProperty()

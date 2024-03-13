@@ -276,8 +276,8 @@ export class JobsController {
   }
 
   @Get("/org/:id/applicants")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
+  // @UseGuards(RBACGuard)
+  // @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
