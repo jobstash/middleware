@@ -11,7 +11,7 @@ export class JobApplicantEntity {
   getProperties(): JobApplicant {
     const applicant = this.raw;
 
-    const { skills, showcases, ...user } = applicant.user;
+    const { skills, showcases, matchingSkills, ...user } = applicant.user;
 
     return new JobApplicant({
       oss: applicant?.oss ?? false,
@@ -32,6 +32,7 @@ export class JobApplicantEntity {
           showcases?.map(showcase =>
             new UserShowCaseEntity(showcase).getProperties(),
           ) ?? [],
+        matchingSkills: nonZeroOrNull(matchingSkills),
       },
       job: new JobListResultEntity(applicant?.job).getProperties(),
       calendly: notStringOrNull(applicant?.calendly),

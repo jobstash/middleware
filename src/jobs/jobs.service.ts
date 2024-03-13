@@ -966,6 +966,72 @@ export class JobsService {
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
             locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
+            organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization) | organization {
+              .*,
+              discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
+              aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
+              twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              projects: [
+                (organization)-[:HAS_PROJECT]->(project) | project {
+                  .*,
+                  orgId: organization.orgId,
+                  discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                  website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                  docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                  telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                  github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
+                  category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                  twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+                  hacks: [
+                    (project)-[:HAS_HACK]->(hack) | hack { .* }
+                  ],
+                  audits: [
+                    (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                  ],
+                  chains: [
+                    (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ]
+                }
+              ],
+              fundingRounds: apoc.coll.toSet([
+                (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+              ]),
+              investors: apoc.coll.toSet([
+                (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+              ]),
+              community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+              reviews: [
+                (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
+                  compensation: {
+                    salary: review.salary,
+                    currency: review.currency,
+                    offersTokenAllocation: review.offersTokenAllocation
+                  },
+                  rating: {
+                    onboarding: review.onboarding,
+                    careerGrowth: review.careerGrowth,
+                    benefits: review.benefits,
+                    workLifeBalance: review.workLifeBalance,
+                    diversityInclusion: review.diversityInclusion,
+                    management: review.management,
+                    product: review.product,
+                    compensation: review.compensation
+                  },
+                  review: {
+                    title: review.title,
+                    location: review.location,
+                    timezone: review.timezone,
+                    pros: review.pros,
+                    cons: review.cons
+                  },
+                  reviewedTimestamp: review.reviewedTimestamp
+                }
+              ]
+            }][0],
             tags: apoc.coll.toSet(tags)
           }
         } as result
