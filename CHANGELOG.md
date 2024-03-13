@@ -1,3 +1,10 @@
+## [2.8.1](https://github.com/jobstash/middleware/compare/v2.8.0...v2.8.1) (2024-03-13)
+
+
+### Bug Fixes
+
+* **jobs:** fixed bug on org jobs with applicants endpoint ([08c1ef0](https://github.com/jobstash/middleware/commit/08c1ef0b697e163f4d2a85e28cde992f0ae13034))
+
 # [2.8.0](https://github.com/jobstash/middleware/compare/v2.7.0...v2.8.0) (2024-03-12)
 
 
