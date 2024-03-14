@@ -1,3 +1,15 @@
+# [2.9.0](https://github.com/jobstash/middleware/compare/v2.8.0...v2.9.0) (2024-03-14)
+
+
+### Bug Fixes
+
+* **jobs:** fixed bug on org jobs with applicants endpoint ([356ab22](https://github.com/jobstash/middleware/commit/356ab22ed8d593dd9866e1c6209e8e9ac9c88966))
+
+
+### Features
+
+* **ecosystems:** add header for ecosystems ([08f3730](https://github.com/jobstash/middleware/commit/08f3730352bac2f40f3ecf447cfaaef1a6ba370e))
+
 ## [2.8.1](https://github.com/jobstash/middleware/compare/v2.8.0...v2.8.1) (2024-03-13)
 
 
