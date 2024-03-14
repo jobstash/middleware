@@ -1,3 +1,10 @@
+# [2.10.0](https://github.com/jobstash/middleware/compare/v2.9.0...v2.10.0) (2024-03-14)
+
+
+### Features
+
+* **jobs:** added support for sub list filtering and updating on job applicants list ([77282c8](https://github.com/jobstash/middleware/commit/77282c8e91da0ecb384ee16009a104904a31046d))
+
 # [2.9.0](https://github.com/jobstash/middleware/compare/v2.8.0...v2.9.0) (2024-03-14)
 
 
