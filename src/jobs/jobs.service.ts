@@ -47,6 +47,7 @@ import { differenceInHours } from "date-fns";
 import { randomUUID } from "crypto";
 import { ConfigService } from "@nestjs/config";
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
+import { UpdateOrgJobApplicantListInput } from "./dto/update-job-applicant-list.input";
 
 @Injectable()
 export class JobsService {
@@ -889,6 +890,7 @@ export class JobsService {
 
   async getJobsByOrgIdWithApplicants(
     id: string,
+    list: "all" | "shortlisted" | "archived",
   ): Promise<ResponseWithOptionalData<JobApplicant[]>> {
     try {
       const generatedQuery = `
@@ -902,7 +904,14 @@ export class JobsService {
         WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost
       
         MATCH (user:User)-[r:APPLIED_TO]->(structured_jobpost)
-      
+
+        WHERE
+          CASE
+            WHEN $list = "all" THEN r.list IS NULL
+            WHEN $list IS NOT NULL THEN r.list = $list
+            ELSE true
+          END
+
         RETURN {
           oss: null,
           calendly: null,
@@ -1038,6 +1047,7 @@ export class JobsService {
       `;
       const result = await this.neogma.queryRunner.run(generatedQuery, {
         orgId: id,
+        list,
       });
       return {
         success: true,
@@ -1621,6 +1631,59 @@ export class JobsService {
       return {
         success: false,
         message: "Error getting user job folder by id",
+      };
+    }
+  }
+
+  async updateOrgJobApplicantList(
+    orgId: string,
+    dto: UpdateOrgJobApplicantListInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        MATCH (structured_jobpost)-[:HAS_TAG]->(:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        MATCH (:User)-[r:APPLIED_TO]->(structured_jobpost)
+              
+        WITH COLLECT(DISTINCT r) as rels, structured_jobpost
+              
+        UNWIND rels as r
+        SET r.list = NULL
+              
+        WITH structured_jobpost
+              
+        CALL {
+          WITH structured_jobpost
+          MATCH (user:User WHERE user.wallet in $applicants)-[r:APPLIED_TO]->(structured_jobpost)
+          SET r.list = $list
+          RETURN r as rel
+        }
+        
+        RETURN rel
+        `,
+        { orgId, ...dto },
+      );
+      return {
+        success: true,
+        message: "Org job applicant list updated successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        scope.setExtra("input", { orgId, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `JobsService::updateOrgJobApplicantList ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Error updating org job applicant list",
       };
     }
   }

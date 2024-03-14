@@ -63,6 +63,7 @@ import { FeatureJobsInput } from "./dto/feature-jobs.input";
 import { UserService } from "src/user/user.service";
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { CreateJobFolderInput } from "./dto/create-job-folder.input";
+import { UpdateOrgJobApplicantListInput } from "./dto/update-job-applicant-list.input";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
@@ -305,15 +306,16 @@ export class JobsController {
   })
   async getOrgJobApplicantList(
     @Param("id") id: string,
+    @Query("list") list: "all" | "shortlisted" | "archived" = "all",
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<ResponseWithOptionalData<JobApplicant[]>> {
     this.logger.log(`/jobs/org/${id}/applicants`);
     const { address, role } = await this.authService.getSession(req, res);
     if (role === CheckWalletRoles.ORG) {
-      if (await this.userService.userAuthorizedForOrg(address as string, id)) {
-        return this.jobsService.getJobsByOrgIdWithApplicants(id);
-      } else {
+      if (
+        !(await this.userService.userAuthorizedForOrg(address as string, id))
+      ) {
         res.status(HttpStatus.UNAUTHORIZED);
         return {
           success: false,
@@ -321,7 +323,7 @@ export class JobsController {
         };
       }
     }
-    return this.jobsService.getJobsByOrgIdWithApplicants(id);
+    return this.jobsService.getJobsByOrgIdWithApplicants(id, list);
   }
 
   @Get("/all")
@@ -466,6 +468,41 @@ export class JobsController {
         };
       }
     }
+  }
+
+  @Post("/org/:id/applicants")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
+  @ApiOkResponse({
+    description: "Updates an orgs applicant list",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ResponseWithNoData),
+        },
+      ],
+    },
+  })
+  async updateOrgJobApplicantList(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Param("id") orgId: string,
+    @Body() body: UpdateOrgJobApplicantListInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/jobs/folders`);
+    const { address, role } = await this.authService.getSession(req, res);
+    if (role === CheckWalletRoles.ORG) {
+      if (
+        !(await this.userService.userAuthorizedForOrg(address as string, orgId))
+      ) {
+        res.status(HttpStatus.UNAUTHORIZED);
+        return {
+          success: false,
+          message: "You are not authorized to access this resource",
+        };
+      }
+    }
+    return this.jobsService.updateOrgJobApplicantList(orgId, body);
   }
 
   @Post("/folders")
