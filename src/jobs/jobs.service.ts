@@ -9,6 +9,7 @@ import {
   AllJobsFilterConfigsEntity,
   JobpostFolderEntity,
   JobApplicantEntity,
+  JobDetailsEntity,
 } from "src/shared/entities";
 import {
   normalizeString,
@@ -31,6 +32,7 @@ import {
   JobApplicant,
   JobpostFolder,
   data,
+  JobDetails,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { AllJobsParams } from "./dto/all-jobs.input";
@@ -721,7 +723,7 @@ export class JobsService {
   async getJobDetailsByUuid(
     uuid: string,
     ecosystem: string | undefined,
-  ): Promise<JobListResult | undefined> {
+  ): Promise<JobDetails | undefined> {
     try {
       const generatedQuery = `
       MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID})-[:HAS_STATUS]->(:JobpostOnlineStatus)
@@ -760,6 +762,7 @@ export class JobsService {
           locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
           organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization) | organization {
               .*,
+              hasUser: CASE WHEN EXISTS((:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization)) THEN true ELSE false END,
               discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
               website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
               docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -831,8 +834,8 @@ export class JobsService {
         shortUUID: uuid,
       });
       const job = result.records[0]?.get("result")
-        ? new JobListResultEntity(
-            result.records[0]?.get("result") as JobListResult,
+        ? new JobDetailsEntity(
+            result.records[0]?.get("result") as JobDetails,
           ).getProperties()
         : undefined;
       if (ecosystem) {

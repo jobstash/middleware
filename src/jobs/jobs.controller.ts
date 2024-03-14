@@ -29,6 +29,7 @@ import {
   JobApplicant,
   JobpostFolder,
   data,
+  JobDetails,
 } from "src/shared/types";
 import {
   ApiBadRequestResponse,
@@ -198,7 +199,7 @@ export class JobsController {
     @Res({ passthrough: true }) res: ExpressResponse,
     @Headers(ECOSYSTEM_HEADER)
     ecosystem: string | undefined,
-  ): Promise<JobListResult | undefined> {
+  ): Promise<JobDetails | undefined> {
     this.logger.log(`/jobs/details/${uuid}`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {

@@ -55,5 +55,6 @@ export * from "./organization-alias.interface";
 export * from "./organization-community.interface";
 export * from "./structured-jobpost-with-relations.interface";
 export * from "./job-applicant.interface";
+export * from "./job-details.interface";
 export * from "./project-with-relations.interface";
 export * from "./defillama-project-prefill.interface";
