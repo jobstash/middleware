@@ -26,7 +26,12 @@ export class JobListResult extends StructuredJobpostWithRelations {
   public static readonly JobListResultType = t.intersection([
     StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
     t.strict({
-      organization: OrganizationWithRelations.OrganizationWithRelationsType,
+      organization: t.intersection([
+        OrganizationWithRelations.OrganizationWithRelationsType,
+        t.strict({
+          hasUser: t.boolean,
+        }),
+      ]),
     }),
   ]);
 
@@ -34,7 +39,7 @@ export class JobListResult extends StructuredJobpostWithRelations {
     type: "array",
     items: { $ref: getSchemaPath(OrganizationWithRelations) },
   })
-  organization: OrganizationWithRelations;
+  organization: OrganizationWithRelations & { hasUser: boolean };
 
   constructor(raw: JobListResult) {
     const { organization, ...jobpostProperties } = raw;

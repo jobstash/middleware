@@ -13,7 +13,7 @@ import { OrgReviewEntity } from "./org-review.entity";
 import { isAfter, isBefore } from "date-fns";
 
 type RawJobPost = StructuredJobpostWithRelations & {
-  organization?: OrganizationWithRelations | null;
+  organization?: (OrganizationWithRelations & { hasUser: boolean }) | null;
 };
 
 export class JobListResultEntity {
@@ -67,6 +67,7 @@ export class JobListResultEntity {
           organization?.reviews?.map(x => x.rating) ?? [],
         ),
         reviewCount: reviews.length,
+        hasUser: organization?.hasUser ?? false,
         docs: notStringOrNull(organization?.docs),
         logoUrl: notStringOrNull(organization?.logoUrl),
         headcountEstimate: nonZeroOrNull(organization?.headcountEstimate),
