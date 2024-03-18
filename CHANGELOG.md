@@ -1,3 +1,10 @@
+## [2.10.1](https://github.com/jobstash/middleware/compare/v2.10.0...v2.10.1) (2024-03-18)
+
+
+### Bug Fixes
+
+* **jobs:** fixed bugs on update org job applicant list ([05c75e4](https://github.com/jobstash/middleware/commit/05c75e4d5ce7cbbc8dfdc352d68e0bc90d251663))
+
 # [2.10.0](https://github.com/jobstash/middleware/compare/v2.9.0...v2.10.0) (2024-03-14)
 
 
