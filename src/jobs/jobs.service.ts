@@ -911,7 +911,8 @@ export class JobsService {
 
         WHERE
           CASE
-            WHEN $list = "all" THEN r.list IS NULL
+            WHEN $list = "all" THEN true
+            WHEN $list = "new" THEN r.list IS NULL
             WHEN $list IS NOT NULL THEN r.list = $list
             ELSE true
           END
@@ -1646,27 +1647,27 @@ export class JobsService {
     try {
       await this.neogma.queryRunner.run(
         `
-        MATCH (:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
-        WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-        MATCH (structured_jobpost)-[:HAS_TAG]->(:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-        MATCH (:User)-[r:APPLIED_TO]->(structured_jobpost)
-              
-        WITH COLLECT(DISTINCT r) as rels, structured_jobpost
-              
-        UNWIND rels as r
-        SET r.list = NULL
-              
-        WITH structured_jobpost
-              
-        CALL {
-          WITH structured_jobpost
-          MATCH (user:User WHERE user.wallet in $applicants)-[r:APPLIED_TO]->(structured_jobpost)
-          SET r.list = $list
-          RETURN r as rel
-        }
-        
-        RETURN rel
-        `,
+            MATCH (:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+            WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+            MATCH (structured_jobpost)-[:HAS_TAG]->(:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+            WITH structured_jobpost
+                    
+            CALL {
+              WITH structured_jobpost
+              MATCH (:User)-[r:APPLIED_TO]->(structured_jobpost)
+              WHERE r.list = $list
+              SET r.list = "all"
+            }
+                          
+            CALL {
+              WITH structured_jobpost
+              MATCH (user:User WHERE user.wallet in $applicants)-[r:APPLIED_TO]->(structured_jobpost)
+              SET r.list = $list
+              RETURN r as rel
+            }
+            
+            RETURN rel
+          `,
         { orgId, ...dto },
       );
       return {

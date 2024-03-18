@@ -56,12 +56,15 @@ export class RBACGuard implements CanActivate {
 
     const permittedRoles =
       this.reflector.get<string[]>("roles", context.getHandler()) || [];
-
-    if (
-      !permittedRoles.length ||
-      permittedRoles.includes(CheckWalletRoles.ANON)
-    ) {
+    if (this.configService.get<string>("NODE_ENV") === "development") {
       return true;
+    } else {
+      if (
+        !permittedRoles.length ||
+        permittedRoles.includes(CheckWalletRoles.ANON)
+      ) {
+        return true;
+      }
     }
 
     const hasPermission = permittedRoles.includes(session.role as string);
