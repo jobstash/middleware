@@ -10,6 +10,9 @@ export class MailService {
     console.log(
       `SG API KEY: ${this.configService.get<string>("SENDGRID_API_KEY")}`,
     );
+    console.log(
+      `NEO HOST: ${this.configService.get<string>("NEO4J_HOST_TEST")}`,
+    );
     SendGrid.setApiKey(this.configService.get<string>("SENDGRID_API_KEY"));
   }
 
