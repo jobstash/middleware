@@ -1651,22 +1651,10 @@ export class JobsService {
             WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
             MATCH (structured_jobpost)-[:HAS_TAG]->(:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
             WITH structured_jobpost
-                    
-            CALL {
-              WITH structured_jobpost
-              MATCH (:User)-[r:APPLIED_TO]->(structured_jobpost)
-              WHERE r.list = $list
-              SET r.list = "all"
-            }
-                          
-            CALL {
-              WITH structured_jobpost
-              MATCH (user:User WHERE user.wallet in $applicants)-[r:APPLIED_TO]->(structured_jobpost)
-              SET r.list = $list
-              RETURN r as rel
-            }
-            
-            RETURN rel
+
+            MATCH (user:User WHERE user.wallet in $applicants)-[r:APPLIED_TO]->(structured_jobpost)
+            SET r.list = $list
+            RETURN r
           `,
         { orgId, ...dto },
       );
