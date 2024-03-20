@@ -68,6 +68,8 @@ jobs:
           NEO4J_DATABASE_TEST: ${{ secrets.NEO4J_DATABASE_TEST }}
           TEST_DB_MANAGER_URL: ${{ secrets.TEST_DB_MANAGER_URL }}
           TEST_DB_MANAGER_API_KEY: ${{ secrets.TEST_DB_MANAGER_API_KEY }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SKILL_THRESHOLD: ${{ secrets.SKILL_THRESHOLD }}
       ##################
       # Run prod tests #
       ##################
@@ -82,3 +84,5 @@ jobs:
           NEO4J_DATABASE_TEST: ${{ secrets.NEO4J_DATABASE_TEST }}
           TEST_DB_MANAGER_URL: ${{ secrets.TEST_DB_MANAGER_URL }}
           TEST_DB_MANAGER_API_KEY: ${{ secrets.TEST_DB_MANAGER_API_KEY }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SKILL_THRESHOLD: ${{ secrets.SKILL_THRESHOLD }}
