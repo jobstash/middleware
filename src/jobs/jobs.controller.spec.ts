@@ -13,6 +13,7 @@ import {
   data,
   DateRange,
   JobpostFolder,
+  JobDetails,
 } from "src/shared/types";
 import { Integer } from "neo4j-driver";
 import {
@@ -507,7 +508,7 @@ describe("JobsController", () => {
       expect(result).toStrictEqual({
         success: true,
         message: expect.stringMatching("success"),
-        data: expect.any(JobListResult),
+        data: expect.any(JobDetails),
       });
 
       const details = await controller.getJobDetailsByUuid(
@@ -605,7 +606,7 @@ describe("JobsController", () => {
         undefined,
       );
 
-      expect(details).toStrictEqual(expect.any(JobListResult));
+      expect(details).toStrictEqual(expect.any(JobDetails));
     },
     REALLY_LONG_TIME,
   );
