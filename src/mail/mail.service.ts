@@ -7,6 +7,9 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 export class MailService {
   private logger = new CustomLogger(MailService.name);
   constructor(private readonly configService: ConfigService) {
+    console.log(
+      `SG API KEY: ${this.configService.get<string>("SENDGRID_API_KEY")}`,
+    );
     SendGrid.setApiKey(this.configService.get<string>("SENDGRID_API_KEY"));
   }
 
