@@ -90,7 +90,7 @@ describe("ProjectsController", () => {
               username: configService.get<string>("NEO4J_USERNAME_TEST"),
               database: configService.get<string>("NEO4J_DATABASE_TEST"),
               retryAttempts: 5,
-              retryDelay: 1000,
+              retryDelay: 5000,
             } as NeogmaModuleOptions),
         }),
         JwtModule.registerAsync({
