@@ -452,6 +452,11 @@ export class ProfileService {
         },
       );
 
+      await this.userService.setWalletFlow({
+        flow: CheckWalletFlows.SIGNUP_COMPLETE,
+        wallet,
+      });
+
       return {
         success: true,
         message: "User profile updated successfully",

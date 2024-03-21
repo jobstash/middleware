@@ -1,10 +1,19 @@
-import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  UseGuards,
+  ValidationPipe,
+} from "@nestjs/common";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { UserService } from "./user.service";
 import { Roles } from "src/shared/decorators";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
 import {
+  DevUserProfile,
   OrgUserProfile,
   ResponseWithNoData,
   UserProfile,
@@ -12,6 +21,7 @@ import {
 import { AuthorizeOrgApplicationInput } from "./dto/authorize-org-application.dto";
 import { MailService } from "src/mail/mail.service";
 import { ConfigService } from "@nestjs/config";
+import { GetAvailableDevsInput } from "./dto/get-available-devs.input";
 
 @Controller("users")
 export class UserController {
@@ -33,9 +43,12 @@ export class UserController {
   @Get("devs/available")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
-  async getDevsAvailableForWork(): Promise<UserProfile[]> {
-    this.logger.log("/users/devs/available¬");
-    return this.userService.getDevsAvailableForWork();
+  async getDevsAvailableForWork(
+    @Query(new ValidationPipe({ transform: true }))
+    params: GetAvailableDevsInput,
+  ): Promise<DevUserProfile[]> {
+    this.logger.log(`/users/devs/available ${JSON.stringify(params)}`);
+    return this.userService.getDevsAvailableForWork(params);
   }
 
   @Get("orgs/pending")

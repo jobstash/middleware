@@ -1,6 +1,8 @@
 import { UserRoleEntity } from "../shared/entities/user-role.entity";
 import { Injectable } from "@nestjs/common";
 import {
+  DevUserProfile,
+  DevUserProfileEntity,
   OrgUserProfile,
   OrgUserProfileEntity,
   ResponseWithNoData,
@@ -24,6 +26,7 @@ import { ModelService } from "src/model/model.service";
 import { instanceToNode } from "src/shared/helpers";
 import { randomUUID } from "crypto";
 import { CheckWalletRoles, CheckWalletFlows } from "src/shared/constants";
+import { GetAvailableDevsInput } from "./dto/get-available-devs.input";
 
 @Injectable()
 export class UserService {
@@ -583,7 +586,24 @@ export class UserService {
       });
   }
 
-  async getDevsAvailableForWork(): Promise<UserProfile[]> {
+  async getDevsAvailableForWork(
+    params: GetAvailableDevsInput,
+  ): Promise<DevUserProfile[]> {
+    const paramsPassed = {
+      city: params.city ? new RegExp(params.city, "gi") : null,
+      country: params.country ? new RegExp(params.country, "gi") : null,
+    };
+
+    const locationFilter = (dev: DevUserProfile): boolean => {
+      const cityMatch = paramsPassed.city
+        ? paramsPassed.city.test(dev.location?.city)
+        : true;
+      const countryMatch = paramsPassed.country
+        ? paramsPassed.country.test(dev.location?.country)
+        : true;
+      return cityMatch && countryMatch;
+    };
+
     return this.neogma.queryRunner
       .run(
         `
@@ -597,15 +617,31 @@ export class UserService {
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
             contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0]
+            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
+            location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
+            skills: apoc.coll.toSet([
+                (user)-[r:HAS_SKILL]->(tag) |
+                tag {
+                  .*,
+                  canTeach: r.canTeach
+                }
+              ]),
+              showcases: apoc.coll.toSet([
+                (user)-[:HAS_SHOWCASE]->(showcase) |
+                showcase {
+                  .*
+                }
+              ])
           } as user
         `,
       )
       .then(res =>
         res.records.length
-          ? res.records.map(record =>
-              new UserProfileEntity(record.get("user")).getProperties(),
-            )
+          ? res.records
+              .map(record =>
+                new DevUserProfileEntity(record.get("user")).getProperties(),
+              )
+              .filter(locationFilter)
           : [],
       )
       .catch(err => {
