@@ -1,3 +1,10 @@
+# [2.11.0](https://github.com/jobstash/middleware/compare/v2.10.1...v2.11.0) (2024-03-21)
+
+
+### Features
+
+* **users:** updated get available devs endpoint ([7b8cd86](https://github.com/jobstash/middleware/commit/7b8cd864447463d4958625fc976fb145f6eb5d91))
+
 ## [2.10.1](https://github.com/jobstash/middleware/compare/v2.10.0...v2.10.1) (2024-03-18)
 
 
