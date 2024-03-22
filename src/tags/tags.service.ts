@@ -84,12 +84,9 @@ export class TagsService {
     return res.records.length ? new TagEntity(res.records[0].get("bt")) : null;
   }
 
-  async getAllUnblockedTags(ecosystem: string | undefined): Promise<Tag[]> {
+  async getAllUnblockedTags(): Promise<Tag[]> {
     try {
-      return this.models.Tags.getUnblockedTags(
-        ecosystem,
-        this.configService.get<number>("SKILL_THRESHOLD"),
-      );
+      return this.models.Tags.getUnblockedTags();
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -104,11 +101,15 @@ export class TagsService {
   }
 
   async getPopularTags(
-    count: number,
+    limit: number,
     ecosystem: string | undefined,
   ): Promise<Tag[]> {
     try {
-      return this.models.Tags.getPopularTags(count, ecosystem);
+      return this.models.Tags.getPopularTags(
+        limit,
+        this.configService.get<number>("SKILL_THRESHOLD"),
+        ecosystem,
+      );
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -665,7 +666,7 @@ export class TagsService {
           ORDER BY score DESC
 
           `,
-          { query: `name:${tag}~` },
+          { query: `name:${normalizeString(tag)}~` },
         );
         const mostMatching = result.records[0]?.get("name");
         if (mostMatching) {
