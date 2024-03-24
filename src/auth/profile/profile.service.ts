@@ -254,7 +254,7 @@ export class ProfileService {
             website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
             discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
             telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-            twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0]
+            twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0]
           }
         })) as orgsByRepo, user
 
@@ -306,7 +306,7 @@ export class ProfileService {
               website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
               discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
               telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-              twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0]
+              twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0]
             }
           })) as orgsByEmail
         }
