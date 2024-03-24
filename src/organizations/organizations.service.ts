@@ -51,7 +51,7 @@ export class OrganizationsService {
           telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
           github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-          twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+          twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
           fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
           investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
           community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
@@ -88,7 +88,7 @@ export class OrganizationsService {
               telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
               github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
               category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-              twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+              twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
               hacks: [
                 (project)-[:HAS_HACK]->(hack) | hack { .* }
               ],
@@ -400,7 +400,7 @@ export class OrganizationsService {
             telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
             github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
             aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-            twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+            twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
             fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
             investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
             community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
@@ -437,7 +437,7 @@ export class OrganizationsService {
                 telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
                 github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
                 category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+                twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                 hacks: [
                   (project)-[:HAS_HACK]->(hack) | hack { .* }
                 ],
@@ -555,7 +555,7 @@ export class OrganizationsService {
           telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
           github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-          twitter: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+          twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
           fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
           investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
           community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
@@ -592,7 +592,7 @@ export class OrganizationsService {
               telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
               github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
               category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-              twitter: [(project)-[:HAS_ORGANIZATION_ALIAS]->(twitter) | twitter.username][0],
+              twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
               hacks: [
                 (project)-[:HAS_HACK]->(hack) | hack { .* }
               ],
