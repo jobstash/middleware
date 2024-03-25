@@ -941,10 +941,10 @@ export class JobsService {
                 WHERE (structured_jobpost)-[:HAS_TAG]->(tag) | 1
               ]),
               skills: apoc.coll.toSet([
-                (user)-[r:HAS_SKILL]->(tag) |
+                (user)-[:HAS_SKILL]->(tag) |
                 tag {
                   .*,
-                  canTeach: r.canTeach
+                  canTeach: [(user)-[m:HAS_SKILL]->(tag) | m.canTeach][0]
                 }
               ]),
               showcases: apoc.coll.toSet([
