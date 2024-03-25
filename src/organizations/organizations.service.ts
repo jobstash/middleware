@@ -263,14 +263,16 @@ export class OrganizationsService {
     if (!order || order === "desc") {
       final = naturalSort<OrgDetailsResult>(filtered).by([
         {
-          desc: x => (params.orderBy ? getSortParam(x) : x.aggregateRating),
+          desc: x =>
+            params.orderBy ? getSortParam(x) : toShortOrg(x).lastFundingDate,
         },
         { asc: x => x.name },
       ]);
     } else {
       final = naturalSort<OrgDetailsResult>(filtered).by([
         {
-          asc: x => (params.orderBy ? getSortParam(x) : x.aggregateRating),
+          asc: x =>
+            params.orderBy ? getSortParam(x) : toShortOrg(x).lastFundingDate,
         },
         { asc: x => x.name },
       ]);
