@@ -6,12 +6,17 @@ import {
   CACHE_CONTROL_HEADER,
   CACHE_DURATION,
   CACHE_EXPIRY,
+  NO_CACHE,
 } from "./shared/constants/cache-control";
+import { ConfigService } from "@nestjs/config";
 
 @Controller("app")
 @ApiExtraModels(Response, ResponseWithNoData)
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly appService: AppService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Get("health")
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
@@ -24,5 +29,17 @@ export class AppController {
   })
   healthCheck(): ResponseWithNoData {
     return this.appService.healthCheck();
+  }
+
+  @Get("diff")
+  @Header("Cache-Control", NO_CACHE)
+  @ApiOkResponse({
+    description: "Returns the diff of the currently deployed code",
+    schema: {
+      $ref: getSchemaPath(String),
+    },
+  })
+  diff(): string {
+    return this.configService.get<string>("DIFF");
   }
 }
