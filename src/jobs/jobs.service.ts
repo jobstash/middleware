@@ -910,7 +910,7 @@ export class JobsService {
         MATCH (user:User)-[r:APPLIED_TO]->(structured_jobpost)
         WHERE user.available = true
 
-        WHERE
+        AND
           CASE
             WHEN $list = "all" THEN true
             WHEN $list = "new" THEN r.list IS NULL
