@@ -7,6 +7,7 @@ import { JwtService } from "@nestjs/jwt";
 import { AuthService } from "src/auth/auth.service";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { TagsService } from "src/tags/tags.service";
+import { GoogleBigQueryService } from "./google-bigquery.service";
 
 @Module({
   imports: [forwardRef(() => UserModule)],
@@ -18,6 +19,7 @@ import { TagsService } from "src/tags/tags.service";
     JwtService,
     ModelService,
     ProfileService,
+    GoogleBigQueryService,
   ],
 })
 export class JobsModule {}

@@ -10,6 +10,8 @@ const envSchema = Joi.object({
   GITHUB_DEV_OAUTH_CLIENT_SECRET: Joi.string(),
   GITHUB_ORG_OAUTH_CLIENT_ID: Joi.string(),
   GITHUB_ORG_OAUTH_CLIENT_SECRET: Joi.string(),
+  GOOGLE_SERVICE_ACCOUNT_EMAIL: Joi.string(),
+  GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: Joi.string(),
   INFURA_API_KEY: Joi.string(),
   JWT_EXPIRES_IN: Joi.string().alphanum(),
   JWT_SECRET: Joi.string().alphanum(),
