@@ -908,6 +908,7 @@ export class JobsService {
         WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost
       
         MATCH (user:User)-[r:APPLIED_TO]->(structured_jobpost)
+        WHERE user.available = true
 
         WHERE
           CASE

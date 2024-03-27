@@ -16,7 +16,7 @@ import { ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import { Response as ExpressResponse, Request } from "express";
 import { OrganizationsService } from "src/organizations/organizations.service";
 import { Roles } from "src/shared/decorators/role.decorator";
-import { CheckWalletRoles } from "src/shared/constants";
+import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
   OrgUserProfile,
@@ -46,12 +46,14 @@ import { ConfigService } from "@nestjs/config";
 import { Throttle } from "@nestjs/throttler";
 import { UpdateDevUserProfileInput } from "./dto/update-dev-profile.input";
 import { UpdateOrgUserProfileInput } from "./dto/update-org-profile.input";
+import { UserService } from "src/user/user.service";
 
 @Controller("profile")
 export class ProfileController {
   private logger = new CustomLogger(ProfileController.name);
   constructor(
     private readonly authService: AuthService,
+    private readonly userService: UserService,
     private readonly profileService: ProfileService,
     private readonly organizationsService: OrganizationsService,
     private readonly mailService: MailService,
@@ -262,8 +264,14 @@ export class ProfileController {
     @Body() body: UpdateOrgUserProfileInput,
   ): Promise<ResponseWithOptionalData<OrgUserProfile>> {
     this.logger.log(`/profile/org/info ${JSON.stringify(body)}`);
-    const { address } = await this.authService.getSession(req, res);
+    const { address, flow } = await this.authService.getSession(req, res);
     if (address) {
+      if ((flow as string) === CheckWalletFlows.ORG_PROFILE) {
+        await this.userService.setWalletFlow({
+          flow: CheckWalletFlows.ORG_APPROVAL_PENDING,
+          wallet: address as string,
+        });
+      }
       return this.profileService.updateOrgUserProfile(address as string, body);
     } else {
       res.status(HttpStatus.FORBIDDEN);

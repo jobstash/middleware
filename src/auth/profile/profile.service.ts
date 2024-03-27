@@ -527,11 +527,6 @@ export class ProfileService {
         },
       );
 
-      await this.userService.setWalletFlow({
-        flow: CheckWalletFlows.ORG_APPROVAL_PENDING,
-        wallet,
-      });
-
       return {
         success: true,
         message: "User profile updated successfully",
