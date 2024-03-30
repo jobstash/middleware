@@ -10,6 +10,7 @@ import { JwtService } from "@nestjs/jwt";
 import { MailModule } from "src/mail/mail.module";
 import { MailService } from "src/mail/mail.service";
 import { AuthService } from "src/auth/auth.service";
+import { GoogleBigQueryService } from "src/auth/github/google-bigquery.service";
 
 @Module({
   imports: [forwardRef(() => GithubModule), ConfigModule, MailModule],
@@ -22,6 +23,7 @@ import { AuthService } from "src/auth/auth.service";
     JwtService,
     MailService,
     AuthService,
+    GoogleBigQueryService,
   ],
   exports: [UserService, UserFlowService, UserRoleService, ModelService],
 })

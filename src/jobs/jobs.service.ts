@@ -50,6 +50,7 @@ import { randomUUID } from "crypto";
 import { ConfigService } from "@nestjs/config";
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { UpdateOrgJobApplicantListInput } from "./dto/update-job-applicant-list.input";
+import { GoogleBigQueryService } from "../auth/github/google-bigquery.service";
 
 @Injectable()
 export class JobsService {
@@ -59,6 +60,7 @@ export class JobsService {
     private neogma: Neogma,
     private models: ModelService,
     private readonly configService: ConfigService,
+    private readonly bigQueryService: GoogleBigQueryService,
   ) {}
 
   getJobsListResults = async (): Promise<JobListResult[]> => {
@@ -1055,11 +1057,27 @@ export class JobsService {
         orgId: id,
         list,
       });
+      const applicants =
+        result?.records?.map(record => record.get("result")) ?? [];
+      const enrichmentData =
+        await this.bigQueryService.getApplicantEnrichmentData(
+          applicants?.map(applicant => applicant.user.username),
+        );
+
       return {
         success: true,
         message: "Org jobs and applicants retrieved successfully",
-        data: result.records.map(record =>
-          new JobApplicantEntity(record.get("result")).getProperties(),
+        data: applicants?.map(applicant =>
+          new JobApplicantEntity({
+            ...applicant,
+            user: {
+              ...applicant.user,
+              workHistory:
+                enrichmentData.find(
+                  data => data.login === applicant.user.username,
+                )?.organizations ?? [],
+            },
+          }).getProperties(),
         ),
       };
     } catch (err) {
