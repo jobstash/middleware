@@ -3,8 +3,8 @@ import {
   Controller,
   Get,
   Headers,
-  Param,
   Post,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -44,16 +44,16 @@ export class TagsController {
   ) {}
 
   @Get("/")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all tags",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Tag) }),
   })
-  async getTags(
-    @Headers(ECOSYSTEM_HEADER) ecosystem: string,
-  ): Promise<ResponseWithOptionalData<Tag[]>> {
+  async getTags(): Promise<ResponseWithOptionalData<Tag[]>> {
     this.logger.log(`/tags`);
     return this.tagsService
-      .getAllUnblockedTags(ecosystem)
+      .getAllUnblockedTags()
       .then(res => ({
         success: true,
         message: "Retrieved all tags",
@@ -75,19 +75,19 @@ export class TagsController {
       });
   }
 
-  @Get("/popular/:n")
+  @Get("/popular")
   @ApiOkResponse({
     description:
       "Returns a list of n most popular tags ranked by their popularity",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Tag) }),
   })
   async getPopularTags(
-    @Param("n") count: number,
+    @Query("limit") limit: number,
     @Headers(ECOSYSTEM_HEADER) ecosystem: string,
   ): Promise<ResponseWithOptionalData<Tag[]>> {
-    this.logger.log(`/tags/popular/${count}`);
+    this.logger.log(`/tags/popular`);
     return this.tagsService
-      .getPopularTags(count, ecosystem)
+      .getPopularTags(limit, ecosystem)
       .then(res => ({
         success: true,
         message: "Retrieved popular tags",

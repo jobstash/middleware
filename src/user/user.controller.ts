@@ -4,6 +4,8 @@ import {
   Get,
   Post,
   Query,
+  Req,
+  Res,
   UseGuards,
   ValidationPipe,
 } from "@nestjs/common";
@@ -22,11 +24,14 @@ import { AuthorizeOrgApplicationInput } from "./dto/authorize-org-application.dt
 import { MailService } from "src/mail/mail.service";
 import { ConfigService } from "@nestjs/config";
 import { GetAvailableDevsInput } from "./dto/get-available-devs.input";
+import { AuthService } from "src/auth/auth.service";
+import { Request, Response } from "express";
 
 @Controller("users")
 export class UserController {
   private logger = new CustomLogger(UserController.name);
   constructor(
+    private readonly authService: AuthService,
     private readonly userService: UserService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
@@ -44,11 +49,17 @@ export class UserController {
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
   async getDevsAvailableForWork(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
     @Query(new ValidationPipe({ transform: true }))
     params: GetAvailableDevsInput,
   ): Promise<DevUserProfile[]> {
+    const { address } = await this.authService.getSession(req, res);
+    const orgId = address
+      ? await this.userService.findOrgIdByWallet(address as string)
+      : null;
     this.logger.log(`/users/devs/available ${JSON.stringify(params)}`);
-    return this.userService.getDevsAvailableForWork(params);
+    return this.userService.getDevsAvailableForWork(params, orgId);
   }
 
   @Get("orgs/pending")

@@ -908,8 +908,9 @@ export class JobsService {
         WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost
       
         MATCH (user:User)-[r:APPLIED_TO]->(structured_jobpost)
+        WHERE user.available = true
 
-        WHERE
+        AND
           CASE
             WHEN $list = "all" THEN true
             WHEN $list = "new" THEN r.list IS NULL
@@ -941,10 +942,10 @@ export class JobsService {
                 WHERE (structured_jobpost)-[:HAS_TAG]->(tag) | 1
               ]),
               skills: apoc.coll.toSet([
-                (user)-[r:HAS_SKILL]->(tag) |
+                (user)-[:HAS_SKILL]->(tag) |
                 tag {
                   .*,
-                  canTeach: r.canTeach
+                  canTeach: [(user)-[m:HAS_SKILL]->(tag) | m.canTeach][0]
                 }
               ]),
               showcases: apoc.coll.toSet([

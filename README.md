@@ -1,6 +1,6 @@
-# Recruiters.RIP Middleware
+# JobStash.xyz Middleware
 
-This project is a NestJS middleware that feeds read-only info to a frontend from a Neo4J DB. [Click me to learn more](https://www.notion.so/recruitersrip/Middleware-48bec9431b894af29e5198ac77e2d711)
+This project is a NestJS server that sits in front of a Neo4J DB and handles queries and mutations.
 
 ## Getting Started
 
@@ -29,7 +29,7 @@ Here are the steps you need to take to get the project setup on your local devel
 
 ## Versioning & Deployment
 
-Automatic deploy workflows are setup to deploy the code to the server under specific conditions. We use [Semver](https://semver.org) for our versioning and the versions are automatically determined by the `semantic-release` plugin which counts the number of commits that have certain keywords. see the [Semver Spec](https://semver.org) for more info. For available versions see [repo tags](https://github.com/recruitersrip/middleware/tags)
+Automatic deploy workflows are setup to deploy the code to the server under specific conditions. We use [Semver](https://semver.org) for our versioning and the versions are automatically determined by the `semantic-release` plugin which counts the number of commits that have certain keywords. see the [Semver Spec](https://semver.org) for more info. For available versions see [repo tags](https://github.com/jobstash/middleware/tags)
 
 ## IMPORTANT
 

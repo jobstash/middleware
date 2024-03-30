@@ -113,6 +113,18 @@ export class UserService {
       });
   }
 
+  async findOrgIdByWallet(wallet: string): Promise<string | null> {
+    const result = await this.neogma.queryRunner.run(
+      `
+        MATCH (:User {wallet: $wallet})-[:HAS_ORGANIZATION_AUTHORIZATION]->(org:Organization)
+        RETURN org.orgId as orgId
+      `,
+      { wallet },
+    );
+
+    return result.records[0]?.get("orgId") as string;
+  }
+
   async userHasEmail(email: string): Promise<boolean> {
     const normalizedEmail = this.normalizeEmail(email);
 
@@ -588,6 +600,7 @@ export class UserService {
 
   async getDevsAvailableForWork(
     params: GetAvailableDevsInput,
+    orgId: string | null,
   ): Promise<DevUserProfile[]> {
     const paramsPassed = {
       city: params.city ? new RegExp(params.city, "gi") : null,
@@ -608,9 +621,13 @@ export class UserService {
       .run(
         `
           MATCH (user:User)
-          WHERE (user)-[:HAS_ROLE]->(:UserRole { name: "DEV" })
+          WHERE user.available = true
+          AND (user)-[:HAS_ROLE]->(:UserRole { name: "DEV" })
           AND (user)-[:HAS_USER_FLOW_STAGE]->(:UserFlow { name: "SIGNUP-COMPLETE" })
-          AND user.available <> false
+
+          WITH user
+          OPTIONAL MATCH (user)-[:HAS_EMAIL]->(email: UserEmail), (organization: Organization {orgId: $orgId})-[:HAS_WEBSITE]->(website: Website)
+          WHERE email IS NULL OR website IS NULL OR apoc.data.url(website.url).host CONTAINS apoc.data.email(email.email).domain
           RETURN {
             wallet: user.wallet,
             availableForWork: user.available,
@@ -623,7 +640,7 @@ export class UserService {
                 (user)-[r:HAS_SKILL]->(tag) |
                 tag {
                   .*,
-                  canTeach: r.canTeach
+                  canTeach: [(user)-[m:HAS_SKILL]->(tag) | m.canTeach][0]
                 }
               ]),
               showcases: apoc.coll.toSet([
@@ -634,6 +651,7 @@ export class UserService {
               ])
           } as user
         `,
+        { orgId: orgId ?? null },
       )
       .then(res =>
         res.records.length

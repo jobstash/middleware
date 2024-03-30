@@ -9,6 +9,7 @@ import { ModelService } from "src/model/model.service";
 import { JwtService } from "@nestjs/jwt";
 import { MailModule } from "src/mail/mail.module";
 import { MailService } from "src/mail/mail.service";
+import { AuthService } from "src/auth/auth.service";
 
 @Module({
   imports: [forwardRef(() => GithubModule), ConfigModule, MailModule],
@@ -20,6 +21,7 @@ import { MailService } from "src/mail/mail.service";
     ModelService,
     JwtService,
     MailService,
+    AuthService,
   ],
   exports: [UserService, UserFlowService, UserRoleService, ModelService],
 })

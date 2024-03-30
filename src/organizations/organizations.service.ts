@@ -263,14 +263,16 @@ export class OrganizationsService {
     if (!order || order === "desc") {
       final = naturalSort<OrgDetailsResult>(filtered).by([
         {
-          desc: x => (params.orderBy ? getSortParam(x) : x.aggregateRating),
+          desc: x =>
+            params.orderBy ? getSortParam(x) : toShortOrg(x).lastFundingDate,
         },
         { asc: x => x.name },
       ]);
     } else {
       final = naturalSort<OrgDetailsResult>(filtered).by([
         {
-          asc: x => (params.orderBy ? getSortParam(x) : x.aggregateRating),
+          asc: x =>
+            params.orderBy ? getSortParam(x) : toShortOrg(x).lastFundingDate,
         },
         { asc: x => x.name },
       ]);
@@ -901,12 +903,19 @@ export class OrganizationsService {
             MATCH (org:Organization {orgId: $orgId})-[:HAS_ORGANIZATION_ALIAS]->(alias:OrganizationAlias)
             DETACH DELETE alias
           }
+          
+          CALL {
+            UNWIND $aliases as name
+            OPTIONAL MATCH (alias:OrganizationAlias WHERE alias.name = name)
+            WITH alias IS NOT NULL AS aliasFound, name
+            WHERE NOT aliasFound
+            CREATE (alias:OrganizationAlias {id: randomUUID(), name: name})
+          }
 
-          MATCH (org:Organization {orgId: $orgId})
-          UNWIND $aliases as name
-          CREATE (alias:OrganizationAlias {id: randomUUID(), name: name})
+          MATCH (alias:OrganizationAlias WHERE alias.name IN $aliases), (org:Organization {orgId: $orgId})
           MERGE (org)-[:HAS_ORGANIZATION_ALIAS]->(alias)
-          RETURN name
+          
+          RETURN alias.name as name
         `,
         { ...dto },
       );
@@ -944,11 +953,18 @@ export class OrganizationsService {
             MATCH (org:Organization {orgId: $orgId})-[:IS_MEMBER_OF_COMMUNITY]->(community:OrganizationCommunity)
             DETACH DELETE community
           }
+          
+          CALL {
+            UNWIND $communities as newCommunity
+            OPTIONAL MATCH (community:OrganizationCommunity WHERE community.name = newCommunity.name)
+            WITH community IS NOT NULL AS communityFound, newCommunity
+            WHERE NOT communityFound
+            CREATE (community:OrganizationCommunity {id: randomUUID(), name: newCommunity.name, normalizedName: newCommunity.normalizedName})
+          }
 
-          MATCH (org:Organization {orgId: $orgId})
-          UNWIND $communities as community
-          CREATE (communities:OrganizationCommunity {id: randomUUID(), name: community.name, normalizedName: community.normalizedName})
-          MERGE (org)-[:IS_MEMBER_OF_COMMUNITY]->(communities)
+          MATCH (community:OrganizationCommunity WHERE community.name IN $names), (org:Organization {orgId: $orgId})
+          MERGE (org)-[:IS_MEMBER_OF_COMMUNITY]->(community)
+          
           RETURN community.name as name
         `,
         {
@@ -957,6 +973,7 @@ export class OrganizationsService {
             name: c,
             normalizedName: normalizeString(c),
           })),
+          names: dto.communities,
         },
       );
       const communities = result.records.map(

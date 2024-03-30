@@ -1,6 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
 import {
-  IsNotEmpty,
   IsNotEmptyObject,
   IsObject,
   IsOptional,
@@ -15,7 +14,7 @@ export class UpdateOrgUserProfileInput {
 
   @ApiProperty()
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   linkedin: string;
 
   @ApiProperty()

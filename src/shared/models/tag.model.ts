@@ -26,12 +26,10 @@ export interface TagMethods {
 export interface TagStatics {
   getPreferredTags: () => Promise<TagPreference[]>;
   getBlockedTags: () => Promise<Tag[]>;
-  getUnblockedTags: (
-    ecosystem: string | undefined,
-    threshold: number,
-  ) => Promise<Tag[]>;
+  getUnblockedTags: () => Promise<Tag[]>;
   getPopularTags: (
-    count: number,
+    limit: number,
+    threshold: number,
     ecosystem: string | undefined,
   ) => Promise<Tag[]>;
   getPairedTags: () => Promise<TagPair[]>;
@@ -107,22 +105,15 @@ export const Tags = (
           const result = await query.run(neogma.queryRunner);
           return result.records.map(record => record.get("res") as TagPair);
         },
-        getUnblockedTags: async function (
-          ecosystem: string | undefined,
-          threshold: number,
-        ): Promise<Tag[]> {
-          const query = new QueryBuilder(
-            new BindParam({ threshold, ecosystem: ecosystem ?? null }),
-          )
+        getUnblockedTags: async function (): Promise<Tag[]> {
+          const query = new QueryBuilder()
             .match({
               related: [
                 { label: "Organization", identifier: "org" },
                 {
-                  name: "HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3",
+                  name: "HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4",
                   direction: "out",
                 },
-                { label: "StructuredJobpost", identifier: "job" },
-                { name: "HAS_TAG", direction: "out" },
                 {
                   label: "Tag",
                   identifier: "tag",
@@ -131,19 +122,13 @@ export const Tags = (
                 { label: "AllowedDesignation|DefaultDesignation" },
               ],
             })
-            .where(
-              "CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END",
-            )
             .raw(
-              "AND NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)",
+              "WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)",
             )
             .raw(
               "OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)",
             )
-            .with(
-              "(CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, COUNT(DISTINCT job) AS jobCount",
-            )
-            .where("jobCount >= $threshold")
+            .with("(CASE WHEN other IS NULL THEN tag ELSE other END) AS tag")
             .raw(
               "OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)",
             )
@@ -156,7 +141,8 @@ export const Tags = (
             .map(x => new TagEntity(x).getProperties());
         },
         getPopularTags: async function (
-          count: number,
+          limit: number,
+          threshold: number,
           ecosystem: string | undefined,
         ): Promise<Tag[]> {
           const query = new QueryBuilder(
@@ -204,18 +190,19 @@ export const Tags = (
             )
             .where("res.popularity IS NOT NULL")
             .return("apoc.coll.toSet(COLLECT(res)) as result");
-          const result = (await query.run(neogma.queryRunner))?.records[0]?.get(
-            "result",
-          );
-          return result
-            ? result
-                .sort(
-                  (a: { [x: string]: number }, b: { [x: string]: number }) =>
-                    ((b["popularity"] as number) - a["popularity"]) as number,
-                )
-                .map(res => new TagEntity(res["tag"]).getProperties())
-                .slice(0, count) ?? []
-            : [];
+          const result =
+            (await query.run(neogma.queryRunner))?.records[0]
+              ?.get("result")
+              .sort(
+                (a: { [x: string]: number }, b: { [x: string]: number }) =>
+                  ((b["popularity"] as number) - a["popularity"]) as number,
+              )
+              .filter(
+                (res: { [x: string]: number }) => res["popularity"] > threshold,
+              )
+              .map(res => new TagEntity(res["tag"]).getProperties()) ?? [];
+          console.log(limit);
+          return limit ? result.slice(0, limit) : result;
         },
         getBlockedTags: async function (): Promise<Tag[]> {
           const query = new QueryBuilder()
