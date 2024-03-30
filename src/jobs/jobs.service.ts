@@ -50,7 +50,7 @@ import { randomUUID } from "crypto";
 import { ConfigService } from "@nestjs/config";
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { UpdateOrgJobApplicantListInput } from "./dto/update-job-applicant-list.input";
-import { GoogleBigQueryService } from "./google-bigquery.service";
+import { GoogleBigQueryService } from "../auth/github/google-bigquery.service";
 
 @Injectable()
 export class JobsService {

@@ -15,6 +15,7 @@ import { Roles } from "src/shared/decorators";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
 import {
+  ApplicantEnrichmentData,
   DevUserProfile,
   OrgUserProfile,
   ResponseWithNoData,
@@ -26,6 +27,9 @@ import { ConfigService } from "@nestjs/config";
 import { GetAvailableDevsInput } from "./dto/get-available-devs.input";
 import { AuthService } from "src/auth/auth.service";
 import { Request, Response } from "express";
+import { ApiKeyGuard } from "src/auth/api-key.guard";
+import { ApiOkResponse } from "@nestjs/swagger";
+import { GoogleBigQueryService } from "src/auth/github/google-bigquery.service";
 
 @Controller("users")
 export class UserController {
@@ -35,6 +39,7 @@ export class UserController {
     private readonly userService: UserService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
+    private readonly bigQueryService: GoogleBigQueryService,
   ) {}
 
   @Get("")
@@ -165,5 +170,18 @@ export class UserController {
         message: "Org not found for that wallet",
       };
     }
+  }
+
+  @Get("/work-history")
+  @UseGuards(ApiKeyGuard)
+  @ApiOkResponse({
+    description: "Returns the work history for the passed github accounts ",
+    type: Array<ApplicantEnrichmentData>,
+  })
+  async getWorkHistory(
+    @Query("users") users: string,
+  ): Promise<ApplicantEnrichmentData[]> {
+    this.logger.log(`/users/work-history ${JSON.stringify(users.split(","))}`);
+    return this.bigQueryService.getApplicantEnrichmentData(users.split(","));
   }
 }
