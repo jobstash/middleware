@@ -1,7 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { BigQuery } from "@google-cloud/bigquery";
-import { ApplicantEnrichmentData } from "src/shared/interfaces";
+import {
+  ApplicantEnrichmentData,
+  UserWorkHistory,
+} from "src/shared/interfaces";
 
 @Injectable()
 export class GoogleBigQueryService {
@@ -148,6 +151,15 @@ export class GoogleBigQueryService {
         logins: ["STRING"],
       },
     });
-    return rows;
+    return rows.map((row: UserWorkHistory) => ({
+      ...row,
+      cryptoNative: row.organizations.some(org =>
+        org.repositories.some(
+          repo =>
+            repo.commits.committed.count > 0 &&
+            repo.pull_requests.merged.count > 0,
+        ),
+      ),
+    }));
   }
 }

@@ -1,46 +1,52 @@
-export interface ApplicantWorkHistory {
+export interface ApplicantEnrichmentData extends UserWorkHistory {
+  cryptoNative: boolean;
+}
+
+export interface UserWorkHistory {
+  id: string;
+  login: string;
+  organizations: OrganizationWorkHistory[];
+}
+
+export interface OrganizationWorkHistory {
   id: string;
   login: string;
   name: string;
-  repositories: Array<{
-    id: string;
-    name: string;
-    commits: {
-      authored: {
-        count: number | null;
-        first: string | null;
-        last: string | null;
-      };
-      committed: {
-        count: number | null;
-        first: string | null;
-        last: string | null;
-      };
-    };
-    issues: {
-      authored: {
-        count: number | null;
-        first: string | null;
-        last: string | null;
-      };
-    };
-    pull_requests: {
-      authored: {
-        count: number | null;
-        first: string | null;
-        last: string | null;
-      };
-      merged: {
-        count: number | null;
-        first: string | null;
-        last: string | null;
-      };
-    };
-  }>;
+  repositories: RepositoryWorkHistory[];
 }
 
-export interface ApplicantEnrichmentData {
+export interface RepositoryWorkHistory {
   id: string;
-  login: string;
-  organizations: ApplicantWorkHistory[];
+  name: string;
+  commits: {
+    authored: {
+      count: number | null;
+      first: string | null;
+      last: string | null;
+    };
+    committed: {
+      count: number | null;
+      first: string | null;
+      last: string | null;
+    };
+  };
+  issues: {
+    authored: {
+      count: number | null;
+      first: string | null;
+      last: string | null;
+    };
+  };
+  pull_requests: {
+    authored: {
+      count: number | null;
+      first: string | null;
+      last: string | null;
+    };
+    merged: {
+      count: number | null;
+      first: string | null;
+      last: string | null;
+    };
+  };
 }
