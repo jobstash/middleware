@@ -1093,10 +1093,10 @@ export class JobsService {
 
           return new JobApplicantEntity({
             ...applicant,
-            cryptoNative: applicantEnrichmentData.cryptoNative,
+            cryptoNative: applicantEnrichmentData?.cryptoNative,
             user: {
               ...applicant.user,
-              workHistory: cryptoNativeOrgs.map(workHistoryConverter) ?? [],
+              workHistory: cryptoNativeOrgs?.map(workHistoryConverter) ?? [],
             },
           }).getProperties();
         }),
