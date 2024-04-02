@@ -152,6 +152,7 @@ export class GoogleBigQueryService {
       },
     });
     return rows.map((row: UserWorkHistory) => ({
+      login: row.login,
       cryptoNative: row.organizations.some(org =>
         org.repositories.some(
           repo =>

@@ -1,4 +1,5 @@
 export interface ApplicantEnrichmentData {
+  login: string;
   cryptoNative: boolean;
   organizations: {
     login: string;
