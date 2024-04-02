@@ -1,10 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { BigQuery } from "@google-cloud/bigquery";
-import {
-  ApplicantEnrichmentData,
-  UserWorkHistory,
-} from "src/shared/interfaces";
+import { ApplicantEnrichmentData } from "src/shared/interfaces";
 
 @Injectable()
 export class GoogleBigQueryService {
@@ -151,55 +148,6 @@ export class GoogleBigQueryService {
         logins: ["STRING"],
       },
     });
-    return rows.map((row: UserWorkHistory) => ({
-      login: row.login,
-      cryptoNative: row.organizations.some(org =>
-        org.repositories.some(
-          repo =>
-            repo.commits.committed.count > 0 &&
-            repo.pull_requests.merged.count > 0,
-        ),
-      ),
-      organizations: row.organizations.map(org => {
-        const repositories = org.repositories.map(repo => ({
-          name: repo.name,
-          firstContributedAt: [
-            repo.commits.authored.first,
-            repo.commits.committed.first,
-            repo.issues.authored.first,
-            repo.pull_requests.authored.first,
-            repo.pull_requests.merged.first,
-          ]
-            .filter(Boolean)
-            .sort()[0],
-          lastContributedAt: [
-            repo.commits.authored.last,
-            repo.commits.committed.last,
-            repo.issues.authored.last,
-            repo.pull_requests.authored.last,
-            repo.pull_requests.merged.last,
-          ]
-            .filter(Boolean)
-            .sort()
-            .reverse()[0],
-          commitsCount: repo.commits.committed.count,
-        }));
-
-        return {
-          login: org.login,
-          name: org.name,
-          firstContributedAt: repositories
-            .map(repo => repo.firstContributedAt)
-            .filter(Boolean)
-            .sort()[0],
-          lastContributedAt: repositories
-            .map(repo => repo.lastContributedAt)
-            .filter(Boolean)
-            .sort()
-            .reverse()[0],
-          repositories,
-        };
-      }),
-    }));
+    return rows;
   }
 }

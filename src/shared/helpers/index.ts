@@ -19,6 +19,7 @@ import { CustomLogger } from "../utils/custom-logger";
 import {
   OrgDetailsResult,
   OrgRating,
+  OrganizationWorkHistory,
   PaginatedData,
   ShortOrg,
 } from "../interfaces";
@@ -30,6 +31,7 @@ import { AxiosError } from "axios";
 import { firstValueFrom, catchError } from "rxjs";
 import { HttpService } from "@nestjs/axios";
 import { emojiRegex } from "./emoji-regex";
+import { UserWorkHistory } from "../interfaces/user/user-work-history.interface";
 
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
@@ -512,4 +514,52 @@ export const resetTestDB = async (
       }),
     ),
   );
+};
+
+export const workHistoryConverter = (
+  workHistory: OrganizationWorkHistory,
+): UserWorkHistory => {
+  const repositories = workHistory.repositories.map(repo => ({
+    name: repo.name,
+    commitsCount: Math.max(
+      repo.commits.authored.count,
+      repo.commits.committed.count,
+    ),
+    firstContributedAt: [
+      repo.commits.authored.first,
+      repo.commits.committed.first,
+      repo.issues.authored.first,
+      repo.pull_requests.authored.first,
+      repo.pull_requests.merged.first,
+    ]
+      .filter(Boolean)
+      .map(val => new Date(val).getTime())
+      .sort()[0],
+    lastContributedAt: [
+      repo.commits.authored.last,
+      repo.commits.committed.last,
+      repo.issues.authored.last,
+      repo.pull_requests.authored.last,
+      repo.pull_requests.merged.last,
+    ]
+      .filter(Boolean)
+      .map(val => new Date(val).getTime())
+      .sort()
+      .reverse()[0],
+  }));
+
+  return {
+    login: workHistory.login,
+    name: workHistory.name,
+    firstContributedAt: repositories
+      .map(repo => repo.firstContributedAt)
+      .filter(Boolean)
+      .sort()[0],
+    lastContributedAt: repositories
+      .map(repo => repo.lastContributedAt)
+      .filter(Boolean)
+      .sort()
+      .reverse()[0],
+    repositories,
+  };
 };

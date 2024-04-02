@@ -1,23 +1,7 @@
 export interface ApplicantEnrichmentData {
-  login: string;
-  cryptoNative: boolean;
-  organizations: {
-    login: string;
-    name: string;
-    firstContributedAt: string;
-    lastContributedAt: string;
-    repositories: {
-      name: string;
-      firstContributedAt: string;
-      lastContributedAt: string;
-      commitsCount: number;
-    }[];
-  }[];
-}
-
-export interface UserWorkHistory {
   id: string;
   login: string;
+  cryptoNative: boolean;
   organizations: OrganizationWorkHistory[];
 }
 

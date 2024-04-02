@@ -4,7 +4,7 @@ import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
 import { UserProfile, UserShowCase, UserSkill } from "./user";
 import { JobListResult } from "./job-list-result.interface";
-import { OrganizationWorkHistory } from "./applicant-enrichment-data.interface";
+import { UserWorkHistory } from "./user/user-work-history.interface";
 
 export class JobApplicant {
   public static readonly JobApplicantType = t.strict({
@@ -24,50 +24,7 @@ export class JobApplicant {
         skills: t.array(UserSkill.UserSkillType),
         showcases: t.array(UserShowCase.UserShowCaseType),
         matchingSkills: t.union([t.number, t.null]),
-        workHistory: t.array(
-          t.strict({
-            id: t.string,
-            login: t.string,
-            name: t.string,
-            repositories: t.array(
-              t.strict({
-                id: t.string,
-                name: t.string,
-                commits: t.strict({
-                  authored: t.strict({
-                    count: t.union([t.number, t.null]),
-                    first: t.union([t.string, t.null]),
-                    last: t.union([t.string, t.null]),
-                  }),
-                  committed: t.strict({
-                    count: t.union([t.number, t.null]),
-                    first: t.union([t.string, t.null]),
-                    last: t.union([t.string, t.null]),
-                  }),
-                }),
-                issues: t.strict({
-                  authored: t.strict({
-                    count: t.union([t.number, t.null]),
-                    first: t.union([t.string, t.null]),
-                    last: t.union([t.string, t.null]),
-                  }),
-                }),
-                pull_requests: t.strict({
-                  authored: t.strict({
-                    count: t.union([t.number, t.null]),
-                    first: t.union([t.string, t.null]),
-                    last: t.union([t.string, t.null]),
-                  }),
-                  merged: t.strict({
-                    count: t.union([t.number, t.null]),
-                    first: t.union([t.string, t.null]),
-                    last: t.union([t.string, t.null]),
-                  }),
-                }),
-              }),
-            ),
-          }),
-        ),
+        workHistory: t.array(UserWorkHistory.UserWorkHistoryType),
       }),
     ]),
     job: JobListResult.JobListResultType,
@@ -99,7 +56,7 @@ export class JobApplicant {
     skills: UserSkill[];
     showcases: UserShowCase[];
     matchingSkills: number | null;
-    workHistory: OrganizationWorkHistory[];
+    workHistory: UserWorkHistory[];
   };
 
   @ApiProperty()

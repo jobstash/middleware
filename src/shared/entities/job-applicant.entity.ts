@@ -36,57 +36,17 @@ export class JobApplicantEntity {
         matchingSkills: nonZeroOrNull(matchingSkills),
         workHistory: workHistory?.map(workHistory => ({
           ...workHistory,
-          id: notStringOrNull(workHistory.id),
           name: notStringOrNull(workHistory.name),
           login: notStringOrNull(workHistory.login),
+          firstContributedAt: nonZeroOrNull(workHistory.firstContributedAt),
+          lastContributedAt: nonZeroOrNull(workHistory.lastContributedAt),
           repositories:
             workHistory?.repositories?.map(repository => ({
               ...repository,
-              id: notStringOrNull(repository.id),
               name: notStringOrNull(repository.name),
-              commits: {
-                authored: {
-                  count: nonZeroOrNull(repository?.commits?.authored?.count),
-                  first: notStringOrNull(repository?.commits?.authored?.first),
-                  last: notStringOrNull(repository?.commits?.authored?.last),
-                },
-                committed: {
-                  count: nonZeroOrNull(repository?.commits?.committed?.count),
-                  first: notStringOrNull(repository?.commits?.committed?.first),
-                  last: notStringOrNull(repository?.commits?.committed?.last),
-                },
-              },
-              issues: {
-                authored: {
-                  count: nonZeroOrNull(repository?.issues?.authored?.count),
-                  first: notStringOrNull(repository?.issues?.authored?.first),
-                  last: notStringOrNull(repository?.issues?.authored?.last),
-                },
-              },
-              pull_requests: {
-                authored: {
-                  count: nonZeroOrNull(
-                    repository?.pull_requests?.authored?.count,
-                  ),
-                  first: notStringOrNull(
-                    repository?.pull_requests?.authored?.first,
-                  ),
-                  last: notStringOrNull(
-                    repository?.pull_requests?.authored?.last,
-                  ),
-                },
-                merged: {
-                  count: nonZeroOrNull(
-                    repository?.pull_requests?.merged?.count,
-                  ),
-                  first: notStringOrNull(
-                    repository?.pull_requests?.merged?.first,
-                  ),
-                  last: notStringOrNull(
-                    repository?.pull_requests?.merged?.last,
-                  ),
-                },
-              },
+              firstContributedAt: nonZeroOrNull(workHistory.firstContributedAt),
+              lastContributedAt: nonZeroOrNull(workHistory.lastContributedAt),
+              commitsCount: nonZeroOrNull(repository.commitsCount),
             })) ?? [],
         })),
       },

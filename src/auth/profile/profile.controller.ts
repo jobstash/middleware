@@ -666,7 +666,7 @@ export class ProfileController {
       );
       if (hasApplied) {
         return {
-          success: false,
+          success: true,
           message: "Job has already been applied to by this user",
         };
       } else {

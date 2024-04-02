@@ -16,6 +16,7 @@ import {
   notStringOrNull,
   paginate,
   publicationDateRangeGenerator,
+  workHistoryConverter,
 } from "src/shared/helpers";
 import {
   AllJobsFilterConfigs,
@@ -924,8 +925,6 @@ export class JobsService {
           oss: null,
           calendly: null,
           interviewed: null,
-          cryptoNative: null,
-          upcomingTalent: null,
           attestations: {
             upvotes: null,
             downvotes: null
@@ -1067,18 +1066,40 @@ export class JobsService {
       return {
         success: true,
         message: "Org jobs and applicants retrieved successfully",
-        data: applicants?.map(applicant =>
-          new JobApplicantEntity({
+        data: applicants?.map(applicant => {
+          const applicantEnrichmentData = enrichmentData.find(
+            data => data.login === applicant.user.username,
+          );
+
+          const cryptoNativeOrgs = applicantEnrichmentData?.organizations
+            .filter(org =>
+              org.repositories.some(
+                repo =>
+                  repo.commits.committed.count > 0 &&
+                  repo.pull_requests.merged.count > 0,
+              ),
+            )
+            .map(org => {
+              const cryptoNativeRepos = org.repositories.filter(
+                repo =>
+                  repo.commits.committed.count > 0 &&
+                  repo.pull_requests.merged.count > 0,
+              );
+              return {
+                ...org,
+                repositories: cryptoNativeRepos,
+              };
+            });
+
+          return new JobApplicantEntity({
             ...applicant,
+            cryptoNative: applicantEnrichmentData.cryptoNative,
             user: {
               ...applicant.user,
-              workHistory:
-                enrichmentData.find(
-                  data => data.login === applicant.user.username,
-                )?.organizations ?? [],
+              workHistory: cryptoNativeOrgs.map(workHistoryConverter) ?? [],
             },
-          }).getProperties(),
-        ),
+          }).getProperties();
+        }),
       };
     } catch (err) {
       Sentry.withScope(scope => {
