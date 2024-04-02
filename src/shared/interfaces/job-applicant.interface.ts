@@ -4,7 +4,7 @@ import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
 import { UserProfile, UserShowCase, UserSkill } from "./user";
 import { JobListResult } from "./job-list-result.interface";
-import { ApplicantWorkHistory } from "./applicant-enrichment-data.interface";
+import { OrganizationWorkHistory } from "./applicant-enrichment-data.interface";
 
 export class JobApplicant {
   public static readonly JobApplicantType = t.strict({
@@ -99,7 +99,7 @@ export class JobApplicant {
     skills: UserSkill[];
     showcases: UserShowCase[];
     matchingSkills: number | null;
-    workHistory: ApplicantWorkHistory[];
+    workHistory: OrganizationWorkHistory[];
   };
 
   @ApiProperty()
