@@ -152,7 +152,6 @@ export class GoogleBigQueryService {
       },
     });
     return rows.map((row: UserWorkHistory) => ({
-      ...row,
       cryptoNative: row.organizations.some(org =>
         org.repositories.some(
           repo =>
@@ -160,6 +159,46 @@ export class GoogleBigQueryService {
             repo.pull_requests.merged.count > 0,
         ),
       ),
+      organizations: row.organizations.map(org => {
+        const repositories = org.repositories.map(repo => ({
+          name: repo.name,
+          firstContributedAt: [
+            repo.commits.authored.first,
+            repo.commits.committed.first,
+            repo.issues.authored.first,
+            repo.pull_requests.authored.first,
+            repo.pull_requests.merged.first,
+          ]
+            .filter(Boolean)
+            .sort()[0],
+          lastContributedAt: [
+            repo.commits.authored.last,
+            repo.commits.committed.last,
+            repo.issues.authored.last,
+            repo.pull_requests.authored.last,
+            repo.pull_requests.merged.last,
+          ]
+            .filter(Boolean)
+            .sort()
+            .reverse()[0],
+          commitsCount: repo.commits.committed.count,
+        }));
+
+        return {
+          login: org.login,
+          name: org.name,
+          firstContributedAt: repositories
+            .map(repo => repo.firstContributedAt)
+            .filter(Boolean)
+            .sort()[0],
+          lastContributedAt: repositories
+            .map(repo => repo.lastContributedAt)
+            .filter(Boolean)
+            .sort()
+            .reverse()[0],
+          repositories,
+        };
+      }),
     }));
   }
 }

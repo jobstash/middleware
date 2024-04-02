@@ -1,5 +1,17 @@
-export interface ApplicantEnrichmentData extends UserWorkHistory {
+export interface ApplicantEnrichmentData {
   cryptoNative: boolean;
+  organizations: {
+    login: string;
+    name: string;
+    firstContributedAt: string;
+    lastContributedAt: string;
+    repositories: {
+      name: string;
+      firstContributedAt: string;
+      lastContributedAt: string;
+      commitsCount: number;
+    }[];
+  }[];
 }
 
 export interface UserWorkHistory {
