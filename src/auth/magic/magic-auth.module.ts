@@ -9,9 +9,15 @@ import { MailService } from "src/mail/mail.service";
 import { AuthModule } from "../auth.module";
 import { ModelService } from "src/model/model.service";
 import { OrgMagicAuthStrategy } from "./org.magic-auth.strategy";
+import { UserModule } from "src/user/user.module";
 
 @Module({
-  imports: [forwardRef(() => AuthModule), ConfigModule, MailModule],
+  imports: [
+    forwardRef(() => AuthModule),
+    forwardRef(() => UserModule),
+    ConfigModule,
+    MailModule,
+  ],
   providers: [
     DevMagicAuthStrategy,
     OrgMagicAuthStrategy,

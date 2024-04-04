@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { SiweController } from "./siwe.controller";
 import { AuthModule } from "../auth.module";
 import { AuthService } from "../auth.service";
@@ -10,6 +10,7 @@ import { UserRoleService } from "../../user/user-role.service";
 import { UserFlowService } from "../../user/user-flow.service";
 import { CacheModule } from "@nestjs/cache-manager";
 import { ModelService } from "src/model/model.service";
+import { UserModule } from "src/user/user.module";
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { ModelService } from "src/model/model.service";
       }),
     }),
     CacheModule.register(),
+    forwardRef(() => UserModule),
   ],
   controllers: [SiweController],
   providers: [

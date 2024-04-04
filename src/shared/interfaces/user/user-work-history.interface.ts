@@ -14,6 +14,7 @@ export class UserWorkHistory {
     repositories: t.array(
       t.strict({
         name: t.string,
+        url: t.string,
         firstContributedAt: t.number,
         lastContributedAt: t.number,
         commitsCount: t.number,
@@ -42,6 +43,7 @@ export class UserWorkHistory {
   @ApiProperty()
   repositories: {
     name: string;
+    url: string;
     firstContributedAt: number;
     lastContributedAt: number;
     commitsCount: number;

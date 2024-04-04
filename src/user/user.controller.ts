@@ -15,7 +15,6 @@ import { Roles } from "src/shared/decorators";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
 import {
-  ApplicantEnrichmentData,
   DevUserProfile,
   OrgUserProfile,
   ResponseWithNoData,
@@ -29,7 +28,7 @@ import { AuthService } from "src/auth/auth.service";
 import { Request, Response } from "express";
 import { ApiKeyGuard } from "src/auth/api-key.guard";
 import { ApiOkResponse } from "@nestjs/swagger";
-import { GoogleBigQueryService } from "src/auth/github/google-bigquery.service";
+import { UserWorkHistory } from "src/shared/interfaces/user/user-work-history.interface";
 
 @Controller("users")
 export class UserController {
@@ -39,7 +38,6 @@ export class UserController {
     private readonly userService: UserService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
-    private readonly bigQueryService: GoogleBigQueryService,
   ) {}
 
   @Get("")
@@ -176,12 +174,15 @@ export class UserController {
   @UseGuards(ApiKeyGuard)
   @ApiOkResponse({
     description: "Returns the work history for the passed github accounts ",
-    type: Array<ApplicantEnrichmentData>,
+    type: Array<{
+      user: string;
+      workHistory: UserWorkHistory[];
+    }>,
   })
   async getWorkHistory(
     @Query("users") users: string,
-  ): Promise<ApplicantEnrichmentData[]> {
+  ): Promise<{ user: string; workHistory: UserWorkHistory[] }[]> {
     this.logger.log(`/users/work-history ${JSON.stringify(users.split(","))}`);
-    return this.bigQueryService.getApplicantEnrichmentData(users.split(","));
+    return this.userService.getWorkHistory(users.split(","));
   }
 }

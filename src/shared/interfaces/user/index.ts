@@ -12,3 +12,4 @@ export * from "./user-email.interface";
 export * from "./user-showcase.interface";
 export * from "./user-org.interface";
 export * from "./user-repo.interface";
+export * from "./user-work-history.interface";

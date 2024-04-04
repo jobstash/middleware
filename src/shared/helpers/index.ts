@@ -521,6 +521,7 @@ export const workHistoryConverter = (
 ): UserWorkHistory => {
   const repositories = workHistory.repositories.map(repo => ({
     name: repo.name,
+    url: `https://github.com/${workHistory.login}/${repo.name}`,
     commitsCount: Math.max(
       repo.commits.authored.count,
       repo.commits.committed.count,

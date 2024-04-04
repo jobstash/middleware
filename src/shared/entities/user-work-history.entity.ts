@@ -1,0 +1,27 @@
+import { nonZeroOrNull, notStringOrNull } from "../helpers";
+import { UserWorkHistory } from "../interfaces";
+
+export class UserWorkHistoryEntity {
+  constructor(private readonly raw: UserWorkHistory) {}
+
+  getProperties(): UserWorkHistory {
+    const workHistory = this.raw;
+    return new UserWorkHistory({
+      ...workHistory,
+      name: notStringOrNull(workHistory.name),
+      login: notStringOrNull(workHistory.login),
+      logoUrl: notStringOrNull(workHistory.logoUrl),
+      url: notStringOrNull(workHistory.url),
+      firstContributedAt: nonZeroOrNull(workHistory.firstContributedAt),
+      lastContributedAt: nonZeroOrNull(workHistory.lastContributedAt),
+      repositories:
+        workHistory?.repositories?.map(repository => ({
+          ...repository,
+          name: notStringOrNull(repository.name),
+          firstContributedAt: nonZeroOrNull(repository.firstContributedAt),
+          lastContributedAt: nonZeroOrNull(repository.lastContributedAt),
+          commitsCount: nonZeroOrNull(repository.commitsCount),
+        })) ?? [],
+    });
+  }
+}

@@ -11,6 +11,7 @@ export * from "./job-list-result.entity";
 export * from "./org-details-result.entity";
 export * from "./user-org.entity";
 export * from "./user-repo.entity";
+export * from "./user-work-history.entity";
 export * from "./user-showcase.entity";
 export * from "./user-skill.entity";
 export * from "./project-details.entity";

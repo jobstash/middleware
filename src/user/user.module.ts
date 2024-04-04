@@ -11,6 +11,7 @@ import { MailModule } from "src/mail/mail.module";
 import { MailService } from "src/mail/mail.service";
 import { AuthService } from "src/auth/auth.service";
 import { GoogleBigQueryService } from "src/auth/github/google-bigquery.service";
+import { OrganizationsService } from "src/organizations/organizations.service";
 
 @Module({
   imports: [forwardRef(() => GithubModule), ConfigModule, MailModule],
@@ -23,8 +24,16 @@ import { GoogleBigQueryService } from "src/auth/github/google-bigquery.service";
     JwtService,
     MailService,
     AuthService,
+    OrganizationsService,
     GoogleBigQueryService,
   ],
-  exports: [UserService, UserFlowService, UserRoleService, ModelService],
+  exports: [
+    UserService,
+    UserFlowService,
+    UserRoleService,
+    ModelService,
+    GoogleBigQueryService,
+    OrganizationsService,
+  ],
 })
 export class UserModule {}
