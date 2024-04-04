@@ -1088,14 +1088,8 @@ export class JobsService {
                   repo.commits.committed.count > 0 &&
                   repo.pull_requests.merged.count > 0,
               );
-              const jobstashOrg = orgs.find(
-                org1 =>
-                  org1.github === org.login || org1.name.includes(org.name),
-              );
               return {
                 ...org,
-                logoUrl: jobstashOrg?.logoUrl,
-                url: jobstashOrg?.website,
                 repositories: cryptoNativeRepos,
               };
             });
@@ -1105,7 +1099,19 @@ export class JobsService {
             cryptoNative: applicantEnrichmentData?.cryptoNative,
             user: {
               ...applicant.user,
-              workHistory: cryptoNativeOrgs?.map(workHistoryConverter) ?? [],
+              workHistory:
+                cryptoNativeOrgs?.map(workHistoryConverter).map(org => {
+                  const jobstashOrg = orgs.find(org1 => {
+                    const q1 = new RegExp(org.name, "gi");
+                    const q2 = new RegExp(org1.name, "gi");
+                    return org1.name.match(q1) || org.name.match(q2);
+                  });
+                  return {
+                    ...org,
+                    url: jobstashOrg?.website,
+                    logoUrl: jobstashOrg?.logoUrl,
+                  };
+                }) ?? [],
             },
           }).getProperties();
         }),

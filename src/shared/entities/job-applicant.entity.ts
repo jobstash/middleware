@@ -46,8 +46,8 @@ export class JobApplicantEntity {
             workHistory?.repositories?.map(repository => ({
               ...repository,
               name: notStringOrNull(repository.name),
-              firstContributedAt: nonZeroOrNull(workHistory.firstContributedAt),
-              lastContributedAt: nonZeroOrNull(workHistory.lastContributedAt),
+              firstContributedAt: nonZeroOrNull(repository.firstContributedAt),
+              lastContributedAt: nonZeroOrNull(repository.lastContributedAt),
               commitsCount: nonZeroOrNull(repository.commitsCount),
             })) ?? [],
         })),
