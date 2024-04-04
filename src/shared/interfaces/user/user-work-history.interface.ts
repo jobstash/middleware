@@ -1,4 +1,4 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import * as t from "io-ts";
 import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
@@ -7,6 +7,8 @@ export class UserWorkHistory {
   public static readonly UserWorkHistoryType = t.strict({
     login: t.string,
     name: t.string,
+    logoUrl: t.union([t.string, t.null]),
+    url: t.union([t.string, t.null]),
     firstContributedAt: t.number,
     lastContributedAt: t.number,
     repositories: t.array(
@@ -25,6 +27,12 @@ export class UserWorkHistory {
   @ApiProperty()
   name: string;
 
+  @ApiPropertyOptional()
+  logoUrl: string | null;
+
+  @ApiPropertyOptional()
+  url: string | null;
+
   @ApiProperty()
   firstContributedAt: number;
 
@@ -40,11 +48,20 @@ export class UserWorkHistory {
   }[];
 
   constructor(raw: UserWorkHistory) {
-    const { login, name, firstContributedAt, lastContributedAt, repositories } =
-      raw;
+    const {
+      login,
+      name,
+      logoUrl,
+      url,
+      firstContributedAt,
+      lastContributedAt,
+      repositories,
+    } = raw;
 
     this.login = login;
     this.name = name;
+    this.logoUrl = logoUrl;
+    this.url = url;
     this.firstContributedAt = firstContributedAt;
     this.lastContributedAt = lastContributedAt;
     this.repositories = repositories;

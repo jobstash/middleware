@@ -52,6 +52,7 @@ import { ConfigService } from "@nestjs/config";
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { UpdateOrgJobApplicantListInput } from "./dto/update-job-applicant-list.input";
 import { GoogleBigQueryService } from "../auth/github/google-bigquery.service";
+import { OrganizationsService } from "src/organizations/organizations.service";
 
 @Injectable()
 export class JobsService {
@@ -61,6 +62,7 @@ export class JobsService {
     private neogma: Neogma,
     private models: ModelService,
     private readonly configService: ConfigService,
+    private readonly organizationsService: OrganizationsService,
     private readonly bigQueryService: GoogleBigQueryService,
   ) {}
 
@@ -1062,6 +1064,7 @@ export class JobsService {
         await this.bigQueryService.getApplicantEnrichmentData(
           applicants?.map(applicant => applicant.user.username),
         );
+      const orgs = await this.organizationsService.getOrgListResults();
 
       return {
         success: true,
@@ -1085,8 +1088,14 @@ export class JobsService {
                   repo.commits.committed.count > 0 &&
                   repo.pull_requests.merged.count > 0,
               );
+              const jobstashOrg = orgs.find(
+                org1 =>
+                  org1.github === org.login || org1.name.includes(org.name),
+              );
               return {
                 ...org,
+                logoUrl: jobstashOrg?.logoUrl,
+                url: jobstashOrg?.website,
                 repositories: cryptoNativeRepos,
               };
             });

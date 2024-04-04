@@ -8,6 +8,7 @@ import { AuthService } from "src/auth/auth.service";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { TagsService } from "src/tags/tags.service";
 import { GoogleBigQueryService } from "../auth/github/google-bigquery.service";
+import { OrganizationsService } from "src/organizations/organizations.service";
 
 @Module({
   imports: [forwardRef(() => UserModule)],
@@ -20,6 +21,7 @@ import { GoogleBigQueryService } from "../auth/github/google-bigquery.service";
     ModelService,
     ProfileService,
     GoogleBigQueryService,
+    OrganizationsService,
   ],
 })
 export class JobsModule {}

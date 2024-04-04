@@ -38,6 +38,8 @@ export class JobApplicantEntity {
           ...workHistory,
           name: notStringOrNull(workHistory.name),
           login: notStringOrNull(workHistory.login),
+          logoUrl: notStringOrNull(workHistory.logoUrl),
+          url: notStringOrNull(workHistory.url),
           firstContributedAt: nonZeroOrNull(workHistory.firstContributedAt),
           lastContributedAt: nonZeroOrNull(workHistory.lastContributedAt),
           repositories:

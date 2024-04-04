@@ -550,6 +550,8 @@ export const workHistoryConverter = (
 
   return {
     login: workHistory.login,
+    logoUrl: null,
+    url: null,
     name: workHistory.name,
     firstContributedAt: repositories
       .map(repo => repo.firstContributedAt)
