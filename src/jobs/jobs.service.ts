@@ -1096,7 +1096,7 @@ export class JobsService {
 
           return new JobApplicantEntity({
             ...applicant,
-            cryptoNative: cryptoNativeOrgs.length > 0,
+            cryptoNative: cryptoNativeOrgs?.length > 0,
             user: {
               ...applicant.user,
               workHistory:
