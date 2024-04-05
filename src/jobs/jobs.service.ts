@@ -1128,6 +1128,7 @@ export class JobsService {
       this.logger.error(
         `JobsService::getJobsByOrgIdWithApplicants ${err.message}`,
       );
+
       return {
         success: false,
         message: "Org jobs and applicants retrieval failed",
