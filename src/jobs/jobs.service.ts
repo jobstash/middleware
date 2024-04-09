@@ -16,7 +16,6 @@ import {
   notStringOrNull,
   paginate,
   publicationDateRangeGenerator,
-  workHistoryConverter,
 } from "src/shared/helpers";
 import {
   AllJobsFilterConfigs,
@@ -956,6 +955,18 @@ export class JobsService {
                 showcase {
                   .*
                 }
+              ]),
+              workHistory: apoc.coll.toSet([
+                (user)-[:HAS_WORK_HISTORY]->(workHistory: UserWorkHistory) |
+                workHistory {
+                  .*,
+                  repositories: apoc.coll.toSet([
+                    (workHistory)-[:WORKED_ON_REPO]->(repo: UserWorkHistoryRepo) |
+                    repo {
+                      .*
+                    }
+                  ])
+                }
               ])
           },
           job: structured_jobpost {
@@ -1060,61 +1071,18 @@ export class JobsService {
       });
       const applicants =
         result?.records?.map(record => record.get("result")) ?? [];
-      const enrichmentData =
-        await this.bigQueryService.getApplicantEnrichmentData(
-          applicants?.map(applicant => applicant.user.username),
-        );
-      const orgs = await this.organizationsService.getOrgListResults();
 
       return {
         success: true,
         message: "Org jobs and applicants retrieved successfully",
-        data: applicants?.map(applicant => {
-          const applicantEnrichmentData = enrichmentData.find(
-            data => data.login === applicant.user.username,
-          );
-
-          const cryptoNativeOrgs = applicantEnrichmentData?.organizations
-            .filter(org =>
-              org.repositories.some(
-                repo =>
-                  repo.commits.committed.count > 0 &&
-                  repo.pull_requests.merged.count > 0,
-              ),
-            )
-            .map(org => {
-              const cryptoNativeRepos = org.repositories.filter(
-                repo =>
-                  repo.commits.committed.count > 0 &&
-                  repo.pull_requests.merged.count > 0,
-              );
-              return {
-                ...org,
-                repositories: cryptoNativeRepos,
-              };
-            });
-
-          return new JobApplicantEntity({
+        data: applicants?.map((applicant: JobApplicant) =>
+          new JobApplicantEntity({
             ...applicant,
-            cryptoNative: cryptoNativeOrgs?.length > 0,
-            user: {
-              ...applicant.user,
-              workHistory:
-                cryptoNativeOrgs?.map(workHistoryConverter).map(org => {
-                  const jobstashOrg = orgs.find(org1 => {
-                    const q1 = new RegExp(org.name, "gi");
-                    const q2 = new RegExp(org1.name, "gi");
-                    return org1.name.match(q1) || org.name.match(q2);
-                  });
-                  return {
-                    ...org,
-                    url: jobstashOrg?.website,
-                    logoUrl: jobstashOrg?.logoUrl,
-                  };
-                }) ?? [],
-            },
-          }).getProperties();
-        }),
+            cryptoNative: applicant?.user?.workHistory?.some(org =>
+              org.repositories.some(repo => repo.cryptoNative),
+            ),
+          }).getProperties(),
+        ),
       };
     } catch (err) {
       Sentry.withScope(scope => {

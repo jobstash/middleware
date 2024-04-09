@@ -518,41 +518,51 @@ export const resetTestDB = async (
 
 export const workHistoryConverter = (
   workHistory: OrganizationWorkHistory,
+  orgs: OrgDetailsResult[],
 ): UserWorkHistory => {
-  const repositories = workHistory.repositories.map(repo => ({
-    name: repo.name,
-    url: `https://github.com/${workHistory.login}/${repo.name}`,
-    commitsCount: Math.max(
-      repo.commits.authored.count,
-      repo.commits.committed.count,
-    ),
-    firstContributedAt: [
-      repo.commits.authored.first,
-      repo.commits.committed.first,
-      repo.issues.authored.first,
-      repo.pull_requests.authored.first,
-      repo.pull_requests.merged.first,
-    ]
-      .filter(Boolean)
-      .map(val => new Date(val).getTime())
-      .sort()[0],
-    lastContributedAt: [
-      repo.commits.authored.last,
-      repo.commits.committed.last,
-      repo.issues.authored.last,
-      repo.pull_requests.authored.last,
-      repo.pull_requests.merged.last,
-    ]
-      .filter(Boolean)
-      .map(val => new Date(val).getTime())
-      .sort()
-      .reverse()[0],
-  }));
+  const jobstashOrg = orgs.find(org1 => {
+    const q1 = new RegExp(workHistory.name, "gi");
+    const q2 = new RegExp(org1.name, "gi");
+    return org1.name.match(q1) || workHistory.name.match(q2);
+  });
+  const repositories = workHistory.repositories
+    .map(repo => ({
+      name: repo.name,
+      url: `https://github.com/${workHistory.login}/${repo.name}`,
+      cryptoNative:
+        repo.commits.committed.count > 0 && repo.pull_requests.merged.count > 0,
+      commitsCount: Math.max(
+        repo.commits.authored.count,
+        repo.commits.committed.count,
+      ),
+      firstContributedAt: [
+        repo.commits.authored.first,
+        repo.commits.committed.first,
+        repo.issues.authored.first,
+        repo.pull_requests.authored.first,
+        repo.pull_requests.merged.first,
+      ]
+        .filter(Boolean)
+        .map(val => new Date(val).getTime())
+        .sort()[0],
+      lastContributedAt: [
+        repo.commits.authored.last,
+        repo.commits.committed.last,
+        repo.issues.authored.last,
+        repo.pull_requests.authored.last,
+        repo.pull_requests.merged.last,
+      ]
+        .filter(Boolean)
+        .map(val => new Date(val).getTime())
+        .sort()
+        .reverse()[0],
+    }))
+    .filter(repo => repo.cryptoNative);
 
   return {
     login: workHistory.login,
-    logoUrl: null,
-    url: null,
+    logoUrl: jobstashOrg?.logoUrl,
+    url: jobstashOrg?.website,
     name: workHistory.name,
     firstContributedAt: repositories
       .map(repo => repo.firstContributedAt)

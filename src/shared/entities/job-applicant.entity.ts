@@ -45,6 +45,7 @@ export class JobApplicantEntity {
           repositories:
             workHistory?.repositories?.map(repository => ({
               ...repository,
+              cryptoNative: repository?.cryptoNative ?? false,
               name: notStringOrNull(repository.name),
               firstContributedAt: nonZeroOrNull(repository.firstContributedAt),
               lastContributedAt: nonZeroOrNull(repository.lastContributedAt),

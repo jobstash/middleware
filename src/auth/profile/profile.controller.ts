@@ -17,7 +17,10 @@ import { Response as ExpressResponse, Request } from "express";
 import { OrganizationsService } from "src/organizations/organizations.service";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
-import { responseSchemaWrapper } from "src/shared/helpers";
+import {
+  responseSchemaWrapper,
+  workHistoryConverter,
+} from "src/shared/helpers";
 import {
   OrgUserProfile,
   PaginatedData,
@@ -47,6 +50,9 @@ import { Throttle } from "@nestjs/throttler";
 import { UpdateDevUserProfileInput } from "./dto/update-dev-profile.input";
 import { UpdateOrgUserProfileInput } from "./dto/update-org-profile.input";
 import { UserService } from "src/user/user.service";
+import { GoogleBigQueryService } from "../github/google-bigquery.service";
+import { addMonths, isBefore } from "date-fns";
+import * as Sentry from "@sentry/node";
 
 @Controller("profile")
 export class ProfileController {
@@ -58,6 +64,7 @@ export class ProfileController {
     private readonly organizationsService: OrganizationsService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
+    private readonly bigQueryService: GoogleBigQueryService,
   ) {}
 
   @Get("dev/info")
@@ -659,24 +666,84 @@ export class ProfileController {
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/profile/job/apply`);
     const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      const hasApplied = await this.profileService.verifyApplyInteraction(
-        address as string,
-        job,
-      );
-      if (hasApplied) {
-        return {
-          success: true,
-          message: "Job has already been applied to by this user",
-        };
+    try {
+      if (address) {
+        const hasApplied = await this.profileService.verifyApplyInteraction(
+          address as string,
+          job,
+        );
+        if (hasApplied) {
+          return {
+            success: true,
+            message: "Job has already been applied to by this user",
+          };
+        } else {
+          const CACHE_VALIDITY_THRESHOLD = this.configService.get<number>(
+            "CACHE_VALIDITY_THRESHOLD",
+          );
+
+          const userCacheLock = await this.profileService.getUserCacheLock(
+            address as string,
+          );
+
+          const userCacheLockIsValid =
+            (userCacheLock !== -1 || userCacheLock !== null) &&
+            isBefore(
+              new Date(),
+              addMonths(new Date(userCacheLock), CACHE_VALIDITY_THRESHOLD),
+            );
+
+          if (!userCacheLockIsValid) {
+            const orgId = await this.userService.findOrgIdByShortUUID(job);
+            if (await this.userService.orgHasUser(orgId)) {
+              const userProfile = await this.userService.findProfileByWallet(
+                address as string,
+              );
+              if (userProfile && userProfile.username) {
+                await this.profileService.refreshUserCacheLock(
+                  userProfile.wallet,
+                );
+                const orgs =
+                  await this.organizationsService.getOrgListResults();
+                const enrichmentData =
+                  await this.bigQueryService.getApplicantEnrichmentData([
+                    userProfile.username,
+                  ]);
+                const workHistory = enrichmentData[0]?.organizations?.map(x =>
+                  workHistoryConverter(x, orgs),
+                );
+                await this.profileService.refreshWorkHistoryCache(
+                  userProfile.wallet,
+                  workHistory,
+                );
+              }
+            }
+          }
+          return await this.profileService.logApplyInteraction(
+            address as string,
+            job,
+          );
+        }
       } else {
-        return this.profileService.logApplyInteraction(address as string, job);
+        res.status(HttpStatus.FORBIDDEN);
+        return {
+          success: false,
+          message: "Access denied for unauthenticated user",
+        };
       }
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "profile.controller",
+        });
+        scope.setExtra("input", { wallet: address as string });
+        Sentry.captureException(err);
+      });
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR);
       return {
         success: false,
-        message: "Access denied for unauthenticated user",
+        message: "Error processing your application",
       };
     }
   }

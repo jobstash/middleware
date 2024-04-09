@@ -25,6 +25,7 @@ import {
   UserRepo,
   UserShowCase,
   UserSkill,
+  UserWorkHistory,
   data,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -978,6 +979,128 @@ export class ProfileService {
       return {
         success: false,
         message: "Error updating user repo tags used",
+      };
+    }
+  }
+
+  async getUserCacheLock(wallet: string): Promise<number | null> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (:User {wallet: $wallet})-[:HAS_CACHE_LOCK]->(lock: UserCacheLock)
+        RETURN lock.timestamp as timestamp
+      `,
+        { wallet },
+      );
+      return (result.records[0]?.get("timestamp") as number) ?? null;
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::getUserCacheLock ${err.message}`);
+      return -1;
+    }
+  }
+
+  async refreshUserCacheLock(wallet: string): Promise<number | null> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        OPTIONAL MATCH (:User {wallet: $wallet})-[:HAS_CACHE_LOCK]->(oldLock: UserCacheLock)
+        DETACH DELETE oldLock
+
+        CREATE (lock: UserCacheLock)
+        SET lock.timestamp = timestamp()
+        
+        WITH lock
+        MATCH (user:User {wallet: $wallet})
+        CREATE (user)-[:HAS_CACHE_LOCK]->(lock)
+        RETURN lock.timestamp as timestamp
+      `,
+        { wallet },
+      );
+      return result.records[0]?.get("timestamp") as number;
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::refreshUserCacheLock ${err.message}`);
+      return -1;
+    }
+  }
+
+  async refreshWorkHistoryCache(
+    wallet: string,
+    dto: UserWorkHistory[],
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        OPTIONAL MATCH (user:User {wallet: $wallet})-[:HAS_WORK_HISTORY]->(oldHistory: UserWorkHistory)-[:WORKED_ON_REPO]->(oldHistoryRepo: UserWorkHistoryRepo)
+        DETACH DELETE oldHistory, oldHistoryRepo
+
+        WITH user
+        UNWIND $history as workHistory
+        CREATE (history: UserWorkHistory)
+        SET history.login = workHistory.login
+        SET history.name = workHistory.name
+        SET history.logoUrl = workHistory.logoUrl
+        SET history.url = workHistory.url
+        SET history.firstContributedAt = workHistory.firstContributedAt
+        SET history.lastContributedAt = workHistory.lastContributedAt
+        SET history.createdAt = timestamp()
+
+        WITH workHistory, history
+        CALL {
+          WITH workHistory, history
+          UNWIND workHistory.repositories as repo
+          CREATE (historyRepo: UserWorkHistoryRepo)
+          SET historyRepo.name = repo.name
+          SET historyRepo.url = repo.url
+          SET historyRepo.cryptoNative = repo.cryptoNative
+          SET historyRepo.firstContributedAt = repo.firstContributedAt
+          SET historyRepo.lastContributedAt = repo.lastContributedAt
+          SET historyRepo.commitsCount = repo.commitsCount
+          SET historyRepo.createdAt = timestamp()
+          CREATE (history)-[:WORKED_ON_REPO]->(historyRepo)
+        }
+
+        WITH history
+
+        MATCH (user: User {wallet: $wallet})
+        CREATE (user)-[:HAS_WORK_HISTORY]->(history)
+      `,
+        { wallet, history: dto ?? [] },
+      );
+      return {
+        success: true,
+        message: "Persisted user work history successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `ProfileService::refreshWorkHistoryCache ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Error caching work history",
       };
     }
   }

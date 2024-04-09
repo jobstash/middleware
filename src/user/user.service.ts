@@ -131,6 +131,18 @@ export class UserService {
     return result.records[0]?.get("orgId") as string;
   }
 
+  async findOrgIdByShortUUID(shortUUID: string): Promise<string | null> {
+    const result = await this.neogma.queryRunner.run(
+      `
+        MATCH (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(:StructuredJobpost {shortUUID: $shortUUID})
+        RETURN org.orgId as orgId
+      `,
+      { shortUUID },
+    );
+
+    return result.records[0]?.get("orgId") as string;
+  }
+
   async userHasEmail(email: string): Promise<boolean> {
     const normalizedEmail = this.normalizeEmail(email);
 
@@ -150,6 +162,17 @@ export class UserService {
         RETURN EXISTS((:User {wallet: $wallet})-[:HAS_ORGANIZATION_AUTHORIZATION]->(:Organization {orgId: $orgId})) AS hasOrgAuthorization
       `,
       { wallet, orgId },
+    );
+
+    return result.records[0]?.get("hasOrgAuthorization") as boolean;
+  }
+
+  async orgHasUser(orgId: string): Promise<boolean> {
+    const result = await this.neogma.queryRunner.run(
+      `
+        RETURN EXISTS((:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(:Organization {orgId: $orgId})) AS hasOrgAuthorization
+      `,
+      { orgId },
     );
 
     return result.records[0]?.get("hasOrgAuthorization") as boolean;
@@ -778,40 +801,13 @@ export class UserService {
       const applicantEnrichmentData = enrichmentData.find(
         data => data.login === user,
       );
-      const cryptoNativeOrgs = applicantEnrichmentData?.organizations
-        .filter(org =>
-          org.repositories.some(
-            repo =>
-              repo.commits.committed.count > 0 &&
-              repo.pull_requests.merged.count > 0,
-          ),
-        )
-        .map(org => {
-          const cryptoNativeRepos = org.repositories.filter(
-            repo =>
-              repo.commits.committed.count > 0 &&
-              repo.pull_requests.merged.count > 0,
-          );
-          return {
-            ...org,
-            repositories: cryptoNativeRepos,
-          };
-        });
+
       return {
         user,
         workHistory:
-          cryptoNativeOrgs?.map(workHistoryConverter).map(org => {
-            const jobstashOrg = orgs.find(org1 => {
-              const q1 = new RegExp(org.name, "gi");
-              const q2 = new RegExp(org1.name, "gi");
-              return org1.name.match(q1) || org.name.match(q2);
-            });
-            return new UserWorkHistoryEntity({
-              ...org,
-              url: jobstashOrg?.website,
-              logoUrl: jobstashOrg?.logoUrl,
-            }).getProperties();
-          }) ?? [],
+          applicantEnrichmentData.organizations
+            ?.map(x => workHistoryConverter(x, orgs))
+            .map(org => new UserWorkHistoryEntity(org).getProperties()) ?? [],
       };
     });
   }

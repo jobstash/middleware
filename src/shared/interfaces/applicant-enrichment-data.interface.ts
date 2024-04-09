@@ -1,7 +1,6 @@
 export interface ApplicantEnrichmentData {
   id: string;
   login: string;
-  cryptoNative: boolean;
   organizations: OrganizationWorkHistory[];
 }
 
