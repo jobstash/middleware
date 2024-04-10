@@ -42,6 +42,7 @@ export class JobApplicantEntity {
           url: notStringOrNull(workHistory.url),
           firstContributedAt: nonZeroOrNull(workHistory.firstContributedAt),
           lastContributedAt: nonZeroOrNull(workHistory.lastContributedAt),
+          createdAt: nonZeroOrNull(workHistory.createdAt),
           repositories:
             workHistory?.repositories?.map(repository => ({
               ...repository,
@@ -50,6 +51,7 @@ export class JobApplicantEntity {
               firstContributedAt: nonZeroOrNull(repository.firstContributedAt),
               lastContributedAt: nonZeroOrNull(repository.lastContributedAt),
               commitsCount: nonZeroOrNull(repository.commitsCount),
+              createdAt: nonZeroOrNull(repository.createdAt),
             })) ?? [],
         })),
       },

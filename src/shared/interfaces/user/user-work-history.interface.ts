@@ -19,8 +19,10 @@ export class UserWorkHistory {
         firstContributedAt: t.number,
         lastContributedAt: t.number,
         commitsCount: t.number,
+        createdAt: t.number,
       }),
     ),
+    createdAt: t.number,
   });
 
   @ApiProperty()
@@ -49,7 +51,11 @@ export class UserWorkHistory {
     firstContributedAt: number;
     lastContributedAt: number;
     commitsCount: number;
+    createdAt: number;
   }[];
+
+  @ApiProperty()
+  createdAt: number;
 
   constructor(raw: UserWorkHistory) {
     const {
@@ -60,6 +66,7 @@ export class UserWorkHistory {
       firstContributedAt,
       lastContributedAt,
       repositories,
+      createdAt,
     } = raw;
 
     this.login = login;
@@ -69,6 +76,7 @@ export class UserWorkHistory {
     this.firstContributedAt = firstContributedAt;
     this.lastContributedAt = lastContributedAt;
     this.repositories = repositories;
+    this.createdAt = createdAt;
 
     const result = UserWorkHistory.UserWorkHistoryType.decode(raw);
 

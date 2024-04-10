@@ -535,6 +535,7 @@ export const workHistoryConverter = (
         repo.commits.authored.count,
         repo.commits.committed.count,
       ),
+      createdAt: new Date().getTime(),
       firstContributedAt: [
         repo.commits.authored.first,
         repo.commits.committed.first,
@@ -574,5 +575,6 @@ export const workHistoryConverter = (
       .sort()
       .reverse()[0],
     repositories,
+    createdAt: new Date().getTime(),
   };
 };
