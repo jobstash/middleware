@@ -406,6 +406,38 @@ export class JobsController {
     }
   }
 
+  @Get("/applied")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV)
+  @ApiOkResponse({
+    description: "Returns the applied jobs of the currently logged in user",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(Response<JobListResult[]>),
+        },
+      ],
+    },
+  })
+  async getUserAppliedJobs(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Headers(ECOSYSTEM_HEADER)
+    ecosystem: string | undefined,
+  ): Promise<Response<JobListResult[]> | ResponseWithNoData> {
+    this.logger.log(`/jobs/applied`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.jobsService.getUserAppliedJobs(address as string, ecosystem);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
   @Get("/folders")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.DEV)
