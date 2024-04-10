@@ -805,8 +805,9 @@ export class UserService {
       return {
         user,
         workHistory:
-          applicantEnrichmentData.organizations
+          applicantEnrichmentData?.organizations
             ?.map(x => workHistoryConverter(x, orgs))
+            .filter(x => x.repositories.some(x => x.cryptoNative))
             .map(org => new UserWorkHistoryEntity(org).getProperties()) ?? [],
       };
     });

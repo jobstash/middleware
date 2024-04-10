@@ -53,6 +53,7 @@ import { UserService } from "src/user/user.service";
 import { GoogleBigQueryService } from "../github/google-bigquery.service";
 import { addMonths, isBefore } from "date-fns";
 import * as Sentry from "@sentry/node";
+import { UserWorkHistoryEntity } from "src/shared/entities";
 
 @Controller("profile")
 export class ProfileController {
@@ -709,9 +710,13 @@ export class ProfileController {
                   await this.bigQueryService.getApplicantEnrichmentData([
                     userProfile.username,
                   ]);
-                const workHistory = enrichmentData[0]?.organizations?.map(x =>
-                  workHistoryConverter(x, orgs),
-                );
+                const workHistory =
+                  enrichmentData[0]?.organizations
+                    ?.map(x => workHistoryConverter(x, orgs))
+                    .filter(x => x.repositories.some(x => x.cryptoNative))
+                    .map(org =>
+                      new UserWorkHistoryEntity(org).getProperties(),
+                    ) ?? [];
                 await this.profileService.refreshWorkHistoryCache(
                   userProfile.wallet,
                   workHistory,
