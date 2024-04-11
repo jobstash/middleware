@@ -35,13 +35,6 @@ export class GithubController {
         ),
         scope: ["read:user", "read:org"],
       },
-      org: {
-        clientID: this.configService.get<string>("GITHUB_ORG_OAUTH_CLIENT_ID"),
-        clientSecret: this.configService.get<string>(
-          "GITHUB_ORG_OAUTH_CLIENT_SECRET",
-        ),
-        scope: ["read:user", "read:org"],
-      },
     };
   }
 
@@ -53,17 +46,6 @@ export class GithubController {
       url: `https://github.com/login/oauth/authorize?scope=${this.ghConfig.dev.scope.join(
         ",",
       )}&client_id=${this.ghConfig.dev.clientID}`,
-    };
-  }
-
-  @Get("trigger-org-github-oauth")
-  @Redirect("https://github.com/login/oauth/authorize", 301)
-  triggerOrgGithubOauth(): { url: string } {
-    this.logger.log("/github/trigger-org-github-oauth");
-    return {
-      url: `https://github.com/login/oauth/authorize?scope=${this.ghConfig.org.scope.join(
-        ",",
-      )}&client_id=${this.ghConfig.org.clientID}`,
     };
   }
 
@@ -83,15 +65,7 @@ export class GithubController {
     const { wallet, code, role } = body;
 
     const { data: tokenParamsString } = await axios.get(
-      `https://github.com/login/oauth/access_token?client_id=${
-        role === CheckWalletRoles.ORG
-          ? this.ghConfig.org.clientID
-          : this.ghConfig.dev.clientID
-      }&client_secret=${
-        role === CheckWalletRoles.ORG
-          ? this.ghConfig.org.clientSecret
-          : this.ghConfig.dev.clientSecret
-      }&code=${code}`,
+      `https://github.com/login/oauth/access_token?client_id=${this.ghConfig.dev.clientID}&client_secret=${this.ghConfig.dev.clientSecret}&code=${code}`,
     );
 
     const params = new URLSearchParams(tokenParamsString);

@@ -30,6 +30,7 @@ import {
   UserOrg,
   UserProfile,
   UserRepo,
+  data,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { AuthService } from "../auth.service";
@@ -54,12 +55,14 @@ import { GoogleBigQueryService } from "../github/google-bigquery.service";
 import { addMonths, isBefore } from "date-fns";
 import * as Sentry from "@sentry/node";
 import { UserWorkHistoryEntity } from "src/shared/entities";
+import { SiweService } from "../siwe/siwe.service";
 
 @Controller("profile")
 export class ProfileController {
   private logger = new CustomLogger(ProfileController.name);
   constructor(
     private readonly authService: AuthService,
+    private readonly siweService: SiweService,
     private readonly userService: UserService,
     private readonly profileService: ProfileService,
     private readonly organizationsService: OrganizationsService,
@@ -663,7 +666,7 @@ export class ProfileController {
   async logApplyInteraction(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
-    @Body("shortUUID") job: string,
+    @Body("shortUUID") shortUUID: string,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/profile/job/apply`);
     const { address } = await this.authService.getSession(req, res);
@@ -671,7 +674,7 @@ export class ProfileController {
       if (address) {
         const hasApplied = await this.profileService.verifyApplyInteraction(
           address as string,
-          job,
+          shortUUID,
         );
         if (hasApplied) {
           return {
@@ -695,21 +698,61 @@ export class ProfileController {
             );
 
           if (!userCacheLockIsValid) {
-            const orgId = await this.userService.findOrgIdByShortUUID(job);
-            if (await this.userService.orgHasUser(orgId)) {
-              const userProfile = await this.userService.findProfileByWallet(
-                address as string,
+            const orgId = await this.userService.findOrgIdByShortUUID(
+              shortUUID,
+            );
+
+            const orgProfile = await this.userService.findProfileByOrgId(orgId);
+
+            const org = await this.organizationsService.getOrgDetailsById(
+              orgId,
+              undefined,
+            );
+
+            const job = org.jobs.find(x => x.shortUUID === shortUUID);
+
+            if (orgProfile && orgProfile.email) {
+              const userProfile = data(
+                await this.profileService.getDevUserProfile(address as string),
               );
+              const communities =
+                await this.siweService.getCommunitiesForWallet(
+                  userProfile.wallet,
+                );
+              await this.mailService.sendEmail({
+                from: this.configService.getOrThrow<string>("EMAIL"),
+                to: orgProfile.email,
+                subject: `JobStash ATS: New Applicant for ${job.title}`,
+                html: `
+                    Dear ${org.name},
+                    
+                    You have a new applicant.
+
+                    Please sign in to your <a href="https://jobstash.xyz/profile/org/applicants">JobStash ATS</a> account to see the full details and to manage your workflow.
+
+                    This candidate is part of the following communities: ${communities.join(
+                      ", ",
+                    )}
+                    Role: ${job.title}
+
+                    Thank you for using JobStash ATS!
+                    The JobStash Team
+                  `,
+              });
+
               if (userProfile && userProfile.username) {
                 await this.profileService.refreshUserCacheLock(
                   userProfile.wallet,
                 );
+
                 const orgs =
                   await this.organizationsService.getOrgListResults();
+
                 const enrichmentData =
                   await this.bigQueryService.getApplicantEnrichmentData([
                     userProfile.username,
                   ]);
+
                 const workHistory =
                   enrichmentData[0]?.organizations
                     ?.map(x => workHistoryConverter(x, orgs))
@@ -717,6 +760,7 @@ export class ProfileController {
                     .map(org =>
                       new UserWorkHistoryEntity(org).getProperties(),
                     ) ?? [];
+
                 await this.profileService.refreshWorkHistoryCache(
                   userProfile.wallet,
                   workHistory,
@@ -726,7 +770,7 @@ export class ProfileController {
           }
           return await this.profileService.logApplyInteraction(
             address as string,
-            job,
+            shortUUID,
           );
         }
       } else {

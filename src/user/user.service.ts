@@ -95,6 +95,44 @@ export class UserService {
       });
   }
 
+  async findProfileByOrgId(orgId: string): Promise<OrgUserProfile | undefined> {
+    return this.neogma.queryRunner
+      .run(
+        `
+          MATCH (user:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(:Organization {orgId: $orgId})
+          RETURN user {
+            .*,
+            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
+            username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
+            avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+            contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
+            orgId: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization:Organization) | organization.orgId][0],
+            internalReference: [(user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo) | reference { .* }][0],
+            subscriberStatus: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION|HAS_SUBSCRIPTION*2]->(subscription:Subscription) | subscription { .* }][0]
+          } as profile
+        `,
+        { orgId },
+      )
+      .then(res =>
+        res.records.length
+          ? new OrgUserProfileEntity(
+              res.records[0].get("profile"),
+            ).getProperties()
+          : undefined,
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`UserService::findProfileByWallet ${err.message}`);
+        return undefined;
+      });
+  }
+
   async findByGithubNodeId(nodeId: string): Promise<UserEntity | undefined> {
     return this.models.Users.findRelationships({
       where: { target: { nodeId } },
@@ -754,7 +792,7 @@ export class UserService {
       .run(
         `
           MATCH (user:User)
-          WHERE (user)-[:HAS_ROLE]->(:UserRole { name: "ORG" })
+          WHERE (user)-[:HAS_ROLE]@->(:UserRole { name: "ORG" })
           AND (user)-[:HAS_USER_FLOW_STAGE]->(:UserFlow { name: "ORG-COMPLETE" })
           RETURN {
             wallet: user.wallet,

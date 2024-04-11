@@ -69,7 +69,8 @@
     "rxjs": "^7.8.1",
     "siwe": "^2.1.4",
     "ts-morph": "^18.0.0",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "viem": "^2.9.15"
   },
   "devDependencies": {
     "@golevelup/ts-jest": "^0.3.7",

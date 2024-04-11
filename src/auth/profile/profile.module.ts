@@ -12,6 +12,7 @@ import { MailService } from "src/mail/mail.service";
 import { ThrottlerModule } from "@nestjs/throttler";
 import { UserService } from "src/user/user.service";
 import { GoogleBigQueryService } from "../github/google-bigquery.service";
+import { SiweService } from "../siwe/siwe.service";
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { GoogleBigQueryService } from "../github/google-bigquery.service";
     UserService,
     OrganizationsService,
     GoogleBigQueryService,
+    SiweService,
   ],
 })
 export class ProfileModule {}
