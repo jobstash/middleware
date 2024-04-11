@@ -12,7 +12,7 @@ import {
   UserShowCaseEntity,
   UserSkillEntity,
 } from "src/shared/entities";
-import { normalizeString, paginate } from "src/shared/helpers";
+import { normalizeString, paginate, intConverter } from "src/shared/helpers";
 import {
   OrgStaffReview,
   OrgUserProfile,
@@ -992,7 +992,7 @@ export class ProfileService {
       `,
         { wallet },
       );
-      return (result.records[0]?.get("timestamp") as number) ?? null;
+      return intConverter(result.records[0]?.get("timestamp")) ?? null;
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -1024,7 +1024,7 @@ export class ProfileService {
       `,
         { wallets },
       );
-      return result.records[0]?.get("timestamp") as number;
+      return intConverter(result.records[0]?.get("timestamp"));
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
