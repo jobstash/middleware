@@ -342,10 +342,10 @@ export class JobsController {
     this.logger.log("/jobs/orgs/refresh-work-history");
     try {
       const orgs = await this.userService.getApprovedOrgs();
-      for (const org of orgs) {
-        this.logger.log(`Fetching work history for orgId: ${org.orgId}`);
+      for (const orgId of Array.from(new Set(orgs.map(x => x.orgId)))) {
+        this.logger.log(`Fetching work history for orgId: ${orgId}`);
         const applicants = data(
-          await this.jobsService.getJobsByOrgIdWithApplicants(org.orgId, "all"),
+          await this.jobsService.getJobsByOrgIdWithApplicants(orgId, "all"),
         );
         if (applicants?.length > 0) {
           await this.profileService.refreshUserCacheLock(

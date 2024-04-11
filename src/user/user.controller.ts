@@ -19,6 +19,7 @@ import {
   OrgUserProfile,
   ResponseWithNoData,
   UserProfile,
+  data,
 } from "src/shared/interfaces";
 import { AuthorizeOrgApplicationInput } from "./dto/authorize-org-application.dto";
 import { MailService } from "src/mail/mail.service";
@@ -29,6 +30,12 @@ import { Request, Response } from "express";
 import { ApiKeyGuard } from "src/auth/api-key.guard";
 import { ApiOkResponse } from "@nestjs/swagger";
 import { UserWorkHistory } from "src/shared/interfaces/user/user-work-history.interface";
+import { GoogleBigQueryService } from "src/auth/github/google-bigquery.service";
+import { ProfileService } from "src/auth/profile/profile.service";
+import { JobsService } from "src/jobs/jobs.service";
+import { OrganizationsService } from "src/organizations/organizations.service";
+import { UserWorkHistoryEntity } from "src/shared/entities";
+import { workHistoryConverter } from "src/shared/helpers";
 
 @Controller("users")
 export class UserController {
@@ -38,6 +45,10 @@ export class UserController {
     private readonly userService: UserService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
+    private readonly jobsService: JobsService,
+    private readonly organizationsService: OrganizationsService,
+    private readonly bigQueryService: GoogleBigQueryService,
+    private readonly profileService: ProfileService,
   ) {}
 
   @Get("")
@@ -157,6 +168,41 @@ export class UserController {
           JobStash.xyz
           `,
         });
+        const applicants = data(
+          await this.jobsService.getJobsByOrgIdWithApplicants(orgId, "all"),
+        );
+        if (applicants?.length > 0) {
+          await this.profileService.refreshUserCacheLock(
+            Array.from(
+              new Set(
+                applicants
+                  .map(applicant => applicant.user.wallet)
+                  .filter(Boolean),
+              ),
+            ),
+          );
+          const applicantUsernames = Array.from(
+            new Set(applicants.map(x => x.user.username).filter(Boolean)),
+          );
+          const orgData = await this.organizationsService.getOrgListResults();
+          const enrichmentData =
+            await this.bigQueryService.getApplicantEnrichmentData(
+              applicantUsernames,
+            );
+          for (const applicant of applicantUsernames) {
+            const workHistory =
+              enrichmentData
+                .find(x => x.login === applicant)
+                ?.organizations?.map(x => workHistoryConverter(x, orgData))
+                .filter(x => x.repositories.some(x => x.cryptoNative))
+                .map(org => new UserWorkHistoryEntity(org).getProperties()) ??
+              [];
+            await this.profileService.refreshWorkHistoryCache(
+              applicants.find(x => x.user.username === applicant)?.user?.wallet,
+              workHistory,
+            );
+          }
+        }
       }
       return {
         success: true,

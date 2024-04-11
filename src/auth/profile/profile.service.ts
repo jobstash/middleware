@@ -12,7 +12,12 @@ import {
   UserShowCaseEntity,
   UserSkillEntity,
 } from "src/shared/entities";
-import { normalizeString, paginate, intConverter } from "src/shared/helpers";
+import {
+  normalizeString,
+  paginate,
+  intConverter,
+  nonZeroOrNull,
+} from "src/shared/helpers";
 import {
   OrgStaffReview,
   OrgUserProfile,
@@ -992,7 +997,7 @@ export class ProfileService {
       `,
         { wallet },
       );
-      return intConverter(result.records[0]?.get("timestamp")) ?? null;
+      return nonZeroOrNull(result.records[0]?.get("timestamp"));
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -1011,14 +1016,15 @@ export class ProfileService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        OPTIONAL MATCH (oldUser:User WHERE oldUser.wallet IN $wallets)-[:HAS_CACHE_LOCK]->(oldLock: UserCacheLock)
+        OPTIONAL MATCH (oldUser:User WHERE oldUser.wallet IN $wallets)-[r:HAS_CACHE_LOCK]->(oldLock: UserCacheLock)
         DETACH DELETE oldLock
 
+        WITH r
+        MATCH (user:User WHERE user.wallet IN $wallets)
         CREATE (lock: UserCacheLock)
         SET lock.timestamp = timestamp()
         
-        WITH lock
-        MATCH (user:User WHERE user.wallet IN $wallets)
+        WITH user, lock
         CREATE (user)-[:HAS_CACHE_LOCK]->(lock)
         RETURN lock.timestamp as timestamp
       `,

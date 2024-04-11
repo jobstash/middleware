@@ -792,7 +792,7 @@ export class UserService {
       .run(
         `
           MATCH (user:User)
-          WHERE (user)-[:HAS_ROLE]@->(:UserRole { name: "ORG" })
+          WHERE (user)-[:HAS_ROLE]->(:UserRole { name: "ORG" })
           AND (user)-[:HAS_USER_FLOW_STAGE]->(:UserFlow { name: "ORG-COMPLETE" })
           RETURN {
             wallet: user.wallet,
