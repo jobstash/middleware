@@ -1007,22 +1007,22 @@ export class ProfileService {
     }
   }
 
-  async refreshUserCacheLock(wallet: string): Promise<number | null> {
+  async refreshUserCacheLock(wallets: string[]): Promise<number | null> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        OPTIONAL MATCH (:User {wallet: $wallet})-[:HAS_CACHE_LOCK]->(oldLock: UserCacheLock)
+        OPTIONAL MATCH (oldUser:User WHERE oldUser.wallet IN $wallets)-[:HAS_CACHE_LOCK]->(oldLock: UserCacheLock)
         DETACH DELETE oldLock
 
         CREATE (lock: UserCacheLock)
         SET lock.timestamp = timestamp()
         
         WITH lock
-        MATCH (user:User {wallet: $wallet})
+        MATCH (user:User WHERE user.wallet IN $wallets)
         CREATE (user)-[:HAS_CACHE_LOCK]->(lock)
         RETURN lock.timestamp as timestamp
       `,
-        { wallet },
+        { wallets },
       );
       return result.records[0]?.get("timestamp") as number;
     } catch (err) {
@@ -1031,7 +1031,7 @@ export class ProfileService {
           action: "db-call",
           source: "profile.service",
         });
-        scope.setExtra("input", { wallet });
+        scope.setExtra("input", { wallets });
         Sentry.captureException(err);
       });
       this.logger.error(`ProfileService::refreshUserCacheLock ${err.message}`);

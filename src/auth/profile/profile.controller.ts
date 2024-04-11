@@ -668,7 +668,7 @@ export class ProfileController {
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body("shortUUID") shortUUID: string,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/profile/job/apply`);
+    this.logger.log(`/profile/jobs/apply`);
     const { address } = await this.authService.getSession(req, res);
     try {
       if (address) {
@@ -741,9 +741,9 @@ export class ProfileController {
               });
 
               if (userProfile && userProfile.username) {
-                await this.profileService.refreshUserCacheLock(
+                await this.profileService.refreshUserCacheLock([
                   userProfile.wallet,
-                );
+                ]);
 
                 const orgs =
                   await this.organizationsService.getOrgListResults();
@@ -789,6 +789,7 @@ export class ProfileController {
         scope.setExtra("input", { wallet: address as string });
         Sentry.captureException(err);
       });
+      this.logger.log(`/profile/jobs/apply ${JSON.stringify(err)}`);
       res.status(HttpStatus.INTERNAL_SERVER_ERROR);
       return {
         success: false,

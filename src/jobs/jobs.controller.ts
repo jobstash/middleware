@@ -30,6 +30,7 @@ import {
   JobpostFolder,
   data,
   JobDetails,
+  UserWorkHistoryEntity,
 } from "src/shared/types";
 import {
   ApiBadRequestResponse,
@@ -48,7 +49,10 @@ import {
   CACHE_DURATION,
   CACHE_EXPIRY,
 } from "src/shared/constants/cache-control";
-import { responseSchemaWrapper } from "src/shared/helpers";
+import {
+  responseSchemaWrapper,
+  workHistoryConverter,
+} from "src/shared/helpers";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { Response as ExpressResponse, Request } from "express";
@@ -65,6 +69,8 @@ import { UserService } from "src/user/user.service";
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { CreateJobFolderInput } from "./dto/create-job-folder.input";
 import { UpdateOrgJobApplicantListInput } from "./dto/update-job-applicant-list.input";
+import { OrganizationsService } from "src/organizations/organizations.service";
+import { GoogleBigQueryService } from "src/auth/github/google-bigquery.service";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
@@ -76,6 +82,8 @@ export class JobsController {
     private readonly tagsService: TagsService,
     private readonly profileService: ProfileService,
     private readonly userService: UserService,
+    private readonly organizationsService: OrganizationsService,
+    private readonly bigQueryService: GoogleBigQueryService,
   ) {}
 
   @Get("/list")
@@ -325,6 +333,70 @@ export class JobsController {
       }
     }
     return this.jobsService.getJobsByOrgIdWithApplicants(id, list);
+  }
+
+  @Get("orgs/refresh-work-history")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  async refreshWorkHistory(): Promise<ResponseWithNoData> {
+    this.logger.log("/jobs/orgs/refresh-work-history");
+    try {
+      const orgs = await this.userService.getApprovedOrgs();
+      for (const org of orgs) {
+        this.logger.log(`Fetching work history for orgId: ${org.orgId}`);
+        const applicants = data(
+          await this.jobsService.getJobsByOrgIdWithApplicants(org.orgId, "all"),
+        );
+        if (applicants?.length > 0) {
+          await this.profileService.refreshUserCacheLock(
+            Array.from(
+              new Set(
+                applicants
+                  .map(applicant => applicant.user.wallet)
+                  .filter(Boolean),
+              ),
+            ),
+          );
+          const applicantUsernames = Array.from(
+            new Set(applicants.map(x => x.user.username).filter(Boolean)),
+          );
+          const orgData = await this.organizationsService.getOrgListResults();
+          const enrichmentData =
+            await this.bigQueryService.getApplicantEnrichmentData(
+              applicantUsernames,
+            );
+          for (const applicant of applicantUsernames) {
+            const workHistory =
+              enrichmentData
+                .find(x => x.login === applicant)
+                ?.organizations?.map(x => workHistoryConverter(x, orgData))
+                .filter(x => x.repositories.some(x => x.cryptoNative))
+                .map(org => new UserWorkHistoryEntity(org).getProperties()) ??
+              [];
+            await this.profileService.refreshWorkHistoryCache(
+              applicants.find(x => x.user.username === applicant)?.user?.wallet,
+              workHistory,
+            );
+          }
+        }
+      }
+      return {
+        success: true,
+        message: "Orgs work history refreshed successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "profile.controller",
+        });
+        Sentry.captureException(err);
+      });
+      return {
+        success: false,
+        message: "Error refreshing org work histories",
+      };
+    }
   }
 
   @Get("/all")
