@@ -71,6 +71,7 @@ import { CreateJobFolderInput } from "./dto/create-job-folder.input";
 import { UpdateOrgJobApplicantListInput } from "./dto/update-job-applicant-list.input";
 import { OrganizationsService } from "src/organizations/organizations.service";
 import { GoogleBigQueryService } from "src/auth/github/google-bigquery.service";
+import { ApiKeyGuard } from "src/auth/api-key.guard";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
@@ -336,8 +337,7 @@ export class JobsController {
   }
 
   @Get("orgs/refresh-work-history")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(ApiKeyGuard)
   async refreshWorkHistory(): Promise<ResponseWithNoData> {
     this.logger.log("/jobs/orgs/refresh-work-history");
     try {
