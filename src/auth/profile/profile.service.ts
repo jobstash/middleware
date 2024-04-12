@@ -1057,17 +1057,17 @@ export class ProfileService {
 
         WITH user
         UNWIND $history as workHistory
-        CREATE (history: UserWorkHistory)
-        SET history.login = workHistory.login
-        SET history.name = workHistory.name
-        SET history.logoUrl = workHistory.logoUrl
-        SET history.url = workHistory.url
-        SET history.firstContributedAt = workHistory.firstContributedAt
-        SET history.lastContributedAt = workHistory.lastContributedAt
-        SET history.createdAt = timestamp()
-
-        WITH workHistory, history
         CALL {
+          WITH workHistory
+          CREATE (history: UserWorkHistory)
+          SET history.login = workHistory.login
+          SET history.name = workHistory.name
+          SET history.logoUrl = workHistory.logoUrl
+          SET history.url = workHistory.url
+          SET history.firstContributedAt = workHistory.firstContributedAt
+          SET history.lastContributedAt = workHistory.lastContributedAt
+          SET history.createdAt = timestamp()
+
           WITH workHistory, history
           UNWIND workHistory.repositories as repo
           CREATE (historyRepo: UserWorkHistoryRepo)
@@ -1078,7 +1078,10 @@ export class ProfileService {
           SET historyRepo.lastContributedAt = repo.lastContributedAt
           SET historyRepo.commitsCount = repo.commitsCount
           SET historyRepo.createdAt = timestamp()
+
+          WITH history, historyRepo
           CREATE (history)-[:WORKED_ON_REPO]->(historyRepo)
+          RETURN history
         }
 
         WITH history

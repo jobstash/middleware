@@ -360,6 +360,7 @@ export class JobsController {
           const applicantUsernames = Array.from(
             new Set(applicants.map(x => x.user.username).filter(Boolean)),
           );
+          this.logger.log(`Applicants: ${JSON.stringify(applicantUsernames)}`);
           const orgData = await this.organizationsService.getOrgListResults();
           const enrichmentData =
             await this.bigQueryService.getApplicantEnrichmentData(
@@ -373,6 +374,10 @@ export class JobsController {
                 .filter(x => x.repositories.some(x => x.cryptoNative))
                 .map(org => new UserWorkHistoryEntity(org).getProperties()) ??
               [];
+            this.logger.log(`Applicant: ${applicant}`);
+            this.logger.log(
+              `Work History Data: ${JSON.stringify(workHistory)}`,
+            );
             await this.profileService.refreshWorkHistoryCache(
               applicants.find(x => x.user.username === applicant)?.user?.wallet,
               workHistory,
