@@ -248,8 +248,14 @@ export class ProfileController {
     @Body() body: UpdateDevUserProfileInput,
   ): Promise<Response<UserProfile> | ResponseWithNoData> {
     this.logger.log(`/profile/dev/info ${JSON.stringify(body)}`);
-    const { address } = await this.authService.getSession(req, res);
+    const { address, flow } = await this.authService.getSession(req, res);
     if (address) {
+      if ((flow as string) === CheckWalletFlows.ONBOARD_PROFILE) {
+        await this.userService.setWalletFlow({
+          flow: CheckWalletFlows.SIGNUP_COMPLETE,
+          wallet: address as string,
+        });
+      }
       return this.profileService.updateDevUserProfile(address as string, body);
     } else {
       res.status(HttpStatus.FORBIDDEN);
@@ -730,9 +736,14 @@ export class ProfileController {
 
                     Please sign in to your <a href="https://jobstash.xyz/profile/org/applicants">JobStash ATS</a> account to see the full details and to manage your workflow.
 
-                    This candidate is part of the following communities: ${communities.join(
-                      ", ",
-                    )}
+                    ${
+                      communities.length > 0
+                        ? `This candidate is part of the following communities: ${communities.join(
+                            ", ",
+                          )}`
+                        : ""
+                    }
+
                     Role: ${job.title}
 
                     Thank you for using JobStash ATS!

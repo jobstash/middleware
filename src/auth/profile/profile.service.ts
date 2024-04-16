@@ -47,7 +47,6 @@ import { OrgStaffReviewEntity } from "src/shared/entities/org-staff-review.entit
 import { UpdateOrgUserProfileInput } from "./dto/update-org-profile.input";
 import { UpdateDevUserProfileInput } from "./dto/update-dev-profile.input";
 import { UserService } from "src/user/user.service";
-import { CheckWalletFlows } from "src/shared/constants";
 
 @Injectable()
 export class ProfileService {
@@ -67,8 +66,9 @@ export class ProfileService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})
-        RETURN user {
-          .*,
+        RETURN {
+          wallet: $wallet,
+          availableForWork: user.available,
           email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
@@ -457,11 +457,6 @@ export class ProfileService {
           ...dto.location,
         },
       );
-
-      await this.userService.setWalletFlow({
-        flow: CheckWalletFlows.SIGNUP_COMPLETE,
-        wallet,
-      });
 
       return {
         success: true,
