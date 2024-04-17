@@ -568,8 +568,8 @@ export class ProfileService {
         OPTIONAL MATCH (user)-[ds:DID_SEARCH]->(search:SearchHistory)
         OPTIONAL MATCH (user)-[cl:HAS_CACHE_LOCK]->(lock:UserCacheLock)
         OPTIONAL MATCH (user)-[oa:HAS_ORGANIZATION_AUTHORIZATION]->()
-        OPTIONAL MATCH (user)-[wh:HAS_WORK_HISTORY]->()
-        DETACH DELETE user, cr, contact, rr, gr, scr, showcase, ul, location, sr, er, email, ja, ds, cl, search, lock, oa, wh
+        OPTIONAL MATCH (user)-[:HAS_WORK_HISTORY]->(wh:UserWorkHistory)-[:WORKED_ON_REPO]->(whr:UserWorkHistoryRepo)
+        DETACH DELETE user, cr, contact, rr, gr, scr, showcase, ul, location, sr, er, email, ja, ds, cl, search, lock, oa, wh, whr
       `,
         { wallet },
       );
