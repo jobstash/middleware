@@ -564,7 +564,12 @@ export class ProfileService {
         OPTIONAL MATCH (user)-[ul:HAS_LOCATION]->(location:UserLocation)
         OPTIONAL MATCH (user)-[sr:HAS_SKILL]->(skill:Tag)
         OPTIONAL MATCH (user)-[er:HAS_EMAIL]->(email:UserEmail|UserUnverifiedEmail)
-        DETACH DELETE user, cr, contact, rr, gr, scr, showcase, ul, location, sr, er, email
+        OPTIONAL MATCH (user)-[ja:APPLIED_TO|BOOKMARKED|VIEWED_DETAILS]->()
+        OPTIONAL MATCH (user)-[ds:DID_SEARCH]->(search:SearchHistory)
+        OPTIONAL MATCH (user)-[cl:HAS_CACHE_LOCK]->(lock:UserCacheLock)
+        OPTIONAL MATCH (user)-[oa:HAS_ORGANIZATION_AUTHORIZATION]->()
+        OPTIONAL MATCH (user)-[wh:HAS_WORK_HISTORY]->()
+        DETACH DELETE user, cr, contact, rr, gr, scr, showcase, ul, location, sr, er, email, ja, ds, cl, search, lock, oa, wh
       `,
         { wallet },
       );
@@ -1009,20 +1014,23 @@ export class ProfileService {
 
   async refreshUserCacheLock(wallets: string[]): Promise<number | null> {
     try {
-      const result = await this.neogma.queryRunner.run(
+      await this.neogma.queryRunner.run(
         `
         OPTIONAL MATCH (oldUser:User WHERE oldUser.wallet IN $wallets)-[r:HAS_CACHE_LOCK]->(oldLock: UserCacheLock)
-        DETACH DELETE oldLock
-
-        WITH r
+        DETACH DELETE oldLock, r
+      `,
+        { wallets },
+      );
+      const result = await this.neogma.queryRunner.run(
+        `
         MATCH (user:User WHERE user.wallet IN $wallets)
         CREATE (lock: UserCacheLock)
         SET lock.timestamp = timestamp()
-        
+
         WITH user, lock
         CREATE (user)-[:HAS_CACHE_LOCK]->(lock)
         RETURN lock.timestamp as timestamp
-      `,
+        `,
         { wallets },
       );
       return intConverter(result.records[0]?.get("timestamp"));
@@ -1049,8 +1057,11 @@ export class ProfileService {
         `
         OPTIONAL MATCH (user:User {wallet: $wallet})-[:HAS_WORK_HISTORY]->(oldHistory: UserWorkHistory)-[:WORKED_ON_REPO]->(oldHistoryRepo: UserWorkHistoryRepo)
         DETACH DELETE oldHistory, oldHistoryRepo
-
-        WITH user
+      `,
+        { wallet },
+      );
+      await this.neogma.queryRunner.run(
+        `
         UNWIND $history as workHistory
         CALL {
           WITH workHistory
@@ -1083,7 +1094,7 @@ export class ProfileService {
 
         MATCH (user: User {wallet: $wallet})
         CREATE (user)-[:HAS_WORK_HISTORY]->(history)
-      `,
+        `,
         { wallet, history: dto ?? [] },
       );
       return {
