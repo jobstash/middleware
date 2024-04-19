@@ -17,10 +17,12 @@ import { getSchemaPath } from "@nestjs/swagger";
 import { Response } from "../interfaces/response.interface";
 import { CustomLogger } from "../utils/custom-logger";
 import {
+  AggregatedRepositoryWorkHistory,
   OrgDetailsResult,
   OrgRating,
   OrganizationWorkHistory,
   PaginatedData,
+  RepositoryWorkHistory,
   ShortOrg,
 } from "../interfaces";
 import { sort } from "fast-sort";
@@ -516,6 +518,107 @@ export const resetTestDB = async (
   );
 };
 
+export type Grouped<T, K extends keyof T> = { [propertyName in K]: T[] };
+
+export const groupBy = <T, K extends keyof T>(
+  xs: T[],
+  key: K | ((x: T) => T[K]),
+): Grouped<T, K> =>
+  xs.reduce(function (rv, x) {
+    const v = key instanceof Function ? key(x).toString() : x[key].toString();
+    (rv[v] = rv[v] || []).push(x);
+    return rv;
+  }, {} as Grouped<T, K>);
+
+export const repoWorkHistoryAggregator = (
+  repoData: RepositoryWorkHistory,
+): AggregatedRepositoryWorkHistory => {
+  const relevantData =
+    repoData?.data?.filter(x => {
+      if (x.type === "PullRequestEvent") {
+        if (x.action === "closed" && x.merged === "true") {
+          return x;
+        } else {
+          return null;
+        }
+      } else {
+        return x;
+      }
+    }) ?? [];
+
+  return {
+    name: repoData.name,
+    commits: {
+      count: relevantData
+        ?.map(x => x?.commit_count)
+        ?.filter(Boolean)
+        ?.reduce((a, b) => a + b, 0),
+      first: relevantData
+        ?.map(x => (x?.commit_count ? x : null))
+        ?.filter(Boolean)
+        ?.map(val => new Date(val.first.value).getTime())
+        ?.sort()[0],
+      last: relevantData
+        ?.map(x => (x?.commit_count ? x : null))
+        ?.filter(Boolean)
+        ?.map(val => new Date(val.last.value).getTime())
+        ?.sort()
+        ?.reverse()[0],
+    },
+    issues: {
+      count: relevantData
+        ?.filter(x => x.type === "IssuesEvent")
+        ?.map(x => Number(x.count))
+        ?.filter(Boolean)
+        ?.reduce((a, b) => a + b, 0),
+      first: relevantData
+        ?.filter(x => x.type === "IssuesEvent")
+        ?.map(val => new Date(val.first.value).getTime())
+        ?.filter(Boolean)
+        ?.sort()[0],
+      last: relevantData
+        ?.filter(x => x.type === "IssuesEvent")
+        ?.map(val => new Date(val.last.value).getTime())
+        ?.filter(Boolean)
+        ?.sort()
+        ?.reverse()[0],
+    },
+    pull_requests: {
+      count: relevantData
+        ?.filter(
+          x =>
+            x.type === "PullRequestEvent" &&
+            x.action === "closed" &&
+            x.merged === "true",
+        )
+        ?.map(x => Number(x.count))
+        ?.filter(Boolean)
+        ?.reduce((a, b) => a + b, 0),
+      first: relevantData
+        ?.filter(
+          x =>
+            x.type === "PullRequestEvent" &&
+            x.action === "closed" &&
+            x.merged === "true",
+        )
+        ?.map(val => new Date(val.first.value).getTime())
+        ?.filter(Boolean)
+        ?.sort()[0],
+      last: relevantData
+        ?.filter(
+          x =>
+            x.type === "PullRequestEvent" &&
+            x.action === "closed" &&
+            x.merged === "true",
+        )
+        ?.map(val => new Date(val.last.value).getTime())
+        ?.filter(Boolean)
+        ?.sort()
+        ?.reverse()[0],
+    },
+  };
+};
+
 export const workHistoryConverter = (
   workHistory: OrganizationWorkHistory,
   orgs: OrgDetailsResult[],
@@ -529,29 +632,21 @@ export const workHistoryConverter = (
     .map(repo => ({
       name: repo.name,
       url: `https://github.com/${workHistory.login}/${repo.name}`,
-      cryptoNative:
-        repo.commits.committed.count > 0 && repo.pull_requests.merged.count > 0,
-      commitsCount: Math.max(
-        repo.commits.authored.count,
-        repo.commits.committed.count,
-      ),
+      cryptoNative: repo.commits.count > 0 && repo.pull_requests.count > 0,
+      commitsCount: repo.commits.count,
       createdAt: new Date().getTime(),
       firstContributedAt: [
-        repo.commits.authored.first,
-        repo.commits.committed.first,
-        repo.issues.authored.first,
-        repo.pull_requests.authored.first,
-        repo.pull_requests.merged.first,
+        repo.commits.first,
+        repo.issues.first,
+        repo.pull_requests.first,
       ]
         .filter(Boolean)
         .map(val => new Date(val).getTime())
         .sort()[0],
       lastContributedAt: [
-        repo.commits.authored.last,
-        repo.commits.committed.last,
-        repo.issues.authored.last,
-        repo.pull_requests.authored.last,
-        repo.pull_requests.merged.last,
+        repo.commits.last,
+        repo.issues.last,
+        repo.pull_requests.last,
       ]
         .filter(Boolean)
         .map(val => new Date(val).getTime())

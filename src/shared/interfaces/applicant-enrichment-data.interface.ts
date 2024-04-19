@@ -1,48 +1,52 @@
 export interface ApplicantEnrichmentData {
-  id: string;
   login: string;
   organizations: OrganizationWorkHistory[];
 }
 
 export interface OrganizationWorkHistory {
-  id: string;
   login: string;
   name: string;
-  repositories: RepositoryWorkHistory[];
+  repositories: AggregatedRepositoryWorkHistory[];
 }
 
 export interface RepositoryWorkHistory {
-  id: string;
+  name: string;
+  data: {
+    actor_login: string;
+    org_login: string;
+    org_name: string;
+    repo_name: string;
+    type:
+      | "CreateEvent"
+      | "DeleteEvent"
+      | "IssuesEvent"
+      | "PullRequestEvent"
+      | "PushEvent"
+      | null;
+    action?: "opened" | "closed" | null;
+    merged?: "true" | "false" | null;
+    commit_count?: number | null;
+    count: string;
+    first: { value: string };
+    last: { value: string };
+  }[];
+}
+
+export interface AggregatedRepositoryWorkHistory {
   name: string;
   commits: {
-    authored: {
-      count: number | null;
-      first: string | null;
-      last: string | null;
-    };
-    committed: {
-      count: number | null;
-      first: string | null;
-      last: string | null;
-    };
+    count: number | null;
+    first: number | null;
+    last: number | null;
   };
   issues: {
-    authored: {
-      count: number | null;
-      first: string | null;
-      last: string | null;
-    };
+    count: number | null;
+    first: number | null;
+    last: number | null;
   };
   pull_requests: {
-    authored: {
-      count: number | null;
-      first: string | null;
-      last: string | null;
-    };
-    merged: {
-      count: number | null;
-      first: string | null;
-      last: string | null;
-    };
+    count: number | null;
+    first: number | null;
+    last: number | null;
   };
 }
