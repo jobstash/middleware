@@ -114,7 +114,7 @@ describe("TagsController", () => {
   it(
     "should get tags list with no duplication",
     async () => {
-      const result = await controller.getTags(undefined);
+      const result = await controller.getTags();
 
       const uuids = data(result).map(tag => tag.id);
       const setOfUuids = new Set([...uuids]);

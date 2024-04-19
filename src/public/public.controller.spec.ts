@@ -35,8 +35,7 @@ describe("PublicController", () => {
       `Chain for Project ${project.id} for Jobpost ${jobPostUUID}`,
     );
 
-    // TODO: Uncomment this when the new backend is in place
-    // expect(hasDuplicateAudits).toBe(false);
+    expect(hasDuplicateAudits).toBe(false);
     expect(hasDuplicateHacks).toBe(false);
     expect(hasDuplicateChains).toBe(false);
     return hasDuplicateAudits && hasDuplicateHacks && hasDuplicateChains;

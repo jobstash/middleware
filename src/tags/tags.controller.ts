@@ -811,33 +811,6 @@ export class TagsController {
           };
         }
 
-        // const hasPreferredRelationship =
-        //   await this.tagsService.hasRelationToPreferredTag(
-        //     normalizedPreferredName,
-        //     storedTagNode.getNormalizedName(),
-        //   );
-
-        // if (!hasPreferredRelationship) {
-        //   return {
-        //     success: false,
-        //     message: `Preferred tag relation not found`,
-        //   };
-        // }
-
-        // TODO: Confirm that check is needed @duckdegen
-        // const hasPreferredTagCreatorRelationship =
-        //   await this.tagsService.hasPreferredTagCreatorRelationship(
-        //     existingPreferredTagNameNode.tag.id,
-        //     creatorWallet as string,
-        //   );
-
-        // if (!hasPreferredTagCreatorRelationship) {
-        //   return {
-        //     success: false,
-        //     message: `Missing existing preferred tag relation to creator`,
-        //   };
-        // }
-
         await this.tagsService.unrelatePreferredTagToTag(
           normalizedPreferredName,
           storedTagNode.getNormalizedName(),

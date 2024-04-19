@@ -30,7 +30,6 @@ import {
   JobpostFolder,
   data,
   JobDetails,
-  UserWorkHistoryEntity,
 } from "src/shared/types";
 import {
   ApiBadRequestResponse,
@@ -49,10 +48,7 @@ import {
   CACHE_DURATION,
   CACHE_EXPIRY,
 } from "src/shared/constants/cache-control";
-import {
-  responseSchemaWrapper,
-  workHistoryConverter,
-} from "src/shared/helpers";
+import { responseSchemaWrapper } from "src/shared/helpers";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { Response as ExpressResponse, Request } from "express";
@@ -69,9 +65,8 @@ import { UserService } from "src/user/user.service";
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { CreateJobFolderInput } from "./dto/create-job-folder.input";
 import { UpdateOrgJobApplicantListInput } from "./dto/update-job-applicant-list.input";
-import { OrganizationsService } from "src/organizations/organizations.service";
-import { GoogleBigQueryService } from "src/auth/github/google-bigquery.service";
 import { ApiKeyGuard } from "src/auth/api-key.guard";
+import { ScorerService } from "src/scorer/scorer.service";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
@@ -83,8 +78,7 @@ export class JobsController {
     private readonly tagsService: TagsService,
     private readonly profileService: ProfileService,
     private readonly userService: UserService,
-    private readonly organizationsService: OrganizationsService,
-    private readonly bigQueryService: GoogleBigQueryService,
+    private readonly scorerService: ScorerService,
   ) {}
 
   @Get("/list")
@@ -361,19 +355,12 @@ export class JobsController {
             new Set(applicants.map(x => x.user.username).filter(Boolean)),
           );
           this.logger.log(`Applicants: ${JSON.stringify(applicantUsernames)}`);
-          const orgData = await this.organizationsService.getOrgListResults();
-          const enrichmentData =
-            await this.bigQueryService.getApplicantEnrichmentData(
-              applicantUsernames,
-            );
+          const applicantWorkHistories =
+            await this.scorerService.getWorkHistory(applicantUsernames);
           for (const applicant of applicantUsernames) {
             const workHistory =
-              enrichmentData
-                .find(x => x.login === applicant)
-                ?.organizations?.map(x => workHistoryConverter(x, orgData))
-                .filter(x => x.repositories.some(x => x.cryptoNative))
-                .map(org => new UserWorkHistoryEntity(org).getProperties()) ??
-              [];
+              applicantWorkHistories.find(x => x.user === applicant)
+                ?.workHistory ?? [];
             this.logger.log(`Applicant: ${applicant}`);
             this.logger.log(
               `Work History Data: ${JSON.stringify(workHistory)}`,

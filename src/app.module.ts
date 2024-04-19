@@ -20,6 +20,7 @@ import { ProfileModule } from "./auth/profile/profile.module";
 import { MailModule } from "./mail/mail.module";
 import { HacksModule } from "./hacks/hacks.module";
 import { AuditsModule } from "./audits/audits.module";
+import { ScorerModule } from "./scorer/scorer.module";
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { AuditsModule } from "./audits/audits.module";
     MailModule,
     HacksModule,
     AuditsModule,
+    ScorerModule,
   ],
   controllers: [AppController],
   providers: [AppService],

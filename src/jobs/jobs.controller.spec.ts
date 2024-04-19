@@ -50,6 +50,7 @@ import { MailService } from "src/mail/mail.service";
 import { addWeeks, subWeeks } from "date-fns";
 import { randomUUID } from "crypto";
 import { UserService } from "src/user/user.service";
+import { ScorerService } from "src/scorer/scorer.service";
 
 describe("JobsController", () => {
   let controller: JobsController;
@@ -204,6 +205,7 @@ describe("JobsController", () => {
         OrganizationsService,
         MailService,
         UserService,
+        ScorerService,
       ],
     }).compile();
 

@@ -49,6 +49,8 @@ const envSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid("development", "production", "test", "staging")
     .default("development"),
+  SCORER_API_KEY: Joi.string(),
+  SCORER_DOMAIN: Joi.string(),
   SENDGRID_API_KEY: Joi.string(),
   SENTRY_DSN: Joi.string(),
   SENTRY_TRACES_SAMPLE_RATE: Joi.number(),

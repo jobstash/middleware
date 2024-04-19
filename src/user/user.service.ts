@@ -12,7 +12,6 @@ import {
   UserFlowEntity,
   UserProfile,
   UserProfileEntity,
-  UserWorkHistoryEntity,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -24,13 +23,10 @@ import { CreateUserDto } from "./dto/create-user.dto";
 import { SetRoleInput } from "../auth/dto/set-role.input";
 import { SetFlowStateInput } from "../auth/dto/set-flow-state.input";
 import { ModelService } from "src/model/model.service";
-import { instanceToNode, workHistoryConverter } from "src/shared/helpers";
+import { instanceToNode } from "src/shared/helpers";
 import { randomUUID } from "crypto";
 import { CheckWalletRoles, CheckWalletFlows } from "src/shared/constants";
 import { GetAvailableDevsInput } from "./dto/get-available-devs.input";
-import { UserWorkHistory } from "src/shared/interfaces/user/user-work-history.interface";
-import { GoogleBigQueryService } from "src/auth/github/google-bigquery.service";
-import { OrganizationsService } from "src/organizations/organizations.service";
 
 @Injectable()
 export class UserService {
@@ -41,8 +37,6 @@ export class UserService {
     private models: ModelService,
     private readonly userFlowService: UserFlowService,
     private readonly userRoleService: UserRoleService,
-    private readonly bigQueryService: GoogleBigQueryService,
-    private readonly organizationsService: OrganizationsService,
   ) {}
 
   async findByWallet(wallet: string): Promise<UserEntity | undefined> {
@@ -826,28 +820,5 @@ export class UserService {
         this.logger.error(`UserService::getApprovedOrgs ${err.message}`);
         return [];
       });
-  }
-
-  async getWorkHistory(
-    users: string[],
-  ): Promise<{ user: string; workHistory: UserWorkHistory[] }[]> {
-    const enrichmentData =
-      await this.bigQueryService.getApplicantEnrichmentData(users);
-    const orgs = await this.organizationsService.getOrgListResults();
-
-    return users.map(user => {
-      const applicantEnrichmentData = enrichmentData.find(
-        data => data.login === user,
-      );
-
-      return {
-        user,
-        workHistory:
-          applicantEnrichmentData?.organizations
-            ?.map(x => workHistoryConverter(x, orgs))
-            .filter(x => x.repositories.some(x => x.cryptoNative))
-            .map(org => new UserWorkHistoryEntity(org).getProperties()) ?? [],
-      };
-    });
   }
 }

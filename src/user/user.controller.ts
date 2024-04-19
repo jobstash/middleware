@@ -30,12 +30,9 @@ import { Request, Response } from "express";
 import { ApiKeyGuard } from "src/auth/api-key.guard";
 import { ApiOkResponse } from "@nestjs/swagger";
 import { UserWorkHistory } from "src/shared/interfaces/user/user-work-history.interface";
-import { GoogleBigQueryService } from "src/auth/github/google-bigquery.service";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { JobsService } from "src/jobs/jobs.service";
-import { OrganizationsService } from "src/organizations/organizations.service";
-import { UserWorkHistoryEntity } from "src/shared/entities";
-import { workHistoryConverter } from "src/shared/helpers";
+import { ScorerService } from "src/scorer/scorer.service";
 
 @Controller("users")
 export class UserController {
@@ -46,9 +43,8 @@ export class UserController {
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
     private readonly jobsService: JobsService,
-    private readonly organizationsService: OrganizationsService,
-    private readonly bigQueryService: GoogleBigQueryService,
     private readonly profileService: ProfileService,
+    private readonly scorerService: ScorerService,
   ) {}
 
   @Get("")
@@ -128,19 +124,12 @@ export class UserController {
             const applicantUsernames = Array.from(
               new Set(applicants.map(x => x.user.username).filter(Boolean)),
             );
-            const orgData = await this.organizationsService.getOrgListResults();
-            const enrichmentData =
-              await this.bigQueryService.getApplicantEnrichmentData(
-                applicantUsernames,
-              );
+            const applicantWorkHistories =
+              await this.scorerService.getWorkHistory(applicantUsernames);
             for (const applicant of applicantUsernames) {
               const workHistory =
-                enrichmentData
-                  .find(x => x.login === applicant)
-                  ?.organizations?.map(x => workHistoryConverter(x, orgData))
-                  .filter(x => x.repositories.some(x => x.cryptoNative))
-                  .map(org => new UserWorkHistoryEntity(org).getProperties()) ??
-                [];
+                applicantWorkHistories.find(x => x.user === applicant)
+                  ?.workHistory ?? [];
               await this.profileService.refreshWorkHistoryCache(
                 applicants.find(x => x.user.username === applicant)?.user
                   ?.wallet,
@@ -235,6 +224,6 @@ export class UserController {
     @Query("users") users: string,
   ): Promise<{ user: string; workHistory: UserWorkHistory[] }[]> {
     this.logger.log(`/users/work-history ${JSON.stringify(users.split(","))}`);
-    return this.userService.getWorkHistory(users.split(","));
+    return this.scorerService.getWorkHistory(users.split(","));
   }
 }

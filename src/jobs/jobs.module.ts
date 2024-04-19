@@ -7,11 +7,31 @@ import { JwtService } from "@nestjs/jwt";
 import { AuthService } from "src/auth/auth.service";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { TagsService } from "src/tags/tags.service";
-import { GoogleBigQueryService } from "../auth/github/google-bigquery.service";
 import { OrganizationsService } from "src/organizations/organizations.service";
+import { ScorerService } from "src/scorer/scorer.service";
+import { HttpModule } from "@nestjs/axios";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { REALLY_LONG_TIME } from "src/shared/constants";
+import * as https from "https";
 
 @Module({
-  imports: [forwardRef(() => UserModule)],
+  imports: [
+    forwardRef(() => UserModule),
+    HttpModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        headers: {
+          Authorization: `Bearer ${configService.get<string>(
+            "SCORER_API_KEY",
+          )}`,
+        },
+        httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+        timeout: REALLY_LONG_TIME,
+        baseURL: configService.get<string>("SCORER_DOMAIN"),
+      }),
+    }),
+  ],
   controllers: [JobsController],
   providers: [
     JobsService,
@@ -20,8 +40,8 @@ import { OrganizationsService } from "src/organizations/organizations.service";
     JwtService,
     ModelService,
     ProfileService,
-    GoogleBigQueryService,
     OrganizationsService,
+    ScorerService,
   ],
 })
 export class JobsModule {}

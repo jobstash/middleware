@@ -36,6 +36,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { resetTestDB } from "src/shared/helpers";
 import * as https from "https";
 import { GithubUserService } from "../github/github-user.service";
+import { ScorerService } from "src/scorer/scorer.service";
 
 describe("ProfileService", () => {
   let models: ModelService;
@@ -109,6 +110,7 @@ describe("ProfileService", () => {
         ModelService,
         GithubUserService,
         TagsService,
+        ScorerService,
       ],
     }).compile();
 
@@ -241,7 +243,7 @@ describe("ProfileService", () => {
   it(
     "should update a user's skills",
     async () => {
-      const skills = (await tagsService.getAllUnblockedTags(undefined))
+      const skills = (await tagsService.getAllUnblockedTags())
         .slice(undefined, 5)
         .map(x => ({ ...x, canTeach: false }));
 
@@ -425,7 +427,7 @@ describe("ProfileService", () => {
         page: 1,
       })) as PaginatedData<UserRepo>;
 
-      const skills = (await tagsService.getAllUnblockedTags(undefined))
+      const skills = (await tagsService.getAllUnblockedTags())
         .slice(undefined, 5)
         .map(x => ({ ...x, canTeach: false }));
 

@@ -17,12 +17,9 @@ import { getSchemaPath } from "@nestjs/swagger";
 import { Response } from "../interfaces/response.interface";
 import { CustomLogger } from "../utils/custom-logger";
 import {
-  AggregatedRepositoryWorkHistory,
   OrgDetailsResult,
   OrgRating,
-  OrganizationWorkHistory,
   PaginatedData,
-  RepositoryWorkHistory,
   ShortOrg,
 } from "../interfaces";
 import { sort } from "fast-sort";
@@ -33,7 +30,6 @@ import { AxiosError } from "axios";
 import { firstValueFrom, catchError } from "rxjs";
 import { HttpService } from "@nestjs/axios";
 import { emojiRegex } from "./emoji-regex";
-import { UserWorkHistory } from "../interfaces/user/user-work-history.interface";
 
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
@@ -516,160 +512,4 @@ export const resetTestDB = async (
       }),
     ),
   );
-};
-
-export type Grouped<T, K extends keyof T> = { [propertyName in K]: T[] };
-
-export const groupBy = <T, K extends keyof T>(
-  xs: T[],
-  key: K | ((x: T) => T[K]),
-): Grouped<T, K> =>
-  xs.reduce(function (rv, x) {
-    const v = key instanceof Function ? key(x).toString() : x[key].toString();
-    (rv[v] = rv[v] || []).push(x);
-    return rv;
-  }, {} as Grouped<T, K>);
-
-export const repoWorkHistoryAggregator = (
-  repoData: RepositoryWorkHistory,
-): AggregatedRepositoryWorkHistory => {
-  const relevantData =
-    repoData?.data?.filter(x => {
-      if (x.type === "PullRequestEvent") {
-        if (x.action === "closed" && x.merged === "true") {
-          return x;
-        } else {
-          return null;
-        }
-      } else {
-        return x;
-      }
-    }) ?? [];
-
-  return {
-    name: repoData.name,
-    commits: {
-      count: relevantData
-        ?.map(x => x?.commit_count)
-        ?.filter(Boolean)
-        ?.reduce((a, b) => a + b, 0),
-      first: relevantData
-        ?.map(x => (x?.commit_count ? x : null))
-        ?.filter(Boolean)
-        ?.map(val => new Date(val.first.value).getTime())
-        ?.sort()[0],
-      last: relevantData
-        ?.map(x => (x?.commit_count ? x : null))
-        ?.filter(Boolean)
-        ?.map(val => new Date(val.last.value).getTime())
-        ?.sort()
-        ?.reverse()[0],
-    },
-    issues: {
-      count: relevantData
-        ?.filter(x => x.type === "IssuesEvent")
-        ?.map(x => Number(x.count))
-        ?.filter(Boolean)
-        ?.reduce((a, b) => a + b, 0),
-      first: relevantData
-        ?.filter(x => x.type === "IssuesEvent")
-        ?.map(val => new Date(val.first.value).getTime())
-        ?.filter(Boolean)
-        ?.sort()[0],
-      last: relevantData
-        ?.filter(x => x.type === "IssuesEvent")
-        ?.map(val => new Date(val.last.value).getTime())
-        ?.filter(Boolean)
-        ?.sort()
-        ?.reverse()[0],
-    },
-    pull_requests: {
-      count: relevantData
-        ?.filter(
-          x =>
-            x.type === "PullRequestEvent" &&
-            x.action === "closed" &&
-            x.merged === "true",
-        )
-        ?.map(x => Number(x.count))
-        ?.filter(Boolean)
-        ?.reduce((a, b) => a + b, 0),
-      first: relevantData
-        ?.filter(
-          x =>
-            x.type === "PullRequestEvent" &&
-            x.action === "closed" &&
-            x.merged === "true",
-        )
-        ?.map(val => new Date(val.first.value).getTime())
-        ?.filter(Boolean)
-        ?.sort()[0],
-      last: relevantData
-        ?.filter(
-          x =>
-            x.type === "PullRequestEvent" &&
-            x.action === "closed" &&
-            x.merged === "true",
-        )
-        ?.map(val => new Date(val.last.value).getTime())
-        ?.filter(Boolean)
-        ?.sort()
-        ?.reverse()[0],
-    },
-  };
-};
-
-export const workHistoryConverter = (
-  workHistory: OrganizationWorkHistory,
-  orgs: OrgDetailsResult[],
-): UserWorkHistory => {
-  const jobstashOrg = orgs.find(org1 => {
-    const q1 = new RegExp(workHistory.name, "gi");
-    const q2 = new RegExp(org1.name, "gi");
-    return org1.name.match(q1) || workHistory.name.match(q2);
-  });
-  const repositories = workHistory.repositories
-    .map(repo => ({
-      name: repo.name,
-      url: `https://github.com/${workHistory.login}/${repo.name}`,
-      cryptoNative: repo.commits.count > 0 && repo.pull_requests.count > 0,
-      commitsCount: repo.commits.count,
-      createdAt: new Date().getTime(),
-      firstContributedAt: [
-        repo.commits.first,
-        repo.issues.first,
-        repo.pull_requests.first,
-      ]
-        .filter(Boolean)
-        .map(val => new Date(val).getTime())
-        .sort()[0],
-      lastContributedAt: [
-        repo.commits.last,
-        repo.issues.last,
-        repo.pull_requests.last,
-      ]
-        .filter(Boolean)
-        .map(val => new Date(val).getTime())
-        .sort()
-        .reverse()[0],
-    }))
-    .filter(repo => repo.cryptoNative);
-
-  return {
-    login: workHistory.login,
-    logoUrl: jobstashOrg?.logoUrl,
-    url: jobstashOrg?.website,
-    name: workHistory.name,
-    firstContributedAt: repositories
-      .map(repo => repo.firstContributedAt)
-      .filter(Boolean)
-      .sort()[0],
-    lastContributedAt: repositories
-      .map(repo => repo.lastContributedAt)
-      .filter(Boolean)
-      .sort()
-      .reverse()[0],
-    repositories,
-    createdAt: new Date().getTime(),
-  };
 };

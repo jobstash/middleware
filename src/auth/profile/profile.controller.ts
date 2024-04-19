@@ -17,10 +17,7 @@ import { Response as ExpressResponse, Request } from "express";
 import { OrganizationsService } from "src/organizations/organizations.service";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
-import {
-  responseSchemaWrapper,
-  workHistoryConverter,
-} from "src/shared/helpers";
+import { responseSchemaWrapper } from "src/shared/helpers";
 import {
   OrgUserProfile,
   PaginatedData,
@@ -51,11 +48,10 @@ import { Throttle } from "@nestjs/throttler";
 import { UpdateDevUserProfileInput } from "./dto/update-dev-profile.input";
 import { UpdateOrgUserProfileInput } from "./dto/update-org-profile.input";
 import { UserService } from "src/user/user.service";
-import { GoogleBigQueryService } from "../github/google-bigquery.service";
 import { addMonths, isBefore } from "date-fns";
 import * as Sentry from "@sentry/node";
-import { UserWorkHistoryEntity } from "src/shared/entities";
 import { SiweService } from "../siwe/siwe.service";
+import { ScorerService } from "src/scorer/scorer.service";
 
 @Controller("profile")
 export class ProfileController {
@@ -68,7 +64,7 @@ export class ProfileController {
     private readonly organizationsService: OrganizationsService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
-    private readonly bigQueryService: GoogleBigQueryService,
+    private readonly scorerService: ScorerService,
   ) {}
 
   @Get("dev/info")
@@ -750,31 +746,19 @@ export class ProfileController {
                     The JobStash Team
                   `,
               });
-
               if (userProfile && userProfile.username) {
                 await this.profileService.refreshUserCacheLock([
                   userProfile.wallet,
                 ]);
 
-                const orgs =
-                  await this.organizationsService.getOrgListResults();
-
-                const enrichmentData =
-                  await this.bigQueryService.getApplicantEnrichmentData([
-                    userProfile.username,
-                  ]);
-
-                const workHistory =
-                  enrichmentData[0]?.organizations
-                    ?.map(x => workHistoryConverter(x, orgs))
-                    .filter(x => x.repositories.some(x => x.cryptoNative))
-                    .map(org =>
-                      new UserWorkHistoryEntity(org).getProperties(),
-                    ) ?? [];
+                const workHistory = await this.scorerService.getWorkHistory([
+                  userProfile.username,
+                ]);
 
                 await this.profileService.refreshWorkHistoryCache(
                   userProfile.wallet,
-                  workHistory,
+                  workHistory.find(x => x.user === userProfile.username)
+                    ?.workHistory ?? [],
                 );
               }
             }

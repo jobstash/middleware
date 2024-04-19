@@ -42,7 +42,6 @@ export * from "./structured-jobpost.interface";
 export * from "./job-filter-configs.interface";
 export * from "./org-filter-configs.interface";
 export * from "./authorization-result.interface";
-export * from "./applicant-enrichment-data.interface";
 export * from "./all-jobs-list-result.interface";
 export * from "./jobpost-location-type.interface";
 export * from "./jobpost-classification.interface";
