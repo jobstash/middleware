@@ -18,7 +18,7 @@ export class UserWorkHistory {
         cryptoNative: t.boolean,
         firstContributedAt: t.number,
         lastContributedAt: t.number,
-        commitsCount: t.number,
+        commitsCount: t.union([t.number, t.null]),
         createdAt: t.number,
       }),
     ),
@@ -50,7 +50,7 @@ export class UserWorkHistory {
     cryptoNative: boolean;
     firstContributedAt: number;
     lastContributedAt: number;
-    commitsCount: number;
+    commitsCount: number | null;
     createdAt: number;
   }[];
 
