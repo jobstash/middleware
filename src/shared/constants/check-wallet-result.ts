@@ -3,6 +3,7 @@ export const CheckWalletRoles = {
   ADMIN: "ADMIN",
   DEV: "DEV",
   ORG: "ORG",
+  DATA_JANITOR: "DATA_JANITOR",
 };
 
 export const CheckWalletFlows = {
