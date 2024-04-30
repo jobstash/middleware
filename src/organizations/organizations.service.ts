@@ -10,6 +10,7 @@ import {
   OrgDetailsResultEntity,
   ResponseWithNoData,
   ResponseWithOptionalData,
+  OrganizationWithLinks,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -20,7 +21,11 @@ import {
   paginate,
   toShortOrg,
 } from "src/shared/helpers";
-import { OrganizationEntity, RepositoryEntity } from "src/shared/entities";
+import {
+  OrganizationEntity,
+  OrganizationWithLinksEntity,
+  RepositoryEntity,
+} from "src/shared/entities";
 import { createNewSortInstance, sort } from "fast-sort";
 import { ModelService } from "src/model/model.service";
 import { Neogma } from "neogma";
@@ -502,6 +507,80 @@ export class OrganizationsService {
       this.logger.error(
         `OrganizationsService::getOrgDetailsById ${err.message}`,
       );
+      return undefined;
+    }
+  }
+  async getAllWithLinks(): Promise<OrganizationWithLinks[]> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (organization:Organization)
+        RETURN organization {
+          .*,
+          discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite],
+          website: [(organization)-[:HAS_WEBSITE]->(website) | website.url],
+          rawWebsite: [(organization)-[:HAS_RAW_WEBSITE]->(website) | website.url],
+          docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url],
+          telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username],
+          github: [(organization)-[:HAS_GITHUB]->(github) | github.login],
+          aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
+          grant: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url],
+          twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
+          fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
+          investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
+          community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+          jobCount: apoc.coll.sum([
+            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | 1
+          ]),
+          jobsite: [
+            (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
+              url: jobsite.url,
+              type: jobsite.type
+            }
+          ],
+          detectedJobsite: [
+            (organization)-[:HAS_JOBSITE]->(jobsite:DetectedJobsite) | jobsite {
+              url: jobsite.url,
+              type: jobsite.type
+            }
+          ],
+          projects: [
+            (organization)-[:HAS_PROJECT]->(project) | project {
+              .*,
+              orgId: organization.orgId,
+              discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
+              category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+              twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              hacks: [
+                (project)-[:HAS_HACK]->(hack) | hack { .* }
+              ],
+              audits: [
+                (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+              ],
+              chains: [
+                (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+              ]
+            }
+          ]
+        } as org
+        `,
+      );
+      return result.records.map(org =>
+        new OrganizationWithLinksEntity(org.get("org")).getProperties(),
+      );
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "organizations.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`OrganizationsService::getAllWithLinks ${err.message}`);
       return undefined;
     }
   }

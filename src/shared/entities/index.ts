@@ -22,6 +22,7 @@ export * from "./jobpost-folder.entity";
 export * from "./hack.entity";
 export * from "./org-review.entity";
 export * from "./organization-with-relations.entity";
+export * from "./organization-with-links.entity";
 export * from "./structured-jobpost.entity";
 export * from "./structured-jobpost-with-relations.entity";
 export * from "./job-applicant.entity";

@@ -40,6 +40,7 @@ import {
   OrgFilterConfigs,
   OrgDetailsResult,
   ResponseWithOptionalData,
+  OrganizationWithLinks,
 } from "src/shared/types";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
@@ -87,14 +88,16 @@ export class OrganizationsController {
     description: "Returns a list of all organizations",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(ShortOrg) }),
   })
-  async getOrganizations(): Promise<Response<ShortOrg[]> | ResponseWithNoData> {
+  async getOrganizations(): Promise<
+    ResponseWithOptionalData<OrganizationWithLinks[]>
+  > {
     this.logger.log(`/organizations`);
     return this.organizationsService
-      .getAll()
+      .getAllWithLinks()
       .then(res => ({
         success: true,
         message: "Retrieved all organizations successfully",
-        data: res,
+        data: res ?? [],
       }))
       .catch(err => {
         Sentry.withScope(scope => {
