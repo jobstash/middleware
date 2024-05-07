@@ -41,6 +41,7 @@ import {
   OrgDetailsResult,
   ResponseWithOptionalData,
   OrganizationWithLinks,
+  Jobsite,
 } from "src/shared/types";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
@@ -59,6 +60,7 @@ import { ValidationError } from "class-validator";
 import { OrgListParams } from "./dto/org-list.input";
 import { UpdateOrgAliasesInput } from "./dto/update-organization-aliases.input";
 import { UpdateOrgCommunitiesInput } from "./dto/update-organization-communities.input";
+import { ActivateOrgJobsiteInput } from "./dto/activate-organization-jobsites.input";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -610,6 +612,27 @@ export class OrganizationsController {
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/organizations/communities ${JSON.stringify(body)}`);
     return this.organizationsService.updateOrgCommunities(body);
+  }
+
+  @Post("/jobsites/activate")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Activates a list of detected jobsites for an org",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Organization),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong activating the organization jobsites on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async activateOrgJobsites(
+    @Body() body: ActivateOrgJobsiteInput,
+  ): Promise<ResponseWithOptionalData<Jobsite[]>> {
+    this.logger.log(`/organizations/jobsites/activate ${JSON.stringify(body)}`);
+    return this.organizationsService.activateOrgJobsites(body);
   }
 
   @Get("/repositories/:id")

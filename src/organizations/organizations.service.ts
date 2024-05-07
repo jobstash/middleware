@@ -11,6 +11,7 @@ import {
   ResponseWithNoData,
   ResponseWithOptionalData,
   OrganizationWithLinks,
+  Jobsite,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -41,6 +42,7 @@ import { UpdateOrgDiscordsInput } from "./dto/update-organization-discords.input
 import { UpdateOrgDocsInput } from "./dto/update-organization-docs.input";
 import { UpdateOrgTelegramsInput } from "./dto/update-organization-telegrams.input";
 import { UpdateOrgGrantsInput } from "./dto/update-organization-grants.input";
+import { ActivateOrgJobsiteInput } from "./dto/activate-organization-jobsites.input";
 
 @Injectable()
 export class OrganizationsService {
@@ -972,7 +974,7 @@ export class OrganizationsService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "projects.service",
+          source: "organizations.service",
         });
         scope.setExtra("input", { orgId, projectIds });
         Sentry.captureException(err);
@@ -1022,7 +1024,7 @@ export class OrganizationsService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "projects.service",
+          source: "organizations.service",
         });
         scope.setExtra("input", dto);
         Sentry.captureException(err);
@@ -1031,6 +1033,45 @@ export class OrganizationsService {
         `OrganizationsService::updateOrgAliases ${err.message}`,
       );
       return { success: false, message: "Failed to update org aliases" };
+    }
+  }
+
+  async activateOrgJobsites(
+    dto: ActivateOrgJobsiteInput,
+  ): Promise<ResponseWithOptionalData<Jobsite[]>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          MATCH (:Organization {orgId: $orgId})-[:HAS_JOBSITE]->(jobsite:DetectedJobsite)
+          REMOVE jobsite:DetectedJobsite
+          SET jobsite:Jobsite
+          RETURN jobsite
+        `,
+        {
+          ...dto,
+        },
+      );
+      const jobsites = result.records.map(
+        record => record.get("jobsite") as Jobsite,
+      );
+      return {
+        success: true,
+        message: "Activated organization jobsites successfully",
+        data: jobsites,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "organizations.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::activateOrgJobsites ${err.message}`,
+      );
+      return { success: false, message: "Failed to activate org jobsites" };
     }
   }
 
@@ -1079,7 +1120,7 @@ export class OrganizationsService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "projects.service",
+          source: "organizations.service",
         });
         scope.setExtra("input", dto);
         Sentry.captureException(err);
@@ -1129,7 +1170,7 @@ export class OrganizationsService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "projects.service",
+          source: "organizations.service",
         });
         scope.setExtra("input", dto);
         Sentry.captureException(err);
@@ -1179,7 +1220,7 @@ export class OrganizationsService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "projects.service",
+          source: "organizations.service",
         });
         scope.setExtra("input", dto);
         Sentry.captureException(err);
@@ -1229,7 +1270,7 @@ export class OrganizationsService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "projects.service",
+          source: "organizations.service",
         });
         scope.setExtra("input", dto);
         Sentry.captureException(err);
@@ -1279,7 +1320,7 @@ export class OrganizationsService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "projects.service",
+          source: "organizations.service",
         });
         scope.setExtra("input", dto);
         Sentry.captureException(err);
@@ -1329,7 +1370,7 @@ export class OrganizationsService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "projects.service",
+          source: "organizations.service",
         });
         scope.setExtra("input", dto);
         Sentry.captureException(err);
@@ -1377,7 +1418,7 @@ export class OrganizationsService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "projects.service",
+          source: "organizations.service",
         });
         scope.setExtra("input", dto);
         Sentry.captureException(err);
@@ -1427,7 +1468,7 @@ export class OrganizationsService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "projects.service",
+          source: "organizations.service",
         });
         scope.setExtra("input", dto);
         Sentry.captureException(err);
