@@ -1,7 +1,7 @@
 import { ModelFactory, Neogma, NeogmaInstance, NeogmaModel } from "neogma";
-import { ExtractProps, Docsite, NoRelations } from "../types";
+import { ExtractProps, DocSite, NoRelations } from "../types";
 
-export type DocsiteProps = ExtractProps<Docsite>;
+export type DocsiteProps = ExtractProps<DocSite>;
 
 export type DocsiteInstance = NeogmaInstance<DocsiteProps, NoRelations>;
 
@@ -10,7 +10,7 @@ export const Docsites = (
 ): NeogmaModel<DocsiteProps, NoRelations> =>
   ModelFactory<DocsiteProps, NoRelations>(
     {
-      label: "Docsite",
+      label: "DocSite",
       schema: {
         id: {
           type: "string",

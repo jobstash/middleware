@@ -665,9 +665,9 @@ export class ProjectsController {
       );
 
     if (organizationProjectRelationshipExists === false) {
-      await this.organizationsService.relateToProject(
+      await this.organizationsService.relateToProjects(
         storedOrganization.getId(),
-        storedProject.id,
+        [storedProject.id],
       );
       this.logger.log(
         `Related project ${

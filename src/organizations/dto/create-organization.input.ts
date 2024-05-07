@@ -18,16 +18,6 @@ export class CreateOrganizationInput {
   name: string;
 
   @ApiProperty()
-  @IsOptional()
-  @IsString()
-  alias?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  altName?: string;
-
-  @ApiProperty()
   @IsNotEmpty()
   @IsString()
   description: string;
@@ -40,40 +30,50 @@ export class CreateOrganizationInput {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  location: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsUrl()
-  website?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
   headcountEstimate: number;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  twitter?: string;
+  location: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  github?: string;
+  altName?: string;
+
+  @ApiProperty()
+  @IsOptional()
+  @IsString()
+  aliases?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUrl()
+  website?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  discord?: string;
+  twitter?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  docs?: string;
+  github?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  telegram?: string;
+  discord?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  docs?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  telegram?: string[];
 }

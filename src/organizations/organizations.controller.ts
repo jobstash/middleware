@@ -421,11 +421,112 @@ export class OrganizationsController {
   async updateOrganization(
     @Param("id") id: string,
     @Body() body: UpdateOrganizationInput,
-  ): Promise<Response<Organization> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<Organization>> {
     this.logger.log(`/organizations/update/${id} ${JSON.stringify(body)}`);
 
     try {
-      const result = await this.organizationsService.update(id, body);
+      const {
+        grants,
+        projects,
+        communities,
+        aliases,
+        website,
+        twitter,
+        github,
+        discord,
+        docs,
+        telegram,
+        ...dto
+      } = body;
+
+      const res1 = await this.updateOrgAliases({ orgId: id, aliases });
+
+      if (!res1.success) {
+        return res1;
+      }
+
+      const res2 = await this.updateOrgCommunities({ orgId: id, communities });
+
+      if (!res2.success) {
+        return res2;
+      }
+
+      const res3 = await this.organizationsService.updateOrgWebsites({
+        orgId: id,
+        websites: website,
+      });
+
+      if (!res3.success) {
+        return res3;
+      }
+
+      const res4 = await this.organizationsService.updateOrgTwitters({
+        orgId: id,
+        twitters: twitter,
+      });
+
+      if (!res4.success) {
+        return res4;
+      }
+
+      const res5 = await this.organizationsService.updateOrgGithubs({
+        orgId: id,
+        githubs: github,
+      });
+
+      if (!res5.success) {
+        return res5;
+      }
+
+      const res6 = await this.organizationsService.updateOrgDiscords({
+        orgId: id,
+        discords: discord,
+      });
+
+      if (!res6.success) {
+        return res6;
+      }
+
+      const res7 = await this.organizationsService.updateOrgDocs({
+        orgId: id,
+        docsites: docs,
+      });
+
+      if (!res7.success) {
+        return res7;
+      }
+
+      const res8 = await this.organizationsService.updateOrgTelegrams({
+        orgId: id,
+        telegrams: telegram,
+      });
+
+      if (!res8.success) {
+        return res8;
+      }
+
+      const res9 = await this.organizationsService.updateOrgGrants({
+        orgId: id,
+        grants: grants,
+      });
+
+      if (!res9.success) {
+        return res9;
+      }
+
+      const res10 = await this.organizationsService.relateToProjects(
+        id,
+        projects,
+      );
+
+      if (!res10) {
+        return {
+          success: res10,
+          message: "Error updating org projects",
+        };
+      }
+
+      const result = await this.organizationsService.update(id, dto);
 
       return {
         success: true,

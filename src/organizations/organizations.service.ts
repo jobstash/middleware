@@ -28,12 +28,19 @@ import {
 } from "src/shared/entities";
 import { createNewSortInstance, sort } from "fast-sort";
 import { ModelService } from "src/model/model.service";
-import { Neogma } from "neogma";
+import { Neogma, Op } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
 import { UpdateOrgAliasesInput } from "./dto/update-organization-aliases.input";
 import { UpdateOrgCommunitiesInput } from "./dto/update-organization-communities.input";
+import { UpdateOrgWebsitesInput } from "./dto/update-organization-websites.input";
+import { UpdateOrgTwittersInput } from "./dto/update-organization-twitters.input";
+import { UpdateOrgGithubsInput } from "./dto/update-organization-githubs.input";
+import { UpdateOrgDiscordsInput } from "./dto/update-organization-discords.input";
+import { UpdateOrgDocsInput } from "./dto/update-organization-docs.input";
+import { UpdateOrgTelegramsInput } from "./dto/update-organization-telegrams.input";
+import { UpdateOrgGrantsInput } from "./dto/update-organization-grants.input";
 
 @Injectable()
 export class OrganizationsService {
@@ -831,33 +838,31 @@ export class OrganizationsService {
 
   async update(
     id: string,
-    properties: UpdateOrganizationInput,
+    properties: Omit<
+      UpdateOrganizationInput,
+      | "grants"
+      | "projects"
+      | "communities"
+      | "aliases"
+      | "website"
+      | "twitter"
+      | "github"
+      | "discord"
+      | "docs"
+      | "telegram"
+    >,
   ): Promise<OrganizationEntity> {
     this.logger.log(JSON.stringify(properties));
     const res = await this.neogma.queryRunner.run(
       `
         MATCH (org: Organization {orgId: $id})
-        MATCH (org)-[:HAS_DISCORD]->(discord) 
-        MATCH (org)-[:HAS_WEBSITE]->(website) 
-        MATCH (org)-[:HAS_DOCSITE]->(docsite) 
-        MATCH (org)-[:HAS_TELEGRAM]->(telegram) 
-        MATCH (org)-[:HAS_GITHUB]->(github) 
-        MATCH (org)-[:HAS_ORGANIZATION_ALIAS]->(alias) 
-        MATCH (org)-[:HAS_TWITTER]->(twitter) 
         SET org.logoUrl = $logoUrl
         SET org.name = $name
         SET org.altName = $altName
         SET org.description = $description
         SET org.summary = $summary
         SET org.location = $location
-        SET org.headcountEstimate = $headcountEstimate        
-        SET discord.invite = $discord
-        SET website.url = $website
-        SET docsite.url = $docs
-        SET telegram.username = $telegram
-        SET alias.name = $alias
-        SET twitter.username = $twitter
-        SET github.login = $github
+        SET org.headcountEstimate = $headcountEstimate     
 
         RETURN org
       `,
@@ -943,7 +948,10 @@ export class OrganizationsService {
     return res.length !== 0;
   }
 
-  async relateToProject(orgId: string, projectId: string): Promise<boolean> {
+  async relateToProjects(
+    orgId: string,
+    projectIds: string[],
+  ): Promise<boolean> {
     try {
       (
         await this.models.Organizations.findOne({
@@ -954,7 +962,9 @@ export class OrganizationsService {
       ).relateTo({
         alias: "projects",
         where: {
-          id: projectId,
+          id: {
+            [Op.in]: projectIds,
+          },
         },
       });
       return true;
@@ -964,10 +974,12 @@ export class OrganizationsService {
           action: "db-call",
           source: "projects.service",
         });
-        scope.setExtra("input", { orgId, projectId });
+        scope.setExtra("input", { orgId, projectIds });
         Sentry.captureException(err);
       });
-      this.logger.error(`OrganizationsService::relateToProject ${err.message}`);
+      this.logger.error(
+        `OrganizationsService::relateToProjects ${err.message}`,
+      );
       return false;
     }
   }
@@ -1076,6 +1088,352 @@ export class OrganizationsService {
         `OrganizationsService::updateOrgCommunities ${err.message}`,
       );
       return { success: false, message: "Failed to update org communities" };
+    }
+  }
+
+  async updateOrgWebsites(
+    dto: UpdateOrgWebsitesInput,
+  ): Promise<ResponseWithOptionalData<string[]>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          CALL {
+            MATCH (org:Organization {orgId: $orgId})-[:HAS_WEBSITE]->(website:Website)
+            DETACH DELETE website
+          }
+          
+          CALL {
+            UNWIND $websites as url
+            OPTIONAL MATCH (website:Website WHERE website.url = url)
+            WITH website IS NOT NULL AS siteFound, url
+            WHERE NOT siteFound
+            CREATE (website:Website {id: randomUUID(), url: url})
+          }
+
+          MATCH (website:Website WHERE website.url IN $websites), (org:Organization {orgId: $orgId})
+          MERGE (org)-[:HAS_WEBSITE]->(website)
+          
+          RETURN website.url as url
+        `,
+        { ...dto },
+      );
+      const websites = result.records.map(
+        record => record.get("url") as string,
+      );
+      return {
+        success: true,
+        message: "Updated organization websites successfully",
+        data: websites,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::updateOrgWebsites ${err.message}`,
+      );
+      return { success: false, message: "Failed to update org websites" };
+    }
+  }
+
+  async updateOrgTwitters(
+    dto: UpdateOrgTwittersInput,
+  ): Promise<ResponseWithOptionalData<string[]>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          CALL {
+            MATCH (org:Organization {orgId: $orgId})-[:HAS_TWITTER]->(twitter:Twitter)
+            DETACH DELETE twitter
+          }
+          
+          CALL {
+            UNWIND $twitters as username
+            OPTIONAL MATCH (twitter:Twitter WHERE twitter.username = username)
+            WITH twitter IS NOT NULL AS found, username
+            WHERE NOT found
+            CREATE (twitter:Twitter {id: randomUUID(), username: username})
+          }
+
+          MATCH (twitter:Twitter WHERE twitter.username IN $twitters), (org:Organization {orgId: $orgId})
+          MERGE (org)-[:HAS_TWITTER]->(twitter)
+          
+          RETURN twitter.username as username
+        `,
+        { ...dto },
+      );
+      const twitters = result.records.map(
+        record => record.get("username") as string,
+      );
+      return {
+        success: true,
+        message: "Updated organization twitters successfully",
+        data: twitters,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::updateOrgTwitters ${err.message}`,
+      );
+      return { success: false, message: "Failed to update org twitters" };
+    }
+  }
+
+  async updateOrgGithubs(
+    dto: UpdateOrgGithubsInput,
+  ): Promise<ResponseWithOptionalData<string[]>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          CALL {
+            MATCH (org:Organization {orgId: $orgId})-[:HAS_GITHUB]->(github:Github)
+            DETACH DELETE github
+          }
+          
+          CALL {
+            UNWIND $githubs as login
+            OPTIONAL MATCH (github:Github WHERE github.login = login)
+            WITH github IS NOT NULL AS found, login
+            WHERE NOT found
+            CREATE (github:Github {id: randomUUID(), login: login})
+          }
+
+          MATCH (github:Github WHERE github.login IN $githubs), (org:Organization {orgId: $orgId})
+          MERGE (org)-[:HAS_GITHUB]->(github)
+          
+          RETURN github.login as login
+        `,
+        { ...dto },
+      );
+      const githubs = result.records.map(
+        record => record.get("login") as string,
+      );
+      return {
+        success: true,
+        message: "Updated organization githubs successfully",
+        data: githubs,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::updateOrgGithubs ${err.message}`,
+      );
+      return { success: false, message: "Failed to update org githubs" };
+    }
+  }
+
+  async updateOrgDiscords(
+    dto: UpdateOrgDiscordsInput,
+  ): Promise<ResponseWithOptionalData<string[]>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          CALL {
+            MATCH (org:Organization {orgId: $orgId})-[:HAS_DISCORD]->(discord:Discord)
+            DETACH DELETE discord
+          }
+          
+          CALL {
+            UNWIND $discords as invite
+            OPTIONAL MATCH (discord:Discord WHERE discord.invite = invite)
+            WITH discord IS NOT NULL AS found, invite
+            WHERE NOT found
+            CREATE (discord:Discord {id: randomUUID(), invite: invite})
+          }
+
+          MATCH (discord:Discord WHERE discord.invite IN $discords), (org:Organization {orgId: $orgId})
+          MERGE (org)-[:HAS_DISCORD]->(discord)
+          
+          RETURN discord.invite as invite
+        `,
+        { ...dto },
+      );
+      const discords = result.records.map(
+        record => record.get("invite") as string,
+      );
+      return {
+        success: true,
+        message: "Updated organization discords successfully",
+        data: discords,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::updateOrgDiscords ${err.message}`,
+      );
+      return { success: false, message: "Failed to update org discords" };
+    }
+  }
+
+  async updateOrgDocs(
+    dto: UpdateOrgDocsInput,
+  ): Promise<ResponseWithOptionalData<string[]>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          CALL {
+            MATCH (org:Organization {orgId: $orgId})-[:HAS_DOCSITE]->(docsite:DocSite)
+            DETACH DELETE docsite
+          }
+          
+          CALL {
+            UNWIND $docsites as url
+            OPTIONAL MATCH (docsite:DocSite WHERE docsite.url = url)
+            WITH docsite IS NOT NULL AS siteFound, url
+            WHERE NOT siteFound
+            CREATE (docsite:DocSite {id: randomUUID(), url: url})
+          }
+
+          MATCH (docsite:DocSite WHERE docsite.url IN $docsites), (org:Organization {orgId: $orgId})
+          MERGE (org)-[:HAS_DOCSITE]->(docsite)
+          
+          RETURN docsite.url as url
+        `,
+        { ...dto },
+      );
+      const docsites = result.records.map(
+        record => record.get("url") as string,
+      );
+      return {
+        success: true,
+        message: "Updated organization docsites successfully",
+        data: docsites,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`OrganizationsService::updateOrgDocs ${err.message}`);
+      return { success: false, message: "Failed to update org docsites" };
+    }
+  }
+
+  async updateOrgTelegrams(
+    dto: UpdateOrgTelegramsInput,
+  ): Promise<ResponseWithOptionalData<string[]>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          CALL {
+            MATCH (org:Organization {orgId: $orgId})-[:HAS_TELEGRAM]->(telegram:Telegram)
+            DETACH DELETE telegram
+          }
+          
+          CALL {
+            UNWIND $telegrams as username
+            OPTIONAL MATCH (telegram:Telegram WHERE telegram.username = username)
+            WITH telegram IS NOT NULL AS found, username
+            WHERE NOT found
+            CREATE (telegram:Telegram {id: randomUUID(), username: username})
+          }
+
+          MATCH (telegram:Telegram WHERE telegram.username IN $telegrams), (org:Organization {orgId: $orgId})
+          MERGE (org)-[:HAS_TELEGRAM]->(telegram)
+          
+          RETURN telegram.username as username
+        `,
+        { ...dto },
+      );
+      const telegrams = result.records.map(
+        record => record.get("username") as string,
+      );
+      return {
+        success: true,
+        message: "Updated organization telegrams successfully",
+        data: telegrams,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::updateOrgTelegrams ${err.message}`,
+      );
+      return { success: false, message: "Failed to update org telegrams" };
+    }
+  }
+
+  async updateOrgGrants(
+    dto: UpdateOrgGrantsInput,
+  ): Promise<ResponseWithOptionalData<string[]>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          CALL {
+            MATCH (org:Organization {orgId: $orgId})-[:HAS_GRANTSITE]->(grantsite:GrantSite)
+            DETACH DELETE grantsite
+          }
+          
+          CALL {
+            UNWIND $grantsites as url
+            OPTIONAL MATCH (grantsite:GrantSite WHERE grantsite.url = url)
+            WITH grantsite IS NOT NULL AS siteFound, url
+            WHERE NOT siteFound
+            CREATE (grantsite:GrantSite {id: randomUUID(), url: url})
+          }
+
+          MATCH (grantsite:GrantSite WHERE grantsite.url IN $grantsites), (org:Organization {orgId: $orgId})
+          MERGE (org)-[:HAS_GRANTSITE]->(grantsite)
+          
+          RETURN grantsite.url as url
+        `,
+        { ...dto },
+      );
+      const grantsites = result.records.map(
+        record => record.get("url") as string,
+      );
+      return {
+        success: true,
+        message: "Updated organization grantsites successfully",
+        data: grantsites,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`OrganizationsService::updateOrgDocs ${err.message}`);
+      return { success: false, message: "Failed to update org grantsites" };
     }
   }
 }
