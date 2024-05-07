@@ -175,6 +175,7 @@ export class OrgDetailsResultEntity {
           name: investor.name,
         })) ?? [],
       community: organization?.community ?? [],
+      grants: organization?.grants ?? [],
       jobs:
         jobs?.map(jobpost => {
           const now = new Date().getTime();

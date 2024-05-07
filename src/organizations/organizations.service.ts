@@ -69,6 +69,7 @@ export class OrganizationsService {
           fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
           investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
           community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+          grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
           jobs: [
             (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | structured_jobpost {
               id: structured_jobpost.id,
@@ -420,6 +421,7 @@ export class OrganizationsService {
             fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
             investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
             community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+            grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
             jobs: [
               (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | structured_jobpost {
                 id: structured_jobpost.id,
@@ -538,6 +540,7 @@ export class OrganizationsService {
           fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
           investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
           community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+          grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
           jobCount: apoc.coll.sum([
             (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | 1
           ]),
@@ -649,6 +652,7 @@ export class OrganizationsService {
           fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
           investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
           community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+          grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
           jobs: [
             (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | structured_jobpost {
               id: structured_jobpost.id,

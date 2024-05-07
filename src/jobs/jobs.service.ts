@@ -137,6 +137,7 @@ export class JobsService {
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
               community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+              grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
               reviews: [
                 (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
                   compensation: {
@@ -800,6 +801,7 @@ export class JobsService {
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
               community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+              grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
               reviews: [
                 (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
                   compensation: {
@@ -1029,6 +1031,7 @@ export class JobsService {
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
               community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+              grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
               reviews: [
                 (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
                   compensation: {
@@ -1247,6 +1250,7 @@ export class JobsService {
                 aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
                 twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                 community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+                grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
                 projects: [
                   (organization)-[:HAS_PROJECT]->(project) | project {
                     .*,
@@ -1397,6 +1401,7 @@ export class JobsService {
                 aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
                 twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                 community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+                grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
                 projects: [
                   (organization)-[:HAS_PROJECT]->(project) | project {
                     .*,
@@ -1552,6 +1557,7 @@ export class JobsService {
                 aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
                 twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                 community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+                grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
                 projects: [
                   (organization)-[:HAS_PROJECT]->(project) | project {
                     .*,
@@ -1706,6 +1712,7 @@ export class JobsService {
                 aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
                 twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                 community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+                grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
                 projects: [
                   (organization)-[:HAS_PROJECT]->(project) | project {
                     .*,

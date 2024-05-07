@@ -38,6 +38,7 @@ export class OrgDetailsResult extends Organization {
       fundingRounds: t.array(FundingRound.FundingRoundType),
       investors: t.array(Investor.InvestorType),
       community: t.array(t.string),
+      grants: t.array(t.string),
       jobs: t.array(OrgJob.OrgJobType),
       tags: t.array(Tag.TagType),
       reviews: t.array(LeanOrgReview.LeanOrgReviewType),
@@ -76,6 +77,9 @@ export class OrgDetailsResult extends Organization {
 
   @ApiProperty()
   community: string[];
+
+  @ApiProperty()
+  grants: string[];
 
   @ApiProperty({
     type: "array",
@@ -122,6 +126,7 @@ export class OrgDetailsResult extends Organization {
       website,
       telegram,
       github,
+      grants,
       twitter,
       docs,
       aliases,
@@ -144,6 +149,7 @@ export class OrgDetailsResult extends Organization {
     this.website = website;
     this.telegram = telegram;
     this.github = github;
+    this.grants = grants;
     this.aliases = aliases;
     this.twitter = twitter;
     this.docs = docs;
