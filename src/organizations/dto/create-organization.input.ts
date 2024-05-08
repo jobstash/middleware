@@ -16,37 +16,37 @@ export class CreateOrganizationInput {
   @ApiPropertyOptional()
   @IsOptional()
   @IsUrl()
-  logoUrl: string;
+  logoUrl: string = null;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsString()
-  name: string;
+  name: string = null;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsString()
-  description: string;
+  description: string = null;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsString()
-  summary: string;
+  summary: string = null;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  headcountEstimate: number;
+  headcountEstimate: number = null;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  location: string;
+  location: string = null;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  altName?: string;
+  altName?: string = null;
 
   @ApiProperty()
   @IsOptional()

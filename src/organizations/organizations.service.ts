@@ -967,13 +967,12 @@ export class OrganizationsService {
     projectIds: string[],
   ): Promise<boolean> {
     try {
-      (
-        await this.models.Organizations.findOne({
-          where: {
-            id: orgId,
-          },
-        })
-      ).relateTo({
+      const org = await this.models.Organizations.findOne({
+        where: {
+          orgId: orgId,
+        },
+      });
+      org?.relateTo({
         alias: "projects",
         where: {
           id: {
@@ -981,7 +980,7 @@ export class OrganizationsService {
           },
         },
       });
-      return true;
+      return org !== null;
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -1084,6 +1083,49 @@ export class OrganizationsService {
         `OrganizationsService::activateOrgJobsites ${err.message}`,
       );
       return { success: false, message: "Failed to activate org jobsites" };
+    }
+  }
+
+  async updateOrgProjects(
+    orgId: string,
+    projectIds: string[],
+  ): Promise<ResponseWithOptionalData<string[]>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          CALL {
+            MATCH (org:Organization {orgId: $orgId})-[r:HAS_PROJECT]->(:Project)
+            DELETE r
+          }
+
+          MATCH (project:Project WHERE project.id IN $projects), (org:Organization {orgId: $orgId})
+          MERGE (org)-[:HAS_PROJECT]->(project)
+          
+          RETURN project.name as name
+        `,
+        { orgId, projects: projectIds },
+      );
+      const projects = result.records.map(
+        record => record.get("name") as string,
+      );
+      return {
+        success: true,
+        message: "Updated organization projects successfully",
+        data: projects,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "organizations.service",
+        });
+        scope.setExtra("input", { orgId, projectIds });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::updateOrgProjects ${err.message}`,
+      );
+      return { success: false, message: "Failed to update org projects" };
     }
   }
 

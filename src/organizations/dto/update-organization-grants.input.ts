@@ -10,5 +10,5 @@ export class UpdateOrgGrantsInput {
   @ApiProperty()
   @IsNotEmpty()
   @IsArray()
-  grants: string[];
+  grantsites: string[];
 }

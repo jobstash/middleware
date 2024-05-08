@@ -441,13 +441,19 @@ export class OrganizationsController {
         ...dto
       } = body;
 
-      const res1 = await this.updateOrgAliases({ orgId: id, aliases });
+      const res1 = await this.updateOrgAliases({
+        orgId: id,
+        aliases: aliases ?? [],
+      });
 
       if (!res1.success) {
         return res1;
       }
 
-      const res2 = await this.updateOrgCommunities({ orgId: id, communities });
+      const res2 = await this.updateOrgCommunities({
+        orgId: id,
+        communities: communities ?? [],
+      });
 
       if (!res2.success) {
         return res2;
@@ -455,7 +461,7 @@ export class OrganizationsController {
 
       const res3 = await this.organizationsService.updateOrgWebsites({
         orgId: id,
-        websites: website,
+        websites: website ?? [],
       });
 
       if (!res3.success) {
@@ -464,7 +470,7 @@ export class OrganizationsController {
 
       const res4 = await this.organizationsService.updateOrgTwitters({
         orgId: id,
-        twitters: twitter,
+        twitters: twitter ?? [],
       });
 
       if (!res4.success) {
@@ -473,7 +479,7 @@ export class OrganizationsController {
 
       const res5 = await this.organizationsService.updateOrgGithubs({
         orgId: id,
-        githubs: github,
+        githubs: github ?? [],
       });
 
       if (!res5.success) {
@@ -482,7 +488,7 @@ export class OrganizationsController {
 
       const res6 = await this.organizationsService.updateOrgDiscords({
         orgId: id,
-        discords: discord,
+        discords: discord ?? [],
       });
 
       if (!res6.success) {
@@ -491,7 +497,7 @@ export class OrganizationsController {
 
       const res7 = await this.organizationsService.updateOrgDocs({
         orgId: id,
-        docsites: docs,
+        docsites: docs ?? [],
       });
 
       if (!res7.success) {
@@ -500,7 +506,7 @@ export class OrganizationsController {
 
       const res8 = await this.organizationsService.updateOrgTelegrams({
         orgId: id,
-        telegrams: telegram,
+        telegrams: telegram ?? [],
       });
 
       if (!res8.success) {
@@ -509,21 +515,21 @@ export class OrganizationsController {
 
       const res9 = await this.organizationsService.updateOrgGrants({
         orgId: id,
-        grants: grants,
+        grantsites: grants ?? [],
       });
 
       if (!res9.success) {
         return res9;
       }
 
-      const res10 = await this.organizationsService.relateToProjects(
+      const res10 = await this.organizationsService.updateOrgProjects(
         id,
         projects,
       );
 
-      if (!res10) {
+      if (!res10.success) {
         return {
-          success: res10,
+          success: res10.success,
           message: "Error updating org projects",
         };
       }
