@@ -17,6 +17,8 @@ export class OrganizationWithLinks extends Organization {
     Organization.OrganizationType,
     t.strict({
       jobCount: t.number,
+      openEngineeringJobCount: t.number,
+      totalEngineeringJobCount: t.number,
       discord: t.array(t.string),
       website: t.array(t.string),
       rawWebsite: t.array(t.string),
@@ -37,6 +39,12 @@ export class OrganizationWithLinks extends Organization {
 
   @ApiProperty()
   jobCount: number;
+
+  @ApiProperty()
+  openEngineeringJobCount: number;
+
+  @ApiProperty()
+  totalEngineeringJobCount: number;
 
   @ApiProperty()
   discord: string[];
@@ -86,6 +94,8 @@ export class OrganizationWithLinks extends Organization {
   constructor(raw: OrganizationWithLinks) {
     const {
       jobCount,
+      openEngineeringJobCount,
+      totalEngineeringJobCount,
       discord,
       website,
       rawWebsite,
@@ -107,6 +117,8 @@ export class OrganizationWithLinks extends Organization {
     const result = OrganizationWithLinks.OrganizationWithLinksType.decode(raw);
 
     this.jobCount = jobCount;
+    this.openEngineeringJobCount = openEngineeringJobCount;
+    this.totalEngineeringJobCount = totalEngineeringJobCount;
     this.rawWebsite = rawWebsite;
     this.detectedJobsite = detectedJobsite;
     this.discord = discord;

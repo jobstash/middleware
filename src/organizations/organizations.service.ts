@@ -544,6 +544,14 @@ export class OrganizationsService {
           jobCount: apoc.coll.sum([
             (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | 1
           ]),
+          openEngineeringJobCount: apoc.coll.sum([
+            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+            WHERE (structured_jobpost)-[:HAS_CLASSIFICATION]->(:JobpostClassification {name: "ENGINEERING"}) | 1
+          ]),
+          totalEngineeringJobCount: apoc.coll.sum([
+            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)
+            WHERE (structured_jobpost)-[:HAS_CLASSIFICATION]->(:JobpostClassification {name: "ENGINEERING"}) | 1
+          ]),
           jobsite: [
             (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
               url: jobsite.url,

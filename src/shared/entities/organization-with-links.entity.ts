@@ -9,6 +9,8 @@ export class OrganizationWithLinksEntity {
     const organization = this.raw;
     const {
       jobCount,
+      openEngineeringJobCount,
+      totalEngineeringJobCount,
       discord,
       website,
       rawWebsite,
@@ -29,6 +31,8 @@ export class OrganizationWithLinksEntity {
     return new OrganizationWithLinks({
       ...organization,
       jobCount: jobCount ?? 0,
+      openEngineeringJobCount: openEngineeringJobCount ?? 0,
+      totalEngineeringJobCount: totalEngineeringJobCount ?? 0,
       docs: docs ?? [],
       logoUrl: notStringOrNull(organization?.logoUrl),
       location: notStringOrNull(organization?.location),
