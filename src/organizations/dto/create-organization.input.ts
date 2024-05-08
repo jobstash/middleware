@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsNotEmpty, IsOptional, IsString, IsUrl } from "class-validator";
+import {
+  IsArray,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUrl,
+} from "class-validator";
 
 export class CreateOrganizationInput {
   @ApiProperty()
@@ -44,36 +50,36 @@ export class CreateOrganizationInput {
 
   @ApiProperty()
   @IsOptional()
-  @IsString()
+  @IsArray()
   aliases?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsUrl()
+  @IsArray()
   website?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsArray()
   twitter?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsArray()
   github?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsArray()
   discord?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsArray()
   docs?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsArray()
   telegram?: string[];
 }

@@ -1,22 +1,22 @@
 import { ApiProperty, ApiPropertyOptional, OmitType } from "@nestjs/swagger";
 import { CreateOrganizationInput } from "./create-organization.input";
-import { IsOptional, IsString } from "class-validator";
+import { IsArray, IsOptional } from "class-validator";
 
 export class UpdateOrganizationInput extends OmitType(CreateOrganizationInput, [
   "orgId",
 ] as const) {
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsArray()
   grants: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsArray()
   projects: string[];
 
   @ApiProperty()
   @IsOptional()
-  @IsString()
+  @IsArray()
   communities: string[];
 }
