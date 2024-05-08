@@ -19,9 +19,4 @@ export class UpdateOrganizationInput extends OmitType(CreateOrganizationInput, [
   @IsOptional()
   @IsString()
   communities: string[];
-
-  @ApiProperty()
-  @IsOptional()
-  @IsString()
-  jobsites: string[];
 }
