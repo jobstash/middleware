@@ -425,9 +425,6 @@ export class UserService {
   async createSIWEUser(wallet: string): Promise<User | undefined> {
     try {
       const storedUser = await this.findByWallet(wallet);
-      this.logger.log(
-        JSON.stringify(storedUser) ?? "No user found for that wallet",
-      );
 
       if (storedUser) {
         return storedUser.getProperties();

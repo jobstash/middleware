@@ -58,19 +58,27 @@ export class AuthController {
     body: SendVerificationEmailInput,
   ): Promise<ResponseWithNoData> {
     const { address } = await this.authService.getSession(req, res);
-    const result = await this.userService.addUserEmail(
-      address as string,
-      body.destination,
-    );
-    if (result.success) {
-      this.devStrategy.send(req, res);
-      return {
-        success: result.success,
-        message: result.message,
-      };
+    if (address) {
+      const result = await this.userService.addUserEmail(
+        address as string,
+        body.destination,
+      );
+      if (result.success) {
+        this.devStrategy.send(req, res);
+        return {
+          success: result.success,
+          message: result.message,
+        };
+      } else {
+        res.status(HttpStatus.BAD_REQUEST);
+        return result;
+      }
     } else {
       res.status(HttpStatus.BAD_REQUEST);
-      return result;
+      return {
+        success: false,
+        message: "Bad Request",
+      };
     }
   }
 
@@ -88,19 +96,27 @@ export class AuthController {
     body: SendVerificationEmailInput,
   ): Promise<ResponseWithNoData> {
     const { address } = await this.authService.getSession(req, res);
-    const result = await this.userService.addUserEmail(
-      address as string,
-      body.destination,
-    );
-    if (result.success) {
-      this.orgStrategy.send(req, res);
-      return {
-        success: result.success,
-        message: result.message,
-      };
+    if (address) {
+      const result = await this.userService.addUserEmail(
+        address as string,
+        body.destination,
+      );
+      if (result.success) {
+        this.orgStrategy.send(req, res);
+        return {
+          success: result.success,
+          message: result.message,
+        };
+      } else {
+        res.status(HttpStatus.BAD_REQUEST);
+        return result;
+      }
     } else {
       res.status(HttpStatus.BAD_REQUEST);
-      return result;
+      return {
+        success: false,
+        message: "Bad Request",
+      };
     }
   }
 

@@ -201,7 +201,6 @@ export const Tags = (
                 (res: { [x: string]: number }) => res["popularity"] > threshold,
               )
               .map(res => new TagEntity(res["tag"]).getProperties()) ?? [];
-          console.log(limit);
           return limit ? result.slice(0, limit) : result;
         },
         getBlockedTags: async function (): Promise<Tag[]> {

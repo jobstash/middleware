@@ -143,11 +143,6 @@ export class UserController {
             message: "Org must be included if the verdict is approved",
           };
         }
-      } else {
-        return {
-          success: true,
-          message: "Org rejected successfully",
-        };
       }
       if (org.email) {
         await this.userService.setWalletFlow({
@@ -201,7 +196,9 @@ export class UserController {
       }
       return {
         success: true,
-        message: "Org authorized successfully",
+        message: `Org ${
+          verdict === "approve" ? "approved" : "rejected"
+        } successfully`,
       };
     } else {
       return {

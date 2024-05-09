@@ -65,7 +65,6 @@ export class TagsService {
       { normalizedPreferredName },
     );
 
-    // console.log(JSON.stringify(res.records[0].get("res")));
     return res.records[0].get("res")
       ? new TagPreference(res.records[0].get("res") as TagPreference)
       : null;
