@@ -292,7 +292,7 @@ export const Organizations = (
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
                   telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                  github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
+                  github: [(project)-[:HAS_GITHUB]->(github:Github) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
                   twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                   hacks: [

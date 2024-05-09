@@ -63,7 +63,7 @@ export class OrganizationsService {
           website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
           docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
           telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-          github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
+          github: [(organization)-[:HAS_GITHUB]->(github:Github) | github.login][0],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
           twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
           fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
@@ -101,7 +101,7 @@ export class OrganizationsService {
               website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
               docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
               telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-              github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
+              github: [(project)-[:HAS_GITHUB]->(github:Github) | github.login][0],
               category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
               twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
               hacks: [
@@ -415,7 +415,7 @@ export class OrganizationsService {
             website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
             docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
             telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-            github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
+            github: [(organization)-[:HAS_GITHUB]->(github:Github) | github.login][0],
             aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
             twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
             fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
@@ -453,7 +453,7 @@ export class OrganizationsService {
                 website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                 docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
                 telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
+                github: [(project)-[:HAS_GITHUB]->(github:Github) | github.login][0],
                 category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
                 twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                 hacks: [
@@ -533,7 +533,7 @@ export class OrganizationsService {
           rawWebsite: [(organization)-[:HAS_RAW_WEBSITE]->(website) | website.url],
           docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url],
           telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username],
-          github: [(organization)-[:HAS_GITHUB]->(github) | github.login],
+          github: [(organization)-[:HAS_GITHUB]->(github:Github) | github.login],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
           grant: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url],
           twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
@@ -572,7 +572,7 @@ export class OrganizationsService {
               website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
               docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
               telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-              github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
+              github: [(project)-[:HAS_GITHUB]->(github:Github) | github.login][0],
               category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
               twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
               hacks: [
@@ -654,7 +654,7 @@ export class OrganizationsService {
           website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
           docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
           telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-          github: [(organization)-[:HAS_GITHUB]->(github) | github.login][0],
+          github: [(organization)-[:HAS_GITHUB]->(github:Github) | github.login][0],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
           twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
           fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
@@ -692,7 +692,7 @@ export class OrganizationsService {
               website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
               docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
               telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-              github: [(project)-[:HAS_GITHUB]->(github) | github.login][0],
+              github: [(project)-[:HAS_GITHUB]->(github:Github) | github.login][0],
               category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
               twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
               hacks: [
@@ -897,7 +897,7 @@ export class OrganizationsService {
             OPTIONAL MATCH (organization)-[:HAS_WEBSITE]->(website)
             OPTIONAL MATCH (organization)-[:HAS_DOCSITE]->(docsite)
             OPTIONAL MATCH (organization)-[:HAS_TELEGRAM]->(telegram)
-            OPTIONAL MATCH (organization)-[:HAS_GITHUB]->(github)
+            OPTIONAL MATCH (organization)-[:HAS_GITHUB]->(github:Github)
             OPTIONAL MATCH (organization)-[:HAS_ORGANIZATION_ALIAS]->(alias)
             OPTIONAL MATCH (organization)-[:HAS_TWITTER]->(twitter)
             DETACH DELETE jobsite, jobpost, structured_jobpost,
@@ -1306,7 +1306,7 @@ export class OrganizationsService {
           }
 
           MATCH (github:Github WHERE github.login IN $githubs), (org:Organization {orgId: $orgId})
-          MERGE (org)-[:HAS_GITHUB]->(github)
+          MERGE (org)-[:HAS_GITHUB]->(github:Github)
           
           RETURN github.login as login
         `,
