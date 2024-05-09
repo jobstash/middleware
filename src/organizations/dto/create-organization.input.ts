@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   IsArray,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   IsUrl,
@@ -35,7 +36,7 @@ export class CreateOrganizationInput {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsNumber()
   headcountEstimate: number = null;
 
   @ApiPropertyOptional()
