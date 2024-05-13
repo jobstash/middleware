@@ -1306,7 +1306,7 @@ export class OrganizationsService {
           }
 
           MATCH (github:Github WHERE github.login IN $githubs), (org:Organization {orgId: $orgId})
-          MERGE (org)-[:HAS_GITHUB]->(github:Github)
+          MERGE (org)-[:HAS_GITHUB]->(github)
           
           RETURN github.login as login
         `,
