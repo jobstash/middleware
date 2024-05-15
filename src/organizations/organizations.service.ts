@@ -556,12 +556,14 @@ export class OrganizationsService {
           ]),
           jobsite: [
             (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
+              id: jobsite.id,
               url: jobsite.url,
               type: jobsite.type
             }
           ],
           detectedJobsite: [
             (organization)-[:HAS_JOBSITE]->(jobsite:DetectedJobsite) | jobsite {
+              id: jobsite.id,
               url: jobsite.url,
               type: jobsite.type
             }

@@ -32,8 +32,12 @@ export class OrganizationWithLinks extends Organization {
       fundingRounds: t.array(FundingRound.FundingRoundType),
       investors: t.array(Investor.InvestorType),
       community: t.array(t.string),
-      detectedJobsite: t.array(t.strict({ url: t.string, type: t.string })),
-      jobsite: t.array(t.strict({ url: t.string, type: t.string })),
+      detectedJobsite: t.array(
+        t.strict({ id: t.string, url: t.string, type: t.string }),
+      ),
+      jobsite: t.array(
+        t.strict({ id: t.string, url: t.string, type: t.string }),
+      ),
     }),
   ]);
 
@@ -86,10 +90,10 @@ export class OrganizationWithLinks extends Organization {
   community: string[];
 
   @ApiProperty()
-  detectedJobsite: { url: string; type: string }[];
+  detectedJobsite: { id: string; url: string; type: string }[];
 
   @ApiProperty()
-  jobsite: { url: string; type: string }[];
+  jobsite: { id: string; url: string; type: string }[];
 
   constructor(raw: OrganizationWithLinks) {
     const {

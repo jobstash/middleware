@@ -151,8 +151,18 @@ export class OrganizationWithLinksEntity {
       website: website ?? [],
       rawWebsite: rawWebsite ?? [],
       aliases: aliases ?? [],
-      detectedJobsite: detectedJobsite ?? [],
-      jobsite: jobsite ?? [],
+      detectedJobsite:
+        detectedJobsite.map(detectedJobsite => ({
+          id: detectedJobsite.id,
+          url: detectedJobsite.url,
+          type: detectedJobsite.type,
+        })) ?? [],
+      jobsite:
+        jobsite.map(jobsite => ({
+          id: jobsite.id,
+          url: jobsite.url,
+          type: jobsite.type,
+        })) ?? [],
       grant: grant ?? [],
     });
   }
