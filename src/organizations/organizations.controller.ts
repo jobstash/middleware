@@ -536,7 +536,7 @@ export class OrganizationsController {
         };
       }
 
-      if (detectedJobsites.length > 0) {
+      if (detectedJobsites?.length > 0) {
         const res11 = await this.organizationsService.updateOrgDetectedJobsites(
           {
             orgId: id,
