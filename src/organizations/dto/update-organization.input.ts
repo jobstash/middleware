@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional, OmitType } from "@nestjs/swagger";
 import { CreateOrganizationInput } from "./create-organization.input";
 import { IsArray, IsOptional } from "class-validator";
+import { UpdateJobsites } from "./update-jobsites.input";
+import { UpdateDetectedJobsites } from "./update-detected-jobsites.input";
 
 export class UpdateOrganizationInput extends OmitType(CreateOrganizationInput, [
   "orgId",
@@ -19,4 +21,14 @@ export class UpdateOrganizationInput extends OmitType(CreateOrganizationInput, [
   @IsOptional()
   @IsArray()
   communities: string[];
+
+  @ApiProperty()
+  @IsOptional()
+  @IsArray()
+  jobsites: UpdateJobsites[];
+
+  @ApiProperty()
+  @IsOptional()
+  @IsArray()
+  detectedJobsites: UpdateDetectedJobsites[];
 }

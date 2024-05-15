@@ -438,6 +438,8 @@ export class OrganizationsController {
         discord,
         docs,
         telegram,
+        jobsites,
+        detectedJobsites,
         ...dto
       } = body;
 
@@ -531,6 +533,34 @@ export class OrganizationsController {
         return {
           success: res10.success,
           message: "Error updating org projects",
+        };
+      }
+
+      if (detectedJobsites.length > 0) {
+        const res11 = await this.organizationsService.updateOrgDetectedJobsites(
+          {
+            orgId: id,
+            detectedJobsites,
+          },
+        );
+
+        if (!res11.success) {
+          return {
+            success: res11.success,
+            message: "Error updating org detected jobsites",
+          };
+        }
+      }
+
+      const res12 = await this.organizationsService.updateOrgJobsites({
+        orgId: id,
+        jobsites,
+      });
+
+      if (!res12.success) {
+        return {
+          success: res12.success,
+          message: "Error updating org jobsites",
         };
       }
 

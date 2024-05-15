@@ -43,6 +43,8 @@ import { UpdateOrgDocsInput } from "./dto/update-organization-docs.input";
 import { UpdateOrgTelegramsInput } from "./dto/update-organization-telegrams.input";
 import { UpdateOrgGrantsInput } from "./dto/update-organization-grants.input";
 import { ActivateOrgJobsiteInput } from "./dto/activate-organization-jobsites.input";
+import { UpdateOrgDetectedJobsitesInput } from "./dto/update-organization-detected-jobsites.input";
+import { UpdateOrgJobsitesInput } from "./dto/update-organization-jobsites.input";
 
 @Injectable()
 export class OrganizationsService {
@@ -864,6 +866,8 @@ export class OrganizationsService {
       | "discord"
       | "docs"
       | "telegram"
+      | "jobsites"
+      | "detectedJobsites"
     >,
   ): Promise<OrganizationEntity> {
     this.logger.log(JSON.stringify(properties));
@@ -1233,6 +1237,113 @@ export class OrganizationsService {
         `OrganizationsService::updateOrgWebsites ${err.message}`,
       );
       return { success: false, message: "Failed to update org websites" };
+    }
+  }
+
+  async updateOrgJobsites(
+    dto: UpdateOrgJobsitesInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+          UNWIND $jobsites as jobsite
+          WITH jobsite
+          WHERE jobsite.id IS NOT NULL
+
+          OPTIONAL MATCH (j:Jobsite)
+          WHERE j.id = jobsite.id AND j IS NOT NULL
+          SET j.url = jobsite.url
+          SET j.type = jobsite.type
+        `,
+        { ...dto },
+      );
+
+      return {
+        success: true,
+        message: "Updated organization jobsites successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "organizations.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::updateOrgJobsites ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to update org jobsites",
+      };
+    }
+  }
+
+  async updateOrgDetectedJobsites(
+    dto: UpdateOrgDetectedJobsitesInput,
+  ): Promise<ResponseWithNoData> {
+    const parsedDto = {
+      ...dto,
+      detectedJobsites: [
+        ...dto.detectedJobsites
+          .filter(x => x?.id === null || x?.id === undefined)
+          .map(y => ({ ...y, id: null })),
+        ...dto.detectedJobsites.filter(
+          x => x?.id !== null || x?.id !== undefined,
+        ),
+      ],
+    };
+    try {
+      await this.neogma.queryRunner.run(
+        `
+          UNWIND $detectedJobsites as detectedJobsite
+          WITH detectedJobsite
+          WHERE detectedJobsite.id IS NOT NULL
+
+          OPTIONAL MATCH (dj:DetectedJobsite)
+          WHERE dj.id = detectedJobsite.id AND dj IS NOT NULL
+          SET dj.url = detectedJobsite.url
+          SET dj.type = detectedJobsite.type
+        `,
+        { ...parsedDto },
+      );
+
+      await this.neogma.queryRunner.run(
+        `
+          UNWIND $detectedJobsites as detectedJobsite
+          WITH detectedJobsite
+          WHERE detectedJobsite.id IS NULL
+
+          CREATE (dj:DetectedJobsite {id: randomUUID(), url: detectedJobsite.url, type: detectedJobsite.type})
+          WITH dj
+          MATCH (org:Organization {orgId: $orgId})
+          MERGE (org)-[:HAS_JOBSITE]->(dj)
+        `,
+        { ...parsedDto },
+      );
+
+      return {
+        success: true,
+        message: "Updated organization detected jobsites successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "organizations.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::updateOrgDetectedJobsites ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to update org detected jobsites",
+      };
     }
   }
 
