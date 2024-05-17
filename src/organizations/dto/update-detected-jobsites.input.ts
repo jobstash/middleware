@@ -5,7 +5,7 @@ export class UpdateDetectedJobsites {
   @ApiProperty()
   @IsOptional()
   @IsString()
-  id: string | null;
+  id: string;
 
   @ApiProperty()
   @IsNotEmpty()

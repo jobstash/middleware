@@ -1286,44 +1286,30 @@ export class OrganizationsService {
   async updateOrgDetectedJobsites(
     dto: UpdateOrgDetectedJobsitesInput,
   ): Promise<ResponseWithNoData> {
-    const parsedDto = {
-      ...dto,
-      detectedJobsites: [
-        ...dto.detectedJobsites
-          .filter(x => x?.id === null || x?.id === undefined)
-          .map(y => ({ ...y, id: null })),
-        ...dto.detectedJobsites.filter(
-          x => x?.id !== null || x?.id !== undefined,
-        ),
-      ],
-    };
     try {
       await this.neogma.queryRunner.run(
         `
           UNWIND $detectedJobsites as detectedJobsite
           WITH detectedJobsite
-          WHERE detectedJobsite.id IS NOT NULL
-
-          OPTIONAL MATCH (dj:DetectedJobsite)
-          WHERE dj.id = detectedJobsite.id AND dj IS NOT NULL
+          MATCH (dj:DetectedJobsite WHERE dj.id = detectedJobsite.id)
           SET dj.url = detectedJobsite.url
           SET dj.type = detectedJobsite.type
         `,
-        { ...parsedDto },
+        { ...dto },
       );
 
       await this.neogma.queryRunner.run(
         `
           UNWIND $detectedJobsites as detectedJobsite
           WITH detectedJobsite
-          WHERE detectedJobsite.id IS NULL
+          WHERE NOT EXISTS((:Organization {orgId: $orgId})-[:HAS_JOBSITE]->(:DetectedJobsite  { id: detectedJobsite.id }))
 
-          CREATE (dj:DetectedJobsite {id: randomUUID(), url: detectedJobsite.url, type: detectedJobsite.type})
+          CREATE (dj:DetectedJobsite {id: detectedJobsite.id, url: detectedJobsite.url, type: detectedJobsite.type})
           WITH dj
           MATCH (org:Organization {orgId: $orgId})
           MERGE (org)-[:HAS_JOBSITE]->(dj)
         `,
-        { ...parsedDto },
+        { ...dto },
       );
 
       return {
