@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsArray, IsNotEmpty, IsOptional, IsString } from "class-validator";
-import { UpdateDetectedJobsites } from "./update-detected-jobsites.input";
+import { UpsertDetectedJobsites } from "./upsert-detected-jobsites.input";
 
 export class UpdateOrgDetectedJobsitesInput {
   @ApiProperty()
@@ -11,5 +11,5 @@ export class UpdateOrgDetectedJobsitesInput {
   @ApiProperty()
   @IsOptional()
   @IsArray()
-  detectedJobsites: UpdateDetectedJobsites[];
+  detectedJobsites: UpsertDetectedJobsites[];
 }
