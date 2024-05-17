@@ -163,7 +163,7 @@ export class UserService {
     return result.records[0]?.get("orgId") as string;
   }
 
-  async findOrgIdByShortUUID(shortUUID: string): Promise<string | null> {
+  async findOrgIdByJobShortUUID(shortUUID: string): Promise<string | null> {
     const result = await this.neogma.queryRunner.run(
       `
         MATCH (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(:StructuredJobpost {shortUUID: $shortUUID})

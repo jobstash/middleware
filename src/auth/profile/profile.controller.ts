@@ -700,7 +700,7 @@ export class ProfileController {
             );
 
           if (!userCacheLockIsValid) {
-            const orgId = await this.userService.findOrgIdByShortUUID(
+            const orgId = await this.userService.findOrgIdByJobShortUUID(
               shortUUID,
             );
 

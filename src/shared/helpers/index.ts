@@ -515,3 +515,9 @@ export const resetTestDB = async (
     ),
   );
 };
+
+export const randomToken = async (): Promise<string> => {
+  const { customRandom, random, urlAlphabet } = await import("nanoid");
+  const nanoid = customRandom(urlAlphabet, 64, random);
+  return nanoid();
+};

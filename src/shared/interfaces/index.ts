@@ -58,4 +58,6 @@ export * from "./structured-jobpost-with-relations.interface";
 export * from "./job-applicant.interface";
 export * from "./job-details.interface";
 export * from "./project-with-relations.interface";
+export * from "./ats-preferences.interface";
+export * from "./tracked-nft.interface";
 export * from "./defillama-project-prefill.interface";

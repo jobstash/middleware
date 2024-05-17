@@ -3,7 +3,14 @@ import { ScorerService } from "./scorer.service";
 import { HttpModule } from "@nestjs/axios";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { REALLY_LONG_TIME } from "src/shared/constants";
+import { ScorerController } from "./scorer.controller";
 import * as https from "https";
+import { UserService } from "src/user/user.service";
+import { ModelService } from "src/model/model.service";
+import { UserFlowService } from "src/user/user-flow.service";
+import { UserRoleService } from "src/user/user-role.service";
+import { AuthService } from "src/auth/auth.service";
+import { JwtService } from "@nestjs/jwt";
 
 @Module({
   imports: [
@@ -22,6 +29,15 @@ import * as https from "https";
       }),
     }),
   ],
-  providers: [ScorerService],
+  providers: [
+    ScorerService,
+    UserService,
+    ModelService,
+    UserFlowService,
+    UserRoleService,
+    AuthService,
+    JwtService,
+  ],
+  controllers: [ScorerController],
 })
 export class ScorerModule {}
