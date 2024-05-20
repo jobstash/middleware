@@ -23,6 +23,7 @@ export class JobApplicantEntity {
         upvotes: nonZeroOrNull(applicant?.attestations?.upvotes),
         downvotes: nonZeroOrNull(applicant?.attestations?.downvotes),
       },
+      nfts: applicant?.nfts ?? [],
       appliedTimestamp: nonZeroOrNull(applicant?.appliedTimestamp),
       user: {
         ...new UserProfileEntity(user).getProperties(),

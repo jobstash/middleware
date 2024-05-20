@@ -1,7 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsArray, IsIn, IsNotEmpty, IsString } from "class-validator";
 
-export class UpdateOrgJobApplicantListInput {
+export class UpdateJobApplicantListInput {
   @ApiProperty()
   @IsNotEmpty()
   @IsString()
@@ -10,5 +10,5 @@ export class UpdateOrgJobApplicantListInput {
 
   @ApiProperty()
   @IsArray()
-  applicants: string[];
+  applicants: { wallet: string; job: string }[];
 }

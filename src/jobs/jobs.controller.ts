@@ -64,9 +64,9 @@ import { FeatureJobsInput } from "./dto/feature-jobs.input";
 import { UserService } from "src/user/user.service";
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { CreateJobFolderInput } from "./dto/create-job-folder.input";
-import { UpdateOrgJobApplicantListInput } from "./dto/update-job-applicant-list.input";
 import { ApiKeyGuard } from "src/auth/api-key.guard";
 import { ScorerService } from "src/scorer/scorer.service";
+import { UpdateJobApplicantListInput } from "./dto/update-job-applicant-list.input";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
@@ -330,6 +330,40 @@ export class JobsController {
     return this.jobsService.getJobsByOrgIdWithApplicants(id, list);
   }
 
+  @Get("/applicants")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiOkResponse({
+    description: "Returns a list of applicants alongside relevant information",
+    schema: {
+      allOf: [
+        {
+          type: "array",
+          items: { $ref: getSchemaPath(JobListResult) },
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ValidationError),
+        },
+      ],
+    },
+  })
+  async getJobApplicantList(
+    @Query("list") list: "all" | "shortlisted" | "archived" | "new" = "all",
+  ): Promise<ResponseWithOptionalData<JobApplicant[]>> {
+    this.logger.log(`/jobs/applicants`);
+    return this.jobsService.getJobApplicants(list);
+  }
+
   @Get("orgs/refresh-work-history")
   @UseGuards(ApiKeyGuard)
   async refreshWorkHistory(): Promise<ResponseWithNoData> {
@@ -584,9 +618,9 @@ export class JobsController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Param("id") orgId: string,
-    @Body() body: UpdateOrgJobApplicantListInput,
+    @Body() body: UpdateJobApplicantListInput,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/jobs/folders`);
+    this.logger.log(`/jobs/org/:id/applicants`);
     const { address, role } = await this.authService.getSession(req, res);
     if (role === CheckWalletRoles.ORG) {
       if (
@@ -600,6 +634,26 @@ export class JobsController {
       }
     }
     return this.jobsService.updateOrgJobApplicantList(orgId, body);
+  }
+
+  @Post("/applicants")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
+  @ApiOkResponse({
+    description: "Updates an orgs applicant list",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ResponseWithNoData),
+        },
+      ],
+    },
+  })
+  async updateJobApplicantList(
+    @Body() body: UpdateJobApplicantListInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/jobs/applicants`);
+    return this.jobsService.updateJobApplicantList(body);
   }
 
   @Post("/folders")

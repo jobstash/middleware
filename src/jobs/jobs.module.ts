@@ -13,9 +13,11 @@ import { HttpModule } from "@nestjs/axios";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { REALLY_LONG_TIME } from "src/shared/constants";
 import * as https from "https";
+import { SiweModule } from "src/auth/siwe/siwe.module";
 
 @Module({
   imports: [
+    forwardRef(() => SiweModule),
     forwardRef(() => UserModule),
     HttpModule.registerAsync({
       imports: [ConfigModule],

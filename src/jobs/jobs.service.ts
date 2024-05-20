@@ -49,7 +49,8 @@ import { differenceInHours } from "date-fns";
 import { randomUUID } from "crypto";
 import { ConfigService } from "@nestjs/config";
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
-import { UpdateOrgJobApplicantListInput } from "./dto/update-job-applicant-list.input";
+import { SiweService } from "src/auth/siwe/siwe.service";
+import { UpdateJobApplicantListInput } from "./dto/update-job-applicant-list.input";
 
 @Injectable()
 export class JobsService {
@@ -58,6 +59,7 @@ export class JobsService {
     @InjectConnection()
     private neogma: Neogma,
     private models: ModelService,
+    private readonly siweService: SiweService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -1074,13 +1076,19 @@ export class JobsService {
       return {
         success: true,
         message: "Org jobs and applicants retrieved successfully",
-        data: applicants?.map((applicant: JobApplicant) =>
-          new JobApplicantEntity({
-            ...applicant,
-            cryptoNative: applicant?.user?.workHistory?.some(org =>
-              org.repositories.some(repo => repo.cryptoNative),
-            ),
-          }).getProperties(),
+        data: await Promise.all(
+          applicants?.map(async (applicant: JobApplicant) => {
+            const nfts = await this.siweService.getCommunitiesForWallet(
+              applicant.user.wallet,
+            );
+            return new JobApplicantEntity({
+              ...applicant,
+              nfts,
+              cryptoNative: applicant?.user?.workHistory?.some(org =>
+                org.repositories.some(repo => repo.cryptoNative),
+              ),
+            }).getProperties();
+          }),
         ),
       };
     } catch (err) {
@@ -1095,6 +1103,217 @@ export class JobsService {
       this.logger.error(
         `JobsService::getJobsByOrgIdWithApplicants ${err.message}`,
       );
+
+      return {
+        success: false,
+        message: "Org jobs and applicants retrieval failed",
+      };
+    }
+  }
+
+  async getJobApplicants(
+    list: "all" | "shortlisted" | "archived" | "new",
+  ): Promise<ResponseWithOptionalData<JobApplicant[]>> {
+    try {
+      const generatedQuery = `
+        MATCH (:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
+        WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost
+        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
+        WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost
+      
+        MATCH (user:User)-[r:APPLIED_TO]->(structured_jobpost)
+        WHERE user.available = true
+
+        AND
+          CASE
+            WHEN $list = "all" THEN true
+            WHEN $list = "new" THEN r.adminList IS NULL
+            WHEN $list IS NOT NULL THEN r.adminList = $list
+            ELSE true
+          END
+
+        RETURN {
+          oss: null,
+          calendly: null,
+          interviewed: null,
+          attestations: {
+            upvotes: null,
+            downvotes: null
+          },
+          appliedTimestamp: r.timestamp,
+          user: {
+              wallet: user.wallet,
+              availableForWork: user.available,
+              email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
+              username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
+              avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+              contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
+              location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
+              matchingSkills: apoc.coll.sum([
+                (user)-[:HAS_SKILL]->(tag)
+                WHERE (structured_jobpost)-[:HAS_TAG]->(tag) | 1
+              ]),
+              skills: apoc.coll.toSet([
+                (user)-[:HAS_SKILL]->(tag) |
+                tag {
+                  .*,
+                  canTeach: [(user)-[m:HAS_SKILL]->(tag) | m.canTeach][0]
+                }
+              ]),
+              showcases: apoc.coll.toSet([
+                (user)-[:HAS_SHOWCASE]->(showcase) |
+                showcase {
+                  .*
+                }
+              ]),
+              workHistory: apoc.coll.toSet([
+                (user)-[:HAS_WORK_HISTORY]->(workHistory: UserWorkHistory) |
+                workHistory {
+                  .*,
+                  repositories: apoc.coll.toSet([
+                    (workHistory)-[:WORKED_ON_REPO]->(repo: UserWorkHistoryRepo) |
+                    repo {
+                      .*
+                    }
+                  ])
+                }
+              ])
+          },
+          job: structured_jobpost {
+            id: structured_jobpost.id,
+            url: structured_jobpost.url,
+            title: structured_jobpost.title,
+            salary: structured_jobpost.salary,
+            culture: structured_jobpost.culture,
+            location: structured_jobpost.location,
+            summary: structured_jobpost.summary,
+            benefits: structured_jobpost.benefits,
+            shortUUID: structured_jobpost.shortUUID,
+            seniority: structured_jobpost.seniority,
+            description: structured_jobpost.description,
+            requirements: structured_jobpost.requirements,
+            paysInCrypto: structured_jobpost.paysInCrypto,
+            minimumSalary: structured_jobpost.minimumSalary,
+            maximumSalary: structured_jobpost.maximumSalary,
+            salaryCurrency: structured_jobpost.salaryCurrency,
+            responsibilities: structured_jobpost.responsibilities,
+            featured: structured_jobpost.featured,
+            featureStartDate: structured_jobpost.featureStartDate,
+            featureEndDate: structured_jobpost.featureEndDate,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+            classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
+            commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
+            locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
+            organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization) | organization {
+              .*,
+              discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(organization)-[:HAS_GITHUB]->(github:Github) | github.login][0],
+              aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
+              twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              projects: [
+                (organization)-[:HAS_PROJECT]->(project) | project {
+                  .*,
+                  orgId: organization.orgId,
+                  discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                  website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                  docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                  telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                  github: [(project)-[:HAS_GITHUB]->(github:Github) | github.login][0],
+                  category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                  twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+                  hacks: [
+                    (project)-[:HAS_HACK]->(hack) | hack { .* }
+                  ],
+                  audits: [
+                    (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                  ],
+                  chains: [
+                    (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ]
+                }
+              ],
+              fundingRounds: apoc.coll.toSet([
+                (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+              ]),
+              investors: apoc.coll.toSet([
+                (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+              ]),
+              community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+              grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
+              reviews: [
+                (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
+                  compensation: {
+                    salary: review.salary,
+                    currency: review.currency,
+                    offersTokenAllocation: review.offersTokenAllocation
+                  },
+                  rating: {
+                    onboarding: review.onboarding,
+                    careerGrowth: review.careerGrowth,
+                    benefits: review.benefits,
+                    workLifeBalance: review.workLifeBalance,
+                    diversityInclusion: review.diversityInclusion,
+                    management: review.management,
+                    product: review.product,
+                    compensation: review.compensation
+                  },
+                  review: {
+                    title: review.title,
+                    location: review.location,
+                    timezone: review.timezone,
+                    pros: review.pros,
+                    cons: review.cons
+                  },
+                  reviewedTimestamp: review.reviewedTimestamp
+                }
+              ]
+            }][0],
+            tags: apoc.coll.toSet(tags)
+          }
+        } as result
+      `;
+      const result = await this.neogma.queryRunner.run(generatedQuery, {
+        list,
+      });
+      const applicants =
+        result?.records?.map(record => record.get("result")) ?? [];
+
+      return {
+        success: true,
+        message: "Org jobs and applicants retrieved successfully",
+        data: await Promise.all(
+          applicants?.map(async (applicant: JobApplicant) => {
+            const nfts = await this.siweService.getCommunitiesForWallet(
+              applicant.user.wallet,
+            );
+            return new JobApplicantEntity({
+              ...applicant,
+              nfts,
+              cryptoNative: applicant?.user?.workHistory?.some(org =>
+                org.repositories.some(repo => repo.cryptoNative),
+              ),
+            }).getProperties();
+          }),
+        ),
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        scope.setExtra("input", list);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getJobApplicants ${err.message}`);
 
       return {
         success: false,
@@ -1817,21 +2036,58 @@ export class JobsService {
     }
   }
 
+  async updateJobApplicantList(
+    dto: UpdateJobApplicantListInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+            UNWIND $applicants AS applicant
+            WITH applicant
+            MATCH (user:User WHERE user.wallet = applicant.wallet)-[r:APPLIED_TO]->(structured_jobpost:StructuredJobpost WHERE structured_jobpost.shortUUID = applicant.job)
+            SET r.adminList = $list
+          `,
+        { ...dto },
+      );
+      return {
+        success: true,
+        message: "Org job applicant list updated successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        scope.setExtra("input", { ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `JobsService::updateOrgJobApplicantList ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Error updating org job applicant list",
+      };
+    }
+  }
+
   async updateOrgJobApplicantList(
     orgId: string,
-    dto: UpdateOrgJobApplicantListInput,
+    dto: UpdateJobApplicantListInput,
   ): Promise<ResponseWithNoData> {
     try {
       await this.neogma.queryRunner.run(
         `
             MATCH (:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
             WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-            MATCH (structured_jobpost)-[:HAS_TAG]->(:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+            AND (structured_jobpost)-[:HAS_TAG]->(:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
             WITH structured_jobpost
 
-            MATCH (user:User WHERE user.wallet in $applicants)-[r:APPLIED_TO]->(structured_jobpost)
+            UNWIND $applicants AS applicant
+            WITH applicant, structured_jobpost
+            MATCH (user:User WHERE user.wallet = applicant.wallet)-[r:APPLIED_TO]->(structured_jobpost WHERE structured_jobpost.shortUUID = applicant.job)
             SET r.list = $list
-            RETURN r
           `,
         { orgId, ...dto },
       );

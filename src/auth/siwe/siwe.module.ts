@@ -11,6 +11,7 @@ import { UserFlowService } from "../../user/user-flow.service";
 import { CacheModule } from "@nestjs/cache-manager";
 import { ModelService } from "src/model/model.service";
 import { UserModule } from "src/user/user.module";
+import { SiweService } from "./siwe.service";
 
 @Module({
   imports: [
@@ -37,6 +38,8 @@ import { UserModule } from "src/user/user.module";
     UserFlowService,
     ModelService,
     GithubUserService,
+    SiweService,
   ],
+  exports: [SiweService],
 })
 export class SiweModule {}
