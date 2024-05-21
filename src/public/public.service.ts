@@ -89,6 +89,7 @@ export class PublicService {
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
+              grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
               reviews: [
                 (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
                   compensation: {

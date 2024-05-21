@@ -222,15 +222,18 @@ describe("TagsController", () => {
   it(
     "should create a tag",
     async () => {
-      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: EPHEMERAL_TEST_WALLET,
-        destroy: async (): Promise<void> => {
-          logger.log("session destroyed");
-        },
-        save: async (): Promise<void> => {
-          logger.log("session saved");
-        },
-      }));
+      jest
+        .spyOn(AuthService.prototype, "getSession")
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        .mockImplementation(async (r, s) => ({
+          address: EPHEMERAL_TEST_WALLET,
+          destroy: async (): Promise<void> => {
+            logger.log("session destroyed");
+          },
+          save: async (): Promise<void> => {
+            logger.log("session saved");
+          },
+        }));
       const req: Partial<Request> = {};
       const res: Partial<Response> = {};
 
@@ -273,15 +276,18 @@ describe("TagsController", () => {
   it(
     "should link tags as synonyms",
     async () => {
-      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: EPHEMERAL_TEST_WALLET,
-        destroy: async (): Promise<void> => {
-          logger.log("session destroyed");
-        },
-        save: async (): Promise<void> => {
-          logger.log("session saved");
-        },
-      }));
+      jest
+        .spyOn(AuthService.prototype, "getSession")
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        .mockImplementation(async (r, s) => ({
+          address: EPHEMERAL_TEST_WALLET,
+          destroy: async (): Promise<void> => {
+            logger.log("session destroyed");
+          },
+          save: async (): Promise<void> => {
+            logger.log("session saved");
+          },
+        }));
       const req: Partial<Request> = {};
       const res: Partial<Response> = {};
 
@@ -312,15 +318,18 @@ describe("TagsController", () => {
   it(
     "should block a tag",
     async () => {
-      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: EPHEMERAL_TEST_WALLET,
-        destroy: async (): Promise<void> => {
-          logger.log("session destroyed");
-        },
-        save: async (): Promise<void> => {
-          logger.log("session saved");
-        },
-      }));
+      jest
+        .spyOn(AuthService.prototype, "getSession")
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        .mockImplementation(async (r, s) => ({
+          address: EPHEMERAL_TEST_WALLET,
+          destroy: async (): Promise<void> => {
+            logger.log("session destroyed");
+          },
+          save: async (): Promise<void> => {
+            logger.log("session saved");
+          },
+        }));
       const req: Partial<Request> = {};
       const res: Partial<Response> = {};
 
@@ -361,15 +370,18 @@ describe("TagsController", () => {
   it(
     "should unblock a tag",
     async () => {
-      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: EPHEMERAL_TEST_WALLET,
-        destroy: async (): Promise<void> => {
-          logger.log("session destroyed");
-        },
-        save: async (): Promise<void> => {
-          logger.log("session saved");
-        },
-      }));
+      jest
+        .spyOn(AuthService.prototype, "getSession")
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        .mockImplementation(async (r, s) => ({
+          address: EPHEMERAL_TEST_WALLET,
+          destroy: async (): Promise<void> => {
+            logger.log("session destroyed");
+          },
+          save: async (): Promise<void> => {
+            logger.log("session saved");
+          },
+        }));
       const req: Partial<Request> = {};
       const res: Partial<Response> = {};
 
@@ -408,15 +420,18 @@ describe("TagsController", () => {
   it(
     "should pair tags",
     async () => {
-      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: EPHEMERAL_TEST_WALLET,
-        destroy: async (): Promise<void> => {
-          logger.log("session destroyed");
-        },
-        save: async (): Promise<void> => {
-          logger.log("session saved");
-        },
-      }));
+      jest
+        .spyOn(AuthService.prototype, "getSession")
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        .mockImplementation(async (r, s) => ({
+          address: EPHEMERAL_TEST_WALLET,
+          destroy: async (): Promise<void> => {
+            logger.log("session destroyed");
+          },
+          save: async (): Promise<void> => {
+            logger.log("session saved");
+          },
+        }));
       const req: Partial<Request> = {};
       const res: Partial<Response> = {};
 
@@ -456,15 +471,18 @@ describe("TagsController", () => {
   it(
     "should prefer tags",
     async () => {
-      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: EPHEMERAL_TEST_WALLET,
-        destroy: async (): Promise<void> => {
-          logger.log("session destroyed");
-        },
-        save: async (): Promise<void> => {
-          logger.log("session saved");
-        },
-      }));
+      jest
+        .spyOn(AuthService.prototype, "getSession")
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        .mockImplementation(async (r, s) => ({
+          address: EPHEMERAL_TEST_WALLET,
+          destroy: async (): Promise<void> => {
+            logger.log("session destroyed");
+          },
+          save: async (): Promise<void> => {
+            logger.log("session saved");
+          },
+        }));
       const req: Partial<Request> = {};
       const res: Partial<Response> = {};
 
@@ -520,15 +538,18 @@ describe("TagsController", () => {
   it(
     "should unprefer tags",
     async () => {
-      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: EPHEMERAL_TEST_WALLET,
-        destroy: async (): Promise<void> => {
-          logger.log("session destroyed");
-        },
-        save: async (): Promise<void> => {
-          logger.log("session saved");
-        },
-      }));
+      jest
+        .spyOn(AuthService.prototype, "getSession")
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        .mockImplementation(async (r, s) => ({
+          address: EPHEMERAL_TEST_WALLET,
+          destroy: async (): Promise<void> => {
+            logger.log("session destroyed");
+          },
+          save: async (): Promise<void> => {
+            logger.log("session saved");
+          },
+        }));
 
       const tagName = "DemoTag100";
 
