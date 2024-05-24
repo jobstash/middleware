@@ -12,6 +12,8 @@ import * as fs from "fs";
 import * as express from "express";
 import * as basicAuth from "express-basic-auth";
 import * as compression from "compression";
+import { OrganizationsModule } from "./organizations/organizations.module";
+import { ProjectsModule } from "./projects/projects.module";
 dotenv.config();
 
 if (!process.env.SESSION_SECRET) throw new Error("SESSION_SECRET must be set");
@@ -69,6 +71,56 @@ async function bootstrap(): Promise<void> {
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup("api", app, document);
+
+  const publicConfig = new DocumentBuilder()
+    .setTitle("JobStash Middleware")
+    .setDescription(
+      "This application provides all the data needed by the various frontends in a unified, latency-optimised way",
+    )
+    .build();
+  let publicDocument = SwaggerModule.createDocument(app, publicConfig, {
+    include: [OrganizationsModule, ProjectsModule],
+  });
+
+  const blocklist = [
+    "/organizations",
+    "/organizations/featured",
+    "/organizations/{id}",
+    "/organizations/upload-logo",
+    "/organizations/create",
+    "/organizations/update/{id}",
+    "/organizations/delete/{id}",
+    "/organizations/add-alias",
+    "/organizations/communities",
+    "/organizations/jobsites/activate",
+    "/organizations/repositories/{id}",
+    "/projects",
+    "/projects/all/{id}",
+    "/projects/{id}",
+    "/projects/prefiller",
+    "/projects/upload-logo",
+    "/projects/create",
+    "/projects/update/{id}",
+    "/projects/delete/{id}",
+    "/projects/metrics/update/{id}",
+    "/projects/metrics/delete/{id}",
+    "/projects/link-jobs",
+    "/projects/unlink-jobs",
+    "/projects/link-repos",
+    "/projects/unlink-repos",
+  ];
+
+  publicDocument = {
+    ...document,
+    paths: Object.fromEntries(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      Object.entries(publicDocument.paths).filter(([path, _]) => {
+        return !blocklist.includes(path);
+      }),
+    ),
+  };
+
+  SwaggerModule.setup("public-api", app, publicDocument);
 
   await app.listen(process.env.PORT ?? 8080);
 }

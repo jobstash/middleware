@@ -244,7 +244,6 @@ export class ProjectsController {
 
   @Get("/category/:category")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects under the speccified category",
     schema: responseSchemaWrapper({
@@ -352,7 +351,6 @@ export class ProjectsController {
 
   @Get("/search")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects with names matching the query",
     schema: responseSchemaWrapper({

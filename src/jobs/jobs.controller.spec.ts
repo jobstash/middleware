@@ -250,7 +250,12 @@ describe("JobsController", () => {
       };
 
       const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
+      const res: Partial<Response> = {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        status: code => {
+          return this;
+        },
+      };
 
       const newClassification = "OPERATIONS";
 
@@ -309,7 +314,12 @@ describe("JobsController", () => {
       };
 
       const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
+      const res: Partial<Response> = {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        status: code => {
+          return this;
+        },
+      };
 
       const startDate = subWeeks(new Date(), 1);
       const endDate = addWeeks(startDate, 10);
@@ -375,7 +385,12 @@ describe("JobsController", () => {
       };
 
       const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
+      const res: Partial<Response> = {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        status: code => {
+          return this;
+        },
+      };
 
       const newTags = ["TypeScript"];
 
@@ -439,7 +454,12 @@ describe("JobsController", () => {
       };
 
       const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
+      const res: Partial<Response> = {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        status: code => {
+          return this;
+        },
+      };
 
       const commitment = "INTERNSHIP";
       const classification = "OPERATIONS";
@@ -595,7 +615,12 @@ describe("JobsController", () => {
     "should unblock a job",
     async () => {
       const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
+      const res: Partial<Response> = {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        status: code => {
+          return this;
+        },
+      };
 
       jest
         .spyOn(AuthService.prototype, "getSession")
@@ -637,7 +662,12 @@ describe("JobsController", () => {
     "should create a job folder for a user",
     async () => {
       const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
+      const res: Partial<Response> = {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        status: code => {
+          return this;
+        },
+      };
 
       jest
         .spyOn(AuthService.prototype, "getSession")
@@ -691,7 +721,12 @@ describe("JobsController", () => {
     "should update a job folder",
     async () => {
       const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
+      const res: Partial<Response> = {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        status: code => {
+          return this;
+        },
+      };
 
       jest
         .spyOn(AuthService.prototype, "getSession")
@@ -730,7 +765,12 @@ describe("JobsController", () => {
     "should get a users job folders",
     async () => {
       const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
+      const res: Partial<Response> = {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        status: code => {
+          return this;
+        },
+      };
 
       jest
         .spyOn(AuthService.prototype, "getSession")
@@ -763,7 +803,12 @@ describe("JobsController", () => {
     "should delete a job folder",
     async () => {
       const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
+      const res: Partial<Response> = {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        status: code => {
+          return this;
+        },
+      };
 
       jest
         .spyOn(AuthService.prototype, "getSession")
@@ -818,7 +863,12 @@ describe("JobsController", () => {
         },
       }));
       const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
+      const res: Partial<Response> = {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        status: code => {
+          return this;
+        },
+      };
       const result = await controller.getJobsListWithSearch(
         req as Request,
         res as Response,
@@ -926,7 +976,12 @@ describe("JobsController", () => {
       };
 
       const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
+      const res: Partial<Response> = {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        status: code => {
+          return this;
+        },
+      };
       const result = await controller.getJobsListWithSearch(
         req as Request,
         res as Response,
@@ -993,7 +1048,12 @@ describe("JobsController", () => {
       };
 
       const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
+      const res: Partial<Response> = {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        status: code => {
+          return this;
+        },
+      };
       const result = await controller.getJobsListWithSearch(
         req as Request,
         res as Response,
@@ -1105,7 +1165,12 @@ describe("JobsController", () => {
       };
 
       const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
+      const res: Partial<Response> = {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        status: code => {
+          return this;
+        },
+      };
       const result = await controller.getJobsListWithSearch(
         req as Request,
         res as Response,
@@ -1182,7 +1247,12 @@ describe("JobsController", () => {
         }));
 
       const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
+      const res: Partial<Response> = {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        status: code => {
+          return this;
+        },
+      };
       const job = (
         await controller.getJobsListWithSearch(
           req as Request,
@@ -1238,7 +1308,12 @@ describe("JobsController", () => {
       };
 
       const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
+      const res: Partial<Response> = {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        status: code => {
+          return this;
+        },
+      };
       jest
         .spyOn(AuthService.prototype, "getSession")
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1289,7 +1364,12 @@ describe("JobsController", () => {
   //     };
 
   //     const req: Partial<Request> = {};
-  //     const res: Partial<Response> = {};
+  //     const res: Partial<Response> = {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  //   status: code => {
+  //     return this;
+  //   },
+  // };
 
   //     jest.spyOn(authService, "getSession").mockImplementation(async () => ({
   //       address: EPHEMERAL_TEST_WALLET,
@@ -1367,7 +1447,12 @@ describe("JobsController", () => {
         }));
 
       const req: Partial<Request> = {};
-      const res: Partial<Response> = {};
+      const res: Partial<Response> = {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        status: code => {
+          return this;
+        },
+      };
       const result = await controller.getJobsListWithSearch(
         req as Request,
         res as Response,
