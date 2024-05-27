@@ -13,3 +13,4 @@ export * from "./user-showcase.interface";
 export * from "./user-org.interface";
 export * from "./user-repo.interface";
 export * from "./user-work-history.interface";
+export * from "./user-lean-stats.interface";

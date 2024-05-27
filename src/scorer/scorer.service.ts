@@ -32,6 +32,33 @@ export class ScorerService {
     return result.records[0]?.get("token");
   };
 
+  getAtsClientIdByOrgId = async (orgId: string): Promise<string> => {
+    const result = await this.neogma.queryRunner.run(
+      `
+        MATCH (:Organization {orgId: $orgId})-[:HAS_ATS_CLIENT]->(client:LeverClient|WorkableClient|GreenhouseClient)
+        RETURN client.id as id
+      `,
+      { orgId },
+    );
+    return result.records[0]?.get("id");
+  };
+
+  getAtsClientInfoByOrgId = async (
+    orgId: string,
+  ): Promise<{ id: string; platform: string }> => {
+    const result = await this.neogma.queryRunner.run(
+      `
+        MATCH (:Organization {orgId: $orgId})-[:HAS_ATS_CLIENT]->(client:LeverClient|WorkableClient|GreenhouseClient)-[:HAS_PREFERENCES]->(preferences:AtsPreferences)
+        RETURN {
+          id: client.id,
+          platform: preferences.platformName
+        } as info
+      `,
+      { orgId },
+    );
+    return result.records[0]?.get("info") as { id: string; platform: string };
+  };
+
   getWorkHistory = async (
     users: string[],
   ): Promise<{ user: string; workHistory: UserWorkHistory[] }[]> => {

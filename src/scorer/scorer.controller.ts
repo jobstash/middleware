@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   Redirect,
   Req,
   Res,
@@ -20,7 +21,12 @@ import { UserService } from "src/user/user.service";
 import { AuthService } from "src/auth/auth.service";
 import { Request, Response } from "express";
 import { SetupOrgLinkInput } from "./dto/setup-org-link.input";
-import { ResponseWithNoData } from "src/shared/interfaces";
+import {
+  ResponseWithNoData,
+  ResponseWithOptionalData,
+  UserLeanStats,
+  UserWorkHistory,
+} from "src/shared/interfaces";
 import { catchError, firstValueFrom } from "rxjs";
 import { HttpService } from "@nestjs/axios";
 import { AxiosError } from "axios";
@@ -61,6 +67,74 @@ export class ScorerController {
       };
     } else {
       throw new UnauthorizedException({
+        message: "You are not authorized to access this resource",
+      });
+    }
+  }
+
+  @Get("user/report")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ORG)
+  async generateUserReport(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @Query("user") user: string,
+    @Query("wallet") wallet: string,
+  ): Promise<
+    ResponseWithOptionalData<{
+      login: string;
+      nfts: string[];
+      stats: UserLeanStats;
+      workHistory: UserWorkHistory[];
+    }>
+  > {
+    const { address } = await this.authService.getSession(req, res);
+
+    if (address) {
+      const orgId = await this.userService.findOrgIdByWallet(address as string);
+      const key = await this.scorerService.generateEphemeralTokenForOrg(orgId);
+      const { id: clientId, platform } =
+        await this.scorerService.getAtsClientInfoByOrgId(orgId);
+
+      if (clientId && platform) {
+        const res = await firstValueFrom(
+          this.httpService
+            .get<
+              ResponseWithOptionalData<{
+                login: string;
+                nfts: string[];
+                stats: UserLeanStats;
+                workHistory: UserWorkHistory[];
+              }>
+            >(
+              `${this.configService.get<string>(
+                "SCORER_DOMAIN",
+              )}/scorer/users/report?user=${user}&wallet=${wallet}&client_id=${clientId}&platform=${platform}&key=${key}`,
+            )
+            .pipe(
+              catchError((err: AxiosError) => {
+                Sentry.withScope(scope => {
+                  scope.setTags({
+                    action: "proxy-call",
+                    source: "scorer.controller",
+                  });
+                  scope.setExtra("input", { user, wallet });
+                  Sentry.captureException(err);
+                });
+                this.logger.error(
+                  `ScorerController::generateUserReport ${err.message}`,
+                );
+                return [];
+              }),
+            ),
+        );
+        return res.data;
+      } else {
+        return { success: false, message: "Client preferences not found" };
+      }
+    } else {
+      throw new UnauthorizedException({
+        success: false,
         message: "You are not authorized to access this resource",
       });
     }
