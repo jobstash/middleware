@@ -22,6 +22,11 @@ export const Investors = (
           allowEmpty: false,
           required: true,
         },
+        normalizedName: {
+          type: "string",
+          allowEmpty: false,
+          required: true,
+        },
       },
       primaryKeyField: "id",
     },

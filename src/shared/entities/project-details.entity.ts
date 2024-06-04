@@ -62,8 +62,7 @@ export class ProjectDetailsEntity {
         })) ?? [],
       chains:
         project.chains.map(chain => ({
-          id: notStringOrNull(chain?.id),
-          name: notStringOrNull(chain?.name),
+          ...chain,
           logo: notStringOrNull(chain?.logo),
         })) ?? [],
       organization: {
@@ -96,9 +95,10 @@ export class ProjectDetailsEntity {
           })) ?? [],
         community: organization?.community ?? [],
         investors:
-          organization?.investors.map(investor => ({
+          organization?.investors?.map(investor => ({
             id: investor.id,
             name: investor.name,
+            normalizedName: investor.normalizedName,
           })) ?? [],
         tags: organization?.tags ?? [],
         projects: [],

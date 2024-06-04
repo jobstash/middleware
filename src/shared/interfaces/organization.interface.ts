@@ -21,6 +21,7 @@ export class Organization {
     summary: t.string,
     location: t.string,
     description: t.string,
+    normalizedName: t.string,
     logoUrl: t.union([t.string, t.null]),
     headcountEstimate: t.union([t.number, t.null]),
     createdTimestamp: t.union([t.number, t.null]),
@@ -46,6 +47,9 @@ export class Organization {
   location: string;
 
   @ApiProperty()
+  normalizedName: string;
+
+  @ApiProperty()
   logoUrl: string | null;
 
   @ApiProperty()
@@ -65,6 +69,7 @@ export class Organization {
       orgId,
       summary,
       location,
+      normalizedName,
       headcountEstimate,
       description,
       createdTimestamp,
@@ -79,6 +84,7 @@ export class Organization {
     this.orgId = orgId;
     this.summary = summary;
     this.location = location;
+    this.normalizedName = normalizedName;
     this.headcountEstimate = headcountEstimate;
     this.description = description;
     this.createdTimestamp = createdTimestamp;
@@ -234,6 +240,7 @@ export class ShortOrg {
     orgId: t.string,
     url: t.string,
     name: t.string,
+    normalizedName: t.string,
     location: t.string,
     jobCount: t.number,
     headcountEstimate: t.number,
@@ -252,6 +259,9 @@ export class ShortOrg {
 
   @ApiProperty()
   name: string;
+
+  @ApiProperty()
+  normalizedName: string;
 
   @ApiPropertyOptional()
   logoUrl: string | null;
@@ -299,6 +309,7 @@ export class ShortOrg {
       location,
       jobCount,
       community,
+      normalizedName,
       headcountEstimate,
       aggregateRating,
       reviewCount,
@@ -317,6 +328,7 @@ export class ShortOrg {
     this.location = location;
     this.jobCount = jobCount;
     this.community = community;
+    this.normalizedName = normalizedName;
     this.headcountEstimate = headcountEstimate;
     this.aggregateRating = aggregateRating;
     this.reviewCount = reviewCount;

@@ -21,6 +21,8 @@ import { MailModule } from "./mail/mail.module";
 import { HacksModule } from "./hacks/hacks.module";
 import { AuditsModule } from "./audits/audits.module";
 import { ScorerModule } from "./scorer/scorer.module";
+import { ChainsModule } from "./chains/chains.module";
+import { InvestorsModule } from "./investors/investors.module";
 
 @Module({
   imports: [
@@ -59,6 +61,8 @@ import { ScorerModule } from "./scorer/scorer.module";
     HacksModule,
     AuditsModule,
     ScorerModule,
+    ChainsModule,
+    InvestorsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

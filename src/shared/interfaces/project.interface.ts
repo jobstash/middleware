@@ -17,6 +17,7 @@ export class Project {
     id: t.string,
     name: t.string,
     orgId: t.string,
+    normalizedName: t.string,
     tvl: t.union([t.number, t.null]),
     logo: t.union([t.string, t.null]),
     isMainnet: t.union([t.boolean, t.null]),
@@ -31,6 +32,8 @@ export class Project {
   id: string;
   @ApiProperty()
   name: string;
+  @ApiProperty()
+  normalizedName: string;
   @ApiPropertyOptional()
   logo?: string | null;
   @ApiPropertyOptional()
@@ -62,6 +65,7 @@ export class Project {
       monthlyFees,
       monthlyVolume,
       monthlyRevenue,
+      normalizedName,
       monthlyActiveUsers,
     } = raw;
 
@@ -77,6 +81,7 @@ export class Project {
     this.monthlyFees = monthlyFees;
     this.monthlyVolume = monthlyVolume;
     this.monthlyRevenue = monthlyRevenue;
+    this.normalizedName = normalizedName;
     this.monthlyActiveUsers = monthlyActiveUsers;
 
     if (isLeft(result)) {

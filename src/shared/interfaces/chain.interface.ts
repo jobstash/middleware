@@ -4,26 +4,31 @@ import * as t from "io-ts";
 import { report } from "io-ts-human-reporter";
 export class Chain {
   public static readonly ChainType = t.strict({
-    id: t.union([t.string, t.null]),
-    name: t.union([t.string, t.null]),
+    id: t.string,
+    name: t.string,
+    normalizedName: t.string,
     logo: t.union([t.string, t.null]),
   });
 
   @ApiProperty()
-  id: string | null;
+  id: string;
 
   @ApiProperty()
-  name: string | null;
+  name: string;
+
+  @ApiProperty()
+  normalizedName: string;
 
   @ApiProperty()
   logo: string | null;
 
   constructor(raw: Chain) {
-    const { id, name, logo } = raw;
+    const { id, name, normalizedName, logo } = raw;
     const result = Chain.ChainType.decode(raw);
 
     this.id = id;
     this.name = name;
+    this.normalizedName = normalizedName;
     this.logo = logo;
 
     if (isLeft(result)) {

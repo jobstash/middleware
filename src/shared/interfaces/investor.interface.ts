@@ -7,6 +7,7 @@ export class Investor {
   public static readonly InvestorType = t.strict({
     id: t.string,
     name: t.string,
+    normalizedName: t.string,
   });
 
   @ApiProperty()
@@ -15,12 +16,16 @@ export class Investor {
   @ApiProperty()
   name: string;
 
+  @ApiProperty()
+  normalizedName: string;
+
   constructor(raw: Investor) {
-    const { id, name } = raw;
+    const { id, name, normalizedName } = raw;
     const result = Investor.InvestorType.decode(raw);
 
     this.id = id;
     this.name = name;
+    this.normalizedName = normalizedName;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

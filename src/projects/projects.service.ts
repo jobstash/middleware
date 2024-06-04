@@ -342,6 +342,38 @@ export class ProjectsService {
     }
   }
 
+  async getProjectDetailsBySlug(
+    slug: string,
+    ecosystem: string | undefined,
+  ): Promise<ProjectDetails | null> {
+    try {
+      const details = await this.models.Projects.getProjectDetailsBySlug(slug);
+      const result = details
+        ? new ProjectDetailsEntity(details).getProperties()
+        : undefined;
+      if (ecosystem) {
+        return result?.organization.community.includes(ecosystem)
+          ? result
+          : undefined;
+      } else {
+        return result;
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", slug);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `ProjectsService::getProjectDetailsById ${err.message}`,
+      );
+      return undefined;
+    }
+  }
+
   async getProjectsByOrgId(id: string): Promise<Project[] | null> {
     try {
       const projects = await this.models.Projects.getProjectsData();
@@ -358,6 +390,7 @@ export class ProjectsService {
           tokenSymbol: project.tokenSymbol,
           monthlyFees: project.monthlyFees,
           monthlyVolume: project.monthlyVolume,
+          normalizedName: project.normalizedName,
           monthlyRevenue: project.monthlyRevenue,
           monthlyActiveUsers: project.monthlyActiveUsers,
         }));

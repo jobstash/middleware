@@ -20,6 +20,11 @@ export const Chains = (neogma: Neogma): NeogmaModel<ChainProps, NoRelations> =>
           allowEmpty: false,
           required: true,
         },
+        normalizedName: {
+          type: "string",
+          allowEmpty: false,
+          required: true,
+        },
         logo: {
           type: "string",
           allowEmpty: false,

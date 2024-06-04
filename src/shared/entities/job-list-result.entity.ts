@@ -124,9 +124,8 @@ export class JobListResultEntity {
                 link: notStringOrNull(audit?.link),
               })) ?? [],
             chains:
-              project?.chains?.map(chain => ({
-                id: notStringOrNull(chain?.id),
-                name: notStringOrNull(chain?.name),
+              project.chains.map(chain => ({
+                ...chain,
                 logo: notStringOrNull(chain?.logo),
               })) ?? [],
             jobs:
@@ -175,6 +174,7 @@ export class JobListResultEntity {
               organization?.investors?.map(investor => ({
                 id: investor.id,
                 name: investor.name,
+                normalizedName: investor.normalizedName,
               })) ??
               [],
           })) ?? [],
@@ -193,6 +193,7 @@ export class JobListResultEntity {
           organization?.investors?.map(investor => ({
             id: investor.id,
             name: investor.name,
+            normalizedName: investor.normalizedName,
           })) ?? [],
         community: organization?.community ?? [],
         reviews:

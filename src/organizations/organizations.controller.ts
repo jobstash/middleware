@@ -259,6 +259,43 @@ export class OrganizationsController {
     return result;
   }
 
+  @Get("details/slug/:slug")
+  @ApiOkResponse({
+    description: "Returns the organization details for the provided slug",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(OrgDetailsResult),
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  @ApiNotFoundResponse({
+    description:
+      "Returns that no organization details were found for the provided slug",
+    type: ResponseWithNoData,
+  })
+  async getOrgDetailsBySlug(
+    @Param("slug") slug: string,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+  ): Promise<OrgDetailsResult | undefined> {
+    this.logger.log(`/organizations/details/slug/${slug}`);
+    const result = await this.organizationsService.getOrgDetailsBySlug(
+      slug,
+      ecosystem,
+    );
+    if (result === undefined) {
+      res.status(HttpStatus.NOT_FOUND);
+    }
+    return result;
+  }
+
   @Get("/:id")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)

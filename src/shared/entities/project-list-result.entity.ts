@@ -40,8 +40,7 @@ export class ProjectListResultEntity {
         })) ?? [],
       chains:
         project.chains.map(chain => ({
-          id: notStringOrNull(chain?.id),
-          name: notStringOrNull(chain?.name),
+          ...chain,
           logo: notStringOrNull(chain?.logo),
         })) ?? [],
       jobs:
@@ -128,8 +127,7 @@ export class ProjectCompetitorListResultEntity {
         })) ?? [],
       chains:
         project.chains.map(chain => ({
-          id: notStringOrNull(chain?.id),
-          name: notStringOrNull(chain?.name),
+          ...chain,
           logo: notStringOrNull(chain?.logo),
         })) ?? [],
       jobs:

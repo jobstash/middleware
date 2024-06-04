@@ -137,6 +137,11 @@ export const Organizations = (
           allowEmpty: false,
           required: true,
         },
+        normalizedName: {
+          type: "string",
+          allowEmpty: false,
+          required: true,
+        },
         description: {
           type: "string",
           allowEmpty: false,

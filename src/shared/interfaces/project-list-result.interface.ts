@@ -17,6 +17,7 @@ export class ProjectListResult {
     id: t.string,
     name: t.string,
     orgId: t.string,
+    normalizedName: t.string,
     website: t.union([t.string, t.null]),
     logo: t.union([t.string, t.null]),
     category: t.union([t.string, t.null]),
@@ -44,6 +45,9 @@ export class ProjectListResult {
 
   @ApiProperty()
   orgId: string;
+
+  @ApiProperty()
+  normalizedName: string;
 
   @ApiPropertyOptional()
   website?: string | null;
@@ -116,6 +120,7 @@ export class ProjectListResult {
       isMainnet,
       tokenSymbol,
       tvl,
+      normalizedName,
       monthlyFees,
       monthlyVolume,
       monthlyRevenue,
@@ -146,6 +151,7 @@ export class ProjectListResult {
     this.monthlyFees = monthlyFees;
     this.monthlyVolume = monthlyVolume;
     this.monthlyRevenue = monthlyRevenue;
+    this.normalizedName = normalizedName;
     this.monthlyActiveUsers = monthlyActiveUsers;
 
     if (isLeft(result)) {

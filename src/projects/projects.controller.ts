@@ -242,6 +242,43 @@ export class ProjectsController {
     return result;
   }
 
+  @Get("details/slug/:slug")
+  @ApiOkResponse({
+    description: "Returns the project details for the provided slug",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ProjectDetails),
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  @ApiNotFoundResponse({
+    description:
+      "Returns that no job details were found for the specified uuid",
+    type: ResponseWithNoData,
+  })
+  async getProjectDetailsBySlug(
+    @Param("slug") slug: string,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+  ): Promise<ProjectDetails | undefined> {
+    this.logger.log(`/projects/details/slug/${slug}`);
+    const result = await this.projectsService.getProjectDetailsBySlug(
+      slug,
+      ecosystem,
+    );
+    if (result === undefined) {
+      res.status(HttpStatus.NOT_FOUND);
+    }
+    return result;
+  }
+
   @Get("/category/:category")
   @UseGuards(RBACGuard)
   @ApiOkResponse({
@@ -459,6 +496,7 @@ export class ProjectsController {
                 name: project.name,
                 logo: project.logo,
                 tokenSymbol: project.symbol,
+                normalizedName: project.normalizedName,
                 tvl: thisProjectsData?.tvl,
                 monthlyVolume:
                   (dexOverview?.total30d || 0) +
