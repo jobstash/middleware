@@ -30,7 +30,7 @@ import { AxiosError } from "axios";
 import { firstValueFrom, catchError } from "rxjs";
 import { HttpService } from "@nestjs/axios";
 import { emojiRegex } from "./emoji-regex";
-
+import ShortUniqueId from "short-unique-id";
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
     It accepts args for the values to filter with and the cypher filter to apply based on the various combinations of value existence possible
@@ -518,8 +518,8 @@ export const resetTestDB = async (
   );
 };
 
-export const randomToken = async (): Promise<string> => {
-  const { customRandom, random, urlAlphabet } = await import("nanoid");
-  const nanoid = customRandom(urlAlphabet, 64, random);
-  return nanoid();
+export const randomToken = (): string => {
+  const uid = new ShortUniqueId();
+  const generate = uid.randomUUID(64);
+  return generate;
 };

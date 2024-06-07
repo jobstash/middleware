@@ -58,7 +58,7 @@
     "iron-session": "^6.3.1",
     "joi": "^17.9.2",
     "mime": "^3.0.0",
-    "nanoid": "^5.0.7",
+    "short-unique-id": "^5.2.0",
     "neo4j-driver": "^5.8.0",
     "neogma": "^1.12.3",
     "nest-neogma": "^0.5.1",

@@ -55,20 +55,39 @@ export class ScorerController {
   ): Promise<{
     url: string;
   }> {
-    const { address } = await this.authService.getSession(req, res);
+    this.logger.log(`/scorer/oauth/lever`);
+    try {
+      const { address } = await this.authService.getSession(req, res);
 
-    if (address) {
-      const orgId = await this.userService.findOrgIdByWallet(address as string);
-      const key = await this.scorerService.generateEphemeralTokenForOrg(orgId);
-      return {
-        url: `${this.configService.get<string>(
-          "SCORER_DOMAIN",
-        )}/lever/oauth?key=${key}`,
-      };
-    } else {
-      throw new UnauthorizedException({
-        message: "You are not authorized to access this resource",
+      if (address) {
+        const orgId = await this.userService.findOrgIdByWallet(
+          address as string,
+        );
+        const key = await this.scorerService.generateEphemeralTokenForOrg(
+          orgId,
+        );
+        return {
+          url: `${this.configService.get<string>(
+            "SCORER_DOMAIN",
+          )}/lever/oauth?key=${key}`,
+        };
+      } else {
+        throw new UnauthorizedException({
+          message: "You are not authorized to access this resource",
+        });
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "proxy-call",
+          source: "scorer.controller",
+        });
+        Sentry.captureException(err);
       });
+      this.logger.error(`ScorerController::triggerLeverOauth ${err.message}`);
+      return {
+        url: "",
+      };
     }
   }
 
@@ -88,55 +107,78 @@ export class ScorerController {
       workHistory: UserWorkHistory[];
     }>
   > {
-    const { address } = await this.authService.getSession(req, res);
+    this.logger.log(`/scorer/user/report`);
+    try {
+      const { address } = await this.authService.getSession(req, res);
 
-    if (address) {
-      const orgId = await this.userService.findOrgIdByWallet(address as string);
-      const key = await this.scorerService.generateEphemeralTokenForOrg(orgId);
-      const { id: clientId, platform } =
-        await this.scorerService.getAtsClientInfoByOrgId(orgId);
-
-      if (clientId && platform) {
-        const res = await firstValueFrom(
-          this.httpService
-            .get<
-              ResponseWithOptionalData<{
-                login: string;
-                nfts: string[];
-                stats: UserLeanStats;
-                workHistory: UserWorkHistory[];
-              }>
-            >(
-              `${this.configService.get<string>(
-                "SCORER_DOMAIN",
-              )}/scorer/users/report?user=${user}&wallet=${wallet}&client_id=${clientId}&platform=${platform}&key=${key}`,
-            )
-            .pipe(
-              catchError((err: AxiosError) => {
-                Sentry.withScope(scope => {
-                  scope.setTags({
-                    action: "proxy-call",
-                    source: "scorer.controller",
-                  });
-                  scope.setExtra("input", { user, wallet });
-                  Sentry.captureException(err);
-                });
-                this.logger.error(
-                  `ScorerController::generateUserReport ${err.message}`,
-                );
-                return [];
-              }),
-            ),
+      if (address) {
+        const orgId = await this.userService.findOrgIdByWallet(
+          address as string,
         );
-        return res.data;
+        const key = await this.scorerService.generateEphemeralTokenForOrg(
+          orgId,
+        );
+        const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
+
+        const clientId = client?.id;
+        const platform = client?.platform;
+
+        if (clientId && platform) {
+          const res = await firstValueFrom(
+            this.httpService
+              .get<
+                ResponseWithOptionalData<{
+                  login: string;
+                  nfts: string[];
+                  stats: UserLeanStats;
+                  workHistory: UserWorkHistory[];
+                }>
+              >(
+                `${this.configService.get<string>(
+                  "SCORER_DOMAIN",
+                )}/scorer/users/report?user=${user}&wallet=${wallet}&client_id=${clientId}&platform=${platform}&key=${key}`,
+              )
+              .pipe(
+                catchError((err: AxiosError) => {
+                  Sentry.withScope(scope => {
+                    scope.setTags({
+                      action: "proxy-call",
+                      source: "scorer.controller",
+                    });
+                    scope.setExtra("input", { user, wallet });
+                    Sentry.captureException(err);
+                  });
+                  this.logger.error(
+                    `ScorerController::generateUserReport ${err.message}`,
+                  );
+                  return [];
+                }),
+              ),
+          );
+          return res.data;
+        } else {
+          return { success: false, message: "Client preferences not found" };
+        }
       } else {
-        return { success: false, message: "Client preferences not found" };
+        throw new UnauthorizedException({
+          success: false,
+          message: "You are not authorized to access this resource",
+        });
       }
-    } else {
-      throw new UnauthorizedException({
-        success: false,
-        message: "You are not authorized to access this resource",
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "proxy-call",
+          source: "scorer.controller",
+        });
+        scope.setExtra("input", { user, wallet });
+        Sentry.captureException(err);
       });
+      this.logger.error(`ScorerController::generateUserReport ${err.message}`);
+      return {
+        success: false,
+        message: "Error generating user report",
+      };
     }
   }
 
@@ -146,6 +188,7 @@ export class ScorerController {
   async setupOrgLink(
     @Body() body: SetupOrgLinkInput,
   ): Promise<ResponseWithNoData> {
+    this.logger.log(`/scorer/setup`);
     const res = await firstValueFrom(
       this.httpService
         .get<ResponseWithNoData>(`/${body.preferences.platformName}/setup`)
@@ -175,6 +218,7 @@ export class ScorerController {
     @Body() body: CreateClientInput,
   ): Promise<ResponseWithNoData> {
     if (["workable", "greenhouse"].includes(platform)) {
+      this.logger.log(`/scorer/register/${platform}`);
       const res = await firstValueFrom(
         this.httpService.get<ResponseWithNoData>(`/${platform}/setup`).pipe(
           catchError((err: AxiosError) => {
@@ -210,6 +254,7 @@ export class ScorerController {
     @Body() body: RetryCreateClientWebhooksInput,
   ): Promise<ResponseWithNoData> {
     if (["lever", "workable"].includes(platform)) {
+      this.logger.log(`/scorer/webhooks/${platform}`);
       const res = await firstValueFrom(
         this.httpService.get<ResponseWithNoData>(`/${platform}/webhooks`).pipe(
           catchError((err: AxiosError) => {

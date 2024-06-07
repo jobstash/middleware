@@ -18,7 +18,7 @@ export class ScorerService {
   ) {}
 
   generateEphemeralTokenForOrg = async (orgId: string): Promise<string> => {
-    const token = await randomToken();
+    const token = randomToken();
     const result = await this.neogma.queryRunner.run(
       `
         CREATE (token:EphemeralToken {id: randomUUID(), token: $token})

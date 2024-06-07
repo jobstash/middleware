@@ -7,11 +7,14 @@ import {
   COMMUNITY_NFT_ADDRESSES,
   ECOSYSTEMS,
 } from "src/shared/constants/viem";
+import * as Sentry from "@sentry/node";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Injectable()
 export class SiweService {
   private readonly ethClient;
   private readonly polyClient;
+  private readonly logger = new CustomLogger(SiweService.name);
   constructor(private readonly configService: ConfigService) {
     const INFRURA_ID = this.configService.get<string>("INFURA_API_KEY");
     this.ethClient = createPublicClient({
@@ -31,25 +34,38 @@ export class SiweService {
   }
 
   async getCommunitiesForWallet(wallet: string): Promise<string[]> {
-    const communities = [];
-    const hasLobsterDAONFT = await this.ethClient.readContract({
-      address: COMMUNITY_NFT_ADDRESSES[ECOSYSTEMS.LOBSTERDAO].address,
-      abi: ABI,
-      functionName: "balanceOf",
-      args: [wallet as `0x${string}`],
-    });
-    const hasEthdamNFT = await this.polyClient.readContract({
-      address: COMMUNITY_NFT_ADDRESSES[ECOSYSTEMS.ETHDAM].address,
-      abi: ABI,
-      functionName: "balanceOf",
-      args: [wallet as `0x${string}`],
-    });
-    if (hasLobsterDAONFT) {
-      communities.push(COMMUNITY_NFT_ADDRESSES[ECOSYSTEMS.LOBSTERDAO].label);
+    try {
+      const communities = [];
+      const hasLobsterDAONFT = await this.ethClient.readContract({
+        address: COMMUNITY_NFT_ADDRESSES[ECOSYSTEMS.LOBSTERDAO].address,
+        abi: ABI,
+        functionName: "balanceOf",
+        args: [wallet as `0x${string}`],
+      });
+      const hasEthdamNFT = await this.polyClient.readContract({
+        address: COMMUNITY_NFT_ADDRESSES[ECOSYSTEMS.ETHDAM].address,
+        abi: ABI,
+        functionName: "balanceOf",
+        args: [wallet as `0x${string}`],
+      });
+      if (hasLobsterDAONFT) {
+        communities.push(COMMUNITY_NFT_ADDRESSES[ECOSYSTEMS.LOBSTERDAO].label);
+      }
+      if (hasEthdamNFT) {
+        communities.push(COMMUNITY_NFT_ADDRESSES[ECOSYSTEMS.ETHDAM].label);
+      }
+      return communities;
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "proxy-call",
+          source: "siwe.service",
+        });
+        scope.setExtra("input", { wallet });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`SiweService::getCommunitiesForWallet ${err.message}`);
+      return [];
     }
-    if (hasEthdamNFT) {
-      communities.push(COMMUNITY_NFT_ADDRESSES[ECOSYSTEMS.ETHDAM].label);
-    }
-    return communities;
   }
 }
