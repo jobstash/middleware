@@ -122,8 +122,13 @@ export const StructuredJobposts = (
           allowEmpty: false,
           required: true,
         },
+        access: {
+          type: "string",
+          allowEmpty: false,
+          required: true,
+        },
         url: {
-          type: "number",
+          type: "string",
           allowEmpty: false,
           required: true,
         },

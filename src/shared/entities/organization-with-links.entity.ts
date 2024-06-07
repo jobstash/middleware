@@ -108,7 +108,10 @@ export class OrganizationWithLinksEntity {
                 salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
                 paysInCrypto: jobpost?.paysInCrypto ?? null,
                 offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
-                url: notStringOrNull(jobpost?.url),
+                url:
+                  jobpost?.access === "protected"
+                    ? null
+                    : notStringOrNull(jobpost?.url),
                 title: notStringOrNull(jobpost?.title),
                 summary: notStringOrNull(jobpost?.summary),
                 description: notStringOrNull(jobpost?.description),

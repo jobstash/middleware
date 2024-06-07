@@ -33,6 +33,7 @@ export class PublicService {
           id: structured_jobpost.id,
           url: structured_jobpost.url,
           title: structured_jobpost.title,
+          access: structured_jobpost.access,
           salary: structured_jobpost.salary,
           culture: structured_jobpost.culture,
           location: structured_jobpost.location,

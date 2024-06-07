@@ -6,8 +6,9 @@ import { report } from "io-ts-human-reporter";
 export class StructuredJobpost {
   public static readonly StructuredJobpostType = t.strict({
     id: t.string,
-    url: t.string,
     shortUUID: t.string,
+    url: t.union([t.string, t.null]),
+    access: t.union([t.literal("public"), t.literal("protected")]),
     benefits: t.array(t.string),
     requirements: t.array(t.string),
     responsibilities: t.array(t.string),
@@ -33,9 +34,12 @@ export class StructuredJobpost {
   id: string;
 
   @ApiProperty()
-  url: string;
+  access: "public" | "protected";
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  url: string | null;
+
+  @ApiPropertyOptional()
   title: string | null;
 
   @ApiPropertyOptional()
@@ -99,6 +103,7 @@ export class StructuredJobpost {
     const {
       id,
       url,
+      access,
       title,
       salary,
       culture,
@@ -126,6 +131,7 @@ export class StructuredJobpost {
     this.id = id;
     this.url = url;
     this.title = title;
+    this.access = access;
     this.salary = salary;
     this.culture = culture;
     this.location = location;

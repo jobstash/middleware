@@ -2,7 +2,7 @@ import { HttpService } from "@nestjs/axios";
 import { Injectable } from "@nestjs/common";
 import { AxiosError } from "axios";
 import { catchError, firstValueFrom } from "rxjs";
-import { UserWorkHistory } from "src/shared/interfaces";
+import { UserLeanStats, UserWorkHistory } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { Neogma } from "neogma";
@@ -78,6 +78,28 @@ export class ScorerService {
               Sentry.captureException(err);
             });
             this.logger.error(`ScorerService::getWorkHistory ${err.message}`);
+            return [];
+          }),
+        ),
+    );
+    return res.data;
+  };
+
+  getLeanStats = async (users: string[]): Promise<UserLeanStats[]> => {
+    const res = await firstValueFrom(
+      this.httpService
+        .get<UserLeanStats[]>(`/scorer/users/stats?users=${users.join(",")}`)
+        .pipe(
+          catchError((err: AxiosError) => {
+            Sentry.withScope(scope => {
+              scope.setTags({
+                action: "proxy-call",
+                source: "scorer.service",
+              });
+              scope.setExtra("input", users);
+              Sentry.captureException(err);
+            });
+            this.logger.error(`ScorerService::getLeanStats ${err.message}`);
             return [];
           }),
         ),

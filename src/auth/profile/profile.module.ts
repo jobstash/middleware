@@ -16,6 +16,7 @@ import { ScorerService } from "src/scorer/scorer.service";
 import { HttpModule } from "@nestjs/axios";
 import { REALLY_LONG_TIME } from "src/shared/constants";
 import * as https from "https";
+import { JobsService } from "src/jobs/jobs.service";
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import * as https from "https";
     OrganizationsService,
     SiweService,
     ScorerService,
+    JobsService,
   ],
 })
 export class ProfileModule {}

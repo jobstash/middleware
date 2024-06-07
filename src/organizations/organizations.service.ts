@@ -76,6 +76,7 @@ export class OrganizationsService {
             (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | structured_jobpost {
               id: structured_jobpost.id,
               title: structured_jobpost.title,
+              access: structured_jobpost.access,
               salary: structured_jobpost.salary,
               location: structured_jobpost.location,
               summary: structured_jobpost.summary,
@@ -428,6 +429,7 @@ export class OrganizationsService {
               (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | structured_jobpost {
                 id: structured_jobpost.id,
                 title: structured_jobpost.title,
+                access: structured_jobpost.access,
                 salary: structured_jobpost.salary,
                 location: structured_jobpost.location,
                 summary: structured_jobpost.summary,
@@ -550,6 +552,7 @@ export class OrganizationsService {
               (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | structured_jobpost {
                 id: structured_jobpost.id,
                 title: structured_jobpost.title,
+                access: structured_jobpost.access,
                 salary: structured_jobpost.salary,
                 location: structured_jobpost.location,
                 summary: structured_jobpost.summary,
@@ -792,6 +795,7 @@ export class OrganizationsService {
             (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | structured_jobpost {
               id: structured_jobpost.id,
               title: structured_jobpost.title,
+              access: structured_jobpost.access,
               salary: structured_jobpost.salary,
               location: structured_jobpost.location,
               summary: structured_jobpost.summary,

@@ -19,7 +19,7 @@ type RawJobPost = StructuredJobpostWithRelations & {
 export class JobDetailsEntity {
   constructor(private readonly raw: RawJobPost) {}
 
-  getProperties(): JobDetails {
+  getProperties(protectLink = true): JobDetails {
     const jobpost = this.raw;
     const { organization, tags } = jobpost;
     const reviews =
@@ -44,7 +44,11 @@ export class JobDetailsEntity {
       salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
       paysInCrypto: jobpost?.paysInCrypto ?? null,
       offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
-      url: notStringOrNull(jobpost?.url),
+      url: protectLink
+        ? jobpost?.access === "protected"
+          ? null
+          : notStringOrNull(jobpost?.url)
+        : notStringOrNull(jobpost?.url),
       title: notStringOrNull(jobpost?.title),
       summary: notStringOrNull(jobpost?.summary),
       description: notStringOrNull(jobpost?.description),
@@ -160,7 +164,10 @@ export class JobDetailsEntity {
                     ? nonZeroOrNull(jobpost?.featureEndDate)
                     : null,
                   featured: isStillFeatured,
-                  url: notStringOrNull(jobpost?.url),
+                  url:
+                    jobpost?.access === "protected"
+                      ? null
+                      : notStringOrNull(jobpost?.url),
                   title: notStringOrNull(jobpost?.title),
                   summary: notStringOrNull(jobpost?.summary),
                   description: notStringOrNull(jobpost?.description),

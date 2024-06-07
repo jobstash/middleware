@@ -78,6 +78,7 @@ export class JobsService {
           id: structured_jobpost.id,
           url: structured_jobpost.url,
           title: structured_jobpost.title,
+          access: structured_jobpost.access,
           salary: structured_jobpost.salary,
           culture: structured_jobpost.culture,
           location: structured_jobpost.location,
@@ -207,6 +208,7 @@ export class JobsService {
               id: structured_jobpost.id,
               url: structured_jobpost.url,
               title: structured_jobpost.title,
+              access: structured_jobpost.access,
               salary: structured_jobpost.salary,
               culture: structured_jobpost.culture,
               location: structured_jobpost.location,
@@ -727,6 +729,7 @@ export class JobsService {
   async getJobDetailsByUuid(
     uuid: string,
     ecosystem: string | undefined,
+    protectLink = true,
   ): Promise<JobDetails | undefined> {
     try {
       const generatedQuery = `
@@ -742,6 +745,7 @@ export class JobsService {
           id: structured_jobpost.id,
           url: structured_jobpost.url,
           title: structured_jobpost.title,
+          access: structured_jobpost.access,
           salary: structured_jobpost.salary,
           culture: structured_jobpost.culture,
           location: structured_jobpost.location,
@@ -841,7 +845,7 @@ export class JobsService {
       const job = result.records[0]?.get("result")
         ? new JobDetailsEntity(
             result.records[0]?.get("result") as JobDetails,
-          ).getProperties()
+          ).getProperties(protectLink)
         : undefined;
       if (ecosystem) {
         return job?.organization.community.includes(ecosystem)
@@ -973,6 +977,7 @@ export class JobsService {
             id: structured_jobpost.id,
             url: structured_jobpost.url,
             title: structured_jobpost.title,
+            access: structured_jobpost.access,
             salary: structured_jobpost.salary,
             culture: structured_jobpost.culture,
             location: structured_jobpost.location,
@@ -1187,6 +1192,7 @@ export class JobsService {
             id: structured_jobpost.id,
             url: structured_jobpost.url,
             title: structured_jobpost.title,
+access: structured_jobpost.access,
             salary: structured_jobpost.salary,
             culture: structured_jobpost.culture,
             location: structured_jobpost.location,
@@ -1437,6 +1443,7 @@ export class JobsService {
             id: structured_jobpost.id,
             url: structured_jobpost.url,
             title: structured_jobpost.title,
+            access: structured_jobpost.access,
             salary: structured_jobpost.salary,
             culture: structured_jobpost.culture,
             location: structured_jobpost.location,
@@ -1588,6 +1595,7 @@ export class JobsService {
             id: structured_jobpost.id,
             url: structured_jobpost.url,
             title: structured_jobpost.title,
+            access: structured_jobpost.access,
             salary: structured_jobpost.salary,
             culture: structured_jobpost.culture,
             location: structured_jobpost.location,
@@ -1744,6 +1752,7 @@ export class JobsService {
             id: structured_jobpost.id,
             url: structured_jobpost.url,
             title: structured_jobpost.title,
+            access: structured_jobpost.access,
             salary: structured_jobpost.salary,
             culture: structured_jobpost.culture,
             location: structured_jobpost.location,
@@ -1899,6 +1908,7 @@ export class JobsService {
             id: structured_jobpost.id,
             url: structured_jobpost.url,
             title: structured_jobpost.title,
+            access: structured_jobpost.access,
             salary: structured_jobpost.salary,
             culture: structured_jobpost.culture,
             location: structured_jobpost.location,

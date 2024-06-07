@@ -52,6 +52,7 @@ import { addMonths, isBefore } from "date-fns";
 import * as Sentry from "@sentry/node";
 import { SiweService } from "../siwe/siwe.service";
 import { ScorerService } from "src/scorer/scorer.service";
+import { JobsService } from "src/jobs/jobs.service";
 
 @Controller("profile")
 export class ProfileController {
@@ -65,6 +66,7 @@ export class ProfileController {
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
     private readonly scorerService: ScorerService,
+    private readonly jobsService: JobsService,
   ) {}
 
   @Get("dev/info")
@@ -669,63 +671,97 @@ export class ProfileController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body("shortUUID") shortUUID: string,
-  ): Promise<ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<string>> {
     this.logger.log(`/profile/jobs/apply`);
     const { address } = await this.authService.getSession(req, res);
     try {
       if (address) {
-        const hasApplied = await this.profileService.verifyApplyInteraction(
-          address as string,
+        const job = await this.jobsService.getJobDetailsByUuid(
           shortUUID,
+          undefined,
+          false,
         );
-        if (hasApplied) {
-          return {
-            success: true,
-            message: "Job has already been applied to by this user",
-          };
-        } else {
-          const CACHE_VALIDITY_THRESHOLD = this.configService.get<number>(
-            "CACHE_VALIDITY_THRESHOLD",
-          );
 
-          const userCacheLock = await this.profileService.getUserCacheLock(
+        if (job) {
+          const hasApplied = await this.profileService.verifyApplyInteraction(
             address as string,
+            shortUUID,
           );
 
-          const userCacheLockIsValid =
-            (userCacheLock !== -1 || userCacheLock !== null) &&
-            isBefore(
-              new Date(),
-              addMonths(new Date(userCacheLock), CACHE_VALIDITY_THRESHOLD),
+          if (hasApplied) {
+            return {
+              success: true,
+              message: "Job has already been applied to by this user",
+            };
+          } else {
+            const userProfile = data(
+              await this.profileService.getDevUserProfile(address as string),
             );
-
-          if (!userCacheLockIsValid) {
-            const orgId = await this.userService.findOrgIdByJobShortUUID(
-              shortUUID,
-            );
-
-            const orgProfile = await this.userService.findProfileByOrgId(orgId);
-
-            const org = await this.organizationsService.getOrgDetailsById(
-              orgId,
-              undefined,
-            );
-
-            const job = org.jobs.find(x => x.shortUUID === shortUUID);
-
-            if (orgProfile && orgProfile.email) {
-              const userProfile = data(
-                await this.profileService.getDevUserProfile(address as string),
+            if (job.access === "protected") {
+              if (userProfile.username) {
+                const stats = await this.scorerService.getLeanStats([
+                  userProfile.username,
+                ]);
+                if (stats[0].is_native) {
+                  return {
+                    success: true,
+                    message: "User is a crypto native",
+                    data: job.url,
+                  };
+                } else {
+                  return {
+                    success: false,
+                    message: "User is not a crypto native",
+                  };
+                }
+              } else {
+                return {
+                  success: false,
+                  message: "User github username not found",
+                };
+              }
+            } else {
+              const CACHE_VALIDITY_THRESHOLD = this.configService.get<number>(
+                "CACHE_VALIDITY_THRESHOLD",
               );
-              const communities =
-                await this.siweService.getCommunitiesForWallet(
-                  userProfile.wallet,
+
+              const userCacheLock = await this.profileService.getUserCacheLock(
+                address as string,
+              );
+
+              const userCacheLockIsValid =
+                (userCacheLock !== -1 || userCacheLock !== null) &&
+                isBefore(
+                  new Date(),
+                  addMonths(new Date(userCacheLock), CACHE_VALIDITY_THRESHOLD),
                 );
-              await this.mailService.sendEmail({
-                from: this.configService.getOrThrow<string>("EMAIL"),
-                to: orgProfile.email,
-                subject: `JobStash ATS: New Applicant for ${job.title}`,
-                html: `
+
+              if (!userCacheLockIsValid) {
+                const orgId = await this.userService.findOrgIdByJobShortUUID(
+                  shortUUID,
+                );
+
+                const orgProfile = await this.userService.findProfileByOrgId(
+                  orgId,
+                );
+
+                const org = await this.organizationsService.getOrgDetailsById(
+                  orgId,
+                  undefined,
+                );
+
+                const job = org.jobs.find(x => x.shortUUID === shortUUID);
+
+                if (orgProfile && orgProfile.email) {
+                  const communities =
+                    await this.siweService.getCommunitiesForWallet(
+                      userProfile.wallet,
+                    );
+                  await this.mailService.sendEmail({
+                    from: this.configService.getOrThrow<string>("EMAIL"),
+                    to: orgProfile.email,
+                    subject: `JobStash ATS: New Applicant for ${job.title}`,
+                    html: `
                     Dear ${org.name},
                     
                     You have a new applicant.
@@ -745,28 +781,35 @@ export class ProfileController {
                     Thank you for using JobStash ATS!
                     The JobStash Team
                   `,
-              });
-              if (userProfile && userProfile.username) {
-                await this.profileService.refreshUserCacheLock([
-                  userProfile.wallet,
-                ]);
+                  });
+                  if (userProfile && userProfile.username) {
+                    await this.profileService.refreshUserCacheLock([
+                      userProfile.wallet,
+                    ]);
 
-                const workHistory = await this.scorerService.getWorkHistory([
-                  userProfile.username,
-                ]);
+                    const workHistory = await this.scorerService.getWorkHistory(
+                      [userProfile.username],
+                    );
 
-                await this.profileService.refreshWorkHistoryCache(
-                  userProfile.wallet,
-                  workHistory.find(x => x.user === userProfile.username)
-                    ?.workHistory ?? [],
-                );
+                    await this.profileService.refreshWorkHistoryCache(
+                      userProfile.wallet,
+                      workHistory.find(x => x.user === userProfile.username)
+                        ?.workHistory ?? [],
+                    );
+                  }
+                }
               }
+              return await this.profileService.logApplyInteraction(
+                address as string,
+                shortUUID,
+              );
             }
           }
-          return await this.profileService.logApplyInteraction(
-            address as string,
-            shortUUID,
-          );
+        } else {
+          return {
+            success: false,
+            message: "Job not found",
+          };
         }
       } else {
         res.status(HttpStatus.FORBIDDEN);
