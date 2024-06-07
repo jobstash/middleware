@@ -11,12 +11,16 @@ import { ApiBearerAuth, ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import { JobListResult, PaginatedData } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { AllJobsInput } from "./dto/all-jobs.input";
+import { ConfigService } from "@nestjs/config";
 
 @ApiBearerAuth()
 @Controller("public")
 export class PublicController {
   private readonly logger = new CustomLogger(PublicController.name);
-  constructor(private readonly publicService: PublicService) {}
+  constructor(
+    private readonly publicService: PublicService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Get("/all-jobs")
   @UseGuards(ApiKeyGuard)
@@ -48,6 +52,15 @@ export class PublicController {
     params: AllJobsInput,
   ): Promise<PaginatedData<JobListResult>> {
     this.logger.log(`/public/all-jobs ${JSON.stringify(params)}`);
-    return this.publicService.getAllJobsList(params);
+    const jobs = await this.publicService.getAllJobsList(params);
+    return {
+      ...jobs,
+      data: jobs.data.map(job => ({
+        ...job,
+        url: `${this.configService.getOrThrow<string>("MW_DOMAIN")}/jobs/${
+          job.shortUUID
+        }/details`,
+      })),
+    };
   }
 }
