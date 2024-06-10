@@ -1052,6 +1052,9 @@ export class ProfileService {
     wallet: string,
     dto: UserWorkHistory[],
   ): Promise<ResponseWithNoData> {
+    const isCryptoNative = dto.some(x =>
+      x.repositories.some(repo => repo.cryptoNative),
+    );
     try {
       await this.neogma.queryRunner.run(
         `
@@ -1093,9 +1096,10 @@ export class ProfileService {
         WITH history
 
         MATCH (user: User {wallet: $wallet})
+        SET user.cryptoNative = $cryptoNative
         CREATE (user)-[:HAS_WORK_HISTORY]->(history)
         `,
-        { wallet, history: dto ?? [] },
+        { wallet, history: dto ?? [], cryptoNative: isCryptoNative },
       );
       return {
         success: true,

@@ -16,6 +16,9 @@ import { responseSchemaWrapper } from "src/shared/helpers";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { GithubUserService } from "./github-user.service";
 import { CheckWalletRoles, CheckWalletFlows } from "src/shared/constants";
+import { addMonths, isBefore } from "date-fns";
+import { ProfileService } from "../profile/profile.service";
+import { ScorerService } from "src/scorer/scorer.service";
 
 @Controller("github")
 @ApiExtraModels(User)
@@ -26,6 +29,8 @@ export class GithubController {
     private readonly githubUserService: GithubUserService,
     private readonly configService: ConfigService,
     private readonly userService: UserService,
+    private readonly profileService: ProfileService,
+    private readonly scorerService: ScorerService,
   ) {
     this.ghConfig = {
       dev: {
@@ -107,6 +112,32 @@ export class GithubController {
 
     if (!res1.success) {
       return res1;
+    }
+
+    const CACHE_VALIDITY_THRESHOLD = this.configService.get<number>(
+      "CACHE_VALIDITY_THRESHOLD",
+    );
+
+    const userCacheLock = await this.profileService.getUserCacheLock(wallet);
+
+    const userCacheLockIsValid =
+      (userCacheLock !== -1 || userCacheLock !== null) &&
+      isBefore(
+        new Date(),
+        addMonths(new Date(userCacheLock), CACHE_VALIDITY_THRESHOLD),
+      );
+
+    if (!userCacheLockIsValid) {
+      await this.profileService.refreshUserCacheLock([wallet]);
+
+      const workHistory = await this.scorerService.getWorkHistory([
+        profileData.login,
+      ]);
+
+      await this.profileService.refreshWorkHistoryCache(
+        wallet,
+        workHistory.find(x => x.user === profileData.login)?.workHistory ?? [],
+      );
     }
 
     await this.userService.setWalletFlow({

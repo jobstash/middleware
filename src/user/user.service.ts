@@ -583,6 +583,33 @@ export class UserService {
       });
   }
 
+  async getCryptoNativeStatus(wallet: string): Promise<boolean | undefined> {
+    return this.neogma.queryRunner
+      .run(
+        `
+          MATCH (u:User {wallet: $wallet})
+          RETURN u.cryptoNative as cryptoNative
+        `,
+        { wallet },
+      )
+      .then(res =>
+        res.records.length
+          ? (res.records[0].get("cryptoNative") as boolean)
+          : undefined,
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`UserService::getCryptoNativeStatus ${err.message}`);
+        return undefined;
+      });
+  }
+
   async authorizeUserForOrg(
     wallet: string,
     orgId: string,

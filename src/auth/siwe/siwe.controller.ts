@@ -243,6 +243,7 @@ export class SiweController {
           data: {
             role: CheckWalletRoles.ANON,
             flow: CheckWalletFlows.LOGIN,
+            cryptoNative: false,
           },
         });
       } else {
@@ -252,10 +253,14 @@ export class SiweController {
         const userFlow = await this.userService.getWalletFlow(
           session.address as string,
         );
+        const userCryptoNative = await this.userService.getCryptoNativeStatus(
+          session.address as string,
+        );
 
         let role;
         let flow;
-        if (userRole !== undefined) {
+        let cryptoNative;
+        if (userRole) {
           role = userRole.getName();
         } else {
           this.logger.log(`/siwe/check-wallet user role was ${userRole}`);
@@ -263,25 +268,36 @@ export class SiweController {
           role = CheckWalletRoles.ANON;
         }
 
-        if (userFlow !== undefined) {
+        if (userFlow) {
           flow = userFlow.getName();
         } else {
           this.logger.log(`/siwe/check-wallet user flow was ${userFlow}`);
           flow = CheckWalletFlows.LOGIN;
         }
 
+        if (userCryptoNative) {
+          cryptoNative = userCryptoNative;
+        } else {
+          this.logger.log(
+            `/siwe/check-wallet user crypto native was ${userCryptoNative}`,
+          );
+          cryptoNative = false;
+        }
+
         session.token = this.authService.createToken({
           wallet: session.address,
-          role: role,
-          flow: flow,
+          role,
+          flow,
+          cryptoNative,
         });
         session.role = role;
         session.flow = flow;
+        session.cryptoNative = cryptoNative;
         await session.save();
         res.send({
           success: true,
           message: "Wallet checked successfully",
-          data: { role, flow },
+          data: { role, flow, cryptoNative },
         });
       }
     } catch (error) {

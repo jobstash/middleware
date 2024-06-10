@@ -7,9 +7,13 @@ import { UserModule } from "../../user/user.module";
 import { UserService } from "../../user/user.service";
 import { GithubUserService } from "./github-user.service";
 import { ModelService } from "src/model/model.service";
+import { ProfileService } from "../profile/profile.service";
+import { ScorerService } from "src/scorer/scorer.service";
+import { HttpModule } from "@nestjs/axios";
 
 @Module({
   imports: [
+    HttpModule,
     forwardRef(() => UserModule),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -24,6 +28,12 @@ import { ModelService } from "src/model/model.service";
     CacheModule.register(),
   ],
   controllers: [GithubController],
-  providers: [UserService, GithubUserService, ModelService],
+  providers: [
+    UserService,
+    GithubUserService,
+    ModelService,
+    ProfileService,
+    ScorerService,
+  ],
 })
 export class GithubModule {}
