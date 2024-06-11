@@ -19,20 +19,23 @@ import { Roles } from "src/shared/decorators";
 import { ConfigService } from "@nestjs/config";
 import { UserService } from "src/user/user.service";
 import { AuthService } from "src/auth/auth.service";
-import { Request, Response } from "express";
+import { Request, Response as ExpressResponse } from "express";
 import { SetupOrgLinkInput } from "./dto/setup-org-link.input";
 import {
   ResponseWithNoData,
   ResponseWithOptionalData,
   UserLeanStats,
   UserWorkHistory,
+  Response,
+  data,
 } from "src/shared/interfaces";
-import { catchError, firstValueFrom } from "rxjs";
+import { catchError, firstValueFrom, map, of } from "rxjs";
 import { HttpService } from "@nestjs/axios";
 import { AxiosError } from "axios";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { RetryCreateClientWebhooksInput } from "./dto/retry-create-client-webhooks.input";
 import { CreateClientInput } from "./dto/create-client.input";
+import { ATSClient } from "src/shared/interfaces/client.interface";
 
 @Controller("scorer")
 export class ScorerController {
@@ -51,7 +54,7 @@ export class ScorerController {
   @Roles(CheckWalletRoles.ORG)
   async triggerLeverOauth(
     @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
+    @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<{
     url: string;
   }> {
@@ -96,7 +99,7 @@ export class ScorerController {
   @Roles(CheckWalletRoles.ORG)
   async generateUserReport(
     @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
+    @Res({ passthrough: true }) res: ExpressResponse,
     @Query("user") user: string,
     @Query("wallet") wallet: string,
   ): Promise<
@@ -193,6 +196,7 @@ export class ScorerController {
       this.httpService
         .get<ResponseWithNoData>(`/${body.preferences.platformName}/setup`)
         .pipe(
+          map(res => res.data),
           catchError((err: AxiosError) => {
             Sentry.withScope(scope => {
               scope.setTags({
@@ -203,11 +207,14 @@ export class ScorerController {
               Sentry.captureException(err);
             });
             this.logger.error(`ScorerController::setupOrgLink ${err.message}`);
-            return [];
+            return of({
+              success: false,
+              message: "Error setting up org link",
+            });
           }),
         ),
     );
-    return res.data;
+    return res;
   }
 
   @Post("register/:platform")
@@ -216,11 +223,12 @@ export class ScorerController {
   async registerAccount(
     @Param("platform") platform: "workable" | "greenhouse",
     @Body() body: CreateClientInput,
-  ): Promise<ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<ATSClient>> {
     if (["workable", "greenhouse"].includes(platform)) {
       this.logger.log(`/scorer/register/${platform}`);
-      const res = await firstValueFrom(
-        this.httpService.get<ResponseWithNoData>(`/${platform}/register`).pipe(
+      const res: ResponseWithOptionalData<ATSClient> = await firstValueFrom(
+        this.httpService.get<Response<ATSClient>>(`/${platform}/register`).pipe(
+          map(res => res.data),
           catchError((err: AxiosError) => {
             Sentry.withScope(scope => {
               scope.setTags({
@@ -233,11 +241,26 @@ export class ScorerController {
             this.logger.error(
               `ScorerController::registerAccount ${err.message}`,
             );
-            return [];
+            return of({
+              success: false,
+              message: "Error registering account",
+            });
           }),
         ),
       );
-      return res.data;
+
+      const result = data(res);
+
+      return {
+        success: true,
+        message: "Account registered",
+        data: {
+          id: result.id,
+          hasWebhooks: result.hasWebhooks,
+          orgId: result.orgId,
+          preferences: result.preferences,
+        },
+      };
     } else {
       return {
         success: false,
@@ -257,6 +280,7 @@ export class ScorerController {
       this.logger.log(`/scorer/webhooks/${platform}`);
       const res = await firstValueFrom(
         this.httpService.get<ResponseWithNoData>(`/${platform}/webhooks`).pipe(
+          map(res => res.data),
           catchError((err: AxiosError) => {
             Sentry.withScope(scope => {
               scope.setTags({
@@ -267,11 +291,14 @@ export class ScorerController {
               Sentry.captureException(err);
             });
             this.logger.error(`ScorerController::retryWebhooks ${err.message}`);
-            return [];
+            return of({
+              success: false,
+              message: "Error proxing webhook request",
+            });
           }),
         ),
       );
-      return res.data;
+      return res;
     } else {
       return {
         success: false,
