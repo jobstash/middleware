@@ -220,7 +220,7 @@ export class ScorerController {
     if (["workable", "greenhouse"].includes(platform)) {
       this.logger.log(`/scorer/register/${platform}`);
       const res = await firstValueFrom(
-        this.httpService.get<ResponseWithNoData>(`/${platform}/setup`).pipe(
+        this.httpService.get<ResponseWithNoData>(`/${platform}/register`).pipe(
           catchError((err: AxiosError) => {
             Sentry.withScope(scope => {
               scope.setTags({

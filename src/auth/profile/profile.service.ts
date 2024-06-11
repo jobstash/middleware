@@ -562,7 +562,7 @@ export class ProfileService {
         OPTIONAL MATCH (user)-[gr:HAS_GITHUB_USER]->(:GithubUser)
         OPTIONAL MATCH (user)-[scr:HAS_SHOWCASE]->(showcase:UserShowCase)
         OPTIONAL MATCH (user)-[ul:HAS_LOCATION]->(location:UserLocation)
-        OPTIONAL MATCH (user)-[sr:HAS_SKILL]->(skill:Tag)
+        OPTIONAL MATCH (user)-[sr:HAS_SKILL]->(:Tag)
         OPTIONAL MATCH (user)-[er:HAS_EMAIL]->(email:UserEmail|UserUnverifiedEmail)
         OPTIONAL MATCH (user)-[ja:APPLIED_TO|BOOKMARKED|VIEWED_DETAILS]->()
         OPTIONAL MATCH (user)-[ds:DID_SEARCH]->(search:SearchHistory)
