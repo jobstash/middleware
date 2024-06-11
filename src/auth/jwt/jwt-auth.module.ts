@@ -8,6 +8,7 @@ import { UserFlowService } from "../../user/user-flow.service";
 import { UserRoleService } from "../../user/user-role.service";
 import { ModelService } from "src/model/model.service";
 import { UserModule } from "src/user/user.module";
+import { ProfileService } from "../profile/profile.service";
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { UserModule } from "src/user/user.module";
     UserFlowService,
     UserRoleService,
     ModelService,
+    ProfileService,
   ],
 })
 export class JwtAuthModule {}

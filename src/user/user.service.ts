@@ -12,6 +12,7 @@ import {
   UserFlowEntity,
   UserProfile,
   UserProfileEntity,
+  data,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -27,6 +28,7 @@ import { instanceToNode } from "src/shared/helpers";
 import { randomUUID } from "crypto";
 import { CheckWalletRoles, CheckWalletFlows } from "src/shared/constants";
 import { GetAvailableDevsInput } from "./dto/get-available-devs.input";
+import { ProfileService } from "src/auth/profile/profile.service";
 
 @Injectable()
 export class UserService {
@@ -37,6 +39,7 @@ export class UserService {
     private models: ModelService,
     private readonly userFlowService: UserFlowService,
     private readonly userRoleService: UserRoleService,
+    private readonly profileService: ProfileService,
   ) {}
 
   async findByWallet(wallet: string): Promise<UserEntity | undefined> {
@@ -584,7 +587,7 @@ export class UserService {
   }
 
   async getCryptoNativeStatus(wallet: string): Promise<boolean | undefined> {
-    return this.neogma.queryRunner
+    const initial = await this.neogma.queryRunner
       .run(
         `
           MATCH (u:User {wallet: $wallet})
@@ -608,6 +611,13 @@ export class UserService {
         this.logger.error(`UserService::getCryptoNativeStatus ${err.message}`);
         return undefined;
       });
+
+    if (initial === undefined) {
+      const orgs = await this.profileService.getUserOrgs(wallet);
+      return (data(orgs)?.length ?? 0) > 0;
+    } else {
+      return initial;
+    }
   }
 
   async authorizeUserForOrg(

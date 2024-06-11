@@ -12,6 +12,7 @@ import { CacheModule } from "@nestjs/cache-manager";
 import { ModelService } from "src/model/model.service";
 import { UserModule } from "src/user/user.module";
 import { SiweService } from "./siwe.service";
+import { ProfileService } from "../profile/profile.service";
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { SiweService } from "./siwe.service";
     ModelService,
     GithubUserService,
     SiweService,
+    ProfileService,
   ],
   exports: [SiweService],
 })

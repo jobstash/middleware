@@ -11,6 +11,7 @@ import { UserFlowService } from "src/user/user-flow.service";
 import { UserRoleService } from "src/user/user-role.service";
 import { AuthService } from "src/auth/auth.service";
 import { JwtService } from "@nestjs/jwt";
+import { ProfileService } from "src/auth/profile/profile.service";
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { JwtService } from "@nestjs/jwt";
     UserRoleService,
     AuthService,
     JwtService,
+    ProfileService,
   ],
   controllers: [ScorerController],
 })

@@ -10,6 +10,7 @@ import { AuthModule } from "../auth.module";
 import { ModelService } from "src/model/model.service";
 import { OrgMagicAuthStrategy } from "./org.magic-auth.strategy";
 import { UserModule } from "src/user/user.module";
+import { ProfileService } from "../profile/profile.service";
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { UserModule } from "src/user/user.module";
     UserRoleService,
     MailService,
     ModelService,
+    ProfileService,
   ],
   exports: [DevMagicAuthStrategy, OrgMagicAuthStrategy],
 })
