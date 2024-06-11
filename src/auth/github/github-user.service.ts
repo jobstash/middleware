@@ -109,6 +109,7 @@ export class GithubUserService {
       this.logger.log(JSON.stringify(payload));
 
       if (githubUserNode) {
+        this.logger.log("debug - GH User node found");
         const githubUserNodeData: GithubUser = githubUserNode.getProperties();
         if (propertiesMatch(githubUserNodeData, updateObject)) {
           return { success: false, message: "Github data is identical" };
@@ -131,6 +132,7 @@ export class GithubUserService {
           };
         }
       } else {
+        this.logger.log("debug - GH User node not found, creating...");
         await this.create(payload);
         await this.unsafe__linkGithubUser(wallet, updateObject.githubLogin);
         return {

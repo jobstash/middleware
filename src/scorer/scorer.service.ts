@@ -1,7 +1,7 @@
 import { HttpService } from "@nestjs/axios";
 import { Injectable } from "@nestjs/common";
 import { AxiosError } from "axios";
-import { catchError, firstValueFrom } from "rxjs";
+import { catchError, firstValueFrom, map, of } from "rxjs";
 import { UserLeanStats, UserWorkHistory } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -68,6 +68,7 @@ export class ScorerService {
           `/scorer/users/history?users=${users.join(",")}`,
         )
         .pipe(
+          map(res => res.data),
           catchError((err: AxiosError) => {
             Sentry.withScope(scope => {
               scope.setTags({
@@ -78,11 +79,11 @@ export class ScorerService {
               Sentry.captureException(err);
             });
             this.logger.error(`ScorerService::getWorkHistory ${err.message}`);
-            return [];
+            return of([] as { user: string; workHistory: UserWorkHistory[] }[]);
           }),
         ),
     );
-    return res.data;
+    return res;
   };
 
   getLeanStats = async (users: string[]): Promise<UserLeanStats[]> => {
@@ -90,6 +91,7 @@ export class ScorerService {
       this.httpService
         .get<UserLeanStats[]>(`/scorer/users/stats?users=${users.join(",")}`)
         .pipe(
+          map(res => res.data),
           catchError((err: AxiosError) => {
             Sentry.withScope(scope => {
               scope.setTags({
@@ -100,10 +102,10 @@ export class ScorerService {
               Sentry.captureException(err);
             });
             this.logger.error(`ScorerService::getLeanStats ${err.message}`);
-            return [];
+            return of([] as UserLeanStats[]);
           }),
         ),
     );
-    return res.data;
+    return res;
   };
 }

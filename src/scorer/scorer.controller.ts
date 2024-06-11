@@ -191,6 +191,7 @@ export class ScorerController {
   async setupOrgLink(
     @Body() body: SetupOrgLinkInput,
   ): Promise<ResponseWithNoData> {
+    // TODO: add enrichment of orgId
     this.logger.log(`/scorer/setup`);
     const res = await firstValueFrom(
       this.httpService
