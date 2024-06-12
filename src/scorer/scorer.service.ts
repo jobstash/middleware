@@ -3,6 +3,7 @@ import { Injectable } from "@nestjs/common";
 import { AxiosError } from "axios";
 import { catchError, firstValueFrom, map, of } from "rxjs";
 import {
+  ResponseWithNoData,
   ResponseWithOptionalData,
   UserLeanStats,
   UserWorkHistory,
@@ -50,7 +51,10 @@ export class ScorerService {
 
   getAtsClientInfoByOrgId = async (
     orgId: string,
-  ): Promise<{ id: string; platform: string }> => {
+  ): Promise<{
+    id: string;
+    platform: "lever" | "workable" | "greenhouse" | "jobstash";
+  }> => {
     const result = await this.neogma.queryRunner.run(
       `
         MATCH (:Organization {orgId: $orgId})-[:HAS_ATS_CLIENT]->(client:LeverClient|WorkableClient|GreenhouseClient)-[:HAS_PREFERENCES]->(preferences:AtsPreferences)
@@ -61,7 +65,10 @@ export class ScorerService {
       `,
       { orgId },
     );
-    return result.records[0]?.get("info") as { id: string; platform: string };
+    return result.records[0]?.get("info") as {
+      id: string;
+      platform: "lever" | "workable" | "greenhouse" | "jobstash";
+    };
   };
 
   async getClientById(
@@ -85,6 +92,36 @@ export class ScorerService {
             return of({
               success: false,
               message: "Error getting client",
+            });
+          }),
+        ),
+    );
+    return res;
+  }
+
+  async deleteClientById(
+    id: string,
+    platform: "lever" | "workable" | "greenhouse" | "jobstash",
+  ): Promise<ResponseWithNoData> {
+    const res = await firstValueFrom(
+      this.httpService
+        .delete<ResponseWithOptionalData<ATSClient>>(
+          `/${platform}/client/${id}`,
+        )
+        .pipe(
+          map(res => res.data),
+          catchError((err: AxiosError) => {
+            Sentry.withScope(scope => {
+              scope.setTags({
+                action: "proxy-call",
+                source: "scorer.service",
+              });
+              Sentry.captureException(err);
+            });
+            this.logger.error(`ScorerService::deleteClientById ${err.message}`);
+            return of({
+              success: false,
+              message: "Error deleting client",
             });
           }),
         ),

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpStatus,
   Param,
@@ -49,22 +50,35 @@ export class ScorerController {
     private readonly httpService: HttpService,
   ) {}
 
-  @Get("client/:platform")
+  @Get("client")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ORG)
   async getClient(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
-    @Param("platform")
-    platform: "lever" | "workable" | "greenhouse" | "jobstash",
   ): Promise<ResponseWithOptionalData<ATSClient>> {
-    this.logger.log(`/client/${platform}`);
     const { address } = await this.authService.getSession(req, res);
 
     if (address) {
       const orgId = await this.userService.findOrgIdByWallet(address as string);
-      const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
-      return this.scorerService.getClientById(client?.id, platform);
+      if (orgId) {
+        const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
+        const platform = client?.platform;
+        if (client?.id && platform) {
+          this.logger.log(`/scorer/client/${platform}/`);
+          return this.scorerService.getClientById(client?.id, platform);
+        } else {
+          return {
+            success: false,
+            message: "Client not found",
+          };
+        }
+      } else {
+        return {
+          success: false,
+          message: "Client not found",
+        };
+      }
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -452,6 +466,44 @@ export class ScorerController {
       return {
         success: false,
         message: "Invalid platform",
+      };
+    }
+  }
+
+  @Delete("client")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ORG)
+  async deleteClient(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ): Promise<ResponseWithNoData> {
+    const { address } = await this.authService.getSession(req, res);
+
+    if (address) {
+      const orgId = await this.userService.findOrgIdByWallet(address as string);
+      if (orgId) {
+        const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
+        const platform = client?.platform;
+        if (client?.id && platform) {
+          this.logger.log(`/scorer/client/${platform}/`);
+          return this.scorerService.deleteClientById(client?.id, platform);
+        } else {
+          return {
+            success: false,
+            message: "Client not found",
+          };
+        }
+      } else {
+        return {
+          success: false,
+          message: "Client not found",
+        };
+      }
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
       };
     }
   }
