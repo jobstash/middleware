@@ -56,7 +56,7 @@ export class ScorerController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Param("platform")
-    platform: "lever" | "workable" | "greenhouse",
+    platform: "lever" | "workable" | "greenhouse" | "jobstash",
   ): Promise<ResponseWithOptionalData<ATSClient>> {
     this.logger.log(`/client/${platform}`);
     const { address } = await this.authService.getSession(req, res);
@@ -217,7 +217,8 @@ export class ScorerController {
   async setupOrgLink(
     @Req() req: Request,
     @Res() res: ExpressResponse,
-    @Param("platform") platform: "lever" | "workable" | "greenhouse",
+    @Param("platform")
+    platform: "lever" | "workable" | "greenhouse" | "jobstash",
     @Body() body: SetupOrgLinkInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/scorer/link/org/${platform}`);
@@ -269,7 +270,7 @@ export class ScorerController {
     @Res() res: ExpressResponse,
     @Body() body: UpdateClientPreferencesInput,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/scorer/setup`);
+    this.logger.log(`/scorer/update/preferences`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       const result = await firstValueFrom(
@@ -316,10 +317,10 @@ export class ScorerController {
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ORG)
   async registerAccount(
-    @Param("platform") platform: "workable" | "greenhouse",
+    @Param("platform") platform: "workable" | "greenhouse" | "jobstash",
     @Body() body: CreateClientInput,
   ): Promise<
-    // Workable case
+    // Workable/JobStash case
     | ResponseWithOptionalData<ATSClient>
     // Greenhouse case
     | ResponseWithOptionalData<
@@ -378,7 +379,7 @@ export class ScorerController {
 
       const result = data(res);
 
-      if (platform === "workable") {
+      if (platform === "workable" || platform === "jobstash") {
         return {
           success: true,
           message: "Account registered",

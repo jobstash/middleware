@@ -66,7 +66,7 @@ export class ScorerService {
 
   async getClientById(
     id: string,
-    platform: "lever" | "workable" | "greenhouse",
+    platform: "lever" | "workable" | "greenhouse" | "jobstash",
   ): Promise<ResponseWithOptionalData<ATSClient>> {
     const res = await firstValueFrom(
       this.httpService

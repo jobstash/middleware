@@ -4,7 +4,12 @@ import { report } from "io-ts-human-reporter";
 import { TrackedNFT } from "./tracked-nft.interface";
 import * as t from "io-ts";
 
-const SupportedPlatforms = ["lever", "workable", "greenhouse"] as const;
+const SupportedPlatforms = [
+  "lever",
+  "workable",
+  "greenhouse",
+  "jobstash",
+] as const;
 
 const Platform = t.keyof({
   ...SupportedPlatforms.reduce((acc, name) => ({ ...acc, [name]: null }), {}),
@@ -22,7 +27,7 @@ export class ATSPreferences {
   id: string;
 
   @ApiProperty()
-  platformName: "lever" | "workable" | "greenhouse";
+  platformName: "lever" | "workable" | "greenhouse" | "jobstash";
 
   @ApiProperty()
   highlightOrgs: string[];
