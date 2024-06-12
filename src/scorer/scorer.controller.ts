@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpStatus,
   Param,
   Post,
   Query,
@@ -26,7 +27,6 @@ import {
   ResponseWithOptionalData,
   UserLeanStats,
   UserWorkHistory,
-  Response,
   data,
 } from "src/shared/interfaces";
 import { catchError, firstValueFrom, map, of } from "rxjs";
@@ -36,6 +36,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { RetryCreateClientWebhooksInput } from "./dto/retry-create-client-webhooks.input";
 import { CreateClientInput } from "./dto/create-client.input";
 import { ATSClient } from "src/shared/interfaces/client.interface";
+import { UpdateClientPreferencesInput } from "./dto/update-client-preferences.input";
 
 @Controller("scorer")
 export class ScorerController {
@@ -47,6 +48,31 @@ export class ScorerController {
     private readonly authService: AuthService,
     private readonly httpService: HttpService,
   ) {}
+
+  @Get("client/:platform")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ORG)
+  async getClient(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Param("platform")
+    platform: "lever" | "workable" | "greenhouse",
+  ): Promise<ResponseWithOptionalData<ATSClient>> {
+    this.logger.log(`/client/${platform}`);
+    const { address } = await this.authService.getSession(req, res);
+
+    if (address) {
+      const orgId = await this.userService.findOrgIdByWallet(address as string);
+      const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
+      return this.scorerService.getClientById(client?.id, platform);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
 
   @Get("oauth/lever")
   @Redirect()
@@ -185,37 +211,105 @@ export class ScorerController {
     }
   }
 
-  @Post("setup")
+  @Post("link/org/:platform")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ORG)
   async setupOrgLink(
+    @Req() req: Request,
+    @Res() res: ExpressResponse,
+    @Param("platform") platform: "lever" | "workable" | "greenhouse",
     @Body() body: SetupOrgLinkInput,
   ): Promise<ResponseWithNoData> {
-    // TODO: add enrichment of orgId
-    this.logger.log(`/scorer/setup`);
-    const res = await firstValueFrom(
-      this.httpService
-        .get<ResponseWithNoData>(`/${body.preferences.platformName}/setup`)
-        .pipe(
-          map(res => res.data),
-          catchError((err: AxiosError) => {
-            Sentry.withScope(scope => {
-              scope.setTags({
-                action: "proxy-call",
-                source: "scorer.controller",
+    this.logger.log(`/scorer/link/org/${platform}`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      const orgId = await this.userService.findOrgIdByWallet(address as string);
+      const result = await firstValueFrom(
+        this.httpService
+          .post<ResponseWithNoData>(`/${platform}/link`, {
+            clientId: body.clientId,
+            orgId: orgId,
+          })
+          .pipe(
+            map(res => res.data),
+            catchError((err: AxiosError) => {
+              Sentry.withScope(scope => {
+                scope.setTags({
+                  action: "proxy-call",
+                  source: "scorer.controller",
+                });
+                scope.setExtra("input", body);
+                Sentry.captureException(err);
               });
-              scope.setExtra("input", body);
-              Sentry.captureException(err);
-            });
-            this.logger.error(`ScorerController::setupOrgLink ${err.message}`);
-            return of({
-              success: false,
-              message: "Error setting up org link",
-            });
-          }),
-        ),
-    );
-    return res;
+              this.logger.error(
+                `ScorerController::setupOrgLink ${err.message}`,
+              );
+              return of({
+                success: false,
+                message: "Error setting up org link",
+              });
+            }),
+          ),
+      );
+      return result;
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Post("update/preferences")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ORG)
+  async setupClientPreferences(
+    @Req() req: Request,
+    @Res() res: ExpressResponse,
+    @Body() body: UpdateClientPreferencesInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/scorer/setup`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      const result = await firstValueFrom(
+        this.httpService
+          .post<ResponseWithNoData>(
+            `/${body.preferences.platformName}/update/preferences`,
+            {
+              clientId: body.clientId,
+              preferences: body.preferences,
+            },
+          )
+          .pipe(
+            map(res => res.data),
+            catchError((err: AxiosError) => {
+              Sentry.withScope(scope => {
+                scope.setTags({
+                  action: "proxy-call",
+                  source: "scorer.controller",
+                });
+                scope.setExtra("input", body);
+                Sentry.captureException(err);
+              });
+              this.logger.error(
+                `ScorerController::updateClientPreferences ${err.message}`,
+              );
+              return of({
+                success: false,
+                message: "Error updating client preferences",
+              });
+            }),
+          ),
+      );
+      return result;
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
   }
 
   @Post("register/:platform")
@@ -224,44 +318,97 @@ export class ScorerController {
   async registerAccount(
     @Param("platform") platform: "workable" | "greenhouse",
     @Body() body: CreateClientInput,
-  ): Promise<ResponseWithOptionalData<ATSClient>> {
+  ): Promise<
+    // Workable case
+    | ResponseWithOptionalData<ATSClient>
+    // Greenhouse case
+    | ResponseWithOptionalData<
+        ATSClient & {
+          // Greenhouse specific fields for webhooks
+          applicationCreatedSignatureToken: string;
+          candidateHiredSignatureToken: string;
+        }
+      >
+  > {
     if (["workable", "greenhouse"].includes(platform)) {
       this.logger.log(`/scorer/register/${platform}`);
-      const res: ResponseWithOptionalData<ATSClient> = await firstValueFrom(
-        this.httpService.get<Response<ATSClient>>(`/${platform}/register`).pipe(
-          map(res => res.data),
-          catchError((err: AxiosError) => {
-            Sentry.withScope(scope => {
-              scope.setTags({
-                action: "proxy-call",
-                source: "scorer.controller",
+      const res:
+        | ResponseWithOptionalData<ATSClient>
+        // Greenhouse case
+        | ResponseWithOptionalData<
+            ATSClient & {
+              // Greenhouse specific fields for webhooks
+              applicationCreatedSignatureToken: string;
+              candidateHiredSignatureToken: string;
+            }
+          > = await firstValueFrom(
+        this.httpService
+          .get<
+            | ResponseWithOptionalData<ATSClient>
+            // Greenhouse case
+            | ResponseWithOptionalData<
+                ATSClient & {
+                  // Greenhouse specific fields for webhooks
+                  applicationCreatedSignatureToken: string;
+                  candidateHiredSignatureToken: string;
+                }
+              >
+          >(`/${platform}/register`)
+          .pipe(
+            map(res => res.data),
+            catchError((err: AxiosError) => {
+              Sentry.withScope(scope => {
+                scope.setTags({
+                  action: "proxy-call",
+                  source: "scorer.controller",
+                });
+                scope.setExtra("input", body);
+                Sentry.captureException(err);
               });
-              scope.setExtra("input", body);
-              Sentry.captureException(err);
-            });
-            this.logger.error(
-              `ScorerController::registerAccount ${err.message}`,
-            );
-            return of({
-              success: false,
-              message: "Error registering account",
-            });
-          }),
-        ),
+              this.logger.error(
+                `ScorerController::registerAccount ${err.message}`,
+              );
+              return of({
+                success: false,
+                message: "Error registering account",
+              });
+            }),
+          ),
       );
 
       const result = data(res);
 
-      return {
-        success: true,
-        message: "Account registered",
-        data: {
-          id: result.id,
-          hasWebhooks: result.hasWebhooks,
-          orgId: result.orgId,
-          preferences: result.preferences,
-        },
-      };
+      if (platform === "workable") {
+        return {
+          success: true,
+          message: "Account registered",
+          data: {
+            id: result.id,
+            hasWebhooks: result.hasWebhooks,
+            orgId: result.orgId,
+            preferences: result.preferences,
+          },
+        };
+      } else {
+        const temp = result as ATSClient & {
+          // Greenhouse specific fields for webhooks
+          applicationCreatedSignatureToken: string;
+          candidateHiredSignatureToken: string;
+        };
+        return {
+          success: true,
+          message: "Account registered",
+          data: {
+            id: temp.id,
+            hasWebhooks: temp.hasWebhooks,
+            orgId: temp.orgId,
+            preferences: temp.preferences,
+            applicationCreatedSignatureToken:
+              temp?.applicationCreatedSignatureToken,
+            candidateHiredSignatureToken: temp?.candidateHiredSignatureToken,
+          },
+        };
+      }
     } else {
       return {
         success: false,

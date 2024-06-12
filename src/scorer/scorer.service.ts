@@ -2,11 +2,16 @@ import { HttpService } from "@nestjs/axios";
 import { Injectable } from "@nestjs/common";
 import { AxiosError } from "axios";
 import { catchError, firstValueFrom, map, of } from "rxjs";
-import { UserLeanStats, UserWorkHistory } from "src/shared/interfaces";
+import {
+  ResponseWithOptionalData,
+  UserLeanStats,
+  UserWorkHistory,
+} from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { Neogma } from "neogma";
 import { randomToken } from "src/shared/helpers";
+import { ATSClient } from "src/shared/interfaces/client.interface";
 
 @Injectable()
 export class ScorerService {
@@ -58,6 +63,34 @@ export class ScorerService {
     );
     return result.records[0]?.get("info") as { id: string; platform: string };
   };
+
+  async getClientById(
+    id: string,
+    platform: "lever" | "workable" | "greenhouse",
+  ): Promise<ResponseWithOptionalData<ATSClient>> {
+    const res = await firstValueFrom(
+      this.httpService
+        .get<ResponseWithOptionalData<ATSClient>>(`/${platform}/client/${id}`)
+        .pipe(
+          map(res => res.data),
+          catchError((err: AxiosError) => {
+            Sentry.withScope(scope => {
+              scope.setTags({
+                action: "proxy-call",
+                source: "scorer.service",
+              });
+              Sentry.captureException(err);
+            });
+            this.logger.error(`ScorerService::getClientById ${err.message}`);
+            return of({
+              success: false,
+              message: "Error getting client",
+            });
+          }),
+        ),
+    );
+    return res;
+  }
 
   getWorkHistory = async (
     users: string[],

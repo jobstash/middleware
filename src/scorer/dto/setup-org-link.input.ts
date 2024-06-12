@@ -1,6 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsObject, IsString } from "class-validator";
-import { ATSPreferences } from "src/shared/interfaces";
+import { IsNotEmpty, IsString } from "class-validator";
 
 export class SetupOrgLinkInput {
   @ApiProperty()
@@ -12,9 +11,4 @@ export class SetupOrgLinkInput {
   @IsNotEmpty()
   @IsString()
   orgId: string;
-
-  @ApiProperty()
-  @IsNotEmpty()
-  @IsObject()
-  preferences: ATSPreferences;
 }
