@@ -1,9 +1,9 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsOptional, IsString, IsUrl } from "class-validator";
+import { IsOptional, IsString, IsUrl } from "class-validator";
 
 export class CreateClientInput {
   @ApiProperty()
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
   apiToken: string;
 

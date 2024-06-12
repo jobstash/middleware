@@ -331,7 +331,7 @@ export class ScorerController {
         }
       >
   > {
-    if (["workable", "greenhouse"].includes(platform)) {
+    if (["workable", "greenhouse", "jobstash"].includes(platform)) {
       this.logger.log(`/scorer/register/${platform}`);
       const res:
         | ResponseWithOptionalData<ATSClient>
