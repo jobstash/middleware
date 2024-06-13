@@ -57,7 +57,7 @@ export class ScorerService {
   }> => {
     const result = await this.neogma.queryRunner.run(
       `
-        MATCH (:Organization {orgId: $orgId})-[:HAS_ATS_CLIENT]->(client:LeverClient|WorkableClient|GreenhouseClient)
+        MATCH (:Organization {orgId: $orgId})-[:HAS_ATS_CLIENT]->(client)
         RETURN {
           id: client.id,
           platform: client.name
