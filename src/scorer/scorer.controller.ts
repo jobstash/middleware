@@ -406,38 +406,42 @@ export class ScorerController {
 
       const result = data(res);
 
-      if (platform === "workable" || platform === "jobstash") {
-        return {
-          success: true,
-          message: "Account registered",
-          data: {
-            id: result.id,
-            name: result.name,
-            hasWebhooks: result.hasWebhooks,
-            orgId: result.orgId,
-            preferences: result.preferences,
-          },
-        };
+      if (data && res.success) {
+        if (platform === "workable" || platform === "jobstash") {
+          return {
+            success: true,
+            message: "Account registered",
+            data: {
+              id: result.id,
+              name: result.name,
+              hasWebhooks: result.hasWebhooks,
+              orgId: result.orgId,
+              preferences: result.preferences,
+            },
+          };
+        } else {
+          const temp = result as ATSClient & {
+            // Greenhouse specific fields for webhooks
+            applicationCreatedSignatureToken: string;
+            candidateHiredSignatureToken: string;
+          };
+          return {
+            success: true,
+            message: "Account registered",
+            data: {
+              id: temp.id,
+              name: temp.name,
+              hasWebhooks: temp.hasWebhooks,
+              orgId: temp.orgId,
+              preferences: temp.preferences,
+              applicationCreatedSignatureToken:
+                temp?.applicationCreatedSignatureToken,
+              candidateHiredSignatureToken: temp?.candidateHiredSignatureToken,
+            },
+          };
+        }
       } else {
-        const temp = result as ATSClient & {
-          // Greenhouse specific fields for webhooks
-          applicationCreatedSignatureToken: string;
-          candidateHiredSignatureToken: string;
-        };
-        return {
-          success: true,
-          message: "Account registered",
-          data: {
-            id: temp.id,
-            name: temp.name,
-            hasWebhooks: temp.hasWebhooks,
-            orgId: temp.orgId,
-            preferences: temp.preferences,
-            applicationCreatedSignatureToken:
-              temp?.applicationCreatedSignatureToken,
-            candidateHiredSignatureToken: temp?.candidateHiredSignatureToken,
-          },
-        };
+        return res;
       }
     } else {
       return {
