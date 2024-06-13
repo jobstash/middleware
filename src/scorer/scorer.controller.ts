@@ -73,6 +73,7 @@ export class ScorerController {
             message: "No client linked to this account",
             data: {
               id: null,
+              name: null,
               hasWebhooks: false,
               orgId: null,
               preferences: null,
@@ -411,6 +412,7 @@ export class ScorerController {
           message: "Account registered",
           data: {
             id: result.id,
+            name: result.name,
             hasWebhooks: result.hasWebhooks,
             orgId: result.orgId,
             preferences: result.preferences,
@@ -427,6 +429,7 @@ export class ScorerController {
           message: "Account registered",
           data: {
             id: temp.id,
+            name: temp.name,
             hasWebhooks: temp.hasWebhooks,
             orgId: temp.orgId,
             preferences: temp.preferences,
