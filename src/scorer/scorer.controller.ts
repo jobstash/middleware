@@ -69,8 +69,14 @@ export class ScorerController {
           return this.scorerService.getClientById(client?.id, platform);
         } else {
           return {
-            success: false,
-            message: "Client not found",
+            success: true,
+            message: "No client linked to this account",
+            data: {
+              id: null,
+              hasWebhooks: false,
+              orgId: null,
+              preferences: null,
+            },
           };
         }
       } else {
