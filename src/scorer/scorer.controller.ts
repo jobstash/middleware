@@ -236,7 +236,7 @@ export class ScorerController {
   @Roles(CheckWalletRoles.ORG)
   async setupOrgLink(
     @Req() req: Request,
-    @Res() res: ExpressResponse,
+    @Res({ passthrough: true }) res: ExpressResponse,
     @Param("platform")
     platform: "lever" | "workable" | "greenhouse" | "jobstash",
     @Body() body: SetupOrgLinkInput,
@@ -272,7 +272,10 @@ export class ScorerController {
             }),
           ),
       );
-      return result;
+      return {
+        success: result.success,
+        message: result.message,
+      };
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -287,7 +290,7 @@ export class ScorerController {
   @Roles(CheckWalletRoles.ORG)
   async setupClientPreferences(
     @Req() req: Request,
-    @Res() res: ExpressResponse,
+    @Res({ passthrough: true }) res: ExpressResponse,
     @Body() body: UpdateClientPreferencesInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/scorer/update/preferences`);
@@ -323,7 +326,10 @@ export class ScorerController {
             }),
           ),
       );
-      return result;
+      return {
+        success: result.success,
+        message: result.message,
+      };
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
