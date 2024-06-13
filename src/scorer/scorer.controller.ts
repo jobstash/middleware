@@ -371,7 +371,7 @@ export class ScorerController {
             }
           > = await firstValueFrom(
         this.httpService
-          .get<
+          .post<
             | ResponseWithOptionalData<ATSClient>
             // Greenhouse case
             | ResponseWithOptionalData<
