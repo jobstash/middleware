@@ -415,7 +415,7 @@ export class ScorerController {
               id: result.id,
               name: result.name,
               hasWebhooks: result.hasWebhooks,
-              orgId: result.orgId,
+              orgId: result.orgId ?? null,
               preferences: result.preferences,
             },
           };
@@ -432,7 +432,7 @@ export class ScorerController {
               id: temp.id,
               name: temp.name,
               hasWebhooks: temp.hasWebhooks,
-              orgId: temp.orgId,
+              orgId: temp.orgId ?? null,
               preferences: temp.preferences,
               applicationCreatedSignatureToken:
                 temp?.applicationCreatedSignatureToken,
