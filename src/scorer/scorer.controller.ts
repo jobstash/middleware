@@ -414,9 +414,9 @@ export class ScorerController {
             data: {
               id: result.id,
               name: result.name,
-              hasWebhooks: result.hasWebhooks,
+              hasWebhooks: result.hasWebhooks ?? false,
               orgId: result.orgId ?? null,
-              preferences: result.preferences,
+              preferences: result.preferences ?? null,
             },
           };
         } else {
@@ -431,9 +431,9 @@ export class ScorerController {
             data: {
               id: temp.id,
               name: temp.name,
-              hasWebhooks: temp.hasWebhooks,
+              hasWebhooks: temp.hasWebhooks ?? false,
               orgId: temp.orgId ?? null,
-              preferences: temp.preferences,
+              preferences: temp.preferences ?? null,
               applicationCreatedSignatureToken:
                 temp?.applicationCreatedSignatureToken,
               candidateHiredSignatureToken: temp?.candidateHiredSignatureToken,
