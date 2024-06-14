@@ -38,6 +38,7 @@ import { RetryCreateClientWebhooksInput } from "./dto/retry-create-client-webhoo
 import { CreateClientInput } from "./dto/create-client.input";
 import { ATSClient } from "src/shared/interfaces/client.interface";
 import { UpdateClientPreferencesInput } from "./dto/update-client-preferences.input";
+import { obfuscate } from "src/shared/helpers";
 
 @Controller("scorer")
 export class ScorerController {
@@ -56,7 +57,18 @@ export class ScorerController {
   async getClient(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<ResponseWithOptionalData<ATSClient>> {
+  ): Promise<
+    // Workable/JobStash case
+    | ResponseWithOptionalData<ATSClient>
+    // Greenhouse case
+    | ResponseWithOptionalData<
+        ATSClient & {
+          // Greenhouse specific fields for webhooks
+          applicationCreatedSignatureToken: string;
+          candidateHiredSignatureToken: string;
+        }
+      >
+  > {
     const { address } = await this.authService.getSession(req, res);
 
     if (address) {
@@ -66,7 +78,32 @@ export class ScorerController {
         const platform = client?.platform;
         if (client?.id && platform) {
           this.logger.log(`/scorer/client/${platform}/`);
-          return this.scorerService.getClientById(client?.id, platform);
+          const result = await this.scorerService.getClientById(
+            client?.id,
+            platform,
+          );
+          if (platform === "greenhouse") {
+            const res = data(result) as ATSClient & {
+              // Greenhouse specific fields for webhooks
+              applicationCreatedSignatureToken: string;
+              candidateHiredSignatureToken: string;
+            };
+            return {
+              success: true,
+              message: "Client retrieved successfully",
+              data: {
+                ...res,
+                applicationCreatedSignatureToken: obfuscate(
+                  res?.applicationCreatedSignatureToken,
+                ),
+                candidateHiredSignatureToken: obfuscate(
+                  res?.candidateHiredSignatureToken,
+                ),
+              },
+            };
+          } else {
+            return result;
+          }
         } else {
           return {
             success: true,
@@ -455,10 +492,19 @@ export class ScorerController {
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ORG)
   async retryWebhooks(
-    @Param("platform") platform: "lever" | "workable",
+    @Param("platform") platform: "lever" | "workable" | "greenhouse",
     @Body() body: RetryCreateClientWebhooksInput,
-  ): Promise<ResponseWithNoData> {
-    if (["lever", "workable"].includes(platform)) {
+  ): Promise<
+    // Workable/JobStash case
+    | ResponseWithNoData
+    // Greenhouse case
+    | ResponseWithOptionalData<{
+        // Greenhouse specific fields for webhooks
+        applicationCreatedSignatureToken: string;
+        candidateHiredSignatureToken: string;
+      }>
+  > {
+    if (["lever", "workable", "greenhouse"].includes(platform)) {
       this.logger.log(`/scorer/webhooks/${platform}`);
       const res = await firstValueFrom(
         this.httpService
@@ -484,7 +530,30 @@ export class ScorerController {
             }),
           ),
       );
-      return res;
+      const result = data(res);
+
+      if (res.success) {
+        if (platform === "workable" || platform === "lever") {
+          return res;
+        } else {
+          const temp = result as {
+            // Greenhouse specific fields for webhooks
+            applicationCreatedSignatureToken: string;
+            candidateHiredSignatureToken: string;
+          };
+          return {
+            success: true,
+            message: res.message,
+            data: {
+              applicationCreatedSignatureToken:
+                temp?.applicationCreatedSignatureToken,
+              candidateHiredSignatureToken: temp?.candidateHiredSignatureToken,
+            },
+          };
+        }
+      } else {
+        return res;
+      }
     } else {
       return {
         success: false,

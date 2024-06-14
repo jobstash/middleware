@@ -523,3 +523,14 @@ export const randomToken = (): string => {
   const generate = uid.randomUUID(64);
   return generate;
 };
+
+export const obfuscate = (value: string | null): string | null => {
+  if (value) {
+    const lastFour = value.slice(-4);
+    const firstFour = value.slice(0, 4);
+    const middle = value.slice(4, -4).replace(/./g, "*");
+    return `${firstFour}${middle}${lastFour}`;
+  } else {
+    return null;
+  }
+};

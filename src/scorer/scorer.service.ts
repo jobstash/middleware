@@ -74,10 +74,32 @@ export class ScorerService {
   async getClientById(
     id: string,
     platform: "lever" | "workable" | "greenhouse" | "jobstash",
-  ): Promise<ResponseWithOptionalData<ATSClient>> {
+  ): Promise<
+    // Workable/JobStash case
+    | ResponseWithOptionalData<ATSClient>
+    // Greenhouse case
+    | ResponseWithOptionalData<
+        ATSClient & {
+          // Greenhouse specific fields for webhooks
+          applicationCreatedSignatureToken: string;
+          candidateHiredSignatureToken: string;
+        }
+      >
+  > {
     const res = await firstValueFrom(
       this.httpService
-        .get<ResponseWithOptionalData<ATSClient>>(`/${platform}/client/${id}`)
+        .get<
+          // Workable/JobStash case
+          | ResponseWithOptionalData<ATSClient>
+          // Greenhouse case
+          | ResponseWithOptionalData<
+              ATSClient & {
+                // Greenhouse specific fields for webhooks
+                applicationCreatedSignatureToken: string;
+                candidateHiredSignatureToken: string;
+              }
+            >
+        >(`/${platform}/client/${id}`)
         .pipe(
           map(res => res.data),
           catchError((err: AxiosError) => {
