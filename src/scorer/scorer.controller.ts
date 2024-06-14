@@ -461,24 +461,28 @@ export class ScorerController {
     if (["lever", "workable"].includes(platform)) {
       this.logger.log(`/scorer/webhooks/${platform}`);
       const res = await firstValueFrom(
-        this.httpService.get<ResponseWithNoData>(`/${platform}/webhooks`).pipe(
-          map(res => res.data),
-          catchError((err: AxiosError) => {
-            Sentry.withScope(scope => {
-              scope.setTags({
-                action: "proxy-call",
-                source: "scorer.controller",
+        this.httpService
+          .post<ResponseWithNoData>(`/${platform}/webhooks`, body)
+          .pipe(
+            map(res => res.data),
+            catchError((err: AxiosError) => {
+              Sentry.withScope(scope => {
+                scope.setTags({
+                  action: "proxy-call",
+                  source: "scorer.controller",
+                });
+                scope.setExtra("input", body);
+                Sentry.captureException(err);
               });
-              scope.setExtra("input", body);
-              Sentry.captureException(err);
-            });
-            this.logger.error(`ScorerController::retryWebhooks ${err.message}`);
-            return of({
-              success: false,
-              message: "Error proxing webhook request",
-            });
-          }),
-        ),
+              this.logger.error(
+                `ScorerController::retryWebhooks ${err.message}`,
+              );
+              return of({
+                success: false,
+                message: "Error proxing webhook request",
+              });
+            }),
+          ),
       );
       return res;
     } else {
