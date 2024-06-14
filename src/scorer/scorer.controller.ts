@@ -381,7 +381,7 @@ export class ScorerController {
                   candidateHiredSignatureToken: string;
                 }
               >
-          >(`/${platform}/register`)
+          >(`/${platform}/register`, body)
           .pipe(
             map(res => res.data),
             catchError((err: AxiosError) => {
