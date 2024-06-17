@@ -42,6 +42,7 @@ import {
   ResponseWithOptionalData,
   OrganizationWithLinks,
   Jobsite,
+  TinyOrg,
 } from "src/shared/types";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
@@ -65,7 +66,7 @@ import { ActivateOrgJobsiteInput } from "./dto/activate-organization-jobsites.in
 const mime = require("mime");
 
 @Controller("organizations")
-@ApiExtraModels(ShortOrg, Organization)
+@ApiExtraModels(ShortOrg, TinyOrg, Organization)
 export class OrganizationsController {
   private readonly NFT_STORAGE_API_KEY;
   private readonly nftStorageClient: NFTStorage;
@@ -168,6 +169,39 @@ export class OrganizationsController {
     };
     this.logger.log(`/organizations/list ${JSON.stringify(enrichedParams)}`);
     return this.organizationsService.getOrgsListWithSearch(enrichedParams);
+  }
+
+  @Get("/all")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ORG)
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiOkResponse({
+    description: "Returns a list of all organizations",
+    type: Array<TinyOrg>,
+    schema: {
+      allOf: [
+        {
+          type: "array",
+          items: { $ref: getSchemaPath(TinyOrg) },
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ValidationError),
+        },
+      ],
+    },
+  })
+  async getAllOrgsList(): Promise<Array<TinyOrg>> {
+    this.logger.log(`/organizations/all`);
+    return this.organizationsService.getAllOrgsList();
   }
 
   @Get("/filters")

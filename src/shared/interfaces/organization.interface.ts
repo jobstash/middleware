@@ -345,3 +345,33 @@ export class ShortOrg {
     }
   }
 }
+
+export class TinyOrg {
+  public static readonly TinyOrgType = t.strict({
+    orgId: t.string,
+    name: t.string,
+  });
+
+  @ApiProperty()
+  orgId: string;
+
+  @ApiProperty()
+  name: string;
+
+  constructor(raw: TinyOrg) {
+    const { orgId, name } = raw;
+
+    const result = TinyOrg.TinyOrgType.decode(raw);
+
+    this.orgId = orgId;
+    this.name = name;
+
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(
+          `tiny org instance with id ${this.orgId} failed validation with error '${x}'`,
+        );
+      });
+    }
+  }
+}

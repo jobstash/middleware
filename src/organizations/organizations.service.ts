@@ -12,6 +12,7 @@ import {
   ResponseWithOptionalData,
   OrganizationWithLinks,
   Jobsite,
+  TinyOrg,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -301,6 +302,23 @@ export class OrganizationsService {
       limit,
       final.map(x => new ShortOrgEntity(toShortOrg(x)).getProperties()),
     );
+  }
+
+  async getAllOrgsList(): Promise<Array<TinyOrg>> {
+    try {
+      const orgs = await this.getOrgListResults();
+      return orgs.map(org => new TinyOrg(org));
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "organizations.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`OrganizationsService::getAllOrgsList ${err.message}`);
+      return [];
+    }
   }
 
   async getFeaturedOrgs(
