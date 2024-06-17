@@ -307,7 +307,16 @@ export class OrganizationsService {
   async getAllOrgsList(): Promise<Array<TinyOrg>> {
     try {
       const orgs = await this.getOrgListResults();
-      return orgs.map(org => new TinyOrg(org));
+      const all = orgs.map(org => new TinyOrg(org));
+
+      const unique = [];
+      for (const org of all) {
+        if (!unique.find(x => x.orgId === org.orgId)) {
+          unique.push(org);
+        }
+      }
+
+      return unique;
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
