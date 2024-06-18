@@ -347,6 +347,7 @@ export class ScorerController {
           Sentry.captureException(err);
         });
         this.logger.error(`ScorerController::setupOrgLink ${err.message}`);
+        throw err;
         return {
           success: false,
           message: "Error setting up org link",
