@@ -30,7 +30,7 @@ import {
   UserWorkHistory,
   data,
 } from "src/shared/interfaces";
-import { catchError, firstValueFrom, map, of } from "rxjs";
+import { Observable, catchError, firstValueFrom, map, of } from "rxjs";
 import { HttpService } from "@nestjs/axios";
 import { AxiosError } from "axios";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -291,23 +291,23 @@ export class ScorerController {
           })
           .pipe(
             map(res => res.data),
-            catchError((err: AxiosError) => {
-              Sentry.withScope(scope => {
-                scope.setTags({
-                  action: "proxy-call",
-                  source: "scorer.controller",
+            catchError(
+              async (err: AxiosError, data: Observable<ResponseWithNoData>) => {
+                Sentry.withScope(scope => {
+                  scope.setTags({
+                    action: "proxy-call",
+                    source: "scorer.controller",
+                  });
+                  scope.setExtra("input", body);
+                  Sentry.captureException(err);
                 });
-                scope.setExtra("input", body);
-                Sentry.captureException(err);
-              });
-              this.logger.error(
-                `ScorerController::setupOrgLink ${err.message}`,
-              );
-              return of({
-                success: false,
-                message: "Error setting up org link",
-              });
-            }),
+                this.logger.error(
+                  `ScorerController::setupOrgLink ${err.message}`,
+                );
+                const res = await firstValueFrom(data);
+                return res;
+              },
+            ),
           ),
       );
       return {
