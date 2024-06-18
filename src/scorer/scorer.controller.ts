@@ -283,52 +283,75 @@ export class ScorerController {
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       const orgId = await this.userService.findOrgIdByWallet(address as string);
-      const result = await firstValueFrom(
-        this.httpService
-          .post<ResponseWithNoData>(`/${platform}/link`, {
+      // const result = await firstValueFrom(
+      //   this.httpService
+      //     .post<ResponseWithNoData>(`/${platform}/link`, {
+      //       clientId: body.clientId,
+      //       orgId: orgId,
+      //     })
+      //     .pipe(
+      //       map(res => {
+      //         this.logger.log(
+      //           `/scorer/link/org/${platform} ${JSON.stringify(res.data)}`,
+      //         );
+      //         Sentry.withScope(scope => {
+      //           scope.setTags({
+      //             action: "proxy-call",
+      //             source: "scorer.controller",
+      //           });
+      //           scope.setExtra("data", res.data);
+      //           Sentry.captureMessage("Org link result data");
+      //         });
+      //         return res.data;
+      //       }),
+      //     )
+      //     .pipe(
+      //       catchError((err: AxiosError) => {
+      //         Sentry.withScope(scope => {
+      //           scope.setTags({
+      //             action: "proxy-call",
+      //             source: "scorer.controller",
+      //           });
+      //           scope.setExtra("input", body);
+      //           Sentry.captureException(err);
+      //         });
+      //         this.logger.error(
+      //           `ScorerController::setupOrgLink ${err.message}`,
+      //         );
+      //         return of({
+      //           success: false,
+      //           message: "Error setting up org link",
+      //         });
+      //       }),
+      //     ),
+      // );
+      try {
+        const result = await this.httpService.axiosRef.post<ResponseWithNoData>(
+          `/${platform}/link`,
+          {
             clientId: body.clientId,
             orgId: orgId,
-          })
-          .pipe(
-            map(res => {
-              this.logger.log(
-                `/scorer/link/org/${platform} ${JSON.stringify(res.data)}`,
-              );
-              Sentry.withScope(scope => {
-                scope.setTags({
-                  action: "proxy-call",
-                  source: "scorer.controller",
-                });
-                scope.setExtra("data", res.data);
-                Sentry.captureMessage("Org link result data");
-              });
-              return res.data;
-            }),
-          ),
-        // .pipe(
-        //   catchError((err: AxiosError) => {
-        //     Sentry.withScope(scope => {
-        //       scope.setTags({
-        //         action: "proxy-call",
-        //         source: "scorer.controller",
-        //       });
-        //       scope.setExtra("input", body);
-        //       Sentry.captureException(err);
-        //     });
-        //     this.logger.error(
-        //       `ScorerController::setupOrgLink ${err.message}`,
-        //     );
-        //     return of({
-        //       success: false,
-        //       message: "Error setting up org link",
-        //     });
-        //   }),
-        // ),
-      );
-      return {
-        success: result.success,
-        message: result.message,
-      };
+          },
+        );
+        return {
+          success: result.data.success,
+          message: result.data.message,
+        };
+      } catch (err) {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "proxy-call",
+            source: "scorer.controller",
+          });
+          scope.setExtra("input", body);
+          Sentry.captureException(err);
+        });
+        this.logger.error(`ScorerController::setupOrgLink ${err.message}`);
+        return {
+          success: false,
+          message: "Error setting up org link",
+        };
+      }
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
