@@ -294,6 +294,14 @@ export class ScorerController {
               this.logger.log(
                 `/scorer/link/org/${platform} ${JSON.stringify(res.data)}`,
               );
+              Sentry.withScope(scope => {
+                scope.setTags({
+                  action: "proxy-call",
+                  source: "scorer.controller",
+                });
+                scope.setExtra("data", res.data);
+                Sentry.captureMessage("Org link result data");
+              });
               return res.data;
             }),
           )
