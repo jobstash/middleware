@@ -304,26 +304,26 @@ export class ScorerController {
               });
               return res.data;
             }),
-          )
-          .pipe(
-            catchError((err: AxiosError) => {
-              Sentry.withScope(scope => {
-                scope.setTags({
-                  action: "proxy-call",
-                  source: "scorer.controller",
-                });
-                scope.setExtra("input", body);
-                Sentry.captureException(err);
-              });
-              this.logger.error(
-                `ScorerController::setupOrgLink ${err.message}`,
-              );
-              return of({
-                success: false,
-                message: "Error setting up org link",
-              });
-            }),
           ),
+        // .pipe(
+        //   catchError((err: AxiosError) => {
+        //     Sentry.withScope(scope => {
+        //       scope.setTags({
+        //         action: "proxy-call",
+        //         source: "scorer.controller",
+        //       });
+        //       scope.setExtra("input", body);
+        //       Sentry.captureException(err);
+        //     });
+        //     this.logger.error(
+        //       `ScorerController::setupOrgLink ${err.message}`,
+        //     );
+        //     return of({
+        //       success: false,
+        //       message: "Error setting up org link",
+        //     });
+        //   }),
+        // ),
       );
       return {
         success: result.success,
