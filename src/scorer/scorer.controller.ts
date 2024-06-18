@@ -330,13 +330,13 @@ export class ScorerController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body() body: UpdateClientPreferencesInput,
-  ): Promise<ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<string[]>> {
     this.logger.log(`/scorer/update/preferences`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       const result = await firstValueFrom(
         this.httpService
-          .post<ResponseWithNoData>(
+          .post<ResponseWithOptionalData<string[]>>(
             `/${body.preferences.platformName}/update/preferences`,
             {
               clientId: body.clientId,
@@ -364,10 +364,18 @@ export class ScorerController {
             }),
           ),
       );
-      return {
-        success: result.success,
-        message: result.message,
-      };
+      if (result.success === false) {
+        return {
+          success: result.success,
+          message: result.message,
+          data: data(result),
+        };
+      } else {
+        return {
+          success: result.success,
+          message: result.message,
+        };
+      }
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
