@@ -14,6 +14,7 @@ import * as basicAuth from "express-basic-auth";
 import * as compression from "compression";
 import { OrganizationsModule } from "./organizations/organizations.module";
 import { ProjectsModule } from "./projects/projects.module";
+import { PublicModule } from "./public/public.module";
 dotenv.config();
 
 if (!process.env.SESSION_SECRET) throw new Error("SESSION_SECRET must be set");
@@ -79,7 +80,7 @@ async function bootstrap(): Promise<void> {
     )
     .build();
   let publicDocument = SwaggerModule.createDocument(app, publicConfig, {
-    include: [OrganizationsModule, ProjectsModule],
+    include: [OrganizationsModule, ProjectsModule, PublicModule],
   });
 
   const blocklist = [
