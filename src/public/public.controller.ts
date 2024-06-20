@@ -23,7 +23,6 @@ export class PublicController {
   ) {}
 
   @Get("/all-jobs")
-  @UseGuards(ApiKeyGuard)
   @ApiOkResponse({
     description: "Returns a paginated list of all active jobs ",
     type: PaginatedData<JobListResult>,
