@@ -119,7 +119,8 @@ export class PublicService {
                   reviewedTimestamp: review.reviewedTimestamp
                 }
               ]
-          }][0]
+          }][0],
+          tags: apoc.coll.toSet(tags)
       } AS result
     `;
 
