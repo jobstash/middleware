@@ -12,7 +12,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { Neogma } from "neogma";
 import { randomToken } from "src/shared/helpers";
-import { ATSClient } from "src/shared/interfaces/client.interface";
+import { BaseClient } from "src/shared/interfaces/client.interface";
 
 @Injectable()
 export class ScorerService {
@@ -65,41 +65,24 @@ export class ScorerService {
       `,
       { orgId },
     );
-    return result.records[0]?.get("info") as {
+    const info = result.records[0]?.get("info") as {
       id: string;
       platform: "lever" | "workable" | "greenhouse" | "jobstash";
+    };
+
+    return {
+      id: info?.id ?? null,
+      platform: info?.platform ?? null,
     };
   };
 
   async getClientById(
     id: string,
     platform: "lever" | "workable" | "greenhouse" | "jobstash",
-  ): Promise<
-    // Workable/JobStash case
-    | ResponseWithOptionalData<ATSClient>
-    // Greenhouse case
-    | ResponseWithOptionalData<
-        ATSClient & {
-          // Greenhouse specific fields for webhooks
-          applicationCreatedSignatureToken: string;
-          candidateHiredSignatureToken: string;
-        }
-      >
-  > {
+  ): Promise<ResponseWithOptionalData<BaseClient>> {
     const res = await firstValueFrom(
       this.httpService
-        .get<
-          // Workable/JobStash case
-          | ResponseWithOptionalData<ATSClient>
-          // Greenhouse case
-          | ResponseWithOptionalData<
-              ATSClient & {
-                // Greenhouse specific fields for webhooks
-                applicationCreatedSignatureToken: string;
-                candidateHiredSignatureToken: string;
-              }
-            >
-        >(`/${platform}/client/${id}`)
+        .get<ResponseWithOptionalData<BaseClient>>(`/${platform}/client/${id}`)
         .pipe(
           map(res => res.data),
           catchError((err: AxiosError) => {
@@ -127,9 +110,7 @@ export class ScorerService {
   ): Promise<ResponseWithNoData> {
     const res = await firstValueFrom(
       this.httpService
-        .delete<ResponseWithOptionalData<ATSClient>>(
-          `/${platform}/client/${id}`,
-        )
+        .delete<ResponseWithNoData>(`/${platform}/client/${id}`)
         .pipe(
           map(res => res.data),
           catchError((err: AxiosError) => {

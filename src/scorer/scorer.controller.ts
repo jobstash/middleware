@@ -36,9 +36,9 @@ import { AxiosError } from "axios";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { RetryCreateClientWebhooksInput } from "./dto/retry-create-client-webhooks.input";
 import { CreateClientInput } from "./dto/create-client.input";
-import { ATSClient } from "src/shared/interfaces/client.interface";
 import { UpdateClientPreferencesInput } from "./dto/update-client-preferences.input";
-import { obfuscate } from "src/shared/helpers";
+import { BaseClient } from "src/shared/interfaces/client.interface";
+import { RetryCreateClientTagsInput } from "./dto/retry-create-client-tags.input";
 
 @Controller("scorer")
 export class ScorerController {
@@ -57,18 +57,7 @@ export class ScorerController {
   async getClient(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<
-    // Workable/JobStash case
-    | ResponseWithOptionalData<ATSClient>
-    // Greenhouse case
-    | ResponseWithOptionalData<
-        ATSClient & {
-          // Greenhouse specific fields for webhooks
-          applicationCreatedSignatureToken: string;
-          candidateHiredSignatureToken: string;
-        }
-      >
-  > {
+  ): Promise<ResponseWithOptionalData<BaseClient>> {
     const { address } = await this.authService.getSession(req, res);
 
     if (address) {
@@ -83,23 +72,11 @@ export class ScorerController {
             platform,
           );
           if (platform === "greenhouse") {
-            const res = data(result) as ATSClient & {
-              // Greenhouse specific fields for webhooks
-              applicationCreatedSignatureToken: string;
-              candidateHiredSignatureToken: string;
-            };
+            const res = data(result);
             return {
               success: true,
               message: "Client retrieved successfully",
-              data: {
-                ...res,
-                applicationCreatedSignatureToken: obfuscate(
-                  res?.applicationCreatedSignatureToken,
-                ),
-                candidateHiredSignatureToken: obfuscate(
-                  res?.candidateHiredSignatureToken,
-                ),
-              },
+              data: res,
             };
           } else {
             return result;
@@ -111,9 +88,10 @@ export class ScorerController {
             data: {
               id: null,
               name: null,
-              hasWebhooks: false,
               orgId: null,
+              hasTags: false,
               preferences: null,
+              hasWebhooks: false,
             },
           };
         }
@@ -283,48 +261,6 @@ export class ScorerController {
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       const orgId = await this.userService.findOrgIdByWallet(address as string);
-      // const result = await firstValueFrom(
-      //   this.httpService
-      //     .post<ResponseWithNoData>(`/${platform}/link`, {
-      //       clientId: body.clientId,
-      //       orgId: orgId,
-      //     })
-      //     .pipe(
-      //       map(res => {
-      //         this.logger.log(
-      //           `/scorer/link/org/${platform} ${JSON.stringify(res.data)}`,
-      //         );
-      //         Sentry.withScope(scope => {
-      //           scope.setTags({
-      //             action: "proxy-call",
-      //             source: "scorer.controller",
-      //           });
-      //           scope.setExtra("data", res.data);
-      //           Sentry.captureMessage("Org link result data");
-      //         });
-      //         return res.data;
-      //       }),
-      //     )
-      //     .pipe(
-      //       catchError((err: AxiosError) => {
-      //         Sentry.withScope(scope => {
-      //           scope.setTags({
-      //             action: "proxy-call",
-      //             source: "scorer.controller",
-      //           });
-      //           scope.setExtra("input", body);
-      //           Sentry.captureException(err);
-      //         });
-      //         this.logger.error(
-      //           `ScorerController::setupOrgLink ${err.message}`,
-      //         );
-      //         return of({
-      //           success: false,
-      //           message: "Error setting up org link",
-      //         });
-      //       }),
-      //     ),
-      // );
       try {
         const result = await this.httpService.axiosRef.post<ResponseWithNoData>(
           `/${platform}/link`,
@@ -347,7 +283,6 @@ export class ScorerController {
           Sentry.captureException(err);
         });
         this.logger.error(`ScorerController::setupOrgLink ${err.message}`);
-        throw err;
         return {
           success: false,
           message: "Error setting up org link",
@@ -432,10 +367,10 @@ export class ScorerController {
     @Body() body: CreateClientInput,
   ): Promise<
     // Workable/JobStash case
-    | ResponseWithOptionalData<ATSClient>
+    | ResponseWithOptionalData<BaseClient>
     // Greenhouse case
     | ResponseWithOptionalData<
-        ATSClient & {
+        BaseClient & {
           // Greenhouse specific fields for webhooks
           applicationCreatedSignatureToken: string;
           candidateHiredSignatureToken: string;
@@ -445,10 +380,10 @@ export class ScorerController {
     if (["workable", "greenhouse", "jobstash"].includes(platform)) {
       this.logger.log(`/scorer/register/${platform}`);
       const res:
-        | ResponseWithOptionalData<ATSClient>
+        | ResponseWithOptionalData<BaseClient>
         // Greenhouse case
         | ResponseWithOptionalData<
-            ATSClient & {
+            BaseClient & {
               // Greenhouse specific fields for webhooks
               applicationCreatedSignatureToken: string;
               candidateHiredSignatureToken: string;
@@ -456,10 +391,11 @@ export class ScorerController {
           > = await firstValueFrom(
         this.httpService
           .post<
-            | ResponseWithOptionalData<ATSClient>
+            // Workable/JobStash case
+            | ResponseWithOptionalData<BaseClient>
             // Greenhouse case
             | ResponseWithOptionalData<
-                ATSClient & {
+                BaseClient & {
                   // Greenhouse specific fields for webhooks
                   applicationCreatedSignatureToken: string;
                   candidateHiredSignatureToken: string;
@@ -498,13 +434,14 @@ export class ScorerController {
             data: {
               id: result.id,
               name: result.name,
+              hasTags: result.hasTags ?? false,
               hasWebhooks: result.hasWebhooks ?? false,
               orgId: result.orgId ?? null,
               preferences: result.preferences ?? null,
             },
           };
         } else {
-          const temp = result as ATSClient & {
+          const temp = result as BaseClient & {
             // Greenhouse specific fields for webhooks
             applicationCreatedSignatureToken: string;
             candidateHiredSignatureToken: string;
@@ -515,6 +452,7 @@ export class ScorerController {
             data: {
               id: temp.id,
               name: temp.name,
+              hasTags: temp.hasTags ?? false,
               hasWebhooks: temp.hasWebhooks ?? false,
               orgId: temp.orgId ?? null,
               preferences: temp.preferences ?? null,
@@ -605,6 +543,69 @@ export class ScorerController {
       return {
         success: false,
         message: "Invalid platform",
+      };
+    }
+  }
+
+  @Post("tags/greenhouse")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ORG)
+  async retryTagsForGreenhouseClient(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Body() body: RetryCreateClientTagsInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/scorer/tags/greenhouse`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      const orgId = await this.userService.findOrgIdByWallet(address as string);
+      if (orgId) {
+        const result = await firstValueFrom(
+          this.httpService
+            .post<ResponseWithNoData>(`/greenhouse/tags`, body)
+            .pipe(
+              map(res => res.data),
+              catchError((err: AxiosError) => {
+                Sentry.withScope(scope => {
+                  scope.setTags({
+                    action: "proxy-call",
+                    source: "scorer.controller",
+                  });
+                  scope.setExtra("input", body);
+                  Sentry.captureException(err);
+                });
+                this.logger.error(
+                  `ScorerController::retryTagsForGreenhouseClient ${err.message}`,
+                );
+                return of({
+                  success: false,
+                  message: "Error proxing tag request",
+                });
+              }),
+            ),
+        );
+        if (result.success) {
+          return {
+            success: true,
+            message: "Tags created successfully",
+          };
+        } else {
+          return {
+            success: false,
+            message: "Error creating tags",
+          };
+        }
+      } else {
+        return {
+          success: false,
+          message: "Org not found",
+        };
+      }
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
       };
     }
   }
