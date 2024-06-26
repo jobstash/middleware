@@ -48,7 +48,7 @@ export class PublicController {
       ...jobs,
       data: jobs.data.map(job => ({
         ...job,
-        url: `${this.configService.getOrThrow<string>("MW_DOMAIN")}/jobs/${
+        url: `${this.configService.getOrThrow<string>("FE_DOMAIN")}/jobs/${
           job.shortUUID
         }/details`,
       })),
