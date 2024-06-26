@@ -237,7 +237,7 @@ export class JobListParams {
     value === "true" ? true : value === "false" ? false : value,
   )
   @IsBoolean()
-  isProtected?: boolean | null = null;
+  isProtected?: boolean | null = false;
 
   @ApiPropertyOptional({
     enum: ["asc", "desc"],
