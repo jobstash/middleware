@@ -639,7 +639,7 @@ export class ProjectsService {
             OPTIONAL MATCH (project)-[:HAS_HACK]->(hack)
             OPTIONAL MATCH (project)-[:HAS_DISCORD]->(discord)
             OPTIONAL MATCH (project)-[:HAS_DOCSITE]->(docsite)
-            OPTIONAL MATCH (project)-[:HAS_GITHUB]->(github:Github)
+            OPTIONAL MATCH (project)-[:HAS_GITHUB]->(github:GithubOrganization)
             OPTIONAL MATCH (project)-[:HAS_TELEGRAM]->(telegram)
             OPTIONAL MATCH (project)-[:HAS_TWITTER]->(twitter)
             OPTIONAL MATCH (project)-[:HAS_WEBSITE]->(website)

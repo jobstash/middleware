@@ -425,7 +425,7 @@ export const Projects = (
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
                   telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                  github: [(project)-[:HAS_GITHUB]->(github:Github) | github.login][0],
+                  github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
                   twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                   communities: [
@@ -530,7 +530,7 @@ export const Projects = (
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
                   telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                  github: [(project)-[:HAS_GITHUB]->(github:Github) | github.login][0],
+                  github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
                   twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                   hacks: [
@@ -628,7 +628,7 @@ export const Projects = (
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
                   telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                  github: [(project)-[:HAS_GITHUB]->(github:Github) | github.login][0],
+                  github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
                   twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                   organization: [(organization)-[:HAS_PROJECT]->(project) | organization {
@@ -637,7 +637,7 @@ export const Projects = (
                     website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
                     docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
                     telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                    github: [(organization)-[:HAS_GITHUB]->(github:Github) | github.login][0],
+                    github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
                     aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
                     twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                     fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
@@ -778,7 +778,7 @@ export const Projects = (
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
                   telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                  github: [(project)-[:HAS_GITHUB]->(github:Github) | github.login][0],
+                  github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
                   twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                   organization: [(organization)-[:HAS_PROJECT]->(project) | organization {
@@ -787,7 +787,7 @@ export const Projects = (
                     website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
                     docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
                     telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                    github: [(organization)-[:HAS_GITHUB]->(github:Github) | github.login][0],
+                    github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
                     aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
                     twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                     fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
@@ -980,7 +980,7 @@ export const Projects = (
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
                   telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                  github: [(project)-[:HAS_GITHUB]->(github:Github) | github.login][0],
+                  github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
                   twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                   hacks: [

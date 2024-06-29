@@ -66,7 +66,7 @@ export class OrganizationsService {
           website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
           docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
           telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-          github: [(organization)-[:HAS_GITHUB]->(github:Github) | github.login][0],
+          github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
           twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
           fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
@@ -105,7 +105,7 @@ export class OrganizationsService {
               website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
               docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
               telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-              github: [(project)-[:HAS_GITHUB]->(github:Github) | github.login][0],
+              github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
               category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
               twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
               hacks: [
@@ -445,7 +445,7 @@ export class OrganizationsService {
             website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
             docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
             telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-            github: [(organization)-[:HAS_GITHUB]->(github:Github) | github.login][0],
+            github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
             aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
             twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
             fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
@@ -484,7 +484,7 @@ export class OrganizationsService {
                 website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                 docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
                 telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                github: [(project)-[:HAS_GITHUB]->(github:Github) | github.login][0],
+                github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
                 category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
                 twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                 hacks: [
@@ -568,7 +568,7 @@ export class OrganizationsService {
             website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
             docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
             telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-            github: [(organization)-[:HAS_GITHUB]->(github:Github) | github.login][0],
+            github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
             aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
             twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
             fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
@@ -607,7 +607,7 @@ export class OrganizationsService {
                 website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                 docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
                 telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                github: [(project)-[:HAS_GITHUB]->(github:Github) | github.login][0],
+                github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
                 category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
                 twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                 hacks: [
@@ -688,7 +688,7 @@ export class OrganizationsService {
           rawWebsite: [(organization)-[:HAS_RAW_WEBSITE]->(website) | website.url],
           docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url],
           telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username],
-          github: [(organization)-[:HAS_GITHUB]->(github:Github) | github.login],
+          github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
           grant: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url],
           twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
@@ -729,7 +729,7 @@ export class OrganizationsService {
               website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
               docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
               telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-              github: [(project)-[:HAS_GITHUB]->(github:Github) | github.login][0],
+              github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
               category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
               twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
               hacks: [
@@ -811,7 +811,7 @@ export class OrganizationsService {
           website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
           docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
           telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-          github: [(organization)-[:HAS_GITHUB]->(github:Github) | github.login][0],
+          github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
           twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
           fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
@@ -850,7 +850,7 @@ export class OrganizationsService {
               website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
               docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
               telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-              github: [(project)-[:HAS_GITHUB]->(github:Github) | github.login][0],
+              github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
               category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
               twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
               hacks: [
@@ -1057,7 +1057,7 @@ export class OrganizationsService {
             OPTIONAL MATCH (organization)-[:HAS_WEBSITE]->(website)
             OPTIONAL MATCH (organization)-[:HAS_DOCSITE]->(docsite)
             OPTIONAL MATCH (organization)-[:HAS_TELEGRAM]->(telegram)
-            OPTIONAL MATCH (organization)-[:HAS_GITHUB]->(github:Github)
+            OPTIONAL MATCH (organization)-[:HAS_GITHUB]->(github:GithubOrganization)
             OPTIONAL MATCH (organization)-[:HAS_ORGANIZATION_ALIAS]->(alias)
             OPTIONAL MATCH (organization)-[:HAS_TWITTER]->(twitter)
             DETACH DELETE jobsite, jobpost, structured_jobpost,
@@ -1546,19 +1546,19 @@ export class OrganizationsService {
       const result = await this.neogma.queryRunner.run(
         `
           CALL {
-            MATCH (org:Organization {orgId: $orgId})-[:HAS_GITHUB]->(github:Github)
+            MATCH (org:Organization {orgId: $orgId})-[:HAS_GITHUB]->(github:GithubOrganization)
             DETACH DELETE github
           }
           
           CALL {
             UNWIND $githubs as login
-            OPTIONAL MATCH (github:Github WHERE github.login = login)
+            OPTIONAL MATCH (github:GithubOrganization WHERE github.login = login)
             WITH github IS NOT NULL AS found, login
             WHERE NOT found
-            CREATE (github:Github {id: randomUUID(), login: login})
+            CREATE (github:GithubOrganization {id: randomUUID(), login: login})
           }
 
-          MATCH (github:Github WHERE github.login IN $githubs), (org:Organization {orgId: $orgId})
+          MATCH (github:GithubOrganization WHERE github.login IN $githubs), (org:Organization {orgId: $orgId})
           MERGE (org)-[:HAS_GITHUB]->(github)
           
           RETURN github.login as login
