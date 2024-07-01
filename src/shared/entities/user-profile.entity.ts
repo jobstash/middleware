@@ -1,19 +1,39 @@
 import { notStringOrNull } from "../helpers";
-import { UserProfile } from "../interfaces";
+import { ContactType, UserProfile } from "../interfaces";
+
+export type RawUserProfile = Omit<UserProfile, "preferred"> & {
+  preferred: {
+    type: ContactType;
+    value: string | null;
+  };
+};
 
 export class UserProfileEntity {
-  constructor(private readonly raw: UserProfile) {}
+  constructor(private readonly raw: RawUserProfile) {}
 
   getProperties(): UserProfile {
+    const preferredContactData = this.raw.preferred;
+    const preferredContact = {
+      [preferredContactData?.type ?? "email"]: notStringOrNull(
+        preferredContactData?.value,
+      ),
+    };
+
     return new UserProfile({
       ...this.raw,
       avatar: notStringOrNull(this.raw?.avatar),
       username: notStringOrNull(this.raw?.username),
       email: notStringOrNull(this.raw?.email),
       availableForWork: this.raw?.availableForWork ?? false,
+      preferred: this.raw.preferred?.type ?? "email",
       contact: {
-        value: notStringOrNull(this.raw?.contact?.value),
-        preferred: notStringOrNull(this.raw?.contact?.preferred),
+        email: notStringOrNull(this.raw?.contact?.email),
+        discord: notStringOrNull(this.raw?.contact?.discord),
+        telegram: notStringOrNull(this.raw?.contact?.telegram),
+        farcaster: notStringOrNull(this.raw?.contact?.farcaster),
+        lens: notStringOrNull(this.raw?.contact?.lens),
+        twitter: notStringOrNull(this.raw?.contact?.twitter),
+        ...preferredContact,
       },
       location: {
         country: notStringOrNull(this.raw?.location?.country),

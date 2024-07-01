@@ -4,7 +4,13 @@ import {
   IsNotEmpty,
   IsNotEmptyObject,
   IsObject,
+  IsString,
+  ValidateNested,
 } from "class-validator";
+import { ContactType, ContactTypes } from "src/shared/interfaces";
+import { UpdateDevContactInput } from "./update-dev-contact.input";
+import { Type } from "class-transformer";
+import { UpdateDevLocationInput } from "./update-dev-location.input";
 
 export class UpdateDevUserProfileInput {
   @ApiProperty()
@@ -12,13 +18,24 @@ export class UpdateDevUserProfileInput {
   @IsNotEmpty()
   availableForWork: boolean;
 
-  @ApiProperty()
-  @IsObject()
-  @IsNotEmptyObject()
-  contact: { preferred: string | null; value: string | null };
+  @ApiProperty({
+    enum: ContactTypes,
+  })
+  @IsString()
+  @IsNotEmpty()
+  preferred: ContactType;
 
   @ApiProperty()
   @IsObject()
   @IsNotEmptyObject()
-  location: { country: string | null; city: string | null };
+  @ValidateNested()
+  @Type(() => UpdateDevContactInput)
+  contact: UpdateDevContactInput;
+
+  @ApiProperty()
+  @IsObject()
+  @IsNotEmptyObject()
+  @ValidateNested()
+  @Type(() => UpdateDevLocationInput)
+  location: UpdateDevLocationInput;
 }

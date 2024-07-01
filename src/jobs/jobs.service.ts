@@ -944,6 +944,7 @@ export class JobsService {
               email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
               username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
               avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+              preferred: [(user)-[:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo) | preferred { .* }][0],
               contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
               location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
               matchingSkills: apoc.coll.sum([

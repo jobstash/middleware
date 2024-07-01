@@ -248,13 +248,24 @@ export class ProfileController {
     this.logger.log(`/profile/dev/info ${JSON.stringify(body)}`);
     const { address, flow } = await this.authService.getSession(req, res);
     if (address) {
-      if ((flow as string) === CheckWalletFlows.ONBOARD_PROFILE) {
-        await this.userService.setWalletFlow({
-          flow: CheckWalletFlows.SIGNUP_COMPLETE,
-          wallet: address as string,
-        });
+      const preferredContactData = body.contact[body.preferred];
+      if (preferredContactData) {
+        if ((flow as string) === CheckWalletFlows.ONBOARD_PROFILE) {
+          await this.userService.setWalletFlow({
+            flow: CheckWalletFlows.SIGNUP_COMPLETE,
+            wallet: address as string,
+          });
+        }
+        return this.profileService.updateDevUserProfile(
+          address as string,
+          body,
+        );
+      } else {
+        return {
+          success: false,
+          message: "Contact data is required for preferred contact type",
+        };
       }
-      return this.profileService.updateDevUserProfile(address as string, body);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {

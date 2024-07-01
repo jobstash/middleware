@@ -2,15 +2,35 @@ import { isLeft } from "fp-ts/lib/Either";
 import * as t from "io-ts";
 import { report } from "io-ts-human-reporter";
 
+export const ContactTypes = [
+  "email",
+  "discord",
+  "telegram",
+  "farcaster",
+  "lens",
+  "twitter",
+] as const;
+
+const ContactType = t.keyof({
+  ...ContactTypes.reduce((acc, name) => ({ ...acc, [name]: null }), {}),
+});
+
+export type ContactType = (typeof ContactTypes)[number];
+
 export class UserProfile {
   public static readonly UserProfileType = t.strict({
     wallet: t.string,
     avatar: t.union([t.string, t.null]),
     username: t.union([t.string, t.null]),
     email: t.union([t.string, t.null]),
+    preferred: ContactType,
     contact: t.strict({
-      value: t.union([t.string, t.null]),
-      preferred: t.union([t.string, t.null]),
+      email: t.union([t.string, t.null]),
+      discord: t.union([t.string, t.null]),
+      telegram: t.union([t.string, t.null]),
+      farcaster: t.union([t.string, t.null]),
+      lens: t.union([t.string, t.null]),
+      twitter: t.union([t.string, t.null]),
     }),
     location: t.strict({
       country: t.union([t.string, t.null]),
@@ -23,9 +43,14 @@ export class UserProfile {
   avatar: string | null;
   username: string | null;
   email: string | null;
+  preferred: ContactType;
   contact: {
-    value: string | null;
-    preferred: string | null;
+    email: string | null;
+    discord: string | null;
+    telegram: string | null;
+    farcaster: string | null;
+    lens: string | null;
+    twitter: string | null;
   };
   location: {
     country: string | null;
@@ -38,6 +63,7 @@ export class UserProfile {
       wallet,
       avatar,
       username,
+      preferred,
       email,
       availableForWork,
       contact,
@@ -50,6 +76,7 @@ export class UserProfile {
     this.avatar = avatar;
     this.email = email;
     this.username = username;
+    this.preferred = preferred;
     this.contact = contact;
     this.location = location;
     this.availableForWork = availableForWork;

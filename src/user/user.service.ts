@@ -331,6 +331,8 @@ export class UserService {
       id: randomUUID(),
       ...dto,
       available: false,
+      createdTimestamp: new Date().getTime(),
+      updatedTimestamp: new Date().getTime(),
     })
       .then(res => (res ? new UserEntity(instanceToNode(res)) : undefined))
       .catch(err => {

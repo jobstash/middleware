@@ -18,7 +18,10 @@ import {
 import { UserLocationInstance, UserLocations } from "./user-location.model";
 import { JobpostFolderInstance, JobpostFolders } from "./jobpost-folder.model";
 
-export type UserProps = ExtractProps<User>;
+export type UserProps = ExtractProps<User> & {
+  createdTimestamp: number;
+  updatedTimestamp: number;
+};
 
 export type UserInstance = NeogmaInstance<UserProps, NoRelations>;
 
@@ -56,8 +59,10 @@ export interface UserRelations {
   >;
 }
 
-export const Users = (neogma: Neogma): NeogmaModel<UserProps, UserRelations> =>
-  ModelFactory<UserProps, UserRelations>(
+export const Users = (
+  neogma: Neogma,
+): NeogmaModel<UserProps, UserRelations> => {
+  const fn = ModelFactory<UserProps, UserRelations>(
     {
       label: "User",
       schema: {
@@ -73,6 +78,16 @@ export const Users = (neogma: Neogma): NeogmaModel<UserProps, UserRelations> =>
         },
         available: {
           type: "boolean",
+          allowEmpty: false,
+          required: true,
+        },
+        createdTimestamp: {
+          type: "number",
+          allowEmpty: false,
+          required: true,
+        },
+        updatedTimestamp: {
+          type: "number",
           allowEmpty: false,
           required: true,
         },
@@ -133,3 +148,12 @@ export const Users = (neogma: Neogma): NeogmaModel<UserProps, UserRelations> =>
     },
     neogma,
   );
+  fn.beforeCreate = (instance: UserInstance): void => {
+    if (instance.__existsInDatabase && instance.changed) {
+      instance.updatedTimestamp = new Date().getTime();
+    } else {
+      instance.createdTimestamp = new Date().getTime();
+    }
+  };
+  return fn;
+};

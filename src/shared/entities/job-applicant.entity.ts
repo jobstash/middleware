@@ -1,7 +1,7 @@
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { JobApplicant } from "../interfaces";
 import { JobListResultEntity } from "./job-list-result.entity";
-import { UserProfileEntity } from "./user-profile.entity";
+import { RawUserProfile, UserProfileEntity } from "./user-profile.entity";
 import { UserShowCaseEntity } from "./user-showcase.entity";
 import { UserSkillEntity } from "./user-skill.entity";
 
@@ -26,7 +26,9 @@ export class JobApplicantEntity {
       nfts: applicant?.nfts ?? [],
       appliedTimestamp: nonZeroOrNull(applicant?.appliedTimestamp),
       user: {
-        ...new UserProfileEntity(user).getProperties(),
+        ...new UserProfileEntity(
+          user as unknown as RawUserProfile,
+        ).getProperties(),
         skills:
           skills?.map(skill => new UserSkillEntity(skill).getProperties()) ??
           [],

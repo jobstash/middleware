@@ -70,6 +70,7 @@ export class ProfileService {
           email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+          preferred: [(user)-[:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo) | preferred { .* }][0],
           contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
           location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
         } as profile
@@ -211,12 +212,12 @@ export class ProfileService {
     wallet: string,
   ): Promise<ResponseWithOptionalData<UserOrg[]>> {
     try {
-      const result = await this.neogma.queryRunner.run(
+      const result1 = await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})
         OPTIONAL MATCH (user)-[:HAS_GITHUB_USER|CONTRIBUTED_TO*2]->(:GithubRepository)<-[:HAS_REPOSITORY|HAS_GITHUB*2]-(organization: Organization)
         OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
-        WITH apoc.coll.toSet(COLLECT(organization {
+        RETURN apoc.coll.toSet(COLLECT(organization {
           compensation: {
             salary: review.salary,
             currency: review.currency,
@@ -260,15 +261,19 @@ export class ProfileService {
             telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
             twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0]
           }
-        })) as orgsByRepo, user
+        })) as orgsByRepo
+      `,
+        { wallet },
+      );
 
-        CALL {
-          WITH user
-          MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
-          MATCH (user)-[:HAS_EMAIL]->(email: UserEmail)
-          WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email.email).domain
-          OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
-          RETURN apoc.coll.toSet(COLLECT(organization {
+      const result2 = await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $wallet})
+        MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
+        MATCH (user)-[:HAS_EMAIL]->(email: UserEmail)
+        WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email.email).domain
+        OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
+        RETURN apoc.coll.toSet(COLLECT(organization {
             compensation: {
               salary: review.salary,
               currency: review.currency,
@@ -311,18 +316,22 @@ export class ProfileService {
               discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
               telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
               twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0]
-            }
-          })) as orgsByEmail
-        }
-        RETURN apoc.coll.union(orgsByRepo, orgsByEmail) as organizations        
-      `,
+        })) as orgsByEmail
+        `,
         { wallet },
       );
 
-      const final =
-        result?.records[0]
-          ?.get("organizations")
-          ?.map(record => new UserOrgEntity(record).getProperties()) ?? [];
+      const orgsByRepo =
+        result1?.records[0]
+          ?.get("orgsByRepo")
+          .map(record => new UserOrgEntity(record).getProperties()) ?? [];
+
+      const orgsByEmail =
+        result2?.records[0]
+          ?.get("orgsByEmail")
+          .map(record => new UserOrgEntity(record).getProperties()) ?? [];
+
+      const final = [...orgsByRepo, ...orgsByEmail];
 
       return {
         success: true,
@@ -425,17 +434,35 @@ export class ProfileService {
         `
         MATCH (user:User {wallet: $wallet})
         SET user.available = $availableForWork
+        SET user.updatedTimestamp = timestamp()
 
         WITH user
         MERGE (user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo)
-        SET contact.preferred = $preferred
-        SET contact.value = $value
+        ON CREATE SET
+          contact += $contact,
+          contact.createdTimestamp = timestamp()
+        ON MATCH SET
+          contact += $contact,
+          contact.updatedTimestamp = timestamp()
+
+        WITH user
+        MERGE (user)-[:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo)
+        ON CREATE SET
+          preferred += $preferred,
+          preferred.createdTimestamp = timestamp()
+        ON MATCH SET
+          preferred += $preferred,
+          preferred.updatedTimestamp = timestamp()
 
         WITH user
         MERGE (user)-[:HAS_LOCATION]->(location: UserLocation)
-        SET location.country = $country
-        SET location.city = $city
-        
+        ON CREATE SET
+          location += $location,
+          location.createdTimestamp = timestamp()
+        ON MATCH SET
+          location += $location,
+          location.updatedTimestamp = timestamp()
+
         WITH user
         RETURN {
           wallet: $wallet,
@@ -443,6 +470,7 @@ export class ProfileService {
           email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+          preferred: [(user)-[:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo) | preferred { .* }][0],
           contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
           location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
         } as profile
@@ -451,8 +479,15 @@ export class ProfileService {
         {
           wallet,
           availableForWork: dto.availableForWork,
-          ...dto.contact,
-          ...dto.location,
+          preferred: {
+            type: dto.preferred,
+            value: dto.contact[dto.preferred],
+          },
+          contact: {
+            ...dto.contact,
+            [dto.preferred]: null,
+          },
+          location: dto.location,
         },
       );
 
@@ -556,6 +591,7 @@ export class ProfileService {
         `
         MATCH (user:User {wallet: $wallet})
         OPTIONAL MATCH (user)-[cr:HAS_CONTACT_INFO]->(contact: UserContactInfo)
+        OPTIONAL MATCH (user)-[pcr:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo)
         OPTIONAL MATCH (user)-[rr:LEFT_REVIEW]->(:OrgReview)
         OPTIONAL MATCH (user)-[gr:HAS_GITHUB_USER]->(:GithubUser)
         OPTIONAL MATCH (user)-[scr:HAS_SHOWCASE]->(showcase:UserShowCase)
@@ -567,7 +603,7 @@ export class ProfileService {
         OPTIONAL MATCH (user)-[cl:HAS_CACHE_LOCK]->(lock:UserCacheLock)
         OPTIONAL MATCH (user)-[oa:HAS_ORGANIZATION_AUTHORIZATION]->()
         OPTIONAL MATCH (user)-[:HAS_WORK_HISTORY]->(wh:UserWorkHistory)-[:WORKED_ON_REPO]->(whr:UserWorkHistoryRepo)
-        DETACH DELETE user, cr, contact, rr, gr, scr, showcase, ul, location, sr, er, email, ja, ds, cl, search, lock, oa, wh, whr
+        DETACH DELETE user, pcr, cr, preferred, contact, rr, gr, scr, showcase, ul, location, sr, er, email, ja, ds, cl, search, lock, oa, wh, whr
       `,
         { wallet },
       );
