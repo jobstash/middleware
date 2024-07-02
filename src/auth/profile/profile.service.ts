@@ -1181,62 +1181,9 @@ export class ProfileService {
     dto: UserGithubOrganization[],
   ): Promise<ResponseWithNoData> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          MATCH (org:Organization)
-          OPTIONAL MATCH (org)-[:HAS_GITHUB]->(github:GithubOrganization)
-          RETURN {
-            orgId: org.orgId,
-            name: org.name,
-            aliases: [(org)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-            login: github.login
-          } as org
-        `,
-      );
-      const orgs: {
-        orgId: string;
-        name: string;
-        login: string | null;
-        aliases: string[];
-      }[] = result.records.map(record => record.get("org"));
       for (const org of dto) {
-        let existing = orgs.find(
-          x => x.name === org.name || x.aliases.includes(org.name),
-        );
-
-        if (existing?.orgId) {
-          if (!existing?.login) {
-            await this.neogma.queryRunner.run(
-              `
-              MATCH (org:Organization {orgId: $orgId})
-              CREATE (gho:GithubOrganization {id: randomUUID()})
-              SET gho += $data
-              SET gho.createdTimestamp = timestamp()
-              SET gho.updatedTimestamp = timestamp()
-
-              WITH gho, org
-              CREATE (org)-[:HAS_GITHUB]->(gho)
-            `,
-              {
-                orgId: existing?.orgId,
-                data: {
-                  login: org.login,
-                  name: org.name,
-                  avatarUrl: org.avatar_url,
-                  description: org.description,
-                },
-              },
-            );
-            existing = {
-              ...existing,
-              login: org.login,
-            };
-          }
-        }
-
         const processed = {
           ...org,
-          ...existing,
           repositories: org.repositories.map(repo => ({
             ...repo,
             nameWithOwner: `${org.login}/${repo.name}`,
