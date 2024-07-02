@@ -1204,9 +1204,10 @@ export class ProfileService {
           x => x.name === org.name || x.aliases.includes(org.name),
         );
 
-        if (!existing?.login) {
-          await this.neogma.queryRunner.run(
-            `
+        if (existing?.orgId) {
+          if (!existing?.login) {
+            await this.neogma.queryRunner.run(
+              `
               MATCH (org:Organization {orgId: $orgId})
               CREATE (gho:GithubOrganization {id: randomUUID()})
               SET gho += $data
@@ -1216,20 +1217,21 @@ export class ProfileService {
               WITH gho, org
               CREATE (org)-[:HAS_GITHUB]->(gho)
             `,
-            {
-              orgId: existing.orgId,
-              data: {
-                login: org.login,
-                name: org.name,
-                avatarUrl: org.avatar_url,
-                description: org.description,
+              {
+                orgId: existing?.orgId,
+                data: {
+                  login: org.login,
+                  name: org.name,
+                  avatarUrl: org.avatar_url,
+                  description: org.description,
+                },
               },
-            },
-          );
-          existing = {
-            ...existing,
-            login: org.login,
-          };
+            );
+            existing = {
+              ...existing,
+              login: org.login,
+            };
+          }
         }
 
         const processed = {
