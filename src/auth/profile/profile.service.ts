@@ -1188,14 +1188,21 @@ export class ProfileService {
           RETURN {
             orgId: org.orgId,
             name: org.name,
+            aliases: [(org)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
             login: github.login
           } as org
         `,
       );
-      const orgs: { orgId: string; name: string; login: string | null }[] =
-        result.records.map(record => record.get("org"));
+      const orgs: {
+        orgId: string;
+        name: string;
+        login: string | null;
+        aliases: string[];
+      }[] = result.records.map(record => record.get("org"));
       for (const org of dto) {
-        let existing = orgs.find(x => x.name === org.name);
+        let existing = orgs.find(
+          x => x.name === org.name || x.aliases.includes(org.name),
+        );
 
         if (!existing.login) {
           await this.neogma.queryRunner.run(
