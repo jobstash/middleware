@@ -28,6 +28,9 @@ import { randomUUID } from "crypto";
 import { CheckWalletRoles, CheckWalletFlows } from "src/shared/constants";
 import { GetAvailableDevsInput } from "./dto/get-available-devs.input";
 import { ScorerService } from "src/scorer/scorer.service";
+import { addMonths, isBefore } from "date-fns";
+import { ConfigService } from "@nestjs/config";
+import { ProfileService } from "src/auth/profile/profile.service";
 
 @Injectable()
 export class UserService {
@@ -38,6 +41,8 @@ export class UserService {
     private models: ModelService,
     private readonly userFlowService: UserFlowService,
     private readonly userRoleService: UserRoleService,
+    private readonly configService: ConfigService,
+    private readonly profileService: ProfileService,
     private readonly scorerService: ScorerService,
   ) {}
 
@@ -431,6 +436,44 @@ export class UserService {
       const storedUser = await this.findByWallet(wallet);
 
       if (storedUser) {
+        const profileData = await this.findProfileByWallet(wallet);
+        if (profileData?.username) {
+          const CACHE_VALIDITY_THRESHOLD = this.configService.get<number>(
+            "CACHE_VALIDITY_THRESHOLD",
+          );
+
+          const userCacheLock = await this.profileService.getUserCacheLock(
+            wallet,
+          );
+
+          const userCacheLockIsValid =
+            (userCacheLock !== -1 || userCacheLock !== null) &&
+            isBefore(
+              new Date(),
+              addMonths(new Date(userCacheLock), CACHE_VALIDITY_THRESHOLD),
+            );
+
+          if (!userCacheLockIsValid) {
+            await this.profileService.refreshUserCacheLock([wallet]);
+
+            const workHistory = await this.scorerService.getWorkHistory([
+              profileData.username,
+            ]);
+
+            await this.profileService.refreshWorkHistoryCache(
+              wallet,
+              workHistory.find(x => x.user === profileData.username)
+                ?.workHistory ?? [],
+            );
+
+            const orgs = await this.scorerService.getUserOrgs(
+              profileData.username,
+            );
+
+            await this.profileService.refreshUserRepoCache(wallet, orgs);
+          }
+        }
+
         return storedUser.getProperties();
       }
 
