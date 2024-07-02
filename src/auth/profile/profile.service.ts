@@ -25,6 +25,7 @@ import {
   Response,
   ResponseWithNoData,
   ResponseWithOptionalData,
+  UserGithubOrganization,
   UserOrg,
   UserProfile,
   UserRepo,
@@ -46,6 +47,7 @@ import { Integer } from "neo4j-driver";
 import { OrgStaffReviewEntity } from "src/shared/entities/org-staff-review.entity";
 import { UpdateOrgUserProfileInput } from "./dto/update-org-profile.input";
 import { UpdateDevUserProfileInput } from "./dto/update-dev-profile.input";
+import { ScorerService } from "src/scorer/scorer.service";
 
 @Injectable()
 export class ProfileService {
@@ -55,6 +57,7 @@ export class ProfileService {
     @InjectConnection()
     private neogma: Neogma,
     private models: ModelService,
+    private scorerService: ScorerService,
   ) {}
 
   async getDevUserProfile(
@@ -164,8 +167,6 @@ export class ProfileService {
           name: repo.nameWithOwner,
           description: repo.description,
           timestamp: repo.updatedAt.epochMillis,
-          projectName: r.projectName,
-          committers: apoc.coll.sum([(:GithubUser)-[:CONTRIBUTED_TO]->(repo) | 1]),
           org: [(organization: Organization)-[:HAS_GITHUB|HAS_REPOSITORY*2]->(repo) | organization {
             url: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
             name: organization.name,
@@ -175,10 +176,7 @@ export class ProfileService {
             .*,
             canTeach: [(user)-[m:HAS_SKILL]->(tag)-[:USED_ON]->(repo) | m.canTeach][0]
           }]),
-          contribution: {
-            summary: r.summary,
-            count: r.committedCount
-          }
+          contribution: r.summary
         }
         ORDER BY repo.updatedAt DESC
       `,
@@ -212,131 +210,151 @@ export class ProfileService {
     wallet: string,
   ): Promise<ResponseWithOptionalData<UserOrg[]>> {
     try {
-      const result1 = await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $wallet})
-        OPTIONAL MATCH (user)-[:HAS_GITHUB_USER|CONTRIBUTED_TO*2]->(:GithubRepository)<-[:HAS_REPOSITORY|HAS_GITHUB*2]-(organization: Organization)
-        OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
-        RETURN apoc.coll.toSet(COLLECT(organization {
-          compensation: {
-            salary: review.salary,
-            currency: review.currency,
-            offersTokenAllocation: review.offersTokenAllocation
-          },
-          rating: {
-            onboarding: review.onboarding,
-            careerGrowth: review.careerGrowth,
-            benefits: review.benefits,
-            workLifeBalance: review.workLifeBalance,
-            diversityInclusion: review.diversityInclusion,
-            management: review.management,
-            product: review.product,
-            compensation: review.compensation
-          },
-          review: {
-            id: review.id,
-            title: review.title,
-            location: review.location,
-            timezone: review.timezone,
-            pros: review.pros,
-            cons: review.cons
-          },
-          reviewedTimestamp: review.reviewedTimestamp,
+      const profile = data(await this.getDevUserProfile(wallet));
+      const orgs = [];
+
+      if (profile?.username) {
+        const prelim = await this.scorerService.getUserOrgs(profile.username);
+        const names = prelim.map(x => x.name);
+        const result = await this.neogma.queryRunner.run(
+          `
+            MATCH (user:User {wallet: $wallet}), (organization: Organization WHERE organization.name IN $names)
+            OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
+            RETURN apoc.coll.toSet(COLLECT({
+              compensation: {
+                salary: review.salary,
+                currency: review.currency,
+                offersTokenAllocation: review.offersTokenAllocation
+              },
+              rating: {
+                onboarding: review.onboarding,
+                careerGrowth: review.careerGrowth,
+                benefits: review.benefits,
+                workLifeBalance: review.workLifeBalance,
+                diversityInclusion: review.diversityInclusion,
+                management: review.management,
+                product: review.product,
+                compensation: review.compensation
+              },
+              review: {
+                id: review.id,
+                title: review.title,
+                location: review.location,
+                timezone: review.timezone,
+                pros: review.pros,
+                cons: review.cons
+              },
+              reviewedTimestamp: review.reviewedTimestamp,
+              org: organization {
+                id: organization.id,
+                name: organization.name,
+                logo: organization.logo,
+                orgId: organization.orgId,
+                summary: organization.summary,
+                altName: organization.altName,
+                location: organization.location,
+                headCount: organization.headCount,
+                description: organization.description,
+                jobsiteLink: organization.jobsiteLink,
+                updatedTimestamp: organization.updatedTimestamp,
+                docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+                website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+                discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0]
+              }
+            })) as orgsByRepo
+          `,
+          { wallet, names },
+        );
+        const orgsByRepo =
+          result?.records[0]
+            ?.get("orgsByRepo")
+            .map(record => new UserOrgEntity(record).getProperties()) ?? [];
+        const processed = orgsByRepo.map(x => ({
+          ...x,
           org: {
-            id: organization.id,
-            name: organization.name,
-            logo: organization.logo,
-            orgId: organization.orgId,
-            summary: organization.summary,
-            altName: organization.altName,
-            location: organization.location,
-            headCount: organization.headCount,
-            description: organization.description,
-            jobsiteLink: organization.jobsiteLink,
-            updatedTimestamp: organization.updatedTimestamp,
-            docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-            github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
-            website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-            discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-            telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-            twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0]
+            ...x.org,
+            github:
+              x.org.github ?? prelim.find(y => y.name === x.org.name)?.login,
+          },
+        }));
+        orgs.push(...processed);
+      }
+
+      if (profile?.email) {
+        const result = await this.neogma.queryRunner.run(
+          `
+            MATCH (user:User {wallet: $wallet})
+            MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
+            MATCH (user)-[:HAS_EMAIL]->(email: UserEmail)
+            WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email.email).domain
+            OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
+            RETURN apoc.coll.toSet(COLLECT(organization {
+                compensation: {
+                  salary: review.salary,
+                  currency: review.currency,
+                  offersTokenAllocation: review.offersTokenAllocation
+                },
+                rating: {
+                  onboarding: review.onboarding,
+                  careerGrowth: review.careerGrowth,
+                  benefits: review.benefits,
+                  workLifeBalance: review.workLifeBalance,
+                  diversityInclusion: review.diversityInclusion,
+                  management: review.management,
+                  product: review.product,
+                  compensation: review.compensation
+                },
+                review: {
+                  id: review.id,
+                  title: review.title,
+                  location: review.location,
+                  timezone: review.timezone,
+                  pros: review.pros,
+                  cons: review.cons
+                },
+                reviewedTimestamp: review.reviewedTimestamp,
+                org: {
+                  id: organization.id,
+                  name: organization.name,
+                  logo: organization.logo,
+                  orgId: organization.orgId,
+                  summary: organization.summary,
+                  altName: organization.altName,
+                  location: organization.location,
+                  headCount: organization.headCount,
+                  description: organization.description,
+                  jobsiteLink: organization.jobsiteLink,
+                  updatedTimestamp: organization.updatedTimestamp,
+                  docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                  github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+                  website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+                  discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                  telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                  twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0]
+                }
+            })) as orgsByEmail
+          `,
+          { wallet },
+        );
+        const orgsByEmail =
+          result?.records[0]
+            ?.get("orgsByEmail")
+            .map(record => new UserOrgEntity(record).getProperties()) ?? [];
+        orgsByEmail.forEach(x => {
+          const exists = orgs.some(y => y.org.orgId === x.org.orgId);
+          if (!exists) {
+            orgs.push(x);
           }
-        })) as orgsByRepo
-      `,
-        { wallet },
-      );
-
-      const result2 = await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $wallet})
-        MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
-        MATCH (user)-[:HAS_EMAIL]->(email: UserEmail)
-        WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email.email).domain
-        OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
-        RETURN apoc.coll.toSet(COLLECT(organization {
-            compensation: {
-              salary: review.salary,
-              currency: review.currency,
-              offersTokenAllocation: review.offersTokenAllocation
-            },
-            rating: {
-              onboarding: review.onboarding,
-              careerGrowth: review.careerGrowth,
-              benefits: review.benefits,
-              workLifeBalance: review.workLifeBalance,
-              diversityInclusion: review.diversityInclusion,
-              management: review.management,
-              product: review.product,
-              compensation: review.compensation
-            },
-            review: {
-              id: review.id,
-              title: review.title,
-              location: review.location,
-              timezone: review.timezone,
-              pros: review.pros,
-              cons: review.cons
-            },
-            reviewedTimestamp: review.reviewedTimestamp,
-            org: {
-              id: organization.id,
-              name: organization.name,
-              logo: organization.logo,
-              orgId: organization.orgId,
-              summary: organization.summary,
-              altName: organization.altName,
-              location: organization.location,
-              headCount: organization.headCount,
-              description: organization.description,
-              jobsiteLink: organization.jobsiteLink,
-              updatedTimestamp: organization.updatedTimestamp,
-              docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-              github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
-              website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-              discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-              telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-              twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0]
-        })) as orgsByEmail
-        `,
-        { wallet },
-      );
-
-      const orgsByRepo =
-        result1?.records[0]
-          ?.get("orgsByRepo")
-          .map(record => new UserOrgEntity(record).getProperties()) ?? [];
-
-      const orgsByEmail =
-        result2?.records[0]
-          ?.get("orgsByEmail")
-          .map(record => new UserOrgEntity(record).getProperties()) ?? [];
-
-      const final = [...orgsByRepo, ...orgsByEmail];
+        });
+      }
 
       return {
         success: true,
         message: "Retrieved user orgs successfully",
-        data: final,
+        data: orgs,
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -1154,6 +1172,108 @@ export class ProfileService {
       return {
         success: false,
         message: "Error caching work history",
+      };
+    }
+  }
+
+  async refreshUserRepoCache(
+    wallet: string,
+    dto: UserGithubOrganization[],
+  ): Promise<ResponseWithNoData> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          MATCH (org:Organization)
+          OPTIONAL MATCH (org)-[:HAS_GITHUB]->(github:GithubOrganization)
+          RETURN {
+            orgId: org.orgId,
+            name: org.name,
+            login: github.login
+          } as org
+        `,
+      );
+      const orgs: { orgId: string; name: string; login: string | null }[] =
+        result.records.map(record => record.get("org"));
+      for (const org of dto) {
+        let existing = orgs.find(x => x.name === org.name);
+
+        if (!existing.login) {
+          await this.neogma.queryRunner.run(
+            `
+              MATCH (org:Organization {orgId: $orgId})
+              CREATE (gho:GithubOrganization {id: randomUUID()})
+              SET gho += $data
+              SET gho.createdTimestamp = timestamp()
+              SET gho.updatedTimestamp = timestamp()
+
+              WITH gho, org
+              CREATE (org)-[:HAS_GITHUB]->(gho)
+            `,
+            {
+              orgId: existing.orgId,
+              data: {
+                login: org.login,
+                name: org.name,
+                avatarUrl: org.avatar_url,
+                description: org.description,
+              },
+            },
+          );
+          existing = {
+            ...existing,
+            login: org.login,
+          };
+        }
+
+        const processed = {
+          ...org,
+          ...existing,
+          repositories: org.repositories.map(repo => ({
+            ...repo,
+            nameWithOwner: `${org.login}/${repo.name}`,
+          })),
+        };
+        await this.neogma.queryRunner.run(
+          `
+            MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(ghu:GithubUser)
+            
+            UNWIND $org.repositories as orgRepo
+            MERGE (ghu)-[:CONTRIBUTED_TO]->(repo: GithubRepository {name: orgRepo.name})
+            ON CREATE SET
+              repo.id = randomUUID(),
+              repo.name = orgRepo.name,
+              repo.nameWithOwner = orgRepo.nameWithOwner,
+              repo.description = orgRepo.description,
+              repo.createdTimestamp = timestamp(),
+              repo.updatedTimestamp = timestamp()
+            ON MATCH SET
+              repo.description = orgRepo.description,
+              repo.updatedTimestamp = timestamp()
+            
+            WITH repo
+            MATCH (gho:GithubOrganization {login: $org.login})
+            MERGE (gho)-[:HAS_REPOSITORY]->(repo)
+          `,
+          { wallet, org: processed },
+        );
+      }
+      return {
+        success: true,
+        message: "Persisted user repos successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::refreshUserRepoCache ${err.message}`);
+      return {
+        success: false,
+        message: "Error caching user repos",
       };
     }
   }

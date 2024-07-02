@@ -60,6 +60,7 @@ import { SiweService } from "src/auth/siwe/siwe.service";
     UserRoleService,
     ModelService,
     OrganizationsService,
+    ScorerService,
   ],
 })
 export class UserModule {}

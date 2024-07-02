@@ -9,8 +9,6 @@ export class UserRepoEntity {
       ...this.raw,
       id: notStringOrNull(this.raw.id),
       timestamp: nonZeroOrNull(this.raw.timestamp),
-      projectName: notStringOrNull(this.raw.projectName),
-      committers: nonZeroOrNull(this.raw.committers),
       tags:
         this.raw.tags?.map(tag => ({
           ...tag,
@@ -20,11 +18,7 @@ export class UserRepoEntity {
         ...this.raw.org,
         logo: notStringOrNull(this.raw?.org?.logo),
       },
-      contribution: {
-        ...this.raw.contribution,
-        count: nonZeroOrNull(this.raw.contribution.count),
-        summary: notStringOrNull(this.raw?.contribution?.summary),
-      },
+      contribution: notStringOrNull(this.raw?.contribution),
     });
   }
 }

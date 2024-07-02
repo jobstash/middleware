@@ -18,7 +18,17 @@ export class UserOrgEntity {
     } = this.raw;
     return new UserOrg({
       org: {
-        ...organization,
+        id: notStringOrNull(organization?.id),
+        name: notStringOrNull(organization?.name),
+        description: notStringOrNull(organization?.description),
+        orgId: notStringOrNull(organization?.orgId),
+        location: notStringOrNull(organization?.location),
+        summary: notStringOrNull(organization?.summary),
+        altName: notStringOrNull(organization?.altName),
+        jobsiteLink: notStringOrNull(organization?.jobsiteLink),
+        website: notStringOrNull(organization?.website),
+        headCount: nonZeroOrNull(organization?.headCount),
+        logo: notStringOrNull(organization?.logo),
         docs: notStringOrNull(organization?.docs),
         github: notStringOrNull(organization?.github),
         twitter: notStringOrNull(organization?.twitter),

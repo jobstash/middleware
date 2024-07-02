@@ -5,6 +5,7 @@ import { catchError, firstValueFrom, map, of } from "rxjs";
 import {
   ResponseWithNoData,
   ResponseWithOptionalData,
+  UserGithubOrganization,
   UserLeanStats,
   UserWorkHistory,
 } from "src/shared/interfaces";
@@ -153,6 +154,29 @@ export class ScorerService {
             });
             this.logger.error(`ScorerService::getWorkHistory ${err.message}`);
             return of([] as { user: string; workHistory: UserWorkHistory[] }[]);
+          }),
+        ),
+    );
+    return res;
+  };
+
+  getUserOrgs = async (user: string): Promise<UserGithubOrganization[]> => {
+    const res = await firstValueFrom(
+      this.httpService
+        .get<UserGithubOrganization[]>(`/scorer/users/orgs?user=${user}`)
+        .pipe(
+          map(res => res.data),
+          catchError((err: AxiosError) => {
+            Sentry.withScope(scope => {
+              scope.setTags({
+                action: "proxy-call",
+                source: "scorer.service",
+              });
+              scope.setExtra("input", user);
+              Sentry.captureException(err);
+            });
+            this.logger.error(`ScorerService::getUserOrgs ${err.message}`);
+            return of([] as UserGithubOrganization[]);
           }),
         ),
     );

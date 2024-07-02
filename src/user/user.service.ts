@@ -12,7 +12,6 @@ import {
   UserFlowEntity,
   UserProfile,
   UserProfileEntity,
-  data,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -28,7 +27,7 @@ import { instanceToNode } from "src/shared/helpers";
 import { randomUUID } from "crypto";
 import { CheckWalletRoles, CheckWalletFlows } from "src/shared/constants";
 import { GetAvailableDevsInput } from "./dto/get-available-devs.input";
-import { ProfileService } from "src/auth/profile/profile.service";
+import { ScorerService } from "src/scorer/scorer.service";
 
 @Injectable()
 export class UserService {
@@ -39,7 +38,7 @@ export class UserService {
     private models: ModelService,
     private readonly userFlowService: UserFlowService,
     private readonly userRoleService: UserRoleService,
-    private readonly profileService: ProfileService,
+    private readonly scorerService: ScorerService,
   ) {}
 
   async findByWallet(wallet: string): Promise<UserEntity | undefined> {
@@ -615,8 +614,38 @@ export class UserService {
       });
 
     if (initial === undefined) {
-      const orgs = await this.profileService.getUserOrgs(wallet);
-      return (data(orgs)?.length ?? 0) > 0;
+      const user = await this.findProfileByWallet(wallet);
+      if (user?.username) {
+        const login = user.username;
+        const stats = await this.scorerService.getLeanStats([login]);
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        const { is_adjacent, is_native } = stats[0];
+
+        await this.neogma.queryRunner
+          .run(
+            `
+            MATCH (u:User {wallet: $wallet})
+            SET u.cryptoNative = $is_native
+            SET u.cryptoNativeAdjacent = $is_adjacent
+            RETURN u
+          `,
+            { wallet, is_native, is_adjacent },
+          )
+          .catch(err => {
+            Sentry.withScope(scope => {
+              scope.setTags({
+                action: "db-call",
+                source: "user.service",
+              });
+              Sentry.captureException(err);
+            });
+            this.logger.error(
+              `UserService::getCryptoNativeStatus ${err.message}`,
+            );
+            return undefined;
+          });
+        return is_native;
+      }
     } else {
       return initial;
     }

@@ -102,8 +102,6 @@ export class GithubUserService {
         nodeId: updateObject.githubNodeId,
         gravatarId: updateObject.githubGravatarId ?? null,
         avatarUrl: updateObject.githubAvatarUrl,
-        accessToken: updateObject.githubAccessToken,
-        refreshToken: updateObject.githubRefreshToken,
       };
 
       this.logger.log(JSON.stringify(payload));
@@ -192,7 +190,11 @@ export class GithubUserService {
     createGithubUserDto: CreateGithubUserDto,
   ): Promise<GithubUserNode> {
     const newGithubNode = await this.models.GithubUsers.createOne(
-      createGithubUserDto,
+      {
+        ...createGithubUserDto,
+        createdTimestamp: new Date().getTime(),
+        updatedTimestamp: new Date().getTime(),
+      },
       {
         validate: false,
       },
@@ -216,10 +218,16 @@ export class GithubUserService {
   ): Promise<GithubUserNode | undefined> {
     const oldNode = await this.findById(id);
     if (oldNode) {
-      const result = await this.models.GithubUsers.update(updateGithubUserDto, {
-        where: { id },
-        return: true,
-      });
+      const result = await this.models.GithubUsers.update(
+        {
+          ...updateGithubUserDto,
+          updatedTimestamp: new Date().getTime(),
+        },
+        {
+          where: { id },
+          return: true,
+        },
+      );
       return new GithubUserNode(instanceToNode(result[0][0]));
     } else {
       this.logger.error(`GithubUserService::update node not found`);

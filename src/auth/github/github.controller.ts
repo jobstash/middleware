@@ -138,6 +138,10 @@ export class GithubController {
         wallet,
         workHistory.find(x => x.user === profileData.login)?.workHistory ?? [],
       );
+
+      const orgs = await this.scorerService.getUserOrgs(profileData.login);
+
+      await this.profileService.refreshUserRepoCache(wallet, orgs);
     }
 
     await this.userService.setWalletFlow({

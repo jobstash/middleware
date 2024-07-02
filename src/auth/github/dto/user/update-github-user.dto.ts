@@ -16,12 +16,4 @@ export class UpdateGithubUserDto {
   @IsOptional()
   @IsUrl()
   avatarUrl?: string;
-
-  @IsOptional()
-  @IsString()
-  accessToken?: string;
-
-  @IsOptional()
-  @IsString()
-  refreshToken?: string;
 }

@@ -20,12 +20,4 @@ export class CreateGithubUserDto {
   @IsOptional()
   @IsString()
   id: string;
-
-  @IsOptional()
-  @IsString()
-  accessToken: string;
-
-  @IsOptional()
-  @IsString()
-  refreshToken: string;
 }

@@ -9,8 +9,6 @@ export class UserRepo {
     name: t.string,
     description: t.union([t.string, t.null]),
     timestamp: t.union([t.number, t.null]),
-    projectName: t.union([t.string, t.null]),
-    committers: t.union([t.number, t.null]),
     org: t.strict({
       name: t.string,
       url: t.string,
@@ -24,10 +22,7 @@ export class UserRepo {
         canTeach: t.boolean,
       }),
     ),
-    contribution: t.strict({
-      summary: t.union([t.string, t.null]),
-      count: t.number,
-    }),
+    contribution: t.union([t.string, t.null]),
   });
 
   @ApiProperty()
@@ -41,12 +36,6 @@ export class UserRepo {
 
   @ApiPropertyOptional()
   timestamp: number | null;
-
-  @ApiPropertyOptional()
-  projectName: string | null;
-
-  @ApiPropertyOptional()
-  committers: number | null;
 
   @ApiProperty()
   org: {
@@ -63,24 +52,11 @@ export class UserRepo {
     canTeach: boolean;
   }[];
 
-  @ApiProperty()
-  contribution: {
-    summary: string;
-    count: number;
-  };
+  @ApiPropertyOptional()
+  contribution: string | null;
 
   constructor(raw: UserRepo) {
-    const {
-      id,
-      name,
-      description,
-      timestamp,
-      projectName,
-      committers,
-      org,
-      tags,
-      contribution,
-    } = raw;
+    const { id, name, description, timestamp, org, tags, contribution } = raw;
 
     const result = UserRepo.UserRepoType.decode(raw);
 
@@ -88,8 +64,6 @@ export class UserRepo {
     this.name = name;
     this.description = description;
     this.timestamp = timestamp;
-    this.projectName = projectName;
-    this.committers = committers;
     this.org = org;
     this.tags = tags;
     this.contribution = contribution;

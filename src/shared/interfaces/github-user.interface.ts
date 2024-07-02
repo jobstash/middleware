@@ -10,8 +10,8 @@ export class GithubUser {
     nodeId: t.string,
     gravatarId: t.union([t.string, t.null]),
     avatarUrl: t.string,
-    accessToken: t.string,
-    refreshToken: t.string,
+    createdTimestamp: t.union([t.number, t.null]),
+    updatedTimestamp: t.union([t.number, t.null]),
   });
 
   @ApiProperty()
@@ -29,11 +29,11 @@ export class GithubUser {
   @ApiProperty()
   avatarUrl: string;
 
-  @ApiProperty()
-  accessToken: string;
+  @ApiPropertyOptional()
+  createdTimestamp: number | null;
 
-  @ApiProperty()
-  refreshToken: string;
+  @ApiPropertyOptional()
+  updatedTimestamp: number | null;
 
   constructor(raw: GithubUser) {
     const {
@@ -42,8 +42,8 @@ export class GithubUser {
       nodeId,
       gravatarId,
       avatarUrl,
-      accessToken,
-      refreshToken,
+      createdTimestamp,
+      updatedTimestamp,
     } = raw;
     const result = GithubUser.GithubUserType.decode(raw);
     this.id = id;
@@ -51,8 +51,8 @@ export class GithubUser {
     this.nodeId = nodeId;
     this.gravatarId = gravatarId;
     this.avatarUrl = avatarUrl;
-    this.accessToken = accessToken;
-    this.refreshToken = refreshToken;
+    this.createdTimestamp = createdTimestamp;
+    this.updatedTimestamp = updatedTimestamp;
 
     if (isLeft(result)) {
       report(result).forEach(x => {
