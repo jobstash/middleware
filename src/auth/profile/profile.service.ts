@@ -1204,7 +1204,7 @@ export class ProfileService {
           x => x.name === org.name || x.aliases.includes(org.name),
         );
 
-        if (!existing.login) {
+        if (!existing?.login) {
           await this.neogma.queryRunner.run(
             `
               MATCH (org:Organization {orgId: $orgId})
