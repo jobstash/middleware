@@ -1,5 +1,5 @@
 import {
-  JobDetails,
+  JobDetailsResult,
   OrganizationWithRelations,
   StructuredJobpostWithRelations,
 } from "../interfaces";
@@ -19,7 +19,7 @@ type RawJobPost = StructuredJobpostWithRelations & {
 export class JobDetailsEntity {
   constructor(private readonly raw: RawJobPost) {}
 
-  getProperties(protectLink = true): JobDetails {
+  getProperties(protectLink = true): JobDetailsResult {
     const jobpost = this.raw;
     const { organization, tags } = jobpost;
     const reviews =
@@ -34,7 +34,7 @@ export class JobDetailsEntity {
       isAfter(now, nonZeroOrNull(jobpost?.featureStartDate) ?? now) &&
       isBefore(now, nonZeroOrNull(jobpost?.featureEndDate) ?? now);
 
-    return new JobDetails({
+    return new JobDetailsResult({
       ...jobpost,
       salary: nonZeroOrNull(jobpost?.salary),
       minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),

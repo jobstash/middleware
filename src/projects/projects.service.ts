@@ -3,7 +3,7 @@ import {
   PaginatedData,
   ProjectFilterConfigs,
   ProjectFilterConfigsEntity,
-  ProjectDetails,
+  ProjectDetailsResult,
   ProjectDetailsEntity,
   Project,
   ProjectWithRelations,
@@ -317,7 +317,7 @@ export class ProjectsService {
   async getProjectDetailsById(
     id: string,
     ecosystem: string | undefined,
-  ): Promise<ProjectDetails | null> {
+  ): Promise<ProjectDetailsResult | null> {
     try {
       const details = await this.models.Projects.getProjectDetailsById(id);
       const result = details
@@ -349,7 +349,7 @@ export class ProjectsService {
   async getProjectDetailsBySlug(
     slug: string,
     ecosystem: string | undefined,
-  ): Promise<ProjectDetails | null> {
+  ): Promise<ProjectDetailsResult | null> {
     try {
       const details = await this.models.Projects.getProjectDetailsBySlug(slug);
       const result = details

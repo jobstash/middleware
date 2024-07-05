@@ -29,11 +29,12 @@ import {
   JobApplicant,
   JobpostFolder,
   data,
-  JobDetails,
+  JobDetailsResult,
 } from "src/shared/types";
 import {
   ApiBadRequestResponse,
   ApiExtraModels,
+  ApiHeader,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiUnprocessableEntityResponse,
@@ -86,6 +87,12 @@ export class JobsController {
   @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ANON)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiHeader({
+    name: ECOSYSTEM_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific ecosystem",
+  })
   @ApiOkResponse({
     description:
       "Returns a paginated sorted list of jobs that satisfy the search and filter predicate",
@@ -202,7 +209,7 @@ export class JobsController {
     @Res({ passthrough: true }) res: ExpressResponse,
     @Headers(ECOSYSTEM_HEADER)
     ecosystem: string | undefined,
-  ): Promise<JobDetails | undefined> {
+  ): Promise<JobDetailsResult | undefined> {
     this.logger.log(`/jobs/details/${uuid}`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {

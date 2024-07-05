@@ -7,7 +7,7 @@ import { ProjectListParams } from "./dto/project-list.input";
 import { Integer } from "neo4j-driver";
 import {
   ProjectFilterConfigs,
-  ProjectDetails,
+  ProjectDetailsResult,
   Project,
   ProjectMoreInfo,
   data,
@@ -43,7 +43,7 @@ describe("ProjectsController", () => {
   const logger = new CustomLogger(`${ProjectsController.name}TestSuite`);
 
   const projectHasArrayPropsDuplication = (
-    project: ProjectDetails,
+    project: ProjectDetailsResult,
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
       project?.audits,

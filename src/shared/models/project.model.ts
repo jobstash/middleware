@@ -10,7 +10,7 @@ import {
 import {
   ExtractProps,
   ProjectCategory,
-  ProjectDetails,
+  ProjectDetailsResult,
   ProjectMoreInfo,
   Project,
   ProjectDetailsEntity,
@@ -95,8 +95,10 @@ export interface ProjectStatics {
     (ProjectWithRelations & { orgName: string; communities: string[] })[]
   >;
   getProjectsMoreInfoData: () => Promise<ProjectWithRelations[]>;
-  getProjectDetailsById: (id: string) => Promise<ProjectDetails | null>;
-  getProjectDetailsBySlug: (slug: string) => Promise<ProjectDetails | null>;
+  getProjectDetailsById: (id: string) => Promise<ProjectDetailsResult | null>;
+  getProjectDetailsBySlug: (
+    slug: string,
+  ) => Promise<ProjectDetailsResult | null>;
   getProjectsByCategory: (category: string) => Promise<ProjectProps[]>;
   getProjectCompetitors: (
     id: string,
@@ -702,7 +704,9 @@ export const Projects = (
             `,
             );
           const result = await query.run(neogma.queryRunner);
-          const project: ProjectDetails = result?.records[0]?.get("result")
+          const project: ProjectDetailsResult = result?.records[0]?.get(
+            "result",
+          )
             ? new ProjectDetailsEntity(
                 result?.records[0]?.get("result"),
               ).getProperties()
@@ -852,7 +856,9 @@ export const Projects = (
             `,
             );
           const result = await query.run(neogma.queryRunner);
-          const project: ProjectDetails = result?.records[0]?.get("result")
+          const project: ProjectDetailsResult = result?.records[0]?.get(
+            "result",
+          )
             ? new ProjectDetailsEntity(
                 result?.records[0]?.get("result"),
               ).getProperties()

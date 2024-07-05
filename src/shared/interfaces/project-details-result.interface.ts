@@ -4,13 +4,12 @@ import * as t from "io-ts";
 import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
 import { Tag } from "./tag.interface";
-import { ProjectMoreInfo } from "./project-more-info.interface";
 import { ProjectWithRelations } from "./project-with-relations.interface";
 
-@ApiExtraModels(ProjectWithRelations, ProjectDetails)
-export class ProjectDetails extends ProjectWithRelations {
+@ApiExtraModels(ProjectWithRelations, ProjectDetailsResult)
+export class ProjectDetailsResult extends ProjectWithRelations {
   public static readonly ProjectDetailsType = t.intersection([
-    ProjectMoreInfo.ProjectMoreInfoType,
+    ProjectWithRelations.ProjectWithRelationsType,
     t.strict({
       organization: t.intersection([
         OrganizationWithRelations.OrganizationWithRelationsType,
@@ -22,12 +21,12 @@ export class ProjectDetails extends ProjectWithRelations {
   @ApiPropertyOptional()
   organization: OrganizationWithRelations & { tags: Tag[] };
 
-  constructor(raw: ProjectDetails) {
+  constructor(raw: ProjectDetailsResult) {
     const { organization, ...projectProps } = raw;
 
     super(projectProps);
 
-    const result = ProjectDetails.ProjectDetailsType.decode(raw);
+    const result = ProjectDetailsResult.ProjectDetailsType.decode(raw);
 
     this.organization = organization;
 

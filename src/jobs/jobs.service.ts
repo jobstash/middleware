@@ -32,7 +32,7 @@ import {
   JobApplicant,
   JobpostFolder,
   data,
-  JobDetails,
+  JobDetailsResult,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { AllJobsParams } from "./dto/all-jobs.input";
@@ -733,7 +733,7 @@ export class JobsService {
     uuid: string,
     ecosystem: string | undefined,
     protectLink = true,
-  ): Promise<JobDetails | undefined> {
+  ): Promise<JobDetailsResult | undefined> {
     try {
       const generatedQuery = `
       MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID})-[:HAS_STATUS]->(:JobpostOnlineStatus)
@@ -847,7 +847,7 @@ export class JobsService {
       });
       const job = result.records[0]?.get("result")
         ? new JobDetailsEntity(
-            result.records[0]?.get("result") as JobDetails,
+            result.records[0]?.get("result") as JobDetailsResult,
           ).getProperties(protectLink)
         : undefined;
       if (ecosystem) {

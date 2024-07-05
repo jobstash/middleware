@@ -22,7 +22,7 @@ import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relati
   Investor,
   OrganizationWithRelations,
 )
-export class JobDetails extends StructuredJobpostWithRelations {
+export class JobDetailsResult extends StructuredJobpostWithRelations {
   public static readonly JobListDetailsType = t.intersection([
     StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
     t.strict({
@@ -41,10 +41,10 @@ export class JobDetails extends StructuredJobpostWithRelations {
   })
   organization: OrganizationWithRelations & { hasUser: boolean };
 
-  constructor(raw: JobDetails) {
+  constructor(raw: JobDetailsResult) {
     const { organization, ...jobpostProperties } = raw;
     super(jobpostProperties);
-    const result = JobDetails.JobListDetailsType.decode(raw);
+    const result = JobDetailsResult.JobListDetailsType.decode(raw);
 
     this.organization = organization;
 

@@ -1,36 +1,39 @@
-import { Integer, Node } from "neo4j-driver";
-import { DateRange, JobListOrderBy } from "../enums";
+import { HttpService } from "@nestjs/axios";
+import { getSchemaPath } from "@nestjs/swagger";
 import {
-  startOfDay,
-  endOfDay,
-  startOfMonth,
-  endOfMonth,
-  subWeeks,
-  subMonths,
-  subDays,
-} from "date-fns";
-import {
+  OpenAPIObject,
   ReferenceObject,
   SchemaObject,
 } from "@nestjs/swagger/dist/interfaces/open-api-spec.interface";
-import { getSchemaPath } from "@nestjs/swagger";
-import { Response } from "../interfaces/response.interface";
-import { CustomLogger } from "../utils/custom-logger";
+import { AxiosError } from "axios";
+import { TransformFnParams } from "class-transformer";
+import { randomUUID } from "crypto";
+import {
+  endOfDay,
+  endOfMonth,
+  startOfDay,
+  startOfMonth,
+  subDays,
+  subMonths,
+  subWeeks,
+} from "date-fns";
+import { sort } from "fast-sort";
+import { Integer, Node } from "neo4j-driver";
+import { Neo4jSupportedProperties, NeogmaInstance } from "neogma";
+import { catchError, firstValueFrom } from "rxjs";
+import ShortUniqueId from "short-unique-id";
+import { NON_PUBLIC_API_ROUTES } from "../constants";
+import { DateRange, JobListOrderBy } from "../enums";
 import {
   OrgDetailsResult,
   OrgRating,
   PaginatedData,
   ShortOrg,
 } from "../interfaces";
-import { sort } from "fast-sort";
-import { TransformFnParams } from "class-transformer";
-import { Neo4jSupportedProperties, NeogmaInstance } from "neogma";
-import { randomUUID } from "crypto";
-import { AxiosError } from "axios";
-import { firstValueFrom, catchError } from "rxjs";
-import { HttpService } from "@nestjs/axios";
+import { Response } from "../interfaces/response.interface";
+import { PUBLIC_API_SCHEMAS } from "../presets/public-api-schemas";
+import { CustomLogger } from "../utils/custom-logger";
 import { emojiRegex } from "./emoji-regex";
-import ShortUniqueId from "short-unique-id";
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
     It accepts args for the values to filter with and the cypher filter to apply based on the various combinations of value existence possible
@@ -533,4 +536,21 @@ export const obfuscate = (value: string | null): string | null => {
   } else {
     return null;
   }
+};
+
+export const generatePublicApiSpec = (
+  defaultSpec: OpenAPIObject,
+): OpenAPIObject => {
+  return {
+    ...defaultSpec,
+    paths: Object.fromEntries(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      Object.entries(defaultSpec.paths).filter(([path, _]) => {
+        return !NON_PUBLIC_API_ROUTES.includes(path);
+      }),
+    ),
+    components: {
+      schemas: PUBLIC_API_SCHEMAS,
+    },
+  };
 };

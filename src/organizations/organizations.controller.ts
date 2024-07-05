@@ -20,6 +20,7 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import {
   ApiBadRequestResponse,
   ApiExtraModels,
+  ApiHeader,
   ApiInternalServerErrorResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -121,10 +122,16 @@ export class OrganizationsController {
   @Get("/list")
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiHeader({
+    name: ECOSYSTEM_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific ecosystem",
+  })
   @ApiOkResponse({
     description:
       "Returns a paginated sorted list of organizations that satisfy the search and filter predicate",
-    type: PaginatedData<Organization>,
+    type: PaginatedData<ShortOrg>,
     schema: {
       allOf: [
         {
@@ -138,7 +145,7 @@ export class OrganizationsController {
             },
             data: {
               type: "array",
-              items: { $ref: getSchemaPath(Organization) },
+              items: { $ref: getSchemaPath(ShortOrg) },
             },
           },
         },
@@ -147,7 +154,7 @@ export class OrganizationsController {
   })
   @ApiBadRequestResponse({
     description:
-      "Returns an error message with a list of values that failed validation",
+      "Returns an error message with a list of query params that failed validation",
     schema: {
       allOf: [
         {
@@ -190,7 +197,7 @@ export class OrganizationsController {
   })
   @ApiBadRequestResponse({
     description:
-      "Returns an error message with a list of values that failed validation",
+      "Returns an error message with a list of query params that failed validation",
     schema: {
       allOf: [
         {
@@ -207,6 +214,12 @@ export class OrganizationsController {
   @Get("/filters")
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiHeader({
+    name: ECOSYSTEM_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific ecosystem",
+  })
   @ApiOkResponse({
     description: "Returns the configuration data for the ui filters",
     schema: {
@@ -219,7 +232,7 @@ export class OrganizationsController {
   })
   @ApiBadRequestResponse({
     description:
-      "Returns an error message with a list of values that failed validation",
+      "Returns an error message with a list of params that failed validation",
     type: ValidationError,
   })
   async getFilterConfigs(
@@ -240,7 +253,7 @@ export class OrganizationsController {
   })
   @ApiBadRequestResponse({
     description:
-      "Returns an error message with a list of values that failed validation",
+      "Returns an error message with a list of query params that failed validation",
     schema: {
       allOf: [
         {
@@ -257,8 +270,15 @@ export class OrganizationsController {
   }
 
   @Get("details/:id")
+  @ApiHeader({
+    name: ECOSYSTEM_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific ecosystem",
+  })
   @ApiOkResponse({
-    description: "Returns the organization details for the provided id",
+    description:
+      "Returns the organization details for the provided internal id",
     schema: {
       allOf: [
         {
@@ -269,12 +289,12 @@ export class OrganizationsController {
   })
   @ApiBadRequestResponse({
     description:
-      "Returns an error message with a list of values that failed validation",
+      "Returns an error message with a list of query params that failed validation",
     type: ValidationError,
   })
   @ApiNotFoundResponse({
     description:
-      "Returns that no organization details were found for the provided id",
+      "Returns that no organization details were found for the provided internal id",
     type: ResponseWithNoData,
   })
   async getOrgDetailsById(
@@ -294,6 +314,12 @@ export class OrganizationsController {
   }
 
   @Get("details/slug/:slug")
+  @ApiHeader({
+    name: ECOSYSTEM_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific ecosystem",
+  })
   @ApiOkResponse({
     description: "Returns the organization details for the provided slug",
     schema: {
@@ -306,7 +332,7 @@ export class OrganizationsController {
   })
   @ApiBadRequestResponse({
     description:
-      "Returns an error message with a list of values that failed validation",
+      "Returns an error message with a list of query params that failed validation",
     type: ValidationError,
   })
   @ApiNotFoundResponse({

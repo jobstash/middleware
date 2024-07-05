@@ -21,6 +21,7 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import {
   ApiBadRequestResponse,
   ApiExtraModels,
+  ApiHeader,
   ApiInternalServerErrorResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -52,7 +53,7 @@ import {
   OptionsSummary,
   PaginatedData,
   Project,
-  ProjectDetails,
+  ProjectDetailsResult,
   ProjectFilterConfigs,
   ProjectListResult,
   ProjectMoreInfo,
@@ -130,6 +131,12 @@ export class ProjectsController {
   @Get("/list")
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiHeader({
+    name: ECOSYSTEM_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific ecosystem",
+  })
   @ApiOkResponse({
     description:
       "Returns a paginated sorted list of projects that satisfy the search and filter predicate",
@@ -156,7 +163,7 @@ export class ProjectsController {
   })
   @ApiBadRequestResponse({
     description:
-      "Returns an error message with a list of values that failed validation",
+      "Returns an error message with a list of query params that failed validation",
     schema: {
       allOf: [
         {
@@ -183,6 +190,12 @@ export class ProjectsController {
   @Get("/filters")
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiHeader({
+    name: ECOSYSTEM_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific ecosystem",
+  })
   @ApiOkResponse({
     description: "Returns the configuration data for the ui filters",
     schema: {
@@ -195,7 +208,7 @@ export class ProjectsController {
   })
   @ApiBadRequestResponse({
     description:
-      "Returns an error message with a list of values that failed validation",
+      "Returns an error message with a list of query params that failed validation",
     type: ValidationError,
   })
   async getFilterConfigs(
@@ -206,19 +219,25 @@ export class ProjectsController {
   }
 
   @Get("details/:id")
+  @ApiHeader({
+    name: ECOSYSTEM_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific ecosystem",
+  })
   @ApiOkResponse({
     description: "Returns the project details for the provided id",
     schema: {
       allOf: [
         {
-          $ref: getSchemaPath(ProjectDetails),
+          $ref: getSchemaPath(ProjectDetailsResult),
         },
       ],
     },
   })
   @ApiBadRequestResponse({
     description:
-      "Returns an error message with a list of values that failed validation",
+      "Returns an error message with a list of query params that failed validation",
     type: ValidationError,
   })
   @ApiNotFoundResponse({
@@ -230,7 +249,7 @@ export class ProjectsController {
     @Param("id") id: string,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
-  ): Promise<ProjectDetails | undefined> {
+  ): Promise<ProjectDetailsResult | undefined> {
     this.logger.log(`/projects/details/${id}`);
     const result = await this.projectsService.getProjectDetailsById(
       id,
@@ -243,19 +262,25 @@ export class ProjectsController {
   }
 
   @Get("details/slug/:slug")
+  @ApiHeader({
+    name: ECOSYSTEM_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific ecosystem",
+  })
   @ApiOkResponse({
     description: "Returns the project details for the provided slug",
     schema: {
       allOf: [
         {
-          $ref: getSchemaPath(ProjectDetails),
+          $ref: getSchemaPath(ProjectDetailsResult),
         },
       ],
     },
   })
   @ApiBadRequestResponse({
     description:
-      "Returns an error message with a list of values that failed validation",
+      "Returns an error message with a list of query params that failed validation",
     type: ValidationError,
   })
   @ApiNotFoundResponse({
@@ -267,7 +292,7 @@ export class ProjectsController {
     @Param("slug") slug: string,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
-  ): Promise<ProjectDetails | undefined> {
+  ): Promise<ProjectDetailsResult | undefined> {
     this.logger.log(`/projects/details/slug/${slug}`);
     const result = await this.projectsService.getProjectDetailsBySlug(
       slug,
@@ -388,6 +413,7 @@ export class ProjectsController {
 
   @Get("/search")
   @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects with names matching the query",
     schema: responseSchemaWrapper({

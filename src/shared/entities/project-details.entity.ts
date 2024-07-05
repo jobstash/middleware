@@ -5,24 +5,24 @@ import {
   nonZeroOrNull,
   notStringOrNull,
 } from "../helpers";
-import { ProjectDetails } from "../interfaces/project-details.interface";
+import { ProjectDetailsResult } from "../interfaces/project-details-result.interface";
 import { OrgReviewEntity } from "./org-review.entity";
 
-type RawProject = ProjectDetails & {
+type RawProject = ProjectDetailsResult & {
   organization?: (OrganizationWithRelations & { tags: Tag[] }) | null;
 };
 
 export class ProjectDetailsEntity {
   constructor(private readonly raw: RawProject) {}
 
-  getProperties(): ProjectDetails {
+  getProperties(): ProjectDetailsResult {
     const { organization, ...project } = this.raw;
     const reviews =
       organization?.reviews?.map(review =>
         generateOrgAggregateRating(review.rating),
       ) ?? [];
 
-    return new ProjectDetails({
+    return new ProjectDetailsResult({
       ...project,
       defiLlamaId: notStringOrNull(project?.defiLlamaId),
       defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug),
