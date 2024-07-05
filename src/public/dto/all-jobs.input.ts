@@ -4,7 +4,7 @@ import { IsNumber, IsOptional, Max } from "class-validator";
 
 export class AllJobsInput {
   @ApiPropertyOptional({
-    example: 100,
+    example: 1,
   })
   @IsOptional()
   @IsNumber()
@@ -12,7 +12,7 @@ export class AllJobsInput {
   page: number;
 
   @ApiPropertyOptional({
-    example: 100,
+    example: 10,
   })
   @IsOptional()
   @IsNumber({ allowInfinity: false, allowNaN: false })

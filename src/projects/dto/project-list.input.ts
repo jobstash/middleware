@@ -168,7 +168,7 @@ export class ProjectListParams {
   orderBy?: ProjectListOrderBy | null = null;
 
   @ApiPropertyOptional({
-    example: 500,
+    example: 1,
   })
   @IsOptional()
   @IsNumber()
@@ -176,16 +176,14 @@ export class ProjectListParams {
   page?: number | null = null;
 
   @ApiPropertyOptional({
-    example: 100,
+    example: 20,
   })
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
   limit?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: "QWNyb3Nz",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   @Type(() => String)

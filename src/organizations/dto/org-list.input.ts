@@ -13,18 +13,14 @@ import { ListOrder, OrgListOrderBy } from "src/shared/types";
 import { Compare } from "src/shared/validators";
 
 export class OrgListParams {
-  @ApiPropertyOptional({
-    example: 10,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
   minHeadCount?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 100,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -56,9 +52,7 @@ export class OrgListParams {
   @Transform(toList)
   communities?: string[] | null = null;
 
-  @ApiPropertyOptional({
-    example: true,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Transform(({ value }) =>
     value === "true" ? true : value === "false" ? false : value,
@@ -66,9 +60,7 @@ export class OrgListParams {
   @IsBoolean()
   hasProjects?: boolean | null = null;
 
-  @ApiPropertyOptional({
-    example: true,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @Transform(({ value }) =>
     value === "true" ? true : value === "false" ? false : value,
@@ -105,7 +97,7 @@ export class OrgListParams {
   orderBy?: OrgListOrderBy | null = null;
 
   @ApiPropertyOptional({
-    example: 500,
+    example: 1,
   })
   @IsOptional()
   @IsNumber()
@@ -113,16 +105,14 @@ export class OrgListParams {
   page?: number | null = null;
 
   @ApiPropertyOptional({
-    example: 100,
+    example: 20,
   })
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
   limit?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: "C++",
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   @Type(() => String)

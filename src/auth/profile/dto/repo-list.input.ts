@@ -3,17 +3,13 @@ import { Type } from "class-transformer";
 import { IsNumber, IsOptional } from "class-validator";
 
 export class RepoListParams {
-  @ApiPropertyOptional({
-    example: 500,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
   page?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 100,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Type(() => Number)

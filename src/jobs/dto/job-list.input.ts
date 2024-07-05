@@ -290,7 +290,7 @@ export class JobListParams {
   page?: number | null = null;
 
   @ApiPropertyOptional({
-    example: 2000,
+    example: 20,
   })
   @IsOptional()
   @IsNumber()

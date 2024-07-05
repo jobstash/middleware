@@ -3,17 +3,13 @@ import { IsOptional, IsNumber } from "class-validator";
 import { Type } from "class-transformer";
 
 export class InvestorListParams {
-  @ApiPropertyOptional({
-    example: 1,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
   page?: number | null = null;
 
-  @ApiPropertyOptional({
-    example: 2000,
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
