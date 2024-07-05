@@ -28,8 +28,7 @@ export class AllJobListResultEntity {
       paysInCrypto: jobpost?.paysInCrypto ?? null,
       offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
       timestamp: nonZeroOrNull(jobpost?.timestamp),
-      url:
-        jobpost?.access === "protected" ? null : notStringOrNull(jobpost?.url),
+      url: notStringOrNull(jobpost?.url),
       title: notStringOrNull(jobpost?.title),
       organization: {
         ...organization,

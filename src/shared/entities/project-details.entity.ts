@@ -6,6 +6,7 @@ import {
   notStringOrNull,
 } from "../helpers";
 import { ProjectDetails } from "../interfaces/project-details.interface";
+import { OrgReviewEntity } from "./org-review.entity";
 
 type RawProject = ProjectDetails & {
   organization?: (OrganizationWithRelations & { tags: Tag[] }) | null;
@@ -102,6 +103,10 @@ export class ProjectDetailsEntity {
           })) ?? [],
         tags: organization?.tags ?? [],
         projects: [],
+        reviews:
+          organization?.reviews.map(review =>
+            new OrgReviewEntity(review).getProperties(),
+          ) ?? [],
       },
       repos:
         project?.repos?.map(repo => ({
