@@ -226,9 +226,11 @@ export class OrganizationsService {
     const orgFilters = (org: OrgDetailsResult): boolean => {
       const { headcountEstimate, jobCount, projectCount, location, name } =
         toShortOrg(org);
-      const { fundingRounds, investors, community } = org;
+      const { fundingRounds, investors, community, aliases } = org;
+      const isValidSearchResult =
+        name.match(query) || aliases.some(alias => alias.match(query));
       return (
-        (!query || name.match(query)) &&
+        (!query || isValidSearchResult) &&
         (hasJobs === null || jobCount > 0 === hasJobs) &&
         (hasProjects === null || projectCount > 0 === hasProjects) &&
         (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&

@@ -431,6 +431,9 @@ export const Projects = (
                   communities: [
                     (organization)-[:IS_MEMBER_OF_COMMUNITY]->(community: OrganizationCommunity) | community.name
                   ],
+                  aliases: [
+                    (project)-[:HAS_PROJECT_ALIAS]->(alias: ProjectAlias) | alias.name
+                  ],
                   hacks: [
                     (project)-[:HAS_HACK]->(hack) | hack { .* }
                   ],

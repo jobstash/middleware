@@ -114,10 +114,14 @@ export class ProjectsService {
       project: ProjectWithRelations & {
         orgName: string;
         communities: string[];
+        aliases: string[];
       },
     ): boolean => {
+      const isValidSearchResult =
+        project.name.match(query) ||
+        project.aliases.some(alias => alias.match(query));
       return (
-        (!query || project.name.match(query)) &&
+        (!query || isValidSearchResult) &&
         (!categoryFilterList ||
           categoryFilterList.includes(normalizeString(project.category))) &&
         (!organizationFilterList ||
