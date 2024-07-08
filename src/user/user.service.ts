@@ -31,6 +31,7 @@ import { ScorerService } from "src/scorer/scorer.service";
 import { addMonths, isBefore } from "date-fns";
 import { ConfigService } from "@nestjs/config";
 import { ProfileService } from "src/auth/profile/profile.service";
+import { SiweService } from "src/auth/siwe/siwe.service";
 
 @Injectable()
 export class UserService {
@@ -44,6 +45,7 @@ export class UserService {
     private readonly configService: ConfigService,
     private readonly profileService: ProfileService,
     private readonly scorerService: ScorerService,
+    private readonly siweService: SiweService,
   ) {}
 
   async findByWallet(wallet: string): Promise<UserEntity | undefined> {
@@ -460,10 +462,16 @@ export class UserService {
               profileData.username,
             ]);
 
+            const leanStats = await this.scorerService.getLeanStats([
+              profileData.username,
+            ]);
+
             await this.profileService.refreshWorkHistoryCache(
               wallet,
               workHistory.find(x => x.user === profileData.username)
                 ?.workHistory ?? [],
+              leanStats.find(x => x.actor_login === profileData.username) ??
+                null,
             );
 
             const orgs = await this.scorerService.getUserOrgs(
@@ -799,9 +807,16 @@ export class UserService {
           WHERE email IS NULL OR website IS NULL OR apoc.data.url(website.url).host CONTAINS apoc.data.email(email.email).domain
           RETURN {
             wallet: user.wallet,
+            cryptoNative: user.cryptoNative,
+            cryptoAjacent: user.cryptoAjacent,
+            attestations: {
+              upvotes: null,
+              downvotes: null
+            },
             availableForWork: user.available,
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+            preferred: [(user)-[:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo) | preferred { .* }][0],
             contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
             email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
             location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
@@ -811,26 +826,46 @@ export class UserService {
                   .*,
                   canTeach: [(user)-[m:HAS_SKILL]->(tag) | m.canTeach][0]
                 }
-              ]),
-              showcases: apoc.coll.toSet([
-                (user)-[:HAS_SHOWCASE]->(showcase) |
-                showcase {
-                  .*
-                }
-              ])
+            ]),
+            showcases: apoc.coll.toSet([
+              (user)-[:HAS_SHOWCASE]->(showcase) |
+              showcase {
+                .*
+              }
+            ]),
+            workHistory: apoc.coll.toSet([
+              (user)-[:HAS_WORK_HISTORY]->(workHistory: UserWorkHistory) |
+              workHistory {
+                .*,
+                repositories: apoc.coll.toSet([
+                  (workHistory)-[:WORKED_ON_REPO]->(repo: UserWorkHistoryRepo) |
+                  repo {
+                    .*
+                  }
+                ])
+              }
+            ])
           } as user
         `,
         { orgId: orgId ?? null },
       )
-      .then(res =>
-        res.records.length
-          ? res.records
-              .map(record =>
-                new DevUserProfileEntity(record.get("user")).getProperties(),
-              )
-              .filter(locationFilter)
-          : [],
-      )
+      .then(async res => {
+        const results = [];
+        for (const record of res.records) {
+          const user = record.get("user");
+          const nfts = await this.siweService.getCommunitiesForWallet(
+            user.wallet,
+          );
+          const profile = new DevUserProfileEntity({
+            ...user,
+            nfts,
+          }).getProperties();
+          if (locationFilter(profile)) {
+            results.push(profile);
+          }
+        }
+        return results;
+      })
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({

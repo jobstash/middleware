@@ -126,14 +126,20 @@ export class UserController {
             );
             const applicantWorkHistories =
               await this.scorerService.getWorkHistory(applicantUsernames);
+            const leanStats = await this.scorerService.getLeanStats(
+              applicantUsernames,
+            );
             for (const applicant of applicantUsernames) {
               const workHistory =
                 applicantWorkHistories.find(x => x.user === applicant)
                   ?.workHistory ?? [];
+              const leanStatsForApplicant =
+                leanStats.find(x => x.actor_login === applicant) ?? null;
               await this.profileService.refreshWorkHistoryCache(
                 applicants.find(x => x.user.username === applicant)?.user
                   ?.wallet,
                 workHistory,
+                leanStatsForApplicant,
               );
             }
           }

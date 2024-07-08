@@ -802,10 +802,17 @@ export class ProfileController {
                       [userProfile.username],
                     );
 
+                    const leanStats = await this.scorerService.getLeanStats([
+                      userProfile.username,
+                    ]);
+
                     await this.profileService.refreshWorkHistoryCache(
                       userProfile.wallet,
                       workHistory.find(x => x.user === userProfile.username)
                         ?.workHistory ?? [],
+                      leanStats.find(
+                        x => x.actor_login === userProfile.username,
+                      ) ?? null,
                     );
                   }
                 }

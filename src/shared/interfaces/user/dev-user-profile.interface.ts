@@ -5,13 +5,22 @@ import { report } from "io-ts-human-reporter";
 import { UserProfile } from "./user-profile.interface";
 import { UserShowCase } from "./user-showcase.interface";
 import { UserSkill } from "./user-skill.interface";
+import { UserWorkHistory } from "./user-work-history.interface";
 
 export class DevUserProfile extends UserProfile {
   public static readonly DevUserProfileType = t.intersection([
     UserProfile.UserProfileType,
     t.strict({
+      cryptoAjacent: t.boolean,
+      cryptoNative: t.boolean,
+      attestations: t.strict({
+        upvotes: t.union([t.number, t.null]),
+        downvotes: t.union([t.number, t.null]),
+      }),
+      nfts: t.array(t.string),
       skills: t.array(UserSkill.UserSkillType),
       showcases: t.array(UserShowCase.UserShowCaseType),
+      workHistory: t.array(UserWorkHistory.UserWorkHistoryType),
     }),
   ]);
 
@@ -21,12 +30,44 @@ export class DevUserProfile extends UserProfile {
   @ApiProperty()
   showcases: UserShowCase[];
 
+  @ApiProperty()
+  workHistory: UserWorkHistory[];
+
+  @ApiProperty()
+  cryptoAjacent: boolean;
+
+  @ApiProperty()
+  cryptoNative: boolean;
+
+  @ApiProperty()
+  attestations: {
+    upvotes: number | null;
+    downvotes: number | null;
+  };
+
+  @ApiProperty()
+  nfts: string[];
+
   constructor(raw: DevUserProfile) {
-    const { skills, showcases, ...profile } = raw;
+    const {
+      skills,
+      showcases,
+      workHistory,
+      cryptoNative,
+      cryptoAjacent,
+      attestations,
+      nfts,
+      ...profile
+    } = raw;
     super(profile);
 
     this.skills = skills;
     this.showcases = showcases;
+    this.workHistory = workHistory;
+    this.cryptoAjacent = cryptoAjacent;
+    this.cryptoNative = cryptoNative;
+    this.attestations = attestations;
+    this.nfts = nfts;
 
     const result = DevUserProfile.DevUserProfileType.decode(raw);
 

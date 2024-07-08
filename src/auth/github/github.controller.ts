@@ -134,9 +134,14 @@ export class GithubController {
         profileData.login,
       ]);
 
+      const leanStats = await this.scorerService.getLeanStats([
+        profileData.login,
+      ]);
+
       await this.profileService.refreshWorkHistoryCache(
         wallet,
         workHistory.find(x => x.user === profileData.login)?.workHistory ?? [],
+        leanStats.find(x => x.actor_login === profileData.login) ?? null,
       );
 
       const orgs = await this.scorerService.getUserOrgs(profileData.login);

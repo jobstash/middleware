@@ -26,6 +26,7 @@ import {
   ResponseWithNoData,
   ResponseWithOptionalData,
   UserGithubOrganization,
+  UserLeanStats,
   UserOrg,
   UserProfile,
   UserRepo,
@@ -1103,10 +1104,12 @@ export class ProfileService {
   async refreshWorkHistoryCache(
     wallet: string,
     dto: UserWorkHistory[],
+    leanStats: UserLeanStats | null,
   ): Promise<ResponseWithNoData> {
     const isCryptoNative = dto.some(x =>
       x.repositories.some(repo => repo.cryptoNative),
     );
+    const isCryptoAjacent = leanStats?.is_adjacent ?? false;
     try {
       await this.neogma.queryRunner.run(
         `
@@ -1149,9 +1152,15 @@ export class ProfileService {
 
         MATCH (user: User {wallet: $wallet})
         SET user.cryptoNative = $cryptoNative
+        SET user.cryptoAjacent = $cryptoAjacent
         CREATE (user)-[:HAS_WORK_HISTORY]->(history)
         `,
-        { wallet, history: dto ?? [], cryptoNative: isCryptoNative },
+        {
+          wallet,
+          history: dto ?? [],
+          cryptoNative: isCryptoNative,
+          cryptoAjacent: isCryptoAjacent,
+        },
       );
       return {
         success: true,

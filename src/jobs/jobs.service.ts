@@ -937,6 +937,7 @@ export class JobsService {
             upvotes: null,
             downvotes: null
           },
+          cryptoNative: user.cryptoNative,
           appliedTimestamp: r.timestamp,
           user: {
               wallet: user.wallet,
@@ -1093,9 +1094,6 @@ export class JobsService {
             return new JobApplicantEntity({
               ...applicant,
               nfts,
-              cryptoNative: applicant?.user?.workHistory?.some(org =>
-                org.repositories.some(repo => repo.cryptoNative),
-              ),
             }).getProperties();
           }),
         ),
