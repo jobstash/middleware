@@ -797,14 +797,11 @@ export class UserService {
     return this.neogma.queryRunner
       .run(
         `
-          MATCH (user:User)
+          MATCH (user:User), (organization: Organization {orgId: $orgId})
           WHERE user.available = true
           AND (user)-[:HAS_ROLE]->(:UserRole { name: "DEV" })
           AND (user)-[:HAS_USER_FLOW_STAGE]->(:UserFlow { name: "SIGNUP-COMPLETE" })
 
-          WITH user
-          OPTIONAL MATCH (user)-[:HAS_EMAIL]->(email: UserEmail), (organization: Organization {orgId: $orgId})-[:HAS_WEBSITE]->(website: Website)
-          WHERE email IS NULL OR website IS NULL OR apoc.data.url(website.url).host CONTAINS apoc.data.email(email.email).domain
           RETURN {
             wallet: user.wallet,
             cryptoNative: user.cryptoNative,
@@ -813,6 +810,7 @@ export class UserService {
               upvotes: null,
               downvotes: null
             },
+            note: [(user)-[:HAS_RECRUITER_NOTE]->(note: RecruiterNote)<-[:HAS_TALENT_NOTE]-(organization) | note.note][0],
             availableForWork: user.available,
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
@@ -963,5 +961,51 @@ export class UserService {
         this.logger.error(`UserService::getApprovedOrgs ${err.message}`);
         return [];
       });
+  }
+
+  async addUserNote(
+    wallet: string,
+    note: string,
+    orgId: string,
+  ): Promise<ResponseWithNoData> {
+    return (
+      this.neogma.queryRunner
+        .run(
+          `
+          MATCH (u:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
+          MERGE (u)-[:HAS_RECRUITER_NOTE]->(note:RecruiterNote)<-[:HAS_TALENT_NOTE]-(org)
+          ON CREATE SET
+            note.id = randomUUID(),
+            note.note = $note,
+            note.createdTimestamp = timestamp()
+          ON MATCH SET
+            note.note = $note,
+            note.updatedTimestamp = timestamp()
+
+        `,
+          { wallet, note, orgId },
+        )
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        .then(_ => {
+          return {
+            success: true,
+            message: "Set user note successfully",
+          };
+        })
+        .catch(err => {
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "db-call",
+              source: "user.service",
+            });
+            Sentry.captureException(err);
+          });
+          this.logger.error(`UserService::addUserNote ${err.message}`);
+          return {
+            success: false,
+            message: "Setting user note failed",
+          };
+        })
+    );
   }
 }

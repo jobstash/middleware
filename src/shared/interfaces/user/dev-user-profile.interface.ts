@@ -17,6 +17,7 @@ export class DevUserProfile extends UserProfile {
         upvotes: t.union([t.number, t.null]),
         downvotes: t.union([t.number, t.null]),
       }),
+      note: t.union([t.string, t.null]),
       nfts: t.array(t.string),
       skills: t.array(UserSkill.UserSkillType),
       showcases: t.array(UserShowCase.UserShowCaseType),
@@ -48,6 +49,9 @@ export class DevUserProfile extends UserProfile {
   @ApiProperty()
   nfts: string[];
 
+  @ApiProperty()
+  note: string | null;
+
   constructor(raw: DevUserProfile) {
     const {
       skills,
@@ -56,6 +60,7 @@ export class DevUserProfile extends UserProfile {
       cryptoNative,
       cryptoAjacent,
       attestations,
+      note,
       nfts,
       ...profile
     } = raw;
@@ -67,6 +72,7 @@ export class DevUserProfile extends UserProfile {
     this.cryptoAjacent = cryptoAjacent;
     this.cryptoNative = cryptoNative;
     this.attestations = attestations;
+    this.note = note;
     this.nfts = nfts;
 
     const result = DevUserProfile.DevUserProfileType.decode(raw);

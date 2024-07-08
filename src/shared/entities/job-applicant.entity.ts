@@ -24,6 +24,7 @@ export class JobApplicantEntity {
         downvotes: nonZeroOrNull(applicant?.attestations?.downvotes),
       },
       nfts: applicant?.nfts ?? [],
+      note: notStringOrNull(applicant?.note),
       appliedTimestamp: nonZeroOrNull(applicant?.appliedTimestamp),
       user: {
         ...new UserProfileEntity(

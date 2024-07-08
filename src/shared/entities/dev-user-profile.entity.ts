@@ -26,6 +26,7 @@ export class DevUserProfileEntity {
       avatar: notStringOrNull(this.raw?.avatar),
       username: notStringOrNull(this.raw?.username),
       email: notStringOrNull(this.raw?.email),
+      note: notStringOrNull(this.raw?.note),
       availableForWork: this.raw?.availableForWork ?? false,
       cryptoNative: this.raw?.cryptoNative ?? false,
       cryptoAjacent: this.raw?.cryptoAjacent ?? false,

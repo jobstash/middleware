@@ -33,6 +33,7 @@ import { UserWorkHistory } from "src/shared/interfaces/user/user-work-history.in
 import { ProfileService } from "src/auth/profile/profile.service";
 import { JobsService } from "src/jobs/jobs.service";
 import { ScorerService } from "src/scorer/scorer.service";
+import { AddUserNoteInput } from "./dto/add-user-note.dto";
 
 @Controller("users")
 export class UserController {
@@ -228,5 +229,28 @@ export class UserController {
   ): Promise<{ user: string; workHistory: UserWorkHistory[] }[]> {
     this.logger.log(`/users/work-history ${JSON.stringify(users.split(","))}`);
     return this.scorerService.getWorkHistory(users.split(","));
+  }
+
+  @Post("devs/note")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ORG)
+  async addUserNote(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @Body() body: AddUserNoteInput,
+  ): Promise<ResponseWithNoData> {
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      const orgId = address
+        ? await this.userService.findOrgIdByWallet(address as string)
+        : null;
+      this.logger.log(`/users/devs/note ${JSON.stringify(body)}`);
+      return this.userService.addUserNote(body.wallet, body.note, orgId);
+    } else {
+      return {
+        success: false,
+        message: "Access denied",
+      };
+    }
   }
 }
