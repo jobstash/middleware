@@ -35,8 +35,8 @@ export type NetworkType =
 
 const Network = t.keyof(NETWORK);
 
-export class TrackedNFT {
-  public static readonly TrackedNFTType = t.strict({
+export class EcosystemActivation {
+  public static readonly EcosystemActivationType = t.strict({
     id: t.string,
     name: t.string,
     contractAddress: t.string,
@@ -55,9 +55,9 @@ export class TrackedNFT {
   @ApiProperty()
   network: NetworkType;
 
-  constructor(raw: TrackedNFT) {
+  constructor(raw: EcosystemActivation) {
     const { id, name, contractAddress, network } = raw;
-    const result = TrackedNFT.TrackedNFTType.decode(raw);
+    const result = EcosystemActivation.EcosystemActivationType.decode(raw);
 
     this.id = id;
     this.name = name;
@@ -67,7 +67,7 @@ export class TrackedNFT {
     if (isLeft(result)) {
       report(result).forEach(x => {
         throw new Error(
-          `tracked nft instance with id ${this.id} failed validation with error '${x}'`,
+          `tracked ecosystemActivation instance with id ${this.id} failed validation with error '${x}'`,
         );
       });
     }

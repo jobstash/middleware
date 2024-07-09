@@ -23,7 +23,7 @@ export class JobApplicantEntity {
         upvotes: nonZeroOrNull(applicant?.attestations?.upvotes),
         downvotes: nonZeroOrNull(applicant?.attestations?.downvotes),
       },
-      nfts: applicant?.nfts ?? [],
+      ecosystemActivations: applicant?.ecosystemActivations ?? [],
       note: notStringOrNull(applicant?.note),
       appliedTimestamp: nonZeroOrNull(applicant?.appliedTimestamp),
       user: {

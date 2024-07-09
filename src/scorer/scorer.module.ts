@@ -12,7 +12,7 @@ import { UserRoleService } from "src/user/user-role.service";
 import { AuthService } from "src/auth/auth.service";
 import { JwtService } from "@nestjs/jwt";
 import { ProfileService } from "src/auth/profile/profile.service";
-import { SiweService } from "src/auth/siwe/siwe.service";
+import { RpcService } from "src/user/rpc.service";
 
 @Module({
   imports: [
@@ -40,7 +40,7 @@ import { SiweService } from "src/auth/siwe/siwe.service";
     AuthService,
     JwtService,
     ProfileService,
-    SiweService,
+    RpcService,
   ],
   controllers: [ScorerController],
 })

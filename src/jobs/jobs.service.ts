@@ -49,8 +49,9 @@ import { differenceInHours } from "date-fns";
 import { randomUUID } from "crypto";
 import { ConfigService } from "@nestjs/config";
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
-import { SiweService } from "src/auth/siwe/siwe.service";
+import { RpcService } from "src/user/rpc.service";
 import { UpdateJobApplicantListInput } from "./dto/update-job-applicant-list.input";
+import { ScorerService } from "src/scorer/scorer.service";
 
 @Injectable()
 export class JobsService {
@@ -59,8 +60,9 @@ export class JobsService {
     @InjectConnection()
     private neogma: Neogma,
     private models: ModelService,
-    private readonly siweService: SiweService,
+    private readonly rpcService: RpcService,
     private readonly configService: ConfigService,
+    private readonly scorerService: ScorerService,
   ) {}
 
   getJobsListResults = async (): Promise<JobListResult[]> => {
@@ -904,7 +906,7 @@ export class JobsService {
   }
 
   async getJobsByOrgIdWithApplicants(
-    id: string,
+    orgId: string,
     list: "all" | "shortlisted" | "archived",
   ): Promise<ResponseWithOptionalData<JobApplicant[]>> {
     try {
@@ -1078,26 +1080,29 @@ export class JobsService {
         } as result
       `;
       const result = await this.neogma.queryRunner.run(generatedQuery, {
-        orgId: id,
+        orgId,
         list,
       });
       const applicants =
         result?.records?.map(record => record.get("result")) ?? [];
 
+      const ecosystemActivations =
+        await this.scorerService.getWalletEcosystemActivations(
+          applicants.map(x => x.user.wallet),
+          orgId,
+        );
+
       return {
         success: true,
         message: "Org jobs and applicants retrieved successfully",
-        data: await Promise.all(
-          applicants?.map(async (applicant: JobApplicant) => {
-            const nfts = await this.siweService.getCommunitiesForWallet(
-              applicant.user.wallet,
-            );
-            return new JobApplicantEntity({
-              ...applicant,
-              nfts,
-            }).getProperties();
-          }),
-        ),
+        data: applicants?.map((applicant: JobApplicant) => {
+          return new JobApplicantEntity({
+            ...applicant,
+            ecosystemActivations:
+              ecosystemActivations.find(x => x.wallet === applicant.user.wallet)
+                ?.ecosystemActivations ?? [],
+          }).getProperties();
+        }),
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -1105,7 +1110,7 @@ export class JobsService {
           action: "db-call",
           source: "jobs.service",
         });
-        scope.setExtra("input", id);
+        scope.setExtra("input", orgId);
         Sentry.captureException(err);
       });
       this.logger.error(
@@ -1152,6 +1157,7 @@ export class JobsService {
             upvotes: null,
             downvotes: null
           },
+          cryptoNative: user.cryptoNative,
           appliedTimestamp: r.timestamp,
           user: {
               wallet: user.wallet,
@@ -1195,7 +1201,7 @@ export class JobsService {
             id: structured_jobpost.id,
             url: structured_jobpost.url,
             title: structured_jobpost.title,
-access: structured_jobpost.access,
+            access: structured_jobpost.access,
             salary: structured_jobpost.salary,
             culture: structured_jobpost.culture,
             location: structured_jobpost.location,
@@ -1300,15 +1306,13 @@ access: structured_jobpost.access,
         message: "Org jobs and applicants retrieved successfully",
         data: await Promise.all(
           applicants?.map(async (applicant: JobApplicant) => {
-            const nfts = await this.siweService.getCommunitiesForWallet(
-              applicant.user.wallet,
-            );
+            const ecosystemActivations =
+              await this.rpcService.getCommunitiesForWallet(
+                applicant.user.wallet,
+              );
             return new JobApplicantEntity({
               ...applicant,
-              nfts,
-              cryptoNative: applicant?.user?.workHistory?.some(org =>
-                org.repositories.some(repo => repo.cryptoNative),
-              ),
+              ecosystemActivations,
             }).getProperties();
           }),
         ),

@@ -167,7 +167,7 @@ export class ScorerController {
   ): Promise<
     ResponseWithOptionalData<{
       login: string;
-      nfts: string[];
+      ecosystemActivations: string[];
       stats: UserLeanStats;
       workHistory: UserWorkHistory[];
     }>
@@ -194,7 +194,7 @@ export class ScorerController {
               .get<
                 ResponseWithOptionalData<{
                   login: string;
-                  nfts: string[];
+                  ecosystemActivations: string[];
                   stats: UserLeanStats;
                   workHistory: UserWorkHistory[];
                 }>

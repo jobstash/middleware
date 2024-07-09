@@ -17,7 +17,7 @@ import { ScorerService } from "src/scorer/scorer.service";
 import { HttpModule } from "@nestjs/axios";
 import { REALLY_LONG_TIME } from "src/shared/constants";
 import * as https from "https";
-import { SiweService } from "src/auth/siwe/siwe.service";
+import { RpcService } from "src/user/rpc.service";
 
 @Module({
   imports: [
@@ -52,7 +52,7 @@ import { SiweService } from "src/auth/siwe/siwe.service";
     JobsService,
     ProfileService,
     ScorerService,
-    SiweService,
+    RpcService,
   ],
   exports: [
     UserService,
@@ -61,7 +61,7 @@ import { SiweService } from "src/auth/siwe/siwe.service";
     ModelService,
     OrganizationsService,
     ScorerService,
-    SiweService,
+    RpcService,
   ],
 })
 export class UserModule {}

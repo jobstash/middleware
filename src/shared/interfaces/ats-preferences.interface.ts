@@ -1,7 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
-import { TrackedNFT } from "./tracked-nft.interface";
+import { EcosystemActivation } from "./ecosystem-activation.interface";
 import * as t from "io-ts";
 
 const SupportedPlatforms = [
@@ -20,7 +20,7 @@ export class ATSPreferences {
     id: t.string,
     platformName: Platform,
     highlightOrgs: t.array(t.string),
-    trackedNfts: t.array(TrackedNFT.TrackedNFTType),
+    ecosystemActivations: t.array(EcosystemActivation.EcosystemActivationType),
   });
 
   @ApiProperty()
@@ -33,16 +33,16 @@ export class ATSPreferences {
   highlightOrgs: string[];
 
   @ApiProperty()
-  trackedNfts: TrackedNFT[];
+  ecosystemActivations: EcosystemActivation[];
 
   constructor(raw: ATSPreferences) {
-    const { id, platformName, highlightOrgs, trackedNfts } = raw;
+    const { id, platformName, highlightOrgs, ecosystemActivations } = raw;
     const result = ATSPreferences.ATSPreferencesType.decode(raw);
 
     this.id = id;
     this.platformName = platformName;
     this.highlightOrgs = highlightOrgs;
-    this.trackedNfts = trackedNfts;
+    this.ecosystemActivations = ecosystemActivations;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

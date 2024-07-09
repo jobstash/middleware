@@ -11,7 +11,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { MailService } from "src/mail/mail.service";
 import { ThrottlerModule } from "@nestjs/throttler";
 import { UserService } from "src/user/user.service";
-import { SiweService } from "../siwe/siwe.service";
+import { RpcService } from "../../user/rpc.service";
 import { ScorerService } from "src/scorer/scorer.service";
 import { HttpModule } from "@nestjs/axios";
 import { REALLY_LONG_TIME } from "src/shared/constants";
@@ -48,7 +48,7 @@ import { JobsService } from "src/jobs/jobs.service";
     MailService,
     UserService,
     OrganizationsService,
-    SiweService,
+    RpcService,
     ScorerService,
     JobsService,
   ],

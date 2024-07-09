@@ -76,7 +76,7 @@ export class DevUserProfileEntity {
             createdAt: nonZeroOrNull(repository.createdAt),
           })) ?? [],
       })),
-      nfts: this.raw?.nfts ?? [],
+      ecosystemActivations: this.raw?.ecosystemActivations ?? [],
     });
   }
 }

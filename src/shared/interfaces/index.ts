@@ -59,5 +59,5 @@ export * from "./job-applicant.interface";
 export * from "./job-details-result.interface";
 export * from "./project-with-relations.interface";
 export * from "./ats-preferences.interface";
-export * from "./tracked-nft.interface";
+export * from "./ecosystem-activation.interface";
 export * from "./defillama-project-prefill.interface";

@@ -50,7 +50,7 @@ import { UpdateOrgUserProfileInput } from "./dto/update-org-profile.input";
 import { UserService } from "src/user/user.service";
 import { addMonths, isBefore } from "date-fns";
 import * as Sentry from "@sentry/node";
-import { SiweService } from "../siwe/siwe.service";
+import { RpcService } from "../../user/rpc.service";
 import { ScorerService } from "src/scorer/scorer.service";
 import { JobsService } from "src/jobs/jobs.service";
 
@@ -59,7 +59,7 @@ export class ProfileController {
   private logger = new CustomLogger(ProfileController.name);
   constructor(
     private readonly authService: AuthService,
-    private readonly siweService: SiweService,
+    private readonly rpcService: RpcService,
     private readonly userService: UserService,
     private readonly profileService: ProfileService,
     private readonly organizationsService: OrganizationsService,
@@ -765,7 +765,7 @@ export class ProfileController {
 
                 if (orgProfile && orgProfile.email) {
                   const communities =
-                    await this.siweService.getCommunitiesForWallet(
+                    await this.rpcService.getCommunitiesForWallet(
                       userProfile.wallet,
                     );
                   await this.mailService.sendEmail({

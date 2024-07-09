@@ -18,7 +18,7 @@ export class DevUserProfile extends UserProfile {
         downvotes: t.union([t.number, t.null]),
       }),
       note: t.union([t.string, t.null]),
-      nfts: t.array(t.string),
+      ecosystemActivations: t.array(t.string),
       skills: t.array(UserSkill.UserSkillType),
       showcases: t.array(UserShowCase.UserShowCaseType),
       workHistory: t.array(UserWorkHistory.UserWorkHistoryType),
@@ -47,7 +47,7 @@ export class DevUserProfile extends UserProfile {
   };
 
   @ApiProperty()
-  nfts: string[];
+  ecosystemActivations: string[];
 
   @ApiProperty()
   note: string | null;
@@ -61,7 +61,7 @@ export class DevUserProfile extends UserProfile {
       cryptoAjacent,
       attestations,
       note,
-      nfts,
+      ecosystemActivations,
       ...profile
     } = raw;
     super(profile);
@@ -73,7 +73,7 @@ export class DevUserProfile extends UserProfile {
     this.cryptoNative = cryptoNative;
     this.attestations = attestations;
     this.note = note;
-    this.nfts = nfts;
+    this.ecosystemActivations = ecosystemActivations;
 
     const result = DevUserProfile.DevUserProfileType.decode(raw);
 

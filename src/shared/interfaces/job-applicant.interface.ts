@@ -17,7 +17,7 @@ export class JobApplicant {
       upvotes: t.union([t.number, t.null]),
       downvotes: t.union([t.number, t.null]),
     }),
-    nfts: t.array(t.string),
+    ecosystemActivations: t.array(t.string),
     appliedTimestamp: t.number,
     note: t.union([t.string, t.null]),
     user: t.intersection([
@@ -54,7 +54,7 @@ export class JobApplicant {
   };
 
   @ApiProperty()
-  nfts: string[];
+  ecosystemActivations: string[];
 
   @ApiProperty()
   appliedTimestamp: number;
@@ -80,7 +80,7 @@ export class JobApplicant {
       cryptoNative,
       upcomingTalent,
       attestations,
-      nfts,
+      ecosystemActivations,
       note,
       appliedTimestamp,
       user,
@@ -93,7 +93,7 @@ export class JobApplicant {
     this.cryptoNative = cryptoNative;
     this.upcomingTalent = upcomingTalent;
     this.attestations = attestations;
-    this.nfts = nfts;
+    this.ecosystemActivations = ecosystemActivations;
     this.note = note;
     this.appliedTimestamp = appliedTimestamp;
     this.user = user;

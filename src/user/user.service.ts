@@ -31,7 +31,7 @@ import { ScorerService } from "src/scorer/scorer.service";
 import { addMonths, isBefore } from "date-fns";
 import { ConfigService } from "@nestjs/config";
 import { ProfileService } from "src/auth/profile/profile.service";
-import { SiweService } from "src/auth/siwe/siwe.service";
+import { RpcService } from "src/user/rpc.service";
 
 @Injectable()
 export class UserService {
@@ -45,7 +45,7 @@ export class UserService {
     private readonly configService: ConfigService,
     private readonly profileService: ProfileService,
     private readonly scorerService: ScorerService,
-    private readonly siweService: SiweService,
+    private readonly rpcService: RpcService,
   ) {}
 
   async findByWallet(wallet: string): Promise<UserEntity | undefined> {
@@ -849,14 +849,23 @@ export class UserService {
       )
       .then(async res => {
         const results = [];
+        const ecosystemActivations =
+          await this.scorerService.getWalletEcosystemActivations(
+            res.records
+              .map(x => {
+                const user = x.get("user");
+                return (locationFilter(user) ? user.wallet : null) ?? null;
+              })
+              .filter(Boolean),
+            orgId,
+          );
         for (const record of res.records) {
           const user = record.get("user");
-          const nfts = await this.siweService.getCommunitiesForWallet(
-            user.wallet,
-          );
           const profile = new DevUserProfileEntity({
             ...user,
-            nfts,
+            ecosystemActivations:
+              ecosystemActivations.find(x => x.wallet === user.wallet)
+                ?.ecosystemActivations ?? [],
           }).getProperties();
           if (locationFilter(profile)) {
             results.push(profile);

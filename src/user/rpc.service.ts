@@ -11,18 +11,25 @@ import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Injectable()
-export class SiweService {
+export class RpcService {
   private readonly ethClient;
   private readonly polyClient;
-  private readonly logger = new CustomLogger(SiweService.name);
+  private readonly logger = new CustomLogger(RpcService.name);
   constructor(private readonly configService: ConfigService) {
     const INFRURA_ID = this.configService.get<string>("INFURA_API_KEY");
+    const batchConfig = {
+      multicall: {
+        batchSize: 10000,
+        wait: 10000,
+      },
+    };
     this.ethClient = createPublicClient({
       chain: mainnet,
       transport: fallback([
         http(`https://mainnet.infura.io/v3/${INFRURA_ID}`),
         http(), // Public fallback
       ]),
+      batch: batchConfig,
     });
     this.polyClient = createPublicClient({
       chain: polygon,
@@ -30,6 +37,7 @@ export class SiweService {
         http(`https://polygon-mainnet.infura.io/v3/${INFRURA_ID}`),
         http(), // Public fallback
       ]),
+      batch: batchConfig,
     });
   }
 
@@ -59,12 +67,12 @@ export class SiweService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "proxy-call",
-          source: "siwe.service",
+          source: "rpc.service",
         });
         scope.setExtra("input", { wallet });
         Sentry.captureException(err);
       });
-      this.logger.error(`SiweService::getCommunitiesForWallet ${err.message}`);
+      this.logger.error(`RpcService::getCommunitiesForWallet ${err.message}`);
       return [];
     }
   }
