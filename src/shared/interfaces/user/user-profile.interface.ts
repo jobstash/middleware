@@ -22,10 +22,10 @@ export class UserProfile {
     wallet: t.string,
     avatar: t.union([t.string, t.null]),
     username: t.union([t.string, t.null]),
-    email: t.union([t.string, t.null]),
+    email: t.array(t.string),
     preferred: ContactType,
     contact: t.strict({
-      email: t.array(t.string),
+      email: t.union([t.string, t.null]),
       discord: t.union([t.string, t.null]),
       telegram: t.union([t.string, t.null]),
       farcaster: t.union([t.string, t.null]),
