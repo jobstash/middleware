@@ -25,7 +25,7 @@ export class UserProfile {
     email: t.union([t.string, t.null]),
     preferred: ContactType,
     contact: t.strict({
-      email: t.union([t.string, t.null]),
+      email: t.array(t.string),
       discord: t.union([t.string, t.null]),
       telegram: t.union([t.string, t.null]),
       farcaster: t.union([t.string, t.null]),
@@ -42,7 +42,7 @@ export class UserProfile {
   wallet: string;
   avatar: string | null;
   username: string | null;
-  email: string | null;
+  email: string[];
   preferred: ContactType;
   contact: {
     email: string | null;
