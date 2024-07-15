@@ -183,10 +183,13 @@ export class ScorerService {
     return res;
   };
 
-  getLeanStats = async (users: string[]): Promise<UserLeanStats[]> => {
+  getLeanStats = async (
+    users: { github: string | null; wallet: string | null }[],
+  ): Promise<UserLeanStats[]> => {
+    const params = Buffer.from(JSON.stringify(users)).toString("base64");
     const res = await firstValueFrom(
       this.httpService
-        .get<UserLeanStats[]>(`/scorer/users/stats?users=${users.join(",")}`)
+        .get<UserLeanStats[]>(`/scorer/users/stats?params=${params}`)
         .pipe(
           map(res => res.data),
           catchError((err: AxiosError) => {
@@ -203,6 +206,7 @@ export class ScorerService {
           }),
         ),
     );
+    this.logger.log(`ScorerService::getLeanStats ${JSON.stringify(res)}`);
     return res;
   };
 

@@ -31,7 +31,6 @@ import { ScorerService } from "src/scorer/scorer.service";
 import { addMonths, isBefore } from "date-fns";
 import { ConfigService } from "@nestjs/config";
 import { ProfileService } from "src/auth/profile/profile.service";
-import { RpcService } from "src/user/rpc.service";
 
 @Injectable()
 export class UserService {
@@ -45,7 +44,6 @@ export class UserService {
     private readonly configService: ConfigService,
     private readonly profileService: ProfileService,
     private readonly scorerService: ScorerService,
-    private readonly rpcService: RpcService,
   ) {}
 
   async findByWallet(wallet: string): Promise<UserEntity | undefined> {
@@ -439,47 +437,50 @@ export class UserService {
 
       if (storedUser) {
         const profileData = await this.findProfileByWallet(wallet);
-        if (profileData?.username) {
-          const CACHE_VALIDITY_THRESHOLD = this.configService.get<number>(
-            "CACHE_VALIDITY_THRESHOLD",
+
+        const CACHE_VALIDITY_THRESHOLD = this.configService.get<number>(
+          "CACHE_VALIDITY_THRESHOLD",
+        );
+
+        const userCacheLock = await this.profileService.getUserCacheLock(
+          wallet,
+        );
+
+        const userCacheLockIsValid =
+          (userCacheLock !== -1 || userCacheLock !== null) &&
+          isBefore(
+            new Date(),
+            addMonths(new Date(userCacheLock), CACHE_VALIDITY_THRESHOLD),
           );
 
-          const userCacheLock = await this.profileService.getUserCacheLock(
+        if (!userCacheLockIsValid) {
+          await this.profileService.refreshUserCacheLock([wallet]);
+
+          const workHistory = profileData?.username
+            ? await this.scorerService.getWorkHistory([profileData.username])
+            : [];
+
+          const leanStats = await this.scorerService.getLeanStats([
+            { github: profileData.username, wallet },
+          ]);
+
+          await this.profileService.refreshWorkHistoryCache(
             wallet,
+            profileData?.username
+              ? workHistory.find(x => x.user === profileData?.username)
+                  ?.workHistory ?? []
+              : [],
+            leanStats.find(
+              x =>
+                x.actor_login === profileData.username || x.wallet === wallet,
+            ) ?? null,
           );
 
-          const userCacheLockIsValid =
-            (userCacheLock !== -1 || userCacheLock !== null) &&
-            isBefore(
-              new Date(),
-              addMonths(new Date(userCacheLock), CACHE_VALIDITY_THRESHOLD),
-            );
+          const orgs = await this.scorerService.getUserOrgs(
+            profileData.username,
+          );
 
-          if (!userCacheLockIsValid) {
-            await this.profileService.refreshUserCacheLock([wallet]);
-
-            const workHistory = await this.scorerService.getWorkHistory([
-              profileData.username,
-            ]);
-
-            const leanStats = await this.scorerService.getLeanStats([
-              profileData.username,
-            ]);
-
-            await this.profileService.refreshWorkHistoryCache(
-              wallet,
-              workHistory.find(x => x.user === profileData.username)
-                ?.workHistory ?? [],
-              leanStats.find(x => x.actor_login === profileData.username) ??
-                null,
-            );
-
-            const orgs = await this.scorerService.getUserOrgs(
-              profileData.username,
-            );
-
-            await this.profileService.refreshUserRepoCache(wallet, orgs);
-          }
+          await this.profileService.refreshUserRepoCache(wallet, orgs);
         }
 
         return storedUser.getProperties();
@@ -496,6 +497,20 @@ export class UserService {
       const newUser = await this.create(newUserDto);
 
       this.logger.log(JSON.stringify(newUser));
+
+      if (!storedUser) {
+        await this.profileService.refreshUserCacheLock([wallet]);
+
+        const leanStats = await this.scorerService.getLeanStats([
+          { github: null, wallet },
+        ]);
+
+        await this.profileService.refreshWorkHistoryCache(
+          wallet,
+          [],
+          leanStats.find(x => x.wallet === wallet) ?? null,
+        );
+      }
 
       await this.setRole(CheckWalletRoles.ANON, newUser);
       await this.setFlow(CheckWalletFlows.PICK_ROLE, newUser);
@@ -668,7 +683,9 @@ export class UserService {
       const user = await this.findProfileByWallet(wallet);
       if (user?.username) {
         const login = user.username;
-        const stats = await this.scorerService.getLeanStats([login]);
+        const stats = await this.scorerService.getLeanStats([
+          { github: login, wallet },
+        ]);
         // eslint-disable-next-line @typescript-eslint/naming-convention
         const { is_adjacent, is_native } = stats[0];
 

@@ -711,7 +711,7 @@ export class ProfileController {
             if (job.access === "protected") {
               if (userProfile.username) {
                 const stats = await this.scorerService.getLeanStats([
-                  userProfile.username,
+                  { github: userProfile.username, wallet: address as string },
                 ]);
                 if (stats[0].is_native) {
                   return {
@@ -803,7 +803,10 @@ export class ProfileController {
                     );
 
                     const leanStats = await this.scorerService.getLeanStats([
-                      userProfile.username,
+                      {
+                        github: userProfile.username,
+                        wallet: address as string,
+                      },
                     ]);
 
                     await this.profileService.refreshWorkHistoryCache(

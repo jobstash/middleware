@@ -135,7 +135,7 @@ export class GithubController {
       ]);
 
       const leanStats = await this.scorerService.getLeanStats([
-        profileData.login,
+        { github: profileData.login, wallet },
       ]);
 
       await this.profileService.refreshWorkHistoryCache(

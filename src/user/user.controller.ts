@@ -128,7 +128,10 @@ export class UserController {
             const applicantWorkHistories =
               await this.scorerService.getWorkHistory(applicantUsernames);
             const leanStats = await this.scorerService.getLeanStats(
-              applicantUsernames,
+              applicants.map(x => ({
+                github: x.user.username,
+                wallet: x.user.wallet,
+              })),
             );
             for (const applicant of applicantUsernames) {
               const workHistory =

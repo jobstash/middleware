@@ -1106,10 +1106,20 @@ export class ProfileService {
     dto: UserWorkHistory[],
     leanStats: UserLeanStats | null,
   ): Promise<ResponseWithNoData> {
-    const isCryptoNative = dto.some(x =>
-      x.repositories.some(repo => repo.cryptoNative),
-    );
+    const isCryptoNative =
+      (dto.some(x => x.repositories.some(repo => repo.cryptoNative)) ||
+        leanStats?.is_native) ??
+      false;
     const isCryptoAjacent = leanStats?.is_adjacent ?? false;
+
+    this.logger.log(
+      `/profile/refresh-work-history-cache ${JSON.stringify({
+        wallet,
+        isCryptoNative,
+        isCryptoAjacent,
+      })}`,
+    );
+
     try {
       await this.neogma.queryRunner.run(
         `
@@ -1120,6 +1130,12 @@ export class ProfileService {
       );
       await this.neogma.queryRunner.run(
         `
+        MATCH (user: User {wallet: $wallet})
+        SET user.cryptoNative = $cryptoNative
+        SET user.cryptoAjacent = $cryptoAjacent
+
+        WITH user
+
         UNWIND $history as workHistory
         CALL {
           WITH workHistory
@@ -1148,11 +1164,7 @@ export class ProfileService {
           RETURN history
         }
 
-        WITH history
-
-        MATCH (user: User {wallet: $wallet})
-        SET user.cryptoNative = $cryptoNative
-        SET user.cryptoAjacent = $cryptoAjacent
+        WITH history, user
         CREATE (user)-[:HAS_WORK_HISTORY]->(history)
         `,
         {
