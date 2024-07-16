@@ -7,7 +7,7 @@ export class OrgUserProfile {
     wallet: t.string,
     avatar: t.union([t.string, t.null]),
     username: t.union([t.string, t.null]),
-    email: t.union([t.string, t.null]),
+    email: t.array(t.string),
     linkedin: t.union([t.string, t.null]),
     calendly: t.union([t.string, t.null]),
     orgId: t.union([t.string, t.null]),
@@ -29,7 +29,7 @@ export class OrgUserProfile {
 
   wallet: string;
   username: string | null;
-  email: string | null;
+  email: string[];
   linkedin: string | null;
   calendly: string | null;
   avatar: string | null;
