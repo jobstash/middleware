@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpStatus,
   Post,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -32,6 +34,7 @@ import { DevMagicAuthStrategy } from "./magic/dev.magic-auth.strategy";
 import { OrgMagicAuthStrategy } from "./magic/org.magic-auth.strategy";
 import { ProfileService } from "./profile/profile.service";
 import { RBACGuard } from "./rbac.guard";
+import { responseSchemaWrapper } from "src/shared/helpers";
 
 @Controller("auth")
 export class AuthController {
@@ -204,6 +207,43 @@ export class AuthController {
       return { success: true, message: "Wallet is now admin" };
     } else {
       return { success: false, message: "No user associated with wallet" };
+    }
+  }
+
+  @Delete("remove-email")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Removes an email from a user's profile",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async removeUserEmail(
+    @Query("email") email: string,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/user/remove-email/${email}`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      const result = await this.userService.removeUserEmail(
+        address as string,
+        email,
+      );
+      if (result.success) {
+        return {
+          success: result.success,
+          message: result.message,
+        };
+      } else {
+        res.status(HttpStatus.BAD_REQUEST);
+        return result;
+      }
+    } else {
+      res.status(HttpStatus.BAD_REQUEST);
+      return {
+        success: false,
+        message: "Bad Request",
+      };
     }
   }
 }

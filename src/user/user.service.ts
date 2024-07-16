@@ -298,6 +298,55 @@ export class UserService {
     }
   }
 
+  async removeUserEmail(
+    wallet: string,
+    email: string,
+  ): Promise<ResponseWithOptionalData<UserEntity>> {
+    if (!(await this.userHasEmail(email))) {
+      return {
+        success: false,
+        message: "Email is not associated with this user",
+      };
+    } else {
+      const normalizedEmail = this.normalizeEmail(email);
+      return this.neogma.queryRunner
+        .run(
+          `
+          MATCH (u:User {wallet: $wallet})
+          MATCH (u)-[:HAS_EMAIL]->(email:UserEmail {email: $email, normalized: $normalizedEmail})
+          DELETE email
+        `,
+          { wallet, email, normalizedEmail },
+        )
+        .then(res =>
+          res.records.length
+            ? {
+                success: true,
+                message: "User email removed successfully",
+                data: new UserEntity(res.records[0].get("u")),
+              }
+            : {
+                success: false,
+                message: "Failed to remove user email",
+              },
+        )
+        .catch(err => {
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "db-call",
+              source: "user.service",
+            });
+            Sentry.captureException(err);
+          });
+          this.logger.error(`UserService::removeUserEmail ${err.message}`);
+          return {
+            success: false,
+            message: "Failed to remove user email",
+          };
+        });
+    }
+  }
+
   async verifyUserEmail(email: string): Promise<UserEntity | undefined> {
     const normalizedEmail = this.normalizeEmail(email);
     return this.neogma.queryRunner
