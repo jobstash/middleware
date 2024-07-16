@@ -73,7 +73,7 @@ export class UserService {
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
             contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0]
+            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email]
           } as user
         `,
         { wallet },
@@ -103,7 +103,7 @@ export class UserService {
           MATCH (user:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(:Organization {orgId: $orgId})
           RETURN user {
             .*,
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
+            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
             contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
@@ -817,7 +817,7 @@ export class UserService {
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
             contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0]
+            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email]
           } as user
         `,
       )
@@ -965,7 +965,7 @@ export class UserService {
             wallet: user.wallet,
             linkedin: user.linkedin,
             calendly: user.calendly,
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
+            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
             contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
@@ -1008,7 +1008,7 @@ export class UserService {
             wallet: user.wallet,
             linkedin: user.linkedin,
             calendly: user.calendly,
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
+            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
             contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
