@@ -486,7 +486,7 @@ export class ProfileService {
         RETURN {
           wallet: $wallet,
           availableForWork: user.available,
-          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
+          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
           preferred: [(user)-[:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo) | preferred { .* }][0],
@@ -562,7 +562,7 @@ export class ProfileService {
           wallet: $wallet,
           linkedin: user.linkedin,
           calendly: user.calendly,
-          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email][0],
+          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
           contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
