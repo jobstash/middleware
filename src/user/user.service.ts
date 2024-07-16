@@ -337,6 +337,7 @@ export class UserService {
           MATCH (u:User {wallet: $wallet})
           MATCH (u)-[:HAS_EMAIL]->(email:UserEmail {email: $email, normalized: $normalizedEmail})
           DETACH DELETE email
+          RETURN u
         `,
           { wallet, email, normalizedEmail },
         )
