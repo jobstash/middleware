@@ -163,7 +163,9 @@ describe("UserService", () => {
         await profileService.getDevUserProfile(EPHEMERAL_TEST_WALLET),
       );
 
-      expect(profile.email).toBe(TEST_EMAIL);
+      expect(profile.email.filter(x => x.main).map(x => x.email)).toEqual([
+        TEST_EMAIL,
+      ]);
     },
     REALLY_LONG_TIME,
   );

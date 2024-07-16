@@ -71,9 +71,9 @@ export class ProfileService {
         RETURN {
           wallet: $wallet,
           availableForWork: user.available,
-          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
           preferred: [(user)-[:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo) | preferred { .* }][0],
           contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
           location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
@@ -117,10 +117,10 @@ export class ProfileService {
         MATCH (user:User {wallet: $wallet})
         RETURN user {
           .*,
-          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
           contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
+          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
           orgId: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization:Organization) | organization.orgId][0],
           internalReference: [(user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo) | reference { .* }][0],
           subscriberStatus: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION|HAS_SUBSCRIPTION*2]->(subscription:Subscription) | subscription { .* }][0]
@@ -486,9 +486,9 @@ export class ProfileService {
         RETURN {
           wallet: $wallet,
           availableForWork: user.available,
-          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
           preferred: [(user)-[:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo) | preferred { .* }][0],
           contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
           location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
@@ -562,10 +562,10 @@ export class ProfileService {
           wallet: $wallet,
           linkedin: user.linkedin,
           calendly: user.calendly,
-          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
           contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
+          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
           orgId: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization:Organization) | organization.orgId][0],
           internalReference: [(user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo) | reference { .* }][0],
           subscriberStatus: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION|HAS_SUBSCRIPTION*2]->(subscription:Subscription) | subscription { .* }][0]

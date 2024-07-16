@@ -37,6 +37,7 @@ import { resetTestDB } from "src/shared/helpers";
 import * as https from "https";
 import { GithubUserService } from "../github/github-user.service";
 import { ScorerService } from "src/scorer/scorer.service";
+import { UpdateDevUserProfileInput } from "./dto/update-dev-profile.input";
 
 describe("ProfileService", () => {
   let models: ModelService;
@@ -168,15 +169,21 @@ describe("ProfileService", () => {
 
       const profileData = {
         availableForWork: true,
+        preferred: "discord",
         contact: {
-          preferred: "Email",
-          value: "test@jobstash.xyz",
+          // "email": "obafemiteminife@gmail.com",
+          email: null,
+          discord: "AndySakov1958",
+          telegram: "AndySakov1958",
+          farcaster: "hiramekarei",
+          lens: null,
+          twitter: "obafemiteminife",
         },
         location: {
-          country: "Memory",
-          city: "Heap",
+          country: "Nigeria",
+          city: "Lagos",
         },
-      };
+      } as UpdateDevUserProfileInput;
 
       const newProfile = await profileService.updateDevUserProfile(
         EPHEMERAL_TEST_WALLET,
@@ -412,9 +419,7 @@ describe("ProfileService", () => {
         })) as PaginatedData<UserRepo>
       )?.data?.find(x => x.id === contributionData.id);
 
-      expect(updatedRepo.contribution.summary).toBe(
-        contributionData.contribution,
-      );
+      expect(updatedRepo.contribution).toBe(contributionData.contribution);
     },
     REALLY_LONG_TIME,
   );

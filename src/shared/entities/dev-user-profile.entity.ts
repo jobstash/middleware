@@ -25,7 +25,7 @@ export class DevUserProfileEntity {
       ...this.raw,
       avatar: notStringOrNull(this.raw?.avatar),
       username: notStringOrNull(this.raw?.username),
-      email: this.raw?.email ?? [],
+      email: this.raw?.email.map(x => ({ ...x, main: x.main ?? false })) ?? [],
       note: notStringOrNull(this.raw?.note),
       availableForWork: this.raw?.availableForWork ?? false,
       cryptoNative: this.raw?.cryptoNative ?? false,

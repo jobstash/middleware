@@ -770,7 +770,7 @@ export class ProfileController {
                     );
                   await this.mailService.sendEmail({
                     from: this.configService.getOrThrow<string>("EMAIL"),
-                    to: orgProfile.email,
+                    to: orgProfile.email.find(x => x.main)?.email,
                     subject: `JobStash ATS: New Applicant for ${job.title}`,
                     html: `
                     Dear ${org.name},

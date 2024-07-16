@@ -73,7 +73,7 @@ export class UserService {
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
             contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email]
+            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }]
           } as user
         `,
         { wallet },
@@ -103,7 +103,7 @@ export class UserService {
           MATCH (user:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(:Organization {orgId: $orgId})
           RETURN user {
             .*,
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
+            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
             contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
@@ -180,6 +180,23 @@ export class UserService {
     );
 
     return result.records[0]?.get("orgId") as string;
+  }
+
+  async getUserEmails(
+    wallet: string,
+  ): Promise<{ email: string; main: boolean }[]> {
+    const result = await this.neogma.queryRunner.run(
+      `
+        MATCH (user:User {wallet: $wallet})-[:HAS_EMAIL]->(email:UserEmail)
+        RETURN email
+      `,
+      { wallet },
+    );
+
+    return result.records.map(record => ({
+      email: record.get("email").email,
+      main: record.get("email").main ?? false,
+    }));
   }
 
   async userHasEmail(email: string): Promise<boolean> {
@@ -264,10 +281,15 @@ export class UserService {
         .run(
           `
           MATCH (u:User {wallet: $wallet})
-          MERGE (u)-[:HAS_EMAIL]->(email:UserUnverifiedEmail {email: $email, normalized: $normalizedEmail})
+          MERGE (u)-[:HAS_EMAIL]->(email:UserUnverifiedEmail {email: $email, normalized: $normalizedEmail, main: $main})
           RETURN u
         `,
-          { wallet, email, normalizedEmail },
+          {
+            wallet,
+            email,
+            normalizedEmail,
+            main: (await this.getUserEmails(wallet)).length === 0,
+          },
         )
         .then(res =>
           res.records.length
@@ -353,10 +375,8 @@ export class UserService {
       .run(
         `
           MATCH (u:User)-[r:HAS_EMAIL]->(email:UserUnverifiedEmail {normalized: $normalizedEmail})
+          CREATE (u)-[:HAS_EMAIL]->(:UserEmail {email: $email, normalized: $normalizedEmail, main: email.main})
           DELETE r, email
-
-          WITH u
-          CREATE (u)-[:HAS_EMAIL]->(:UserEmail {email: $email, normalized: $normalizedEmail})
           RETURN u
         `,
         { email, normalizedEmail },
@@ -817,7 +837,7 @@ export class UserService {
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
             contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email]
+            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }]
           } as user
         `,
       )
@@ -882,7 +902,7 @@ export class UserService {
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
             preferred: [(user)-[:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo) | preferred { .* }][0],
             contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
+            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
             location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
             skills: apoc.coll.toSet([
                 (user)-[r:HAS_SKILL]->(tag) |
@@ -965,10 +985,10 @@ export class UserService {
             wallet: user.wallet,
             linkedin: user.linkedin,
             calendly: user.calendly,
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
             contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
+            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
             orgId: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization:Organization) | organization.orgId][0],
             internalReference: [(user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo) | reference { .* }][0],
             subscriberStatus: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION|HAS_SUBSCRIPTION*2]->(subscription:Subscription) | subscription { .* }][0]
@@ -1008,10 +1028,10 @@ export class UserService {
             wallet: user.wallet,
             linkedin: user.linkedin,
             calendly: user.calendly,
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
             username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
             avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
             contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
+            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
             orgId: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization:Organization) | organization.orgId][0],
             internalReference: [(user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo) | reference { .* }][0],
             subscriberStatus: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION|HAS_SUBSCRIPTION*2]->(subscription:Subscription) | subscription { .* }][0]
