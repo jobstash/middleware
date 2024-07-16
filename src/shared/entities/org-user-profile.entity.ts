@@ -8,7 +8,7 @@ export class OrgUserProfileEntity {
     return new OrgUserProfile({
       ...this.raw,
       avatar: notStringOrNull(this.raw?.avatar),
-      email: this.raw?.email.map(x => ({ ...x, main: x.main ?? false })) ?? [],
+      email: this.raw?.email?.map(x => ({ ...x, main: x.main ?? false })) ?? [],
       calendly: notStringOrNull(this.raw?.calendly),
       username: notStringOrNull(this.raw?.username),
       linkedin: notStringOrNull(this.raw?.linkedin),

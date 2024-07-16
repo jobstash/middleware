@@ -23,7 +23,7 @@ export class UserProfileEntity {
       ...this.raw,
       avatar: notStringOrNull(this.raw?.avatar),
       username: notStringOrNull(this.raw?.username),
-      email: this.raw?.email.map(x => ({ ...x, main: x.main ?? false })) ?? [],
+      email: this.raw?.email?.map(x => ({ ...x, main: x.main ?? false })) ?? [],
       availableForWork: this.raw?.availableForWork ?? false,
       preferred: this.raw.preferred?.type ?? "email",
       contact: {
