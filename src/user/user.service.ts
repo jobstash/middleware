@@ -189,7 +189,7 @@ export class UserService {
     const result = await this.neogma.queryRunner.run(
       `
         MATCH (user:User {wallet: $wallet})-[:HAS_EMAIL]->(email:UserEmail)
-        RETURN email
+        RETURN email { .* } as email
       `,
       { wallet },
     );
@@ -333,6 +333,46 @@ export class UserService {
       };
     } else {
       const normalizedEmail = this.normalizeEmail(email);
+
+      const userEmails = await this.getUserEmails(wallet);
+
+      console.log(userEmails);
+
+      if (userEmails.find(x => x.email === email && x.main === true)) {
+        return {
+          success: false,
+          message: "Email is already associated with this user as main",
+        };
+      }
+
+      const oldMainEmail = userEmails.find(x => x.main === true);
+
+      const normalizedOldMainEmail = this.normalizeEmail(oldMainEmail?.email);
+
+      await this.neogma.queryRunner
+        .run(
+          `
+        MATCH (u:User {wallet: $wallet})-[:HAS_EMAIL]->(oldMain:UserEmail {email: $email, normalized: $normalizedEmail})
+        SET oldMain.main = false
+        `,
+          {
+            wallet,
+            email: oldMainEmail?.email,
+            normalizedEmail: normalizedOldMainEmail,
+          },
+        )
+        .catch(err => {
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "db-call",
+              source: "user.service",
+            });
+            Sentry.captureException(err);
+          });
+          this.logger.error(`UserService::updateUserMainEmail ${err.message}`);
+          return undefined;
+        });
+
       return this.neogma.queryRunner
         .run(
           `

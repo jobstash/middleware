@@ -16,7 +16,6 @@ import { responseSchemaWrapper } from "src/shared/helpers";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { GithubUserService } from "./github-user.service";
 import { CheckWalletRoles, CheckWalletFlows } from "src/shared/constants";
-import { addMonths, isBefore } from "date-fns";
 import { ProfileService } from "../profile/profile.service";
 import { ScorerService } from "src/scorer/scorer.service";
 
@@ -114,40 +113,25 @@ export class GithubController {
       return res1;
     }
 
-    const CACHE_VALIDITY_THRESHOLD = this.configService.get<number>(
-      "CACHE_VALIDITY_THRESHOLD",
+    await this.profileService.refreshUserCacheLock([wallet]);
+
+    const workHistory = await this.scorerService.getWorkHistory([
+      profileData.login,
+    ]);
+
+    const leanStats = await this.scorerService.getLeanStats([
+      { github: profileData.login, wallet },
+    ]);
+
+    await this.profileService.refreshWorkHistoryCache(
+      wallet,
+      workHistory.find(x => x.user === profileData.login)?.workHistory ?? [],
+      leanStats.find(x => x.actor_login === profileData.login) ?? null,
     );
 
-    const userCacheLock = await this.profileService.getUserCacheLock(wallet);
+    const orgs = await this.scorerService.getUserOrgs(profileData.login);
 
-    const userCacheLockIsValid =
-      (userCacheLock !== -1 || userCacheLock !== null) &&
-      isBefore(
-        new Date(),
-        addMonths(new Date(userCacheLock), CACHE_VALIDITY_THRESHOLD),
-      );
-
-    if (!userCacheLockIsValid) {
-      await this.profileService.refreshUserCacheLock([wallet]);
-
-      const workHistory = await this.scorerService.getWorkHistory([
-        profileData.login,
-      ]);
-
-      const leanStats = await this.scorerService.getLeanStats([
-        { github: profileData.login, wallet },
-      ]);
-
-      await this.profileService.refreshWorkHistoryCache(
-        wallet,
-        workHistory.find(x => x.user === profileData.login)?.workHistory ?? [],
-        leanStats.find(x => x.actor_login === profileData.login) ?? null,
-      );
-
-      const orgs = await this.scorerService.getUserOrgs(profileData.login);
-
-      await this.profileService.refreshUserRepoCache(wallet, orgs);
-    }
+    await this.profileService.refreshUserRepoCache(wallet, orgs);
 
     await this.userService.setWalletFlow({
       flow:
