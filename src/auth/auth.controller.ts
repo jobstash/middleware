@@ -145,6 +145,8 @@ export class AuthController {
       wallet: user.wallet,
     });
 
+    await this.userService.syncUserCryptoNativeStatus(user.wallet);
+
     return {
       success: true,
       message: "Signed in with email successfully",
@@ -210,9 +212,46 @@ export class AuthController {
     }
   }
 
+  @Post("update-main-email")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ORG)
+  @ApiOkResponse({
+    description: "Updates a users primary email",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async updateUserMainEmail(
+    @Query("email") email: string,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/user/update-email/${email}`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      const result = await this.userService.updateUserMainEmail(
+        address as string,
+        email,
+      );
+      if (result.success) {
+        return {
+          success: result.success,
+          message: result.message,
+        };
+      } else {
+        res.status(HttpStatus.BAD_REQUEST);
+        return result;
+      }
+    } else {
+      res.status(HttpStatus.BAD_REQUEST);
+      return {
+        success: false,
+        message: "Bad Request",
+      };
+    }
+  }
+
   @Delete("remove-email")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ORG)
   @ApiOkResponse({
     description: "Removes an email from a user's profile",
     schema: responseSchemaWrapper({ type: "string" }),

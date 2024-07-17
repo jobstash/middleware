@@ -1,6 +1,7 @@
 import { UserRoleEntity } from "../shared/entities/user-role.entity";
 import { Injectable } from "@nestjs/common";
 import {
+  data,
   DevUserProfile,
   DevUserProfileEntity,
   OrgUserProfile,
@@ -10,7 +11,6 @@ import {
   User,
   UserEntity,
   UserFlowEntity,
-  UserOrgEntity,
   UserProfile,
   UserProfileEntity,
 } from "src/shared/types";
@@ -322,7 +322,7 @@ export class UserService {
     }
   }
 
-  async removeUserEmail(
+  async updateUserMainEmail(
     wallet: string,
     email: string,
   ): Promise<ResponseWithOptionalData<UserEntity>> {
@@ -333,12 +333,11 @@ export class UserService {
       };
     } else {
       const normalizedEmail = this.normalizeEmail(email);
-      const result = await this.neogma.queryRunner
+      return this.neogma.queryRunner
         .run(
           `
-          MATCH (u:User {wallet: $wallet})
-          MATCH (u)-[:HAS_EMAIL]->(email:UserEmail {email: $email, normalized: $normalizedEmail})
-          DETACH DELETE email
+          MATCH (u:User {wallet: $wallet})-[:HAS_EMAIL]->(email:UserEmail {email: $email, normalized: $normalizedEmail})
+          SET email.main = true
           RETURN u
         `,
           { wallet, email, normalizedEmail },
@@ -347,12 +346,12 @@ export class UserService {
           res.records.length
             ? {
                 success: true,
-                message: "User email removed successfully",
+                message: "User main email updated successfully",
                 data: new UserEntity(res.records[0].get("u")),
               }
             : {
                 success: false,
-                message: "Failed to remove user email",
+                message: "Failed to update user main email",
               },
         )
         .catch(err => {
@@ -363,16 +362,79 @@ export class UserService {
             });
             Sentry.captureException(err);
           });
-          this.logger.error(`UserService::removeUserEmail ${err.message}`);
+          this.logger.error(`UserService::updateUserMainEmail ${err.message}`);
           return {
             success: false,
-            message: "Failed to remove user email",
+            message: "Failed to update user main email",
           };
         });
+    }
+  }
 
-      await this.syncUserCryptoNativeStatus(wallet);
+  async removeUserEmail(
+    wallet: string,
+    email: string,
+  ): Promise<ResponseWithOptionalData<UserEntity>> {
+    if (!(await this.userHasEmail(email))) {
+      return {
+        success: false,
+        message: "Email is not associated with this user",
+      };
+    } else {
+      const profile = data(await this.profileService.getDevUserProfile(wallet));
+      const thisEmail = profile?.email?.find(x => x.email === email);
+      if (
+        profile?.username ||
+        (profile.email.length > 1 && thisEmail.main === false)
+      ) {
+        const normalizedEmail = this.normalizeEmail(email);
+        const result = await this.neogma.queryRunner
+          .run(
+            `
+          MATCH (u:User {wallet: $wallet})
+          MATCH (u)-[:HAS_EMAIL]->(email:UserEmail {email: $email, normalized: $normalizedEmail})
+          DETACH DELETE email
+          RETURN u
+        `,
+            { wallet, email, normalizedEmail },
+          )
+          .then(res =>
+            res.records.length
+              ? {
+                  success: true,
+                  message: "User email removed successfully",
+                  data: new UserEntity(res.records[0].get("u")),
+                }
+              : {
+                  success: false,
+                  message: "Failed to remove user email",
+                },
+          )
+          .catch(err => {
+            Sentry.withScope(scope => {
+              scope.setTags({
+                action: "db-call",
+                source: "user.service",
+              });
+              Sentry.captureException(err);
+            });
+            this.logger.error(`UserService::removeUserEmail ${err.message}`);
+            return {
+              success: false,
+              message: "Failed to remove user email",
+            };
+          });
 
-      return result;
+        await this.syncUserCryptoNativeStatus(wallet);
+
+        return result;
+      } else {
+        return {
+          success: false,
+          message:
+            "Email cannot be removed because it is the users primary email",
+        };
+      }
     }
   }
 
@@ -406,8 +468,6 @@ export class UserService {
   async verifyUserEmail(email: string): Promise<UserEntity | undefined> {
     const normalizedEmail = this.normalizeEmail(email);
 
-    const wallet = await this.getUserWallet(email);
-
     const result = await this.neogma.queryRunner
       .run(
         `
@@ -434,79 +494,35 @@ export class UserService {
         this.logger.error(`UserService::verifyUserEmail ${err.message}`);
         return undefined;
       });
-    await this.syncUserCryptoNativeStatus(wallet);
     return result;
   }
 
-  private async syncUserCryptoNativeStatus(wallet: string): Promise<void> {
+  async syncUserCryptoNativeStatus(wallet: string): Promise<void> {
     try {
-      const res = await this.neogma.queryRunner.run(
-        `
-            MATCH (user:User {wallet: $wallet})
-            MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
-            MATCH (user)-[:HAS_EMAIL]->(email: UserEmail)
-            WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email.email).domain
-            OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
-            RETURN apoc.coll.toSet(COLLECT(organization {
-                compensation: {
-                  salary: review.salary,
-                  currency: review.currency,
-                  offersTokenAllocation: review.offersTokenAllocation
-                },
-                rating: {
-                  onboarding: review.onboarding,
-                  careerGrowth: review.careerGrowth,
-                  benefits: review.benefits,
-                  workLifeBalance: review.workLifeBalance,
-                  diversityInclusion: review.diversityInclusion,
-                  management: review.management,
-                  product: review.product,
-                  compensation: review.compensation
-                },
-                review: {
-                  id: review.id,
-                  title: review.title,
-                  location: review.location,
-                  timezone: review.timezone,
-                  pros: review.pros,
-                  cons: review.cons
-                },
-                reviewedTimestamp: review.reviewedTimestamp,
-                org: {
-                  id: organization.id,
-                  name: organization.name,
-                  logo: organization.logo,
-                  orgId: organization.orgId,
-                  summary: organization.summary,
-                  altName: organization.altName,
-                  location: organization.location,
-                  headCount: organization.headCount,
-                  description: organization.description,
-                  jobsiteLink: organization.jobsiteLink,
-                  updatedTimestamp: organization.updatedTimestamp,
-                  docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-                  github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
-                  website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-                  discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-                  telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                  twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0]
-                }
-            })) as orgsByEmail
-          `,
-        { wallet },
-      );
-      const orgsByEmail =
-        res?.records[0]
-          ?.get("orgsByEmail")
-          .map(record => new UserOrgEntity(record).getProperties()) ?? [];
+      const role = await this.getWalletRole(wallet);
+      if (role?.getName() === CheckWalletRoles.DEV) {
+        const profile = data(
+          await this.profileService.getDevUserProfile(wallet),
+        );
+        const orgs = data(await this.profileService.getUserOrgs(wallet));
+        const leanStats = await this.scorerService.getLeanStats([
+          { github: profile?.username, wallet },
+        ]);
+        const status = orgs.length > 0 || leanStats[0].is_native;
+        this.logger.log(
+          `/user/sync-user-crypto-native-status: ${wallet}, ${status}`,
+        );
 
-      await this.neogma.queryRunner.run(
-        `
+        await this.neogma.queryRunner.run(
+          `
             MATCH (user:User {wallet: $wallet})
             SET user.cryptoNative = $cryptoNative
           `,
-        { wallet, cryptoNative: orgsByEmail.length > 0 },
-      );
+          { wallet, cryptoNative: status },
+        );
+      } else {
+        return;
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
