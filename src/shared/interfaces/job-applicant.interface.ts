@@ -11,6 +11,7 @@ export class JobApplicant {
     oss: t.boolean,
     interviewed: t.boolean,
     cryptoNative: t.boolean,
+    cryptoAdjacent: t.boolean,
     upcomingTalent: t.boolean,
     calendly: t.union([t.string, t.null]),
     attestations: t.strict({
@@ -40,6 +41,9 @@ export class JobApplicant {
 
   @ApiProperty()
   cryptoNative: boolean;
+
+  @ApiProperty()
+  cryptoAdjacent: boolean;
 
   @ApiProperty()
   upcomingTalent: boolean;
@@ -78,6 +82,7 @@ export class JobApplicant {
       oss,
       interviewed,
       cryptoNative,
+      cryptoAdjacent,
       upcomingTalent,
       attestations,
       ecosystemActivations,
@@ -91,6 +96,7 @@ export class JobApplicant {
     this.oss = oss;
     this.interviewed = interviewed;
     this.cryptoNative = cryptoNative;
+    this.cryptoAdjacent = cryptoAdjacent;
     this.upcomingTalent = upcomingTalent;
     this.attestations = attestations;
     this.ecosystemActivations = ecosystemActivations;

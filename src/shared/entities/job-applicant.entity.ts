@@ -18,6 +18,7 @@ export class JobApplicantEntity {
       oss: applicant?.oss ?? false,
       interviewed: applicant?.interviewed ?? false,
       cryptoNative: applicant?.cryptoNative ?? false,
+      cryptoAdjacent: applicant?.cryptoAdjacent ?? false,
       upcomingTalent: applicant?.upcomingTalent ?? false,
       attestations: {
         upvotes: nonZeroOrNull(applicant?.attestations?.upvotes),

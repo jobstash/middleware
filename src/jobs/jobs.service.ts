@@ -941,6 +941,7 @@ export class JobsService {
           },
           note: [(user)-[:HAS_RECRUITER_NOTE]->(note: RecruiterNote)<-[:HAS_TALENT_NOTE]-(organization) | note.note][0],
           cryptoNative: user.cryptoNative,
+          cryptoAdjacent: user.cryptoAdjacent,
           appliedTimestamp: r.timestamp,
           user: {
               wallet: user.wallet,
