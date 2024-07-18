@@ -317,7 +317,14 @@ export class JobsController {
   })
   async getOrgJobApplicantList(
     @Param("id") id: string,
-    @Query("list") list: "all" | "shortlisted" | "archived" = "all",
+    @Query("list")
+    list:
+      | "all"
+      | "shortlisted"
+      | "archived"
+      | "new"
+      | "interviewing"
+      | "hired" = "all",
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<ResponseWithOptionalData<JobApplicant[]>> {
@@ -365,7 +372,14 @@ export class JobsController {
     },
   })
   async getJobApplicantList(
-    @Query("list") list: "all" | "shortlisted" | "archived" | "new" = "all",
+    @Query("list")
+    list:
+      | "all"
+      | "shortlisted"
+      | "archived"
+      | "new"
+      | "interviewing"
+      | "hired" = "all",
   ): Promise<ResponseWithOptionalData<JobApplicant[]>> {
     this.logger.log(`/jobs/applicants`);
     return this.jobsService.getJobApplicants(list);

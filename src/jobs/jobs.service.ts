@@ -907,7 +907,13 @@ export class JobsService {
 
   async getJobsByOrgIdWithApplicants(
     orgId: string,
-    list: "all" | "shortlisted" | "archived",
+    list:
+      | "all"
+      | "shortlisted"
+      | "archived"
+      | "new"
+      | "interviewing"
+      | "hired" = "all",
   ): Promise<ResponseWithOptionalData<JobApplicant[]>> {
     try {
       const generatedQuery = `
@@ -1126,7 +1132,13 @@ export class JobsService {
   }
 
   async getJobApplicants(
-    list: "all" | "shortlisted" | "archived" | "new",
+    list:
+      | "all"
+      | "shortlisted"
+      | "archived"
+      | "new"
+      | "interviewing"
+      | "hired" = "all",
   ): Promise<ResponseWithOptionalData<JobApplicant[]>> {
     try {
       const generatedQuery = `

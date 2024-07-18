@@ -5,7 +5,7 @@ export class UpdateJobApplicantListInput {
   @ApiProperty()
   @IsNotEmpty()
   @IsString()
-  @IsIn(["shortlisted", "archived"] as const)
+  @IsIn(["shortlisted", "archived", "interviewing", "hired"] as const)
   list: string;
 
   @ApiProperty()
