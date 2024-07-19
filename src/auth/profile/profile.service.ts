@@ -1202,6 +1202,10 @@ export class ProfileService {
     dto: UserGithubOrganization[],
   ): Promise<ResponseWithNoData> {
     try {
+      const old = (await this.getUserRepos(wallet, {
+        limit: Integer.MAX_SAFE_VALUE.toNumber(),
+        page: 1,
+      })) as Response<UserRepo[]>;
       for (const org of dto) {
         const processed = {
           ...org,
@@ -1210,6 +1214,9 @@ export class ProfileService {
             nameWithOwner: `${org.login}/${repo.name}`,
           })),
         };
+        const toMerge = processed.repositories.filter(repo =>
+          old.data.some(x => x.name === repo.name),
+        );
         await this.neogma.queryRunner.run(
           `
             MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(ghu:GithubUser)
@@ -1231,7 +1238,23 @@ export class ProfileService {
             MATCH (gho:GithubOrganization {login: $org.login})
             MERGE (gho)-[:HAS_REPOSITORY]->(repo)
           `,
-          { wallet, org: processed },
+          { wallet, org: { ...processed, repositories: toMerge } },
+        );
+
+        const toDelete = old.data
+          .filter(
+            repo => !processed.repositories.some(x => x.name === repo.name),
+          )
+          .map(x => x.name);
+
+        await this.neogma.queryRunner.run(
+          `
+            MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(ghu:GithubUser)
+            OPTIONAL MATCH (ghu)-[r:CONTRIBUTED_TO]->(repo: GithubRepository)
+            WHERE repo.name IN $toDelete
+            DETACH DELETE r
+          `,
+          { wallet, toDelete },
         );
       }
       return {
