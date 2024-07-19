@@ -1222,7 +1222,7 @@ export class ProfileService {
             MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(ghu:GithubUser)
             
             UNWIND $org.repositories as orgRepo
-            MERGE (ghu)-[:CONTRIBUTED_TO]->(repo: GithubRepository {name: orgRepo.name})
+            MERGE (ghu)-[:CONTRIBUTED_TO]->(repo: GithubRepository {nameWithOwner: orgRepo.nameWithOwner})
             ON CREATE SET
               repo.id = randomUUID(),
               repo.name = orgRepo.name,
@@ -1245,13 +1245,13 @@ export class ProfileService {
           .filter(
             repo => !processed.repositories.some(x => x.name === repo.name),
           )
-          .map(x => x.name);
+          .map(x => `${org.login}/${x.name}`);
 
         await this.neogma.queryRunner.run(
           `
             MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(ghu:GithubUser)
             OPTIONAL MATCH (ghu)-[r:CONTRIBUTED_TO]->(repo: GithubRepository)
-            WHERE repo.name IN $toDelete
+            WHERE repo.nameWithOwner IN $toDelete
             DETACH DELETE r
           `,
           { wallet, toDelete },
