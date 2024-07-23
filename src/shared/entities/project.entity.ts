@@ -48,7 +48,21 @@ export class ProjectWithRelationsEntity {
           techIssues: nonZeroOrNull(audit?.techIssues),
           link: notStringOrNull(audit?.link),
         })) ?? [],
-      chains: project?.chains ?? [],
+      chains:
+        project.chains.map(chain => ({
+          ...chain,
+          logo: notStringOrNull(chain?.logo),
+        })) ?? [],
+      investors:
+        project?.investors?.map(investor => ({
+          id: investor.id,
+          name: investor.name,
+          normalizedName: investor.normalizedName,
+        })) ?? [],
+      jobs: project?.jobs ?? [],
+      repos: project?.repos ?? [],
+      description: notStringOrNull(project?.description),
+      normalizedName: notStringOrNull(project?.normalizedName),
     });
   }
 }

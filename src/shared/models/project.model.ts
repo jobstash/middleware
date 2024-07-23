@@ -17,6 +17,7 @@ import {
   ProjectMoreInfoEntity,
   StructuredJobpost,
   Repository,
+  RawProjectWebsite,
 } from "../types";
 import { AuditInstance, AuditProps, Audits } from "./audit.model";
 import { HackInstance, HackProps, Hacks } from "./hack.model";
@@ -91,6 +92,14 @@ export interface ProjectMethods {
 }
 
 export interface ProjectStatics {
+  getAllProjectsData: (
+    page: number,
+    limit: number,
+  ) => Promise<
+    (ProjectWithRelations & {
+      rawWebsite: RawProjectWebsite;
+    })[]
+  >;
   getProjectsData: () => Promise<
     (ProjectWithRelations & { orgName: string; communities: string[] })[]
   >;
@@ -358,6 +367,85 @@ export const Projects = (
         },
       },
       statics: {
+        getAllProjectsData: async function (page: number, limit: number) {
+          const query = new QueryBuilder()
+            .match({
+              label: "Project",
+              identifier: "project",
+            })
+            .return(
+              `
+              project {
+                  .*,
+                  discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                  website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                  docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                  telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                  github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+                  category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                  twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+                  aliases: [
+                    (project)-[:HAS_PROJECT_ALIAS]->(alias: ProjectAlias) | alias.name
+                  ],
+                  hacks: [
+                    (project)-[:HAS_HACK]->(hack) | hack { .* }
+                  ],
+                  audits: [
+                    (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                  ],
+                  chains: [
+                    (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
+                  repos: [
+                    (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
+                  ],
+                  rawWebsite: [
+                    (project)-[:HAS_RAW_WEBSITE]->(website) | website {
+                      id: website.id,
+                      url: website.url,
+                      category: website.category,
+                      content: website.content,
+                      defiLlamaId: website.defiLlamaId,
+                      createdTimestamp: website.createdTimestamp,
+                      metadata: [
+                        (website)-[:HAS_RAW_WEBSITE_METADATA]->(metadata) | metadata {
+                          copyrightName: website.copyrightName,
+                          copyrightStart: website.copyrightStart,
+                          createdTimestamp: website.createdTimestamp,
+                          id: website.id,
+                          isCrypto: website.isCrypto,
+                          isEmpty: website.isEmpty,
+                          isError: website.isError,
+                          isParkedWebsite: website.isParkedWebsite,
+                          secondpassCopyrightEnd: website.secondpassCopyrightEnd,
+                          secondpassCopyrightName: website.secondpassCopyrightName,
+                          secondpassCopyrightStart: website.secondpassCopyrightStart,
+                          secondpassIsActive: website.secondpassIsActive,
+                          secondpassIsCrypto: website.secondpassIsCrypto,
+                          secondpassIsRenamed: website.secondpassIsRenamed,
+                          updatedTimestamp: website.updatedTimestamp,
+                          url: website.url
+                        }
+                      ][0]
+                    }
+                  ][0]
+                } as result
+            `,
+            )
+            .skip(page * limit)
+            .limit(limit);
+          const result = await query.run(neogma.queryRunner);
+          const projects: (ProjectWithRelations & {
+            rawWebsite: RawProjectWebsite | null;
+          })[] = result?.records?.map(
+            record =>
+              record.get("result") as ProjectWithRelations & {
+                rawWebsite: RawProjectWebsite | null;
+              },
+          );
+          return projects;
+        },
         getProjectsData: async function () {
           const query = new QueryBuilder()
             .match({

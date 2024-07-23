@@ -13,12 +13,16 @@ import {
   ProjectCompetitorListResultEntity,
   ResponseWithNoData,
   ProjectMoreInfoEntity,
+  ProjectWithRelationsEntity,
+  RawProjectWebsite,
+  RawProjectWebsiteMetadata,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { ProjectListParams } from "./dto/project-list.input";
 import {
   instanceToNode,
+  nonZeroOrNull,
   normalizeString,
   notStringOrNull,
   paginate,
@@ -378,6 +382,100 @@ export class ProjectsService {
     }
   }
 
+  async getAllProjects(
+    page: number,
+    limit: number,
+  ): Promise<
+    PaginatedData<
+      ProjectWithRelations & {
+        rawWebsite: RawProjectWebsite;
+      }
+    >
+  > {
+    try {
+      const projects = await this.models.Projects.getAllProjectsData(
+        page,
+        limit,
+      );
+      return {
+        page: page,
+        count: limit,
+        total: -1,
+        data: projects.map(project => ({
+          ...new ProjectWithRelationsEntity({
+            ...project,
+            orgId: "-1",
+          }).getProperties(),
+          rawWebsite: project.rawWebsite
+            ? {
+                id: project.rawWebsite?.id,
+                name: project.rawWebsite?.name,
+                category: project.rawWebsite?.category,
+                content: project.rawWebsite?.content,
+                defiLlamaId: project.rawWebsite?.defiLlamaId,
+                createdTimestamp: nonZeroOrNull(
+                  project.rawWebsite?.createdTimestamp,
+                ),
+                url: project.rawWebsite?.url,
+                metadata: project.rawWebsite?.metadata
+                  ? {
+                      ...project.rawWebsite?.metadata,
+                      copyrightName: notStringOrNull(
+                        project.rawWebsite?.metadata?.copyrightName,
+                      ),
+                      copyrightStart: notStringOrNull(
+                        project.rawWebsite?.metadata?.copyrightStart,
+                      ),
+                      createdTimestamp: nonZeroOrNull(
+                        project.rawWebsite?.metadata?.createdTimestamp,
+                      ),
+                      id: notStringOrNull(project.rawWebsite?.metadata?.id),
+                      isCrypto: project.rawWebsite?.metadata?.isCrypto ?? false,
+                      isEmpty: project.rawWebsite?.metadata?.isEmpty ?? false,
+                      isError: project.rawWebsite?.metadata?.isError ?? false,
+                      isParkedWebsite:
+                        project.rawWebsite?.metadata?.isParkedWebsite ?? false,
+                      secondpassCopyrightEnd: notStringOrNull(
+                        project.rawWebsite?.metadata?.secondpassCopyrightEnd,
+                      ),
+                      secondpassCopyrightName: notStringOrNull(
+                        project.rawWebsite?.metadata?.secondpassCopyrightName,
+                      ),
+                      secondpassCopyrightStart: notStringOrNull(
+                        project.rawWebsite?.metadata?.secondpassCopyrightStart,
+                      ),
+                      secondpassIsActive:
+                        project.rawWebsite?.metadata?.secondpassIsActive ??
+                        false,
+                      secondpassIsCrypto:
+                        project.rawWebsite?.metadata?.secondpassIsCrypto ??
+                        false,
+                      secondpassIsRenamed:
+                        project.rawWebsite?.metadata?.secondpassIsRenamed ??
+                        false,
+                      updatedTimestamp: nonZeroOrNull(
+                        project.rawWebsite?.metadata?.updatedTimestamp,
+                      ),
+                      url: notStringOrNull(project.rawWebsite?.metadata?.url),
+                    }
+                  : null,
+              }
+            : null,
+        })),
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProjectsService::getAllProjects ${err.message}`);
+      return undefined;
+    }
+  }
+
   async getProjectsByOrgId(id: string): Promise<Project[] | null> {
     try {
       const projects = await this.models.Projects.getProjectsData();
@@ -601,7 +699,7 @@ export class ProjectsService {
           SET project.defiLlamaParent = $defiLlamaParent
           SET project.updatedTimestamp = timestamp()
           SET discord.invite = $discord
-          SET website.url = $website
+          SET project.rawWebsite?.url = $website
           SET docsite.url = $docs
           SET telegram.username = $telegram
           SET twitter.username = $twitter

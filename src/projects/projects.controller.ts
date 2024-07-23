@@ -59,6 +59,7 @@ import {
   ProjectMoreInfo,
   ProjectMoreInfoEntity,
   ProjectWithRelations,
+  RawProjectWebsite,
   Response,
   ResponseWithNoData,
   ResponseWithOptionalData,
@@ -375,18 +376,89 @@ export class ProjectsController {
       });
   }
 
+  @Get("/all")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description: "Returns a paginated sorted list all projects",
+    type: PaginatedData<ProjectWithRelations>,
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(PaginatedData),
+          properties: {
+            page: {
+              type: "number",
+            },
+            count: {
+              type: "number",
+            },
+            data: {
+              type: "array",
+              items: {
+                $ref: getSchemaPath(ProjectWithRelations),
+                properties: {
+                  rawWebsite: {
+                    $ref: getSchemaPath(RawProjectWebsite),
+                    nullable: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ValidationError),
+        },
+      ],
+    },
+  })
+  async getAllProjects(
+    @Query("page") page = 1,
+    @Query("limit") limit = 10,
+  ): Promise<
+    | PaginatedData<
+        ProjectWithRelations & { rawWebsite: RawProjectWebsite | null }
+      >
+    | ResponseWithNoData
+  > {
+    this.logger.log(`/projects/all`);
+    return this.projectsService.getAllProjects(page, limit).catch(err => {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "projects.controller",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`/projects/all ${err.message}`);
+      return {
+        success: false,
+        message: `Error retrieving all projects!`,
+      };
+    });
+  }
+
   @Get("/all/:id")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects for an organization",
     schema: responseSchemaWrapper({
-      $ref: getSchemaPath(ProjectWithRelations),
+      $ref: getSchemaPath(Project),
     }),
   })
   async getProjectsByOrgId(
     @Param("id") id: string,
-  ): Promise<ResponseWithOptionalData<ProjectProps[]>> {
+  ): Promise<ResponseWithOptionalData<Project[]>> {
     this.logger.log(`/projects/all/${id}`);
     return this.projectsService
       .getProjectsByOrgId(id)
