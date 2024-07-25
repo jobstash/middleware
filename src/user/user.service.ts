@@ -1063,7 +1063,6 @@ export class UserService {
           MATCH (user:User), (organization: Organization {orgId: $orgId})
           WHERE user.available = true
           AND (user)-[:HAS_ROLE]->(:UserRole { name: "DEV" })
-          AND (user)-[:HAS_USER_FLOW_STAGE]->(:UserFlow { name: "SIGNUP-COMPLETE" })
 
           RETURN {
             wallet: user.wallet,
