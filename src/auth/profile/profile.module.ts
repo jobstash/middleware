@@ -52,5 +52,6 @@ import { JobsService } from "src/jobs/jobs.service";
     ScorerService,
     JobsService,
   ],
+  exports: [ProfileService],
 })
 export class ProfileModule {}

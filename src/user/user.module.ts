@@ -18,10 +18,14 @@ import { HttpModule } from "@nestjs/axios";
 import { REALLY_LONG_TIME } from "src/shared/constants";
 import * as https from "https";
 import { RpcService } from "src/user/rpc.service";
+import { PrivyModule } from "src/auth/privy/privy.module";
+import { PrivyService } from "src/auth/privy/privy.service";
+import { GithubUserService } from "src/auth/github/github-user.service";
 
 @Module({
   imports: [
     forwardRef(() => GithubModule),
+    forwardRef(() => PrivyModule),
     HttpModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -53,6 +57,8 @@ import { RpcService } from "src/user/rpc.service";
     ProfileService,
     ScorerService,
     RpcService,
+    PrivyService,
+    GithubUserService,
   ],
   exports: [
     UserService,
@@ -62,6 +68,8 @@ import { RpcService } from "src/user/rpc.service";
     OrganizationsService,
     ScorerService,
     RpcService,
+    PrivyService,
+    GithubUserService,
   ],
 })
 export class UserModule {}

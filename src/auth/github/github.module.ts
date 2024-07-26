@@ -1,10 +1,7 @@
-import { Module, forwardRef } from "@nestjs/common";
-import { GithubController } from "./github.controller";
+import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { CacheModule } from "@nestjs/cache-manager";
-import { UserModule } from "../../user/user.module";
-import { UserService } from "../../user/user.service";
 import { GithubUserService } from "./github-user.service";
 import { ModelService } from "src/model/model.service";
 import { ProfileService } from "../profile/profile.service";
@@ -29,7 +26,6 @@ import * as https from "https";
         baseURL: configService.get<string>("SCORER_DOMAIN"),
       }),
     }),
-    forwardRef(() => UserModule),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -42,13 +38,7 @@ import * as https from "https";
     }),
     CacheModule.register(),
   ],
-  controllers: [GithubController],
-  providers: [
-    UserService,
-    GithubUserService,
-    ModelService,
-    ProfileService,
-    ScorerService,
-  ],
+  providers: [GithubUserService, ModelService, ProfileService, ScorerService],
+  exports: [GithubUserService],
 })
 export class GithubModule {}

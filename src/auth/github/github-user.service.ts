@@ -7,6 +7,7 @@ import {
   Response,
   ResponseWithNoData,
   User,
+  UserEntity,
 } from "../../shared/types";
 import { CreateGithubUserDto } from "./dto/user/create-github-user.dto";
 import { UpdateGithubUserDto } from "./dto/user/update-github-user.dto";
@@ -14,7 +15,6 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import { instanceToNode, propertiesMatch } from "src/shared/helpers";
 import * as Sentry from "@sentry/node";
-import { UserService } from "../../user/user.service";
 import { GithubInfo } from "./dto/github-info.input";
 import { ModelService } from "src/model/model.service";
 
@@ -26,7 +26,6 @@ export class GithubUserService {
     @InjectConnection()
     private neogma: Neogma,
     private models: ModelService,
-    private readonly userService: UserService,
   ) {}
 
   async githubUserHasUser(githubId: string): Promise<boolean> {
@@ -90,7 +89,15 @@ export class GithubUserService {
     const { wallet, ...updateObject } = args;
 
     try {
-      const storedUserNode = await this.userService.findByWallet(wallet);
+      const storedUserNode = new UserEntity(
+        instanceToNode(
+          await this.models.Users.findOne({
+            where: {
+              wallet: wallet,
+            },
+          }),
+        ),
+      );
       if (!storedUserNode) {
         return { success: false, message: "User not found" };
       }
@@ -99,8 +106,6 @@ export class GithubUserService {
       const payload = {
         id: updateObject.githubId,
         login: updateObject.githubLogin,
-        nodeId: updateObject.githubNodeId,
-        gravatarId: updateObject.githubGravatarId ?? null,
         avatarUrl: updateObject.githubAvatarUrl,
       };
 

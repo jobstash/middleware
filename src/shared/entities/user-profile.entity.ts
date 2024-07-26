@@ -21,6 +21,7 @@ export class UserProfileEntity {
 
     return new UserProfile({
       ...this.raw,
+      linkedWallets: this.raw?.linkedWallets ?? [],
       avatar: notStringOrNull(this.raw?.avatar),
       username: notStringOrNull(this.raw?.username),
       email: this.raw?.email?.map(x => ({ ...x, main: x.main ?? false })) ?? [],

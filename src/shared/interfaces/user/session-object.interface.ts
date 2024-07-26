@@ -4,7 +4,7 @@ export class SessionObject {
   @ApiProperty()
   address: string;
   @ApiProperty()
-  chainId: number;
-  @ApiProperty()
   role: string | null;
+  @ApiProperty()
+  flow: string | null;
 }

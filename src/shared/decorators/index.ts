@@ -1,2 +1,2 @@
-export * from "./auth-user.decorator";
+export * from "./session.decorator";
 export * from "./role.decorator";

@@ -4,55 +4,27 @@ import {
   ForbiddenException,
   Injectable,
 } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { Request, Response as ExpressResponse } from "express";
-import { getIronSession, IronSession, IronSessionOptions } from "iron-session";
-import { Reflector } from "@nestjs/core";
+import { Request, Response } from "express";
 import { CheckWalletRoles } from "src/shared/constants";
+import { AuthService } from "./auth.service";
+import { SessionObject } from "src/shared/interfaces";
+import { Reflector } from "@nestjs/core";
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class RBACGuard implements CanActivate {
-  private readonly sessionConfig: IronSessionOptions;
   constructor(
-    private readonly reflector: Reflector,
+    private reflector: Reflector,
+    private readonly authService: AuthService,
     private readonly configService: ConfigService,
-  ) {
-    this.sessionConfig = {
-      cookieName:
-        configService.get<string>("COOKIE_NAME") || "connectkit-next-siwe",
-      password: configService.get<string>("SESSION_SECRET"),
-      cookieOptions: {
-        secure: configService.get<string>("NODE_ENV") === "production",
-        sameSite: "none",
-      },
-    };
-  }
-
-  private async getSession<
-    TSessionData extends Record<string, unknown> = Record<string, unknown>,
-  >(
-    req: Request,
-    res: ExpressResponse,
-    sessionConfig: IronSessionOptions,
-  ): Promise<IronSession & TSessionData> {
-    const session = (await getIronSession(
-      req,
-      res,
-      sessionConfig,
-    )) as IronSession &
-      TSessionData & {
-        nonce?: string;
-        address?: string;
-        chainId?: number;
-      };
-    return session;
-  }
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const httpContext = context.switchToHttp();
-    const req = httpContext.getRequest<Request>();
-    const res = httpContext.getResponse<ExpressResponse>();
-    const session = await this.getSession(req, res, this.sessionConfig);
+    const req = httpContext.getRequest<Request & { user: SessionObject }>();
+    const res = httpContext.getResponse<Response>();
+    const session = await this.authService.getSession(req, res);
+    req.user = session;
 
     const permittedRoles =
       this.reflector.get<string[]>("roles", context.getHandler()) || [];
@@ -67,7 +39,7 @@ export class RBACGuard implements CanActivate {
       }
     }
 
-    const hasPermission = permittedRoles.includes(session.role as string);
+    const hasPermission = permittedRoles.includes(session.role);
     if (session && session.role && hasPermission) {
       return true;
     } else {

@@ -23,6 +23,7 @@ export class DevUserProfileEntity {
 
     return new DevUserProfile({
       ...this.raw,
+      linkedWallets: this.raw?.linkedWallets ?? [],
       avatar: notStringOrNull(this.raw?.avatar),
       username: notStringOrNull(this.raw?.username),
       email: this.raw?.email?.map(x => ({ ...x, main: x.main ?? false })) ?? [],

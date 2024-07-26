@@ -32,6 +32,10 @@ import { ScorerService } from "src/scorer/scorer.service";
 import { addMonths, isBefore } from "date-fns";
 import { ConfigService } from "@nestjs/config";
 import { ProfileService } from "src/auth/profile/profile.service";
+import { User as PrivyUser, WalletWithMetadata } from "@privy-io/server-auth";
+import { PrivyService } from "src/auth/privy/privy.service";
+import { GithubUserService } from "src/auth/github/github-user.service";
+import { HttpService } from "@nestjs/axios";
 
 @Injectable()
 export class UserService {
@@ -45,6 +49,9 @@ export class UserService {
     private readonly configService: ConfigService,
     private readonly profileService: ProfileService,
     private readonly scorerService: ScorerService,
+    private readonly privyService: PrivyService,
+    private readonly githubUserService: GithubUserService,
+    private readonly httpService: HttpService,
   ) {}
 
   async findByWallet(wallet: string): Promise<UserEntity | undefined> {
@@ -504,6 +511,32 @@ export class UserService {
     return result;
   }
 
+  async getPrivyId(wallet: string): Promise<string | undefined> {
+    const result = await this.neogma.queryRunner
+      .run(
+        `
+          MATCH (u:User {wallet:$wallet})
+          RETURN u.privyId as privyId
+        `,
+        { wallet },
+      )
+      .then(res =>
+        res.records.length ? res.records[0].get("privyId") : undefined,
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`UserService::getPrivyId ${err.message}`);
+        return undefined;
+      });
+    return result;
+  }
+
   async verifyUserEmail(email: string): Promise<UserEntity | undefined> {
     const normalizedEmail = this.normalizeEmail(email);
 
@@ -543,9 +576,11 @@ export class UserService {
         const profile = data(
           await this.profileService.getDevUserProfile(wallet),
         );
+        const privyId = await this.getPrivyId(wallet);
+        const wallets = await this.privyService.getUserLinkedWallets(privyId);
         const orgs = data(await this.profileService.getUserOrgs(wallet));
         const leanStats = await this.scorerService.getLeanStats([
-          { github: profile?.username, wallet },
+          { github: profile?.username, wallets },
         ]);
         const status = orgs.length > 0 || leanStats[0].is_native;
         this.logger.log(
@@ -573,6 +608,35 @@ export class UserService {
       this.logger.error(
         `UserService::syncUserCryptoNativeStatus ${err.message}`,
       );
+    }
+  }
+
+  async syncUserLinkedWallets(wallet: string, privyId: string): Promise<void> {
+    try {
+      const wallets = await this.privyService.getUserLinkedWallets(privyId);
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $wallet})
+        UNWIND $wallets as wallet
+        MERGE (user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet {address: wallet})
+        ON CREATE
+          SET wallet.id = randomUUID(),
+          SET wallet.createdTimestamp = timestamp()
+        ON MATCH
+          SET wallet.updatedTimestamp = timestamp()
+        RETURN user
+        `,
+        { wallet, wallets },
+      );
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`UserService::syncUserLinkedWallets ${err.message}`);
     }
   }
 
@@ -677,19 +741,46 @@ export class UserService {
     this.logger.log(`Role ${role} set for wallet ${storedUser.getWallet()}.`);
   }
 
-  async createSIWEUser(wallet: string): Promise<User | undefined> {
+  async createPrivyUser(
+    user: PrivyUser,
+    embeddedWallet: string,
+    role: (typeof CheckWalletRoles)[keyof typeof CheckWalletRoles],
+  ): Promise<User | undefined> {
     try {
-      const storedUser = await this.findByWallet(wallet);
+      const storedUser = await this.findByWallet(embeddedWallet);
+      const connectedWallets = user.linkedAccounts
+        .filter(x => x.type === "wallet")
+        .map(x => (x as WalletWithMetadata).address);
 
       if (storedUser) {
-        const profileData = await this.findProfileByWallet(wallet);
+        await this.syncUserLinkedWallets(embeddedWallet, user.id);
+        const profileData = await this.findProfileByWallet(embeddedWallet);
+
+        let username = profileData?.username;
+
+        if (username === undefined) {
+          if (user.github) {
+            const githubUser = this.httpService.axiosRef.get<{
+              avatar_url: string;
+            }>(`https://api.github.com/user/${user.github.username}`);
+
+            this.githubUserService.addGithubInfoToUser({
+              wallet: embeddedWallet,
+              githubLogin: user.github.username,
+              githubId: user.github.subject,
+              githubAvatarUrl: (await githubUser).data.avatar_url,
+            });
+
+            username = user.github.username;
+          }
+        }
 
         const CACHE_VALIDITY_THRESHOLD = this.configService.get<number>(
           "CACHE_VALIDITY_THRESHOLD",
         );
 
         const userCacheLock = await this.profileService.getUserCacheLock(
-          wallet,
+          embeddedWallet,
         );
 
         const userCacheLockIsValid =
@@ -700,66 +791,112 @@ export class UserService {
           );
 
         if (!userCacheLockIsValid) {
-          await this.profileService.refreshUserCacheLock([wallet]);
+          await this.profileService.refreshUserCacheLock([embeddedWallet]);
 
-          const workHistory = profileData?.username
-            ? await this.scorerService.getWorkHistory([profileData.username])
+          const workHistory = username
+            ? await this.scorerService.getWorkHistory([username])
             : [];
 
           const leanStats = await this.scorerService.getLeanStats([
-            { github: profileData.username, wallet },
+            { github: username, wallets: connectedWallets },
           ]);
 
           await this.profileService.refreshWorkHistoryCache(
-            wallet,
+            embeddedWallet,
             profileData?.username
-              ? workHistory.find(x => x.user === profileData?.username)
-                  ?.workHistory ?? []
+              ? workHistory.find(x => x.user === username)?.workHistory ?? []
               : [],
             leanStats.find(
               x =>
-                x.actor_login === profileData.username || x.wallet === wallet,
+                x.actor_login === username ||
+                connectedWallets.includes(x.wallet),
             ) ?? null,
           );
 
-          const orgs = await this.scorerService.getUserOrgs(
-            profileData.username,
-          );
+          const orgs = await this.scorerService.getUserOrgs(username);
 
-          await this.profileService.refreshUserRepoCache(wallet, orgs);
+          await this.profileService.refreshUserRepoCache(embeddedWallet, orgs);
         }
 
         return storedUser.getProperties();
       }
 
       const newUserDto = {
-        wallet: wallet,
+        wallet: embeddedWallet,
       };
 
       this.logger.log(
-        `/user/createSIWEUser: Creating user with wallet ${wallet}`,
+        `/user/createPrivyUser: Creating privy user with wallet ${embeddedWallet}`,
       );
 
       const newUser = await this.create(newUserDto);
 
       this.logger.log(JSON.stringify(newUser));
 
-      if (!storedUser) {
-        await this.profileService.refreshUserCacheLock([wallet]);
+      await this.syncUserLinkedWallets(embeddedWallet, user.id);
 
-        const leanStats = await this.scorerService.getLeanStats([
-          { github: null, wallet },
-        ]);
+      if (user.github) {
+        const githubUser = this.httpService.axiosRef.get<{
+          avatar_url: string;
+        }>(`https://api.github.com/user/${user.github.username}`);
 
-        await this.profileService.refreshWorkHistoryCache(
-          wallet,
-          [],
-          leanStats.find(x => x.wallet === wallet) ?? null,
+        this.githubUserService.addGithubInfoToUser({
+          wallet: embeddedWallet,
+          githubLogin: user.github.username,
+          githubId: user.github.subject,
+          githubAvatarUrl: (await githubUser).data.avatar_url,
+        });
+
+        const username = user.github.username;
+        const CACHE_VALIDITY_THRESHOLD = this.configService.get<number>(
+          "CACHE_VALIDITY_THRESHOLD",
         );
+
+        const userCacheLock = await this.profileService.getUserCacheLock(
+          embeddedWallet,
+        );
+
+        const userCacheLockIsValid =
+          (userCacheLock !== -1 || userCacheLock !== null) &&
+          isBefore(
+            new Date(),
+            addMonths(new Date(userCacheLock), CACHE_VALIDITY_THRESHOLD),
+          );
+
+        if (!userCacheLockIsValid) {
+          await this.profileService.refreshUserCacheLock([embeddedWallet]);
+
+          const workHistory = username
+            ? await this.scorerService.getWorkHistory([username])
+            : [];
+
+          const leanStats = await this.scorerService.getLeanStats([
+            { github: username, wallets: connectedWallets },
+          ]);
+
+          await this.profileService.refreshWorkHistoryCache(
+            embeddedWallet,
+            workHistory.find(x => x.user === username)?.workHistory ?? [],
+            leanStats.find(
+              x =>
+                x.actor_login === username ||
+                connectedWallets.includes(x.wallet),
+            ) ?? null,
+          );
+
+          const orgs = await this.scorerService.getUserOrgs(username);
+
+          await this.profileService.refreshUserRepoCache(embeddedWallet, orgs);
+        }
       }
 
-      await this.setRole(CheckWalletRoles.ANON, newUser);
-      await this.setFlow(CheckWalletFlows.PICK_ROLE, newUser);
+      await this.setRole(role, newUser);
+      await this.setFlow(
+        role === CheckWalletRoles.ORG
+          ? CheckWalletFlows.ORG_PROFILE
+          : CheckWalletFlows.ONBOARD_PROFILE,
+        newUser,
+      );
 
       return newUser.getProperties();
     } catch (err) {
@@ -768,10 +905,10 @@ export class UserService {
           action: "service-call",
           source: "user.service",
         });
-        scope.setExtra("input", wallet);
+        scope.setExtra("input", embeddedWallet);
         Sentry.captureException(err);
       });
-      this.logger.error(`UserService::createSIWEUser ${err.message}`);
+      this.logger.error(`UserService::createPrivyUser ${err.message}`);
       return undefined;
     }
   }
@@ -929,8 +1066,10 @@ export class UserService {
       const user = await this.findProfileByWallet(wallet);
       if (user?.username) {
         const login = user.username;
+        const privyId = await this.getPrivyId(wallet);
+        const wallets = await this.privyService.getUserLinkedWallets(privyId);
         const stats = await this.scorerService.getLeanStats([
-          { github: login, wallet },
+          { github: login, wallets },
         ]);
         // eslint-disable-next-line @typescript-eslint/naming-convention
         const { is_adjacent, is_native } = stats[0];
@@ -940,7 +1079,7 @@ export class UserService {
             `
             MATCH (u:User {wallet: $wallet})
             SET u.cryptoNative = $is_native
-            SET u.cryptoNativeAdjacent = $is_adjacent
+            SET u.cryptoAdjacent = $is_adjacent
             RETURN u
           `,
             { wallet, is_native, is_adjacent },

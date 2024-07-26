@@ -6,7 +6,6 @@ import { AuthModule } from "./auth/auth.module";
 import * as Sentry from "@sentry/node";
 import * as Tracing from "@sentry/tracing";
 import { JobsModule } from "./jobs/jobs.module";
-import { SiweModule } from "./auth/siwe/siwe.module";
 import { TagsModule } from "./tags/tags.module";
 import { GithubModule } from "./auth/github/github.module";
 import { OrganizationsModule } from "./organizations/organizations.module";
@@ -23,6 +22,7 @@ import { AuditsModule } from "./audits/audits.module";
 import { ScorerModule } from "./scorer/scorer.module";
 import { ChainsModule } from "./chains/chains.module";
 import { InvestorsModule } from "./investors/investors.module";
+import { PrivyModule } from "./auth/privy/privy.module";
 
 @Module({
   imports: [
@@ -49,7 +49,6 @@ import { InvestorsModule } from "./investors/investors.module";
     CacheModule.register({ isGlobal: true }),
     AuthModule,
     JobsModule,
-    SiweModule,
     TagsModule,
     GithubModule,
     OrganizationsModule,
@@ -63,6 +62,7 @@ import { InvestorsModule } from "./investors/investors.module";
     ScorerModule,
     ChainsModule,
     InvestorsModule,
+    PrivyModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -542,7 +542,7 @@ export class ProfileController {
             <li>User Address: ${session.address ?? "N/A"}</li>
             <li>User Role: ${session.role ?? "N/A"}</li>
             <li>User Flow: ${session.flow ?? "N/A"}</li>
-            <li>Wallet Connected: ${session.nonce !== undefined}</li>
+            <li>Wallet Connected: ${session.address !== undefined}</li>
             <li>Signed In: ${session.address !== undefined}</li>
             <li>Other Info: ${JSON.stringify(
               ctx.other !== "" ? JSON.parse(ctx.other) : {},
@@ -711,7 +711,10 @@ export class ProfileController {
             if (job.access === "protected") {
               if (userProfile.username) {
                 const stats = await this.scorerService.getLeanStats([
-                  { github: userProfile.username, wallet: address as string },
+                  {
+                    github: userProfile.username,
+                    wallets: userProfile.linkedWallets,
+                  },
                 ]);
                 if (stats[0].is_native) {
                   return {
@@ -805,7 +808,7 @@ export class ProfileController {
                     const leanStats = await this.scorerService.getLeanStats([
                       {
                         github: userProfile.username,
-                        wallet: address as string,
+                        wallets: userProfile.linkedWallets,
                       },
                     ]);
 

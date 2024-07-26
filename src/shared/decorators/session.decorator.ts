@@ -1,8 +1,8 @@
 import { createParamDecorator, ExecutionContext } from "@nestjs/common";
-import { User } from "src/shared/types";
+import { SessionObject } from "../interfaces";
 
-export const AuthUser = createParamDecorator(
-  (data: unknown, ctx: ExecutionContext): User => {
+export const Session = createParamDecorator(
+  (data: unknown, ctx: ExecutionContext): SessionObject => {
     const request = ctx.switchToHttp().getRequest();
     return request.user;
   },

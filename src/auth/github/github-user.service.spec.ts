@@ -241,13 +241,9 @@ describe("GithubUserService", () => {
         wallet: EPHEMERAL_TEST_WALLET,
         githubId: NOT_SO_RANDOM_TEST_UUID,
         githubLogin: EPHEMERAL_TEST_GITHUB_USER,
-        githubNodeId: githubData?.getNodeId(),
-        githubAccessToken: githubData?.getAccessToken(),
         githubAvatarUrl: githubData?.getAvatarUrl(),
-        githubRefreshToken: githubData?.getRefreshToken(),
-        githubGravatarId: githubData?.getGravatarId(),
       };
-      const user = await userService.createSIWEUser(EPHEMERAL_TEST_WALLET);
+      const user = await userService.findByWallet(EPHEMERAL_TEST_WALLET);
       expect(user).toBeDefined();
 
       const github = await githubUserService.addGithubInfoToUser(args);

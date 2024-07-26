@@ -6,14 +6,6 @@ export class CreateGithubUserDto {
   login: string;
 
   @IsOptional()
-  @IsString()
-  nodeId: string;
-
-  @IsOptional()
-  @IsString()
-  gravatarId?: string;
-
-  @IsOptional()
   @IsUrl()
   avatarUrl: string;
 

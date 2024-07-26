@@ -5,6 +5,7 @@ import { report } from "io-ts-human-reporter";
 export class OrgUserProfile {
   public static readonly OrgUserProfileType = t.strict({
     wallet: t.string,
+    linkedWallets: t.array(t.string),
     avatar: t.union([t.string, t.null]),
     username: t.union([t.string, t.null]),
     email: t.array(t.strict({ email: t.string, main: t.boolean })),
@@ -28,6 +29,7 @@ export class OrgUserProfile {
   });
 
   wallet: string;
+  linkedWallets: string[];
   username: string | null;
   email: { email: string; main: boolean }[];
   linkedin: string | null;
@@ -52,6 +54,7 @@ export class OrgUserProfile {
   constructor(raw: OrgUserProfile) {
     const {
       wallet,
+      linkedWallets,
       linkedin,
       calendly,
       orgId,
@@ -66,6 +69,7 @@ export class OrgUserProfile {
     const result = OrgUserProfile.OrgUserProfileType.decode(raw);
 
     this.wallet = wallet;
+    this.linkedWallets = linkedWallets;
     this.linkedin = linkedin;
     this.calendly = calendly;
     this.orgId = orgId;

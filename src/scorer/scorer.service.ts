@@ -184,7 +184,7 @@ export class ScorerService {
   };
 
   getLeanStats = async (
-    users: { github: string | null; wallet: string | null }[],
+    users: { github: string | null; wallets: string[] }[],
   ): Promise<UserLeanStats[]> => {
     const params = Buffer.from(JSON.stringify(users)).toString("base64");
     const res = await firstValueFrom(
@@ -206,7 +206,6 @@ export class ScorerService {
           }),
         ),
     );
-    this.logger.log(`ScorerService::getLeanStats ${JSON.stringify(res)}`);
     return res;
   };
 

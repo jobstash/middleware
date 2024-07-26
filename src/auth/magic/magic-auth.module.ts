@@ -11,9 +11,11 @@ import { ModelService } from "src/model/model.service";
 import { OrgMagicAuthStrategy } from "./org.magic-auth.strategy";
 import { UserModule } from "src/user/user.module";
 import { ProfileService } from "../profile/profile.service";
+import { HttpModule } from "@nestjs/axios";
 
 @Module({
   imports: [
+    HttpModule.register({ timeout: 10000 }),
     forwardRef(() => AuthModule),
     forwardRef(() => UserModule),
     ConfigModule,

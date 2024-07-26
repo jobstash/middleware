@@ -1,6 +1,5 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { AuthController } from "./auth.controller";
-import { JwtAuthModule } from "./jwt/jwt-auth.module";
 import { JwtModule, JwtService } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AuthService } from "./auth.service";
@@ -14,7 +13,6 @@ import { ModelService } from "src/model/model.service";
 @Module({
   imports: [
     forwardRef(() => UserModule),
-    JwtAuthModule,
     ConfigModule,
     MailModule,
     MagicAuthModule,
@@ -38,5 +36,6 @@ import { ModelService } from "src/model/model.service";
     ProfileService,
     ModelService,
   ],
+  exports: [AuthService],
 })
 export class AuthModule {}

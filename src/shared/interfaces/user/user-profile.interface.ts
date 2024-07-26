@@ -20,6 +20,7 @@ export type ContactType = (typeof ContactTypes)[number];
 export class UserProfile {
   public static readonly UserProfileType = t.strict({
     wallet: t.string,
+    linkedWallets: t.array(t.string),
     avatar: t.union([t.string, t.null]),
     username: t.union([t.string, t.null]),
     email: t.array(t.strict({ email: t.string, main: t.boolean })),
@@ -40,6 +41,7 @@ export class UserProfile {
   });
 
   wallet: string;
+  linkedWallets: string[];
   avatar: string | null;
   username: string | null;
   email: { email: string; main: boolean }[];
@@ -61,6 +63,7 @@ export class UserProfile {
   constructor(raw: UserProfile) {
     const {
       wallet,
+      linkedWallets,
       avatar,
       username,
       preferred,
@@ -73,6 +76,7 @@ export class UserProfile {
     const result = UserProfile.UserProfileType.decode(raw);
 
     this.wallet = wallet;
+    this.linkedWallets = linkedWallets;
     this.avatar = avatar;
     this.email = email;
     this.username = username;

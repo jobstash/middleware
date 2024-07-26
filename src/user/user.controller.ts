@@ -130,7 +130,7 @@ export class UserController {
             const leanStats = await this.scorerService.getLeanStats(
               applicants.map(x => ({
                 github: x.user.username,
-                wallet: x.user.wallet,
+                wallets: x.user.linkedWallets,
               })),
             );
             for (const applicant of applicantUsernames) {
