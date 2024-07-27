@@ -621,7 +621,7 @@ export class UserService {
         MERGE (user)-[:HAS_LINKED_WALLET]->(newWallet:LinkedWallet {address: wallet})
         ON CREATE
           SET newWallet.id = randomUUID(),
-          SET newWallet.createdTimestamp = timestamp()
+            newWallet.createdTimestamp = timestamp()
         ON MATCH
           SET newWallet.updatedTimestamp = timestamp()
         RETURN user
