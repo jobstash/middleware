@@ -422,8 +422,8 @@ export class ProjectsController {
     },
   })
   async getAllProjects(
-    @Query("page") page = 1,
-    @Query("limit") limit = 10,
+    @Query("page") page: number,
+    @Query("limit") limit: number,
   ): Promise<
     | PaginatedData<
         ProjectWithRelations & { rawWebsite: RawProjectWebsite | null }
@@ -431,20 +431,22 @@ export class ProjectsController {
     | ResponseWithNoData
   > {
     this.logger.log(`/projects/all`);
-    return this.projectsService.getAllProjects(page, limit).catch(err => {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "service-call",
-          source: "projects.controller",
+    return this.projectsService
+      .getAllProjects(page ?? 1, limit ?? 10)
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-call",
+            source: "projects.controller",
+          });
+          Sentry.captureException(err);
         });
-        Sentry.captureException(err);
+        this.logger.error(`/projects/all ${err.message}`);
+        return {
+          success: false,
+          message: `Error retrieving all projects!`,
+        };
       });
-      this.logger.error(`/projects/all ${err.message}`);
-      return {
-        success: false,
-        message: `Error retrieving all projects!`,
-      };
-    });
   }
 
   @Get("/all/:id")

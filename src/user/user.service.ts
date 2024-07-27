@@ -618,12 +618,12 @@ export class UserService {
         `
         MATCH (user:User {wallet: $wallet})
         UNWIND $wallets as wallet
-        MERGE (user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet {address: wallet})
+        MERGE (user)-[:HAS_LINKED_WALLET]->(newWallet:LinkedWallet {address: wallet})
         ON CREATE
-          SET wallet.id = randomUUID(),
-          SET wallet.createdTimestamp = timestamp()
+          SET newWallet.id = randomUUID(),
+          SET newWallet.createdTimestamp = timestamp()
         ON MATCH
-          SET wallet.updatedTimestamp = timestamp()
+          SET newWallet.updatedTimestamp = timestamp()
         RETURN user
         `,
         { wallet, wallets },
