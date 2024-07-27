@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { PrivyService } from "./privy.service";
 import { RBACGuard } from "../rbac.guard";
-import { Session, Roles } from "src/shared/decorators";
+import { PrivyUser, Roles } from "src/shared/decorators";
 import { CheckWalletRoles } from "src/shared/constants";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { PrivyGuard } from "./privy.guard";
@@ -29,7 +29,7 @@ export class PrivyController {
   @UseGuards(PrivyGuard)
   @HttpCode(HttpStatus.OK)
   async checkWallet(
-    @Session() user: User,
+    @PrivyUser() user: User,
   ): Promise<SessionObject & { token: string }> {
     this.logger.log("/privy/check-wallet");
     const embeddedWallet = (
@@ -42,17 +42,21 @@ export class PrivyController {
       embeddedWallet,
       CheckWalletRoles.DEV,
     );
+    const cryptoNative = await this.userService.getCryptoNativeStatus(
+      embeddedWallet,
+    );
     const flow = await this.userService.getWalletFlow(embeddedWallet);
     const token = this.authService.createToken({
       address: embeddedWallet,
       role: CheckWalletRoles.DEV,
       flow: flow.getName(),
+      cryptoNative,
     });
     return {
-      address: embeddedWallet,
       role: CheckWalletRoles.DEV,
       flow: flow.getName(),
       token,
+      cryptoNative,
     };
   }
 
@@ -60,7 +64,7 @@ export class PrivyController {
   @UseGuards(PrivyGuard)
   @HttpCode(HttpStatus.OK)
   async checkOrgWallet(
-    @Session() user: User,
+    @PrivyUser() user: User,
   ): Promise<SessionObject & { token: string }> {
     this.logger.log("/privy/check-org-wallet");
     const embeddedWallet = (
@@ -73,17 +77,21 @@ export class PrivyController {
       embeddedWallet,
       CheckWalletRoles.ORG,
     );
+    const cryptoNative = await this.userService.getCryptoNativeStatus(
+      embeddedWallet,
+    );
     const flow = await this.userService.getWalletFlow(embeddedWallet);
     const token = this.authService.createToken({
       address: embeddedWallet,
       role: CheckWalletRoles.ORG,
       flow: flow.getName(),
+      cryptoNative,
     });
     return {
-      address: embeddedWallet,
       role: CheckWalletRoles.ORG,
       flow: flow.getName(),
       token,
+      cryptoNative,
     };
   }
 
