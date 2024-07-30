@@ -1,6 +1,7 @@
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { ProjectWithRelations } from "../interfaces";
 import { Node } from "neo4j-driver";
+import { uniqBy } from "lodash";
 
 export class ProjectWithRelationsEntity {
   constructor(private readonly raw: ProjectWithRelations) {}
@@ -53,12 +54,16 @@ export class ProjectWithRelationsEntity {
           ...chain,
           logo: notStringOrNull(chain?.logo),
         })) ?? [],
-      investors:
-        project?.investors?.map(investor => ({
-          id: investor.id,
-          name: investor.name,
-          normalizedName: investor.normalizedName,
-        })) ?? [],
+      investors: Array.from(
+        uniqBy(
+          project?.investors?.map(investor => ({
+            id: investor.id,
+            name: investor.name,
+            normalizedName: investor.normalizedName,
+          })) ?? [],
+          "id",
+        ),
+      ),
       jobs: project?.jobs ?? [],
       repos: project?.repos ?? [],
       description: notStringOrNull(project?.description),

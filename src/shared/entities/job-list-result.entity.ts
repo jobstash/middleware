@@ -11,6 +11,7 @@ import {
 } from "../helpers";
 import { OrgReviewEntity } from "./org-review.entity";
 import { isAfter, isBefore } from "date-fns";
+import { uniqBy } from "lodash";
 
 type RawJobPost = StructuredJobpostWithRelations & {
   organization?: (OrganizationWithRelations & { hasUser: boolean }) | null;
@@ -173,14 +174,18 @@ export class JobListResultEntity {
                 };
               }) ?? [],
             repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
-            investors:
-              project?.investors ??
-              organization?.investors?.map(investor => ({
-                id: investor.id,
-                name: investor.name,
-                normalizedName: investor.normalizedName,
-              })) ??
-              [],
+            investors: Array.from(
+              uniqBy(
+                project?.investors ??
+                  organization?.investors?.map(investor => ({
+                    id: investor.id,
+                    name: investor.name,
+                    normalizedName: investor.normalizedName,
+                  })) ??
+                  [],
+                "id",
+              ),
+            ),
           })) ?? [],
         fundingRounds:
           organization?.fundingRounds
@@ -193,12 +198,16 @@ export class JobListResultEntity {
               sourceLink: notStringOrNull(fr?.sourceLink),
             }))
             .sort((a, b) => b.date - a.date) ?? [],
-        investors:
-          organization?.investors?.map(investor => ({
-            id: investor.id,
-            name: investor.name,
-            normalizedName: investor.normalizedName,
-          })) ?? [],
+        investors: Array.from(
+          uniqBy(
+            organization?.investors?.map(investor => ({
+              id: investor.id,
+              name: investor.name,
+              normalizedName: investor.normalizedName,
+            })) ?? [],
+            "id",
+          ),
+        ),
         community: organization?.community ?? [],
         reviews:
           organization?.reviews?.map(review =>

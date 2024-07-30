@@ -17,6 +17,7 @@ import { OmitType } from "@nestjs/swagger";
 import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
 import { isAfter, isBefore } from "date-fns";
+import { uniqBy } from "lodash";
 
 class RawOrg extends OmitType(OrganizationWithRelations, ["reviews"] as const) {
   reviews: LeanOrgReview[] | OrgReview[] | null;
@@ -154,14 +155,18 @@ export class OrgDetailsResultEntity {
               };
             }) ?? [],
           repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
-          investors:
-            project?.investors ??
-            organization?.investors?.map(investor => ({
-              id: investor.id,
-              name: investor.name,
-              normalizedName: investor.normalizedName,
-            })) ??
-            [],
+          investors: Array.from(
+            uniqBy(
+              project?.investors ??
+                organization?.investors?.map(investor => ({
+                  id: investor.id,
+                  name: investor.name,
+                  normalizedName: investor.normalizedName,
+                })) ??
+                [],
+              "id",
+            ),
+          ),
         })) ?? [],
       fundingRounds:
         fundingRounds?.map(fr => ({
@@ -172,12 +177,16 @@ export class OrgDetailsResultEntity {
           createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
           updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
         })) ?? [],
-      investors:
-        investors?.map(investor => ({
-          id: investor.id,
-          name: investor.name,
-          normalizedName: investor.normalizedName,
-        })) ?? [],
+      investors: Array.from(
+        uniqBy(
+          investors?.map(investor => ({
+            id: investor.id,
+            name: investor.name,
+            normalizedName: investor.normalizedName,
+          })) ?? [],
+          "id",
+        ),
+      ),
       community: organization?.community ?? [],
       grants: organization?.grants ?? [],
       jobs:
