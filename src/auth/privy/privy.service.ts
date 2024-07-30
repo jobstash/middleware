@@ -3,12 +3,12 @@ import { ConfigService } from "@nestjs/config";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import { chunk } from "lodash";
-import { HttpService } from "@nestjs/axios";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { PrivyClient, WalletWithMetadata } from "@privy-io/server-auth";
 import extractDomain from "src/shared/helpers/extract-domain";
 import { notStringOrNull } from "src/shared/helpers";
+import axios from "axios";
 // import { ScorerService } from "src/scorer/scorer.service";
 // import { UNMIGRATED_USERS } from "src/shared/constants/unmigrated-users";
 // import { ProfileService } from "../profile/profile.service";
@@ -54,8 +54,7 @@ export class PrivyService {
   constructor(
     @InjectConnection()
     private neogma: Neogma,
-    private readonly configService: ConfigService,
-    private readonly httpService: HttpService, // private readonly scorerService: ScorerService, // private readonly profileService: ProfileService,
+    private readonly configService: ConfigService, // private readonly scorerService: ScorerService, // private readonly profileService: ProfileService,
   ) {
     this.privy = new PrivyClient(
       this.configService.get<string>("PRIVY_APP_ID"),
@@ -66,7 +65,7 @@ export class PrivyService {
   async getUserLinkedWallets(userId: string): Promise<string[]> {
     const user = await this.privy.getUser(userId);
     return user.linkedAccounts
-      .filter(x => x.type === "wallet")
+      .filter(x => x.type === "wallet" && x.walletClientType !== "privy")
       .map(x => (x as WalletWithMetadata).address);
   }
 
@@ -77,6 +76,10 @@ export class PrivyService {
         x => x.type === "wallet" && x.walletClientType === "privy",
       ) as WalletWithMetadata
     )?.address;
+  }
+
+  async deletePrivyUser(userId: string): Promise<void> {
+    await this.privy.deleteUser(userId);
   }
 
   async unsafe__________deleteMigratedUsers(): Promise<void> {
@@ -102,7 +105,7 @@ export class PrivyService {
   ): Promise<void> {
     try {
       this.logger.log(`Sending chunk ${counter} to privy. Attempt ${attempts}`);
-      const response = await this.httpService.axiosRef.post<CreateResult>(
+      const response = await axios.post<CreateResult>(
         `https://auth.privy.io/api/v1/users/import`,
         {
           users,

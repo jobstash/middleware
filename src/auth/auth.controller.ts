@@ -63,7 +63,7 @@ export class AuthController {
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       const result = await this.userService.addUserEmail(
-        address as string,
+        address,
         body.destination,
       );
       if (result.success) {
@@ -101,7 +101,7 @@ export class AuthController {
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       const result = await this.userService.addUserEmail(
-        address as string,
+        address,
         body.destination,
       );
       if (result.success) {
@@ -227,10 +227,7 @@ export class AuthController {
     this.logger.log(`/user/update-email/${email}`);
     const { address } = session;
     if (address) {
-      const result = await this.userService.updateUserMainEmail(
-        address as string,
-        email,
-      );
+      const result = await this.userService.updateUserMainEmail(address, email);
       if (result.success) {
         return {
           success: result.success,
@@ -264,10 +261,7 @@ export class AuthController {
     this.logger.log(`/user/remove-email/${email}`);
     const { address } = session;
     if (address) {
-      const result = await this.userService.removeUserEmail(
-        address as string,
-        email,
-      );
+      const result = await this.userService.removeUserEmail(address, email);
       if (result.success) {
         return {
           success: result.success,

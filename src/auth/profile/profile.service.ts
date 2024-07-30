@@ -608,51 +608,6 @@ export class ProfileService {
     }
   }
 
-  async deleteUserAccount(wallet: string): Promise<ResponseWithNoData> {
-    try {
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $wallet})
-        OPTIONAL MATCH (user)-[cr:HAS_CONTACT_INFO]->(contact: UserContactInfo)
-        OPTIONAL MATCH (user)-[lw:HAS_LINKED_WALLET]->(wallet:LinkedWallet)
-        OPTIONAL MATCH (user)-[pcr:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo)
-        OPTIONAL MATCH (user)-[rr:LEFT_REVIEW]->(:OrgReview)
-        OPTIONAL MATCH (user)-[gr:HAS_GITHUB_USER]->(:GithubUser)
-        OPTIONAL MATCH (user)-[scr:HAS_SHOWCASE]->(showcase:UserShowCase)
-        OPTIONAL MATCH (user)-[ul:HAS_LOCATION]->(location:UserLocation)
-        OPTIONAL MATCH (user)-[sr:HAS_SKILL]->(:Tag)
-        OPTIONAL MATCH (user)-[er:HAS_EMAIL]->(email:UserEmail|UserUnverifiedEmail)
-        OPTIONAL MATCH (user)-[ja:APPLIED_TO|BOOKMARKED|VIEWED_DETAILS]->()
-        OPTIONAL MATCH (user)-[ds:DID_SEARCH]->(search:SearchHistory)
-        OPTIONAL MATCH (user)-[cl:HAS_CACHE_LOCK]->(lock:UserCacheLock)
-        OPTIONAL MATCH (user)-[oa:HAS_ORGANIZATION_AUTHORIZATION]->()
-        OPTIONAL MATCH (user)-[:HAS_WORK_HISTORY]->(wh:UserWorkHistory)-[:WORKED_ON_REPO]->(whr:UserWorkHistoryRepo)
-        DETACH DELETE user, lw, wallet, pcr, cr, preferred, contact, rr, gr, scr, showcase, ul, location, sr, er, email, ja, ds, cl, search, lock, oa, wh, whr
-      `,
-        { wallet },
-      );
-
-      return {
-        success: true,
-        message: "User account deleted successfully",
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "profile.service",
-        });
-        scope.setExtra("input", { wallet });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`ProfileService::deleteUserAccount ${err.message}`);
-      return {
-        success: false,
-        message: "Error deleting user account",
-      };
-    }
-  }
-
   async updateUserShowCase(
     wallet: string,
     dto: UpdateUserShowCaseInput,

@@ -67,7 +67,7 @@ export class UserController {
   ): Promise<DevUserProfile[]> {
     const { address } = await this.authService.getSession(req, res);
     const orgId = address
-      ? await this.userService.findOrgIdByWallet(address as string)
+      ? await this.userService.findOrgIdByWallet(address)
       : null;
     this.logger.log(`/users/devs/available ${JSON.stringify(params)}`);
     return this.userService.getDevsAvailableForWork(params, orgId);
@@ -245,7 +245,7 @@ export class UserController {
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       const orgId = address
-        ? await this.userService.findOrgIdByWallet(address as string)
+        ? await this.userService.findOrgIdByWallet(address)
         : null;
       this.logger.log(`/users/devs/note ${JSON.stringify(body)}`);
       return this.userService.addUserNote(body.wallet, body.note, orgId);

@@ -7,10 +7,12 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { Request } from "express";
 import { PrivyClient, User } from "@privy-io/server-auth";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Injectable()
 export class PrivyGuard implements CanActivate {
   private privy: PrivyClient;
+  private logger = new CustomLogger(PrivyGuard.name);
   constructor(private readonly configService: ConfigService) {
     this.privy = new PrivyClient(
       this.configService.get<string>("PRIVY_APP_ID"),
@@ -24,6 +26,7 @@ export class PrivyGuard implements CanActivate {
       const verifiedClaims = await this.privy.verifyAuthToken(accessToken);
       return this.privy.getUser(verifiedClaims.userId);
     } catch (error) {
+      this.logger.error(`PrivyGuard::getSession ${error.message}`);
       throw new ForbiddenException({
         success: false,
         message: "Forbidden resource: Insufficient permissions",

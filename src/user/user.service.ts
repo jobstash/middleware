@@ -35,7 +35,7 @@ import { ProfileService } from "src/auth/profile/profile.service";
 import { User as PrivyUser, WalletWithMetadata } from "@privy-io/server-auth";
 import { PrivyService } from "src/auth/privy/privy.service";
 import { GithubUserService } from "src/auth/github/github-user.service";
-import { HttpService } from "@nestjs/axios";
+import axios from "axios";
 
 @Injectable()
 export class UserService {
@@ -51,7 +51,6 @@ export class UserService {
     private readonly scorerService: ScorerService,
     private readonly privyService: PrivyService,
     private readonly githubUserService: GithubUserService,
-    private readonly httpService: HttpService,
   ) {}
 
   async findByWallet(wallet: string): Promise<UserEntity | undefined> {
@@ -71,75 +70,39 @@ export class UserService {
   }
 
   async findProfileByWallet(wallet: string): Promise<UserProfile | undefined> {
-    return this.neogma.queryRunner
-      .run(
-        `
-          MATCH (user:User {wallet: $wallet})
-          RETURN {
-            wallet: user.wallet,
-            availableForWork: user.available,
-            username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-            avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-            contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }]
-          } as user
-        `,
-        { wallet },
-      )
-      .then(res =>
-        res.records.length
-          ? new UserProfileEntity(res.records[0].get("user")).getProperties()
-          : undefined,
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
-          });
-          Sentry.captureException(err);
+    return this.profileService.getDevUserProfile(wallet).catch(err => {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
         });
-        this.logger.error(`UserService::findProfileByWallet ${err.message}`);
-        return undefined;
+        Sentry.captureException(err);
       });
+      this.logger.error(`UserService::findProfileByWallet ${err.message}`);
+      return undefined;
+    });
   }
 
   async findProfileByOrgId(orgId: string): Promise<OrgUserProfile | undefined> {
-    return this.neogma.queryRunner
-      .run(
-        `
+    const result = await this.neogma.queryRunner.run(
+      `
           MATCH (user:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(:Organization {orgId: $orgId})
-          RETURN user {
-            .*,
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
-            username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-            avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-            contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-            orgId: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization:Organization) | organization.orgId][0],
-            internalReference: [(user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo) | reference { .* }][0],
-            subscriberStatus: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION|HAS_SUBSCRIPTION*2]->(subscription:Subscription) | subscription { .* }][0]
-          } as profile
+          RETURN user.wallet as wallet
         `,
-        { orgId },
-      )
-      .then(res =>
-        res.records.length
-          ? new OrgUserProfileEntity(
-              res.records[0].get("profile"),
-            ).getProperties()
-          : undefined,
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
-          });
-          Sentry.captureException(err);
+      { orgId },
+    );
+    const wallet = result.records[0]?.get("wallet");
+    return this.profileService.getOrgUserProfile(wallet).catch(err => {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
         });
-        this.logger.error(`UserService::findProfileByWallet ${err.message}`);
-        return undefined;
+        Sentry.captureException(err);
       });
+      this.logger.error(`UserService::findProfileByWallet ${err.message}`);
+      return undefined;
+    });
   }
 
   async findByGithubNodeId(nodeId: string): Promise<UserEntity | undefined> {
@@ -749,7 +712,7 @@ export class UserService {
     try {
       const storedUser = await this.findByWallet(embeddedWallet);
       const connectedWallets = user.linkedAccounts
-        .filter(x => x.type === "wallet")
+        .filter(x => x.type === "wallet" && x.walletClientType !== "privy")
         .map(x => (x as WalletWithMetadata).address);
 
       if (storedUser) {
@@ -760,9 +723,24 @@ export class UserService {
 
         if (username === undefined) {
           if (user.github) {
-            const githubUser = this.httpService.axiosRef.get<{
-              avatar_url: string;
-            }>(`https://api.github.com/user/${user.github.username}`);
+            this.logger.log(`Fetching github info for ${user.github.username}`);
+            const githubUser = axios
+              .get<{
+                avatar_url: string;
+              }>(`https://api.github.com/users/${user.github.username}`)
+              .catch(err => {
+                this.logger.error(
+                  `UserService::fetchGithubUser ${err.message}`,
+                );
+                Sentry.withScope(scope => {
+                  scope.setTags({
+                    action: "external-api-call",
+                    source: "user.service",
+                  });
+                  Sentry.captureException(err);
+                });
+                return undefined;
+              });
 
             this.githubUserService.addGithubInfoToUser({
               wallet: embeddedWallet,
@@ -797,20 +775,18 @@ export class UserService {
             ? await this.scorerService.getWorkHistory([username])
             : [];
 
-          const leanStats = await this.scorerService.getLeanStats([
-            { github: username, wallets: connectedWallets },
-          ]);
+          const leanStats = (
+            await this.scorerService.getLeanStats([
+              { github: username, wallets: connectedWallets },
+            ])
+          )[0];
 
           await this.profileService.refreshWorkHistoryCache(
             embeddedWallet,
-            profileData?.username
+            username
               ? workHistory.find(x => x.user === username)?.workHistory ?? []
               : [],
-            leanStats.find(
-              x =>
-                x.actor_login === username ||
-                connectedWallets.includes(x.wallet),
-            ) ?? null,
+            leanStats,
           );
 
           const orgs = await this.scorerService.getUserOrgs(username);
@@ -836,9 +812,22 @@ export class UserService {
       await this.syncUserLinkedWallets(embeddedWallet, user.id);
 
       if (user.github) {
-        const githubUser = this.httpService.axiosRef.get<{
-          avatar_url: string;
-        }>(`https://api.github.com/user/${user.github.username}`);
+        this.logger.log(`Fetching github info for ${user.github.username}`);
+        const githubUser = axios
+          .get<{
+            avatar_url: string;
+          }>(`https://api.github.com/users/${user.github.username}`)
+          .catch(err => {
+            this.logger.error(`UserService::fetchGithubUser ${err.message}`);
+            Sentry.withScope(scope => {
+              scope.setTags({
+                action: "external-api-call",
+                source: "user.service",
+              });
+              Sentry.captureException(err);
+            });
+            return undefined;
+          });
 
         this.githubUserService.addGithubInfoToUser({
           wallet: embeddedWallet,
@@ -870,18 +859,16 @@ export class UserService {
             ? await this.scorerService.getWorkHistory([username])
             : [];
 
-          const leanStats = await this.scorerService.getLeanStats([
-            { github: username, wallets: connectedWallets },
-          ]);
+          const leanStats = (
+            await this.scorerService.getLeanStats([
+              { github: username, wallets: connectedWallets },
+            ])
+          )[0];
 
           await this.profileService.refreshWorkHistoryCache(
             embeddedWallet,
             workHistory.find(x => x.user === username)?.workHistory ?? [],
-            leanStats.find(
-              x =>
-                x.actor_login === username ||
-                connectedWallets.includes(x.wallet),
-            ) ?? null,
+            leanStats,
           );
 
           const orgs = await this.scorerService.getUserOrgs(username);
@@ -910,6 +897,52 @@ export class UserService {
       });
       this.logger.error(`UserService::createPrivyUser ${err.message}`);
       return undefined;
+    }
+  }
+
+  async deletePrivyUser(wallet: string): Promise<ResponseWithNoData> {
+    try {
+      const userId = await this.getPrivyId(wallet);
+      this.privyService.deletePrivyUser(userId);
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $wallet})
+        OPTIONAL MATCH (user)-[cr:HAS_CONTACT_INFO]->(contact: UserContactInfo)
+        OPTIONAL MATCH (user)-[lw:HAS_LINKED_WALLET]->(wallet:LinkedWallet)
+        OPTIONAL MATCH (user)-[pcr:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo)
+        OPTIONAL MATCH (user)-[rr:LEFT_REVIEW]->(:OrgReview)
+        OPTIONAL MATCH (user)-[gr:HAS_GITHUB_USER]->(:GithubUser)
+        OPTIONAL MATCH (user)-[scr:HAS_SHOWCASE]->(showcase:UserShowCase)
+        OPTIONAL MATCH (user)-[ul:HAS_LOCATION]->(location:UserLocation)
+        OPTIONAL MATCH (user)-[sr:HAS_SKILL]->(:Tag)
+        OPTIONAL MATCH (user)-[er:HAS_EMAIL]->(email:UserEmail|UserUnverifiedEmail)
+        OPTIONAL MATCH (user)-[ja:APPLIED_TO|BOOKMARKED|VIEWED_DETAILS]->()
+        OPTIONAL MATCH (user)-[ds:DID_SEARCH]->(search:SearchHistory)
+        OPTIONAL MATCH (user)-[cl:HAS_CACHE_LOCK]->(lock:UserCacheLock)
+        OPTIONAL MATCH (user)-[oa:HAS_ORGANIZATION_AUTHORIZATION]->()
+        OPTIONAL MATCH (user)-[:HAS_WORK_HISTORY]->(wh:UserWorkHistory)-[:WORKED_ON_REPO]->(whr:UserWorkHistoryRepo)
+        DETACH DELETE user, lw, wallet, pcr, cr, preferred, contact, rr, gr, scr, showcase, ul, location, sr, er, email, ja, ds, cl, search, lock, oa, wh, whr
+      `,
+        { wallet },
+      );
+      return {
+        success: true,
+        message: "User account deleted successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
+        });
+        scope.setExtra("input", { wallet });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`UserService::deletePrivyUser ${err.message}`);
+      return {
+        success: false,
+        message: "Error deleting user account",
+      };
     }
   }
 

@@ -55,7 +55,7 @@ export class AuditsController {
     @Body() createAuditDto: CreateAuditDto,
   ): Promise<Response<Audit> | ResponseWithNoData> {
     const { address } = await this.authService.getSession(req, res);
-    return this.auditsService.create(address as string, createAuditDto);
+    return this.auditsService.create(address, createAuditDto);
   }
 
   @Get()

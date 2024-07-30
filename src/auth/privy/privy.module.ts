@@ -1,7 +1,6 @@
 import { forwardRef, Module } from "@nestjs/common";
 import { PrivyService } from "./privy.service";
 import { PrivyController } from "./privy.controller";
-import { HttpModule } from "@nestjs/axios";
 import { AuthModule } from "../auth.module";
 import { UserModule } from "src/user/user.module";
 // import { ScorerModule } from "src/scorer/scorer.module";
@@ -11,11 +10,7 @@ import { UserModule } from "src/user/user.module";
 // import { ProfileModule } from "../profile/profile.module";
 
 @Module({
-  imports: [
-    HttpModule.register({ timeout: 10000 }),
-    forwardRef(() => AuthModule),
-    forwardRef(() => UserModule),
-  ],
+  imports: [forwardRef(() => AuthModule), forwardRef(() => UserModule)],
   // imports: [
   //   HttpModule.registerAsync({
   //     imports: [ConfigModule],
