@@ -79,7 +79,16 @@ export class PrivyService {
   }
 
   async deletePrivyUser(userId: string): Promise<void> {
-    await this.privy.deleteUser(userId);
+    await this.privy.deleteUser(userId).catch(err => {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "privy.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`PrivyService::deletePrivyUser ${err.message}`);
+    });
   }
 
   async unsafe__________deleteMigratedUsers(): Promise<void> {

@@ -71,6 +71,11 @@ export const Users = (
           allowEmpty: false,
           required: true,
         },
+        privyId: {
+          type: "string",
+          allowEmpty: false,
+          required: true,
+        },
         wallet: {
           type: "string",
           allowEmpty: false,

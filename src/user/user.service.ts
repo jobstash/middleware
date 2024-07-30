@@ -799,6 +799,7 @@ export class UserService {
 
       const newUserDto = {
         wallet: embeddedWallet,
+        privyId: user.id,
       };
 
       this.logger.log(
@@ -903,6 +904,7 @@ export class UserService {
   async deletePrivyUser(wallet: string): Promise<ResponseWithNoData> {
     try {
       const userId = await this.getPrivyId(wallet);
+      this.logger.log(`/user/deletePrivyUser ${userId}`);
       this.privyService.deletePrivyUser(userId);
       await this.neogma.queryRunner.run(
         `

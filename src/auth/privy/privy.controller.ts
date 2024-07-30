@@ -8,7 +8,7 @@ import {
 import { PrivyService } from "./privy.service";
 import { RBACGuard } from "../rbac.guard";
 import { PrivyUser, Roles } from "src/shared/decorators";
-import { CheckWalletRoles } from "src/shared/constants";
+import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { PrivyGuard } from "./privy.guard";
 import { User, WalletWithMetadata } from "@privy-io/server-auth";
@@ -31,33 +31,47 @@ export class PrivyController {
   async checkWallet(
     @PrivyUser() user: User,
   ): Promise<SessionObject & { token: string }> {
-    this.logger.log("/privy/check-wallet");
+    this.logger.log("/privy/check-wallet " + JSON.stringify(user));
     const embeddedWallet = (
       user.linkedAccounts.find(
         x => x.type === "wallet" && x.walletClientType === "privy",
       ) as WalletWithMetadata
     )?.address;
-    await this.userService.createPrivyUser(
-      user,
-      embeddedWallet,
-      CheckWalletRoles.DEV,
-    );
-    const cryptoNative = await this.userService.getCryptoNativeStatus(
-      embeddedWallet,
-    );
-    const flow = await this.userService.getWalletFlow(embeddedWallet);
-    const token = this.authService.createToken({
-      address: embeddedWallet,
-      role: CheckWalletRoles.DEV,
-      flow: flow.getName(),
-      cryptoNative,
-    });
-    return {
-      role: CheckWalletRoles.DEV,
-      flow: flow.getName(),
-      token,
-      cryptoNative,
-    };
+    if (embeddedWallet) {
+      await this.userService.createPrivyUser(
+        user,
+        embeddedWallet,
+        CheckWalletRoles.DEV,
+      );
+      const cryptoNative = await this.userService.getCryptoNativeStatus(
+        embeddedWallet,
+      );
+      const flow = await this.userService.getWalletFlow(embeddedWallet);
+      const token = this.authService.createToken({
+        address: embeddedWallet,
+        role: CheckWalletRoles.DEV,
+        flow: flow.getName(),
+        cryptoNative,
+      });
+      return {
+        role: CheckWalletRoles.DEV,
+        flow: flow.getName(),
+        token,
+        cryptoNative,
+      };
+    } else {
+      return {
+        role: CheckWalletRoles.ANON,
+        flow: CheckWalletFlows.LOGIN,
+        token: this.authService.createToken({
+          address: null,
+          role: CheckWalletRoles.ANON,
+          flow: CheckWalletFlows.LOGIN,
+          cryptoNative: false,
+        }),
+        cryptoNative: false,
+      };
+    }
   }
 
   @Get("check-org-wallet")
@@ -66,33 +80,47 @@ export class PrivyController {
   async checkOrgWallet(
     @PrivyUser() user: User,
   ): Promise<SessionObject & { token: string }> {
-    this.logger.log("/privy/check-org-wallet");
+    this.logger.log("/privy/check-org-wallet " + JSON.stringify(user));
     const embeddedWallet = (
       user.linkedAccounts.find(
         x => x.type === "wallet" && x.walletClientType === "privy",
       ) as WalletWithMetadata
     )?.address;
-    await this.userService.createPrivyUser(
-      user,
-      embeddedWallet,
-      CheckWalletRoles.ORG,
-    );
-    const cryptoNative = await this.userService.getCryptoNativeStatus(
-      embeddedWallet,
-    );
-    const flow = await this.userService.getWalletFlow(embeddedWallet);
-    const token = this.authService.createToken({
-      address: embeddedWallet,
-      role: CheckWalletRoles.ORG,
-      flow: flow.getName(),
-      cryptoNative,
-    });
-    return {
-      role: CheckWalletRoles.ORG,
-      flow: flow.getName(),
-      token,
-      cryptoNative,
-    };
+    if (embeddedWallet) {
+      await this.userService.createPrivyUser(
+        user,
+        embeddedWallet,
+        CheckWalletRoles.ORG,
+      );
+      const cryptoNative = await this.userService.getCryptoNativeStatus(
+        embeddedWallet,
+      );
+      const flow = await this.userService.getWalletFlow(embeddedWallet);
+      const token = this.authService.createToken({
+        address: embeddedWallet,
+        role: CheckWalletRoles.ORG,
+        flow: flow.getName(),
+        cryptoNative,
+      });
+      return {
+        role: CheckWalletRoles.ORG,
+        flow: flow.getName(),
+        token,
+        cryptoNative,
+      };
+    } else {
+      return {
+        role: CheckWalletRoles.ANON,
+        flow: CheckWalletFlows.LOGIN,
+        token: this.authService.createToken({
+          address: null,
+          role: CheckWalletRoles.ANON,
+          flow: CheckWalletFlows.LOGIN,
+          cryptoNative: false,
+        }),
+        cryptoNative: false,
+      };
+    }
   }
 
   @Get("migrate-users")

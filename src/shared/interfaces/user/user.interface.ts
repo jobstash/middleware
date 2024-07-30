@@ -3,6 +3,8 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 export class User {
   @ApiPropertyOptional()
   wallet?: string;
+  @ApiPropertyOptional()
+  privyId?: string;
   @ApiProperty()
   id: string;
   @ApiPropertyOptional()
