@@ -1,6 +1,7 @@
 import { OrganizationWithLinks } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { isAfter, isBefore } from "date-fns";
+import { uniqBy } from "lodash";
 
 export class OrganizationWithLinksEntity {
   constructor(private readonly raw: OrganizationWithLinks) {}
@@ -127,14 +128,18 @@ export class OrganizationWithLinksEntity {
               };
             }) ?? [],
           repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
-          investors:
-            project?.investors ??
-            organization?.investors?.map(investor => ({
-              id: investor.id,
-              name: investor.name,
-              normalizedName: investor.normalizedName,
-            })) ??
-            [],
+          investors: Array.from(
+            uniqBy(
+              project?.investors ??
+                organization?.investors?.map(investor => ({
+                  id: investor.id,
+                  name: investor.name,
+                  normalizedName: investor.normalizedName,
+                })) ??
+                [],
+              "id",
+            ),
+          ),
         })) ?? [],
       fundingRounds:
         fundingRounds?.map(fr => ({
@@ -145,12 +150,16 @@ export class OrganizationWithLinksEntity {
           createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
           updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
         })) ?? [],
-      investors:
-        investors?.map(investor => ({
-          id: investor.id,
-          name: investor.name,
-          normalizedName: investor.normalizedName,
-        })) ?? [],
+      investors: Array.from(
+        uniqBy(
+          investors?.map(investor => ({
+            id: investor.id,
+            name: investor.name,
+            normalizedName: investor.normalizedName,
+          })) ?? [],
+          "id",
+        ),
+      ),
       community: community ?? [],
       website: website ?? [],
       rawWebsite: rawWebsite ?? [],

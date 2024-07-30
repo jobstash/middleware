@@ -7,6 +7,7 @@ import {
 } from "../helpers";
 import { ProjectDetailsResult } from "../interfaces/project-details-result.interface";
 import { OrgReviewEntity } from "./org-review.entity";
+import { uniqBy } from "lodash";
 
 type RawProject = ProjectDetailsResult & {
   organization?: (OrganizationWithRelations & { tags: Tag[] }) | null;
@@ -95,12 +96,16 @@ export class ProjectDetailsEntity {
             updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
           })) ?? [],
         community: organization?.community ?? [],
-        investors:
-          organization?.investors?.map(investor => ({
-            id: investor.id,
-            name: investor.name,
-            normalizedName: investor.normalizedName,
-          })) ?? [],
+        investors: Array.from(
+          uniqBy(
+            organization?.investors?.map(investor => ({
+              id: investor.id,
+              name: investor.name,
+              normalizedName: investor.normalizedName,
+            })) ?? [],
+            "id",
+          ),
+        ),
         tags: organization?.tags ?? [],
         projects: [],
         reviews:
