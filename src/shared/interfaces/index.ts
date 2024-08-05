@@ -2,6 +2,7 @@ export * from "./user";
 export * from "./hack.interface";
 export * from "./chain.interface";
 export * from "./audit.interface";
+export * from "./grant.interface";
 export * from "./auditor.interface";
 export * from "./discord.interface";
 export * from "./docsite.interface";

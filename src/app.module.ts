@@ -23,6 +23,8 @@ import { AuditsModule } from "./audits/audits.module";
 import { ScorerModule } from "./scorer/scorer.module";
 import { ChainsModule } from "./chains/chains.module";
 import { InvestorsModule } from "./investors/investors.module";
+import { GrantsModule } from "./grants/grants.module";
+import { GoogleBigQueryModule } from "./google-bigquery/google-bigquery.module";
 
 @Module({
   imports: [
@@ -63,6 +65,8 @@ import { InvestorsModule } from "./investors/investors.module";
     ScorerModule,
     ChainsModule,
     InvestorsModule,
+    GrantsModule,
+    GoogleBigQueryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

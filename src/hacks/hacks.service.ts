@@ -54,7 +54,7 @@ export class HacksService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "projects.service",
+          source: "hacks.service",
         });
         scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
@@ -78,7 +78,7 @@ export class HacksService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "projects.service",
+          source: "hacks.service",
         });
         Sentry.captureException(err);
       });
@@ -110,7 +110,7 @@ export class HacksService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "projects.service",
+          source: "hacks.service",
         });
         scope.setExtra("input", id);
         Sentry.captureException(err);
@@ -146,7 +146,7 @@ export class HacksService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "projects.service",
+          source: "hacks.service",
         });
         scope.setExtra("input", { id, ...props });
         Sentry.captureException(err);
@@ -170,7 +170,7 @@ export class HacksService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "projects.service",
+          source: "hacks.service",
         });
         scope.setExtra("input", id);
         Sentry.captureException(err);
