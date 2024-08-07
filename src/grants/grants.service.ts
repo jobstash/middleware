@@ -42,6 +42,7 @@ export class GrantsService {
             },
           },
           tags: true,
+          roundMetadata: true,
           applications: {
             __args: {
               filter: {
