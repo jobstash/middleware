@@ -35,6 +35,7 @@ import { OrgMagicAuthStrategy } from "./magic/org.magic-auth.strategy";
 import { ProfileService } from "./profile/profile.service";
 import { RBACGuard } from "./rbac.guard";
 import { responseSchemaWrapper } from "src/shared/helpers";
+import { isEmail } from "validator";
 
 @Controller("auth")
 export class AuthController {
@@ -224,21 +225,29 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/user/update-email/${email}`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      const result = await this.userService.updateUserMainEmail(
-        address as string,
-        email,
-      );
-      if (result.success) {
-        return {
-          success: result.success,
-          message: result.message,
-        };
+    if (isEmail(email)) {
+      this.logger.log(`/user/update-email/${email}`);
+      const { address } = await this.authService.getSession(req, res);
+      if (address) {
+        const result = await this.userService.updateUserMainEmail(
+          address as string,
+          email,
+        );
+        if (result.success) {
+          return {
+            success: result.success,
+            message: result.message,
+          };
+        } else {
+          res.status(HttpStatus.BAD_REQUEST);
+          return result;
+        }
       } else {
         res.status(HttpStatus.BAD_REQUEST);
-        return result;
+        return {
+          success: false,
+          message: "Bad Request",
+        };
       }
     } else {
       res.status(HttpStatus.BAD_REQUEST);
@@ -261,21 +270,29 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/user/remove-email/${email}`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      const result = await this.userService.removeUserEmail(
-        address as string,
-        email,
-      );
-      if (result.success) {
-        return {
-          success: result.success,
-          message: result.message,
-        };
+    if (isEmail(email)) {
+      this.logger.log(`/user/remove-email/${email}`);
+      const { address } = await this.authService.getSession(req, res);
+      if (address) {
+        const result = await this.userService.removeUserEmail(
+          address as string,
+          email,
+        );
+        if (result.success) {
+          return {
+            success: result.success,
+            message: result.message,
+          };
+        } else {
+          res.status(HttpStatus.BAD_REQUEST);
+          return result;
+        }
       } else {
         res.status(HttpStatus.BAD_REQUEST);
-        return result;
+        return {
+          success: false,
+          message: "Bad Request",
+        };
       }
     } else {
       res.status(HttpStatus.BAD_REQUEST);
