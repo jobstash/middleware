@@ -3,10 +3,9 @@ import { Injectable } from "@nestjs/common";
 import { AxiosError } from "axios";
 import { catchError, firstValueFrom, map, of } from "rxjs";
 import {
+  AdjacentRepo,
   ResponseWithNoData,
   ResponseWithOptionalData,
-  UserGithubOrganization,
-  UserLeanStats,
   UserWorkHistory,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -133,63 +132,29 @@ export class ScorerService {
     return res;
   }
 
-  getWorkHistory = async (
-    users: string[],
-  ): Promise<{ user: string; workHistory: UserWorkHistory[] }[]> => {
-    const res = await firstValueFrom(
-      this.httpService
-        .get<{ user: string; workHistory: UserWorkHistory[] }[]>(
-          `/scorer/users/history?users=${users.join(",")}`,
-        )
-        .pipe(
-          map(res => res.data),
-          catchError((err: AxiosError) => {
-            Sentry.withScope(scope => {
-              scope.setTags({
-                action: "proxy-call",
-                source: "scorer.service",
-              });
-              scope.setExtra("input", users);
-              Sentry.captureException(err);
-            });
-            this.logger.error(`ScorerService::getWorkHistory ${err.message}`);
-            return of([] as { user: string; workHistory: UserWorkHistory[] }[]);
-          }),
-        ),
-    );
-    return res;
-  };
-
-  getUserOrgs = async (user: string): Promise<UserGithubOrganization[]> => {
-    const res = await firstValueFrom(
-      this.httpService
-        .get<UserGithubOrganization[]>(`/scorer/users/orgs?user=${user}`)
-        .pipe(
-          map(res => res.data),
-          catchError((err: AxiosError) => {
-            Sentry.withScope(scope => {
-              scope.setTags({
-                action: "proxy-call",
-                source: "scorer.service",
-              });
-              scope.setExtra("input", user);
-              Sentry.captureException(err);
-            });
-            this.logger.error(`ScorerService::getUserOrgs ${err.message}`);
-            return of([] as UserGithubOrganization[]);
-          }),
-        ),
-    );
-    return res;
-  };
-
-  getLeanStats = async (
-    users: { github: string | null; wallet: string | null }[],
-  ): Promise<UserLeanStats[]> => {
+  getUserWorkHistories = async (
+    users: { github: string | null; wallets: string[] }[],
+  ): Promise<
+    {
+      username: string | null;
+      wallets: string[];
+      cryptoNative: boolean;
+      workHistory: UserWorkHistory[];
+      adjacentRepos: AdjacentRepo[];
+    }[]
+  > => {
     const params = Buffer.from(JSON.stringify(users)).toString("base64");
     const res = await firstValueFrom(
       this.httpService
-        .get<UserLeanStats[]>(`/scorer/users/stats?params=${params}`)
+        .get<
+          {
+            username: string | null;
+            wallets: string[];
+            cryptoNative: boolean;
+            workHistory: UserWorkHistory[];
+            adjacentRepos: AdjacentRepo[];
+          }[]
+        >(`/scorer/users/history?params=${params}`)
         .pipe(
           map(res => res.data),
           catchError((err: AxiosError) => {
@@ -201,12 +166,19 @@ export class ScorerService {
               scope.setExtra("input", users);
               Sentry.captureException(err);
             });
-            this.logger.error(`ScorerService::getLeanStats ${err.message}`);
-            return of([] as UserLeanStats[]);
+            this.logger.error(`ScorerService::getWorkHistories ${err.message}`);
+            return of(
+              [] as {
+                username: string | null;
+                wallets: string[];
+                cryptoNative: boolean;
+                workHistory: UserWorkHistory[];
+                adjacentRepos: AdjacentRepo[];
+              }[],
+            );
           }),
         ),
     );
-    this.logger.log(`ScorerService::getLeanStats ${JSON.stringify(res)}`);
     return res;
   };
 

@@ -11,7 +11,7 @@ export class DevUserProfile extends UserProfile {
   public static readonly DevUserProfileType = t.intersection([
     UserProfile.UserProfileType,
     t.strict({
-      cryptoAjacent: t.boolean,
+      cryptoAdjacent: t.boolean,
       cryptoNative: t.boolean,
       attestations: t.strict({
         upvotes: t.union([t.number, t.null]),
@@ -35,7 +35,7 @@ export class DevUserProfile extends UserProfile {
   workHistory: UserWorkHistory[];
 
   @ApiProperty()
-  cryptoAjacent: boolean;
+  cryptoAdjacent: boolean;
 
   @ApiProperty()
   cryptoNative: boolean;
@@ -58,7 +58,7 @@ export class DevUserProfile extends UserProfile {
       showcases,
       workHistory,
       cryptoNative,
-      cryptoAjacent,
+      cryptoAdjacent,
       attestations,
       note,
       ecosystemActivations,
@@ -69,7 +69,7 @@ export class DevUserProfile extends UserProfile {
     this.skills = skills;
     this.showcases = showcases;
     this.workHistory = workHistory;
-    this.cryptoAjacent = cryptoAjacent;
+    this.cryptoAdjacent = cryptoAdjacent;
     this.cryptoNative = cryptoNative;
     this.attestations = attestations;
     this.note = note;

@@ -27,7 +27,6 @@ import {
   UserOrg,
   UserProfile,
   UserRepo,
-  data,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { AuthService } from "../auth.service";
@@ -48,10 +47,8 @@ import { Throttle } from "@nestjs/throttler";
 import { UpdateDevUserProfileInput } from "./dto/update-dev-profile.input";
 import { UpdateOrgUserProfileInput } from "./dto/update-org-profile.input";
 import { UserService } from "src/user/user.service";
-import { addMonths, isBefore } from "date-fns";
 import * as Sentry from "@sentry/node";
 import { RpcService } from "../../user/rpc.service";
-import { ScorerService } from "src/scorer/scorer.service";
 import { JobsService } from "src/jobs/jobs.service";
 
 @Controller("profile")
@@ -65,7 +62,6 @@ export class ProfileController {
     private readonly organizationsService: OrganizationsService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
-    private readonly scorerService: ScorerService,
     private readonly jobsService: JobsService,
   ) {}
 
@@ -705,74 +701,47 @@ export class ProfileController {
               message: "Job has already been applied to by this user",
             };
           } else {
-            const userProfile = data(
-              await this.profileService.getDevUserProfile(address as string),
-            );
             if (job.access === "protected") {
-              if (userProfile.username) {
-                const stats = await this.scorerService.getLeanStats([
-                  { github: userProfile.username, wallet: address as string },
-                ]);
-                if (stats[0].is_native) {
-                  return {
-                    success: true,
-                    message: "User is a crypto native",
-                    data: job.url,
-                  };
-                } else {
-                  return {
-                    success: false,
-                    message: "User is not a crypto native",
-                  };
-                }
+              const isCryptoNative =
+                await this.userService.getCryptoNativeStatus(address as string);
+              if (isCryptoNative) {
+                return {
+                  success: true,
+                  message: "User is a crypto native",
+                  data: job.url,
+                };
               } else {
                 return {
                   success: false,
-                  message: "User github username not found",
+                  message: "User is not a crypto native",
                 };
               }
             } else {
-              const CACHE_VALIDITY_THRESHOLD = this.configService.get<number>(
-                "CACHE_VALIDITY_THRESHOLD",
+              const orgId = await this.userService.findOrgIdByJobShortUUID(
+                shortUUID,
               );
 
-              const userCacheLock = await this.profileService.getUserCacheLock(
-                address as string,
+              const orgProfile = await this.userService.findProfileByOrgId(
+                orgId,
               );
 
-              const userCacheLockIsValid =
-                (userCacheLock !== -1 || userCacheLock !== null) &&
-                isBefore(
-                  new Date(),
-                  addMonths(new Date(userCacheLock), CACHE_VALIDITY_THRESHOLD),
-                );
+              const org = await this.organizationsService.getOrgDetailsById(
+                orgId,
+                undefined,
+              );
 
-              if (!userCacheLockIsValid) {
-                const orgId = await this.userService.findOrgIdByJobShortUUID(
-                  shortUUID,
-                );
+              const job = org.jobs.find(x => x.shortUUID === shortUUID);
 
-                const orgProfile = await this.userService.findProfileByOrgId(
-                  orgId,
-                );
-
-                const org = await this.organizationsService.getOrgDetailsById(
-                  orgId,
-                  undefined,
-                );
-
-                const job = org.jobs.find(x => x.shortUUID === shortUUID);
-
-                if (orgProfile && orgProfile.email) {
-                  const communities =
-                    await this.rpcService.getCommunitiesForWallet(
-                      userProfile.wallet,
-                    );
-                  await this.mailService.sendEmail({
-                    from: this.configService.getOrThrow<string>("EMAIL"),
-                    to: orgProfile.email.find(x => x.main)?.email,
-                    subject: `JobStash ATS: New Applicant for ${job.title}`,
-                    html: `
+              if (orgProfile && orgProfile.email) {
+                const communities =
+                  await this.rpcService.getCommunitiesForWallet(
+                    address as string,
+                  );
+                await this.mailService.sendEmail({
+                  from: this.configService.getOrThrow<string>("EMAIL"),
+                  to: orgProfile.email.find(x => x.main)?.email,
+                  subject: `JobStash ATS: New Applicant for ${job.title}`,
+                  html: `
                     Dear ${org.name},
                     
                     You have a new applicant.
@@ -792,33 +761,7 @@ export class ProfileController {
                     Thank you for using JobStash ATS!
                     The JobStash Team
                   `,
-                  });
-                  if (userProfile && userProfile.username) {
-                    await this.profileService.refreshUserCacheLock([
-                      userProfile.wallet,
-                    ]);
-
-                    const workHistory = await this.scorerService.getWorkHistory(
-                      [userProfile.username],
-                    );
-
-                    const leanStats = await this.scorerService.getLeanStats([
-                      {
-                        github: userProfile.username,
-                        wallet: address as string,
-                      },
-                    ]);
-
-                    await this.profileService.refreshWorkHistoryCache(
-                      userProfile.wallet,
-                      workHistory.find(x => x.user === userProfile.username)
-                        ?.workHistory ?? [],
-                      leanStats.find(
-                        x => x.actor_login === userProfile.username,
-                      ) ?? null,
-                    );
-                  }
-                }
+                });
               }
               return await this.profileService.logApplyInteraction(
                 address as string,

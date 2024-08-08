@@ -29,7 +29,6 @@ import { randomUUID } from "crypto";
 import { CheckWalletRoles, CheckWalletFlows } from "src/shared/constants";
 import { GetAvailableDevsInput } from "./dto/get-available-devs.input";
 import { ScorerService } from "src/scorer/scorer.service";
-import { addMonths, isBefore } from "date-fns";
 import { ConfigService } from "@nestjs/config";
 import { ProfileService } from "src/auth/profile/profile.service";
 
@@ -540,14 +539,9 @@ export class UserService {
     try {
       const role = await this.getWalletRole(wallet);
       if (role?.getName() === CheckWalletRoles.DEV) {
-        const profile = data(
-          await this.profileService.getDevUserProfile(wallet),
-        );
         const orgs = data(await this.profileService.getUserOrgs(wallet));
-        const leanStats = await this.scorerService.getLeanStats([
-          { github: profile?.username, wallet },
-        ]);
-        const status = orgs.length > 0 || leanStats[0].is_native;
+        const current = this.getCryptoNativeStatus(wallet);
+        const status = orgs.length > 0 || current;
         this.logger.log(
           `/user/sync-user-crypto-native-status: ${wallet}, ${status}`,
         );
@@ -683,52 +677,10 @@ export class UserService {
 
       if (storedUser) {
         const profileData = await this.findProfileByWallet(wallet);
-
-        const CACHE_VALIDITY_THRESHOLD = this.configService.get<number>(
-          "CACHE_VALIDITY_THRESHOLD",
-        );
-
-        const userCacheLock = await this.profileService.getUserCacheLock(
+        await this.profileService.runUserDataFetchingOps(
           wallet,
+          profileData?.username,
         );
-
-        const userCacheLockIsValid =
-          (userCacheLock !== -1 || userCacheLock !== null) &&
-          isBefore(
-            new Date(),
-            addMonths(new Date(userCacheLock), CACHE_VALIDITY_THRESHOLD),
-          );
-
-        if (!userCacheLockIsValid) {
-          await this.profileService.refreshUserCacheLock([wallet]);
-
-          const workHistory = profileData?.username
-            ? await this.scorerService.getWorkHistory([profileData.username])
-            : [];
-
-          const leanStats = await this.scorerService.getLeanStats([
-            { github: profileData.username, wallet },
-          ]);
-
-          await this.profileService.refreshWorkHistoryCache(
-            wallet,
-            profileData?.username
-              ? workHistory.find(x => x.user === profileData?.username)
-                  ?.workHistory ?? []
-              : [],
-            leanStats.find(
-              x =>
-                x.actor_login === profileData.username || x.wallet === wallet,
-            ) ?? null,
-          );
-
-          const orgs = await this.scorerService.getUserOrgs(
-            profileData.username,
-          );
-
-          await this.profileService.refreshUserRepoCache(wallet, orgs);
-        }
-
         return storedUser.getProperties();
       }
 
@@ -744,19 +696,12 @@ export class UserService {
 
       this.logger.log(JSON.stringify(newUser));
 
-      if (!storedUser) {
-        await this.profileService.refreshUserCacheLock([wallet]);
-
-        const leanStats = await this.scorerService.getLeanStats([
-          { github: null, wallet },
-        ]);
-
-        await this.profileService.refreshWorkHistoryCache(
-          wallet,
-          [],
-          leanStats.find(x => x.wallet === wallet) ?? null,
-        );
-      }
+      const profileData = await this.findProfileByWallet(wallet);
+      await this.profileService.runUserDataFetchingOps(
+        wallet,
+        profileData?.username,
+        true,
+      );
 
       await this.setRole(CheckWalletRoles.ANON, newUser);
       await this.setFlow(CheckWalletFlows.PICK_ROLE, newUser);
@@ -927,39 +872,8 @@ export class UserService {
 
     if (initial === undefined) {
       const user = await this.findProfileByWallet(wallet);
-      if (user?.username) {
-        const login = user.username;
-        const stats = await this.scorerService.getLeanStats([
-          { github: login, wallet },
-        ]);
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        const { is_adjacent, is_native } = stats[0];
-
-        await this.neogma.queryRunner
-          .run(
-            `
-            MATCH (u:User {wallet: $wallet})
-            SET u.cryptoNative = $is_native
-            SET u.cryptoNativeAdjacent = $is_adjacent
-            RETURN u
-          `,
-            { wallet, is_native, is_adjacent },
-          )
-          .catch(err => {
-            Sentry.withScope(scope => {
-              scope.setTags({
-                action: "db-call",
-                source: "user.service",
-              });
-              Sentry.captureException(err);
-            });
-            this.logger.error(
-              `UserService::getCryptoNativeStatus ${err.message}`,
-            );
-            return undefined;
-          });
-        return is_native;
-      }
+      await this.profileService.runUserDataFetchingOps(wallet, user?.username);
+      return this.getCryptoNativeStatus(wallet);
     } else {
       return initial;
     }
@@ -1067,7 +981,7 @@ export class UserService {
           RETURN {
             wallet: user.wallet,
             cryptoNative: user.cryptoNative,
-            cryptoAjacent: user.cryptoAjacent,
+            cryptoAdjacent: user.cryptoAdjacent,
             attestations: {
               upvotes: null,
               downvotes: null

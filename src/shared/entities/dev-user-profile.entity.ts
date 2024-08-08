@@ -29,7 +29,7 @@ export class DevUserProfileEntity {
       note: notStringOrNull(this.raw?.note),
       availableForWork: this.raw?.availableForWork ?? false,
       cryptoNative: this.raw?.cryptoNative ?? false,
-      cryptoAjacent: this.raw?.cryptoAjacent ?? false,
+      cryptoAdjacent: this.raw?.cryptoAdjacent ?? false,
       preferred: this.raw.preferred?.type ?? "email",
       attestations: {
         upvotes: nonZeroOrNull(this.raw?.attestations?.upvotes),

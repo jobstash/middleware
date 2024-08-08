@@ -14,7 +14,7 @@ export class UserWorkHistoryEntity {
       url: notStringOrNull(workHistory.url),
       firstContributedAt: nonZeroOrNull(workHistory.firstContributedAt),
       lastContributedAt: nonZeroOrNull(workHistory.lastContributedAt),
-      createdAt: nonZeroOrNull(workHistory.createdAt),
+      cryptoNative: workHistory?.cryptoNative ?? false,
       repositories:
         workHistory?.repositories?.map(repository => ({
           ...repository,
@@ -25,6 +25,7 @@ export class UserWorkHistoryEntity {
           commitsCount: nonZeroOrNull(repository.commitsCount),
           createdAt: nonZeroOrNull(repository.createdAt),
         })) ?? [],
+      createdAt: nonZeroOrNull(workHistory.createdAt),
     });
   }
 }
