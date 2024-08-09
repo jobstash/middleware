@@ -27,6 +27,7 @@ export * from "./jobpost-offline-status.interface";
 export * from "./jobpost-online-status.interface";
 export * from "./org-details-result.interface";
 export * from "./org-ratings.interface";
+export * from "./candidate-report.interface";
 export * from "./org-info.interface";
 export * from "./org-review.interface";
 export * from "./org-salary-review.interface";

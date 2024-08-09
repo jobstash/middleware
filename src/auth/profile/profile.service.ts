@@ -1141,37 +1141,49 @@ export class ProfileService {
           `/profile/refresh-work-history-cache: User cache lock is being hard reset for wallet ${wallet}. Refreshing...`,
         );
       }
-      await this.refreshUserCacheLock([wallet]);
+      try {
+        const workHistory = (
+          await this.scorerService.getUserWorkHistories([
+            { github: username, wallets: [wallet] },
+          ])
+        )[0];
+        await this.refreshWorkHistoryCache(
+          wallet,
+          workHistory.cryptoNative,
+          workHistory.workHistory,
+          workHistory.adjacentRepos,
+        );
 
-      const workHistory = (
-        await this.scorerService.getUserWorkHistories([
-          { github: username, wallets: [wallet] },
-        ])
-      )[0];
-
-      await this.refreshWorkHistoryCache(
-        wallet,
-        workHistory.cryptoNative,
-        workHistory.workHistory,
-        workHistory.adjacentRepos,
-      );
-
-      await this.refreshUserRepoCache(
-        wallet,
-        workHistory.workHistory.map(x => {
-          const repos = x.repositories.map(repo => ({
-            name: repo.name,
-            description: repo.description,
-          }));
-          return {
-            login: x.login,
-            name: x.name,
-            description: x.description,
-            avatar_url: x.logoUrl,
-            repositories: repos,
-          };
-        }),
-      );
+        await this.refreshUserRepoCache(
+          wallet,
+          workHistory.workHistory.map(x => {
+            const repos = x.repositories.map(repo => ({
+              name: repo.name,
+              description: repo.description,
+            }));
+            return {
+              login: x.login,
+              name: x.name,
+              description: x.description,
+              avatar_url: x.logoUrl,
+              repositories: repos,
+            };
+          }),
+        );
+        await this.refreshUserCacheLock([wallet]);
+      } catch (err) {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-call",
+            source: "profile.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(
+          `/profile/refresh-work-history-cache: User cache lock is being hard reset for wallet ${wallet}. Refreshing...`,
+        );
+        return;
+      }
     } else {
       this.logger.log(
         `/profile/refresh-work-history-cache: User cache lock is still valid for wallet ${wallet}. Skipping...`,
