@@ -19,10 +19,10 @@ export class UserWorkHistory {
       t.strict({
         name: t.string,
         url: t.string,
-        description: t.string,
         cryptoNative: t.boolean,
         firstContributedAt: t.number,
         lastContributedAt: t.number,
+        description: t.union([t.string, t.null]),
         commitsCount: t.union([t.number, t.null]),
         skills: t.array(t.string),
         tenure: t.number,
@@ -67,7 +67,7 @@ export class UserWorkHistory {
   repositories: {
     name: string;
     url: string;
-    description: string;
+    description: string | null;
     commitsCount: number;
     firstContributedAt: number;
     lastContributedAt: number;
