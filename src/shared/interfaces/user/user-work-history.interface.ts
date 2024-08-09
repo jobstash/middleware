@@ -12,7 +12,7 @@ export class UserWorkHistory {
     url: t.union([t.string, t.null]),
     firstContributedAt: t.number,
     lastContributedAt: t.number,
-    commitsCount: t.number,
+    commitsCount: t.union([t.number, t.null]),
     tenure: t.number,
     cryptoNative: t.boolean,
     repositories: t.array(
