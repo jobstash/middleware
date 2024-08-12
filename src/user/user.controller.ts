@@ -15,11 +15,11 @@ import { Roles } from "src/shared/decorators";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
 import {
+  AdjacentRepo,
   DevUserProfile,
   OrgUserProfile,
   ResponseWithNoData,
   UserProfile,
-  data,
 } from "src/shared/interfaces";
 import { AuthorizeOrgApplicationInput } from "./dto/authorize-org-application.dto";
 import { MailService } from "src/mail/mail.service";
@@ -109,44 +109,6 @@ export class UserController {
           if (!result.success) {
             return result;
           }
-          const applicants = data(
-            await this.jobsService.getJobsByOrgIdWithApplicants(orgId, "all"),
-          );
-          if (applicants?.length > 0) {
-            await this.profileService.refreshUserCacheLock(
-              Array.from(
-                new Set(
-                  applicants
-                    .map(applicant => applicant.user.wallet)
-                    .filter(Boolean),
-                ),
-              ),
-            );
-            const applicantUsernames = Array.from(
-              new Set(applicants.map(x => x.user.username).filter(Boolean)),
-            );
-            const applicantWorkHistories =
-              await this.scorerService.getWorkHistory(applicantUsernames);
-            const leanStats = await this.scorerService.getLeanStats(
-              applicants.map(x => ({
-                github: x.user.username,
-                wallet: x.user.wallet,
-              })),
-            );
-            for (const applicant of applicantUsernames) {
-              const workHistory =
-                applicantWorkHistories.find(x => x.user === applicant)
-                  ?.workHistory ?? [];
-              const leanStatsForApplicant =
-                leanStats.find(x => x.actor_login === applicant) ?? null;
-              await this.profileService.refreshWorkHistoryCache(
-                applicants.find(x => x.user.username === applicant)?.user
-                  ?.wallet,
-                workHistory,
-                leanStatsForApplicant,
-              );
-            }
-          }
         } else {
           return {
             success: false,
@@ -227,11 +189,19 @@ export class UserController {
       workHistory: UserWorkHistory[];
     }>,
   })
-  async getWorkHistory(
-    @Query("users") users: string,
-  ): Promise<{ user: string; workHistory: UserWorkHistory[] }[]> {
+  async getWorkHistory(@Query("users") users: string): Promise<
+    {
+      username: string | null;
+      wallets: string[];
+      cryptoNative: boolean;
+      workHistory: UserWorkHistory[];
+      adjacentRepos: AdjacentRepo[];
+    }[]
+  > {
     this.logger.log(`/users/work-history ${JSON.stringify(users.split(","))}`);
-    return this.scorerService.getWorkHistory(users.split(","));
+    return this.scorerService.getUserWorkHistories(
+      users.split(",").map(x => ({ github: x, wallets: [] })),
+    );
   }
 
   @Post("devs/note")

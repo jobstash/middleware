@@ -17,7 +17,6 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { GithubUserService } from "./github-user.service";
 import { CheckWalletRoles, CheckWalletFlows } from "src/shared/constants";
 import { ProfileService } from "../profile/profile.service";
-import { ScorerService } from "src/scorer/scorer.service";
 
 @Controller("github")
 @ApiExtraModels(User)
@@ -29,7 +28,6 @@ export class GithubController {
     private readonly configService: ConfigService,
     private readonly userService: UserService,
     private readonly profileService: ProfileService,
-    private readonly scorerService: ScorerService,
   ) {
     this.ghConfig = {
       dev: {
@@ -113,25 +111,11 @@ export class GithubController {
       return res1;
     }
 
-    await this.profileService.refreshUserCacheLock([wallet]);
-
-    const workHistory = await this.scorerService.getWorkHistory([
-      profileData.login,
-    ]);
-
-    const leanStats = await this.scorerService.getLeanStats([
-      { github: profileData.login, wallet },
-    ]);
-
-    await this.profileService.refreshWorkHistoryCache(
+    await this.profileService.runUserDataFetchingOps(
       wallet,
-      workHistory.find(x => x.user === profileData.login)?.workHistory ?? [],
-      leanStats.find(x => x.actor_login === profileData.login) ?? null,
+      profileData.login,
+      true,
     );
-
-    const orgs = await this.scorerService.getUserOrgs(profileData.login);
-
-    await this.profileService.refreshUserRepoCache(wallet, orgs);
 
     await this.userService.setWalletFlow({
       flow:

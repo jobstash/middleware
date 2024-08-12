@@ -24,10 +24,9 @@ import { AuthService } from "src/auth/auth.service";
 import { Request, Response as ExpressResponse } from "express";
 import { SetupOrgLinkInput } from "./dto/setup-org-link.input";
 import {
+  CandidateReport,
   ResponseWithNoData,
   ResponseWithOptionalData,
-  UserLeanStats,
-  UserWorkHistory,
   data,
 } from "src/shared/interfaces";
 import { catchError, firstValueFrom, map, of } from "rxjs";
@@ -164,14 +163,7 @@ export class ScorerController {
     @Res({ passthrough: true }) res: ExpressResponse,
     @Query("user") user: string,
     @Query("wallet") wallet: string,
-  ): Promise<
-    ResponseWithOptionalData<{
-      login: string;
-      ecosystemActivations: string[];
-      stats: UserLeanStats;
-      workHistory: UserWorkHistory[];
-    }>
-  > {
+  ): Promise<ResponseWithOptionalData<CandidateReport>> {
     this.logger.log(`/scorer/user/report`);
     try {
       const { address } = await this.authService.getSession(req, res);
@@ -191,14 +183,7 @@ export class ScorerController {
         if (clientId && platform) {
           const res = await firstValueFrom(
             this.httpService
-              .get<
-                ResponseWithOptionalData<{
-                  login: string;
-                  ecosystemActivations: string[];
-                  stats: UserLeanStats;
-                  workHistory: UserWorkHistory[];
-                }>
-              >(
+              .get<ResponseWithOptionalData<CandidateReport>>(
                 `${this.configService.get<string>(
                   "SCORER_DOMAIN",
                 )}/scorer/users/report?user=${user}&wallet=${wallet}&client_id=${clientId}&platform=${platform}&key=${key}`,
