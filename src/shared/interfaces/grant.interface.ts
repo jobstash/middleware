@@ -166,7 +166,113 @@ export class Grantee {
   project: GrantProject;
 }
 
-export class Grant {
+export interface GrantMetadata {
+  name: string;
+  support: Support;
+  roundType: string;
+  eligibility: Eligibility;
+  feesAddress: string;
+  feesPercentage: number;
+  programContractAddress: string;
+  quadraticFundingConfig: QuadraticFundingConfig;
+}
+
+export interface Support {
+  info: string;
+  type: string;
+}
+
+export interface Eligibility {
+  description: string;
+  requirements: Requirement[];
+}
+
+export interface Requirement {
+  requirement: string;
+}
+
+export interface QuadraticFundingConfig {
+  matchingCap: boolean;
+  sybilDefense: boolean;
+  matchingCapAmount: number;
+  minDonationThreshold: boolean;
+  matchingFundsAvailable: number;
+  minDonationThresholdAmount: number;
+}
+
+export class KarmaGapGrantProgram {
+  programId: string;
+  profileId: string;
+  chainID: number;
+  name: string;
+  isValid: boolean;
+  createdAtBlock: number;
+  createdByAddress: string;
+  status: string;
+  socialLinks: SocialLinks;
+  eligibility: KarmaGapEligibility;
+  metadata: KarmaGapGrantProgramMetadata;
+  quadraticFundingConfig: KarmaGapQuadraticFundingConfig;
+  support: KarmaGapSupport;
+  txHash: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KarmaGapEligibility {
+  programId: string;
+  description: string;
+  requirements: string[];
+}
+
+export interface KarmaGapQuadraticFundingConfig {
+  programId: string;
+  matchingCap: boolean;
+  matchingFundsAvailable: number;
+}
+
+export interface KarmaGapSupport {
+  programId: string;
+  type: string;
+  info: string;
+}
+
+export interface KarmaGapGrantProgramMetadata {
+  title: string;
+  description: string;
+  programBudget: number;
+  amountDistributedToDate: number;
+  minGrantSize: number;
+  maxGrantSize: number;
+  grantsToDate: number;
+  website: string;
+  projectTwitter: string;
+  bugBounty: string;
+  categories: string[];
+  ecosystems: string[];
+  organizations: string[];
+  networks: string[];
+  grantTypes: string[];
+  platformsUsed: string[];
+  logoImg: string;
+  bannerImg: string;
+  createdAt: number;
+  type: string;
+  tags: string[];
+  amount: string;
+}
+
+export interface SocialLinks {
+  twitter: string;
+  website: string;
+  discord: string;
+  orgWebsite: string;
+  blog: string;
+  forum: string;
+  grantsSite: string;
+}
+
+export class Grant extends KarmaGapGrantProgram {
   @ApiProperty()
   tags: string[];
 

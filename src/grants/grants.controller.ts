@@ -30,6 +30,6 @@ export class GrantsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async findAll(): Promise<Grant[]> {
-    return this.grantsService.getGrantsListResults();
+    return this.grantsService.getGrantsList();
   }
 }
