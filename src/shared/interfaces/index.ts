@@ -49,6 +49,7 @@ export * from "./all-jobs-list-result.interface";
 export * from "./jobpost-location-type.interface";
 export * from "./jobpost-classification.interface";
 export * from "./github-user.interface";
+export * from "./search-result.interface";
 export * from "./project-filter-configs.interface";
 export * from "./all-jobs-filter-configs.interface";
 export * from "./tag-preference.interface";
