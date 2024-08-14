@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Headers,
   Post,
   Query,
@@ -14,7 +15,13 @@ import * as Sentry from "@sentry/node";
 import { Response as ExpressResponse, Request } from "express";
 import { AuthService } from "src/auth/auth.service";
 import { RBACGuard } from "src/auth/rbac.guard";
-import { CheckWalletRoles, ECOSYSTEM_HEADER } from "src/shared/constants";
+import {
+  CACHE_CONTROL_HEADER,
+  CACHE_DURATION,
+  CACHE_EXPIRY,
+  CheckWalletRoles,
+  ECOSYSTEM_HEADER,
+} from "src/shared/constants";
 import { Roles } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
@@ -76,6 +83,8 @@ export class TagsController {
   }
 
   @Get("/popular")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
     description:
       "Returns a list of n most popular tags ranked by their popularity",
