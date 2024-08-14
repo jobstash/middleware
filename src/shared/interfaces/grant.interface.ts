@@ -135,6 +135,12 @@ export class GrantProjectMetrics {
   closedIssueCountSixMonths: number;
 }
 
+interface StatItem {
+  label: string;
+  value: string;
+  stats: StatItem[];
+}
+
 export class GrantProject {
   @ApiProperty()
   name: string;
@@ -143,19 +149,10 @@ export class GrantProject {
   tags: string[];
 
   @ApiProperty()
-  metrics: GrantProjectMetrics;
+  tabs: { label: string; stats: StatItem[] }[];
 }
 
 export class Grantee {
-  @ApiProperty()
-  uniqueDonorsCount: number;
-
-  @ApiProperty()
-  totalDonationsCount: number;
-
-  @ApiProperty()
-  totalAmountDonatedInUsd: number;
-
   @ApiProperty()
   tags: string[];
 
@@ -278,4 +275,24 @@ export class Grant extends KarmaGapGrantProgram {
 
   @ApiProperty()
   grantees: Grantee[];
+}
+
+export class GrantListResult {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  status: string;
+
+  @ApiProperty()
+  socialLinks: SocialLinks;
+
+  @ApiProperty()
+  eligibility: KarmaGapEligibility;
+
+  @ApiProperty()
+  metadata: KarmaGapGrantProgramMetadata;
 }
