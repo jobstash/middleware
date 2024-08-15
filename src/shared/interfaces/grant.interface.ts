@@ -438,13 +438,13 @@ export interface KarmaGapGrantProgramMetadata {
 }
 
 export interface SocialLinks {
-  twitter: string;
-  website: string;
-  discord: string;
-  orgWebsite: string;
-  blog: string;
-  forum: string;
-  grantsSite: string;
+  twitter: string | null;
+  website: string | null;
+  discord: string | null;
+  orgWebsite: string | null;
+  blog: string | null;
+  forum: string | null;
+  grantsSite: string | null;
 }
 
 export class Grant extends KarmaGapGrantProgram {
@@ -462,13 +462,13 @@ export class GrantListResult {
     status: t.string,
     socialLinks: t.union([
       t.strict({
-        twitter: t.string,
-        website: t.string,
-        discord: t.string,
-        orgWebsite: t.string,
-        blog: t.string,
-        forum: t.string,
-        grantsSite: t.string,
+        twitter: t.union([t.string, t.null]),
+        website: t.union([t.string, t.null]),
+        discord: t.union([t.string, t.null]),
+        orgWebsite: t.union([t.string, t.null]),
+        blog: t.union([t.string, t.null]),
+        forum: t.union([t.string, t.null]),
+        grantsSite: t.union([t.string, t.null]),
       }),
       t.null,
     ]),

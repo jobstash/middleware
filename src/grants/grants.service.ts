@@ -148,7 +148,17 @@ export class GrantsService {
                 id: grant.programId,
                 name: grant.name,
                 status: notStringOrNull(grant.status) ?? "Inactive",
-                socialLinks: grant.socialLinks,
+                socialLinks: grant.socialLinks
+                  ? {
+                      twitter: notStringOrNull(grant.socialLinks.twitter),
+                      website: notStringOrNull(grant.socialLinks.website),
+                      discord: notStringOrNull(grant.socialLinks.discord),
+                      orgWebsite: notStringOrNull(grant.socialLinks.orgWebsite),
+                      blog: notStringOrNull(grant.socialLinks.blog),
+                      forum: notStringOrNull(grant.socialLinks.forum),
+                      grantsSite: notStringOrNull(grant.socialLinks.grantsSite),
+                    }
+                  : null,
                 eligibility: grant.eligibility,
                 metadata: {
                   ...grant.metadata,
@@ -771,7 +781,17 @@ export class GrantsService {
               id: grant.programId,
               name: grant.name,
               status: notStringOrNull(grant.status) ?? "Inactive",
-              socialLinks: grant.socialLinks,
+              socialLinks: grant.socialLinks
+                ? {
+                    twitter: notStringOrNull(grant.socialLinks.twitter),
+                    website: notStringOrNull(grant.socialLinks.website),
+                    discord: notStringOrNull(grant.socialLinks.discord),
+                    orgWebsite: notStringOrNull(grant.socialLinks.orgWebsite),
+                    blog: notStringOrNull(grant.socialLinks.blog),
+                    forum: notStringOrNull(grant.socialLinks.forum),
+                    grantsSite: notStringOrNull(grant.socialLinks.grantsSite),
+                  }
+                : null,
               eligibility: grant.eligibility,
               metadata: {
                 ...grant.metadata,
