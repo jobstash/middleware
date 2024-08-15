@@ -4,18 +4,21 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { Client, createClient } from "./generated";
 import { GoogleBigQueryService } from "src/google-bigquery/google-bigquery.service";
 import {
-  Grant,
+  Grantee,
+  GranteeApplicationMetadata,
   GrantListResult,
   GrantMetadata,
   GrantProject,
   GrantProjectMetrics,
   KarmaGapGrantProgram,
+  PaginatedData,
   RawGrantProjectMetrics,
+  ResponseWithOptionalData,
 } from "src/shared/interfaces";
 import * as Sentry from "@sentry/node";
-import { uniq } from "lodash";
 import { InjectConnection } from "nest-neogma";
 import { Neogma } from "neogma";
+import { nonZeroOrNull, notStringOrNull, paginate } from "src/shared/helpers";
 
 @Injectable()
 export class GrantsService {
@@ -139,14 +142,37 @@ export class GrantsService {
 
       if (programs.length > 0) {
         return programs
-          .map(grant => ({
-            id: grant.programId,
-            name: grant.name,
-            status: grant.status,
-            socialLinks: grant.socialLinks,
-            eligibility: grant.eligibility,
-            metadata: grant.metadata,
-          }))
+          .map(
+            grant =>
+              new GrantListResult({
+                id: grant.programId,
+                name: grant.name,
+                status: notStringOrNull(grant.status) ?? "Inactive",
+                socialLinks: grant.socialLinks,
+                eligibility: grant.eligibility,
+                metadata: {
+                  ...grant.metadata,
+                  description: notStringOrNull(grant.metadata.description),
+                  programBudget: nonZeroOrNull(grant.metadata.programBudget),
+                  amountDistributedToDate: nonZeroOrNull(
+                    grant.metadata.amountDistributedToDate,
+                  ),
+                  minGrantSize: nonZeroOrNull(grant.metadata.minGrantSize),
+                  maxGrantSize: nonZeroOrNull(grant.metadata.maxGrantSize),
+                  grantsToDate: nonZeroOrNull(grant.metadata.grantsToDate),
+                  website: notStringOrNull(grant.metadata.website),
+                  projectTwitter: notStringOrNull(
+                    grant.metadata.projectTwitter,
+                  ),
+                  bugBounty: notStringOrNull(grant.metadata.bugBounty),
+                  logoImg: notStringOrNull(grant.metadata.logoImg),
+                  bannerImg: notStringOrNull(grant.metadata.bannerImg),
+                  createdAt: nonZeroOrNull(grant.metadata.createdAt),
+                  type: notStringOrNull(grant.metadata.type),
+                  amount: notStringOrNull(grant.metadata.amount),
+                },
+              }),
+          )
           .find(grant => grant.id === programId);
       } else {
         return undefined;
@@ -166,7 +192,284 @@ export class GrantsService {
 
   getGranteesByProgramId = async (
     programId: string,
-  ): Promise<Grant["grantees"] | undefined> => {
+    page: number,
+    limit: number,
+  ): Promise<PaginatedData<Grantee>> => {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (program:KarmaGapProgram {programId: $programId})
+        RETURN program {
+          .*,
+          status: [(program)-[:HAS_STATUS]->(status:KarmaGapStatus) | status.name][0],
+          eligibility: [(program)-[:HAS_ELIGIBILITY]->(eligibility:KarmaGapEligibility) | eligibility {
+            .*,
+            requirements: apoc.coll.toSet([(eligibility)-[:HAS_REQUIREMENT]->(requirement:KarmaGapRequirement) | requirement.description])
+          }][0],
+          socialLinks: [
+            (program)-[:HAS_SOCIAL_LINK]->(socialLink:KarmaGapSocials) | socialLink {
+              .*
+            }
+          ][0],
+          quadraticFundingConfig: [
+            (program)-[:HAS_QUADRATIC_FUNDING_CONFIG]->(quadraticFundingConfig:KarmaGapQuadraticFundingConfig) | quadraticFundingConfig {
+              .*
+            }
+          ][0],
+          support: [
+            (program)-[:HAS_SUPPORT]->(support:KarmaGapSupport) | support {
+              .*
+            }
+          ][0],
+          metadata: [
+            (program)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata) | metadata {
+              .*,
+              categories: apoc.coll.toSet([(program)-[:HAS_CATEGORY]->(category) | category.name]),
+              ecosystems: apoc.coll.toSet([(program)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
+              organizations: apoc.coll.toSet([(program)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
+              networks: apoc.coll.toSet([(program)-[:HAS_NETWORK]->(network) | network.name]),
+              grantTypes: apoc.coll.toSet([(program)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
+              tags: apoc.coll.toSet([(program)-[:HAS_TAG]->(tag) | tag.name]),
+              platformsUsed: apoc.coll.toSet([(program)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
+            }
+          ][0]
+        } as program
+      `,
+        { programId },
+      );
+
+      const programs = result.records.map(
+        record => record.get("program") as KarmaGapGrantProgram,
+      );
+
+      if (programs.length > 0) {
+        const result = await this.client.query({
+          rounds: {
+            tags: true,
+            roundMetadata: true,
+            applications: {
+              __args: {
+                filter: {
+                  status: {
+                    equalTo: "APPROVED",
+                  },
+                },
+              },
+              id: true,
+              uniqueDonorsCount: true,
+              totalDonationsCount: true,
+              totalAmountDonatedInUsd: true,
+              tags: true,
+              status: true,
+              metadata: true,
+            },
+          },
+        });
+
+        const program = programs[0];
+
+        const grantees =
+          result.rounds.find(
+            x => (x.roundMetadata as GrantMetadata)?.name === program.name,
+          )?.applications ?? [];
+
+        return paginate<Grantee>(
+          page,
+          limit,
+          grantees.map(
+            grantee =>
+              new Grantee({
+                id: grantee.id,
+                tags: grantee.tags,
+                status: grantee.status,
+                name: (grantee.metadata as GranteeApplicationMetadata)
+                  ?.application.project.title,
+                description: (grantee.metadata as GranteeApplicationMetadata)
+                  ?.application.project.description,
+                website: notStringOrNull(
+                  (grantee.metadata as GranteeApplicationMetadata)?.application
+                    .project.website,
+                ),
+                logoUrl: notStringOrNull(
+                  (grantee.metadata as GranteeApplicationMetadata)?.application
+                    .project.logoImg,
+                ),
+                projects: [
+                  {
+                    id: grantee.metadata.application.project.id,
+                    name: "Gitcoin GG 21",
+                  },
+                ],
+              }),
+          ),
+        );
+      } else {
+        return paginate<Grantee>(page, limit, []);
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "grants.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`GrantsService::getGranteesByProgramId ${err.message}`);
+      return paginate<Grantee>(page, limit, []);
+    }
+  };
+
+  getGranteeDetailsByProgramId = async (
+    programId: string,
+    granteeId: string,
+  ): Promise<ResponseWithOptionalData<Grantee>> => {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (program:KarmaGapProgram {programId: $programId})
+        RETURN program {
+          .*,
+          status: [(program)-[:HAS_STATUS]->(status:KarmaGapStatus) | status.name][0],
+          eligibility: [(program)-[:HAS_ELIGIBILITY]->(eligibility:KarmaGapEligibility) | eligibility {
+            .*,
+            requirements: apoc.coll.toSet([(eligibility)-[:HAS_REQUIREMENT]->(requirement:KarmaGapRequirement) | requirement.description])
+          }][0],
+          socialLinks: [
+            (program)-[:HAS_SOCIAL_LINK]->(socialLink:KarmaGapSocials) | socialLink {
+              .*
+            }
+          ][0],
+          quadraticFundingConfig: [
+            (program)-[:HAS_QUADRATIC_FUNDING_CONFIG]->(quadraticFundingConfig:KarmaGapQuadraticFundingConfig) | quadraticFundingConfig {
+              .*
+            }
+          ][0],
+          support: [
+            (program)-[:HAS_SUPPORT]->(support:KarmaGapSupport) | support {
+              .*
+            }
+          ][0],
+          metadata: [
+            (program)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata) | metadata {
+              .*,
+              categories: apoc.coll.toSet([(program)-[:HAS_CATEGORY]->(category) | category.name]),
+              ecosystems: apoc.coll.toSet([(program)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
+              organizations: apoc.coll.toSet([(program)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
+              networks: apoc.coll.toSet([(program)-[:HAS_NETWORK]->(network) | network.name]),
+              grantTypes: apoc.coll.toSet([(program)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
+              tags: apoc.coll.toSet([(program)-[:HAS_TAG]->(tag) | tag.name]),
+              platformsUsed: apoc.coll.toSet([(program)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
+            }
+          ][0]
+        } as program
+      `,
+        { programId },
+      );
+
+      const programs = result.records.map(
+        record => record.get("program") as KarmaGapGrantProgram,
+      );
+
+      if (programs.length > 0) {
+        const result = await this.client.query({
+          rounds: {
+            tags: true,
+            roundMetadata: true,
+            applications: {
+              __args: {
+                filter: {
+                  status: {
+                    equalTo: "APPROVED",
+                  },
+                },
+              },
+              id: true,
+              uniqueDonorsCount: true,
+              totalDonationsCount: true,
+              totalAmountDonatedInUsd: true,
+              tags: true,
+              status: true,
+              metadata: true,
+            },
+          },
+        });
+
+        const program = programs[0];
+
+        const grantees = (
+          result.rounds.find(
+            x => (x.roundMetadata as GrantMetadata)?.name === program.name,
+          )?.applications ?? []
+        ).map(
+          grantee =>
+            new Grantee({
+              id: grantee.id,
+              tags: grantee.tags,
+              status: grantee.status,
+              name: (grantee.metadata as GranteeApplicationMetadata)
+                ?.application.project.title,
+              description: (grantee.metadata as GranteeApplicationMetadata)
+                ?.application.project.description,
+              website: notStringOrNull(
+                (grantee.metadata as GranteeApplicationMetadata)?.application
+                  .project.website,
+              ),
+              logoUrl: notStringOrNull(
+                (grantee.metadata as GranteeApplicationMetadata)?.application
+                  .project.logoImg,
+              ),
+              projects: [
+                {
+                  id: grantee.metadata.application.project.id,
+                  name: "Gitcoin GG 21",
+                },
+              ],
+            }),
+        );
+
+        const grantee = grantees.find(x => x.id === granteeId);
+
+        if (grantee) {
+          return {
+            success: true,
+            message: "Grantee retrieved successfully",
+            data: grantee,
+          };
+        } else {
+          return {
+            success: false,
+            message: "Grantee not found",
+          };
+        }
+      } else {
+        return {
+          success: false,
+          message: "Grantee not found",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "grants.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `GrantsService::getGranteeDetailsByProgramId ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Grantee not found",
+      };
+    }
+  };
+
+  getGranteeProjectDetailsByProgramId = async (
+    programId: string,
+    granteeId: string,
+    projectId: string,
+  ): Promise<ResponseWithOptionalData<GrantProject>> => {
     try {
       const result = await this.neogma.queryRunner.run(
         `
@@ -230,95 +533,77 @@ export class GrantsService {
               uniqueDonorsCount: true,
               totalDonationsCount: true,
               totalAmountDonatedInUsd: true,
+              id: true,
               tags: true,
               status: true,
               project: {
                 name: true,
                 tags: true,
               },
+              metadata: true,
             },
           },
         });
 
-        const projects = uniq(
-          result.rounds
-            .reduce((acc, round) => {
-              const projects = round.applications.map(m =>
-                m.project?.name?.toLowerCase(),
-              );
-              return [...acc, ...projects];
-            }, [] as string[])
-            .filter(Boolean),
-        );
+        const program = programs[0];
 
-        this.logger.log(`Found ${projects.length} projects`);
+        const project = result.rounds
+          .find(x => (x.roundMetadata as GrantMetadata)?.name === program.name)
+          ?.applications?.find(x => {
+            const project = (x.metadata as GranteeApplicationMetadata)
+              ?.application.project;
+            return project.id === projectId && x.id === granteeId;
+          });
 
         const metrics =
-          await this.googleBigQueryService.getGrantProjectsMetrics(projects);
+          await this.googleBigQueryService.getGrantProjectsMetrics([
+            project.project.name,
+          ]);
 
-        const grantees = programs.flatMap(p => {
-          this.logger.log(`Found ${p.name} in rounds`);
-          const grantData = result.rounds.find(
-            x => p.name === (x.roundMetadata as GrantMetadata)?.name,
-          );
+        const projectMetrics = (metrics.find(
+          m => m.display_name === project.project.name,
+        ) ?? {}) as RawGrantProjectMetrics;
 
-          return (grantData?.applications ?? []).map(app => {
-            const projectMetrics = (metrics.find(
-              m => m.display_name === app.project.name,
-            ) ?? {}) as RawGrantProjectMetrics;
-            const parsedMetrics = (
-              projectMetrics
-                ? {
-                    projectId: projectMetrics?.project_id,
-                    projectSource: projectMetrics?.project_source,
-                    projectNamespace: projectMetrics?.project_namespace,
-                    projectName: projectMetrics?.project_name,
-                    displayName: projectMetrics?.display_name,
-                    eventSource: projectMetrics?.event_source,
-                    repositoryCount: projectMetrics?.repository_count,
-                    starCount: projectMetrics?.star_count,
-                    forkCount: projectMetrics?.fork_count,
-                    contributorCount: projectMetrics?.contributor_count,
-                    contributorCountSixMonths:
-                      projectMetrics?.contributor_count_6_months,
-                    newContributorCountSixMonths:
-                      projectMetrics?.new_contributor_count_6_months,
-                    fulltimeDeveloperAverageSixMonths:
-                      projectMetrics?.fulltime_developer_average_6_months,
-                    activeDeveloperCountSixMonths:
-                      projectMetrics?.active_developer_count_6_months,
-                    commitCountSixMonths: projectMetrics?.commit_count_6_months,
-                    openedPullRequestCountSixMonths:
-                      projectMetrics?.opened_pull_request_count_6_months,
-                    mergedPullRequestCountSixMonths:
-                      projectMetrics?.merged_pull_request_count_6_months,
-                    openedIssueCountSixMonths:
-                      projectMetrics?.opened_issue_count_6_months,
-                    closedIssueCountSixMonths:
-                      projectMetrics?.closed_issue_count_6_months,
-                    firstCommitDate: projectMetrics?.first_commit_date?.value
-                      ? new Date(
-                          projectMetrics?.first_commit_date?.value,
-                        ).getTime()
-                      : undefined,
-                    lastCommitDate: projectMetrics?.last_commit_date?.value
-                      ? new Date(
-                          projectMetrics?.last_commit_date?.value,
-                        ).getTime()
-                      : undefined,
-                  }
-                : {}
-            ) as GrantProjectMetrics;
+        const parsedMetrics = (
+          projectMetrics
+            ? {
+                projectId: projectMetrics?.project_id,
+                projectSource: projectMetrics?.project_source,
+                projectNamespace: projectMetrics?.project_namespace,
+                projectName: projectMetrics?.project_name,
+                displayName: projectMetrics?.display_name,
+                eventSource: projectMetrics?.event_source,
+                repositoryCount: projectMetrics?.repository_count,
+                starCount: projectMetrics?.star_count,
+                forkCount: projectMetrics?.fork_count,
+                contributorCount: projectMetrics?.contributor_count,
+                contributorCountSixMonths:
+                  projectMetrics?.contributor_count_6_months,
+                newContributorCountSixMonths:
+                  projectMetrics?.new_contributor_count_6_months,
+                fulltimeDeveloperAverageSixMonths:
+                  projectMetrics?.fulltime_developer_average_6_months,
+                activeDeveloperCountSixMonths:
+                  projectMetrics?.active_developer_count_6_months,
+                commitCountSixMonths: projectMetrics?.commit_count_6_months,
+                openedPullRequestCountSixMonths:
+                  projectMetrics?.opened_pull_request_count_6_months,
+                mergedPullRequestCountSixMonths:
+                  projectMetrics?.merged_pull_request_count_6_months,
+                openedIssueCountSixMonths:
+                  projectMetrics?.opened_issue_count_6_months,
+                closedIssueCountSixMonths:
+                  projectMetrics?.closed_issue_count_6_months,
+                firstCommitDate: projectMetrics?.first_commit_date?.value
+                  ? new Date(projectMetrics?.first_commit_date?.value).getTime()
+                  : undefined,
+                lastCommitDate: projectMetrics?.last_commit_date?.value
+                  ? new Date(projectMetrics?.last_commit_date?.value).getTime()
+                  : undefined,
+              }
+            : {}
+        ) as GrantProjectMetrics;
 
-            return {
-              ...app,
-              project: {
-                ...app.project,
-                metrics: projectMetrics ? parsedMetrics : undefined,
-              },
-            };
-          });
-        });
         const projectMetricsConverter = (
           metrics: GrantProjectMetrics,
         ): GrantProject["tabs"] => {
@@ -429,19 +714,29 @@ export class GrantsService {
           ];
         };
 
-        return grantees.map(grantee => ({
-          tags: grantee.tags,
-          status: grantee.status,
-          project: {
-            name: grantee.project.name,
-            tags: grantee.project.tags,
-            tabs: grantee.project.metrics
-              ? projectMetricsConverter(grantee.project.metrics)
-              : [],
-          },
-        }));
+        if (project) {
+          return {
+            success: true,
+            message: "Grantee project retrieved successfully",
+            data: {
+              name: project.project.name,
+              tags: project.project.tags,
+              tabs: projectMetrics
+                ? projectMetricsConverter(parsedMetrics)
+                : [],
+            },
+          };
+        } else {
+          return {
+            success: false,
+            message: "Grantee project not found",
+          };
+        }
       } else {
-        return undefined;
+        return {
+          success: false,
+          message: "Grantee project not found",
+        };
       }
     } catch (err) {
       Sentry.withScope(scope => {
@@ -451,22 +746,55 @@ export class GrantsService {
         });
         Sentry.captureException(err);
       });
-      this.logger.error(`GrantsService::getGranteesByProgramId ${err.message}`);
-      return undefined;
+      this.logger.error(
+        `GrantsService::getGranteeDetailsByProgramId ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Grantee not found",
+      };
     }
   };
 
-  async getGrantsList(): Promise<GrantListResult[]> {
+  async getGrantsList(
+    page: number,
+    limit: number,
+  ): Promise<PaginatedData<GrantListResult>> {
     try {
       const programs = await this.getGrantsListResults();
-      return programs.map(grant => ({
-        id: grant.programId,
-        name: grant.name,
-        status: grant.status,
-        socialLinks: grant.socialLinks,
-        eligibility: grant.eligibility,
-        metadata: grant.metadata,
-      }));
+      return paginate<GrantListResult>(
+        page,
+        limit,
+        programs.map(
+          grant =>
+            new GrantListResult({
+              id: grant.programId,
+              name: grant.name,
+              status: notStringOrNull(grant.status) ?? "Inactive",
+              socialLinks: grant.socialLinks,
+              eligibility: grant.eligibility,
+              metadata: {
+                ...grant.metadata,
+                description: notStringOrNull(grant.metadata.description),
+                programBudget: nonZeroOrNull(grant.metadata.programBudget),
+                amountDistributedToDate: nonZeroOrNull(
+                  grant.metadata.amountDistributedToDate,
+                ),
+                minGrantSize: nonZeroOrNull(grant.metadata.minGrantSize),
+                maxGrantSize: nonZeroOrNull(grant.metadata.maxGrantSize),
+                grantsToDate: nonZeroOrNull(grant.metadata.grantsToDate),
+                website: notStringOrNull(grant.metadata.website),
+                projectTwitter: notStringOrNull(grant.metadata.projectTwitter),
+                bugBounty: notStringOrNull(grant.metadata.bugBounty),
+                logoImg: notStringOrNull(grant.metadata.logoImg),
+                bannerImg: notStringOrNull(grant.metadata.bannerImg),
+                createdAt: nonZeroOrNull(grant.metadata.createdAt),
+                type: notStringOrNull(grant.metadata.type),
+                amount: notStringOrNull(grant.metadata.amount),
+              },
+            }),
+        ),
+      );
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -476,7 +804,7 @@ export class GrantsService {
         Sentry.captureException(err);
       });
       this.logger.error(`GrantsService::getGrantsListResults ${err.message}`);
-      return [];
+      return paginate<GrantListResult>(page, limit, []);
     }
   }
 }

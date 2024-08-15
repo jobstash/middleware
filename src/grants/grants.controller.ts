@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards } from "@nestjs/common";
+import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
 import { GrantsService } from "./grants.service";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { CheckWalletRoles } from "src/shared/constants";
@@ -13,6 +13,7 @@ import {
   Grant,
   Grantee,
   GrantListResult,
+  PaginatedData,
   ResponseWithOptionalData,
 } from "src/shared/interfaces";
 
@@ -20,7 +21,7 @@ import {
 export class GrantsController {
   constructor(private readonly grantsService: GrantsService) {}
 
-  @Get("list")
+  @Get("")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ANON)
   @ApiOkResponse({
@@ -34,11 +35,14 @@ export class GrantsController {
       "Something went wrong fetching the grants from the destination service",
     schema: responseSchemaWrapper({ type: "string" }),
   })
-  async findAll(): Promise<GrantListResult[]> {
-    return this.grantsService.getGrantsList();
+  async findAll(
+    @Query("page") page = 1,
+    @Query("limit") limit = 20,
+  ): Promise<PaginatedData<GrantListResult>> {
+    return this.grantsService.getGrantsList(page, limit);
   }
 
-  @Get("details/:id")
+  @Get(":id")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ANON)
   @ApiOkResponse({
@@ -54,7 +58,7 @@ export class GrantsController {
   })
   async findOne(
     @Param("id") id: string,
-  ): Promise<ResponseWithOptionalData<Grant>> {
+  ): Promise<ResponseWithOptionalData<GrantListResult>> {
     return this.grantsService.getGrantByProgramId(id).then(res => {
       return res
         ? {
@@ -69,7 +73,7 @@ export class GrantsController {
     });
   }
 
-  @Get("grantees/:id")
+  @Get(":id/grantees")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ANON)
   @ApiOkResponse({
@@ -85,18 +89,56 @@ export class GrantsController {
   })
   async findGrantees(
     @Param("id") id: string,
-  ): Promise<ResponseWithOptionalData<Grantee[]>> {
-    return this.grantsService.getGranteesByProgramId(id).then(res => {
-      return res
-        ? {
-            success: true,
-            message: "Grantees retrieved successfully",
-            data: res,
-          }
-        : {
-            success: false,
-            message: "Grantees not found",
-          };
-    });
+    @Query("page") page = 1,
+    @Query("limit") limit = 20,
+  ): Promise<PaginatedData<Grantee>> {
+    return this.grantsService.getGranteesByProgramId(id, page, limit);
+  }
+
+  @Get(":id/grantees/:granteeId")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ANON)
+  @ApiOkResponse({
+    description: "Returns the details of the grantee with the passed id",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(GrantListResult),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong fetching the grant from the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async findGranteesDetails(
+    @Param("id") id: string,
+    @Param("granteeId") granteeId: string,
+  ): Promise<ResponseWithOptionalData<Grantee>> {
+    return this.grantsService.getGranteeDetailsByProgramId(id, granteeId);
+  }
+
+  @Get(":id/grantees/:granteeId/project/:projectId")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ANON)
+  @ApiOkResponse({
+    description: "Returns the details of the grantee with the passed id",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(GrantListResult),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong fetching the grant from the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async findGranteeProjectDetails(
+    @Param("id") id: string,
+    @Param("granteeId") granteeId: string,
+    @Param("projectId") projectId: string,
+  ): Promise<ResponseWithOptionalData<Grantee>> {
+    return this.grantsService.getGranteeProjectDetailsByProgramId(
+      id,
+      granteeId,
+      projectId,
+    );
   }
 }
