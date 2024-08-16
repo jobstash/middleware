@@ -6,6 +6,7 @@ import { GoogleBigQueryService } from "src/google-bigquery/google-bigquery.servi
 import {
   Grantee,
   GranteeApplicationMetadata,
+  GranteeDetails,
   GrantListResult,
   GrantMetadata,
   GrantProject,
@@ -290,26 +291,14 @@ export class GrantsService {
             grantee =>
               new Grantee({
                 id: grantee.id,
-                tags: grantee.tags,
-                status: grantee.status,
                 name: (grantee.metadata as GranteeApplicationMetadata)
                   ?.application.project.title,
-                description: (grantee.metadata as GranteeApplicationMetadata)
-                  ?.application.project.description,
-                website: notStringOrNull(
-                  (grantee.metadata as GranteeApplicationMetadata)?.application
-                    .project.website,
-                ),
                 logoUrl: notStringOrNull(
                   (grantee.metadata as GranteeApplicationMetadata)?.application
                     .project.logoImg,
                 ),
-                projects: [
-                  {
-                    id: grantee.metadata.application.project.id,
-                    name: "Gitcoin GG 21",
-                  },
-                ],
+                lastFundingDate: 0,
+                lastFundingAmount: grantee.totalAmountDonatedInUsd,
               }),
           ),
         );
@@ -332,7 +321,7 @@ export class GrantsService {
   getGranteeDetailsByProgramId = async (
     programId: string,
     granteeId: string,
-  ): Promise<ResponseWithOptionalData<Grantee>> => {
+  ): Promise<ResponseWithOptionalData<GranteeDetails>> => {
     try {
       const result = await this.neogma.queryRunner.run(
         `
@@ -397,153 +386,6 @@ export class GrantsService {
               uniqueDonorsCount: true,
               totalDonationsCount: true,
               totalAmountDonatedInUsd: true,
-              tags: true,
-              status: true,
-              metadata: true,
-            },
-          },
-        });
-
-        const program = programs[0];
-
-        const grantees = (
-          result.rounds.find(
-            x => (x.roundMetadata as GrantMetadata)?.name === program.name,
-          )?.applications ?? []
-        ).map(
-          grantee =>
-            new Grantee({
-              id: grantee.id,
-              tags: grantee.tags,
-              status: grantee.status,
-              name: (grantee.metadata as GranteeApplicationMetadata)
-                ?.application.project.title,
-              description: (grantee.metadata as GranteeApplicationMetadata)
-                ?.application.project.description,
-              website: notStringOrNull(
-                (grantee.metadata as GranteeApplicationMetadata)?.application
-                  .project.website,
-              ),
-              logoUrl: notStringOrNull(
-                (grantee.metadata as GranteeApplicationMetadata)?.application
-                  .project.logoImg,
-              ),
-              projects: [
-                {
-                  id: grantee.metadata.application.project.id,
-                  name: "Gitcoin GG 21",
-                },
-              ],
-            }),
-        );
-
-        const grantee = grantees.find(x => x.id === granteeId);
-
-        if (grantee) {
-          return {
-            success: true,
-            message: "Grantee retrieved successfully",
-            data: grantee,
-          };
-        } else {
-          return {
-            success: false,
-            message: "Grantee not found",
-          };
-        }
-      } else {
-        return {
-          success: false,
-          message: "Grantee not found",
-        };
-      }
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "grants.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `GrantsService::getGranteeDetailsByProgramId ${err.message}`,
-      );
-      return {
-        success: false,
-        message: "Grantee not found",
-      };
-    }
-  };
-
-  getGranteeProjectDetailsByProgramId = async (
-    programId: string,
-    granteeId: string,
-    projectId: string,
-  ): Promise<ResponseWithOptionalData<GrantProject>> => {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        MATCH (program:KarmaGapProgram {programId: $programId})
-        RETURN program {
-          .*,
-          status: [(program)-[:HAS_STATUS]->(status:KarmaGapStatus) | status.name][0],
-          eligibility: [(program)-[:HAS_ELIGIBILITY]->(eligibility:KarmaGapEligibility) | eligibility {
-            .*,
-            requirements: apoc.coll.toSet([(eligibility)-[:HAS_REQUIREMENT]->(requirement:KarmaGapRequirement) | requirement.description])
-          }][0],
-          socialLinks: [
-            (program)-[:HAS_SOCIAL_LINK]->(socialLink:KarmaGapSocials) | socialLink {
-              .*
-            }
-          ][0],
-          quadraticFundingConfig: [
-            (program)-[:HAS_QUADRATIC_FUNDING_CONFIG]->(quadraticFundingConfig:KarmaGapQuadraticFundingConfig) | quadraticFundingConfig {
-              .*
-            }
-          ][0],
-          support: [
-            (program)-[:HAS_SUPPORT]->(support:KarmaGapSupport) | support {
-              .*
-            }
-          ][0],
-          metadata: [
-            (program)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata) | metadata {
-              .*,
-              categories: apoc.coll.toSet([(program)-[:HAS_CATEGORY]->(category) | category.name]),
-              ecosystems: apoc.coll.toSet([(program)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
-              organizations: apoc.coll.toSet([(program)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
-              networks: apoc.coll.toSet([(program)-[:HAS_NETWORK]->(network) | network.name]),
-              grantTypes: apoc.coll.toSet([(program)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
-              tags: apoc.coll.toSet([(program)-[:HAS_TAG]->(tag) | tag.name]),
-              platformsUsed: apoc.coll.toSet([(program)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
-            }
-          ][0]
-        } as program
-      `,
-        { programId },
-      );
-
-      const programs = result.records.map(
-        record => record.get("program") as KarmaGapGrantProgram,
-      );
-
-      if (programs.length > 0) {
-        const result = await this.client.query({
-          rounds: {
-            tags: true,
-            roundMetadata: true,
-            applications: {
-              __args: {
-                filter: {
-                  status: {
-                    equalTo: "APPROVED",
-                  },
-                },
-              },
-              uniqueDonorsCount: true,
-              totalDonationsCount: true,
-              totalAmountDonatedInUsd: true,
-              id: true,
               tags: true,
               status: true,
               project: {
@@ -560,9 +402,7 @@ export class GrantsService {
         const project = result.rounds
           .find(x => (x.roundMetadata as GrantMetadata)?.name === program.name)
           ?.applications?.find(x => {
-            const project = (x.metadata as GranteeApplicationMetadata)
-              ?.application.project;
-            return project.id === projectId && x.id === granteeId;
+            return x.id === granteeId;
           });
 
         const metrics =
@@ -724,28 +564,60 @@ export class GrantsService {
           ];
         };
 
-        if (project) {
+        const grantees = (
+          result.rounds.find(
+            x => (x.roundMetadata as GrantMetadata)?.name === program.name,
+          )?.applications ?? []
+        ).map(
+          grantee =>
+            new GranteeDetails({
+              id: grantee.id,
+              tags: grantee.tags,
+              status: grantee.status,
+              name: (grantee.metadata as GranteeApplicationMetadata)
+                ?.application.project.title,
+              description: (grantee.metadata as GranteeApplicationMetadata)
+                ?.application.project.description,
+              website: notStringOrNull(
+                (grantee.metadata as GranteeApplicationMetadata)?.application
+                  .project.website,
+              ),
+              logoUrl: notStringOrNull(
+                (grantee.metadata as GranteeApplicationMetadata)?.application
+                  .project.logoImg,
+              ),
+              lastFundingDate: 0,
+              lastFundingAmount: grantee.totalAmountDonatedInUsd,
+              projects: [
+                {
+                  name: project.project.name,
+                  tags: project.project.tags,
+                  tabs: projectMetrics
+                    ? projectMetricsConverter(parsedMetrics)
+                    : [],
+                },
+              ],
+            }),
+        );
+
+        const grantee = grantees.find(x => x.id === granteeId);
+
+        if (grantee) {
           return {
             success: true,
-            message: "Grantee project retrieved successfully",
-            data: {
-              name: project.project.name,
-              tags: project.project.tags,
-              tabs: projectMetrics
-                ? projectMetricsConverter(parsedMetrics)
-                : [],
-            },
+            message: "Grantee retrieved successfully",
+            data: grantee,
           };
         } else {
           return {
             success: false,
-            message: "Grantee project not found",
+            message: "Grantee not found",
           };
         }
       } else {
         return {
           success: false,
-          message: "Grantee project not found",
+          message: "Grantee not found",
         };
       }
     } catch (err) {

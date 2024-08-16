@@ -265,36 +265,90 @@ export class GrantProject {
 
   @ApiProperty()
   tabs: { label: string; stats: StatItem[] }[];
+
+  public static readonly GrantProjectType = new t.Type<
+    GrantProject,
+    GrantProject,
+    unknown
+  >(
+    "grant-project",
+    (input: unknown): input is GrantProject => typeof input === "object",
+    // `t.success` and `t.failure` are helpers used to build `Either` instances
+    (input: GrantProject, context) =>
+      typeof input === "object" ? t.success(input) : t.failure(input, context),
+    // `A` and `O` are the same, so `encode` is just the identity function
+    t.identity,
+  );
 }
 
 export class Grantee {
   public static readonly GranteeType = t.strict({
     id: t.string,
-    tags: t.array(t.string),
-    status: t.keyof({
-      PENDING: "PENDING" as const,
-      APPROVED: "APPROVED" as const,
-      REJECTED: "REJECTED" as const,
-      CANCELLED: "CANCELLED" as const,
-      IN_REVIEW: "IN_REVIEW" as const,
-    }),
-    description: t.string,
     name: t.string,
-    website: t.union([t.string, t.null]),
     logoUrl: t.union([t.string, t.null]),
-    projects: t.array(
-      t.strict({
-        id: t.string,
-        name: t.string,
-      }),
-    ),
   });
 
   @ApiProperty()
   id: string;
 
   @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  logoUrl: string | null;
+
+  @ApiProperty()
+  lastFundingDate: number;
+
+  @ApiProperty()
+  lastFundingAmount: number;
+
+  constructor(raw: Grantee) {
+    const { id, name, logoUrl, lastFundingDate, lastFundingAmount } = raw;
+    const result = Grantee.GranteeType.decode(raw);
+
+    this.id = id;
+    this.name = name;
+    this.logoUrl = logoUrl;
+    this.lastFundingDate = lastFundingDate;
+    this.lastFundingAmount = lastFundingAmount;
+
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(
+          `grantee instance with id ${this.id} failed validation with error '${x}'`,
+        );
+      });
+    }
+  }
+}
+
+export class GranteeDetails extends Grantee {
+  public static readonly GranteeDetailsType = t.intersection([
+    Grantee.GranteeType,
+    t.strict({
+      projects: t.array(GrantProject.GrantProjectType),
+      status: t.keyof({
+        PENDING: "PENDING" as const,
+        APPROVED: "APPROVED" as const,
+        REJECTED: "REJECTED" as const,
+        CANCELLED: "CANCELLED" as const,
+        IN_REVIEW: "IN_REVIEW" as const,
+      }),
+      description: t.string,
+      website: t.union([t.string, t.null]),
+      tags: t.array(t.string),
+    }),
+  ]);
+
+  @ApiProperty()
+  projects: GrantProject[];
+
+  @ApiProperty()
   tags: string[];
+
+  @ApiProperty()
+  website: string | null;
 
   @ApiProperty()
   status: ApplicationStatus;
@@ -302,39 +356,21 @@ export class Grantee {
   @ApiProperty()
   description: string;
 
-  @ApiProperty()
-  name: string;
+  constructor(raw: GranteeDetails) {
+    const { tags, status, description, website, projects } = raw;
+    super(raw);
+    const result = GranteeDetails.GranteeDetailsType.decode(raw);
 
-  @ApiProperty()
-  website: string | null;
-
-  @ApiProperty()
-  logoUrl: string | null;
-
-  @ApiProperty()
-  projects: {
-    id: string;
-    name: string;
-  }[];
-
-  constructor(raw: Grantee) {
-    const { id, tags, status, description, name, website, logoUrl, projects } =
-      raw;
-    const result = Grantee.GranteeType.decode(raw);
-
-    this.id = id;
-    this.tags = tags;
+    this.projects = projects;
     this.status = status;
     this.description = description;
-    this.name = name;
     this.website = website;
-    this.logoUrl = logoUrl;
-    this.projects = projects;
+    this.tags = tags;
 
     if (isLeft(result)) {
       report(result).forEach(x => {
         throw new Error(
-          `grantee instance with id ${this.id} failed validation with error '${x}'`,
+          `grantee details instance with id ${this.id} failed validation with error '${x}'`,
         );
       });
     }

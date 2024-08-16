@@ -12,6 +12,7 @@ import { responseSchemaWrapper } from "src/shared/helpers";
 import {
   Grant,
   Grantee,
+  GranteeDetails,
   GrantListResult,
   PaginatedData,
   ResponseWithOptionalData,
@@ -112,33 +113,7 @@ export class GrantsController {
   async findGranteesDetails(
     @Param("id") id: string,
     @Param("granteeId") granteeId: string,
-  ): Promise<ResponseWithOptionalData<Grantee>> {
+  ): Promise<ResponseWithOptionalData<GranteeDetails>> {
     return this.grantsService.getGranteeDetailsByProgramId(id, granteeId);
-  }
-
-  @Get(":id/grantees/:granteeId/project/:projectId")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ANON)
-  @ApiOkResponse({
-    description: "Returns the details of the grantee with the passed id",
-    schema: responseSchemaWrapper({
-      $ref: getSchemaPath(GrantListResult),
-    }),
-  })
-  @ApiUnprocessableEntityResponse({
-    description:
-      "Something went wrong fetching the grant from the destination service",
-    schema: responseSchemaWrapper({ type: "string" }),
-  })
-  async findGranteeProjectDetails(
-    @Param("id") id: string,
-    @Param("granteeId") granteeId: string,
-    @Param("projectId") projectId: string,
-  ): Promise<ResponseWithOptionalData<Grantee>> {
-    return this.grantsService.getGranteeProjectDetailsByProgramId(
-      id,
-      granteeId,
-      projectId,
-    );
   }
 }
