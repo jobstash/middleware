@@ -258,6 +258,9 @@ interface StatItem {
 
 export class GrantProject {
   @ApiProperty()
+  id: string;
+
+  @ApiProperty()
   name: string;
 
   @ApiProperty()

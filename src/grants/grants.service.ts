@@ -595,6 +595,8 @@ export class GrantsService {
               lastFundingAmount: grantee.totalAmountDonatedInUsd,
               projects: [
                 {
+                  id: (project.metadata as GranteeApplicationMetadata)
+                    .application.project.id,
                   name: project.project.name,
                   tags: project.project.tags,
                   tabs: projectMetrics
