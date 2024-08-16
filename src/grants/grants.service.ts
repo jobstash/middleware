@@ -460,18 +460,22 @@ export class GrantsService {
           return [
             {
               label: "Overall Summary",
+              tab: "overall-summary",
               stats: [],
             },
             {
               label: "Impact Metrics",
+              tab: "impact-metrics",
               stats: [],
             },
             {
               label: "Github Metrics",
+              tab: "github-metrics",
               stats: [],
             },
             {
               label: "Code Metrics",
+              tab: "code-metrics",
               stats: [
                 {
                   label: "First Commit Date",
@@ -559,6 +563,7 @@ export class GrantsService {
             },
             {
               label: "Contract Address",
+              tab: "contract-address",
               stats: [],
             },
           ];

@@ -264,7 +264,7 @@ export class GrantProject {
   tags: string[];
 
   @ApiProperty()
-  tabs: { label: string; stats: StatItem[] }[];
+  tabs: { label: string; tab: string; stats: StatItem[] }[];
 
   public static readonly GrantProjectType = new t.Type<
     GrantProject,
