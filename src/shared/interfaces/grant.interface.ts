@@ -286,6 +286,8 @@ export class Grantee {
     id: t.string,
     name: t.string,
     logoUrl: t.union([t.string, t.null]),
+    lastFundingDate: t.number,
+    lastFundingAmount: t.number,
   });
 
   @ApiProperty()
