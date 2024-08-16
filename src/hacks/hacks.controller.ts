@@ -62,14 +62,14 @@ export class HacksController {
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ADMIN)
   @ApiOkResponse({
-    description: "Creates an hack and relates it to a project",
+    description: "Returns a list of all hacks",
     schema: responseSchemaWrapper({
       $ref: getSchemaPath(Hack),
     }),
   })
   @ApiUnprocessableEntityResponse({
     description:
-      "Something went wrong creating the hack on the destination service",
+      "Something went wrong fetching the hacks on the destination service",
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async findAll(): Promise<Response<Hack[]> | ResponseWithNoData> {

@@ -487,9 +487,9 @@ export const paginate = <T>(
   data: T[],
 ): PaginatedData<T> => {
   return {
-    page: (data.length > 0 ? page ?? 1 : -1) ?? -1,
-    count: limit > data.length ? data.length : limit,
-    total: data.length,
+    page: Number((data.length > 0 ? page ?? 1 : -1) ?? -1),
+    count: Number(limit > data.length ? data.length : limit),
+    total: Number(data.length),
     data: data.slice((page - 1) * limit, page * limit),
   };
 };

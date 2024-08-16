@@ -427,13 +427,13 @@
   resolved "https://registry.yarnpkg.com/@golevelup/ts-jest/-/ts-jest-0.3.8.tgz#d027662ba247c7d48d654a95682f0c720c00742e"
   integrity sha512-2H4XzpCHwoUs2P13tzwVzj+AYspbFGKwMr94WK5eHiDBKgx0j4QGgLQh1wgM18DjhN7jdntrzVMoQRie6kZhnw==
 
-"@google-cloud/bigquery@^7.5.1":
-  version "7.5.1"
-  resolved "https://registry.yarnpkg.com/@google-cloud/bigquery/-/bigquery-7.5.1.tgz#31fd8614c6bb6d55062f9b3917b2e12c2b65ec03"
-  integrity sha512-ocye5Bt2eNQMoLKy814TVTp9XrXLoyD18mGwsjmZR3mEHv5m9oxycjG4P77c+hbN9YcKxg+EOtAclULKB9pOVg==
+"@google-cloud/bigquery@^7.8.0":
+  version "7.8.0"
+  resolved "https://registry.yarnpkg.com/@google-cloud/bigquery/-/bigquery-7.8.0.tgz#b3301155442b1520df2f565c0e2685c9856513ac"
+  integrity sha512-SVWjoNkLixBGi6ZZSuQYDviSJJwUHd3LDCWoy3IDDXP10MxZWjfClc2FLILgsYz2BL4y4L/tdy3DEqSSt+92EA==
   dependencies:
     "@google-cloud/common" "^5.0.0"
-    "@google-cloud/paginator" "^5.0.0"
+    "@google-cloud/paginator" "^5.0.2"
     "@google-cloud/precise-date" "^4.0.0"
     "@google-cloud/promisify" "^4.0.0"
     arrify "^2.0.1"
@@ -459,10 +459,10 @@
     retry-request "^7.0.0"
     teeny-request "^9.0.0"
 
-"@google-cloud/paginator@^5.0.0":
-  version "5.0.0"
-  resolved "https://registry.yarnpkg.com/@google-cloud/paginator/-/paginator-5.0.0.tgz#b8cc62f151685095d11467402cbf417c41bf14e6"
-  integrity sha512-87aeg6QQcEPxGCOthnpUjvw4xAZ57G7pL8FS0C4e/81fr3FjkpUpibf1s2v5XGyGhUVGF4Jfg7yEcxqn2iUw1w==
+"@google-cloud/paginator@^5.0.2":
+  version "5.0.2"
+  resolved "https://registry.yarnpkg.com/@google-cloud/paginator/-/paginator-5.0.2.tgz#86ad773266ce9f3b82955a8f75e22cd012ccc889"
+  integrity sha512-DJS3s0OVH4zFDB1PzjxAsHqJT6sKVbRwwML0ZBP9PbU7Yebtu/7SWMRzvO2J3nUi9pRNITCfu4LJeooM2w4pjg==
   dependencies:
     arrify "^2.0.0"
     extend "^3.0.2"
@@ -2006,6 +2006,11 @@
     "@types/keygrip" "*"
     "@types/koa-compose" "*"
     "@types/node" "*"
+
+"@types/lodash@^4.17.7":
+  version "4.17.7"
+  resolved "https://registry.yarnpkg.com/@types/lodash/-/lodash-4.17.7.tgz#2f776bcb53adc9e13b2c0dfd493dfcbd7de43612"
+  integrity sha512-8wTvZawATi/lsmNu10/j2hk1KEP0IvjubqPE3cu1Xz7xfXXt5oCq3SNUz4fMIP4XGF9Ky+Ue2tBA3hcS7LSBlA==
 
 "@types/long@^4.0.1":
   version "4.0.2"

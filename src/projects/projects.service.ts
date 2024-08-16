@@ -15,7 +15,6 @@ import {
   ProjectMoreInfoEntity,
   ProjectWithRelationsEntity,
   RawProjectWebsite,
-  RawProjectWebsiteMetadata,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
