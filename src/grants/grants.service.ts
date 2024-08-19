@@ -20,6 +20,8 @@ import * as Sentry from "@sentry/node";
 import { InjectConnection } from "nest-neogma";
 import { Neogma } from "neogma";
 import { nonZeroOrNull, notStringOrNull, paginate } from "src/shared/helpers";
+import { Alchemy, Network } from "alchemy-sdk";
+import { EIP155Chain, getChainById } from "eip155-chains";
 
 @Injectable()
 export class GrantsService {
@@ -29,7 +31,7 @@ export class GrantsService {
   constructor(
     @InjectConnection()
     private readonly neogma: Neogma,
-    readonly configService: ConfigService,
+    private readonly configService: ConfigService,
     private readonly googleBigQueryService: GoogleBigQueryService,
   ) {
     this.client = createClient({
@@ -267,6 +269,8 @@ export class GrantsService {
                 },
               },
               id: true,
+              distributionTransaction: true,
+              chainId: true,
               uniqueDonorsCount: true,
               totalDonationsCount: true,
               totalAmountDonatedInUsd: true,
@@ -287,9 +291,32 @@ export class GrantsService {
         return paginate<Grantee>(
           page,
           limit,
-          grantees.map(
-            grantee =>
-              new Grantee({
+          await Promise.all(
+            grantees.map(async grantee => {
+              const apiKey = this.configService.get<string>("ALCHEMY_API_KEY");
+              const chainInfo: EIP155Chain = await getChainById(
+                grantee.chainId,
+                {
+                  apiKeys: {
+                    ALCHEMY_API_KEY: apiKey,
+                  },
+                  healthyCheckEnabled: true,
+                  filters: {
+                    features: ["privacy"],
+                  },
+                },
+              );
+
+              const alchemy = new Alchemy({
+                apiKey,
+                network: Network[chainInfo.network],
+              });
+
+              const transaction = await alchemy.core.getTransaction(
+                grantee.distributionTransaction,
+              );
+
+              return new Grantee({
                 id: grantee.id,
                 name: (grantee.metadata as GranteeApplicationMetadata)
                   ?.application.project.title,
@@ -297,9 +324,10 @@ export class GrantsService {
                   (grantee.metadata as GranteeApplicationMetadata)?.application
                     .project.logoImg,
                 ),
-                lastFundingDate: 0,
+                lastFundingDate: transaction.timestamp,
                 lastFundingAmount: grantee.totalAmountDonatedInUsd,
-              }),
+              });
+            }),
           ),
         );
       } else {
