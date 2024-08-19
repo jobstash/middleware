@@ -46,6 +46,7 @@ import { UpdateOrgGrantsInput } from "./dto/update-organization-grants.input";
 import { ActivateOrgJobsiteInput } from "./dto/activate-organization-jobsites.input";
 import { UpdateOrgDetectedJobsitesInput } from "./dto/update-organization-detected-jobsites.input";
 import { UpdateOrgJobsitesInput } from "./dto/update-organization-jobsites.input";
+import { UpdateOrgProjectInput } from "./dto/update-organization-projects.input";
 
 @Injectable()
 export class OrganizationsService {
@@ -1784,6 +1785,104 @@ export class OrganizationsService {
       });
       this.logger.error(`OrganizationsService::updateOrgDocs ${err.message}`);
       return { success: false, message: "Failed to update org grantsites" };
+    }
+  }
+
+  async transformOrgToProject(id: string): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (org:Organization {orgId: $id})
+        REMOVE org:Organization
+        SET org:Project
+        SET org.orgId = null
+        SET org.description = null
+      `,
+        { id },
+      );
+      return {
+        success: true,
+        message: "Organization transformed successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "organizations.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::transformOrgToProject ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to transform org to project",
+      };
+    }
+  }
+
+  async addProjectToOrg(
+    dto: UpdateOrgProjectInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (org:Organization {orgId: $orgId}), (project:Project {id: $projectId})
+        MERGE (org)-[:HAS_PROJECT]->(project)
+      `,
+        { ...dto },
+      );
+      return {
+        success: true,
+        message: "Project added to organization successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "organizations.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`OrganizationsService::addProjectToOrg ${err.message}`);
+      return {
+        success: false,
+        message: "Failed to add project to organization",
+      };
+    }
+  }
+
+  async removeProjectFromOrg(
+    dto: UpdateOrgProjectInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (:Organization {orgId: $orgId})-[r:HAS_PROJECT]->(:Project {id: $projectId})
+        DELETE r
+      `,
+        { ...dto },
+      );
+      return {
+        success: true,
+        message: "Project removed from organization successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "organizations.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::removeProjectFromOrg ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to remove project from organization",
+      };
     }
   }
 }

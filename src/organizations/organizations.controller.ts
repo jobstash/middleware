@@ -63,6 +63,7 @@ import { OrgListParams } from "./dto/org-list.input";
 import { UpdateOrgAliasesInput } from "./dto/update-organization-aliases.input";
 import { UpdateOrgCommunitiesInput } from "./dto/update-organization-communities.input";
 import { ActivateOrgJobsiteInput } from "./dto/activate-organization-jobsites.input";
+import { UpdateOrgProjectInput } from "./dto/update-organization-projects.input";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -686,7 +687,7 @@ export class OrganizationsController {
 
   @Delete("/delete/:id")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
   @ApiOkResponse({
     description: "Deletes an existing organization",
     schema: responseSchemaWrapper({
@@ -724,6 +725,60 @@ export class OrganizationsController {
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/organizations/add-alias ${JSON.stringify(body)}`);
     return this.organizationsService.updateOrgAliases(body);
+  }
+
+  @Post("/add-project")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @ApiOkResponse({
+    description: "Add a project to an org",
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong adding the project to an org on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async addProjectToOrg(
+    @Body() body: UpdateOrgProjectInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/organizations/add-project ${JSON.stringify(body)}`);
+    return this.organizationsService.addProjectToOrg(body);
+  }
+
+  @Post("/remove-project")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @ApiOkResponse({
+    description: "Remove a project from an org",
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong removing the project from an org on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async removeProjectFromOrg(
+    @Body() body: UpdateOrgProjectInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/organizations/remove-project ${JSON.stringify(body)}`);
+    return this.organizationsService.removeProjectFromOrg(body);
+  }
+
+  @Post("/transform-to-project/:id")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @ApiOkResponse({
+    description: "Transforms an org to a project",
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong transforming the org to a project on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async transformOrgToProject(
+    @Param("id") id: string,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/organizations/transform-to-project ${id}`);
+    return this.organizationsService.transformOrgToProject(id);
   }
 
   @Post("/communities")
