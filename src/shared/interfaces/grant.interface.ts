@@ -290,7 +290,7 @@ export class Grantee {
     name: t.string,
     slug: t.string,
     logoUrl: t.union([t.string, t.null]),
-    lastFundingDate: t.number,
+    lastFundingDate: t.union([t.number, t.null]),
     lastFundingAmount: t.number,
   });
 
@@ -307,7 +307,7 @@ export class Grantee {
   logoUrl: string | null;
 
   @ApiProperty()
-  lastFundingDate: number;
+  lastFundingDate: number | null;
 
   @ApiProperty()
   lastFundingAmount: number;

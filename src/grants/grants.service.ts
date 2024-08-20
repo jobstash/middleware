@@ -328,7 +328,7 @@ export class GrantsService {
                 name: grantee.project.name,
                 slug: normalizeString(grantee.project.name),
                 logoUrl: logoIpfs ? `https://${logoIpfs}.ipfs.dweb.link` : null,
-                lastFundingDate: transaction.timestamp,
+                lastFundingDate: nonZeroOrNull(transaction.timestamp),
                 lastFundingAmount: grantee.totalAmountDonatedInUsd,
               });
             }),
@@ -415,6 +415,7 @@ export class GrantsService {
                 },
               },
               id: true,
+              distributionTransaction: true,
               uniqueDonorsCount: true,
               totalDonationsCount: true,
               totalAmountDonatedInUsd: true,
@@ -431,11 +432,19 @@ export class GrantsService {
 
         const program = programs[0];
 
-        const project = result.rounds
-          .find(x => (x.roundMetadata as GrantMetadata)?.name === program.name)
-          ?.applications?.find(x => {
-            return x.project.name === granteeSlug;
-          });
+        const project = (
+          program.programId === "451"
+            ? result.rounds.find(
+                x =>
+                  (x.roundMetadata as GrantMetadata)?.name ===
+                  "GG21: Thriving Arbitrum Summer",
+              )?.applications ?? []
+            : result.rounds.find(
+                x => (x.roundMetadata as GrantMetadata)?.name === program.name,
+              )?.applications ?? []
+        ).find(x => {
+          return normalizeString(x.project.name) === granteeSlug;
+        });
 
         const metrics =
           await this.googleBigQueryService.getGrantProjectsMetrics([
@@ -511,84 +520,108 @@ export class GrantsService {
               stats: [
                 {
                   label: "First Commit Date",
-                  value: new Date(metrics.firstCommitDate).toDateString(),
+                  value: metrics.firstCommitDate
+                    ? new Date(metrics.firstCommitDate).toDateString()
+                    : "N/A",
                   stats: [],
                 },
                 {
                   label: "Last Commit Date",
-                  value: new Date(metrics.lastCommitDate).toDateString(),
+                  value: metrics.lastCommitDate
+                    ? new Date(metrics.lastCommitDate).toDateString()
+                    : "N/A",
                   stats: [],
                 },
                 {
                   label: "Repositories",
-                  value: metrics.repositoryCount.toString(),
-                  stats: [],
-                },
-                {
-                  label: "Repositories",
-                  value: metrics.repositoryCount.toString(),
+                  value: metrics.repositoryCount
+                    ? metrics.repositoryCount.toString()
+                    : "N/A",
                   stats: [],
                 },
                 {
                   label: "Stars",
-                  value: metrics.starCount.toString(),
+                  value: metrics.starCount
+                    ? metrics.starCount.toString()
+                    : "N/A",
                   stats: [],
                 },
                 {
                   label: "Forks",
-                  value: metrics.forkCount.toString(),
+                  value: metrics.forkCount
+                    ? metrics.forkCount.toString()
+                    : "N/A",
                   stats: [],
                 },
                 {
                   label: "Contributor Count",
-                  value: metrics.contributorCount.toString(),
+                  value: metrics.contributorCount
+                    ? metrics.contributorCount.toString()
+                    : "N/A",
                   stats: [
                     {
                       label: "Last 6 Months",
-                      value: metrics.contributorCountSixMonths.toString(),
+                      value: metrics.contributorCountSixMonths
+                        ? metrics.contributorCountSixMonths.toString()
+                        : "N/A",
                       stats: [],
                     },
                     {
                       label: "New Contributors",
-                      value: metrics.newContributorCountSixMonths.toString(),
+                      value: metrics.newContributorCountSixMonths
+                        ? metrics.newContributorCountSixMonths.toString()
+                        : "N/A",
                       stats: [],
                     },
                     {
                       label: "Fulltime Developer Average",
-                      value:
-                        metrics.fulltimeDeveloperAverageSixMonths.toString(),
+                      value: metrics.fulltimeDeveloperAverageSixMonths
+                        ? metrics.fulltimeDeveloperAverageSixMonths.toString()
+                        : "N/A",
                       stats: [],
                     },
                     {
                       label: "Active Developers",
-                      value: metrics.activeDeveloperCountSixMonths.toString(),
+                      value: metrics.activeDeveloperCountSixMonths
+                        ? metrics.activeDeveloperCountSixMonths.toString()
+                        : "N/A",
                       stats: [],
                     },
                   ],
                 },
                 {
                   label: "Commit Count (6 Months)",
-                  value: metrics.commitCountSixMonths.toString(),
+                  value: metrics.commitCountSixMonths
+                    ? metrics.commitCountSixMonths.toString()
+                    : "N/A",
                   stats: [],
                 },
                 {
                   label: "Opened Pull Request Count (6 Months)",
-                  value: metrics.openedPullRequestCountSixMonths.toString(),
+                  value: metrics.openedPullRequestCountSixMonths
+                    ? metrics.openedPullRequestCountSixMonths.toString()
+                    : "N/A",
                   stats: [],
                 },
                 {
                   label: "Merged Pull Request Count (6 Months)",
-                  value: metrics.mergedPullRequestCountSixMonths.toString(),
+                  value: metrics.mergedPullRequestCountSixMonths
+                    ? metrics.mergedPullRequestCountSixMonths.toString()
+                    : "N/A",
                   stats: [],
                 },
                 {
                   label: "Opened Issue Count (6 Months)",
-                  value: metrics.openedIssueCountSixMonths.toString(),
+                  value: metrics.openedIssueCountSixMonths
+                    ? metrics.openedIssueCountSixMonths.toString()
+                    : "N/A",
                   stats: [],
                 },
                 {
                   label: "Closed Issue Count (6 Months)",
-                  value: metrics.closedIssueCountSixMonths.toString(),
+                  value: metrics.closedIssueCountSixMonths
+                    ? metrics.closedIssueCountSixMonths.toString()
+                    : "N/A",
                   stats: [],
                 },
               ],
@@ -602,44 +635,65 @@ export class GrantsService {
         };
 
         const grantees = (
-          result.rounds.find(
-            x => (x.roundMetadata as GrantMetadata)?.name === program.name,
-          )?.applications ?? []
-        ).map(
-          grantee =>
-            new GranteeDetails({
-              id: grantee.id,
-              tags: grantee.tags,
-              status: grantee.status,
-              name: grantee.project.name,
-              slug: normalizeString(grantee.project.name),
-              description: (grantee.metadata as GranteeApplicationMetadata)
-                ?.application.project.description,
-              website: notStringOrNull(
-                (grantee.metadata as GranteeApplicationMetadata)?.application
-                  .project.website,
-              ),
-              logoUrl: notStringOrNull(
-                (grantee.metadata as GranteeApplicationMetadata)?.application
-                  .project.logoImg,
-              ),
-              lastFundingDate: 0,
-              lastFundingAmount: grantee.totalAmountDonatedInUsd,
-              projects: [
-                {
-                  id: (project.metadata as GranteeApplicationMetadata)
-                    .application.project.id,
-                  name: project.project.name,
-                  tags: project.project.tags,
-                  tabs: projectMetrics
-                    ? projectMetricsConverter(parsedMetrics)
-                    : [],
-                },
-              ],
-            }),
-        );
+          program.programId === "451"
+            ? result.rounds.find(
+                x =>
+                  (x.roundMetadata as GrantMetadata)?.name ===
+                  "GG21: Thriving Arbitrum Summer",
+              )?.applications ?? []
+            : result.rounds.find(
+                x => (x.roundMetadata as GrantMetadata)?.name === program.name,
+              )?.applications ?? []
+        ).map(async grantee => {
+          const apiKey = this.configService.get<string>("ALCHEMY_API_KEY");
 
-        const grantee = grantees.find(x => x.slug === granteeSlug);
+          const alchemy = new Alchemy({
+            apiKey,
+            network: Network.ARB_MAINNET,
+          });
+
+          const transaction = grantee.distributionTransaction
+            ? await alchemy.core.getTransaction(grantee.distributionTransaction)
+            : {
+                timestamp: 0,
+              };
+
+          const logoIpfs = notStringOrNull(
+            (grantee.metadata as GranteeApplicationMetadata)?.application
+              .project.logoImg,
+          );
+          return new GranteeDetails({
+            id: grantee.id,
+            tags: grantee.tags,
+            status: grantee.status,
+            name: grantee.project.name,
+            slug: normalizeString(grantee.project.name),
+            description: (grantee.metadata as GranteeApplicationMetadata)
+              ?.application.project.description,
+            website: notStringOrNull(
+              (grantee.metadata as GranteeApplicationMetadata)?.application
+                .project.website,
+            ),
+            logoUrl: logoIpfs ? `https://${logoIpfs}.ipfs.dweb.link` : null,
+            lastFundingDate: nonZeroOrNull(transaction.timestamp),
+            lastFundingAmount: grantee.totalAmountDonatedInUsd,
+            projects: [
+              {
+                id: (project.metadata as GranteeApplicationMetadata).application
+                  .project.id,
+                name: project.project.name,
+                tags: project.project.tags,
+                tabs: projectMetrics
+                  ? projectMetricsConverter(parsedMetrics)
+                  : [],
+              },
+            ],
+          });
+        });
+
+        const grantee = (await Promise.all(grantees)).find(
+          x => x.slug === granteeSlug,
+        );
 
         if (grantee) {
           return {
