@@ -288,6 +288,7 @@ export class Grantee {
   public static readonly GranteeType = t.strict({
     id: t.string,
     name: t.string,
+    slug: t.string,
     logoUrl: t.union([t.string, t.null]),
     lastFundingDate: t.number,
     lastFundingAmount: t.number,
@@ -300,6 +301,9 @@ export class Grantee {
   name: string;
 
   @ApiProperty()
+  slug: string;
+
+  @ApiProperty()
   logoUrl: string | null;
 
   @ApiProperty()
@@ -309,11 +313,12 @@ export class Grantee {
   lastFundingAmount: number;
 
   constructor(raw: Grantee) {
-    const { id, name, logoUrl, lastFundingDate, lastFundingAmount } = raw;
+    const { id, name, slug, logoUrl, lastFundingDate, lastFundingAmount } = raw;
     const result = Grantee.GranteeType.decode(raw);
 
     this.id = id;
     this.name = name;
+    this.slug = slug;
     this.logoUrl = logoUrl;
     this.lastFundingDate = lastFundingDate;
     this.lastFundingAmount = lastFundingAmount;
@@ -421,6 +426,7 @@ export class KarmaGapGrantProgram {
   profileId: string;
   chainID: number;
   name: string;
+  slug: string;
   isValid: boolean;
   createdAtBlock: number;
   createdByAddress: string;
@@ -500,6 +506,7 @@ export class GrantListResult {
   public static readonly GrantListResultType = t.strict({
     id: t.string,
     name: t.string,
+    slug: t.string,
     status: t.string,
     socialLinks: t.union([
       t.strict({
@@ -554,6 +561,9 @@ export class GrantListResult {
   name: string;
 
   @ApiProperty()
+  slug: string;
+
+  @ApiProperty()
   status: string;
 
   @ApiProperty()
@@ -566,11 +576,12 @@ export class GrantListResult {
   metadata: KarmaGapGrantProgramMetadata;
 
   constructor(raw: GrantListResult) {
-    const { id, name, status, socialLinks, eligibility, metadata } = raw;
+    const { id, name, slug, status, socialLinks, eligibility, metadata } = raw;
     const result = GrantListResult.GrantListResultType.decode(raw);
 
     this.id = id;
     this.name = name;
+    this.slug = slug;
     this.status = status;
     this.socialLinks = socialLinks;
     this.eligibility = eligibility;

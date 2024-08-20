@@ -43,11 +43,11 @@ export class GrantsController {
     return this.grantsService.getGrantsList(page, limit);
   }
 
-  @Get(":id")
+  @Get(":slug")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ANON)
   @ApiOkResponse({
-    description: "Returns the details of the grant with the passed id",
+    description: "Returns the details of the grant with the passed slug",
     schema: responseSchemaWrapper({
       $ref: getSchemaPath(GrantListResult),
     }),
@@ -58,9 +58,9 @@ export class GrantsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async findOne(
-    @Param("id") id: string,
+    @Param("slug") slug: string,
   ): Promise<ResponseWithOptionalData<GrantListResult>> {
-    return this.grantsService.getGrantByProgramId(id).then(res => {
+    return this.grantsService.getGrantBySlug(slug).then(res => {
       return res
         ? {
             success: true,
@@ -74,11 +74,11 @@ export class GrantsController {
     });
   }
 
-  @Get(":id/grantees")
+  @Get(":slug/grantees")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ANON)
   @ApiOkResponse({
-    description: "Returns the grantees of the grant with the passed id",
+    description: "Returns the grantees of the grant with the passed slug",
     schema: responseSchemaWrapper({
       $ref: getSchemaPath(GrantListResult),
     }),
@@ -89,18 +89,18 @@ export class GrantsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async findGrantees(
-    @Param("id") id: string,
+    @Param("slug") slug: string,
     @Query("page") page = 1,
     @Query("limit") limit = 20,
   ): Promise<PaginatedData<Grantee>> {
-    return this.grantsService.getGranteesByProgramId(id, page, limit);
+    return this.grantsService.getGranteesBySlug(slug, page, limit);
   }
 
-  @Get(":id/grantees/:granteeId")
+  @Get(":slug/grantees/:granteeSlug")
   @UseGuards(RBACGuard)
   @Roles(CheckWalletRoles.ANON)
   @ApiOkResponse({
-    description: "Returns the details of the grantee with the passed id",
+    description: "Returns the details of the grantee with the passed slug",
     schema: responseSchemaWrapper({
       $ref: getSchemaPath(GrantListResult),
     }),
@@ -111,9 +111,9 @@ export class GrantsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async findGranteesDetails(
-    @Param("id") id: string,
-    @Param("granteeId") granteeId: string,
+    @Param("slug") slug: string,
+    @Param("granteeSlug") granteeSlug: string,
   ): Promise<ResponseWithOptionalData<GranteeDetails>> {
-    return this.grantsService.getGranteeDetailsByProgramId(id, granteeId);
+    return this.grantsService.getGranteeDetailsBySlugs(slug, granteeSlug);
   }
 }

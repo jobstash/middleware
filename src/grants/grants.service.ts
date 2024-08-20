@@ -19,7 +19,12 @@ import {
 import * as Sentry from "@sentry/node";
 import { InjectConnection } from "nest-neogma";
 import { Neogma } from "neogma";
-import { nonZeroOrNull, notStringOrNull, paginate } from "src/shared/helpers";
+import {
+  nonZeroOrNull,
+  normalizeString,
+  notStringOrNull,
+  paginate,
+} from "src/shared/helpers";
 import { Alchemy, Network } from "alchemy-sdk";
 import { EIP155Chain, getChainById } from "eip155-chains";
 
@@ -93,13 +98,13 @@ export class GrantsService {
     return programs;
   };
 
-  getGrantByProgramId = async (
-    programId: string,
+  getGrantBySlug = async (
+    slug: string,
   ): Promise<GrantListResult | undefined> => {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        MATCH (program:KarmaGapProgram {programId: $programId})
+        MATCH (program:KarmaGapProgram {slug: $slug})
         RETURN program {
           .*,
           status: [(program)-[:HAS_STATUS]->(status:KarmaGapStatus) | status.name][0],
@@ -136,7 +141,7 @@ export class GrantsService {
           ][0]
         } as program
       `,
-        { programId },
+        { slug },
       );
 
       const programs = result.records.map(
@@ -144,49 +149,47 @@ export class GrantsService {
       );
 
       if (programs.length > 0) {
-        return programs
-          .map(
-            grant =>
-              new GrantListResult({
-                id: grant.programId,
-                name: grant.name,
-                status: notStringOrNull(grant.status) ?? "Inactive",
-                socialLinks: grant.socialLinks
-                  ? {
-                      twitter: notStringOrNull(grant.socialLinks.twitter),
-                      website: notStringOrNull(grant.socialLinks.website),
-                      discord: notStringOrNull(grant.socialLinks.discord),
-                      orgWebsite: notStringOrNull(grant.socialLinks.orgWebsite),
-                      blog: notStringOrNull(grant.socialLinks.blog),
-                      forum: notStringOrNull(grant.socialLinks.forum),
-                      grantsSite: notStringOrNull(grant.socialLinks.grantsSite),
-                    }
-                  : null,
-                eligibility: grant.eligibility,
-                metadata: {
-                  ...grant.metadata,
-                  description: notStringOrNull(grant.metadata.description),
-                  programBudget: nonZeroOrNull(grant.metadata.programBudget),
-                  amountDistributedToDate: nonZeroOrNull(
-                    grant.metadata.amountDistributedToDate,
-                  ),
-                  minGrantSize: nonZeroOrNull(grant.metadata.minGrantSize),
-                  maxGrantSize: nonZeroOrNull(grant.metadata.maxGrantSize),
-                  grantsToDate: nonZeroOrNull(grant.metadata.grantsToDate),
-                  website: notStringOrNull(grant.metadata.website),
-                  projectTwitter: notStringOrNull(
-                    grant.metadata.projectTwitter,
-                  ),
-                  bugBounty: notStringOrNull(grant.metadata.bugBounty),
-                  logoImg: notStringOrNull(grant.metadata.logoImg),
-                  bannerImg: notStringOrNull(grant.metadata.bannerImg),
-                  createdAt: nonZeroOrNull(grant.metadata.createdAt),
-                  type: notStringOrNull(grant.metadata.type),
-                  amount: notStringOrNull(grant.metadata.amount),
-                },
-              }),
-          )
-          .find(grant => grant.id === programId);
+        const all = programs.map(
+          grant =>
+            new GrantListResult({
+              id: grant.programId,
+              name: grant.name,
+              slug: grant.slug,
+              status: notStringOrNull(grant.status) ?? "Inactive",
+              socialLinks: grant.socialLinks
+                ? {
+                    twitter: notStringOrNull(grant.socialLinks.twitter),
+                    website: notStringOrNull(grant.socialLinks.website),
+                    discord: notStringOrNull(grant.socialLinks.discord),
+                    orgWebsite: notStringOrNull(grant.socialLinks.orgWebsite),
+                    blog: notStringOrNull(grant.socialLinks.blog),
+                    forum: notStringOrNull(grant.socialLinks.forum),
+                    grantsSite: notStringOrNull(grant.socialLinks.grantsSite),
+                  }
+                : null,
+              eligibility: grant.eligibility,
+              metadata: {
+                ...grant.metadata,
+                description: notStringOrNull(grant.metadata.description),
+                programBudget: nonZeroOrNull(grant.metadata.programBudget),
+                amountDistributedToDate: nonZeroOrNull(
+                  grant.metadata.amountDistributedToDate,
+                ),
+                minGrantSize: nonZeroOrNull(grant.metadata.minGrantSize),
+                maxGrantSize: nonZeroOrNull(grant.metadata.maxGrantSize),
+                grantsToDate: nonZeroOrNull(grant.metadata.grantsToDate),
+                website: notStringOrNull(grant.metadata.website),
+                projectTwitter: notStringOrNull(grant.metadata.projectTwitter),
+                bugBounty: notStringOrNull(grant.metadata.bugBounty),
+                logoImg: notStringOrNull(grant.metadata.logoImg),
+                bannerImg: notStringOrNull(grant.metadata.bannerImg),
+                createdAt: nonZeroOrNull(grant.metadata.createdAt),
+                type: notStringOrNull(grant.metadata.type),
+                amount: notStringOrNull(grant.metadata.amount),
+              },
+            }),
+        );
+        return all[0];
       } else {
         return undefined;
       }
@@ -198,20 +201,20 @@ export class GrantsService {
         });
         Sentry.captureException(err);
       });
-      this.logger.error(`GrantsService::getGrantByProgramId ${err.message}`);
+      this.logger.error(`GrantsService::getGrantBySlug ${err.message}`);
       return undefined;
     }
   };
 
-  getGranteesByProgramId = async (
-    programId: string,
+  getGranteesBySlug = async (
+    slug: string,
     page: number,
     limit: number,
   ): Promise<PaginatedData<Grantee>> => {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        MATCH (program:KarmaGapProgram {programId: $programId})
+        MATCH (program:KarmaGapProgram {slug: $slug})
         RETURN program {
           .*,
           status: [(program)-[:HAS_STATUS]->(status:KarmaGapStatus) | status.name][0],
@@ -248,14 +251,14 @@ export class GrantsService {
           ][0]
         } as program
       `,
-        { programId },
+        { slug },
       );
 
       const programs = result.records.map(
         record => record.get("program") as KarmaGapGrantProgram,
       );
-
-      if (programs.length > 0) {
+      const program = programs[0];
+      if (program) {
         const result = await this.client.query({
           rounds: {
             tags: true,
@@ -276,12 +279,13 @@ export class GrantsService {
               totalAmountDonatedInUsd: true,
               tags: true,
               status: true,
+              project: {
+                name: true,
+              },
               metadata: true,
             },
           },
         });
-
-        const program = programs[0];
 
         const grantees =
           result.rounds.find(
@@ -318,8 +322,8 @@ export class GrantsService {
 
               return new Grantee({
                 id: grantee.id,
-                name: (grantee.metadata as GranteeApplicationMetadata)
-                  ?.application.project.title,
+                name: grantee.project.name,
+                slug: normalizeString(grantee.project.name),
                 logoUrl: notStringOrNull(
                   (grantee.metadata as GranteeApplicationMetadata)?.application
                     .project.logoImg,
@@ -346,14 +350,14 @@ export class GrantsService {
     }
   };
 
-  getGranteeDetailsByProgramId = async (
-    programId: string,
-    granteeId: string,
+  getGranteeDetailsBySlugs = async (
+    programSlug: string,
+    granteeSlug: string,
   ): Promise<ResponseWithOptionalData<GranteeDetails>> => {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        MATCH (program:KarmaGapProgram {programId: $programId})
+        MATCH (program:KarmaGapProgram {slug: $programSlug})
         RETURN program {
           .*,
           status: [(program)-[:HAS_STATUS]->(status:KarmaGapStatus) | status.name][0],
@@ -390,7 +394,7 @@ export class GrantsService {
           ][0]
         } as program
       `,
-        { programId },
+        { programSlug },
       );
 
       const programs = result.records.map(
@@ -430,7 +434,7 @@ export class GrantsService {
         const project = result.rounds
           .find(x => (x.roundMetadata as GrantMetadata)?.name === program.name)
           ?.applications?.find(x => {
-            return x.id === granteeId;
+            return x.project.name === granteeSlug;
           });
 
         const metrics =
@@ -607,8 +611,8 @@ export class GrantsService {
               id: grantee.id,
               tags: grantee.tags,
               status: grantee.status,
-              name: (grantee.metadata as GranteeApplicationMetadata)
-                ?.application.project.title,
+              name: grantee.project.name,
+              slug: normalizeString(grantee.project.name),
               description: (grantee.metadata as GranteeApplicationMetadata)
                 ?.application.project.description,
               website: notStringOrNull(
@@ -635,7 +639,7 @@ export class GrantsService {
             }),
         );
 
-        const grantee = grantees.find(x => x.id === granteeId);
+        const grantee = grantees.find(x => x.slug === granteeSlug);
 
         if (grantee) {
           return {
@@ -664,7 +668,7 @@ export class GrantsService {
         Sentry.captureException(err);
       });
       this.logger.error(
-        `GrantsService::getGranteeDetailsByProgramId ${err.message}`,
+        `GrantsService::getGranteeDetailsBySlugs ${err.message}`,
       );
       return {
         success: false,
@@ -687,6 +691,7 @@ export class GrantsService {
             new GrantListResult({
               id: grant.programId,
               name: grant.name,
+              slug: grant.slug ?? normalizeString(grant.name),
               status: notStringOrNull(grant.status) ?? "Inactive",
               socialLinks: grant.socialLinks
                 ? {
