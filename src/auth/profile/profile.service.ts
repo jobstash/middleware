@@ -11,6 +11,7 @@ import {
   UserRepoEntity,
   UserShowCaseEntity,
   UserSkillEntity,
+  UserWorkHistoryEntity,
 } from "src/shared/entities";
 import {
   normalizeString,
@@ -19,6 +20,7 @@ import {
   nonZeroOrNull,
 } from "src/shared/helpers";
 import {
+  AdjacentRepo,
   OrgStaffReview,
   OrgUserProfile,
   PaginatedData,
@@ -26,7 +28,6 @@ import {
   ResponseWithNoData,
   ResponseWithOptionalData,
   UserGithubOrganization,
-  UserLeanStats,
   UserOrg,
   UserProfile,
   UserRepo,
@@ -49,6 +50,9 @@ import { OrgStaffReviewEntity } from "src/shared/entities/org-staff-review.entit
 import { UpdateOrgUserProfileInput } from "./dto/update-org-profile.input";
 import { UpdateDevUserProfileInput } from "./dto/update-dev-profile.input";
 import { ScorerService } from "src/scorer/scorer.service";
+import { ConfigService } from "@nestjs/config";
+import { addMonths, isBefore } from "date-fns";
+import { PrivyService } from "../privy/privy.service";
 
 @Injectable()
 export class ProfileService {
@@ -59,6 +63,8 @@ export class ProfileService {
     private neogma: Neogma,
     private models: ModelService,
     private scorerService: ScorerService,
+    private configService: ConfigService,
+    private privyService: PrivyService,
   ) {}
 
   async getDevUserProfile(
@@ -209,6 +215,67 @@ export class ProfileService {
     }
   }
 
+  async getUserWorkHistory(
+    wallet: string,
+  ): Promise<ResponseWithOptionalData<UserWorkHistory[]>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $wallet})-[:HAS_WORK_HISTORY]->(history: UserWorkHistory)
+        RETURN history {
+          login: history.login,
+          name: history.name,
+          logoUrl: history.logoUrl,
+          description: history.description,
+          url: history.url,
+          firstContributedAt: history.firstContributedAt,
+          lastContributedAt: history.lastContributedAt,
+          commitsCount: history.commitsCount,
+          tenure: history.tenure,
+          createdAt: history.createdAt,
+          repositories: [
+            (history)-[:WORKED_ON_REPO]->(repo: UserWorkHistoryRepo) | repo {
+              name: repo.name,
+              description: repo.description,
+              cryptoNative: repo.cryptoNative,
+              firstContributedAt: repo.firstContributedAt,
+              lastContributedAt: repo.lastContributedAt,
+              commitsCount: repo.commitsCount,
+              createdAt: repo.createdAt,
+              skills: repo.skills,
+              tenure: repo.tenure,
+              stars: repo.stars,
+              url: repo.url
+            }
+          ]
+        } as history
+      `,
+        { wallet },
+      );
+      return {
+        success: true,
+        message: "Retrieved user work history successfully",
+        data: result.records.map(record =>
+          new UserWorkHistoryEntity(record.get("history")).getProperties(),
+        ),
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::getUserWorkHistory ${err.message}`);
+      return {
+        success: false,
+        message: "Error retrieving user work history",
+      };
+    }
+  }
+
   async getUserOrgs(
     wallet: string,
   ): Promise<ResponseWithOptionalData<UserOrg[]>> {
@@ -217,7 +284,14 @@ export class ProfileService {
       const orgs = [];
 
       if (profile?.username) {
-        const prelim = await this.scorerService.getUserOrgs(profile.username);
+        const cached = await this.getUserWorkHistory(wallet);
+        let prelim: UserWorkHistory[] = [];
+        if (cached.success && data(cached).length > 0) {
+          prelim = data(cached);
+        } else {
+          await this.runUserDataFetchingOps(wallet, true);
+          prelim = data(await this.getUserWorkHistory(wallet));
+        }
         const names = prelim.map(x => x.name);
         const result = await this.neogma.queryRunner.run(
           `
@@ -1001,6 +1075,113 @@ export class ProfileService {
     }
   }
 
+  async getPrivyId(wallet: string): Promise<string | undefined> {
+    const result = await this.neogma.queryRunner
+      .run(
+        `
+          MATCH (u:User {wallet:$wallet})
+          RETURN u.privyId as privyId
+        `,
+        { wallet },
+      )
+      .then(res =>
+        res.records.length ? res.records[0].get("privyId") : undefined,
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "profile.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`ProfileService::getPrivyId ${err.message}`);
+        return undefined;
+      });
+    return result;
+  }
+
+  async runUserDataFetchingOps(
+    wallet: string,
+    skipCache = false,
+  ): Promise<void> {
+    const CACHE_VALIDITY_THRESHOLD = this.configService.get<number>(
+      "CACHE_VALIDITY_THRESHOLD",
+    );
+
+    const profile = data(await this.getDevUserProfile(wallet));
+
+    const userCacheLock = await this.getUserCacheLock(wallet);
+
+    const userCacheLockIsValid =
+      (userCacheLock !== -1 || userCacheLock !== null) &&
+      isBefore(
+        new Date(),
+        addMonths(new Date(userCacheLock), CACHE_VALIDITY_THRESHOLD),
+      );
+
+    if (!userCacheLockIsValid || skipCache) {
+      if (!skipCache) {
+        this.logger.log(
+          `/profile/refresh-work-history-cache: User cache lock is invalid for wallet ${wallet}. Refreshing...`,
+        );
+      } else {
+        this.logger.log(
+          `/profile/refresh-work-history-cache: User cache lock is being hard reset for wallet ${wallet}. Refreshing...`,
+        );
+      }
+      try {
+        const privyId = await this.getPrivyId(wallet);
+        const wallets = await this.privyService.getUserLinkedWallets(privyId);
+        const workHistory = (
+          await this.scorerService.getUserWorkHistories([
+            { github: profile?.username, wallets },
+          ])
+        )[0];
+        await this.refreshWorkHistoryCache(
+          wallet,
+          workHistory.cryptoNative,
+          workHistory.workHistory,
+          workHistory.adjacentRepos,
+        );
+
+        await this.refreshUserRepoCache(
+          wallet,
+          workHistory.workHistory.map(x => {
+            const repos = x.repositories.map(repo => ({
+              name: repo.name,
+              description: repo.description,
+            }));
+            return {
+              login: x.login,
+              name: x.name,
+              description: x.description,
+              avatar_url: x.logoUrl,
+              repositories: repos,
+            };
+          }),
+        );
+        await this.refreshUserCacheLock([wallet]);
+      } catch (err) {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-call",
+            source: "profile.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(
+          `/profile/refresh-work-history-cache: User cache lock is being hard reset for wallet ${wallet}. Refreshing...`,
+        );
+        return;
+      }
+    } else {
+      this.logger.log(
+        `/profile/refresh-work-history-cache: User cache lock is still valid for wallet ${wallet}. Skipping...`,
+      );
+    }
+  }
+
   async getUserCacheLock(wallet: string): Promise<number | null> {
     try {
       const result = await this.neogma.queryRunner.run(
@@ -1063,20 +1244,18 @@ export class ProfileService {
 
   async refreshWorkHistoryCache(
     wallet: string,
-    dto: UserWorkHistory[],
-    leanStats: UserLeanStats | null,
+    cryptoNative: boolean,
+    workHistory: UserWorkHistory[],
+    adjacentRepos: AdjacentRepo[],
   ): Promise<ResponseWithNoData> {
-    const isCryptoNative =
-      (dto.some(x => x.repositories.some(repo => repo.cryptoNative)) ||
-        leanStats?.is_native) ??
-      false;
-    const isCryptoAjacent = leanStats?.is_adjacent ?? false;
+    const isCryptoNative = cryptoNative;
+    const isCryptoAdjacent = adjacentRepos.length > 0;
 
     this.logger.log(
       `/profile/refresh-work-history-cache ${JSON.stringify({
         wallet,
         isCryptoNative,
-        isCryptoAjacent,
+        isCryptoAdjacent,
       })}`,
     );
 
@@ -1092,7 +1271,7 @@ export class ProfileService {
         `
         MATCH (user: User {wallet: $wallet})
         SET user.cryptoNative = $cryptoNative
-        SET user.cryptoAjacent = $cryptoAjacent
+        SET user.cryptoAdjacent = $cryptoAdjacent
 
         WITH user
 
@@ -1103,9 +1282,13 @@ export class ProfileService {
           SET history.login = workHistory.login
           SET history.name = workHistory.name
           SET history.logoUrl = workHistory.logoUrl
+          SET history.description = workHistory.description
           SET history.url = workHistory.url
           SET history.firstContributedAt = workHistory.firstContributedAt
           SET history.lastContributedAt = workHistory.lastContributedAt
+          SET history.commitsCount = workHistory.commitsCount
+          SET history.tenure = workHistory.tenure
+          SET history.cryptoNative = workHistory.cryptoNative
           SET history.createdAt = timestamp()
 
           WITH workHistory, history
@@ -1113,25 +1296,29 @@ export class ProfileService {
           CREATE (historyRepo: UserWorkHistoryRepo)
           SET historyRepo.name = repo.name
           SET historyRepo.url = repo.url
+          SET historyRepo.description = repo.description
           SET historyRepo.cryptoNative = repo.cryptoNative
           SET historyRepo.firstContributedAt = repo.firstContributedAt
           SET historyRepo.lastContributedAt = repo.lastContributedAt
           SET historyRepo.commitsCount = repo.commitsCount
+          SET historyRepo.skills = repo.skills
+          SET historyRepo.tenure = repo.tenure
+          SET historyRepo.stars = repo.stars
           SET historyRepo.createdAt = timestamp()
 
           WITH history, historyRepo
-          CREATE (history)-[:WORKED_ON_REPO]->(historyRepo)
+          MERGE (history)-[:WORKED_ON_REPO]->(historyRepo)
           RETURN history
         }
 
         WITH history, user
-        CREATE (user)-[:HAS_WORK_HISTORY]->(history)
+        MERGE (user)-[:HAS_WORK_HISTORY]->(history)
         `,
         {
           wallet,
-          history: dto ?? [],
+          history: workHistory ?? [],
           cryptoNative: isCryptoNative,
-          cryptoAjacent: isCryptoAjacent,
+          cryptoAdjacent: isCryptoAdjacent,
         },
       );
       return {
@@ -1144,7 +1331,7 @@ export class ProfileService {
           action: "db-call",
           source: "profile.service",
         });
-        scope.setExtra("input", { wallet, dto });
+        scope.setExtra("input", { wallet, dto: workHistory });
         Sentry.captureException(err);
       });
       this.logger.error(
@@ -1162,10 +1349,6 @@ export class ProfileService {
     dto: UserGithubOrganization[],
   ): Promise<ResponseWithNoData> {
     try {
-      const old = (await this.getUserRepos(wallet, {
-        limit: Integer.MAX_SAFE_VALUE.toNumber(),
-        page: 1,
-      })) as Response<UserRepo[]>;
       for (const org of dto) {
         const processed = {
           ...org,
@@ -1174,8 +1357,13 @@ export class ProfileService {
             nameWithOwner: `${org.login}/${repo.name}`,
           })),
         };
-        const toMerge = processed.repositories.filter(
-          repo => old.data?.some(x => x.name === repo.name) ?? false,
+        await this.neogma.queryRunner.run(
+          `
+            MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(ghu:GithubUser)
+            OPTIONAL MATCH (ghu)-[r:CONTRIBUTED_TO]->(repo: GithubRepository)
+            DETACH DELETE r
+          `,
+          { wallet },
         );
         await this.neogma.queryRunner.run(
           `
@@ -1198,23 +1386,7 @@ export class ProfileService {
             MATCH (gho:GithubOrganization {login: $org.login})
             MERGE (gho)-[:HAS_REPOSITORY]->(repo)
           `,
-          { wallet, org: { ...processed, repositories: toMerge } },
-        );
-
-        const toDelete = old.data
-          .filter(
-            repo => !processed.repositories.some(x => x.name === repo.name),
-          )
-          .map(x => `${org.login}/${x.name}`);
-
-        await this.neogma.queryRunner.run(
-          `
-            MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(ghu:GithubUser)
-            OPTIONAL MATCH (ghu)-[r:CONTRIBUTED_TO]->(repo: GithubRepository)
-            WHERE repo.nameWithOwner IN $toDelete
-            DETACH DELETE r
-          `,
-          { wallet, toDelete },
+          { wallet, org: { ...processed } },
         );
       }
       return {

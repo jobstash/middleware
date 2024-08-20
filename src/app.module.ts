@@ -23,6 +23,9 @@ import { ScorerModule } from "./scorer/scorer.module";
 import { ChainsModule } from "./chains/chains.module";
 import { InvestorsModule } from "./investors/investors.module";
 import { PrivyModule } from "./auth/privy/privy.module";
+import { GrantsModule } from "./grants/grants.module";
+import { GoogleBigQueryModule } from "./google-bigquery/google-bigquery.module";
+import { SearchModule } from "./search/search.module";
 
 @Module({
   imports: [
@@ -63,6 +66,9 @@ import { PrivyModule } from "./auth/privy/privy.module";
     ChainsModule,
     InvestorsModule,
     PrivyModule,
+    GrantsModule,
+    GoogleBigQueryModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [AppService],

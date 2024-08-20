@@ -193,12 +193,12 @@ export const Tags = (
           const result =
             (await query.run(neogma.queryRunner))?.records[0]
               ?.get("result")
+              .filter(
+                (res: { [x: string]: number }) => res["popularity"] > threshold,
+              )
               .sort(
                 (a: { [x: string]: number }, b: { [x: string]: number }) =>
                   ((b["popularity"] as number) - a["popularity"]) as number,
-              )
-              .filter(
-                (res: { [x: string]: number }) => res["popularity"] > threshold,
               )
               .map(res => new TagEntity(res["tag"]).getProperties()) ?? [];
           return limit ? result.slice(0, limit) : result;

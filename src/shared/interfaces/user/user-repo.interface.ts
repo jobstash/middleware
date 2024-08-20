@@ -77,3 +77,33 @@ export class UserRepo {
     }
   }
 }
+
+export class AdjacentRepo {
+  public static readonly AdjacentRepoType = t.strict({
+    name: t.string,
+    stars: t.number,
+  });
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  stars: number;
+
+  constructor(raw: AdjacentRepo) {
+    const { name, stars } = raw;
+
+    const result = AdjacentRepo.AdjacentRepoType.decode(raw);
+
+    this.name = name;
+    this.stars = stars;
+
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(
+          `adjacent repo instance with name ${name} failed validation with error '${x}'`,
+        );
+      });
+    }
+  }
+}

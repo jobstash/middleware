@@ -444,8 +444,7 @@ export function propertiesMatch<T extends object, U extends object>(
   return true;
 }
 
-export function normalizeString(original: string | null): string | null {
-  const specialChars = "!@#$%^&*<>()-+=,";
+export function normalizeString(original: string): string {
   const charToStringMap = new Map([
     ["!", "_bang_"],
     ["@", "_at_"],
@@ -464,21 +463,22 @@ export function normalizeString(original: string | null): string | null {
     ["+", "_plus_"],
     ["=", "_equals_"],
   ]);
-  if (!original) {
-    return null;
-  }
   const normalized = original
+    .trim()
     .split("")
     .map(x => {
-      if (specialChars.includes(x)) {
+      if (charToStringMap.has(x)) {
         return charToStringMap.get(x);
       } else {
         return x;
       }
     })
     .join("")
+    .split(" ")
+    .join("-")
+    .toLowerCase()
     .replace(emojiRegex(), "");
-  return normalized.toLowerCase();
+  return normalized;
 }
 
 export const paginate = <T>(
@@ -487,9 +487,9 @@ export const paginate = <T>(
   data: T[],
 ): PaginatedData<T> => {
   return {
-    page: (data.length > 0 ? page ?? 1 : -1) ?? -1,
-    count: limit > data.length ? data.length : limit,
-    total: data.length,
+    page: Number((data.length > 0 ? page ?? 1 : -1) ?? -1),
+    count: Number(limit > data.length ? data.length : limit),
+    total: Number(data.length),
     data: data.slice((page - 1) * limit, page * limit),
   };
 };

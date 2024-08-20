@@ -65,8 +65,6 @@ import { FeatureJobsInput } from "./dto/feature-jobs.input";
 import { UserService } from "src/user/user.service";
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { CreateJobFolderInput } from "./dto/create-job-folder.input";
-import { ApiKeyGuard } from "src/auth/api-key.guard";
-import { ScorerService } from "src/scorer/scorer.service";
 import { UpdateJobApplicantListInput } from "./dto/update-job-applicant-list.input";
 
 @Controller("jobs")
@@ -79,7 +77,6 @@ export class JobsController {
     private readonly tagsService: TagsService,
     private readonly profileService: ProfileService,
     private readonly userService: UserService,
-    private readonly scorerService: ScorerService,
   ) {}
 
   @Get("/list")
@@ -375,72 +372,6 @@ export class JobsController {
   ): Promise<ResponseWithOptionalData<JobApplicant[]>> {
     this.logger.log(`/jobs/applicants`);
     return this.jobsService.getJobApplicants(list);
-  }
-
-  @Get("orgs/refresh-work-history")
-  @UseGuards(ApiKeyGuard)
-  async refreshWorkHistory(): Promise<ResponseWithNoData> {
-    this.logger.log("/jobs/orgs/refresh-work-history");
-    try {
-      const orgs = await this.userService.getApprovedOrgs();
-      for (const orgId of Array.from(new Set(orgs.map(x => x.orgId)))) {
-        this.logger.log(`Fetching work history for orgId: ${orgId}`);
-        const applicants = data(
-          await this.jobsService.getJobsByOrgIdWithApplicants(orgId, "all"),
-        );
-        if (applicants?.length > 0) {
-          await this.profileService.refreshUserCacheLock(
-            Array.from(
-              new Set(
-                applicants
-                  .map(applicant => applicant.user.wallet)
-                  .filter(Boolean),
-              ),
-            ),
-          );
-          const applicantUsernames = Array.from(
-            new Set(applicants.map(x => x.user.username).filter(Boolean)),
-          );
-          this.logger.log(`Applicants: ${JSON.stringify(applicantUsernames)}`);
-          const applicantWorkHistories =
-            await this.scorerService.getWorkHistory(applicantUsernames);
-          const leanStats = await this.scorerService.getLeanStats(
-            applicants.map(x => ({
-              github: x.user.username,
-              wallets: x.user.linkedWallets,
-            })),
-          );
-          for (const applicant of applicantUsernames) {
-            const workHistory =
-              applicantWorkHistories.find(x => x.user === applicant)
-                ?.workHistory ?? [];
-            const leanStatsForApplicant =
-              leanStats.find(x => x.actor_login === applicant) ?? null;
-            await this.profileService.refreshWorkHistoryCache(
-              applicants.find(x => x.user.username === applicant)?.user?.wallet,
-              workHistory,
-              leanStatsForApplicant,
-            );
-          }
-        }
-      }
-      return {
-        success: true,
-        message: "Orgs work history refreshed successfully",
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "service-call",
-          source: "profile.controller",
-        });
-        Sentry.captureException(err);
-      });
-      return {
-        success: false,
-        message: "Error refreshing org work histories",
-      };
-    }
   }
 
   @Get("/all")
