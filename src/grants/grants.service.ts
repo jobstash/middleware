@@ -448,11 +448,11 @@ export class GrantsService {
 
         const metrics =
           await this.googleBigQueryService.getGrantProjectsMetrics([
-            project.project.name,
+            granteeSlug,
           ]);
 
         const projectMetrics = (metrics.find(
-          m => m.display_name === project.project.name,
+          m => m.project_name === granteeSlug,
         ) ?? {}) as RawGrantProjectMetrics;
 
         const parsedMetrics = (
@@ -499,139 +499,141 @@ export class GrantsService {
           metrics: GrantProjectMetrics,
         ): GrantProject["tabs"] => {
           return [
-            {
-              label: "Overall Summary",
-              tab: "overall-summary",
-              stats: [],
-            },
-            {
-              label: "Impact Metrics",
-              tab: "impact-metrics",
-              stats: [],
-            },
-            {
-              label: "Github Metrics",
-              tab: "github-metrics",
-              stats: [],
-            },
-            {
-              label: "Code Metrics",
-              tab: "code-metrics",
-              stats: [
-                {
-                  label: "First Commit Date",
-                  value: metrics.firstCommitDate
-                    ? new Date(metrics.firstCommitDate).toDateString()
-                    : "N/A",
-                  stats: [],
-                },
-                {
-                  label: "Last Commit Date",
-                  value: metrics.lastCommitDate
-                    ? new Date(metrics.lastCommitDate).toDateString()
-                    : "N/A",
-                  stats: [],
-                },
-                {
-                  label: "Repositories",
-                  value: metrics.repositoryCount
-                    ? metrics.repositoryCount.toString()
-                    : "N/A",
-                  stats: [],
-                },
-                {
-                  label: "Stars",
-                  value: metrics.starCount
-                    ? metrics.starCount.toString()
-                    : "N/A",
-                  stats: [],
-                },
-                {
-                  label: "Forks",
-                  value: metrics.forkCount
-                    ? metrics.forkCount.toString()
-                    : "N/A",
-                  stats: [],
-                },
-                {
-                  label: "Contributor Count",
-                  value: metrics.contributorCount
-                    ? metrics.contributorCount.toString()
-                    : "N/A",
+            // {
+            //   label: "Overall Summary",
+            //   tab: "overall-summary",
+            //   stats: [],
+            // },
+            // {
+            //   label: "Impact Metrics",
+            //   tab: "impact-metrics",
+            //   stats: [],
+            // },
+            // {
+            //   label: "Github Metrics",
+            //   tab: "github-metrics",
+            //   stats: [],
+            // },
+            Object.values(metrics).filter(Boolean).length > 0
+              ? {
+                  label: "Code Metrics",
+                  tab: "code-metrics",
                   stats: [
                     {
-                      label: "Last 6 Months",
-                      value: metrics.contributorCountSixMonths
-                        ? metrics.contributorCountSixMonths.toString()
+                      label: "First Commit Date",
+                      value: metrics.firstCommitDate
+                        ? new Date(metrics.firstCommitDate).toDateString()
                         : "N/A",
                       stats: [],
                     },
                     {
-                      label: "New Contributors",
-                      value: metrics.newContributorCountSixMonths
-                        ? metrics.newContributorCountSixMonths.toString()
+                      label: "Last Commit Date",
+                      value: metrics.lastCommitDate
+                        ? new Date(metrics.lastCommitDate).toDateString()
                         : "N/A",
                       stats: [],
                     },
                     {
-                      label: "Fulltime Developer Average",
-                      value: metrics.fulltimeDeveloperAverageSixMonths
-                        ? metrics.fulltimeDeveloperAverageSixMonths.toString()
+                      label: "Repositories",
+                      value: metrics.repositoryCount
+                        ? metrics.repositoryCount.toString()
                         : "N/A",
                       stats: [],
                     },
                     {
-                      label: "Active Developers",
-                      value: metrics.activeDeveloperCountSixMonths
-                        ? metrics.activeDeveloperCountSixMonths.toString()
+                      label: "Stars",
+                      value: metrics.starCount
+                        ? metrics.starCount.toString()
+                        : "N/A",
+                      stats: [],
+                    },
+                    {
+                      label: "Forks",
+                      value: metrics.forkCount
+                        ? metrics.forkCount.toString()
+                        : "N/A",
+                      stats: [],
+                    },
+                    {
+                      label: "Contributor Count",
+                      value: metrics.contributorCount
+                        ? metrics.contributorCount.toString()
+                        : "N/A",
+                      stats: [
+                        {
+                          label: "Last 6 Months",
+                          value: metrics.contributorCountSixMonths
+                            ? metrics.contributorCountSixMonths.toString()
+                            : "N/A",
+                          stats: [],
+                        },
+                        {
+                          label: "New Contributors",
+                          value: metrics.newContributorCountSixMonths
+                            ? metrics.newContributorCountSixMonths.toString()
+                            : "N/A",
+                          stats: [],
+                        },
+                        {
+                          label: "Fulltime Developer Average",
+                          value: metrics.fulltimeDeveloperAverageSixMonths
+                            ? metrics.fulltimeDeveloperAverageSixMonths.toString()
+                            : "N/A",
+                          stats: [],
+                        },
+                        {
+                          label: "Active Developers",
+                          value: metrics.activeDeveloperCountSixMonths
+                            ? metrics.activeDeveloperCountSixMonths.toString()
+                            : "N/A",
+                          stats: [],
+                        },
+                      ],
+                    },
+                    {
+                      label: "Commit Count (6 Months)",
+                      value: metrics.commitCountSixMonths
+                        ? metrics.commitCountSixMonths.toString()
+                        : "N/A",
+                      stats: [],
+                    },
+                    {
+                      label: "Opened Pull Request Count (6 Months)",
+                      value: metrics.openedPullRequestCountSixMonths
+                        ? metrics.openedPullRequestCountSixMonths.toString()
+                        : "N/A",
+                      stats: [],
+                    },
+                    {
+                      label: "Merged Pull Request Count (6 Months)",
+                      value: metrics.mergedPullRequestCountSixMonths
+                        ? metrics.mergedPullRequestCountSixMonths.toString()
+                        : "N/A",
+                      stats: [],
+                    },
+                    {
+                      label: "Opened Issue Count (6 Months)",
+                      value: metrics.openedIssueCountSixMonths
+                        ? metrics.openedIssueCountSixMonths.toString()
+                        : "N/A",
+                      stats: [],
+                    },
+                    {
+                      label: "Closed Issue Count (6 Months)",
+                      value: metrics.closedIssueCountSixMonths
+                        ? metrics.closedIssueCountSixMonths.toString()
                         : "N/A",
                       stats: [],
                     },
                   ],
-                },
-                {
-                  label: "Commit Count (6 Months)",
-                  value: metrics.commitCountSixMonths
-                    ? metrics.commitCountSixMonths.toString()
-                    : "N/A",
-                  stats: [],
-                },
-                {
-                  label: "Opened Pull Request Count (6 Months)",
-                  value: metrics.openedPullRequestCountSixMonths
-                    ? metrics.openedPullRequestCountSixMonths.toString()
-                    : "N/A",
-                  stats: [],
-                },
-                {
-                  label: "Merged Pull Request Count (6 Months)",
-                  value: metrics.mergedPullRequestCountSixMonths
-                    ? metrics.mergedPullRequestCountSixMonths.toString()
-                    : "N/A",
-                  stats: [],
-                },
-                {
-                  label: "Opened Issue Count (6 Months)",
-                  value: metrics.openedIssueCountSixMonths
-                    ? metrics.openedIssueCountSixMonths.toString()
-                    : "N/A",
-                  stats: [],
-                },
-                {
-                  label: "Closed Issue Count (6 Months)",
-                  value: metrics.closedIssueCountSixMonths
-                    ? metrics.closedIssueCountSixMonths.toString()
-                    : "N/A",
-                  stats: [],
-                },
-              ],
-            },
-            {
-              label: "Contract Address",
-              tab: "contract-address",
-              stats: [],
-            },
-          ];
+                }
+              : null,
+            // {
+            //   label: "Contract Address",
+            //   tab: "contract-address",
+            //   stats: [],
+            // },
+          ].filter(Boolean);
         };
 
         const grantees = (
