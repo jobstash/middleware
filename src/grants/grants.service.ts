@@ -683,10 +683,12 @@ export class GrantsService {
   ): Promise<PaginatedData<GrantListResult>> {
     try {
       const programs = await this.getGrantsListResults();
+      const thankArb = programs.find(x => x.programId === "451");
+      const others = programs.filter(x => x.programId !== "451");
       return paginate<GrantListResult>(
         page,
         limit,
-        programs.map(
+        [thankArb, ...others].map(
           grant =>
             new GrantListResult({
               id: grant.programId,
