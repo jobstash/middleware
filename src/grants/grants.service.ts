@@ -26,7 +26,7 @@ import {
   paginate,
 } from "src/shared/helpers";
 import { Alchemy, Network } from "alchemy-sdk";
-import { EIP155Chain, getChainById } from "eip155-chains";
+// import { EIP155Chain, getChainById } from "eip155-chains";
 
 @Injectable()
 export class GrantsService {
@@ -288,9 +288,15 @@ export class GrantsService {
         });
 
         const grantees =
-          result.rounds.find(
-            x => (x.roundMetadata as GrantMetadata)?.name === program.name,
-          )?.applications ?? [];
+          program.programId === "451"
+            ? result.rounds.find(
+                x =>
+                  (x.roundMetadata as GrantMetadata)?.name ===
+                  "GG21: Thriving Arbitrum Summer",
+              )?.applications ?? []
+            : result.rounds.find(
+                x => (x.roundMetadata as GrantMetadata)?.name === program.name,
+              )?.applications ?? [];
 
         return paginate<Grantee>(
           page,
@@ -298,36 +304,30 @@ export class GrantsService {
           await Promise.all(
             grantees.map(async grantee => {
               const apiKey = this.configService.get<string>("ALCHEMY_API_KEY");
-              const chainInfo: EIP155Chain = await getChainById(
-                grantee.chainId,
-                {
-                  apiKeys: {
-                    ALCHEMY_API_KEY: apiKey,
-                  },
-                  healthyCheckEnabled: true,
-                  filters: {
-                    features: ["privacy"],
-                  },
-                },
-              );
 
               const alchemy = new Alchemy({
                 apiKey,
-                network: Network[chainInfo.network],
+                network: Network.ARB_MAINNET,
               });
 
-              const transaction = await alchemy.core.getTransaction(
-                grantee.distributionTransaction,
+              const transaction = grantee.distributionTransaction
+                ? await alchemy.core.getTransaction(
+                    grantee.distributionTransaction,
+                  )
+                : {
+                    timestamp: 0,
+                  };
+
+              const logoIpfs = notStringOrNull(
+                (grantee.metadata as GranteeApplicationMetadata)?.application
+                  .project.logoImg,
               );
 
               return new Grantee({
                 id: grantee.id,
                 name: grantee.project.name,
                 slug: normalizeString(grantee.project.name),
-                logoUrl: notStringOrNull(
-                  (grantee.metadata as GranteeApplicationMetadata)?.application
-                    .project.logoImg,
-                ),
+                logoUrl: logoIpfs ? `https://${logoIpfs}.ipfs.dweb.link` : null,
                 lastFundingDate: transaction.timestamp,
                 lastFundingAmount: grantee.totalAmountDonatedInUsd,
               });

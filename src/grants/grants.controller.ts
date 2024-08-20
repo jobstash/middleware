@@ -17,9 +17,11 @@ import {
   PaginatedData,
   ResponseWithOptionalData,
 } from "src/shared/interfaces";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Controller("grants")
 export class GrantsController {
+  private logger = new CustomLogger(GrantsController.name);
   constructor(private readonly grantsService: GrantsService) {}
 
   @Get("")
@@ -40,6 +42,7 @@ export class GrantsController {
     @Query("page") page = 1,
     @Query("limit") limit = 20,
   ): Promise<PaginatedData<GrantListResult>> {
+    this.logger.log(`/grants/list ${JSON.stringify({ page, limit })}`);
     return this.grantsService.getGrantsList(page, limit);
   }
 
@@ -60,6 +63,7 @@ export class GrantsController {
   async findOne(
     @Param("slug") slug: string,
   ): Promise<ResponseWithOptionalData<GrantListResult>> {
+    this.logger.log(`/grants/details/${slug}`);
     return this.grantsService.getGrantBySlug(slug).then(res => {
       return res
         ? {
@@ -93,6 +97,9 @@ export class GrantsController {
     @Query("page") page = 1,
     @Query("limit") limit = 20,
   ): Promise<PaginatedData<Grantee>> {
+    this.logger.log(
+      `/grants/details/${slug}/grantees ${JSON.stringify({ page, limit })}`,
+    );
     return this.grantsService.getGranteesBySlug(slug, page, limit);
   }
 
@@ -114,6 +121,7 @@ export class GrantsController {
     @Param("slug") slug: string,
     @Param("granteeSlug") granteeSlug: string,
   ): Promise<ResponseWithOptionalData<GranteeDetails>> {
+    this.logger.log(`/grants/details/${slug}/grantees/${granteeSlug}`);
     return this.grantsService.getGranteeDetailsBySlugs(slug, granteeSlug);
   }
 }
