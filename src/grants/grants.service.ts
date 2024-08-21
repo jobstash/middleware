@@ -59,7 +59,7 @@ export class GrantsService {
             requirements: apoc.coll.toSet([(eligibility)-[:HAS_REQUIREMENT]->(requirement:KarmaGapRequirement) | requirement.description])
           }][0],
           socialLinks: [
-            (program)-[:HAS_SOCIAL_LINK]->(socialLink:KarmaGapSocials) | socialLink {
+            (program)-[:HAS_SOCIAL_LINKS]->(socialLink:KarmaGapSocials) | socialLink {
               .*
             }
           ][0],
@@ -76,13 +76,13 @@ export class GrantsService {
           metadata: [
             (program)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata) | metadata {
               .*,
-              categories: apoc.coll.toSet([(program)-[:HAS_CATEGORY]->(category) | category.name]),
-              ecosystems: apoc.coll.toSet([(program)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
-              organizations: apoc.coll.toSet([(program)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
-              networks: apoc.coll.toSet([(program)-[:HAS_NETWORK]->(network) | network.name]),
-              grantTypes: apoc.coll.toSet([(program)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
-              tags: apoc.coll.toSet([(program)-[:HAS_TAG]->(tag) | tag.name]),
-              platformsUsed: apoc.coll.toSet([(program)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
+              categories: apoc.coll.toSet([(metadata)-[:HAS_CATEGORY]->(category) | category.name]),
+              ecosystems: apoc.coll.toSet([(metadata)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
+              organizations: apoc.coll.toSet([(metadata)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
+              networks: apoc.coll.toSet([(metadata)-[:HAS_NETWORKS]->(network) | network.name]),
+              grantTypes: apoc.coll.toSet([(metadata)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
+              tags: apoc.coll.toSet([(metadata)-[:HAS_TAG]->(tag) | tag.name]),
+              platformsUsed: apoc.coll.toSet([(metadata)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
             }
           ][0]
         } as program
@@ -113,7 +113,7 @@ export class GrantsService {
             requirements: apoc.coll.toSet([(eligibility)-[:HAS_REQUIREMENT]->(requirement:KarmaGapRequirement) | requirement.description])
           }][0],
           socialLinks: [
-            (program)-[:HAS_SOCIAL_LINK]->(socialLink:KarmaGapSocials) | socialLink {
+            (program)-[:HAS_SOCIAL_LINKS]->(socialLink:KarmaGapSocials) | socialLink {
               .*
             }
           ][0],
@@ -130,13 +130,13 @@ export class GrantsService {
           metadata: [
             (program)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata) | metadata {
               .*,
-              categories: apoc.coll.toSet([(program)-[:HAS_CATEGORY]->(category) | category.name]),
-              ecosystems: apoc.coll.toSet([(program)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
-              organizations: apoc.coll.toSet([(program)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
-              networks: apoc.coll.toSet([(program)-[:HAS_NETWORK]->(network) | network.name]),
-              grantTypes: apoc.coll.toSet([(program)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
-              tags: apoc.coll.toSet([(program)-[:HAS_TAG]->(tag) | tag.name]),
-              platformsUsed: apoc.coll.toSet([(program)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
+              categories: apoc.coll.toSet([(metadata)-[:HAS_CATEGORY]->(category) | category.name]),
+              ecosystems: apoc.coll.toSet([(metadata)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
+              organizations: apoc.coll.toSet([(metadata)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
+              networks: apoc.coll.toSet([(metadata)-[:HAS_NETWORKS]->(network) | network.name]),
+              grantTypes: apoc.coll.toSet([(metadata)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
+              tags: apoc.coll.toSet([(metadata)-[:HAS_TAG]->(tag) | tag.name]),
+              platformsUsed: apoc.coll.toSet([(metadata)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
             }
           ][0]
         } as program
@@ -223,7 +223,7 @@ export class GrantsService {
             requirements: apoc.coll.toSet([(eligibility)-[:HAS_REQUIREMENT]->(requirement:KarmaGapRequirement) | requirement.description])
           }][0],
           socialLinks: [
-            (program)-[:HAS_SOCIAL_LINK]->(socialLink:KarmaGapSocials) | socialLink {
+            (program)-[:HAS_SOCIAL_LINKS]->(socialLink:KarmaGapSocials) | socialLink {
               .*
             }
           ][0],
@@ -240,13 +240,13 @@ export class GrantsService {
           metadata: [
             (program)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata) | metadata {
               .*,
-              categories: apoc.coll.toSet([(program)-[:HAS_CATEGORY]->(category) | category.name]),
-              ecosystems: apoc.coll.toSet([(program)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
-              organizations: apoc.coll.toSet([(program)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
-              networks: apoc.coll.toSet([(program)-[:HAS_NETWORK]->(network) | network.name]),
-              grantTypes: apoc.coll.toSet([(program)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
-              tags: apoc.coll.toSet([(program)-[:HAS_TAG]->(tag) | tag.name]),
-              platformsUsed: apoc.coll.toSet([(program)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
+              categories: apoc.coll.toSet([(metadata)-[:HAS_CATEGORY]->(category) | category.name]),
+              ecosystems: apoc.coll.toSet([(metadata)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
+              organizations: apoc.coll.toSet([(metadata)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
+              networks: apoc.coll.toSet([(metadata)-[:HAS_NETWORKS]->(network) | network.name]),
+              grantTypes: apoc.coll.toSet([(metadata)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
+              tags: apoc.coll.toSet([(metadata)-[:HAS_TAG]->(tag) | tag.name]),
+              platformsUsed: apoc.coll.toSet([(metadata)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
             }
           ][0]
         } as program
@@ -366,7 +366,7 @@ export class GrantsService {
             requirements: apoc.coll.toSet([(eligibility)-[:HAS_REQUIREMENT]->(requirement:KarmaGapRequirement) | requirement.description])
           }][0],
           socialLinks: [
-            (program)-[:HAS_SOCIAL_LINK]->(socialLink:KarmaGapSocials) | socialLink {
+            (program)-[:HAS_SOCIAL_LINKS]->(socialLink:KarmaGapSocials) | socialLink {
               .*
             }
           ][0],
@@ -383,13 +383,13 @@ export class GrantsService {
           metadata: [
             (program)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata) | metadata {
               .*,
-              categories: apoc.coll.toSet([(program)-[:HAS_CATEGORY]->(category) | category.name]),
-              ecosystems: apoc.coll.toSet([(program)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
-              organizations: apoc.coll.toSet([(program)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
-              networks: apoc.coll.toSet([(program)-[:HAS_NETWORK]->(network) | network.name]),
-              grantTypes: apoc.coll.toSet([(program)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
-              tags: apoc.coll.toSet([(program)-[:HAS_TAG]->(tag) | tag.name]),
-              platformsUsed: apoc.coll.toSet([(program)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
+              categories: apoc.coll.toSet([(metadata)-[:HAS_CATEGORY]->(category) | category.name]),
+              ecosystems: apoc.coll.toSet([(metadata)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
+              organizations: apoc.coll.toSet([(metadata)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
+              networks: apoc.coll.toSet([(metadata)-[:HAS_NETWORKS]->(network) | network.name]),
+              grantTypes: apoc.coll.toSet([(metadata)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
+              tags: apoc.coll.toSet([(metadata)-[:HAS_TAG]->(tag) | tag.name]),
+              platformsUsed: apoc.coll.toSet([(metadata)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
             }
           ][0]
         } as program
