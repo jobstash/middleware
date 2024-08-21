@@ -704,7 +704,7 @@ export class GrantsService {
               {
                 id: (project.metadata as GranteeApplicationMetadata).application
                   .project.id,
-                name: project.project.name,
+                name: `GG21: Thriving Arbitrum Summer - ${project.project.name}`,
                 tags: project.project.tags,
                 tabs: projectCodeMetrics
                   ? projectMetricsConverter(
