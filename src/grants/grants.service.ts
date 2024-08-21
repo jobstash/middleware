@@ -10,10 +10,10 @@ import {
   GrantListResult,
   GrantMetadata,
   GrantProject,
-  GrantProjectMetrics,
+  GrantProjectCodeMetrics,
   KarmaGapGrantProgram,
   PaginatedData,
-  RawGrantProjectMetrics,
+  RawGrantProjectCodeMetrics,
   ResponseWithOptionalData,
 } from "src/shared/interfaces";
 import * as Sentry from "@sentry/node";
@@ -21,7 +21,7 @@ import { InjectConnection } from "nest-neogma";
 import { Neogma } from "neogma";
 import {
   nonZeroOrNull,
-  normalizeString,
+  sluggify,
   notStringOrNull,
   paginate,
 } from "src/shared/helpers";
@@ -326,7 +326,7 @@ export class GrantsService {
               return new Grantee({
                 id: grantee.id,
                 name: grantee.project.name,
-                slug: normalizeString(grantee.project.name),
+                slug: sluggify(grantee.project.name),
                 logoUrl: logoIpfs ? `https://${logoIpfs}.ipfs.dweb.link` : null,
                 lastFundingDate: nonZeroOrNull(transaction.timestamp),
                 lastFundingAmount: grantee.totalAmountDonatedInUsd,
@@ -443,17 +443,17 @@ export class GrantsService {
                 x => (x.roundMetadata as GrantMetadata)?.name === program.name,
               )?.applications ?? []
         ).find(x => {
-          return normalizeString(x.project.name) === granteeSlug;
+          return sluggify(x.project.name) === granteeSlug;
         });
 
         const metrics =
-          await this.googleBigQueryService.getGrantProjectsMetrics([
+          await this.googleBigQueryService.getGrantProjectsCodeMetrics([
             granteeSlug,
           ]);
 
         const projectMetrics = (metrics.find(
           m => m.project_name === granteeSlug,
-        ) ?? {}) as RawGrantProjectMetrics;
+        ) ?? {}) as RawGrantProjectCodeMetrics;
 
         const parsedMetrics = (
           projectMetrics
@@ -493,10 +493,10 @@ export class GrantsService {
                   : undefined,
               }
             : {}
-        ) as GrantProjectMetrics;
+        ) as GrantProjectCodeMetrics;
 
         const projectMetricsConverter = (
-          metrics: GrantProjectMetrics,
+          metrics: GrantProjectCodeMetrics,
         ): GrantProject["tabs"] => {
           return [
             // {
@@ -669,7 +669,7 @@ export class GrantsService {
             tags: grantee.tags,
             status: grantee.status,
             name: grantee.project.name,
-            slug: normalizeString(grantee.project.name),
+            slug: sluggify(grantee.project.name),
             description: (grantee.metadata as GranteeApplicationMetadata)
               ?.application.project.description,
             website: notStringOrNull(
@@ -749,7 +749,7 @@ export class GrantsService {
             new GrantListResult({
               id: grant.programId,
               name: grant.name,
-              slug: grant.slug ?? normalizeString(grant.name),
+              slug: grant.slug ?? sluggify(grant.name),
               status: notStringOrNull(grant.status) ?? "Inactive",
               socialLinks: grant.socialLinks
                 ? {

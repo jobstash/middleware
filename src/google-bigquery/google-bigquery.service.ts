@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { BigQuery } from "@google-cloud/bigquery";
-import { RawGrantProjectMetrics } from "src/shared/interfaces";
+import { RawGrantProjectCodeMetrics } from "src/shared/interfaces";
 
 @Injectable()
 export class GoogleBigQueryService {
@@ -28,9 +28,9 @@ export class GoogleBigQueryService {
     });
   }
 
-  async getGrantProjectsMetrics(
+  async getGrantProjectsCodeMetrics(
     projects: string[],
-  ): Promise<RawGrantProjectMetrics[]> {
+  ): Promise<RawGrantProjectCodeMetrics[]> {
     const query = `
       WITH projects AS (
         SELECT DISTINCT project_id
@@ -40,6 +40,35 @@ export class GoogleBigQueryService {
 
       SELECT *
       FROM jobstash.oso_production.code_metrics_by_project_v1
+      WHERE project_id IN (
+        SELECT project_id FROM projects
+      )
+    `;
+
+    const [rows] = await this.bigquery.query({
+      query,
+      location: "US",
+      params: { projects },
+      types: {
+        logins: ["STRING"],
+      },
+    });
+
+    return rows;
+  }
+
+  async getGrantProjectsOnchainMetrics(
+    projects: string[],
+  ): Promise<RawGrantProjectCodeMetrics[]> {
+    const query = `
+      WITH projects AS (
+        SELECT DISTINCT project_id
+        FROM jobstash.oso_production.projects_v1
+        WHERE LOWER(display_name) IN UNNEST(@projects)
+      )
+
+      SELECT *
+      FROM jobstash.oso_production.onchain_metrics_by_project_v1
       WHERE project_id IN (
         SELECT project_id FROM projects
       )

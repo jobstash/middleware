@@ -116,7 +116,7 @@ export interface Context2 {
   provider: string;
 }
 
-export class RawGrantProjectMetrics {
+export class RawGrantProjectCodeMetrics {
   @ApiProperty()
   project_id: string;
 
@@ -185,7 +185,7 @@ export class RawGrantProjectMetrics {
   closed_issue_count_6_months: number;
 }
 
-export class GrantProjectMetrics {
+export class GrantProjectCodeMetrics {
   @ApiProperty()
   projectId: string;
 

@@ -481,6 +481,14 @@ export function normalizeString(original: string): string {
   return normalized;
 }
 
+export const sluggify = (str: string): string => {
+  return str
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+};
+
 export const paginate = <T>(
   page: number,
   limit: number,
