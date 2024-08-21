@@ -105,41 +105,7 @@ export class GrantsService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (program:KarmaGapProgram {slug: $slug})
-        RETURN program {
-          .*,
-          status: [(program)-[:HAS_STATUS]->(status:KarmaGapStatus) | status.name][0],
-          eligibility: [(program)-[:HAS_ELIGIBILITY]->(eligibility:KarmaGapEligibility) | eligibility {
-            .*,
-            requirements: apoc.coll.toSet([(eligibility)-[:HAS_REQUIREMENT]->(requirement:KarmaGapRequirement) | requirement.description])
-          }][0],
-          socialLinks: [
-            (program)-[:HAS_SOCIAL_LINKS]->(socialLink:KarmaGapSocials) | socialLink {
-              .*
-            }
-          ][0],
-          quadraticFundingConfig: [
-            (program)-[:HAS_QUADRATIC_FUNDING_CONFIG]->(quadraticFundingConfig:KarmaGapQuadraticFundingConfig) | quadraticFundingConfig {
-              .*
-            }
-          ][0],
-          support: [
-            (program)-[:HAS_SUPPORT]->(support:KarmaGapSupport) | support {
-              .*
-            }
-          ][0],
-          metadata: [
-            (program)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata) | metadata {
-              .*,
-              categories: apoc.coll.toSet([(metadata)-[:HAS_CATEGORY]->(category) | category.name]),
-              ecosystems: apoc.coll.toSet([(metadata)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
-              organizations: apoc.coll.toSet([(metadata)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
-              networks: apoc.coll.toSet([(metadata)-[:HAS_NETWORKS]->(network) | network.name]),
-              grantTypes: apoc.coll.toSet([(metadata)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
-              tags: apoc.coll.toSet([(metadata)-[:HAS_TAG]->(tag) | tag.name]),
-              platformsUsed: apoc.coll.toSet([(metadata)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
-            }
-          ][0]
-        } as program
+        RETURN program.programId as program
       `,
         { slug },
       );
@@ -215,41 +181,7 @@ export class GrantsService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (program:KarmaGapProgram {slug: $slug})
-        RETURN program {
-          .*,
-          status: [(program)-[:HAS_STATUS]->(status:KarmaGapStatus) | status.name][0],
-          eligibility: [(program)-[:HAS_ELIGIBILITY]->(eligibility:KarmaGapEligibility) | eligibility {
-            .*,
-            requirements: apoc.coll.toSet([(eligibility)-[:HAS_REQUIREMENT]->(requirement:KarmaGapRequirement) | requirement.description])
-          }][0],
-          socialLinks: [
-            (program)-[:HAS_SOCIAL_LINKS]->(socialLink:KarmaGapSocials) | socialLink {
-              .*
-            }
-          ][0],
-          quadraticFundingConfig: [
-            (program)-[:HAS_QUADRATIC_FUNDING_CONFIG]->(quadraticFundingConfig:KarmaGapQuadraticFundingConfig) | quadraticFundingConfig {
-              .*
-            }
-          ][0],
-          support: [
-            (program)-[:HAS_SUPPORT]->(support:KarmaGapSupport) | support {
-              .*
-            }
-          ][0],
-          metadata: [
-            (program)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata) | metadata {
-              .*,
-              categories: apoc.coll.toSet([(metadata)-[:HAS_CATEGORY]->(category) | category.name]),
-              ecosystems: apoc.coll.toSet([(metadata)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
-              organizations: apoc.coll.toSet([(metadata)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
-              networks: apoc.coll.toSet([(metadata)-[:HAS_NETWORKS]->(network) | network.name]),
-              grantTypes: apoc.coll.toSet([(metadata)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
-              tags: apoc.coll.toSet([(metadata)-[:HAS_TAG]->(tag) | tag.name]),
-              platformsUsed: apoc.coll.toSet([(metadata)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
-            }
-          ][0]
-        } as program
+        RETURN program.programId as program
       `,
         { slug },
       );
@@ -358,41 +290,7 @@ export class GrantsService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (program:KarmaGapProgram {slug: $programSlug})
-        RETURN program {
-          .*,
-          status: [(program)-[:HAS_STATUS]->(status:KarmaGapStatus) | status.name][0],
-          eligibility: [(program)-[:HAS_ELIGIBILITY]->(eligibility:KarmaGapEligibility) | eligibility {
-            .*,
-            requirements: apoc.coll.toSet([(eligibility)-[:HAS_REQUIREMENT]->(requirement:KarmaGapRequirement) | requirement.description])
-          }][0],
-          socialLinks: [
-            (program)-[:HAS_SOCIAL_LINKS]->(socialLink:KarmaGapSocials) | socialLink {
-              .*
-            }
-          ][0],
-          quadraticFundingConfig: [
-            (program)-[:HAS_QUADRATIC_FUNDING_CONFIG]->(quadraticFundingConfig:KarmaGapQuadraticFundingConfig) | quadraticFundingConfig {
-              .*
-            }
-          ][0],
-          support: [
-            (program)-[:HAS_SUPPORT]->(support:KarmaGapSupport) | support {
-              .*
-            }
-          ][0],
-          metadata: [
-            (program)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata) | metadata {
-              .*,
-              categories: apoc.coll.toSet([(metadata)-[:HAS_CATEGORY]->(category) | category.name]),
-              ecosystems: apoc.coll.toSet([(metadata)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
-              organizations: apoc.coll.toSet([(metadata)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
-              networks: apoc.coll.toSet([(metadata)-[:HAS_NETWORKS]->(network) | network.name]),
-              grantTypes: apoc.coll.toSet([(metadata)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
-              tags: apoc.coll.toSet([(metadata)-[:HAS_TAG]->(tag) | tag.name]),
-              platformsUsed: apoc.coll.toSet([(metadata)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
-            }
-          ][0]
-        } as program
+        RETURN program.programId as program
       `,
         { programSlug },
       );
