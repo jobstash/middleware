@@ -217,7 +217,7 @@ export class GrantsService {
         MATCH (program:KarmaGapProgram {slug: $slug})
         RETURN {
           programId: program.programId,
-          name: program.name,
+          name: program.name
         } as program
       `,
         { slug },
@@ -333,7 +333,7 @@ export class GrantsService {
         MATCH (program:KarmaGapProgram {slug: $programSlug})
         RETURN {
           programId: program.programId,
-          name: program.name,
+          name: program.name
         } as program
       `,
         { programSlug },
