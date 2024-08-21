@@ -215,13 +215,20 @@ export class GrantsService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (program:KarmaGapProgram {slug: $slug})
-        RETURN program.programId as program
+        RETURN {
+          programId: program.programId,
+          name: program.name,
+        } as program
       `,
         { slug },
       );
 
       const programs = result.records.map(
-        record => record.get("program") as KarmaGapGrantProgram,
+        record =>
+          record.get("program") as {
+            programId: string;
+            name: string;
+          },
       );
       const program = programs[0];
       if (program) {
@@ -324,13 +331,20 @@ export class GrantsService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (program:KarmaGapProgram {slug: $programSlug})
-        RETURN program.programId as program
+        RETURN {
+          programId: program.programId,
+          name: program.name,
+        } as program
       `,
         { programSlug },
       );
 
       const programs = result.records.map(
-        record => record.get("program") as KarmaGapGrantProgram,
+        record =>
+          record.get("program") as {
+            programId: string;
+            name: string;
+          },
       );
 
       if (programs.length > 0) {
