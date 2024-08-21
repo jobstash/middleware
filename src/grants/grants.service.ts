@@ -10,10 +10,10 @@ import {
   GrantListResult,
   GrantMetadata,
   GrantProject,
-  GrantProjectCodeMetrics,
   KarmaGapGrantProgram,
   PaginatedData,
   RawGrantProjectCodeMetrics,
+  RawGrantProjectOnchainMetrics,
   ResponseWithOptionalData,
 } from "src/shared/interfaces";
 import * as Sentry from "@sentry/node";
@@ -446,57 +446,27 @@ export class GrantsService {
           return sluggify(x.project.name) === granteeSlug;
         });
 
-        const metrics =
+        const codeMetrics =
           await this.googleBigQueryService.getGrantProjectsCodeMetrics([
             granteeSlug,
           ]);
 
-        const projectMetrics = (metrics.find(
+        const onChainMetrics =
+          await this.googleBigQueryService.getGrantProjectsOnchainMetrics([
+            granteeSlug,
+          ]);
+
+        const projectCodeMetrics = (codeMetrics.find(
           m => m.project_name === granteeSlug,
         ) ?? {}) as RawGrantProjectCodeMetrics;
 
-        const parsedMetrics = (
-          projectMetrics
-            ? {
-                projectId: projectMetrics?.project_id,
-                projectSource: projectMetrics?.project_source,
-                projectNamespace: projectMetrics?.project_namespace,
-                projectName: projectMetrics?.project_name,
-                displayName: projectMetrics?.display_name,
-                eventSource: projectMetrics?.event_source,
-                repositoryCount: projectMetrics?.repository_count,
-                starCount: projectMetrics?.star_count,
-                forkCount: projectMetrics?.fork_count,
-                contributorCount: projectMetrics?.contributor_count,
-                contributorCountSixMonths:
-                  projectMetrics?.contributor_count_6_months,
-                newContributorCountSixMonths:
-                  projectMetrics?.new_contributor_count_6_months,
-                fulltimeDeveloperAverageSixMonths:
-                  projectMetrics?.fulltime_developer_average_6_months,
-                activeDeveloperCountSixMonths:
-                  projectMetrics?.active_developer_count_6_months,
-                commitCountSixMonths: projectMetrics?.commit_count_6_months,
-                openedPullRequestCountSixMonths:
-                  projectMetrics?.opened_pull_request_count_6_months,
-                mergedPullRequestCountSixMonths:
-                  projectMetrics?.merged_pull_request_count_6_months,
-                openedIssueCountSixMonths:
-                  projectMetrics?.opened_issue_count_6_months,
-                closedIssueCountSixMonths:
-                  projectMetrics?.closed_issue_count_6_months,
-                firstCommitDate: projectMetrics?.first_commit_date?.value
-                  ? new Date(projectMetrics?.first_commit_date?.value).getTime()
-                  : undefined,
-                lastCommitDate: projectMetrics?.last_commit_date?.value
-                  ? new Date(projectMetrics?.last_commit_date?.value).getTime()
-                  : undefined,
-              }
-            : {}
-        ) as GrantProjectCodeMetrics;
+        const projectOnchainMetrics = (onChainMetrics.find(
+          m => m.project_name === granteeSlug,
+        ) ?? {}) as RawGrantProjectOnchainMetrics;
 
         const projectMetricsConverter = (
-          metrics: GrantProjectCodeMetrics,
+          codeMetrics: RawGrantProjectCodeMetrics,
+          onChainMetrics: RawGrantProjectOnchainMetrics,
         ): GrantProject["tabs"] => {
           return [
             // {
@@ -504,87 +474,192 @@ export class GrantsService {
             //   tab: "overall-summary",
             //   stats: [],
             // },
-            // {
-            //   label: "Impact Metrics",
-            //   tab: "impact-metrics",
-            //   stats: [],
-            // },
+            Object.values(onChainMetrics).filter(Boolean).length > 0
+              ? {
+                  label: "Onchain Metrics",
+                  tab: "onchain-metrics",
+                  stats: [
+                    {
+                      label: "Active Contract Count (90 Days)",
+                      value: onChainMetrics.active_contract_count_90_days
+                        ? onChainMetrics.active_contract_count_90_days.toString()
+                        : "N/A",
+                      stats: [],
+                    },
+                    {
+                      label: "Transaction Count",
+                      value: onChainMetrics.transaction_count
+                        ? onChainMetrics.transaction_count.toString()
+                        : "N/A",
+                      stats: [
+                        {
+                          label: "Transaction Count (6 Months)",
+                          value: onChainMetrics.transaction_count_6_months
+                            ? onChainMetrics.transaction_count_6_months.toString()
+                            : "N/A",
+                          stats: [],
+                        },
+                      ],
+                    },
+                    {
+                      label: "Gas Fees Sum",
+                      value: onChainMetrics.gas_fees_sum
+                        ? onChainMetrics.gas_fees_sum.toString()
+                        : "N/A",
+                      stats: [
+                        {
+                          label: "Gas Fees Sum (6 Months)",
+                          value: onChainMetrics.gas_fees_sum_6_months
+                            ? onChainMetrics.gas_fees_sum_6_months.toString()
+                            : "N/A",
+                          stats: [],
+                        },
+                      ],
+                    },
+                    {
+                      label: "Address Count",
+                      value: onChainMetrics.address_count
+                        ? onChainMetrics.address_count.toString()
+                        : "N/A",
+                      stats: [
+                        {
+                          label: "Address Count (90 Days)",
+                          value: onChainMetrics.address_count_90_days
+                            ? onChainMetrics.address_count_90_days.toString()
+                            : "N/A",
+                          stats: [],
+                        },
+                        {
+                          label: "New Address Count (90 Days)",
+                          value: onChainMetrics.new_address_count_90_days
+                            ? onChainMetrics.new_address_count_90_days.toString()
+                            : "N/A",
+                          stats: [],
+                        },
+                        {
+                          label: "Returning Address Count (90 Days)",
+                          value: onChainMetrics.returning_address_count_90_days
+                            ? onChainMetrics.returning_address_count_90_days.toString()
+                            : "N/A",
+                          stats: [],
+                        },
+                        {
+                          label: "High Activity Address Count (90 Days)",
+                          value:
+                            onChainMetrics.high_activity_address_count_90_days
+                              ? onChainMetrics.high_activity_address_count_90_days.toString()
+                              : "N/A",
+                          stats: [],
+                        },
+                        {
+                          label: "Medium Activity Address Count (90 Days)",
+                          value:
+                            onChainMetrics.medium_activity_address_count_90_days
+                              ? onChainMetrics.medium_activity_address_count_90_days.toString()
+                              : "N/A",
+                          stats: [],
+                        },
+                        {
+                          label: "Low Activity Address Count (90 Days)",
+                          value:
+                            onChainMetrics.low_activity_address_count_90_days
+                              ? onChainMetrics.low_activity_address_count_90_days.toString()
+                              : "N/A",
+                          stats: [],
+                        },
+                        {
+                          label: "Multi-Project Address Count (90 Days)",
+                          value:
+                            onChainMetrics.multi_project_address_count_90_days
+                              ? onChainMetrics.multi_project_address_count_90_days.toString()
+                              : "N/A",
+                          stats: [],
+                        },
+                      ],
+                    },
+                  ],
+                }
+              : null,
             // {
             //   label: "Github Metrics",
             //   tab: "github-metrics",
             //   stats: [],
             // },
-            Object.values(metrics).filter(Boolean).length > 0
+            Object.values(codeMetrics).filter(Boolean).length > 0
               ? {
                   label: "Code Metrics",
                   tab: "code-metrics",
                   stats: [
                     {
                       label: "First Commit Date",
-                      value: metrics.firstCommitDate
-                        ? new Date(metrics.firstCommitDate).toDateString()
+                      value: codeMetrics.first_commit_date
+                        ? new Date(
+                            codeMetrics.first_commit_date.value,
+                          ).toDateString()
                         : "N/A",
                       stats: [],
                     },
                     {
                       label: "Last Commit Date",
-                      value: metrics.lastCommitDate
-                        ? new Date(metrics.lastCommitDate).toDateString()
+                      value: codeMetrics.last_commit_date
+                        ? new Date(
+                            codeMetrics.last_commit_date.value,
+                          ).toDateString()
                         : "N/A",
                       stats: [],
                     },
                     {
                       label: "Repositories",
-                      value: metrics.repositoryCount
-                        ? metrics.repositoryCount.toString()
+                      value: codeMetrics.repository_count
+                        ? codeMetrics.repository_count.toString()
                         : "N/A",
                       stats: [],
                     },
                     {
                       label: "Stars",
-                      value: metrics.starCount
-                        ? metrics.starCount.toString()
+                      value: codeMetrics.repository_count
+                        ? codeMetrics.repository_count.toString()
                         : "N/A",
                       stats: [],
                     },
                     {
                       label: "Forks",
-                      value: metrics.forkCount
-                        ? metrics.forkCount.toString()
+                      value: codeMetrics.fork_count
+                        ? codeMetrics.fork_count.toString()
                         : "N/A",
                       stats: [],
                     },
                     {
                       label: "Contributor Count",
-                      value: metrics.contributorCount
-                        ? metrics.contributorCount.toString()
+                      value: codeMetrics.contributor_count
+                        ? codeMetrics.contributor_count.toString()
                         : "N/A",
                       stats: [
                         {
                           label: "Last 6 Months",
-                          value: metrics.contributorCountSixMonths
-                            ? metrics.contributorCountSixMonths.toString()
+                          value: codeMetrics.contributor_count_6_months
+                            ? codeMetrics.contributor_count_6_months.toString()
                             : "N/A",
                           stats: [],
                         },
                         {
                           label: "New Contributors",
-                          value: metrics.newContributorCountSixMonths
-                            ? metrics.newContributorCountSixMonths.toString()
+                          value: codeMetrics.new_contributor_count_6_months
+                            ? codeMetrics.new_contributor_count_6_months.toString()
                             : "N/A",
                           stats: [],
                         },
                         {
                           label: "Fulltime Developer Average",
-                          value: metrics.fulltimeDeveloperAverageSixMonths
-                            ? metrics.fulltimeDeveloperAverageSixMonths.toString()
+                          value: codeMetrics.fulltime_developer_average_6_months
+                            ? codeMetrics.fulltime_developer_average_6_months.toString()
                             : "N/A",
                           stats: [],
                         },
                         {
                           label: "Active Developers",
-                          value: metrics.activeDeveloperCountSixMonths
-                            ? metrics.activeDeveloperCountSixMonths.toString()
+                          value: codeMetrics.active_developer_count_6_months
+                            ? codeMetrics.active_developer_count_6_months.toString()
                             : "N/A",
                           stats: [],
                         },
@@ -592,36 +667,36 @@ export class GrantsService {
                     },
                     {
                       label: "Commit Count (6 Months)",
-                      value: metrics.commitCountSixMonths
-                        ? metrics.commitCountSixMonths.toString()
+                      value: codeMetrics.commit_count_6_months
+                        ? codeMetrics.commit_count_6_months.toString()
                         : "N/A",
                       stats: [],
                     },
                     {
                       label: "Opened Pull Request Count (6 Months)",
-                      value: metrics.openedPullRequestCountSixMonths
-                        ? metrics.openedPullRequestCountSixMonths.toString()
+                      value: codeMetrics.opened_issue_count_6_months
+                        ? codeMetrics.opened_issue_count_6_months.toString()
                         : "N/A",
                       stats: [],
                     },
                     {
                       label: "Merged Pull Request Count (6 Months)",
-                      value: metrics.mergedPullRequestCountSixMonths
-                        ? metrics.mergedPullRequestCountSixMonths.toString()
+                      value: codeMetrics.merged_pull_request_count_6_months
+                        ? codeMetrics.merged_pull_request_count_6_months.toString()
                         : "N/A",
                       stats: [],
                     },
                     {
                       label: "Opened Issue Count (6 Months)",
-                      value: metrics.openedIssueCountSixMonths
-                        ? metrics.openedIssueCountSixMonths.toString()
+                      value: codeMetrics.opened_issue_count_6_months
+                        ? codeMetrics.opened_issue_count_6_months.toString()
                         : "N/A",
                       stats: [],
                     },
                     {
                       label: "Closed Issue Count (6 Months)",
-                      value: metrics.closedIssueCountSixMonths
-                        ? metrics.closedIssueCountSixMonths.toString()
+                      value: codeMetrics.closed_issue_count_6_months
+                        ? codeMetrics.closed_issue_count_6_months.toString()
                         : "N/A",
                       stats: [],
                     },
@@ -685,8 +760,11 @@ export class GrantsService {
                   .project.id,
                 name: project.project.name,
                 tags: project.project.tags,
-                tabs: projectMetrics
-                  ? projectMetricsConverter(parsedMetrics)
+                tabs: projectCodeMetrics
+                  ? projectMetricsConverter(
+                      projectCodeMetrics,
+                      projectOnchainMetrics,
+                    )
                   : [],
               },
             ],

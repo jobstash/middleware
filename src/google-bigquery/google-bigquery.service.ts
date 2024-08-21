@@ -1,7 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { BigQuery } from "@google-cloud/bigquery";
-import { RawGrantProjectCodeMetrics } from "src/shared/interfaces";
+import {
+  RawGrantProjectCodeMetrics,
+  RawGrantProjectOnchainMetrics,
+} from "src/shared/interfaces";
 
 @Injectable()
 export class GoogleBigQueryService {
@@ -35,7 +38,7 @@ export class GoogleBigQueryService {
       WITH projects AS (
         SELECT DISTINCT project_id
         FROM jobstash.oso_production.projects_v1
-        WHERE LOWER(display_name) IN UNNEST(@projects)
+        WHERE LOWER(project_name) IN UNNEST(@projects)
       )
 
       SELECT *
@@ -59,12 +62,12 @@ export class GoogleBigQueryService {
 
   async getGrantProjectsOnchainMetrics(
     projects: string[],
-  ): Promise<RawGrantProjectCodeMetrics[]> {
+  ): Promise<RawGrantProjectOnchainMetrics[]> {
     const query = `
       WITH projects AS (
         SELECT DISTINCT project_id
         FROM jobstash.oso_production.projects_v1
-        WHERE LOWER(display_name) IN UNNEST(@projects)
+        WHERE LOWER(project_name) IN UNNEST(@projects)
       )
 
       SELECT *
