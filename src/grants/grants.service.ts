@@ -41,7 +41,7 @@ export class GrantsService {
   ) {
     this.client = createClient({
       url: configService.get("GRANTS_STACK_INDEXER_URL"),
-      batch: true,
+      batch: false,
       cache: "reload",
       mode: "cors",
     });

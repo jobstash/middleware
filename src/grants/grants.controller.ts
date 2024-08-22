@@ -63,7 +63,7 @@ export class GrantsController {
   async findOne(
     @Param("slug") slug: string,
   ): Promise<ResponseWithOptionalData<GrantListResult>> {
-    this.logger.log(`/grants/details/${slug}`);
+    this.logger.log(`/grants/${slug}`);
     return this.grantsService.getGrantBySlug(slug).then(res => {
       return res
         ? {
@@ -98,7 +98,7 @@ export class GrantsController {
     @Query("limit") limit = 20,
   ): Promise<PaginatedData<Grantee>> {
     this.logger.log(
-      `/grants/details/${slug}/grantees ${JSON.stringify({ page, limit })}`,
+      `/grants/${slug}/grantees ${JSON.stringify({ page, limit })}`,
     );
     return this.grantsService.getGranteesBySlug(slug, page, limit);
   }
@@ -121,7 +121,7 @@ export class GrantsController {
     @Param("slug") slug: string,
     @Param("granteeSlug") granteeSlug: string,
   ): Promise<ResponseWithOptionalData<GranteeDetails>> {
-    this.logger.log(`/grants/details/${slug}/grantees/${granteeSlug}`);
+    this.logger.log(`/grants/${slug}/grantees/${granteeSlug}`);
     return this.grantsService.getGranteeDetailsBySlugs(slug, granteeSlug);
   }
 }
