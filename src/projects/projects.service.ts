@@ -621,6 +621,7 @@ export class ProjectsService {
             id: randomUUID(),
             orgId: $orgId,
             name: $name,
+            normalizedName: $normalizedName,
             tvl: $tvl,
             monthlyFees: $monthlyFees,
             monthlyVolume: $monthlyVolume,
@@ -649,7 +650,7 @@ export class ProjectsService {
 
           RETURN project { .* } as project
         `,
-        { ...project },
+        { ...project, normalizedName: normalizeString(project.name) },
       );
       return new ProjectMoreInfoEntity(result?.records[0]?.get("project"));
     } catch (err) {
@@ -674,15 +675,16 @@ export class ProjectsService {
       const result = await this.neogma.queryRunner.run(
         `
           MATCH (project:Project {id: $id})
-          MATCH (project)-[:HAS_DISCORD]->(discord:Discord) 
-          MATCH (project)-[:HAS_WEBSITE]->(website:Website) 
-          MATCH (project)-[:HAS_DOCSITE]->(docsite:DocSite) 
-          MATCH (project)-[:HAS_TELEGRAM]->(telegram:Telegram) 
-          MATCH (project)-[:HAS_TWITTER]->(twitter: Twitter) 
-          MATCH (project)-[:HAS_GITHUB]->(github: Github)
+          OPTIONAL MATCH (project)-[:HAS_DISCORD]->(discord:Discord) 
+          OPTIONAL MATCH (project)-[:HAS_WEBSITE]->(website:Website) 
+          OPTIONAL MATCH (project)-[:HAS_DOCSITE]->(docsite:DocSite) 
+          OPTIONAL MATCH (project)-[:HAS_TELEGRAM]->(telegram:Telegram) 
+          OPTIONAL MATCH (project)-[:HAS_TWITTER]->(twitter: Twitter) 
+          OPTIONAL MATCH (project)-[:HAS_GITHUB]->(github: Github)
           
           SET project.orgId = $orgId
           SET project.name = $name
+          SET project.normalizedName = $normalizedName
           SET project.tvl = $tvl
           SET project.monthlyFees = $monthlyFees
           SET project.monthlyVolume = $monthlyVolume
@@ -698,23 +700,21 @@ export class ProjectsService {
           SET project.defiLlamaParent = $defiLlamaParent
           SET project.updatedTimestamp = timestamp()
           SET discord.invite = $discord
-          SET project.rawWebsite?.url = $website
           SET docsite.url = $docs
           SET telegram.username = $telegram
           SET twitter.username = $twitter
           SET github.login = $github
 
           WITH project
-          MATCH (project)-[r:HAS_CATEGORY]->(:ProjectCategory)
+          OPTIONAL MATCH (project)-[r:HAS_CATEGORY]->(:ProjectCategory)
           DETACH DELETE r
           
           WITH project
           MERGE (project)-[:HAS_CATEGORY]->(:ProjectCategory {name: $category})
 
-          WITH project
           RETURN project { .* } as project
         `,
-        { ...project, id },
+        { ...project, id, normalizedName: normalizeString(project.name) },
       );
       return new ProjectMoreInfoEntity(result?.records[0]?.get("project"));
     } catch (err) {

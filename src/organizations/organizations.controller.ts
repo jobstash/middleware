@@ -462,7 +462,7 @@ export class OrganizationsController {
 
   @Post("/create")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
   @ApiOkResponse({
     description: "Creates a new organization",
     schema: responseSchemaWrapper({
@@ -506,7 +506,7 @@ export class OrganizationsController {
 
   @Post("/update/:id")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
   @ApiOkResponse({
     description: "Updates an existing organization",
     schema: responseSchemaWrapper({
@@ -708,7 +708,7 @@ export class OrganizationsController {
 
   @Post("/add-alias")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
   @ApiOkResponse({
     description: "Upserts an org with a new alias",
     schema: responseSchemaWrapper({
@@ -776,14 +776,14 @@ export class OrganizationsController {
   })
   async transformOrgToProject(
     @Param("id") id: string,
-  ): Promise<ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<Omit<Organization, "orgId">>> {
     this.logger.log(`/organizations/transform-to-project ${id}`);
     return this.organizationsService.transformOrgToProject(id);
   }
 
   @Post("/communities")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
   @ApiOkResponse({
     description: "Upserts an org with a new set of communities",
     schema: responseSchemaWrapper({
