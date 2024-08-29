@@ -1,4 +1,12 @@
-import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
 import { GrantsService } from "./grants.service";
 import { RBACGuard } from "src/auth/rbac.guard";
 import { CheckWalletRoles } from "src/shared/constants";
@@ -123,5 +131,23 @@ export class GrantsController {
   ): Promise<ResponseWithOptionalData<GranteeDetails>> {
     this.logger.log(`/grants/${slug}/grantees/${granteeSlug}`);
     return this.grantsService.getGranteeDetailsBySlugs(slug, granteeSlug);
+  }
+
+  @Post("query")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ANON)
+  @ApiOkResponse({
+    description: "Returns a list of grants that match the query",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(GrantListResult),
+    }),
+  })
+  async query(
+    @Body("query") query: string,
+    @Query("page") page = 1,
+    @Query("limit") limit = 20,
+  ): Promise<Promise<PaginatedData<GrantListResult>>> {
+    this.logger.log(`/grants/query ${JSON.stringify({ page, limit })}`);
+    return this.grantsService.query(query, page, limit);
   }
 }

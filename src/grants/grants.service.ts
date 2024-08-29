@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { Client, createClient } from "./generated";
@@ -26,11 +26,15 @@ import {
   paginate,
 } from "src/shared/helpers";
 import { Alchemy, Network } from "alchemy-sdk";
+import { Neo4jVectorStore } from "@langchain/community/vectorstores/neo4j_vector";
+import { OpenAIEmbeddings } from "@langchain/openai";
 // import { EIP155Chain, getChainById } from "eip155-chains";
 
 @Injectable()
-export class GrantsService {
+export class GrantsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new CustomLogger(GrantsService.name);
+  private readonly embeddings = new OpenAIEmbeddings();
+  private vectorStore: Neo4jVectorStore;
   private client: Client;
 
   constructor(
@@ -46,6 +50,101 @@ export class GrantsService {
       mode: "cors",
     });
   }
+
+  async onModuleInit(): Promise<void> {
+    this.vectorStore = await Neo4jVectorStore.fromExistingIndex(
+      this.embeddings,
+      {
+        url: `${this.configService.getOrThrow(
+          "NEO4J_SCHEME",
+        )}://${this.configService.getOrThrow(
+          "NEO4J_HOST",
+        )}:${this.configService.getOrThrow("NEO4J_PORT")}`,
+        username: this.configService.getOrThrow("NEO4J_USERNAME"),
+        password: this.configService.getOrThrow("NEO4J_PASSWORD"),
+        database: this.configService.getOrThrow("NEO4J_DATABASE"),
+        indexName: "grants-vector",
+        searchType: "vector",
+        nodeLabel: "GrantSiteChunk",
+        textNodeProperty: "text",
+        embeddingNodeProperty: "embedding",
+      },
+    );
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await this.vectorStore.close();
+  }
+
+  query = async (
+    query: string,
+    page = 1,
+    limit = 10,
+  ): Promise<PaginatedData<GrantListResult>> => {
+    try {
+      const result = await this.vectorStore.similaritySearchWithScore(
+        query,
+        10,
+      );
+      const ids = result.map(x => x[0].metadata.programId);
+      const programs = await this.getGrantsListResults();
+      const results = programs.filter(x => ids.includes(x.programId));
+      return paginate<GrantListResult>(
+        page,
+        limit,
+        results.map(
+          grant =>
+            new GrantListResult({
+              id: grant.programId,
+              name: grant.name,
+              slug: grant.slug ?? sluggify(grant.name),
+              status: notStringOrNull(grant.status) ?? "Inactive",
+              socialLinks: grant.socialLinks
+                ? {
+                    twitter: notStringOrNull(grant.socialLinks.twitter),
+                    website: notStringOrNull(grant.socialLinks.website),
+                    discord: notStringOrNull(grant.socialLinks.discord),
+                    orgWebsite: notStringOrNull(grant.socialLinks.orgWebsite),
+                    blog: notStringOrNull(grant.socialLinks.blog),
+                    forum: notStringOrNull(grant.socialLinks.forum),
+                    grantsSite: notStringOrNull(grant.socialLinks.grantsSite),
+                  }
+                : null,
+              eligibility: grant.eligibility,
+              metadata: {
+                ...grant.metadata,
+                description: notStringOrNull(grant.metadata.description),
+                programBudget: nonZeroOrNull(grant.metadata.programBudget),
+                amountDistributedToDate: nonZeroOrNull(
+                  grant.metadata.amountDistributedToDate,
+                ),
+                minGrantSize: nonZeroOrNull(grant.metadata.minGrantSize),
+                maxGrantSize: nonZeroOrNull(grant.metadata.maxGrantSize),
+                grantsToDate: nonZeroOrNull(grant.metadata.grantsToDate),
+                website: notStringOrNull(grant.metadata.website),
+                projectTwitter: notStringOrNull(grant.metadata.projectTwitter),
+                bugBounty: notStringOrNull(grant.metadata.bugBounty),
+                logoImg: notStringOrNull(grant.metadata.logoImg),
+                bannerImg: notStringOrNull(grant.metadata.bannerImg),
+                createdAt: nonZeroOrNull(grant.metadata.createdAt),
+                type: notStringOrNull(grant.metadata.type),
+                amount: notStringOrNull(grant.metadata.amount),
+              },
+            }),
+        ),
+      );
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "grants.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`GrantsService::getGrantsListResults ${err.message}`);
+      return paginate<GrantListResult>(page, limit, []);
+    }
+  };
 
   getGrantsListResults = async (): Promise<KarmaGapGrantProgram[]> => {
     const result = await this.neogma.queryRunner.run(
