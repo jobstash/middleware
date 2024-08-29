@@ -414,12 +414,70 @@ export class GrantsService {
           codeMetrics: RawGrantProjectCodeMetrics,
           onChainMetrics: RawGrantProjectOnchainMetrics,
         ): GrantProject["tabs"] => {
+          const overviewStats = [
+            onChainMetrics?.transaction_count
+              ? {
+                  label: "Total Transactions",
+                  value: onChainMetrics.transaction_count.toString(),
+                  stats: [],
+                }
+              : null,
+            onChainMetrics?.address_count
+              ? {
+                  label: "Total Addresses",
+                  value: onChainMetrics.address_count.toString(),
+                  stats: [],
+                }
+              : null,
+            codeMetrics?.contributor_count
+              ? {
+                  label: "Contributor Count",
+                  value: codeMetrics.contributor_count
+                    ? codeMetrics.contributor_count.toString()
+                    : "N/A",
+                  stats: [
+                    {
+                      label: "Last 6 Months",
+                      value: codeMetrics.contributor_count_6_months
+                        ? codeMetrics.contributor_count_6_months.toString()
+                        : "N/A",
+                      stats: [],
+                    },
+                    {
+                      label: "New Contributors",
+                      value: codeMetrics.new_contributor_count_6_months
+                        ? codeMetrics.new_contributor_count_6_months.toString()
+                        : "N/A",
+                      stats: [],
+                    },
+                  ],
+                }
+              : null,
+            codeMetrics?.star_count
+              ? {
+                  label: "GitHub Stars",
+                  value: codeMetrics.star_count.toString(),
+                  stats: [],
+                }
+              : null,
+            codeMetrics?.last_commit_date?.value
+              ? {
+                  label: "Last Commit Date",
+                  value: new Date(
+                    codeMetrics.last_commit_date.value,
+                  ).toDateString(),
+                  stats: [],
+                }
+              : null,
+          ].filter(Boolean);
           return [
-            // {
-            //   label: "Overall Summary",
-            //   tab: "overall-summary",
-            //   stats: [],
-            // },
+            overviewStats.length > 0
+              ? {
+                  label: "Overview",
+                  tab: "overview",
+                  stats: overviewStats,
+                }
+              : null,
             Object.values(onChainMetrics).filter(Boolean).length > 0
               ? {
                   label: "Onchain Metrics",
@@ -682,7 +740,7 @@ export class GrantsService {
               };
 
           const logoIpfs = notStringOrNull(
-            (grantee.metadata as GranteeApplicationMetadata)?.application
+            (grantee?.metadata as GranteeApplicationMetadata)?.application
               .project.logoImg,
           );
           return new GranteeDetails({
@@ -691,19 +749,19 @@ export class GrantsService {
             status: grantee.status,
             name: grantee.project.name,
             slug: sluggify(grantee.project.name),
-            description: (grantee.metadata as GranteeApplicationMetadata)
-              ?.application.project.description,
+            description: (grantee?.metadata as GranteeApplicationMetadata)
+              ?.application?.project?.description,
             website: notStringOrNull(
-              (grantee.metadata as GranteeApplicationMetadata)?.application
-                .project.website,
+              (grantee?.metadata as GranteeApplicationMetadata)?.application
+                ?.project?.website,
             ),
             logoUrl: logoIpfs ? `https://${logoIpfs}.ipfs.dweb.link` : null,
             lastFundingDate: nonZeroOrNull(transaction.timestamp),
             lastFundingAmount: grantee.totalAmountDonatedInUsd,
             projects: [
               {
-                id: (project.metadata as GranteeApplicationMetadata).application
-                  .project.id,
+                id: (project?.metadata as GranteeApplicationMetadata)
+                  ?.application?.project?.id,
                 name: `GG21: Thriving Arbitrum Summer - ${project.project.name}`,
                 tags: project.project.tags,
                 tabs: projectCodeMetrics
