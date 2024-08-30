@@ -23,14 +23,21 @@ import {
   GranteeDetails,
   GrantListResult,
   PaginatedData,
+  ResponseWithNoData,
   ResponseWithOptionalData,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import { MailService } from "src/mail/mail.service";
+import { ConfigService } from "@nestjs/config";
 
 @Controller("grants")
 export class GrantsController {
   private logger = new CustomLogger(GrantsController.name);
-  constructor(private readonly grantsService: GrantsService) {}
+  constructor(
+    private readonly grantsService: GrantsService,
+    private readonly mailService: MailService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Get("")
   @UseGuards(RBACGuard)
@@ -149,5 +156,35 @@ export class GrantsController {
   ): Promise<Promise<PaginatedData<GrantListResult>>> {
     this.logger.log(`/grants/query ${JSON.stringify({ page, limit })}`);
     return this.grantsService.query(query, page, limit);
+  }
+
+  @Post("mail")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.ANON)
+  @ApiOkResponse({
+    description: "Sends an email to the admin",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async sendMail(
+    @Body("email") email: string,
+    @Body("company") company: string,
+    @Body("role") role: string,
+  ): Promise<ResponseWithNoData> {
+    await this.mailService.sendEmail({
+      from: email,
+      to: this.configService.getOrThrow<string>("ADMIN_EMAIL"),
+      subject: `New interested company - ${company}`,
+      text: `Hello Admin,
+
+      A ${role} at a company, ${company} has expressed an interest in Ecosystem.vision.
+
+      Stay Frosty,
+      Bill Harder,
+      JobStash.xyz`,
+    });
+    return {
+      success: true,
+      message: "Email sent successfully",
+    };
   }
 }
