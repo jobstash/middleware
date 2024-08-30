@@ -173,7 +173,7 @@ export class GrantsController {
   ): Promise<ResponseWithNoData> {
     try {
       await this.mailService.sendEmail({
-        from: email,
+        from: this.configService.getOrThrow<string>("EMAIL"),
         to: this.configService.getOrThrow<string>("ADMIN_EMAIL"),
         subject: `New interested company - ${company}`,
         text: `Hello Admin,
