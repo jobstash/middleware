@@ -176,13 +176,15 @@ export class GrantsController {
         from: this.configService.getOrThrow<string>("EMAIL"),
         to: this.configService.getOrThrow<string>("ADMIN_EMAIL"),
         subject: `New interested company - ${company}`,
-        text: `Hello Admin,
+        text: `
+        Hello Admin,
 
-      A ${role} at a company, ${company} has expressed an interest in Ecosystem.vision.
+        A ${role} at a company, ${company} has expressed an interest in Ecosystem.vision.
+        Email: ${email}
 
-      Stay Frosty,
-      Bill Harder,
-      JobStash.xyz`,
+        Stay Frosty,
+        Bill Harder
+      `,
       });
       return {
         success: true,
