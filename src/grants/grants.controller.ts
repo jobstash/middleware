@@ -29,6 +29,7 @@ import {
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { MailService } from "src/mail/mail.service";
 import { ConfigService } from "@nestjs/config";
+import * as Sentry from "@sentry/node";
 
 @Controller("grants")
 export class GrantsController {
@@ -170,21 +171,35 @@ export class GrantsController {
     @Body("company") company: string,
     @Body("role") role: string,
   ): Promise<ResponseWithNoData> {
-    await this.mailService.sendEmail({
-      from: email,
-      to: this.configService.getOrThrow<string>("ADMIN_EMAIL"),
-      subject: `New interested company - ${company}`,
-      text: `Hello Admin,
+    try {
+      await this.mailService.sendEmail({
+        from: email,
+        to: this.configService.getOrThrow<string>("ADMIN_EMAIL"),
+        subject: `New interested company - ${company}`,
+        text: `Hello Admin,
 
       A ${role} at a company, ${company} has expressed an interest in Ecosystem.vision.
 
       Stay Frosty,
       Bill Harder,
       JobStash.xyz`,
-    });
-    return {
-      success: true,
-      message: "Email sent successfully",
-    };
+      });
+      return {
+        success: true,
+        message: "Email sent successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "grants.service",
+        });
+        Sentry.captureException(err);
+      });
+      return {
+        success: false,
+        message: "Error sending email",
+      };
+    }
   }
 }
