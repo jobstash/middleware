@@ -463,6 +463,9 @@ export function normalizeString(original: string): string {
     ["+", "_plus_"],
     ["=", "_equals_"],
   ]);
+
+  if (!original) return null;
+
   const normalized = original
     .trim()
     .split("")
