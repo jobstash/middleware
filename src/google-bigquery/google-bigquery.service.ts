@@ -21,7 +21,7 @@ export class GoogleBigQueryService {
         "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY",
       );
     this.bigquery = new BigQuery({
-      projectId: "jobstash",
+      projectId: "beaming-figure-430316-k1",
       credentials: {
         client_email: this.GOOGLE_SERVICE_ACCOUNT_EMAIL,
         private_key: this.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.split(
@@ -37,12 +37,12 @@ export class GoogleBigQueryService {
     const query = `
       WITH projects AS (
         SELECT DISTINCT project_id
-        FROM jobstash.oso_production.projects_v1
+        FROM beaming-figure-430316-k1.oso_production.projects_v1
         WHERE LOWER(project_name) IN UNNEST(@projects)
       )
 
       SELECT *
-      FROM jobstash.oso_production.code_metrics_by_project_v1
+      FROM beaming-figure-430316-k1.oso_production.code_metrics_by_project_v1
       WHERE project_id IN (
         SELECT project_id FROM projects
       )
@@ -66,12 +66,12 @@ export class GoogleBigQueryService {
     const query = `
       WITH projects AS (
         SELECT DISTINCT project_id
-        FROM jobstash.oso_production.projects_v1
+        FROM beaming-figure-430316-k1.oso_production.projects_v1
         WHERE LOWER(project_name) IN UNNEST(@projects)
       )
 
       SELECT *
-      FROM jobstash.oso_production.onchain_metrics_by_project_v1
+      FROM beaming-figure-430316-k1.oso_production.onchain_metrics_by_project_v1
       WHERE project_id IN (
         SELECT project_id FROM projects
       )
