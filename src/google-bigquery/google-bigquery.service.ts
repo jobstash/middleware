@@ -50,7 +50,7 @@ export class GoogleBigQueryService {
 
     const [rows] = await this.bigquery.query({
       query,
-      location: "EU",
+      location: "US",
       params: { projects },
       types: {
         logins: ["STRING"],
@@ -79,7 +79,7 @@ export class GoogleBigQueryService {
 
     const [rows] = await this.bigquery.query({
       query,
-      location: "EU",
+      location: "US",
       params: { projects },
       types: {
         logins: ["STRING"],
