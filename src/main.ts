@@ -88,9 +88,6 @@ async function bootstrap(): Promise<void> {
 
   SwaggerModule.setup("public-api", app, publicDocument);
 
-  //TODO: horribly unsafe, make sure to remove!!!
-  console.log(JSON.stringify(process.env));
-
   await app.listen(process.env.PORT ?? 8080);
 }
 bootstrap();
