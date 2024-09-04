@@ -6,7 +6,7 @@ import { report } from "io-ts-human-reporter";
 export class UserWorkHistory {
   public static readonly UserWorkHistoryType = t.strict({
     login: t.string,
-    name: t.string,
+    name: t.union([t.string, t.null]),
     logoUrl: t.union([t.string, t.null]),
     description: t.union([t.string, t.null]),
     url: t.union([t.string, t.null]),
