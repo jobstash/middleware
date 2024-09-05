@@ -12,8 +12,8 @@ import * as fs from "fs";
 import * as express from "express";
 import * as basicAuth from "express-basic-auth";
 import * as compression from "compression";
-import { OrganizationsModule } from "./organizations/organizations.module";
-import { ProjectsModule } from "./projects/projects.module";
+// import { OrganizationsModule } from "./organizations/organizations.module";
+// import { ProjectsModule } from "./projects/projects.module";
 import { PublicModule } from "./public/public.module";
 import { generatePublicApiSpec } from "./shared/helpers";
 dotenv.config();
@@ -82,7 +82,8 @@ async function bootstrap(): Promise<void> {
     .build();
   const publicDocument = generatePublicApiSpec(
     SwaggerModule.createDocument(app, publicConfig, {
-      include: [OrganizationsModule, ProjectsModule, PublicModule],
+      // include: [OrganizationsModule, ProjectsModule, PublicModule],
+      include: [PublicModule],
     }),
   );
 
