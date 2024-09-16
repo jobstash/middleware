@@ -463,6 +463,9 @@ export function normalizeString(original: string): string {
     ["+", "_plus_"],
     ["=", "_equals_"],
   ]);
+
+  if (!original) return null;
+
   const normalized = original
     .trim()
     .split("")
@@ -480,6 +483,14 @@ export function normalizeString(original: string): string {
     .replace(emojiRegex(), "");
   return normalized;
 }
+
+export const sluggify = (str: string): string => {
+  return str
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+};
 
 export const paginate = <T>(
   page: number,

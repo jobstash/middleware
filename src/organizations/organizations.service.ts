@@ -13,6 +13,7 @@ import {
   OrganizationWithLinks,
   Jobsite,
   TinyOrg,
+  Organization,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -30,7 +31,7 @@ import {
 } from "src/shared/entities";
 import { createNewSortInstance, sort } from "fast-sort";
 import { ModelService } from "src/model/model.service";
-import { Neogma, Op } from "neogma";
+import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
@@ -993,20 +994,56 @@ export class OrganizationsService {
           description: $description, 
           summary: $summary, 
           location: $location, 
-          headcountEstimate: $headcountEstimate
+          headcountEstimate: $headcountEstimate,
+          normalizedName: $normalizedName,
+          createdTimestamp: timestamp(),
+          updatedTimestamp: timestamp()
         })
-        CREATE (org)-[:HAS_DISCORD]->(discord:Discord {id: randomUUID(), invite: $discord}) 
-        CREATE (org)-[:HAS_WEBSITE]->(website:Website {id: randomUUID(), url: $website}) 
-        CREATE (org)-[:HAS_DOCSITE]->(docsite:DocSite {id: randomUUID(), url: $docs}) 
-        CREATE (org)-[:HAS_TELEGRAM]->(telegram:Telegram {id: randomUUID(), username: $telegram}) 
-        CREATE (org)-[:HAS_ORGANIZATION_ALIAS]->(alias:OrganizationAlias {id: randomUUID(), name: $alias}) 
-        CREATE (org)-[:HAS_TWITTER]->(twitter: Twitter {id: randomUUID(), username: $twitter}) 
-        CREATE (org)-[:HAS_GITHUB]->(github: Github {id: randomUUID(), login: $github}) 
 
         RETURN org
       `,
-      { ...organization },
+      { ...organization, normalizedName: normalizeString(organization.name) },
     );
+
+    await this.updateOrgWebsites({
+      orgId: organization.orgId,
+      websites: organization.website,
+    });
+
+    await this.updateOrgTwitters({
+      orgId: organization.orgId,
+      twitters: organization.twitter,
+    });
+
+    await this.updateOrgGithubs({
+      orgId: organization.orgId,
+      githubs: organization.github,
+    });
+
+    await this.updateOrgDiscords({
+      orgId: organization.orgId,
+      discords: organization.discord,
+    });
+
+    await this.updateOrgDocs({
+      orgId: organization.orgId,
+      docsites: organization.docs,
+    });
+
+    await this.updateOrgTelegrams({
+      orgId: organization.orgId,
+      telegrams: organization.telegram,
+    });
+
+    await this.updateOrgAliases({
+      orgId: organization.orgId,
+      aliases: organization.aliases,
+    });
+
+    await this.updateOrgCommunities({
+      orgId: organization.orgId,
+      communities: organization.communities,
+    });
 
     return new OrganizationEntity(res.records[0]?.get("org"));
   }
@@ -1130,20 +1167,15 @@ export class OrganizationsService {
     projectIds: string[],
   ): Promise<boolean> {
     try {
-      const org = await this.models.Organizations.findOne({
-        where: {
-          orgId: orgId,
-        },
-      });
-      org?.relateTo({
-        alias: "projects",
-        where: {
-          id: {
-            [Op.in]: projectIds,
-          },
-        },
-      });
-      return org !== null;
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (org:Organization {orgId: $orgId})
+        MATCH (project:Project WHERE project.id IN $projectIds)
+        MERGE (org)-[:HAS_PROJECT]->(project)
+        `,
+        { orgId, projectIds },
+      );
+      return true;
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -1788,21 +1820,24 @@ export class OrganizationsService {
     }
   }
 
-  async transformOrgToProject(id: string): Promise<ResponseWithNoData> {
+  async transformOrgToProject(
+    id: string,
+  ): Promise<ResponseWithOptionalData<Omit<Organization, "orgId">>> {
     try {
-      await this.neogma.queryRunner.run(
+      const result = await this.neogma.queryRunner.run(
         `
         MATCH (org:Organization {orgId: $id})
         REMOVE org:Organization
         SET org:Project
         SET org.orgId = null
-        SET org.description = null
+        RETURN org
       `,
         { id },
       );
       return {
         success: true,
         message: "Organization transformed successfully",
+        data: result.records[0].get("org").properties,
       };
     } catch (err) {
       Sentry.withScope(scope => {

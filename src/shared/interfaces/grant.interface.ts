@@ -116,7 +116,7 @@ export interface Context2 {
   provider: string;
 }
 
-export class RawGrantProjectMetrics {
+export class RawGrantProjectCodeMetrics {
   @ApiProperty()
   project_id: string;
 
@@ -185,69 +185,66 @@ export class RawGrantProjectMetrics {
   closed_issue_count_6_months: number;
 }
 
-export class GrantProjectMetrics {
+export class RawGrantProjectOnchainMetrics {
   @ApiProperty()
-  projectId: string;
+  project_id: string;
 
   @ApiProperty()
-  projectSource: string;
+  project_source: string;
 
   @ApiProperty()
-  projectNamespace: string;
+  project_namespace: string;
 
   @ApiProperty()
-  projectName: string;
+  project_name: string;
 
   @ApiProperty()
-  displayName: string;
+  display_name: string;
 
   @ApiProperty()
-  eventSource: string;
+  event_source: string;
 
   @ApiProperty()
-  repositoryCount: number;
+  days_since_first_transaction: string;
 
   @ApiProperty()
-  firstCommitDate: number;
+  active_contract_count_90_days: string;
 
   @ApiProperty()
-  lastCommitDate: number;
+  transaction_count: string;
 
   @ApiProperty()
-  starCount: number;
+  transaction_count_6_months: string;
 
   @ApiProperty()
-  forkCount: number;
+  gas_fees_sum: string;
 
   @ApiProperty()
-  contributorCount: number;
+  gas_fees_sum_6_months: string;
 
   @ApiProperty()
-  contributorCountSixMonths: number;
+  address_count: string;
 
   @ApiProperty()
-  newContributorCountSixMonths: number;
+  address_count_90_days: string;
 
   @ApiProperty()
-  fulltimeDeveloperAverageSixMonths: number;
+  new_address_count_90_days: string;
 
   @ApiProperty()
-  activeDeveloperCountSixMonths: number;
+  returning_address_count_90_days: string;
 
   @ApiProperty()
-  commitCountSixMonths: number;
+  high_activity_address_count_90_days: string;
 
   @ApiProperty()
-  openedPullRequestCountSixMonths: number;
+  medium_activity_address_count_90_days: string;
 
   @ApiProperty()
-  mergedPullRequestCountSixMonths: number;
+  low_activity_address_count_90_days: string;
 
   @ApiProperty()
-  openedIssueCountSixMonths: number;
-
-  @ApiProperty()
-  closedIssueCountSixMonths: number;
+  multi_project_address_count_90_days: string;
 }
 
 interface StatItem {
@@ -290,7 +287,7 @@ export class Grantee {
     name: t.string,
     slug: t.string,
     logoUrl: t.union([t.string, t.null]),
-    lastFundingDate: t.number,
+    lastFundingDate: t.union([t.number, t.null]),
     lastFundingAmount: t.number,
   });
 
@@ -307,7 +304,7 @@ export class Grantee {
   logoUrl: string | null;
 
   @ApiProperty()
-  lastFundingDate: number;
+  lastFundingDate: number | null;
 
   @ApiProperty()
   lastFundingAmount: number;

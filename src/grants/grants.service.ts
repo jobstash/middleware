@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { Client, createClient } from "./generated";
@@ -10,10 +10,10 @@ import {
   GrantListResult,
   GrantMetadata,
   GrantProject,
-  GrantProjectMetrics,
   KarmaGapGrantProgram,
   PaginatedData,
-  RawGrantProjectMetrics,
+  RawGrantProjectCodeMetrics,
+  RawGrantProjectOnchainMetrics,
   ResponseWithOptionalData,
 } from "src/shared/interfaces";
 import * as Sentry from "@sentry/node";
@@ -21,16 +21,20 @@ import { InjectConnection } from "nest-neogma";
 import { Neogma } from "neogma";
 import {
   nonZeroOrNull,
-  normalizeString,
+  sluggify,
   notStringOrNull,
   paginate,
 } from "src/shared/helpers";
 import { Alchemy, Network } from "alchemy-sdk";
-import { EIP155Chain, getChainById } from "eip155-chains";
+import { Neo4jVectorStore } from "@langchain/community/vectorstores/neo4j_vector";
+import { OpenAIEmbeddings } from "@langchain/openai";
+// import { EIP155Chain, getChainById } from "eip155-chains";
 
 @Injectable()
-export class GrantsService {
+export class GrantsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new CustomLogger(GrantsService.name);
+  private readonly embeddings = new OpenAIEmbeddings();
+  private vectorStore: Neo4jVectorStore;
   private client: Client;
 
   constructor(
@@ -41,11 +45,106 @@ export class GrantsService {
   ) {
     this.client = createClient({
       url: configService.get("GRANTS_STACK_INDEXER_URL"),
-      batch: true,
+      batch: false,
       cache: "reload",
       mode: "cors",
     });
   }
+
+  async onModuleInit(): Promise<void> {
+    this.vectorStore = await Neo4jVectorStore.fromExistingIndex(
+      this.embeddings,
+      {
+        url: `${this.configService.getOrThrow(
+          "NEO4J_SCHEME",
+        )}://${this.configService.getOrThrow(
+          "NEO4J_HOST",
+        )}:${this.configService.getOrThrow("NEO4J_PORT")}`,
+        username: this.configService.getOrThrow("NEO4J_USERNAME"),
+        password: this.configService.getOrThrow("NEO4J_PASSWORD"),
+        database: this.configService.getOrThrow("NEO4J_DATABASE"),
+        indexName: "grants-vector",
+        searchType: "vector",
+        nodeLabel: "GrantSiteChunk",
+        textNodeProperty: "text",
+        embeddingNodeProperty: "embedding",
+      },
+    );
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await this.vectorStore.close();
+  }
+
+  query = async (
+    query: string,
+    page = 1,
+    limit = 10,
+  ): Promise<PaginatedData<GrantListResult>> => {
+    try {
+      const result = await this.vectorStore.similaritySearchWithScore(
+        query,
+        10,
+      );
+      const ids = result.map(x => x[0].metadata.programId);
+      const programs = await this.getGrantsListResults();
+      const results = programs.filter(x => ids.includes(x.programId));
+      return paginate<GrantListResult>(
+        page,
+        limit,
+        results.map(
+          grant =>
+            new GrantListResult({
+              id: grant.programId,
+              name: grant.name,
+              slug: grant.slug ?? sluggify(grant.name),
+              status: notStringOrNull(grant.status) ?? "Inactive",
+              socialLinks: grant.socialLinks
+                ? {
+                    twitter: notStringOrNull(grant.socialLinks.twitter),
+                    website: notStringOrNull(grant.socialLinks.website),
+                    discord: notStringOrNull(grant.socialLinks.discord),
+                    orgWebsite: notStringOrNull(grant.socialLinks.orgWebsite),
+                    blog: notStringOrNull(grant.socialLinks.blog),
+                    forum: notStringOrNull(grant.socialLinks.forum),
+                    grantsSite: notStringOrNull(grant.socialLinks.grantsSite),
+                  }
+                : null,
+              eligibility: grant.eligibility,
+              metadata: {
+                ...grant.metadata,
+                description: notStringOrNull(grant.metadata.description),
+                programBudget: nonZeroOrNull(grant.metadata.programBudget),
+                amountDistributedToDate: nonZeroOrNull(
+                  grant.metadata.amountDistributedToDate,
+                ),
+                minGrantSize: nonZeroOrNull(grant.metadata.minGrantSize),
+                maxGrantSize: nonZeroOrNull(grant.metadata.maxGrantSize),
+                grantsToDate: nonZeroOrNull(grant.metadata.grantsToDate),
+                website: notStringOrNull(grant.metadata.website),
+                projectTwitter: notStringOrNull(grant.metadata.projectTwitter),
+                bugBounty: notStringOrNull(grant.metadata.bugBounty),
+                logoImg: notStringOrNull(grant.metadata.logoImg),
+                bannerImg: notStringOrNull(grant.metadata.bannerImg),
+                createdAt: nonZeroOrNull(grant.metadata.createdAt),
+                type: notStringOrNull(grant.metadata.type),
+                amount: notStringOrNull(grant.metadata.amount),
+              },
+            }),
+        ),
+      );
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "grants.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`GrantsService::getGrantsListResults ${err.message}`);
+      return paginate<GrantListResult>(page, limit, []);
+    }
+  };
 
   getGrantsListResults = async (): Promise<KarmaGapGrantProgram[]> => {
     const result = await this.neogma.queryRunner.run(
@@ -59,7 +158,7 @@ export class GrantsService {
             requirements: apoc.coll.toSet([(eligibility)-[:HAS_REQUIREMENT]->(requirement:KarmaGapRequirement) | requirement.description])
           }][0],
           socialLinks: [
-            (program)-[:HAS_SOCIAL_LINK]->(socialLink:KarmaGapSocials) | socialLink {
+            (program)-[:HAS_SOCIAL_LINKS]->(socialLink:KarmaGapSocials) | socialLink {
               .*
             }
           ][0],
@@ -76,13 +175,13 @@ export class GrantsService {
           metadata: [
             (program)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata) | metadata {
               .*,
-              categories: apoc.coll.toSet([(program)-[:HAS_CATEGORY]->(category) | category.name]),
-              ecosystems: apoc.coll.toSet([(program)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
-              organizations: apoc.coll.toSet([(program)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
-              networks: apoc.coll.toSet([(program)-[:HAS_NETWORK]->(network) | network.name]),
-              grantTypes: apoc.coll.toSet([(program)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
-              tags: apoc.coll.toSet([(program)-[:HAS_TAG]->(tag) | tag.name]),
-              platformsUsed: apoc.coll.toSet([(program)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
+              categories: apoc.coll.toSet([(metadata)-[:HAS_CATEGORY]->(category) | category.name]),
+              ecosystems: apoc.coll.toSet([(metadata)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
+              organizations: apoc.coll.toSet([(metadata)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
+              networks: apoc.coll.toSet([(metadata)-[:HAS_NETWORKS]->(network) | network.name]),
+              grantTypes: apoc.coll.toSet([(metadata)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
+              tags: apoc.coll.toSet([(metadata)-[:HAS_TAG]->(tag) | tag.name]),
+              platformsUsed: apoc.coll.toSet([(metadata)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
             }
           ][0]
         } as program
@@ -113,7 +212,7 @@ export class GrantsService {
             requirements: apoc.coll.toSet([(eligibility)-[:HAS_REQUIREMENT]->(requirement:KarmaGapRequirement) | requirement.description])
           }][0],
           socialLinks: [
-            (program)-[:HAS_SOCIAL_LINK]->(socialLink:KarmaGapSocials) | socialLink {
+            (program)-[:HAS_SOCIAL_LINKS]->(socialLink:KarmaGapSocials) | socialLink {
               .*
             }
           ][0],
@@ -130,13 +229,13 @@ export class GrantsService {
           metadata: [
             (program)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata) | metadata {
               .*,
-              categories: apoc.coll.toSet([(program)-[:HAS_CATEGORY]->(category) | category.name]),
-              ecosystems: apoc.coll.toSet([(program)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
-              organizations: apoc.coll.toSet([(program)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
-              networks: apoc.coll.toSet([(program)-[:HAS_NETWORK]->(network) | network.name]),
-              grantTypes: apoc.coll.toSet([(program)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
-              tags: apoc.coll.toSet([(program)-[:HAS_TAG]->(tag) | tag.name]),
-              platformsUsed: apoc.coll.toSet([(program)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
+              categories: apoc.coll.toSet([(metadata)-[:HAS_CATEGORY]->(category) | category.name]),
+              ecosystems: apoc.coll.toSet([(metadata)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
+              organizations: apoc.coll.toSet([(metadata)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
+              networks: apoc.coll.toSet([(metadata)-[:HAS_NETWORKS]->(network) | network.name]),
+              grantTypes: apoc.coll.toSet([(metadata)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
+              tags: apoc.coll.toSet([(metadata)-[:HAS_TAG]->(tag) | tag.name]),
+              platformsUsed: apoc.coll.toSet([(metadata)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
             }
           ][0]
         } as program
@@ -215,47 +314,20 @@ export class GrantsService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (program:KarmaGapProgram {slug: $slug})
-        RETURN program {
-          .*,
-          status: [(program)-[:HAS_STATUS]->(status:KarmaGapStatus) | status.name][0],
-          eligibility: [(program)-[:HAS_ELIGIBILITY]->(eligibility:KarmaGapEligibility) | eligibility {
-            .*,
-            requirements: apoc.coll.toSet([(eligibility)-[:HAS_REQUIREMENT]->(requirement:KarmaGapRequirement) | requirement.description])
-          }][0],
-          socialLinks: [
-            (program)-[:HAS_SOCIAL_LINK]->(socialLink:KarmaGapSocials) | socialLink {
-              .*
-            }
-          ][0],
-          quadraticFundingConfig: [
-            (program)-[:HAS_QUADRATIC_FUNDING_CONFIG]->(quadraticFundingConfig:KarmaGapQuadraticFundingConfig) | quadraticFundingConfig {
-              .*
-            }
-          ][0],
-          support: [
-            (program)-[:HAS_SUPPORT]->(support:KarmaGapSupport) | support {
-              .*
-            }
-          ][0],
-          metadata: [
-            (program)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata) | metadata {
-              .*,
-              categories: apoc.coll.toSet([(program)-[:HAS_CATEGORY]->(category) | category.name]),
-              ecosystems: apoc.coll.toSet([(program)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
-              organizations: apoc.coll.toSet([(program)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
-              networks: apoc.coll.toSet([(program)-[:HAS_NETWORK]->(network) | network.name]),
-              grantTypes: apoc.coll.toSet([(program)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
-              tags: apoc.coll.toSet([(program)-[:HAS_TAG]->(tag) | tag.name]),
-              platformsUsed: apoc.coll.toSet([(program)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
-            }
-          ][0]
+        RETURN {
+          programId: program.programId,
+          name: program.name
         } as program
       `,
         { slug },
       );
 
       const programs = result.records.map(
-        record => record.get("program") as KarmaGapGrantProgram,
+        record =>
+          record.get("program") as {
+            programId: string;
+            name: string;
+          },
       );
       const program = programs[0];
       if (program) {
@@ -288,9 +360,15 @@ export class GrantsService {
         });
 
         const grantees =
-          result.rounds.find(
-            x => (x.roundMetadata as GrantMetadata)?.name === program.name,
-          )?.applications ?? [];
+          program.programId === "451"
+            ? result.rounds.find(
+                x =>
+                  (x.roundMetadata as GrantMetadata)?.name ===
+                  "GG21: Thriving Arbitrum Summer",
+              )?.applications ?? []
+            : result.rounds.find(
+                x => (x.roundMetadata as GrantMetadata)?.name === program.name,
+              )?.applications ?? [];
 
         return paginate<Grantee>(
           page,
@@ -298,37 +376,31 @@ export class GrantsService {
           await Promise.all(
             grantees.map(async grantee => {
               const apiKey = this.configService.get<string>("ALCHEMY_API_KEY");
-              const chainInfo: EIP155Chain = await getChainById(
-                grantee.chainId,
-                {
-                  apiKeys: {
-                    ALCHEMY_API_KEY: apiKey,
-                  },
-                  healthyCheckEnabled: true,
-                  filters: {
-                    features: ["privacy"],
-                  },
-                },
-              );
 
               const alchemy = new Alchemy({
                 apiKey,
-                network: Network[chainInfo.network],
+                network: Network.ARB_MAINNET,
               });
 
-              const transaction = await alchemy.core.getTransaction(
-                grantee.distributionTransaction,
+              const transaction = grantee.distributionTransaction
+                ? await alchemy.core.getTransaction(
+                    grantee.distributionTransaction,
+                  )
+                : {
+                    timestamp: 0,
+                  };
+
+              const logoIpfs = notStringOrNull(
+                (grantee.metadata as GranteeApplicationMetadata)?.application
+                  .project.logoImg,
               );
 
               return new Grantee({
                 id: grantee.id,
                 name: grantee.project.name,
-                slug: normalizeString(grantee.project.name),
-                logoUrl: notStringOrNull(
-                  (grantee.metadata as GranteeApplicationMetadata)?.application
-                    .project.logoImg,
-                ),
-                lastFundingDate: transaction.timestamp,
+                slug: sluggify(grantee.project.name),
+                logoUrl: logoIpfs ? `https://${logoIpfs}.ipfs.dweb.link` : null,
+                lastFundingDate: nonZeroOrNull(transaction.timestamp),
                 lastFundingAmount: grantee.totalAmountDonatedInUsd,
               });
             }),
@@ -358,47 +430,20 @@ export class GrantsService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (program:KarmaGapProgram {slug: $programSlug})
-        RETURN program {
-          .*,
-          status: [(program)-[:HAS_STATUS]->(status:KarmaGapStatus) | status.name][0],
-          eligibility: [(program)-[:HAS_ELIGIBILITY]->(eligibility:KarmaGapEligibility) | eligibility {
-            .*,
-            requirements: apoc.coll.toSet([(eligibility)-[:HAS_REQUIREMENT]->(requirement:KarmaGapRequirement) | requirement.description])
-          }][0],
-          socialLinks: [
-            (program)-[:HAS_SOCIAL_LINK]->(socialLink:KarmaGapSocials) | socialLink {
-              .*
-            }
-          ][0],
-          quadraticFundingConfig: [
-            (program)-[:HAS_QUADRATIC_FUNDING_CONFIG]->(quadraticFundingConfig:KarmaGapQuadraticFundingConfig) | quadraticFundingConfig {
-              .*
-            }
-          ][0],
-          support: [
-            (program)-[:HAS_SUPPORT]->(support:KarmaGapSupport) | support {
-              .*
-            }
-          ][0],
-          metadata: [
-            (program)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata) | metadata {
-              .*,
-              categories: apoc.coll.toSet([(program)-[:HAS_CATEGORY]->(category) | category.name]),
-              ecosystems: apoc.coll.toSet([(program)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
-              organizations: apoc.coll.toSet([(program)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
-              networks: apoc.coll.toSet([(program)-[:HAS_NETWORK]->(network) | network.name]),
-              grantTypes: apoc.coll.toSet([(program)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
-              tags: apoc.coll.toSet([(program)-[:HAS_TAG]->(tag) | tag.name]),
-              platformsUsed: apoc.coll.toSet([(program)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
-            }
-          ][0]
+        RETURN {
+          programId: program.programId,
+          name: program.name
         } as program
       `,
         { programSlug },
       );
 
       const programs = result.records.map(
-        record => record.get("program") as KarmaGapGrantProgram,
+        record =>
+          record.get("program") as {
+            programId: string;
+            name: string;
+          },
       );
 
       if (programs.length > 0) {
@@ -415,6 +460,7 @@ export class GrantsService {
                 },
               },
               id: true,
+              distributionTransaction: true,
               uniqueDonorsCount: true,
               totalDonationsCount: true,
               totalAmountDonatedInUsd: true,
@@ -431,215 +477,406 @@ export class GrantsService {
 
         const program = programs[0];
 
-        const project = result.rounds
-          .find(x => (x.roundMetadata as GrantMetadata)?.name === program.name)
-          ?.applications?.find(x => {
-            return x.project.name === granteeSlug;
-          });
+        const project = (
+          program.programId === "451"
+            ? result.rounds.find(
+                x =>
+                  (x.roundMetadata as GrantMetadata)?.name ===
+                  "GG21: Thriving Arbitrum Summer",
+              )?.applications ?? []
+            : result.rounds.find(
+                x => (x.roundMetadata as GrantMetadata)?.name === program.name,
+              )?.applications ?? []
+        ).find(x => {
+          return sluggify(x.project.name) === granteeSlug;
+        });
 
-        const metrics =
-          await this.googleBigQueryService.getGrantProjectsMetrics([
-            project.project.name,
+        const codeMetrics =
+          await this.googleBigQueryService.getGrantProjectsCodeMetrics([
+            granteeSlug,
           ]);
 
-        const projectMetrics = (metrics.find(
-          m => m.display_name === project.project.name,
-        ) ?? {}) as RawGrantProjectMetrics;
+        const onChainMetrics =
+          await this.googleBigQueryService.getGrantProjectsOnchainMetrics([
+            granteeSlug,
+          ]);
 
-        const parsedMetrics = (
-          projectMetrics
-            ? {
-                projectId: projectMetrics?.project_id,
-                projectSource: projectMetrics?.project_source,
-                projectNamespace: projectMetrics?.project_namespace,
-                projectName: projectMetrics?.project_name,
-                displayName: projectMetrics?.display_name,
-                eventSource: projectMetrics?.event_source,
-                repositoryCount: projectMetrics?.repository_count,
-                starCount: projectMetrics?.star_count,
-                forkCount: projectMetrics?.fork_count,
-                contributorCount: projectMetrics?.contributor_count,
-                contributorCountSixMonths:
-                  projectMetrics?.contributor_count_6_months,
-                newContributorCountSixMonths:
-                  projectMetrics?.new_contributor_count_6_months,
-                fulltimeDeveloperAverageSixMonths:
-                  projectMetrics?.fulltime_developer_average_6_months,
-                activeDeveloperCountSixMonths:
-                  projectMetrics?.active_developer_count_6_months,
-                commitCountSixMonths: projectMetrics?.commit_count_6_months,
-                openedPullRequestCountSixMonths:
-                  projectMetrics?.opened_pull_request_count_6_months,
-                mergedPullRequestCountSixMonths:
-                  projectMetrics?.merged_pull_request_count_6_months,
-                openedIssueCountSixMonths:
-                  projectMetrics?.opened_issue_count_6_months,
-                closedIssueCountSixMonths:
-                  projectMetrics?.closed_issue_count_6_months,
-                firstCommitDate: projectMetrics?.first_commit_date?.value
-                  ? new Date(projectMetrics?.first_commit_date?.value).getTime()
-                  : undefined,
-                lastCommitDate: projectMetrics?.last_commit_date?.value
-                  ? new Date(projectMetrics?.last_commit_date?.value).getTime()
-                  : undefined,
-              }
-            : {}
-        ) as GrantProjectMetrics;
+        const projectCodeMetrics = (codeMetrics.find(
+          m => m.project_name === granteeSlug,
+        ) ?? {}) as RawGrantProjectCodeMetrics;
+
+        const projectOnchainMetrics = (onChainMetrics.find(
+          m => m.project_name === granteeSlug,
+        ) ?? {}) as RawGrantProjectOnchainMetrics;
 
         const projectMetricsConverter = (
-          metrics: GrantProjectMetrics,
+          codeMetrics: RawGrantProjectCodeMetrics,
+          onChainMetrics: RawGrantProjectOnchainMetrics,
         ): GrantProject["tabs"] => {
-          return [
-            {
-              label: "Overall Summary",
-              tab: "overall-summary",
-              stats: [],
-            },
-            {
-              label: "Impact Metrics",
-              tab: "impact-metrics",
-              stats: [],
-            },
-            {
-              label: "Github Metrics",
-              tab: "github-metrics",
-              stats: [],
-            },
-            {
-              label: "Code Metrics",
-              tab: "code-metrics",
-              stats: [
-                {
-                  label: "First Commit Date",
-                  value: new Date(metrics.firstCommitDate).toDateString(),
+          const overviewStats = [
+            onChainMetrics?.transaction_count
+              ? {
+                  label: "Total Transactions",
+                  value: onChainMetrics.transaction_count.toString(),
                   stats: [],
-                },
-                {
-                  label: "Last Commit Date",
-                  value: new Date(metrics.lastCommitDate).toDateString(),
+                }
+              : null,
+            onChainMetrics?.address_count
+              ? {
+                  label: "Total Addresses",
+                  value: onChainMetrics.address_count.toString(),
                   stats: [],
-                },
-                {
-                  label: "Repositories",
-                  value: metrics.repositoryCount.toString(),
-                  stats: [],
-                },
-                {
-                  label: "Repositories",
-                  value: metrics.repositoryCount.toString(),
-                  stats: [],
-                },
-                {
-                  label: "Stars",
-                  value: metrics.starCount.toString(),
-                  stats: [],
-                },
-                {
-                  label: "Forks",
-                  value: metrics.forkCount.toString(),
-                  stats: [],
-                },
-                {
+                }
+              : null,
+            codeMetrics?.contributor_count
+              ? {
                   label: "Contributor Count",
-                  value: metrics.contributorCount.toString(),
+                  value: codeMetrics.contributor_count
+                    ? codeMetrics.contributor_count.toString()
+                    : "N/A",
                   stats: [
                     {
                       label: "Last 6 Months",
-                      value: metrics.contributorCountSixMonths.toString(),
+                      value: codeMetrics.contributor_count_6_months
+                        ? codeMetrics.contributor_count_6_months.toString()
+                        : "N/A",
                       stats: [],
                     },
                     {
                       label: "New Contributors",
-                      value: metrics.newContributorCountSixMonths.toString(),
-                      stats: [],
-                    },
-                    {
-                      label: "Fulltime Developer Average",
-                      value:
-                        metrics.fulltimeDeveloperAverageSixMonths.toString(),
-                      stats: [],
-                    },
-                    {
-                      label: "Active Developers",
-                      value: metrics.activeDeveloperCountSixMonths.toString(),
+                      value: codeMetrics.new_contributor_count_6_months
+                        ? codeMetrics.new_contributor_count_6_months.toString()
+                        : "N/A",
                       stats: [],
                     },
                   ],
-                },
-                {
-                  label: "Commit Count (6 Months)",
-                  value: metrics.commitCountSixMonths.toString(),
+                }
+              : null,
+            codeMetrics?.star_count
+              ? {
+                  label: "GitHub Stars",
+                  value: codeMetrics.star_count.toString(),
                   stats: [],
-                },
-                {
-                  label: "Opened Pull Request Count (6 Months)",
-                  value: metrics.openedPullRequestCountSixMonths.toString(),
+                }
+              : null,
+            codeMetrics?.last_commit_date?.value
+              ? {
+                  label: "Last Commit Date",
+                  value: new Date(
+                    codeMetrics.last_commit_date.value,
+                  ).toDateString(),
                   stats: [],
-                },
-                {
-                  label: "Merged Pull Request Count (6 Months)",
-                  value: metrics.mergedPullRequestCountSixMonths.toString(),
-                  stats: [],
-                },
-                {
-                  label: "Opened Issue Count (6 Months)",
-                  value: metrics.openedIssueCountSixMonths.toString(),
-                  stats: [],
-                },
-                {
-                  label: "Closed Issue Count (6 Months)",
-                  value: metrics.closedIssueCountSixMonths.toString(),
-                  stats: [],
-                },
-              ],
-            },
-            {
-              label: "Contract Address",
-              tab: "contract-address",
-              stats: [],
-            },
-          ];
+                }
+              : null,
+          ].filter(Boolean);
+          return [
+            overviewStats.length > 0
+              ? {
+                  label: "Overview",
+                  tab: "overview",
+                  stats: overviewStats,
+                }
+              : null,
+            Object.values(onChainMetrics).filter(Boolean).length > 0
+              ? {
+                  label: "Onchain Metrics",
+                  tab: "onchain-metrics",
+                  stats: [
+                    {
+                      label: "Active Contract Count (90 Days)",
+                      value: onChainMetrics.active_contract_count_90_days
+                        ? onChainMetrics.active_contract_count_90_days.toString()
+                        : "N/A",
+                      stats: [],
+                    },
+                    {
+                      label: "Transaction Count",
+                      value: onChainMetrics.transaction_count
+                        ? onChainMetrics.transaction_count.toString()
+                        : "N/A",
+                      stats: [
+                        {
+                          label: "Transaction Count (6 Months)",
+                          value: onChainMetrics.transaction_count_6_months
+                            ? onChainMetrics.transaction_count_6_months.toString()
+                            : "N/A",
+                          stats: [],
+                        },
+                      ],
+                    },
+                    {
+                      label: "Gas Fees Sum",
+                      value: onChainMetrics.gas_fees_sum
+                        ? onChainMetrics.gas_fees_sum.toString()
+                        : "N/A",
+                      stats: [
+                        {
+                          label: "Gas Fees Sum (6 Months)",
+                          value: onChainMetrics.gas_fees_sum_6_months
+                            ? onChainMetrics.gas_fees_sum_6_months.toString()
+                            : "N/A",
+                          stats: [],
+                        },
+                      ],
+                    },
+                    {
+                      label: "Address Count",
+                      value: onChainMetrics.address_count
+                        ? onChainMetrics.address_count.toString()
+                        : "N/A",
+                      stats: [
+                        {
+                          label: "Address Count (90 Days)",
+                          value: onChainMetrics.address_count_90_days
+                            ? onChainMetrics.address_count_90_days.toString()
+                            : "N/A",
+                          stats: [],
+                        },
+                        {
+                          label: "New Address Count (90 Days)",
+                          value: onChainMetrics.new_address_count_90_days
+                            ? onChainMetrics.new_address_count_90_days.toString()
+                            : "N/A",
+                          stats: [],
+                        },
+                        {
+                          label: "Returning Address Count (90 Days)",
+                          value: onChainMetrics.returning_address_count_90_days
+                            ? onChainMetrics.returning_address_count_90_days.toString()
+                            : "N/A",
+                          stats: [],
+                        },
+                        {
+                          label: "High Activity Address Count (90 Days)",
+                          value:
+                            onChainMetrics.high_activity_address_count_90_days
+                              ? onChainMetrics.high_activity_address_count_90_days.toString()
+                              : "N/A",
+                          stats: [],
+                        },
+                        {
+                          label: "Medium Activity Address Count (90 Days)",
+                          value:
+                            onChainMetrics.medium_activity_address_count_90_days
+                              ? onChainMetrics.medium_activity_address_count_90_days.toString()
+                              : "N/A",
+                          stats: [],
+                        },
+                        {
+                          label: "Low Activity Address Count (90 Days)",
+                          value:
+                            onChainMetrics.low_activity_address_count_90_days
+                              ? onChainMetrics.low_activity_address_count_90_days.toString()
+                              : "N/A",
+                          stats: [],
+                        },
+                        {
+                          label: "Multi-Project Address Count (90 Days)",
+                          value:
+                            onChainMetrics.multi_project_address_count_90_days
+                              ? onChainMetrics.multi_project_address_count_90_days.toString()
+                              : "N/A",
+                          stats: [],
+                        },
+                      ],
+                    },
+                  ],
+                }
+              : null,
+            // {
+            //   label: "Github Metrics",
+            //   tab: "github-metrics",
+            //   stats: [],
+            // },
+            Object.values(codeMetrics).filter(Boolean).length > 0
+              ? {
+                  label: "Code Metrics",
+                  tab: "code-metrics",
+                  stats: [
+                    {
+                      label: "First Commit Date",
+                      value: codeMetrics.first_commit_date
+                        ? new Date(
+                            codeMetrics.first_commit_date.value,
+                          ).toDateString()
+                        : "N/A",
+                      stats: [],
+                    },
+                    {
+                      label: "Last Commit Date",
+                      value: codeMetrics.last_commit_date
+                        ? new Date(
+                            codeMetrics.last_commit_date.value,
+                          ).toDateString()
+                        : "N/A",
+                      stats: [],
+                    },
+                    {
+                      label: "Repositories",
+                      value: codeMetrics.repository_count
+                        ? codeMetrics.repository_count.toString()
+                        : "N/A",
+                      stats: [],
+                    },
+                    {
+                      label: "Stars",
+                      value: codeMetrics.repository_count
+                        ? codeMetrics.repository_count.toString()
+                        : "N/A",
+                      stats: [],
+                    },
+                    {
+                      label: "Forks",
+                      value: codeMetrics.fork_count
+                        ? codeMetrics.fork_count.toString()
+                        : "N/A",
+                      stats: [],
+                    },
+                    {
+                      label: "Contributor Count",
+                      value: codeMetrics.contributor_count
+                        ? codeMetrics.contributor_count.toString()
+                        : "N/A",
+                      stats: [
+                        {
+                          label: "Last 6 Months",
+                          value: codeMetrics.contributor_count_6_months
+                            ? codeMetrics.contributor_count_6_months.toString()
+                            : "N/A",
+                          stats: [],
+                        },
+                        {
+                          label: "New Contributors",
+                          value: codeMetrics.new_contributor_count_6_months
+                            ? codeMetrics.new_contributor_count_6_months.toString()
+                            : "N/A",
+                          stats: [],
+                        },
+                        {
+                          label: "Fulltime Developer Average",
+                          value: codeMetrics.fulltime_developer_average_6_months
+                            ? codeMetrics.fulltime_developer_average_6_months.toString()
+                            : "N/A",
+                          stats: [],
+                        },
+                        {
+                          label: "Active Developers",
+                          value: codeMetrics.active_developer_count_6_months
+                            ? codeMetrics.active_developer_count_6_months.toString()
+                            : "N/A",
+                          stats: [],
+                        },
+                      ],
+                    },
+                    {
+                      label: "Commit Count (6 Months)",
+                      value: codeMetrics.commit_count_6_months
+                        ? codeMetrics.commit_count_6_months.toString()
+                        : "N/A",
+                      stats: [],
+                    },
+                    {
+                      label: "Opened Pull Request Count (6 Months)",
+                      value: codeMetrics.opened_issue_count_6_months
+                        ? codeMetrics.opened_issue_count_6_months.toString()
+                        : "N/A",
+                      stats: [],
+                    },
+                    {
+                      label: "Merged Pull Request Count (6 Months)",
+                      value: codeMetrics.merged_pull_request_count_6_months
+                        ? codeMetrics.merged_pull_request_count_6_months.toString()
+                        : "N/A",
+                      stats: [],
+                    },
+                    {
+                      label: "Opened Issue Count (6 Months)",
+                      value: codeMetrics.opened_issue_count_6_months
+                        ? codeMetrics.opened_issue_count_6_months.toString()
+                        : "N/A",
+                      stats: [],
+                    },
+                    {
+                      label: "Closed Issue Count (6 Months)",
+                      value: codeMetrics.closed_issue_count_6_months
+                        ? codeMetrics.closed_issue_count_6_months.toString()
+                        : "N/A",
+                      stats: [],
+                    },
+                  ],
+                }
+              : null,
+            // {
+            //   label: "Contract Address",
+            //   tab: "contract-address",
+            //   stats: [],
+            // },
+          ].filter(Boolean);
         };
 
         const grantees = (
-          result.rounds.find(
-            x => (x.roundMetadata as GrantMetadata)?.name === program.name,
-          )?.applications ?? []
-        ).map(
-          grantee =>
-            new GranteeDetails({
-              id: grantee.id,
-              tags: grantee.tags,
-              status: grantee.status,
-              name: grantee.project.name,
-              slug: normalizeString(grantee.project.name),
-              description: (grantee.metadata as GranteeApplicationMetadata)
-                ?.application.project.description,
-              website: notStringOrNull(
-                (grantee.metadata as GranteeApplicationMetadata)?.application
-                  .project.website,
-              ),
-              logoUrl: notStringOrNull(
-                (grantee.metadata as GranteeApplicationMetadata)?.application
-                  .project.logoImg,
-              ),
-              lastFundingDate: 0,
-              lastFundingAmount: grantee.totalAmountDonatedInUsd,
-              projects: [
-                {
-                  id: (project.metadata as GranteeApplicationMetadata)
-                    .application.project.id,
-                  name: project.project.name,
-                  tags: project.project.tags,
-                  tabs: projectMetrics
-                    ? projectMetricsConverter(parsedMetrics)
-                    : [],
-                },
-              ],
-            }),
-        );
+          program.programId === "451"
+            ? result.rounds.find(
+                x =>
+                  (x.roundMetadata as GrantMetadata)?.name ===
+                  "GG21: Thriving Arbitrum Summer",
+              )?.applications ?? []
+            : result.rounds.find(
+                x => (x.roundMetadata as GrantMetadata)?.name === program.name,
+              )?.applications ?? []
+        ).map(async grantee => {
+          const apiKey = this.configService.get<string>("ALCHEMY_API_KEY");
 
-        const grantee = grantees.find(x => x.slug === granteeSlug);
+          const alchemy = new Alchemy({
+            apiKey,
+            network: Network.ARB_MAINNET,
+          });
+
+          const transaction = grantee.distributionTransaction
+            ? await alchemy.core.getTransaction(grantee.distributionTransaction)
+            : {
+                timestamp: 0,
+              };
+
+          const logoIpfs = notStringOrNull(
+            (grantee?.metadata as GranteeApplicationMetadata)?.application
+              .project.logoImg,
+          );
+          return new GranteeDetails({
+            id: grantee.id,
+            tags: grantee.tags,
+            status: grantee.status,
+            name: grantee.project.name,
+            slug: sluggify(grantee.project.name),
+            description: (grantee?.metadata as GranteeApplicationMetadata)
+              ?.application?.project?.description,
+            website: notStringOrNull(
+              (grantee?.metadata as GranteeApplicationMetadata)?.application
+                ?.project?.website,
+            ),
+            logoUrl: logoIpfs ? `https://${logoIpfs}.ipfs.dweb.link` : null,
+            lastFundingDate: nonZeroOrNull(transaction.timestamp),
+            lastFundingAmount: grantee.totalAmountDonatedInUsd,
+            projects: [
+              {
+                id: (project?.metadata as GranteeApplicationMetadata)
+                  ?.application?.project?.id,
+                name: `GG21: Thriving Arbitrum Summer - ${project.project.name}`,
+                tags: project.project.tags,
+                tabs: projectCodeMetrics
+                  ? projectMetricsConverter(
+                      projectCodeMetrics,
+                      projectOnchainMetrics,
+                    )
+                  : [],
+              },
+            ],
+          });
+        });
+
+        const grantee = (await Promise.all(grantees)).find(
+          x => x.slug === granteeSlug,
+        );
 
         if (grantee) {
           return {
@@ -693,7 +930,7 @@ export class GrantsService {
             new GrantListResult({
               id: grant.programId,
               name: grant.name,
-              slug: grant.slug ?? normalizeString(grant.name),
+              slug: grant.slug ?? sluggify(grant.name),
               status: notStringOrNull(grant.status) ?? "Inactive",
               socialLinks: grant.socialLinks
                 ? {

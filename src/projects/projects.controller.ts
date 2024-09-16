@@ -727,7 +727,7 @@ export class ProjectsController {
 
   @Post("/create")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
   @ApiOkResponse({
     description: "Creates a new project",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
@@ -801,10 +801,10 @@ export class ProjectsController {
       );
 
     if (organizationProjectRelationshipExists === false) {
-      await this.organizationsService.relateToProjects(
-        storedOrganization.getId(),
-        [storedProject.id],
-      );
+      await this.organizationsService.addProjectToOrg({
+        orgId: storedOrganization.getOrgId(),
+        projectId: storedProject.id,
+      });
       this.logger.log(
         `Related project ${
           body.name
@@ -821,7 +821,7 @@ export class ProjectsController {
 
   @Post("/update/:id")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
   @ApiOkResponse({
     description: "Updates an existing project",
     schema: responseSchemaWrapper({
@@ -855,7 +855,7 @@ export class ProjectsController {
 
   @Delete("/delete/:id")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
   @ApiOkResponse({
     description: "Deletes an existing project",
     schema: {
