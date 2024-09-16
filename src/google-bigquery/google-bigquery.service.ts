@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { BigQuery } from "@google-cloud/bigquery";
 import {
   RawGrantProjectCodeMetrics,
+  RawGrantProjectContractMetrics,
   RawGrantProjectOnchainMetrics,
 } from "src/shared/interfaces";
 
@@ -24,9 +25,7 @@ export class GoogleBigQueryService {
       projectId: "beaming-figure-430316-k1",
       credentials: {
         client_email: this.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        private_key: this.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.split(
-          String.raw`\n`,
-        ).join("\n"),
+        private_key: this.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
       },
     });
   }
@@ -72,6 +71,35 @@ export class GoogleBigQueryService {
 
       SELECT *
       FROM beaming-figure-430316-k1.oso_production.onchain_metrics_by_project_v1
+      WHERE project_id IN (
+        SELECT project_id FROM projects
+      )
+    `;
+
+    const [rows] = await this.bigquery.query({
+      query,
+      location: "US",
+      params: { projects },
+      types: {
+        logins: ["STRING"],
+      },
+    });
+
+    return rows;
+  }
+
+  async getGrantProjectsContractMetrics(
+    projects: string[],
+  ): Promise<RawGrantProjectContractMetrics[]> {
+    const query = `
+      WITH projects AS (
+        SELECT DISTINCT project_id
+        FROM beaming-figure-430316-k1.oso_production.projects_v1
+        WHERE LOWER(project_name) IN UNNEST(@projects)
+      )
+
+      SELECT *
+      FROM beaming-figure-430316-k1.oso_production.stg_ossd__current_projects
       WHERE project_id IN (
         SELECT project_id FROM projects
       )

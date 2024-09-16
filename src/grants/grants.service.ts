@@ -13,6 +13,7 @@ import {
   KarmaGapGrantProgram,
   PaginatedData,
   RawGrantProjectCodeMetrics,
+  RawGrantProjectContractMetrics,
   RawGrantProjectOnchainMetrics,
   ResponseWithOptionalData,
 } from "src/shared/interfaces";
@@ -28,7 +29,6 @@ import {
 import { Alchemy, Network } from "alchemy-sdk";
 import { Neo4jVectorStore } from "@langchain/community/vectorstores/neo4j_vector";
 import { OpenAIEmbeddings } from "@langchain/openai";
-// import { EIP155Chain, getChainById } from "eip155-chains";
 
 @Injectable()
 export class GrantsService implements OnModuleInit, OnModuleDestroy {
@@ -491,15 +491,14 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
           return sluggify(x.project.name) === granteeSlug;
         });
 
-        const codeMetrics =
-          await this.googleBigQueryService.getGrantProjectsCodeMetrics([
-            granteeSlug,
-          ]);
-
-        const onChainMetrics =
-          await this.googleBigQueryService.getGrantProjectsOnchainMetrics([
-            granteeSlug,
-          ]);
+        const [codeMetrics, onChainMetrics, contractMetrics] =
+          await Promise.all(
+            [
+              this.googleBigQueryService.getGrantProjectsCodeMetrics,
+              this.googleBigQueryService.getGrantProjectsOnchainMetrics,
+              this.googleBigQueryService.getGrantProjectsContractMetrics,
+            ].map(fn => fn([granteeSlug])),
+          );
 
         const projectCodeMetrics = (codeMetrics.find(
           m => m.project_name === granteeSlug,
@@ -509,9 +508,14 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
           m => m.project_name === granteeSlug,
         ) ?? {}) as RawGrantProjectOnchainMetrics;
 
+        const projectContractMetrics = (contractMetrics.find(
+          m => m.project_name === granteeSlug,
+        ) ?? {}) as RawGrantProjectContractMetrics;
+
         const projectMetricsConverter = (
           codeMetrics: RawGrantProjectCodeMetrics,
           onChainMetrics: RawGrantProjectOnchainMetrics,
+          contractMetrics: RawGrantProjectContractMetrics,
         ): GrantProject["tabs"] => {
           const overviewStats = [
             onChainMetrics?.transaction_count
@@ -683,11 +687,6 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
                   ],
                 }
               : null,
-            // {
-            //   label: "Github Metrics",
-            //   tab: "github-metrics",
-            //   stats: [],
-            // },
             Object.values(codeMetrics).filter(Boolean).length > 0
               ? {
                   label: "Code Metrics",
@@ -806,11 +805,17 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
                   ],
                 }
               : null,
-            // {
-            //   label: "Contract Address",
-            //   tab: "contract-address",
-            //   stats: [],
-            // },
+            Object.values(contractMetrics).filter(Boolean).length > 0
+              ? {
+                  label: "Contract Address",
+                  tab: "contract-address",
+                  stats: contractMetrics.blockchain.map(x => ({
+                    label: x.name,
+                    value: x.address,
+                    stats: [],
+                  })),
+                }
+              : null,
           ].filter(Boolean);
         };
 
@@ -867,6 +872,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
                   ? projectMetricsConverter(
                       projectCodeMetrics,
                       projectOnchainMetrics,
+                      projectContractMetrics,
                     )
                   : [],
               },

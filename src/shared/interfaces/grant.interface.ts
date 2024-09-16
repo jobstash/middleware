@@ -247,6 +247,65 @@ export class RawGrantProjectOnchainMetrics {
   multi_project_address_count_90_days: string;
 }
 
+export class RawGrantProjectContractMetrics {
+  @ApiProperty()
+  project_id: string;
+
+  @ApiProperty()
+  project_source: string;
+
+  @ApiProperty()
+  project_namespace: string;
+
+  @ApiProperty()
+  project_name: string;
+
+  @ApiProperty()
+  display_name: string;
+
+  @ApiProperty()
+  description: string;
+
+  @ApiProperty()
+  websites: {
+    url: string;
+  };
+
+  @ApiProperty()
+  social: {
+    farcaster: {
+      url: string;
+    };
+    twitter: {
+      url: string;
+    };
+  };
+
+  @ApiProperty()
+  github: {
+    url: string;
+  }[];
+
+  @ApiProperty()
+  npm: {
+    url: string;
+  }[];
+
+  @ApiProperty()
+  blockchain: {
+    address: string;
+    name: string;
+    networks: string[];
+    tags: string[];
+  }[];
+
+  @ApiProperty()
+  sha: string;
+
+  @ApiProperty()
+  committed_time: string;
+}
+
 interface StatItem {
   label: string;
   value: string;
