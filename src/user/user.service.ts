@@ -685,47 +685,50 @@ export class UserService {
 
       const newUser = await this.create(newUserDto);
 
-      this.logger.log(JSON.stringify(newUser));
+      if (newUser) {
+        await this.syncUserLinkedWallets(embeddedWallet, user.id);
 
-      await this.syncUserLinkedWallets(embeddedWallet, user.id);
-
-      if (user.github) {
-        this.logger.log(`Fetching github info for ${user.github.username}`);
-        const githubUser = axios
-          .get<{
-            avatar_url: string;
-          }>(`https://api.github.com/users/${user.github.username}`)
-          .catch(err => {
-            this.logger.error(`UserService::fetchGithubUser ${err.message}`);
-            Sentry.withScope(scope => {
-              scope.setTags({
-                action: "external-api-call",
-                source: "user.service",
+        if (user.github) {
+          this.logger.log(`Fetching github info for ${user.github.username}`);
+          const githubUser = axios
+            .get<{
+              avatar_url: string;
+            }>(`https://api.github.com/users/${user.github.username}`)
+            .catch(err => {
+              this.logger.error(`UserService::fetchGithubUser ${err.message}`);
+              Sentry.withScope(scope => {
+                scope.setTags({
+                  action: "external-api-call",
+                  source: "user.service",
+                });
+                Sentry.captureException(err);
               });
-              Sentry.captureException(err);
+              return undefined;
             });
-            return undefined;
+
+          this.githubUserService.addGithubInfoToUser({
+            wallet: embeddedWallet,
+            githubLogin: user.github.username,
+            githubId: user.github.subject,
+            githubAvatarUrl: (await githubUser).data.avatar_url,
           });
+        }
 
-        this.githubUserService.addGithubInfoToUser({
-          wallet: embeddedWallet,
-          githubLogin: user.github.username,
-          githubId: user.github.subject,
-          githubAvatarUrl: (await githubUser).data.avatar_url,
-        });
+        await this.profileService.runUserDataFetchingOps(embeddedWallet, true);
+
+        await this.setRole(role, newUser);
+        await this.setFlow(
+          role === CheckWalletRoles.ORG
+            ? CheckWalletFlows.ORG_PROFILE
+            : CheckWalletFlows.ONBOARD_PROFILE,
+          newUser,
+        );
+
+        return newUser.getProperties();
+      } else {
+        this.logger.error(`UserService::createPrivyUser error creating user`);
+        return undefined;
       }
-
-      await this.profileService.runUserDataFetchingOps(embeddedWallet, true);
-
-      await this.setRole(role, newUser);
-      await this.setFlow(
-        role === CheckWalletRoles.ORG
-          ? CheckWalletFlows.ORG_PROFILE
-          : CheckWalletFlows.ONBOARD_PROFILE,
-        newUser,
-      );
-
-      return newUser.getProperties();
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({

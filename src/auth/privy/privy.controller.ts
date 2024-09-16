@@ -43,9 +43,8 @@ export class PrivyController {
         embeddedWallet,
         CheckWalletRoles.DEV,
       );
-      const cryptoNative = await this.userService.getCryptoNativeStatus(
-        embeddedWallet,
-      );
+      const cryptoNative =
+        (await this.userService.getCryptoNativeStatus(embeddedWallet)) ?? false;
       const flow = await this.userService.getWalletFlow(embeddedWallet);
       const token = this.authService.createToken({
         address: embeddedWallet,
@@ -92,9 +91,8 @@ export class PrivyController {
         embeddedWallet,
         CheckWalletRoles.ORG,
       );
-      const cryptoNative = await this.userService.getCryptoNativeStatus(
-        embeddedWallet,
-      );
+      const cryptoNative =
+        (await this.userService.getCryptoNativeStatus(embeddedWallet)) ?? false;
       const flow = await this.userService.getWalletFlow(embeddedWallet);
       const token = this.authService.createToken({
         address: embeddedWallet,

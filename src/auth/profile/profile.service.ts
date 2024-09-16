@@ -1171,9 +1171,8 @@ export class ProfileService {
           Sentry.captureException(err);
         });
         this.logger.error(
-          `/profile/refresh-work-history-cache: User cache lock is being hard reset for wallet ${wallet}. Refreshing...`,
+          `/profile/refresh-work-history-cache: ${err.message}`,
         );
-        return;
       }
     } else {
       this.logger.log(
