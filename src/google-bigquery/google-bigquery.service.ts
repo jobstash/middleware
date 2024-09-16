@@ -25,9 +25,7 @@ export class GoogleBigQueryService {
       projectId: "beaming-figure-430316-k1",
       credentials: {
         client_email: this.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        private_key: this.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.split(
-          String.raw`\n`,
-        ).join("\n"),
+        private_key: this.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
       },
     });
   }
