@@ -492,13 +492,17 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
         });
 
         const [codeMetrics, onChainMetrics, contractMetrics] =
-          await Promise.all(
-            [
-              this.googleBigQueryService.getGrantProjectsCodeMetrics,
-              this.googleBigQueryService.getGrantProjectsOnchainMetrics,
-              this.googleBigQueryService.getGrantProjectsContractMetrics,
-            ].map(fn => fn([granteeSlug])),
-          );
+          await Promise.all([
+            this.googleBigQueryService.getGrantProjectsCodeMetrics([
+              granteeSlug,
+            ]),
+            this.googleBigQueryService.getGrantProjectsOnchainMetrics([
+              granteeSlug,
+            ]),
+            this.googleBigQueryService.getGrantProjectsContractMetrics([
+              granteeSlug,
+            ]),
+          ]);
 
         const projectCodeMetrics = (codeMetrics.find(
           m => m.project_name === granteeSlug,
@@ -866,8 +870,10 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
               {
                 id: (project?.metadata as GranteeApplicationMetadata)
                   ?.application?.project?.id,
-                name: `GG21: Thriving Arbitrum Summer - ${project.project.name}`,
-                tags: project.project.tags,
+                name: `GG21: Thriving Arbitrum Summer - ${
+                  project?.project?.name ?? granteeSlug
+                }`,
+                tags: project?.project?.tags ?? [],
                 tabs: projectCodeMetrics
                   ? projectMetricsConverter(
                       projectCodeMetrics,
