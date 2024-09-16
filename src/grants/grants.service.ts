@@ -29,7 +29,6 @@ import {
 import { Alchemy, Network } from "alchemy-sdk";
 import { Neo4jVectorStore } from "@langchain/community/vectorstores/neo4j_vector";
 import { OpenAIEmbeddings } from "@langchain/openai";
-// import { EIP155Chain, getChainById } from "eip155-chains";
 
 @Injectable()
 export class GrantsService implements OnModuleInit, OnModuleDestroy {
