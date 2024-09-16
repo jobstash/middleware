@@ -62,6 +62,7 @@ export class DevUserProfileEntity {
         login: notStringOrNull(workHistory.login),
         logoUrl: notStringOrNull(workHistory.logoUrl),
         url: notStringOrNull(workHistory.url),
+        description: notStringOrNull(workHistory.description),
         firstContributedAt: nonZeroOrNull(workHistory.firstContributedAt),
         lastContributedAt: nonZeroOrNull(workHistory.lastContributedAt),
         createdAt: nonZeroOrNull(workHistory.createdAt),
