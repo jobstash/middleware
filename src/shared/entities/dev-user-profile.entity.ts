@@ -71,6 +71,7 @@ export class DevUserProfileEntity {
             ...repository,
             cryptoNative: repository?.cryptoNative ?? false,
             name: notStringOrNull(repository.name),
+            description: notStringOrNull(repository.description),
             firstContributedAt: nonZeroOrNull(repository.firstContributedAt),
             lastContributedAt: nonZeroOrNull(repository.lastContributedAt),
             commitsCount: nonZeroOrNull(repository.commitsCount),
