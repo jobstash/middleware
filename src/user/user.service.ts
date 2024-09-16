@@ -665,13 +665,17 @@ export class UserService {
     user: PrivyUser,
     embeddedWallet: string,
     role: (typeof CheckWalletRoles)[keyof typeof CheckWalletRoles],
-  ): Promise<User | undefined> {
+  ): Promise<ResponseWithOptionalData<User>> {
     try {
       const storedUser = await this.findByWallet(embeddedWallet);
 
       if (storedUser) {
         await this.profileService.runUserDataFetchingOps(embeddedWallet);
-        return storedUser.getProperties();
+        return {
+          success: true,
+          message: "User already exists",
+          data: storedUser.getProperties(),
+        };
       }
 
       const newUserDto = {
@@ -706,12 +710,20 @@ export class UserService {
               return undefined;
             });
 
-          this.githubUserService.addGithubInfoToUser({
+          const result = await this.githubUserService.addGithubInfoToUser({
             wallet: embeddedWallet,
             githubLogin: user.github.username,
             githubId: user.github.subject,
             githubAvatarUrl: (await githubUser).data.avatar_url,
           });
+          if (result.success) {
+            this.logger.log(`Github info added to user`);
+          } else {
+            this.logger.error(
+              `Github info not added to user: ${result.message}`,
+            );
+            return result;
+          }
         }
 
         await this.profileService.runUserDataFetchingOps(embeddedWallet, true);
@@ -724,10 +736,17 @@ export class UserService {
           newUser,
         );
 
-        return newUser.getProperties();
+        return {
+          success: true,
+          message: "User created successfully",
+          data: newUser.getProperties(),
+        };
       } else {
         this.logger.error(`UserService::createPrivyUser error creating user`);
-        return undefined;
+        return {
+          success: false,
+          message: "Error creating user",
+        };
       }
     } catch (err) {
       Sentry.withScope(scope => {

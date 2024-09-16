@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   HttpCode,
@@ -38,26 +39,31 @@ export class PrivyController {
       ) as WalletWithMetadata
     )?.address;
     if (embeddedWallet) {
-      await this.userService.createPrivyUser(
+      const result = await this.userService.createPrivyUser(
         user,
         embeddedWallet,
         CheckWalletRoles.DEV,
       );
-      const cryptoNative =
-        (await this.userService.getCryptoNativeStatus(embeddedWallet)) ?? false;
-      const flow = await this.userService.getWalletFlow(embeddedWallet);
-      const token = this.authService.createToken({
-        address: embeddedWallet,
-        role: CheckWalletRoles.DEV,
-        flow: flow.getName(),
-        cryptoNative,
-      });
-      return {
-        role: CheckWalletRoles.DEV,
-        flow: flow.getName(),
-        token,
-        cryptoNative,
-      };
+      if (result.success) {
+        const cryptoNative =
+          (await this.userService.getCryptoNativeStatus(embeddedWallet)) ??
+          false;
+        const flow = await this.userService.getWalletFlow(embeddedWallet);
+        const token = this.authService.createToken({
+          address: embeddedWallet,
+          role: CheckWalletRoles.DEV,
+          flow: flow.getName(),
+          cryptoNative,
+        });
+        return {
+          role: CheckWalletRoles.DEV,
+          flow: flow.getName(),
+          token,
+          cryptoNative,
+        };
+      } else {
+        throw new BadRequestException(result);
+      }
     } else {
       return {
         role: CheckWalletRoles.ANON,
@@ -86,26 +92,32 @@ export class PrivyController {
       ) as WalletWithMetadata
     )?.address;
     if (embeddedWallet) {
-      await this.userService.createPrivyUser(
+      const result = await this.userService.createPrivyUser(
         user,
         embeddedWallet,
         CheckWalletRoles.ORG,
       );
-      const cryptoNative =
-        (await this.userService.getCryptoNativeStatus(embeddedWallet)) ?? false;
-      const flow = await this.userService.getWalletFlow(embeddedWallet);
-      const token = this.authService.createToken({
-        address: embeddedWallet,
-        role: CheckWalletRoles.ORG,
-        flow: flow.getName(),
-        cryptoNative,
-      });
-      return {
-        role: CheckWalletRoles.ORG,
-        flow: flow.getName(),
-        token,
-        cryptoNative,
-      };
+
+      if (result.success) {
+        const cryptoNative =
+          (await this.userService.getCryptoNativeStatus(embeddedWallet)) ??
+          false;
+        const flow = await this.userService.getWalletFlow(embeddedWallet);
+        const token = this.authService.createToken({
+          address: embeddedWallet,
+          role: CheckWalletRoles.ORG,
+          flow: flow.getName(),
+          cryptoNative,
+        });
+        return {
+          role: CheckWalletRoles.ORG,
+          flow: flow.getName(),
+          token,
+          cryptoNative,
+        };
+      } else {
+        throw new BadRequestException(result);
+      }
     } else {
       return {
         role: CheckWalletRoles.ANON,
