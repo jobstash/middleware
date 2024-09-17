@@ -726,6 +726,24 @@ export class UserService {
           }
         }
 
+        if (user.email) {
+          this.logger.log(`Fetching email info for ${user.email.address}`);
+          const result = await this.addUserEmail(
+            embeddedWallet,
+            user.email.address,
+          );
+
+          if (result.success) {
+            this.logger.log(`Email info added to user`);
+            await this.verifyUserEmail(user.email.address);
+          } else {
+            this.logger.error(
+              `Email info not added to user: ${result.message}`,
+            );
+            return result;
+          }
+        }
+
         await this.profileService.runUserDataFetchingOps(embeddedWallet, true);
 
         await this.setRole(role, newUser);
