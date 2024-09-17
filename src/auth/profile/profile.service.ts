@@ -1133,6 +1133,7 @@ export class ProfileService {
       try {
         const privyId = await this.getPrivyId(wallet);
         const wallets = await this.privyService.getUserLinkedWallets(privyId);
+        const orgs = data(await this.getUserOrgs(wallet));
         const workHistory = (
           await this.scorerService.getUserWorkHistories([
             { github: profile?.username, wallets },
@@ -1140,7 +1141,7 @@ export class ProfileService {
         )[0];
         await this.refreshWorkHistoryCache(
           wallet,
-          workHistory.cryptoNative,
+          workHistory.cryptoNative ?? orgs.length > 0,
           workHistory.workHistory,
           workHistory.adjacentRepos,
         );

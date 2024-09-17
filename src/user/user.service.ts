@@ -744,6 +744,38 @@ export class UserService {
           }
         }
 
+        if (user.farcaster) {
+          this.logger.log(`Fetching farcaster info for ${user.farcaster}`);
+          const result = await this.profileService.updateDevUserProfile(
+            embeddedWallet,
+            {
+              availableForWork: false,
+              contact: {
+                farcaster: user.farcaster.username,
+                discord: null,
+                telegram: null,
+                twitter: null,
+                email: null,
+                lens: null,
+              },
+              location: {
+                city: null,
+                country: null,
+              },
+              preferred: "farcaster",
+            },
+          );
+
+          if (result.success) {
+            this.logger.log(`Farcaster info added to user`);
+          } else {
+            this.logger.error(
+              `Farcaster info not added to user: ${result.message}`,
+            );
+            return result;
+          }
+        }
+
         await this.profileService.runUserDataFetchingOps(embeddedWallet, true);
 
         await this.setRole(role, newUser);
