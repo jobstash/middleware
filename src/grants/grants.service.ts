@@ -814,7 +814,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
                   label: "Contract Address",
                   tab: "contract-address",
                   stats: contractMetrics.blockchain.map(x => ({
-                    label: x.name ?? "N/A",
+                    label: x.name ?? "",
                     value: x.address,
                     stats: [],
                   })),
