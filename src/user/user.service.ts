@@ -673,7 +673,11 @@ export class UserService {
         await this.syncUserLinkedWallets(embeddedWallet, user.id);
 
         if (role === CheckWalletRoles.DEV) {
-          if (user.github) {
+          const profile = data(
+            await this.profileService.getDevUserProfile(embeddedWallet),
+          );
+
+          if (user.github && profile?.username !== user.github.username) {
             this.logger.log(`Fetching github info for ${user.github.username}`);
             const githubUser = axios
               .get<{
