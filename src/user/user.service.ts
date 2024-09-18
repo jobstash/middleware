@@ -670,12 +670,100 @@ export class UserService {
       const storedUser = await this.findByWallet(embeddedWallet);
 
       if (storedUser) {
-        await this.profileService.runUserDataFetchingOps(embeddedWallet);
-        return {
-          success: true,
-          message: "User already exists",
-          data: storedUser.getProperties(),
-        };
+        await this.syncUserLinkedWallets(embeddedWallet, user.id);
+
+        if (role === CheckWalletRoles.DEV) {
+          if (user.github) {
+            this.logger.log(`Fetching github info for ${user.github.username}`);
+            const githubUser = axios
+              .get<{
+                avatar_url: string;
+              }>(`https://api.github.com/users/${user.github.username}`)
+              .catch(err => {
+                this.logger.error(
+                  `UserService::fetchGithubUser ${err.message}`,
+                );
+                Sentry.withScope(scope => {
+                  scope.setTags({
+                    action: "external-api-call",
+                    source: "user.service",
+                  });
+                  Sentry.captureException(err);
+                });
+                return undefined;
+              });
+
+            const result = await this.githubUserService.addGithubInfoToUser({
+              wallet: embeddedWallet,
+              githubLogin: user.github.username,
+              githubId: user.github.subject,
+              githubAvatarUrl: (await githubUser).data.avatar_url,
+            });
+            if (result.success) {
+              this.logger.log(`Github info added to user`);
+            } else {
+              this.logger.error(
+                `Github info not added to user: ${result.message}`,
+              );
+              return result;
+            }
+          }
+
+          if (user.email || user.google) {
+            const email = user.email?.address ?? user.google?.email;
+            this.logger.log(`Fetching email info for ${email}`);
+            const result = await this.addUserEmail(embeddedWallet, email);
+
+            if (result.success) {
+              this.logger.log(`Email info added to user`);
+              await this.verifyUserEmail(email);
+            } else {
+              this.logger.error(
+                `Email info not added to user: ${result.message}`,
+              );
+              return result;
+            }
+          }
+
+          const contact = {
+            discord: user.discord?.username ?? null,
+            telegram: user.telegram?.username ?? null,
+            twitter: user.twitter?.username ?? null,
+            email: null,
+            lens: null,
+            farcaster: user.farcaster?.username ?? null,
+          };
+
+          if (Object.values(contact).filter(Boolean).length > 0) {
+            this.logger.log(`Adding contact info for ${embeddedWallet}`);
+            const result = await this.profileService.updateDevUserContactInfo(
+              embeddedWallet,
+              contact,
+            );
+
+            if (result.success) {
+              this.logger.log(`Contact info added to user`);
+            } else {
+              this.logger.error(
+                `Contact info not added to user: ${result.message}`,
+              );
+              return result;
+            }
+          }
+
+          await this.profileService.runUserDataFetchingOps(embeddedWallet);
+          return {
+            success: true,
+            message: "User already exists",
+            data: storedUser.getProperties(),
+          };
+        } else {
+          return {
+            success: true,
+            message: "User already exists",
+            data: storedUser.getProperties(),
+          };
+        }
       }
 
       const newUserDto = {
@@ -726,16 +814,14 @@ export class UserService {
           }
         }
 
-        if (user.email) {
-          this.logger.log(`Fetching email info for ${user.email.address}`);
-          const result = await this.addUserEmail(
-            embeddedWallet,
-            user.email.address,
-          );
+        if (user.email || user.google) {
+          const email = user.email?.address ?? user.google?.email;
+          this.logger.log(`Fetching email info for ${email}`);
+          const result = await this.addUserEmail(embeddedWallet, email);
 
           if (result.success) {
             this.logger.log(`Email info added to user`);
-            await this.verifyUserEmail(user.email.address);
+            await this.verifyUserEmail(email);
           } else {
             this.logger.error(
               `Email info not added to user: ${result.message}`,
@@ -744,33 +830,27 @@ export class UserService {
           }
         }
 
-        if (user.farcaster) {
-          this.logger.log(`Fetching farcaster info for ${user.farcaster}`);
-          const result = await this.profileService.updateDevUserProfile(
+        const contact = {
+          discord: user.discord?.username ?? null,
+          telegram: user.telegram?.username ?? null,
+          twitter: user.twitter?.username ?? null,
+          email: null,
+          lens: null,
+          farcaster: user.farcaster?.username ?? null,
+        };
+
+        if (Object.values(contact).filter(Boolean).length > 0) {
+          this.logger.log(`Adding contact info for ${embeddedWallet}`);
+          const result = await this.profileService.updateDevUserContactInfo(
             embeddedWallet,
-            {
-              availableForWork: false,
-              contact: {
-                farcaster: user.farcaster.username,
-                discord: null,
-                telegram: null,
-                twitter: null,
-                email: null,
-                lens: null,
-              },
-              location: {
-                city: null,
-                country: null,
-              },
-              preferred: "farcaster",
-            },
+            contact,
           );
 
           if (result.success) {
-            this.logger.log(`Farcaster info added to user`);
+            this.logger.log(`Contact info added to user`);
           } else {
             this.logger.error(
-              `Farcaster info not added to user: ${result.message}`,
+              `Contact info not added to user: ${result.message}`,
             );
             return result;
           }

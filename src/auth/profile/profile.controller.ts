@@ -44,12 +44,13 @@ import { ReportInput } from "./dto/report.input";
 import { MailService } from "src/mail/mail.service";
 import { ConfigService } from "@nestjs/config";
 import { Throttle } from "@nestjs/throttler";
-import { UpdateDevUserProfileInput } from "./dto/update-dev-profile.input";
 import { UpdateOrgUserProfileInput } from "./dto/update-org-profile.input";
 import { UserService } from "src/user/user.service";
 import * as Sentry from "@sentry/node";
 import { RpcService } from "../../user/rpc.service";
 import { JobsService } from "src/jobs/jobs.service";
+import { UpdateDevContactInput } from "./dto/update-dev-contact.input";
+import { UpdateDevLocationInput } from "./dto/update-dev-location.input";
 
 @Controller("profile")
 export class ProfileController {
@@ -227,38 +228,74 @@ export class ProfileController {
     }
   }
 
-  @Post("dev/info")
+  @Post("dev/availability")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @Roles(CheckWalletRoles.DEV)
   @ApiOkResponse({
-    description: "Updates the profile of the currently logged in dev user",
-    schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Response<UserProfile>),
-    }),
+    description: "Updates the availability of the currently logged in dev user",
+  })
+  async setDevUserAvailability(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Body("availability") availability: boolean,
+  ): Promise<Response<UserProfile> | ResponseWithNoData> {
+    this.logger.log(
+      `/profile/dev/availability ${JSON.stringify(availability)}`,
+    );
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.profileService.updateDevUserAvailability(
+        address,
+        availability,
+      );
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Post("dev/contact")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV)
+  @ApiOkResponse({
+    description: "Updates the contact info of the currently logged in dev user",
+  })
+  async setDevUserContactInfo(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Body() body: UpdateDevContactInput,
+  ): Promise<Response<UserProfile> | ResponseWithNoData> {
+    this.logger.log(`/profile/dev/contact ${JSON.stringify(body)}`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.profileService.updateDevUserContactInfo(address, body);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Post("dev/location")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV)
+  @ApiOkResponse({
+    description: "Updates the location of the currently logged in dev user",
   })
   async setDevUserProfile(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
-    @Body() body: UpdateDevUserProfileInput,
+    @Body() body: UpdateDevLocationInput,
   ): Promise<Response<UserProfile> | ResponseWithNoData> {
     this.logger.log(`/profile/dev/info ${JSON.stringify(body)}`);
-    const { address, flow } = await this.authService.getSession(req, res);
+    const { address } = await this.authService.getSession(req, res);
     if (address) {
-      const preferredContactData = body.contact[body.preferred];
-      if (preferredContactData) {
-        if ((flow as string) === CheckWalletFlows.ONBOARD_PROFILE) {
-          await this.userService.setWalletFlow({
-            flow: CheckWalletFlows.SIGNUP_COMPLETE,
-            wallet: address,
-          });
-        }
-        return this.profileService.updateDevUserProfile(address, body);
-      } else {
-        return {
-          success: false,
-          message: "Contact data is required for preferred contact type",
-        };
-      }
+      return this.profileService.updateDevUserLocationInfo(address, body);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {

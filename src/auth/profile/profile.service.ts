@@ -48,11 +48,12 @@ import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
 import { Integer } from "neo4j-driver";
 import { OrgStaffReviewEntity } from "src/shared/entities/org-staff-review.entity";
 import { UpdateOrgUserProfileInput } from "./dto/update-org-profile.input";
-import { UpdateDevUserProfileInput } from "./dto/update-dev-profile.input";
 import { ScorerService } from "src/scorer/scorer.service";
 import { ConfigService } from "@nestjs/config";
 import { addMonths, isBefore } from "date-fns";
 import { PrivyService } from "../privy/privy.service";
+import { UpdateDevContactInput } from "./dto/update-dev-contact.input";
+import { UpdateDevLocationInput } from "./dto/update-dev-location.input";
 
 @Injectable()
 export class ProfileService {
@@ -520,79 +521,113 @@ export class ProfileService {
     }
   }
 
-  async updateDevUserProfile(
+  async updateDevUserContactInfo(
     wallet: string,
-    dto: UpdateDevUserProfileInput,
-  ): Promise<ResponseWithOptionalData<UserProfile>> {
+    dto: UpdateDevContactInput,
+  ): Promise<ResponseWithNoData> {
     try {
-      const result = await this.neogma.queryRunner.run(
+      await this.neogma.queryRunner.run(
+        `
+          MATCH (user:User {wallet: $wallet})
+
+          WITH user
+          MERGE (user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo)
+          ON CREATE SET
+            contact += $contact,
+            contact.createdTimestamp = timestamp()
+          ON MATCH SET
+            contact += $contact,
+            contact.updatedTimestamp = timestamp()
+        `,
+        { wallet },
+      );
+      return {
+        success: true,
+        message: "User contact info updated successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "profiles.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `ProfileService::updateDevUserContactInfo ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Error updating user contact info",
+      };
+    }
+  }
+
+  async updateDevUserLocationInfo(
+    wallet: string,
+    dto: UpdateDevLocationInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+          MATCH (user:User {wallet: $wallet})
+
+          WITH user
+          MERGE (user)-[:HAS_LOCATION]->(location: UserLocation)
+          ON CREATE SET
+            location += $location,
+            location.createdTimestamp = timestamp()
+          ON MATCH SET
+            location += $location,
+            location.updatedTimestamp = timestamp()
+        `,
+        { wallet },
+      );
+      return {
+        success: true,
+        message: "User location info updated successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "profiles.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `ProfileService::updateDevUserLocationInfo ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Error updating user location info",
+      };
+    }
+  }
+
+  async updateDevUserAvailability(
+    wallet: string,
+    availability: boolean,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})
         SET user.available = $availableForWork
         SET user.updatedTimestamp = timestamp()
 
-        WITH user
-        MERGE (user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo)
-        ON CREATE SET
-          contact += $contact,
-          contact.createdTimestamp = timestamp()
-        ON MATCH SET
-          contact += $contact,
-          contact.updatedTimestamp = timestamp()
-
-        WITH user
-        MERGE (user)-[:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo)
-        ON CREATE SET
-          preferred += $preferred,
-          preferred.createdTimestamp = timestamp()
-        ON MATCH SET
-          preferred += $preferred,
-          preferred.updatedTimestamp = timestamp()
-
-        WITH user
-        MERGE (user)-[:HAS_LOCATION]->(location: UserLocation)
-        ON CREATE SET
-          location += $location,
-          location.createdTimestamp = timestamp()
-        ON MATCH SET
-          location += $location,
-          location.updatedTimestamp = timestamp()
-
-        WITH user
-        RETURN {
-          wallet: $wallet,
-          availableForWork: user.available,
-          linkedWallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address],
-          username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-          avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
-          preferred: [(user)-[:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo) | preferred { .* }][0],
-          contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-          location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
-        } as profile
-
       `,
         {
           wallet,
-          availableForWork: dto.availableForWork,
-          preferred: {
-            type: dto.preferred,
-            value: dto.contact[dto.preferred],
-          },
-          contact: {
-            ...dto.contact,
-            [dto.preferred]: null,
-          },
-          location: dto.location,
+          availableForWork: availability,
         },
       );
 
       return {
         success: true,
         message: "User profile updated successfully",
-        data: new UserProfileEntity(
-          result.records[0]?.get("profile"),
-        ).getProperties(),
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -600,7 +635,7 @@ export class ProfileService {
           action: "db-call",
           source: "profile.service",
         });
-        scope.setExtra("input", { wallet, ...dto });
+        scope.setExtra("input", { wallet, availability });
         Sentry.captureException(err);
       });
       this.logger.error(`ProfileService::updateUserProfile ${err.message}`);

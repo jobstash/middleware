@@ -185,7 +185,7 @@ describe("ProfileService", () => {
         },
       } as UpdateDevUserProfileInput;
 
-      const newProfile = await profileService.updateDevUserProfile(
+      const newProfile = await profileService.updateDevUserAvailability(
         EPHEMERAL_TEST_WALLET,
         profileData,
       );
