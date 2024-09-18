@@ -49,7 +49,6 @@ import { UserService } from "src/user/user.service";
 import * as Sentry from "@sentry/node";
 import { RpcService } from "../../user/rpc.service";
 import { JobsService } from "src/jobs/jobs.service";
-import { UpdateDevContactInput } from "./dto/update-dev-contact.input";
 import { UpdateDevLocationInput } from "./dto/update-dev-location.input";
 
 @Controller("profile")
@@ -248,30 +247,6 @@ export class ProfileController {
         address,
         availability,
       );
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
-  }
-
-  @Post("dev/contact")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV)
-  @ApiOkResponse({
-    description: "Updates the contact info of the currently logged in dev user",
-  })
-  async setDevUserContactInfo(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
-    @Body() body: UpdateDevContactInput,
-  ): Promise<Response<UserProfile> | ResponseWithNoData> {
-    this.logger.log(`/profile/dev/contact ${JSON.stringify(body)}`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.profileService.updateDevUserContactInfo(address, body);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {

@@ -835,7 +835,6 @@ export class UserService {
           telegram: user.telegram?.username ?? null,
           twitter: user.twitter?.username ?? null,
           email: null,
-          lens: null,
           farcaster: user.farcaster?.username ?? null,
         };
 

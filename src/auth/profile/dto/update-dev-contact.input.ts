@@ -25,10 +25,5 @@ export class UpdateDevContactInput {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  lens: string | null;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
   twitter: string | null;
 }
