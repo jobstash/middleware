@@ -539,7 +539,7 @@ export class ProfileService {
             contact += $contact,
             contact.updatedTimestamp = timestamp()
         `,
-        { wallet },
+        { wallet, contact: dto },
       );
       return {
         success: true,

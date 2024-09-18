@@ -713,7 +713,14 @@ export class UserService {
             }
           }
 
-          if (user.email || user.google) {
+          if (
+            (user.email || user.google) &&
+            !profile?.email.some(
+              (x: { email: string; main: boolean }) =>
+                x.email === user.email?.address ||
+                x.email === user.google?.email,
+            )
+          ) {
             const email = user.email?.address ?? user.google?.email;
             this.logger.log(`Fetching email info for ${email}`);
             const result = await this.addUserEmail(embeddedWallet, email);
