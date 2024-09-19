@@ -657,6 +657,7 @@ export class UserService {
       const storedUser = await this.findByWallet(embeddedWallet);
 
       if (storedUser) {
+        this.logger.log(`User ${embeddedWallet} already exists. Updating...`);
         await this.syncUserLinkedWallets(embeddedWallet, user.id);
 
         if (role === CheckWalletRoles.DEV) {
@@ -834,7 +835,12 @@ export class UserService {
           }
         }
 
-        await this.profileService.runUserDataFetchingOps(embeddedWallet, true);
+        if (role === CheckWalletRoles.DEV && user.email) {
+          await this.profileService.runUserDataFetchingOps(
+            embeddedWallet,
+            true,
+          );
+        }
 
         await this.setRole(role, newUser);
         await this.setFlow(
