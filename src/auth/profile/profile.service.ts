@@ -52,7 +52,7 @@ import { ScorerService } from "src/scorer/scorer.service";
 import { ConfigService } from "@nestjs/config";
 import { addMonths, isBefore } from "date-fns";
 import { PrivyService } from "../privy/privy.service";
-import { UpdateDevContactInput } from "./dto/update-dev-contact.input";
+import { UpdateDevLinkedAccountsInput } from "./dto/update-dev-linked-accounts.input";
 import { UpdateDevLocationInput } from "./dto/update-dev-location.input";
 
 @Injectable()
@@ -78,12 +78,13 @@ export class ProfileService {
         RETURN {
           wallet: $wallet,
           availableForWork: user.available,
-          linkedWallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address],
-          username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-          avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
-          preferred: [(user)-[:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo) | preferred { .* }][0],
-          contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
+          name: user.name,
+          githubAvatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+          alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
+          linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account {
+            .*,
+            wallets: [(account)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
+          }][0],
           location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
         } as profile
         `,
@@ -128,7 +129,7 @@ export class ProfileService {
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
           linkedWallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address],
-          contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
+          linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account { .* }][0],
           email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
           orgId: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization:Organization) | organization.orgId][0],
           internalReference: [(user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo) | reference { .* }][0],
@@ -284,7 +285,7 @@ export class ProfileService {
       const profile = data(await this.getDevUserProfile(wallet));
       const orgs = [];
 
-      if (profile?.username) {
+      if (profile?.linkedAccounts.github) {
         const cached = await this.getUserWorkHistory(wallet);
         let prelim: UserWorkHistory[] = [];
         if (cached.success && data(cached).length > 0) {
@@ -361,7 +362,7 @@ export class ProfileService {
         orgs.push(...processed);
       }
 
-      if (profile?.email) {
+      if (profile?.linkedAccounts.email || profile.alternateEmails.length > 0) {
         const result = await this.neogma.queryRunner.run(
           `
             MATCH (user:User {wallet: $wallet})
@@ -521,9 +522,9 @@ export class ProfileService {
     }
   }
 
-  async updateDevUserContactInfo(
+  async updateDevUserLinkedAccounts(
     wallet: string,
-    dto: UpdateDevContactInput,
+    dto: UpdateDevLinkedAccountsInput,
   ): Promise<ResponseWithNoData> {
     try {
       await this.neogma.queryRunner.run(
@@ -531,19 +532,19 @@ export class ProfileService {
           MATCH (user:User {wallet: $wallet})
 
           WITH user
-          MERGE (user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo)
+          MERGE (user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount)
           ON CREATE SET
-            contact += $contact,
-            contact.createdTimestamp = timestamp()
+            account += $dto,
+            account.createdTimestamp = timestamp()
           ON MATCH SET
-            contact += $contact,
-            contact.updatedTimestamp = timestamp()
+            account += $dto,
+            account.updatedTimestamp = timestamp()
         `,
-        { wallet, contact: dto },
+        { wallet, dto },
       );
       return {
         success: true,
-        message: "User contact info updated successfully",
+        message: "User linked accounts updated successfully",
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -555,11 +556,11 @@ export class ProfileService {
         Sentry.captureException(err);
       });
       this.logger.error(
-        `ProfileService::updateDevUserContactInfo ${err.message}`,
+        `ProfileService::updateDevUserLinkedAccounts ${err.message}`,
       );
       return {
         success: false,
-        message: "Error updating user contact info",
+        message: "Error updating user linked accounts",
       };
     }
   }
@@ -1171,7 +1172,7 @@ export class ProfileService {
         const orgs = data(await this.getUserOrgs(wallet));
         const workHistory = (
           await this.scorerService.getUserWorkHistories([
-            { github: profile?.username, wallets },
+            { github: profile?.linkedAccounts.github, wallets },
           ])
         )[0];
         await this.refreshWorkHistoryCache(

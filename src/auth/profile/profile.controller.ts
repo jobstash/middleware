@@ -237,7 +237,7 @@ export class ProfileController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body("availability") availability: boolean,
-  ): Promise<Response<UserProfile> | ResponseWithNoData> {
+  ): Promise<ResponseWithNoData> {
     this.logger.log(
       `/profile/dev/availability ${JSON.stringify(availability)}`,
     );
@@ -266,7 +266,7 @@ export class ProfileController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body() body: UpdateDevLocationInput,
-  ): Promise<Response<UserProfile> | ResponseWithNoData> {
+  ): Promise<ResponseWithNoData> {
     this.logger.log(`/profile/dev/info ${JSON.stringify(body)}`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {

@@ -16,6 +16,7 @@ import { RBACGuard } from "src/auth/rbac.guard";
 import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
 import {
   AdjacentRepo,
+  data,
   DevUserProfile,
   OrgUserProfile,
   ResponseWithNoData,
@@ -97,7 +98,7 @@ export class UserController {
   ): Promise<ResponseWithNoData> {
     const { wallet, verdict, orgId } = body;
     this.logger.log(`/users/orgs/authorize ${wallet}`);
-    const org = await this.userService.findProfileByWallet(wallet);
+    const org = data(await this.profileService.getOrgUserProfile(wallet));
 
     if (org) {
       if (verdict === "approve") {
@@ -126,7 +127,7 @@ export class UserController {
         });
         await this.mailService.sendEmail({
           from: this.configService.getOrThrow<string>("EMAIL"),
-          to: org.email,
+          to: org.email[0].email,
           subject: "Application Review Outcome",
           text:
             verdict === "approve"

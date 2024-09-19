@@ -1,53 +1,39 @@
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
-import { ContactType, DevUserProfile } from "../interfaces";
+import { DevUserProfile } from "../interfaces";
 import { UserShowCaseEntity } from "./user-showcase.entity";
 import { UserSkillEntity } from "./user-skill.entity";
 
-type RawDevUserProfile = Omit<DevUserProfile, "preferred"> & {
-  preferred: {
-    type: ContactType;
-    value: string | null;
-  };
-};
-
 export class DevUserProfileEntity {
-  constructor(private readonly raw: RawDevUserProfile) {}
+  constructor(private readonly raw: DevUserProfile) {}
 
   getProperties(): DevUserProfile {
-    const preferredContactData = this.raw.preferred;
-    const preferredContact = {
-      [preferredContactData?.type ?? "email"]: notStringOrNull(
-        preferredContactData?.value,
-      ),
-    };
-
     return new DevUserProfile({
       ...this.raw,
-      linkedWallets: this.raw?.linkedWallets ?? [],
-      avatar: notStringOrNull(this.raw?.avatar),
-      username: notStringOrNull(this.raw?.username),
-      email: this.raw?.email?.map(x => ({ ...x, main: x.main ?? false })) ?? [],
       note: notStringOrNull(this.raw?.note),
-      availableForWork: this.raw?.availableForWork ?? false,
       cryptoNative: this.raw?.cryptoNative ?? false,
       cryptoAdjacent: this.raw?.cryptoAdjacent ?? false,
-      preferred: this.raw.preferred?.type ?? "email",
       attestations: {
         upvotes: nonZeroOrNull(this.raw?.attestations?.upvotes),
         downvotes: nonZeroOrNull(this.raw?.attestations?.downvotes),
       },
-      contact: {
-        email: notStringOrNull(this.raw?.contact?.email),
-        discord: notStringOrNull(this.raw?.contact?.discord),
-        telegram: notStringOrNull(this.raw?.contact?.telegram),
-        farcaster: notStringOrNull(this.raw?.contact?.farcaster),
-        lens: notStringOrNull(this.raw?.contact?.lens),
-        twitter: notStringOrNull(this.raw?.contact?.twitter),
-        ...preferredContact,
-      },
+      githubAvatar: notStringOrNull(this.raw?.githubAvatar),
+      name: notStringOrNull(this.raw?.name),
+      alternateEmails: this.raw?.alternateEmails ?? [],
       location: {
-        country: notStringOrNull(this.raw?.location?.country),
         city: notStringOrNull(this.raw?.location?.city),
+        country: notStringOrNull(this.raw?.location?.country),
+      },
+      availableForWork: this.raw?.availableForWork ?? false,
+      linkedAccounts: {
+        discord: notStringOrNull(this.raw?.linkedAccounts?.discord),
+        telegram: notStringOrNull(this.raw?.linkedAccounts?.telegram),
+        farcaster: notStringOrNull(this.raw?.linkedAccounts?.farcaster),
+        twitter: notStringOrNull(this.raw?.linkedAccounts?.twitter),
+        email: notStringOrNull(this.raw?.linkedAccounts?.email),
+        wallets: this.raw?.linkedAccounts?.wallets ?? [],
+        github: notStringOrNull(this.raw?.linkedAccounts?.github),
+        google: notStringOrNull(this.raw?.linkedAccounts?.google),
+        apple: notStringOrNull(this.raw?.linkedAccounts?.apple),
       },
       skills:
         this.raw?.skills?.map(skill =>

@@ -953,14 +953,16 @@ export class JobsService {
           cryptoAdjacent: user.cryptoAdjacent,
           appliedTimestamp: r.timestamp,
           user: {
-              wallet: user.wallet,
+              wallet: $wallet,
               availableForWork: user.available,
-              email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
-              username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-              avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-              preferred: [(user)-[:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo) | preferred { .* }][0],
-              contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-              location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
+              name: user.name,
+              githubAvatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+              alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
+              linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account {
+                .*,
+                wallets: [(account)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
+              }][0],
+              location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
               matchingSkills: apoc.coll.sum([
                 (user)-[:HAS_SKILL]->(tag)
                 WHERE (structured_jobpost)-[:HAS_TAG]->(tag) | 1

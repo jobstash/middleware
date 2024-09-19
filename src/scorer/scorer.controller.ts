@@ -176,7 +176,7 @@ export class ScorerController {
         const clientId = client?.id;
         const platform = client?.platform;
         const userProfile = await this.userService.findProfileByWallet(address);
-        const wallets = (userProfile?.linkedWallets ?? []).join(",");
+        const wallets = (userProfile?.linkedAccounts.wallets ?? []).join(",");
 
         if (clientId && platform) {
           const res = await firstValueFrom(

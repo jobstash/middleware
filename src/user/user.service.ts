@@ -389,60 +389,47 @@ export class UserService {
         message: "Email is not associated with this user",
       };
     } else {
-      const profile = data(await this.profileService.getDevUserProfile(wallet));
-      const thisEmail = profile?.email?.find(x => x.email === email);
-      if (
-        profile?.username ||
-        (profile.email.length > 1 && thisEmail.main === false)
-      ) {
-        const normalizedEmail = this.normalizeEmail(email);
-        const result = await this.neogma.queryRunner
-          .run(
-            `
+      const normalizedEmail = this.normalizeEmail(email);
+      const result = await this.neogma.queryRunner
+        .run(
+          `
           MATCH (u:User {wallet: $wallet})
           MATCH (u)-[:HAS_EMAIL]->(email:UserEmail {email: $email, normalized: $normalizedEmail})
           DETACH DELETE email
           RETURN u
         `,
-            { wallet, email, normalizedEmail },
-          )
-          .then(res =>
-            res.records.length
-              ? {
-                  success: true,
-                  message: "User email removed successfully",
-                  data: new UserEntity(res.records[0].get("u")),
-                }
-              : {
-                  success: false,
-                  message: "Failed to remove user email",
-                },
-          )
-          .catch(err => {
-            Sentry.withScope(scope => {
-              scope.setTags({
-                action: "db-call",
-                source: "user.service",
-              });
-              Sentry.captureException(err);
+          { wallet, email, normalizedEmail },
+        )
+        .then(res =>
+          res.records.length
+            ? {
+                success: true,
+                message: "User email removed successfully",
+                data: new UserEntity(res.records[0].get("u")),
+              }
+            : {
+                success: false,
+                message: "Failed to remove user email",
+              },
+        )
+        .catch(err => {
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "db-call",
+              source: "user.service",
             });
-            this.logger.error(`UserService::removeUserEmail ${err.message}`);
-            return {
-              success: false,
-              message: "Failed to remove user email",
-            };
+            Sentry.captureException(err);
           });
+          this.logger.error(`UserService::removeUserEmail ${err.message}`);
+          return {
+            success: false,
+            message: "Failed to remove user email",
+          };
+        });
 
-        await this.profileService.runUserDataFetchingOps(wallet, true);
+      await this.profileService.runUserDataFetchingOps(wallet, true);
 
-        return result;
-      } else {
-        return {
-          success: false,
-          message:
-            "Email cannot be removed because it is the users primary email",
-        };
-      }
+      return result;
     }
   }
 
@@ -677,7 +664,10 @@ export class UserService {
             await this.profileService.getDevUserProfile(embeddedWallet),
           );
 
-          if (user.github && profile?.username !== user.github.username) {
+          if (
+            user.github &&
+            profile?.linkedAccounts.github !== user.github.username
+          ) {
             this.logger.log(`Fetching github info for ${user.github.username}`);
             const githubUser = axios
               .get<{
@@ -713,44 +703,24 @@ export class UserService {
             }
           }
 
-          if (
-            (user.email || user.google) &&
-            !profile?.email.some(
-              (x: { email: string; main: boolean }) =>
-                x.email === user.email?.address ||
-                x.email === user.google?.email,
-            )
-          ) {
-            const email = user.email?.address ?? user.google?.email;
-            this.logger.log(`Fetching email info for ${email}`);
-            const result = await this.addUserEmail(embeddedWallet, email);
-
-            if (result.success) {
-              this.logger.log(`Email info added to user`);
-              await this.verifyUserEmail(email);
-            } else {
-              this.logger.error(
-                `Email info not added to user: ${result.message}`,
-              );
-              return result;
-            }
-          }
-
           const contact = {
             discord: user.discord?.username ?? null,
             telegram: user.telegram?.username ?? null,
             twitter: user.twitter?.username ?? null,
-            email: null,
-            lens: null,
+            email: user.email?.address ?? null,
             farcaster: user.farcaster?.username ?? null,
+            github: user.github?.username ?? null,
+            google: user.google?.email ?? null,
+            apple: user.apple?.email ?? null,
           };
 
           if (Object.values(contact).filter(Boolean).length > 0) {
             this.logger.log(`Adding contact info for ${embeddedWallet}`);
-            const result = await this.profileService.updateDevUserContactInfo(
-              embeddedWallet,
-              contact,
-            );
+            const result =
+              await this.profileService.updateDevUserLinkedAccounts(
+                embeddedWallet,
+                contact,
+              );
 
             if (result.success) {
               this.logger.log(`Contact info added to user`);
@@ -780,6 +750,17 @@ export class UserService {
       const newUserDto = {
         wallet: embeddedWallet,
         privyId: user.id,
+        name:
+          user.farcaster?.displayName ??
+          user.google?.name ??
+          user.apple?.subject ??
+          user.github?.name ??
+          (user.telegram
+            ? `${user.telegram.firstName} ${user.telegram.lastName}`
+            : null) ??
+          user.discord?.subject ??
+          user.twitter?.name ??
+          null,
       };
 
       this.logger.log(
@@ -825,33 +806,20 @@ export class UserService {
           }
         }
 
-        if (user.email || user.google) {
-          const email = user.email?.address ?? user.google?.email;
-          this.logger.log(`Fetching email info for ${email}`);
-          const result = await this.addUserEmail(embeddedWallet, email);
-
-          if (result.success) {
-            this.logger.log(`Email info added to user`);
-            await this.verifyUserEmail(email);
-          } else {
-            this.logger.error(
-              `Email info not added to user: ${result.message}`,
-            );
-            return result;
-          }
-        }
-
         const contact = {
           discord: user.discord?.username ?? null,
           telegram: user.telegram?.username ?? null,
           twitter: user.twitter?.username ?? null,
-          email: null,
+          email: user.email?.address ?? null,
           farcaster: user.farcaster?.username ?? null,
+          github: user.github?.username ?? null,
+          google: user.google?.email ?? null,
+          apple: user.apple?.email ?? null,
         };
 
         if (Object.values(contact).filter(Boolean).length > 0) {
           this.logger.log(`Adding contact info for ${embeddedWallet}`);
-          const result = await this.profileService.updateDevUserContactInfo(
+          const result = await this.profileService.updateDevUserLinkedAccounts(
             embeddedWallet,
             contact,
           );
@@ -1215,12 +1183,14 @@ export class UserService {
             },
             note: [(user)-[:HAS_RECRUITER_NOTE]->(note: RecruiterNote)<-[:HAS_TALENT_NOTE]-(organization) | note.note][0],
             availableForWork: user.available,
-            username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-            avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-            preferred: [(user)-[:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo) | preferred { .* }][0],
-            contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
-            location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
+            name: user.name,
+            avatar: user.avatar,
+            alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
+            linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account {
+              .*,
+              wallets: [(account)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
+            }][0],
+            location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
             skills: apoc.coll.toSet([
                 (user)-[r:HAS_SKILL]->(tag) |
                 tag {
