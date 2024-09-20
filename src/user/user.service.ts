@@ -551,6 +551,7 @@ export class UserService {
     return this.models.Users.createOne({
       id: randomUUID(),
       ...dto,
+      name: dto.name ?? null,
       available: false,
       createdTimestamp: new Date().getTime(),
       updatedTimestamp: new Date().getTime(),

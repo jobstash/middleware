@@ -9,6 +9,8 @@ export class User {
   id: string;
   @ApiPropertyOptional()
   available?: boolean;
+  @ApiPropertyOptional()
+  name?: string;
 }
 
 // import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";

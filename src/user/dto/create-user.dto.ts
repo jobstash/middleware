@@ -1,4 +1,9 @@
-import { IsEthereumAddress, IsBoolean, IsOptional } from "class-validator";
+import {
+  IsEthereumAddress,
+  IsBoolean,
+  IsOptional,
+  IsString,
+} from "class-validator";
 
 export class CreateUserDto {
   @IsOptional()
@@ -8,4 +13,8 @@ export class CreateUserDto {
   @IsOptional()
   @IsBoolean()
   available?: boolean;
+
+  @IsOptional()
+  @IsString()
+  name?: string;
 }
