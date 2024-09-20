@@ -21,7 +21,6 @@ import { InjectConnection } from "nest-neogma";
 import { UserFlowService } from "./user-flow.service";
 import { UserRoleService } from "./user-role.service";
 import { CreateUserDto } from "./dto/create-user.dto";
-import { SetRoleInput } from "../auth/dto/set-role.input";
 import { SetFlowStateInput } from "../auth/dto/set-flow-state.input";
 import { ModelService } from "src/model/model.service";
 import { instanceToNode } from "src/shared/helpers";
@@ -35,6 +34,7 @@ import { User as PrivyUser } from "@privy-io/server-auth";
 import { PrivyService } from "src/auth/privy/privy.service";
 import { GithubUserService } from "src/auth/github/github-user.service";
 import axios from "axios";
+import { SetRoleInput } from "src/auth/dto/set-role.input";
 
 @Injectable()
 export class UserService {
@@ -1196,7 +1196,7 @@ export class UserService {
               .*,
               wallets: [(account)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
             }][0],
-            location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
+            location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
             skills: apoc.coll.toSet([
                 (user)-[r:HAS_SKILL]->(tag) |
                 tag {

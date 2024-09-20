@@ -26,7 +26,6 @@ import {
   data,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
-import { WalletAdminMappingDto } from "../user/dto/wallet-admin-mapping-request.dto";
 import { UserService } from "../user/user.service";
 import { AuthService } from "./auth.service";
 import { SendVerificationEmailInput } from "./dto/send-verification-email.input";
@@ -182,35 +181,6 @@ export class AuthController {
       message: "Signed in with email successfully",
       data: profile,
     };
-  }
-
-  @Post("set-role/admin")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
-  async setAdminRole(
-    @Body() walletDto: WalletAdminMappingDto,
-  ): Promise<ResponseWithNoData> {
-    const { wallet } = walletDto;
-    this.logger.log(
-      `/auth/set-role/admin: Setting admin priviledges for ${wallet}`,
-    );
-    const user = await this.userService.findByWallet(wallet);
-
-    if (user) {
-      this.userService.setWalletRole({
-        role: CheckWalletRoles.ADMIN,
-        wallet: user.getWallet(),
-      });
-      this.userService.setWalletFlow({
-        flow: CheckWalletFlows.ADMIN_COMPLETE,
-        wallet: user.getWallet(),
-      });
-
-      this.logger.log(`admin priviliedges set for ${wallet}`);
-      return { success: true, message: "Wallet is now admin" };
-    } else {
-      return { success: false, message: "No user associated with wallet" };
-    }
   }
 
   @Post("update-main-email")
