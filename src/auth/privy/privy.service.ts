@@ -9,6 +9,7 @@ import { PrivyClient, WalletWithMetadata } from "@privy-io/server-auth";
 import extractDomain from "src/shared/helpers/extract-domain";
 import { notStringOrNull } from "src/shared/helpers";
 import axios from "axios";
+import { UserService } from "src/user/user.service";
 // import { ScorerService } from "src/scorer/scorer.service";
 // import { UNMIGRATED_USERS } from "src/shared/constants/unmigrated-users";
 // import { ProfileService } from "../profile/profile.service";
@@ -55,6 +56,7 @@ export class PrivyService {
     @InjectConnection()
     private neogma: Neogma,
     private readonly configService: ConfigService, // private readonly scorerService: ScorerService, // private readonly profileService: ProfileService,
+    private readonly userService: UserService,
   ) {
     this.privy = new PrivyClient(
       this.configService.get<string>("PRIVY_APP_ID"),
@@ -172,6 +174,13 @@ export class PrivyService {
                   newWallet,
                   privyId: result.id,
                 },
+              );
+              const newUser = await this.privy.getUser(result.id);
+              const role = await this.userService.getWalletRole(newWallet);
+              await this.userService.createPrivyUser(
+                newUser,
+                newWallet,
+                role.getName(),
               );
               this.logger.log(`Done!`);
             }

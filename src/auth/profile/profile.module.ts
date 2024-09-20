@@ -22,9 +22,9 @@ import { UserModule } from "src/user/user.module";
 @Module({
   imports: [
     forwardRef(() => AuthModule),
+    forwardRef(() => UserModule),
     forwardRef(() => PrivyModule),
     forwardRef(() => GithubModule),
-    forwardRef(() => UserModule),
     HttpModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
