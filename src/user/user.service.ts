@@ -43,9 +43,9 @@ export class UserService {
     @InjectConnection()
     private neogma: Neogma,
     private models: ModelService,
+    readonly configService: ConfigService,
     private readonly userFlowService: UserFlowService,
     private readonly userRoleService: UserRoleService,
-    private readonly configService: ConfigService,
     private readonly profileService: ProfileService,
     private readonly scorerService: ScorerService,
     private readonly privyService: PrivyService,

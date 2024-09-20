@@ -23,9 +23,9 @@ import { CoinbaseCommerceModule } from "src/coinbase-commerce/coinbase-commerce.
 @Module({
   imports: [
     forwardRef(() => AuthModule),
+    forwardRef(() => UserModule),
     forwardRef(() => PrivyModule),
     forwardRef(() => GithubModule),
-    forwardRef(() => UserModule),
     HttpModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
