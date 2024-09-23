@@ -83,7 +83,7 @@ export class ProfileService {
           alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
           linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account {
             .*,
-            wallets: [(account)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
+            wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
           }][0],
           location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
         } as profile
