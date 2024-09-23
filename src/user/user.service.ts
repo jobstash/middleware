@@ -548,14 +548,20 @@ export class UserService {
   }
 
   private async create(dto: CreateUserDto): Promise<UserEntity> {
-    return this.models.Users.createOne({
-      id: randomUUID(),
-      ...dto,
-      name: dto.name ?? null,
-      available: false,
-      createdTimestamp: new Date().getTime(),
-      updatedTimestamp: new Date().getTime(),
-    })
+    return this.models.Users.createOne(
+      {
+        id: randomUUID(),
+        privyId: dto.privyId ?? null,
+        name: dto.name ?? null,
+        available: false,
+        wallet: dto.wallet,
+        createdTimestamp: new Date().getTime(),
+        updatedTimestamp: new Date().getTime(),
+      },
+      {
+        validate: false,
+      },
+    )
       .then(res => (res ? new UserEntity(instanceToNode(res)) : undefined))
       .catch(err => {
         Sentry.withScope(scope => {
@@ -563,6 +569,7 @@ export class UserService {
             action: "db-call",
             source: "user.service",
           });
+          scope.setExtra("input", dto);
           Sentry.captureException(err);
         });
         this.logger.error(`UserService::create ${err.message}`);
