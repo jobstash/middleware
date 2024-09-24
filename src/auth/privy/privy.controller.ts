@@ -141,7 +141,7 @@ export class PrivyController {
   @HttpCode(HttpStatus.ACCEPTED)
   async migrateUsers(): Promise<void> {
     this.logger.log("/privy/migrate-users");
-    this.privyService.unsafe___________migrateUsers();
+    this.privyService.unsafe___________migrateUsers(this.userService);
   }
 
   @Get("delete-migrated-users")

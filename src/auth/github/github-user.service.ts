@@ -38,6 +38,17 @@ export class GithubUserService {
     return result.records[0]?.get("hasUser") as boolean;
   }
 
+  async getWalletByGithub(githubId: string): Promise<string> {
+    const result = await this.neogma.queryRunner.run(
+      `
+        MATCH (u:User)-[:HAS_GITHUB_USER]->(:GithubUser {id: $githubId})
+        RETURN u.wallet as wallet
+      `,
+      { githubId },
+    );
+    return result.records[0]?.get("wallet") as string;
+  }
+
   async unsafe__linkGithubUser(
     wallet: string,
     githubLogin: string,
@@ -120,8 +131,9 @@ export class GithubUserService {
 
         await this.update(githubUserNode.getId(), payload);
         const hasUser = await this.githubUserHasUser(githubUserNode.getId());
+        const userWallet = await this.getWalletByGithub(githubUserNode.getId());
 
-        if (!hasUser) {
+        if (!hasUser || userWallet === wallet) {
           await this.unsafe__linkGithubUser(wallet, updateObject.githubLogin);
           return {
             success: true,
