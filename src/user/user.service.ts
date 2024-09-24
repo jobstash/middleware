@@ -43,9 +43,9 @@ export class UserService {
     @InjectConnection()
     private neogma: Neogma,
     private models: ModelService,
+    readonly configService: ConfigService,
     private readonly userFlowService: UserFlowService,
     private readonly userRoleService: UserRoleService,
-    private readonly configService: ConfigService,
     private readonly profileService: ProfileService,
     private readonly scorerService: ScorerService,
     private readonly privyService: PrivyService,
@@ -686,6 +686,7 @@ export class UserService {
                 this.logger.error(
                   `UserService::fetchGithubUser ${err.message}`,
                 );
+                this.logger.error(err);
                 Sentry.withScope(scope => {
                   scope.setTags({
                     action: "external-api-call",
@@ -700,7 +701,7 @@ export class UserService {
               wallet: embeddedWallet,
               githubLogin: user.github.username,
               githubId: user.github.subject,
-              githubAvatarUrl: (await githubUser).data.avatar_url,
+              githubAvatarUrl: (await githubUser)?.data?.avatar_url ?? null,
             });
             if (result.success) {
               this.logger.log(`Github info added to user`);

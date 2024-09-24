@@ -9,6 +9,7 @@ import { PrivyClient, WalletWithMetadata } from "@privy-io/server-auth";
 import extractDomain from "src/shared/helpers/extract-domain";
 import { notStringOrNull } from "src/shared/helpers";
 import axios from "axios";
+import { UserService } from "src/user/user.service";
 // import { ScorerService } from "src/scorer/scorer.service";
 // import { UNMIGRATED_USERS } from "src/shared/constants/unmigrated-users";
 // import { ProfileService } from "../profile/profile.service";
@@ -108,6 +109,7 @@ export class PrivyService {
   }
 
   async sendChunk(
+    userService: UserService,
     users: ImportUserInput[],
     counter: number,
     attempts = 1,
@@ -157,7 +159,11 @@ export class PrivyService {
                 } migrated successfully on chunk ${counter}`,
               );
               this.logger.log(`Storing their privy id and new wallet...`);
+              const oldWallet = users[index].linked_accounts.find(
+                x => x.type === "wallet",
+              )?.address;
               const newWallet = await this.getUserEmbeddedWallet(result.id);
+              const role = await userService.getWalletRole(oldWallet);
               await this.neogma.queryRunner.run(
                 `
                 MATCH (user:User {wallet: $wallet})
@@ -173,6 +179,12 @@ export class PrivyService {
                   privyId: result.id,
                 },
               );
+              const newUser = await this.privy.getUser(result.id);
+              await userService.createPrivyUser(
+                newUser,
+                newWallet,
+                role?.getName(),
+              );
               this.logger.log(`Done!`);
             }
           }),
@@ -185,7 +197,7 @@ export class PrivyService {
           } seconds...`,
         );
         await new Promise(resolve => setTimeout(resolve, backOffTime));
-        await this.sendChunk(users, counter, attempts + 1);
+        await this.sendChunk(userService, users, counter, attempts + 1);
       } else {
         this.logger.log(`Response status code was ${response.status}`);
         this.logger.log(response);
@@ -204,7 +216,7 @@ export class PrivyService {
     }
   }
 
-  async unsafe___________migrateUsers(): Promise<void> {
+  async unsafe___________migrateUsers(userService: UserService): Promise<void> {
     if (this.running) {
       return;
     }
@@ -322,7 +334,7 @@ export class PrivyService {
 
     for (const chunk of chunks) {
       // this.logger.log(chunk);
-      await this.sendChunk(chunk, counter);
+      await this.sendChunk(userService, chunk, counter);
       counter++;
     }
 
