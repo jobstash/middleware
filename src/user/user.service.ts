@@ -686,6 +686,7 @@ export class UserService {
                 this.logger.error(
                   `UserService::fetchGithubUser ${err.message}`,
                 );
+                this.logger.error(err);
                 Sentry.withScope(scope => {
                   scope.setTags({
                     action: "external-api-call",
@@ -700,7 +701,7 @@ export class UserService {
               wallet: embeddedWallet,
               githubLogin: user.github.username,
               githubId: user.github.subject,
-              githubAvatarUrl: (await githubUser).data.avatar_url,
+              githubAvatarUrl: (await githubUser)?.data?.avatar_url ?? null,
             });
             if (result.success) {
               this.logger.log(`Github info added to user`);
