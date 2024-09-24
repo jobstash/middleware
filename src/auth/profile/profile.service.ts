@@ -583,7 +583,7 @@ export class ProfileService {
             location += $location,
             location.updatedTimestamp = timestamp()
         `,
-        { wallet },
+        { wallet, location: dto },
       );
       return {
         success: true,
