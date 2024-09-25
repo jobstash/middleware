@@ -324,7 +324,7 @@ export class PrivyService {
       };
     });
 
-    this.logger.log(`Chunking users into batches of 20`);
+    this.logger.log(`Chunking ${users.length} users into batches of 20`);
 
     const chunks = chunk(users, 20);
 
