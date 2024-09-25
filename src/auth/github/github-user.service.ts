@@ -130,22 +130,12 @@ export class GithubUserService {
         }
 
         await this.update(githubUserNode.getId(), payload);
-        const hasUser = await this.githubUserHasUser(githubUserNode.getId());
-        const userWallet = await this.getWalletByGithub(githubUserNode.getId());
-
-        if (!hasUser || userWallet === wallet) {
-          await this.unsafe__linkGithubUser(wallet, updateObject.githubLogin);
-          return {
-            success: true,
-            message: "Github data persisted successfully",
-            data: storedUserNode.getProperties(),
-          };
-        } else {
-          return {
-            success: false,
-            message: "Github user node already has a user associated with it",
-          };
-        }
+        await this.unsafe__linkGithubUser(wallet, updateObject.githubLogin);
+        return {
+          success: true,
+          message: "Github data persisted successfully",
+          data: storedUserNode.getProperties(),
+        };
       } else {
         this.logger.log("debug - GH User node not found, creating...");
         await this.create(payload);
