@@ -156,11 +156,38 @@ export class ProfileController {
   async getUserOrgs(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<Response<UserOrg[]> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<UserOrg[]>> {
     this.logger.log(`/profile/organizations`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       return this.profileService.getUserOrgs(address);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Get("organizations/verified")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description:
+      "Returns the verified organizations of the currently logged in user",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Response<UserOrg[]>),
+    }),
+  })
+  async getUserVerifiedOrgs(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ): Promise<ResponseWithOptionalData<{ id: string; name: string }[]>> {
+    this.logger.log(`/profile/organizations/verified`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.profileService.getUserVerifiedOrgs(address);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
