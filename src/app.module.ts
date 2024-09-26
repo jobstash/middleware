@@ -26,6 +26,7 @@ import { PrivyModule } from "./auth/privy/privy.module";
 import { GrantsModule } from "./grants/grants.module";
 import { GoogleBigQueryModule } from "./google-bigquery/google-bigquery.module";
 import { SearchModule } from "./search/search.module";
+import { CoinbaseCommerceModule } from "./coinbase-commerce/coinbase-commerce.module";
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { SearchModule } from "./search/search.module";
     GrantsModule,
     GoogleBigQueryModule,
     SearchModule,
+    CoinbaseCommerceModule,
   ],
   controllers: [AppController],
   providers: [AppService],

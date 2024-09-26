@@ -18,6 +18,7 @@ import { AuthModule } from "../auth.module";
 import { PrivyModule } from "../privy/privy.module";
 import { GithubModule } from "../github/github.module";
 import { UserModule } from "src/user/user.module";
+import { CoinbaseCommerceModule } from "src/coinbase-commerce/coinbase-commerce.module";
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { UserModule } from "src/user/user.module";
     MailModule,
     ConfigModule,
     ThrottlerModule.forRoot(),
+    CoinbaseCommerceModule,
   ],
   controllers: [ProfileController],
   providers: [

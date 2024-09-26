@@ -52,6 +52,10 @@ import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { RpcService } from "src/user/rpc.service";
 import { UpdateJobApplicantListInput } from "./dto/update-job-applicant-list.input";
 import { ScorerService } from "src/scorer/scorer.service";
+import { CoinbaseCommerceService } from "src/coinbase-commerce/coinbase-commerce.service";
+import { PricingType } from "src/coinbase-commerce/dto/create-charge.dto";
+import { url } from "inspector";
+import { Charge } from "src/coinbase-commerce/dto/charge.dto";
 
 @Injectable()
 export class JobsService {
@@ -63,6 +67,7 @@ export class JobsService {
     private readonly rpcService: RpcService,
     private readonly configService: ConfigService,
     private readonly scorerService: ScorerService,
+    private readonly coinbaseCommerceService: CoinbaseCommerceService,
   ) {}
 
   getJobsListResults = async (): Promise<JobListResult[]> => {
@@ -2846,6 +2851,57 @@ export class JobsService {
       return {
         success: false,
         message: "Error making job featured",
+      };
+    }
+  }
+
+  async getJobPromotionPaymentUrl(
+    uuid: string,
+    ecosystem: string,
+  ): Promise<ResponseWithOptionalData<{ charge: Charge }>> {
+    try {
+      const jobDetails = await this.getJobDetailsByUuid(uuid, ecosystem);
+      if (!jobDetails) {
+        return {
+          success: false,
+          message: "Job not found",
+        };
+      }
+      const charge = await this.coinbaseCommerceService.createCharge({
+        name: jobDetails.title,
+        description: "1 month job promotion",
+        local_price: {
+          amount: "250",
+          currency: "USD",
+        },
+        pricing_type: PricingType.FIXED_PRICE,
+        metadata: {
+          jobId: uuid,
+        },
+      });
+
+      return {
+        success: true,
+        message: "Job promotion payment url generated successfully",
+        data: {
+          charge,
+        },
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        scope.setExtra("input", { uuid, ecosystem });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `JobsService::getJobPromotionPaymentUrl ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Error generating job promotion payment url",
       };
     }
   }

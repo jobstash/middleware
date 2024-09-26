@@ -1046,4 +1046,26 @@ export class JobsController {
       };
     }
   }
+
+  @Get("promote/:uuid")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ANON)
+  @ApiHeader({
+    name: ECOSYSTEM_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific ecosystem",
+  })
+  async promoteJob(
+    @Param("uuid") uuid: string,
+    @Headers(ECOSYSTEM_HEADER)
+    ecosystem: string | undefined,
+  ): Promise<
+    ResponseWithOptionalData<{
+      url: string;
+    }>
+  > {
+    this.logger.log(`/jobs/promote/${uuid}`);
+    return await this.jobsService.getJobPromotionPaymentUrl(uuid, ecosystem);
+  }
 }
