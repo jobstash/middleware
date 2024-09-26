@@ -79,7 +79,7 @@ export class AllJobsFilterConfigsEntity {
   getProperties(): AllJobsFilterConfigs {
     return new AllJobsFilterConfigs({
       organizations: this.getMultiValuePresets("organizations"),
-      classifications: this.getMultiValuePresets("classifications"),
+      category: this.getMultiValuePresets("category"),
     });
   }
 }

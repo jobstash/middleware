@@ -14,7 +14,7 @@ export class AllJobsParams {
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
-  classifications?: string[] | null = null;
+  category?: string[] | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()

@@ -4,10 +4,18 @@ import { sort } from "fast-sort";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import { ModelService } from "src/model/model.service";
-import { JobListResultEntity } from "src/shared/entities";
-import { paginate } from "src/shared/helpers";
-import { JobListResult, PaginatedData } from "src/shared/interfaces";
+import {
+  AllJobsFilterConfigsEntity,
+  JobListResultEntity,
+} from "src/shared/entities";
+import { normalizeString, paginate } from "src/shared/helpers";
+import {
+  AllJobsFilterConfigs,
+  JobListResult,
+  PaginatedData,
+} from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import { AllJobsInput } from "./dto/all-jobs.input";
 
 @Injectable()
 export class PublicService {
@@ -147,15 +155,20 @@ export class PublicService {
     return results;
   };
 
-  async getAllJobsList(params: {
-    page: number;
-    limit: number;
-  }): Promise<PaginatedData<JobListResult>> {
+  async getAllJobsList(
+    params: AllJobsInput,
+  ): Promise<PaginatedData<JobListResult>> {
     const paramsPassed = {
+      ...params,
       limit: params.limit ?? 10,
       page: params.page ?? 1,
     };
-    const { page, limit } = paramsPassed;
+    const {
+      organizations: organizationFilterList,
+      category: categoryFilterList,
+      page,
+      limit,
+    } = paramsPassed;
 
     const results: JobListResult[] = [];
 
@@ -182,12 +195,57 @@ export class PublicService {
       };
     }
 
-    const final = sort<JobListResult>(results).desc(job => job.timestamp);
+    const jobFilters = (job: JobListResult): boolean => {
+      const { name: orgName } = job.organization;
+      const category = job.classification;
+
+      return (
+        (!organizationFilterList ||
+          organizationFilterList.includes(normalizeString(orgName))) &&
+        (!categoryFilterList ||
+          categoryFilterList.includes(normalizeString(category)))
+      );
+    };
+
+    const filtered = results.filter(jobFilters);
+
+    const final = sort<JobListResult>(filtered).desc(job => job.timestamp);
 
     return paginate<JobListResult>(
       page,
       limit,
       final.map(x => new JobListResultEntity(x).getProperties()),
     );
+  }
+
+  async getAllJobsFilterConfigs(): Promise<AllJobsFilterConfigs> {
+    try {
+      return await this.neogma.queryRunner
+        .run(
+          `
+            RETURN {
+                category: apoc.coll.toSet([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification) WHERE (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | classification.name]),
+                organizations: apoc.coll.toSet([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | org.name])
+            } as res
+          `,
+        )
+        .then(res =>
+          res.records.length
+            ? new AllJobsFilterConfigsEntity(
+                res.records[0].get("res"),
+              ).getProperties()
+            : undefined,
+        );
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getAllJobsFilterConfigs ${err.message}`);
+      return undefined;
+    }
   }
 }
