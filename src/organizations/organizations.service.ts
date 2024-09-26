@@ -980,6 +980,28 @@ export class OrganizationsService {
     );
   }
 
+  async findOrgIdByWebsite(
+    domain: string,
+  ): Promise<ResponseWithOptionalData<string>> {
+    const orgs = await this.neogma.queryRunner.run(
+      `
+        MATCH (organization:Organization)-[:HAS_WEBSITE]->(website:Website)
+        WHERE apoc.data.url(website.url).host CONTAINS $domain
+        RETURN organization.orgId as orgId
+      `,
+      { domain },
+    );
+    const result = orgs.records.length
+      ? (orgs.records[0]?.get("orgId") as string)
+      : undefined;
+
+    return {
+      success: result ? true : false,
+      message: result ? "Retrieved org id successfully" : "No org found",
+      data: result,
+    };
+  }
+
   async create(
     organization: CreateOrganizationInput,
   ): Promise<OrganizationEntity> {

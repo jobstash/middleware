@@ -16,6 +16,7 @@ import * as compression from "compression";
 // import { ProjectsModule } from "./projects/projects.module";
 import { PublicModule } from "./public/public.module";
 import { generatePublicApiSpec } from "./shared/helpers";
+import { OrganizationsModule } from "./organizations/organizations.module";
 dotenv.config();
 
 if (!process.env.SESSION_SECRET) throw new Error("SESSION_SECRET must be set");
@@ -83,7 +84,7 @@ async function bootstrap(): Promise<void> {
   const publicDocument = generatePublicApiSpec(
     SwaggerModule.createDocument(app, publicConfig, {
       // include: [OrganizationsModule, ProjectsModule, PublicModule],
-      include: [PublicModule],
+      include: [PublicModule, OrganizationsModule],
     }),
   );
 
