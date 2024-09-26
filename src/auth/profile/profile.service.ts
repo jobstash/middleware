@@ -452,6 +452,67 @@ export class ProfileService {
     }
   }
 
+  async getUserVerifiedOrgs(
+    wallet: string,
+  ): Promise<ResponseWithOptionalData<{ id: string; name: string }[]>> {
+    try {
+      const profile = data(await this.getDevUserProfile(wallet));
+      const orgs: { id: string; name: string }[] = [];
+
+      if (profile?.linkedAccounts.email || profile.alternateEmails.length > 0) {
+        const emails = [
+          ...profile.alternateEmails,
+          profile.linkedAccounts.email,
+          profile.linkedAccounts.google,
+          profile.linkedAccounts.apple,
+        ];
+        const result = await this.neogma.queryRunner.run(
+          `
+            MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
+            UNWIND $emails as email
+            WITH email, website, organization
+            WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email).domain
+            RETURN apoc.coll.toSet(COLLECT(organization {
+              id: organization.orgId,
+              name: organization.name
+            })) as orgsByEmail
+          `,
+          { wallet, emails },
+        );
+        const orgsByEmail =
+          result?.records[0]
+            ?.get("orgsByEmail")
+            .map(record => record as { id: string; name: string }) ?? [];
+        orgsByEmail.forEach(x => {
+          const exists = orgs.some(y => y.id === x.id);
+          if (!exists) {
+            orgs.push(x);
+          }
+        });
+      }
+
+      return {
+        success: true,
+        message: "Retrieved user orgs successfully",
+        data: orgs,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::getUserOrgs ${err.message}`);
+      return {
+        success: false,
+        message: "Error retrieving user orgs",
+      };
+    }
+  }
+
   async getUserShowCase(
     wallet: string,
   ): Promise<ResponseWithOptionalData<UserShowCase[]>> {
