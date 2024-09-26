@@ -403,7 +403,7 @@ export class JobsController {
     schema: {
       allOf: [
         {
-          $ref: getSchemaPath(JobFilterConfigs),
+          $ref: getSchemaPath(AllJobsFilterConfigs),
         },
       ],
     },

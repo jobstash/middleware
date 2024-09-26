@@ -1689,4 +1689,15 @@ export const PUBLIC_API_SCHEMAS = {
       },
     ],
   },
+  AllJobsFilterConfigs: {
+    type: "object",
+    properties: {
+      category: {
+        $ref: getSchemaPath(MultiSelectFilter),
+      },
+      organizations: {
+        $ref: getSchemaPath(MultiSelectFilter),
+      },
+    },
+  },
 };

@@ -1,8 +1,21 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import { IsNumber, IsOptional, Max } from "class-validator";
+import { toList } from "src/shared/helpers";
 
 export class AllJobsInput {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  organizations?: string[] | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  category?: string[] | null = null;
+
   @ApiPropertyOptional({
     example: 1,
   })

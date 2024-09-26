@@ -1,10 +1,24 @@
-import { Controller, Get, Query, ValidationPipe } from "@nestjs/common";
+import { Controller, Get, Header, Query, ValidationPipe } from "@nestjs/common";
 import { PublicService } from "./public.service";
-import { ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
-import { JobListResult, PaginatedData } from "src/shared/interfaces";
+import {
+  ApiBadRequestResponse,
+  ApiOkResponse,
+  getSchemaPath,
+} from "@nestjs/swagger";
+import {
+  AllJobsFilterConfigs,
+  JobListResult,
+  PaginatedData,
+  ValidationError,
+} from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { AllJobsInput } from "./dto/all-jobs.input";
 import { ConfigService } from "@nestjs/config";
+import {
+  CACHE_CONTROL_HEADER,
+  CACHE_DURATION,
+  CACHE_EXPIRY,
+} from "src/shared/constants";
 
 @Controller("public")
 export class PublicController {
@@ -15,6 +29,8 @@ export class PublicController {
   ) {}
 
   @Get("/all-jobs")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
     description: "Returns a paginated list of all active jobs ",
     type: PaginatedData<JobListResult>,
@@ -53,5 +69,28 @@ export class PublicController {
         }/details`,
       })),
     };
+  }
+
+  @Get("/all-jobs/filters")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiOkResponse({
+    description: "Returns the configuration data for the ui filters",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(AllJobsFilterConfigs),
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  async getAllJobsListFilterConfigs(): Promise<AllJobsFilterConfigs> {
+    this.logger.log(`/public/all-jobs/filters`);
+    return this.publicService.getAllJobsFilterConfigs();
   }
 }
