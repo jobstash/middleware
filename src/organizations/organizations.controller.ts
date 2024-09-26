@@ -270,6 +270,24 @@ export class OrganizationsController {
     return this.organizationsService.getFeaturedOrgs(ecosystem);
   }
 
+  @Get("id/:domain")
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of query params that failed validation",
+    type: ValidationError,
+  })
+  @ApiNotFoundResponse({
+    description:
+      "Returns that no organization id was found for the specified domain",
+    type: ResponseWithNoData,
+  })
+  async getOrgIdByDomain(
+    @Param("domain") domain: string,
+  ): Promise<ResponseWithOptionalData<string>> {
+    this.logger.log(`/organizations/id/${domain}`);
+    return this.organizationsService.findOrgIdByWebsite(domain);
+  }
+
   @Get("details/:id")
   @ApiHeader({
     name: ECOSYSTEM_HEADER,
