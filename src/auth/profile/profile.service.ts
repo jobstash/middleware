@@ -18,6 +18,7 @@ import {
   paginate,
   intConverter,
   nonZeroOrNull,
+  sluggify,
 } from "src/shared/helpers";
 import {
   AdjacentRepo,
@@ -33,6 +34,7 @@ import {
   UserRepo,
   UserShowCase,
   UserSkill,
+  UserVerifiedOrg,
   UserWorkHistory,
   data,
 } from "src/shared/interfaces";
@@ -454,10 +456,47 @@ export class ProfileService {
 
   async getUserVerifiedOrgs(
     wallet: string,
-  ): Promise<ResponseWithOptionalData<{ id: string; name: string }[]>> {
+  ): Promise<ResponseWithOptionalData<UserVerifiedOrg[]>> {
     try {
       const profile = data(await this.getDevUserProfile(wallet));
-      const orgs: { id: string; name: string }[] = [];
+      const orgs: UserVerifiedOrg[] = [];
+
+      if (profile?.linkedAccounts.github) {
+        const cached = await this.getUserWorkHistory(wallet);
+        let prelim: UserWorkHistory[] = [];
+        if (cached.success && data(cached).length > 0) {
+          prelim = data(cached);
+        } else {
+          await this.runUserDataFetchingOps(wallet, true);
+          prelim = data(await this.getUserWorkHistory(wallet));
+        }
+        const names = prelim.map(x => x.name);
+        const result = await this.neogma.queryRunner.run(
+          `
+            MATCH (user:User {wallet: $wallet}), (organization: Organization WHERE organization.name IN $names)
+            RETURN apoc.coll.toSet(COLLECT(organization {
+              id: organization.orgId,
+              name: organization.name,
+              url: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+              logo: organization.logoUrl
+            })) as orgsByRepo
+          `,
+          { wallet, names },
+        );
+        const orgsByRepo =
+          result?.records[0]
+            ?.get("orgsByRepo")
+            .map(record => record as UserVerifiedOrg) ?? [];
+        const processed = orgsByRepo.map(x => ({
+          id: x.id,
+          name: x.name,
+          slug: sluggify(x.name),
+          url: x.url,
+          logo: x.logo ?? null,
+          account: profile.linkedAccounts.github,
+        }));
+        orgs.push(...processed);
+      }
 
       if (profile?.linkedAccounts.email || profile.alternateEmails.length > 0) {
         const emails = [
@@ -474,7 +513,10 @@ export class ProfileService {
             WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email).domain
             RETURN apoc.coll.toSet(COLLECT(organization {
               id: organization.orgId,
-              name: organization.name
+              name: organization.name,
+              url: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+              logo: organization.logoUrl,
+              account: email
             })) as orgsByEmail
           `,
           { wallet, emails },
@@ -482,11 +524,18 @@ export class ProfileService {
         const orgsByEmail =
           result?.records[0]
             ?.get("orgsByEmail")
-            .map(record => record as { id: string; name: string }) ?? [];
+            .map(record => record as UserVerifiedOrg) ?? [];
         orgsByEmail.forEach(x => {
           const exists = orgs.some(y => y.id === x.id);
           if (!exists) {
-            orgs.push(x);
+            orgs.push({
+              id: x.id,
+              name: x.name,
+              slug: sluggify(x.name),
+              url: x.url,
+              logo: x.logo ?? null,
+              account: x.account,
+            });
           }
         });
       }

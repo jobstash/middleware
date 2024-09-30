@@ -32,7 +32,6 @@ import { ApiKeyGuard } from "src/auth/api-key.guard";
 import { ApiOkResponse } from "@nestjs/swagger";
 import { UserWorkHistory } from "src/shared/interfaces/user/user-work-history.interface";
 import { ProfileService } from "src/auth/profile/profile.service";
-import { JobsService } from "src/jobs/jobs.service";
 import { ScorerService } from "src/scorer/scorer.service";
 import { AddUserNoteInput } from "./dto/add-user-note.dto";
 
@@ -44,7 +43,6 @@ export class UserController {
     private readonly userService: UserService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
-    private readonly jobsService: JobsService,
     private readonly profileService: ProfileService,
     private readonly scorerService: ScorerService,
   ) {}
