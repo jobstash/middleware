@@ -15,3 +15,4 @@ export * from "./user-repo.interface";
 export * from "./user-work-history.interface";
 export * from "./user-lean-stats.interface";
 export * from "./user-github-organization.interface";
+export * from "./user-verified-org.inteface";
