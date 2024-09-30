@@ -12,12 +12,19 @@ export class CoinbaseCommerceService {
 
   constructor(private readonly httpService: HttpService) {}
 
-  async createCharge(chargeData: CreateCharge): Promise<Charge> {
+  async createCharge(chargeData: CreateCharge): Promise<{
+    id: string;
+    url: string;
+  }> {
     try {
       const response = await firstValueFrom(
         this.httpService.post<Charge>("charges", chargeData),
       );
-      return response.data;
+      const data = response.data;
+      return {
+        id: data.id,
+        url: data.hosted_url,
+      };
     } catch (error) {
       if (error instanceof AxiosError) {
         this.logger.error(
