@@ -365,12 +365,18 @@ export class ProfileService {
       }
 
       if (profile?.linkedAccounts.email || profile.alternateEmails.length > 0) {
+        const emails = [
+          ...profile.alternateEmails,
+          profile.linkedAccounts.email,
+          profile.linkedAccounts.google,
+          profile.linkedAccounts.apple,
+        ];
         const result = await this.neogma.queryRunner.run(
           `
-            MATCH (user:User {wallet: $wallet})
             MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
-            MATCH (user)-[:HAS_EMAIL]->(email: UserEmail)
-            WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email.email).domain
+            UNWIND $emails as email
+            WITH email, website, organization
+            WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email).domain
             OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
             RETURN apoc.coll.toSet(COLLECT(organization {
                 compensation: {
@@ -418,7 +424,7 @@ export class ProfileService {
                 }
             })) as orgsByEmail
           `,
-          { wallet },
+          { wallet, emails },
         );
         const orgsByEmail =
           result?.records[0]
