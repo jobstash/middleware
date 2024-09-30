@@ -13,8 +13,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { REALLY_LONG_TIME } from "src/shared/constants";
 import * as https from "https";
 import { ProfileModule } from "src/auth/profile/profile.module";
-import { CoinbaseCommerceModule } from "src/coinbase-commerce/coinbase-commerce.module";
-import { CoinbaseCommerceService } from "src/coinbase-commerce/coinbase-commerce.service";
+import { PaymentsModule } from "src/payments/payments.module";
 
 @Module({
   imports: [
@@ -34,7 +33,7 @@ import { CoinbaseCommerceService } from "src/coinbase-commerce/coinbase-commerce
         baseURL: configService.get<string>("SCORER_DOMAIN"),
       }),
     }),
-    CoinbaseCommerceModule,
+    forwardRef(() => PaymentsModule),
   ],
   controllers: [JobsController],
   providers: [
@@ -46,5 +45,6 @@ import { CoinbaseCommerceService } from "src/coinbase-commerce/coinbase-commerce
     OrganizationsService,
     ScorerService,
   ],
+  exports: [JobsService],
 })
 export class JobsModule {}

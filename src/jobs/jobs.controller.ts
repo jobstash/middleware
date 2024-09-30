@@ -770,7 +770,15 @@ export class JobsController {
     this.logger.log(`/jobs/feature`);
     try {
       const { address } = await this.authService.getSession(req, res);
-      return this.jobsService.makeJobFeatured(address, dto);
+      if (address) {
+        return this.jobsService.makeJobFeatured(dto);
+      } else {
+        res.status(HttpStatus.FORBIDDEN);
+        return {
+          success: false,
+          message: "Access denied for unauthenticated user",
+        };
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -1048,8 +1056,6 @@ export class JobsController {
   }
 
   @Get("promote/:uuid")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ANON)
   @ApiHeader({
     name: ECOSYSTEM_HEADER,
     required: false,
@@ -1062,6 +1068,7 @@ export class JobsController {
     ecosystem: string | undefined,
   ): Promise<
     ResponseWithOptionalData<{
+      id: string;
       url: string;
     }>
   > {

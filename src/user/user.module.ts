@@ -21,8 +21,7 @@ import { ProfileModule } from "src/auth/profile/profile.module";
 import { HttpModule } from "@nestjs/axios";
 import { REALLY_LONG_TIME } from "src/shared/constants";
 import * as https from "https";
-import { CoinbaseCommerceService } from "src/coinbase-commerce/coinbase-commerce.service";
-import { CoinbaseCommerceModule } from "src/coinbase-commerce/coinbase-commerce.module";
+import { PaymentsModule } from "src/payments/payments.module";
 
 @Module({
   imports: [
@@ -45,7 +44,7 @@ import { CoinbaseCommerceModule } from "src/coinbase-commerce/coinbase-commerce.
     }),
     ConfigModule,
     MailModule,
-    CoinbaseCommerceModule,
+    PaymentsModule,
   ],
   controllers: [UserController],
   providers: [

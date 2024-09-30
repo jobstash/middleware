@@ -52,10 +52,8 @@ import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { RpcService } from "src/user/rpc.service";
 import { UpdateJobApplicantListInput } from "./dto/update-job-applicant-list.input";
 import { ScorerService } from "src/scorer/scorer.service";
-import { CoinbaseCommerceService } from "src/coinbase-commerce/coinbase-commerce.service";
-import { PricingType } from "src/coinbase-commerce/dto/create-charge.dto";
-import { url } from "inspector";
-import { Charge } from "src/coinbase-commerce/dto/charge.dto";
+import { PaymentsService } from "src/payments/payments.service";
+import { PricingType } from "src/payments/dto/create-charge.dto";
 
 @Injectable()
 export class JobsService {
@@ -67,7 +65,7 @@ export class JobsService {
     private readonly rpcService: RpcService,
     private readonly configService: ConfigService,
     private readonly scorerService: ScorerService,
-    private readonly coinbaseCommerceService: CoinbaseCommerceService,
+    private readonly paymentsService: PaymentsService,
   ) {}
 
   getJobsListResults = async (): Promise<JobListResult[]> => {
@@ -2811,10 +2809,7 @@ export class JobsService {
     }
   }
 
-  async makeJobFeatured(
-    wallet: string,
-    dto: FeatureJobsInput,
-  ): Promise<ResponseWithNoData> {
+  async makeJobFeatured(dto: FeatureJobsInput): Promise<ResponseWithNoData> {
     try {
       const { endDate, startDate, shortUUID } = dto;
       const result = await this.models.StructuredJobposts.update(
@@ -2844,7 +2839,7 @@ export class JobsService {
           action: "db-call",
           source: "jobs.service",
         });
-        scope.setExtra("input", { wallet, ...dto });
+        scope.setExtra("input", { ...dto });
         Sentry.captureException(err);
       });
       this.logger.error(`JobsService::makeJobFeatured ${err.message}`);
@@ -2858,7 +2853,7 @@ export class JobsService {
   async getJobPromotionPaymentUrl(
     uuid: string,
     ecosystem: string,
-  ): Promise<ResponseWithOptionalData<{ charge: Charge }>> {
+  ): Promise<ResponseWithOptionalData<{ id: string; url: string }>> {
     try {
       const jobDetails = await this.getJobDetailsByUuid(uuid, ecosystem);
       if (!jobDetails) {
@@ -2867,11 +2862,11 @@ export class JobsService {
           message: "Job not found",
         };
       }
-      const charge = await this.coinbaseCommerceService.createCharge({
+      const charge = await this.paymentsService.createCharge({
         name: jobDetails.title,
-        description: "1 month job promotion",
+        description: "1 week job promotion",
         local_price: {
-          amount: "250",
+          amount: "300",
           currency: "USD",
         },
         pricing_type: PricingType.FIXED_PRICE,
@@ -2880,13 +2875,18 @@ export class JobsService {
         },
       });
 
-      return {
-        success: true,
-        message: "Job promotion payment url generated successfully",
-        data: {
-          charge,
-        },
-      };
+      if (charge) {
+        return {
+          success: true,
+          message: "Job promotion payment url generated successfully",
+          data: charge,
+        };
+      } else {
+        return {
+          success: false,
+          message: "Job promotion payment url generation failed",
+        };
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({

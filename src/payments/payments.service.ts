@@ -5,12 +5,16 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { CreateCharge } from "./dto/create-charge.dto";
 import { Charge } from "./dto/charge.dto";
 import { AxiosError } from "axios";
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
-export class CoinbaseCommerceService {
-  private logger = new CustomLogger(CoinbaseCommerceService.name);
+export class PaymentsService {
+  private logger = new CustomLogger(PaymentsService.name);
 
-  constructor(private readonly httpService: HttpService) {}
+  constructor(
+    private readonly httpService: HttpService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async createCharge(chargeData: CreateCharge): Promise<{
     id: string;
@@ -18,12 +22,12 @@ export class CoinbaseCommerceService {
   }> {
     try {
       const response = await firstValueFrom(
-        this.httpService.post<Charge>("charges", chargeData),
+        this.httpService.post<{ data: Charge }>("charges", chargeData),
       );
       const data = response.data;
       return {
-        id: data.id,
-        url: data.hosted_url,
+        id: data.data.id,
+        url: data.data.hosted_url,
       };
     } catch (error) {
       if (error instanceof AxiosError) {
@@ -35,5 +39,19 @@ export class CoinbaseCommerceService {
       }
       throw error;
     }
+  }
+
+  async verifyWebhookSignature(
+    body: string,
+    signature: string,
+  ): Promise<boolean> {
+    const { createHmac } = await import("node:crypto");
+    const hmac = createHmac(
+      "sha256",
+      this.configService.get<string>("LLAMA_PAY_WEBHOOK_KEY"),
+    );
+    hmac.update(body);
+    const computedSignature = hmac.digest("hex");
+    return computedSignature === signature;
   }
 }
