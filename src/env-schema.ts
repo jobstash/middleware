@@ -63,7 +63,6 @@ const envSchema = Joi.object({
   TEST_DB_MANAGER_API_KEY: Joi.string(),
   PRIVY_APP_ID: Joi.string(),
   PRIVY_APP_SECRET: Joi.string(),
-  PRIVY_VERIFICATION_KEY: Joi.string(),
   LLAMA_PAY_API_KEY: Joi.string(),
   LLAMA_PAY_WEBHOOK_KEY: Joi.string(),
   JOB_PROMOTION_PRICE: Joi.number().required(),
