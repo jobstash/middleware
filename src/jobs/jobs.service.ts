@@ -2866,7 +2866,7 @@ export class JobsService {
         name: jobDetails.title,
         description: "1 week job promotion",
         local_price: {
-          amount: "300",
+          amount: this.configService.get<string>("JOB_PROMOTION_PRICE"),
           currency: "USD",
         },
         pricing_type: PricingType.FIXED_PRICE,

@@ -66,6 +66,7 @@ const envSchema = Joi.object({
   PRIVY_VERIFICATION_KEY: Joi.string(),
   LLAMA_PAY_API_KEY: Joi.string(),
   LLAMA_PAY_WEBHOOK_KEY: Joi.string(),
+  JOB_PROMOTION_PRICE: Joi.number().required(),
 });
 
 export default envSchema;
