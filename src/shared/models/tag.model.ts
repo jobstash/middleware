@@ -125,28 +125,29 @@ export const Tags = (
             .raw(
               "WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)",
             )
+            .with("DISTINCT tag")
             .raw(
-              "OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)",
+              "OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)",
             )
-            .with("(CASE WHEN other IS NULL THEN tag ELSE other END) AS tag")
-            .raw(
-              "OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)",
+            .with(
+              "tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others",
             )
-            .return(
-              "apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag ELSE other END)) as tags",
-            );
+            .with(
+              "CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag",
+            )
+            .with("DISTINCT canonicalTag AS tag")
+            .return("tag");
           const result = await query.run(neogma.queryRunner);
-          return result.records[0]
-            .get("tags")
-            .map(x => new TagEntity(x).getProperties());
+          return result.records.map(x =>
+            new TagEntity(x.get("tag")).getProperties(),
+          );
         },
         getPopularTags: async function (
           limit: number,
           threshold: number,
-          ecosystem: string | undefined,
         ): Promise<Tag[]> {
           const query = new QueryBuilder(
-            new BindParam({ ecosystem: ecosystem ?? null }),
+            new BindParam({ upperBound: threshold }),
           )
             .match({
               related: [
@@ -163,44 +164,43 @@ export const Tags = (
                 { label: "AllowedDesignation|DefaultDesignation" },
               ],
             })
-            .where(
-              "CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END",
-            )
             .raw(
-              "AND NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)",
+              "WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)",
             )
+            .with("DISTINCT tag")
             .raw(
-              "OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)",
+              "OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)",
             )
-            .with("(CASE WHEN other IS NULL THEN tag ELSE other END) AS tag")
-            .raw(
-              "OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)",
-            )
-            .with("(CASE WHEN other IS NULL THEN tag ELSE other END) AS tag")
             .with(
-              `
-                {
-                  tag: tag,
-                  popularity: apoc.coll.sum([
-                    (job:StructuredJobpost)-[:HAS_TAG]->(tag)
-                    WHERE (job)-[:HAS_STATUS]->(:JobpostOnlineStatus) | 1
-                  ])
-                } as res
-              `,
+              "tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others",
             )
-            .where("res.popularity IS NOT NULL")
-            .return("apoc.coll.toSet(COLLECT(res)) as result");
-          const result =
-            (await query.run(neogma.queryRunner))?.records[0]
-              ?.get("result")
-              .filter(
-                (res: { [x: string]: number }) => res["popularity"] > threshold,
-              )
-              .sort(
-                (a: { [x: string]: number }, b: { [x: string]: number }) =>
-                  ((b["popularity"] as number) - a["popularity"]) as number,
-              )
-              .map(res => new TagEntity(res["tag"]).getProperties()) ?? [];
+            .with(
+              "CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag",
+            )
+            .with("DISTINCT canonicalTag AS tag")
+            .match({
+              related: [
+                {
+                  label: "StructuredJobpost",
+                  identifier: "job",
+                },
+                {
+                  direction: "out",
+                  name: "HAS_TAG",
+                },
+                {
+                  label: "Tag",
+                  identifier: "tag",
+                },
+              ],
+            })
+            .where("(job)-[:HAS_STATUS]->(:JobpostOnlineStatus)")
+            .with("tag, count(DISTINCT job) AS popularity")
+            .where("popularity >= 1 AND popularity < $upperBound")
+            .return("tag");
+          const result = (await query.run(neogma.queryRunner)).records.map(x =>
+            new TagEntity(x.get("tag")).getProperties(),
+          );
           return limit ? result.slice(0, limit) : result;
         },
         getBlockedTags: async function (): Promise<Tag[]> {
