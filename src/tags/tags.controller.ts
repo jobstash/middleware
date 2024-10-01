@@ -14,15 +14,15 @@ import { ApiExtraModels, ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import * as Sentry from "@sentry/node";
 import { Response as ExpressResponse, Request } from "express";
 import { AuthService } from "src/auth/auth.service";
-import { RBACGuard } from "src/auth/rbac.guard";
+import { PBACGuard } from "src/auth/pbac.guard";
 import {
   CACHE_CONTROL_HEADER,
   CACHE_DURATION,
   CACHE_EXPIRY,
-  CheckWalletRoles,
+  CheckWalletPermissions,
   ECOSYSTEM_HEADER,
 } from "src/shared/constants";
-import { Roles } from "src/shared/decorators/role.decorator";
+import { Permissions } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
   ResponseWithNoData,
@@ -51,8 +51,11 @@ export class TagsController {
   ) {}
 
   @Get("/")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Returns a list of all tags",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Tag) }),
@@ -119,8 +122,11 @@ export class TagsController {
   }
 
   @Get("blocked")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Returns a list of all blocked tags",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Tag) }),
@@ -151,8 +157,11 @@ export class TagsController {
   }
 
   @Get("preferred")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Retrieve a list of preferred tags and their synonym chains",
     schema: responseSchemaWrapper({
@@ -185,8 +194,11 @@ export class TagsController {
   }
 
   @Get("paired")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Retrieve a list of paired tags and their pairings",
     schema: responseSchemaWrapper({
@@ -219,8 +231,8 @@ export class TagsController {
   }
 
   @Post("/create")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Create a new tag",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Tag) }),
@@ -296,8 +308,11 @@ export class TagsController {
   }
 
   @Post("link-synonym")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Link one tag as a synonym of another",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Array<Tag>) }),
@@ -365,8 +380,11 @@ export class TagsController {
   }
 
   @Post("/block")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Flag a list of tags as a blocked",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Boolean) }),
@@ -432,8 +450,11 @@ export class TagsController {
   }
 
   @Post("/unblock")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Unblock a list of blocked tags",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Boolean) }),
@@ -499,8 +520,11 @@ export class TagsController {
   }
 
   @Post("/pair")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Create a new tag pairing or sync an old one",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(TagPreference) }),
@@ -583,8 +607,11 @@ export class TagsController {
   }
 
   @Post("/create-preference")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Create a new preferred tag",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(TagPreference) }),
@@ -729,8 +756,11 @@ export class TagsController {
   }
 
   @Post("/delete-preference")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Delete a preferred tag",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(TagPreference) }),
@@ -780,8 +810,11 @@ export class TagsController {
   }
 
   @Post("/delete-synonyms")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Deletes synonyms for a preferred tag",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(TagPreference) }),

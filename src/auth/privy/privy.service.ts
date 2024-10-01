@@ -163,11 +163,7 @@ export class PrivyService {
                 } migrated successfully on chunk ${counter}`,
               );
               this.logger.log(`Storing their privy id and new wallet...`);
-              const oldWallet = users[index].linked_accounts.find(
-                x => x.type === "wallet",
-              )?.address;
               const newWallet = await this.getUserEmbeddedWallet(result.id);
-              const role = await userService.getWalletRole(oldWallet);
               await this.neogma.queryRunner.run(
                 `
                 MATCH (user:User {wallet: $wallet})
@@ -184,11 +180,7 @@ export class PrivyService {
                 },
               );
               const newUser = await this.privy.getUser(result.id);
-              await userService.createPrivyUser(
-                newUser,
-                newWallet,
-                role?.getName(),
-              );
+              await userService.createPrivyUser(newUser, newWallet);
               this.logger.log(`Done!`);
             }
           }),

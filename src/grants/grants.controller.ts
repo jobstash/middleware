@@ -8,9 +8,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { GrantsService } from "./grants.service";
-import { RBACGuard } from "src/auth/rbac.guard";
-import { CheckWalletRoles } from "src/shared/constants";
-import { Roles } from "src/shared/decorators";
+import { PBACGuard } from "src/auth/pbac.guard";
 import {
   ApiOkResponse,
   ApiUnprocessableEntityResponse,
@@ -41,8 +39,7 @@ export class GrantsController {
   ) {}
 
   @Get("")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ANON)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns a list of all grants",
     schema: responseSchemaWrapper({
@@ -63,8 +60,7 @@ export class GrantsController {
   }
 
   @Get(":slug")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ANON)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the details of the grant with the passed slug",
     schema: responseSchemaWrapper({
@@ -95,8 +91,7 @@ export class GrantsController {
   }
 
   @Get(":slug/grantees")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ANON)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the grantees of the grant with the passed slug",
     schema: responseSchemaWrapper({
@@ -120,8 +115,7 @@ export class GrantsController {
   }
 
   @Get(":slug/grantees/:granteeSlug")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ANON)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the details of the grantee with the passed slug",
     schema: responseSchemaWrapper({
@@ -142,8 +136,7 @@ export class GrantsController {
   }
 
   @Post("query")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ANON)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns a list of grants that match the query",
     schema: responseSchemaWrapper({
@@ -160,8 +153,7 @@ export class GrantsController {
   }
 
   @Post("mail")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ANON)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Sends an email to the admin",
     schema: responseSchemaWrapper({ type: "string" }),

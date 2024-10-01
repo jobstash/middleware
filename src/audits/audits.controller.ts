@@ -17,9 +17,9 @@ import { Request, Response as ExpressResponse } from "express";
 import { AuthService } from "src/auth/auth.service";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { Audit, Response, ResponseWithNoData } from "src/shared/interfaces";
-import { RBACGuard } from "src/auth/rbac.guard";
-import { Roles } from "src/shared/decorators/role.decorator";
-import { CheckWalletRoles } from "src/shared/constants";
+import { PBACGuard } from "src/auth/pbac.guard";
+import { Permissions } from "src/shared/decorators/role.decorator";
+import { CheckWalletPermissions } from "src/shared/constants";
 import {
   ApiOkResponse,
   ApiUnprocessableEntityResponse,
@@ -36,8 +36,8 @@ export class AuditsController {
   ) {}
 
   @Post()
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Creates an audit and relates it to a project",
     schema: responseSchemaWrapper({
@@ -59,8 +59,8 @@ export class AuditsController {
   }
 
   @Get()
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Creates an audit and relates it to a project",
     schema: responseSchemaWrapper({
@@ -77,8 +77,8 @@ export class AuditsController {
   }
 
   @Get(":id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Fetches an existing audit",
     schema: responseSchemaWrapper({
@@ -97,8 +97,8 @@ export class AuditsController {
   }
 
   @Patch(":id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Updates an existing audit",
     schema: responseSchemaWrapper({
@@ -118,8 +118,8 @@ export class AuditsController {
   }
 
   @Delete(":id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Deletes an audit and detaches it from its project",
     schema: responseSchemaWrapper({

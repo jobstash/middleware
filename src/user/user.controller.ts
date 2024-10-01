@@ -11,14 +11,13 @@ import {
 } from "@nestjs/common";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { UserService } from "./user.service";
-import { Roles } from "src/shared/decorators";
-import { RBACGuard } from "src/auth/rbac.guard";
-import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
+import { Permissions } from "src/shared/decorators";
+import { PBACGuard } from "src/auth/pbac.guard";
+import { CheckWalletPermissions } from "src/shared/constants";
 import {
   AdjacentRepo,
   data,
   DevUserProfile,
-  OrgUserProfile,
   ResponseWithNoData,
   UserProfile,
 } from "src/shared/interfaces";
@@ -48,16 +47,19 @@ export class UserController {
   ) {}
 
   @Get("")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   async getAllUsers(): Promise<UserProfile[]> {
     this.logger.log("/users");
     return this.userService.findAll();
   }
 
   @Get("devs/available")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.ORG_AFFILIATE,
+  )
   async getDevsAvailableForWork(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -72,31 +74,31 @@ export class UserController {
     return this.userService.getDevsAvailableForWork(params, orgId);
   }
 
-  @Get("orgs/pending")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
-  async getOrgsAwaitingApproval(): Promise<OrgUserProfile[]> {
-    this.logger.log("/users/orgs/pending");
-    return this.userService.getOrgsAwaitingApproval();
-  }
+  // @Get("orgs/pending")
+  // @UseGuards(PBACGuard)
+  // @Permissions(CheckWalletPermissions.ADMIN)
+  // async getOrgsAwaitingApproval(): Promise<UserProfile[]> {
+  //   this.logger.log("/users/orgs/pending");
+  //   return this.userService.getOrgsAwaitingApproval();
+  // }
 
-  @Get("orgs/approved")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
-  async getApprovedOrgs(): Promise<OrgUserProfile[]> {
-    this.logger.log("/users/orgs/approved");
-    return this.userService.getApprovedOrgs();
-  }
+  // @Get("orgs/approved")
+  // @UseGuards(PBACGuard)
+  // @Permissions(CheckWalletPermissions.ADMIN)
+  // async getApprovedOrgs(): Promise<UserProfile[]> {
+  //   this.logger.log("/users/orgs/approved");
+  //   return this.userService.getApprovedOrgs();
+  // }
 
   @Post("orgs/authorize")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   async authorizeOrgApplication(
     @Body() body: AuthorizeOrgApplicationInput,
   ): Promise<ResponseWithNoData> {
     const { wallet, verdict, orgId } = body;
     this.logger.log(`/users/orgs/authorize ${wallet}`);
-    const org = data(await this.profileService.getOrgUserProfile(wallet));
+    const org = data(await this.profileService.getUserProfile(wallet));
 
     if (org) {
       if (verdict === "approve") {
@@ -115,17 +117,10 @@ export class UserController {
           };
         }
       }
-      if (org.email) {
-        await this.userService.setWalletFlow({
-          flow:
-            verdict === "approve"
-              ? CheckWalletFlows.ORG_COMPLETE
-              : CheckWalletFlows.ORG_REJECTED,
-          wallet: wallet,
-        });
+      if (org.linkedAccounts?.email) {
         await this.mailService.sendEmail({
           from: this.configService.getOrThrow<string>("EMAIL"),
-          to: org.email[0].email,
+          to: org.linkedAccounts?.email,
           subject: "Application Review Outcome",
           text:
             verdict === "approve"
@@ -204,8 +199,8 @@ export class UserController {
   }
 
   @Post("devs/note")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
   async addUserNote(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,

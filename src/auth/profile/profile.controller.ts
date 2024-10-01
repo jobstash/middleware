@@ -15,11 +15,8 @@ import {
 import { ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import { Response as ExpressResponse, Request } from "express";
 import { OrganizationsService } from "src/organizations/organizations.service";
-import { Roles } from "src/shared/decorators/role.decorator";
-import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
-  OrgUserProfile,
   PaginatedData,
   Response,
   ResponseWithNoData,
@@ -30,7 +27,7 @@ import {
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { AuthService } from "../auth.service";
-import { RBACGuard } from "../rbac.guard";
+import { PBACGuard } from "../pbac.guard";
 import { RateOrgInput } from "./dto/rate-org.input";
 import { RepoListParams } from "./dto/repo-list.input";
 import { ReviewOrgSalaryInput } from "./dto/review-org-salary.input";
@@ -44,7 +41,6 @@ import { ReportInput } from "./dto/report.input";
 import { MailService } from "src/mail/mail.service";
 import { ConfigService } from "@nestjs/config";
 import { Throttle } from "@nestjs/throttler";
-import { UpdateOrgUserProfileInput } from "./dto/update-org-profile.input";
 import { UserService } from "src/user/user.service";
 import * as Sentry from "@sentry/node";
 import { RpcService } from "../../user/rpc.service";
@@ -66,48 +62,21 @@ export class ProfileController {
   ) {}
 
   @Get("dev/info")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the profile of the currently logged in dev user",
     schema: responseSchemaWrapper({
       $ref: getSchemaPath(Response<UserProfile>),
     }),
   })
-  async getDevUserProfile(
+  async getUserProfile(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<ResponseWithOptionalData<UserProfile>> {
     this.logger.log(`/profile/dev/info`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.getDevUserProfile(address);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
-  }
-
-  @Get("org/info")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ORG, CheckWalletRoles.ADMIN)
-  @ApiOkResponse({
-    description: "Returns the profile of the currently logged in org user",
-    schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Response<UserProfile>),
-    }),
-  })
-  async getOrgUserProfile(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<ResponseWithOptionalData<OrgUserProfile>> {
-    this.logger.log(`/profile/org/info`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.profileService.getOrgUserProfile(address);
+      return this.profileService.getUserProfile(address);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -118,8 +87,7 @@ export class ProfileController {
   }
 
   @Get("repositories")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the repos of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -145,8 +113,7 @@ export class ProfileController {
   }
 
   @Get("organizations")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the organizations of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -171,8 +138,7 @@ export class ProfileController {
   }
 
   @Get("organizations/verified")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description:
       "Returns the verified organizations of the currently logged in user",
@@ -198,8 +164,7 @@ export class ProfileController {
   }
 
   @Get("showcase")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the showcase of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -224,8 +189,7 @@ export class ProfileController {
   }
 
   @Get("skills")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the skills of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -255,8 +219,7 @@ export class ProfileController {
   }
 
   @Post("dev/availability")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Updates the availability of the currently logged in dev user",
   })
@@ -270,10 +233,7 @@ export class ProfileController {
     );
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.updateDevUserAvailability(
-        address,
-        availability,
-      );
+      return this.profileService.updateUserAvailability(address, availability);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -284,8 +244,7 @@ export class ProfileController {
   }
 
   @Post("dev/location")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Updates the location of the currently logged in dev user",
   })
@@ -297,40 +256,7 @@ export class ProfileController {
     this.logger.log(`/profile/dev/info ${JSON.stringify(body)}`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.updateDevUserLocationInfo(address, body);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
-  }
-
-  @Post("org/info")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ORG, CheckWalletRoles.ADMIN)
-  @ApiOkResponse({
-    description: "Updates the profile of the currently logged in org user",
-    schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Response<OrgUserProfile>),
-    }),
-  })
-  async setOrgUserProfile(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
-    @Body() body: UpdateOrgUserProfileInput,
-  ): Promise<ResponseWithOptionalData<OrgUserProfile>> {
-    this.logger.log(`/profile/org/info ${JSON.stringify(body)}`);
-    const { address, flow } = await this.authService.getSession(req, res);
-    if (address) {
-      if ((flow as string) === CheckWalletFlows.ORG_PROFILE) {
-        await this.userService.setWalletFlow({
-          flow: CheckWalletFlows.ORG_APPROVAL_PENDING,
-          wallet: address,
-        });
-      }
-      return this.profileService.updateOrgUserProfile(address, body);
+      return this.profileService.updateUserLocationInfo(address, body);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -341,8 +267,7 @@ export class ProfileController {
   }
 
   @Post("showcase")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Updates the work credentials of the currently logged in user",
     schema: {
@@ -368,8 +293,7 @@ export class ProfileController {
   }
 
   @Post("skills")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Updates the work credentials of the currently logged in user",
     schema: {
@@ -395,8 +319,7 @@ export class ProfileController {
   }
 
   @Post("delete")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Updates the profile of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -421,8 +344,7 @@ export class ProfileController {
   }
 
   @Post("reviews/salary")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the org reviews of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -456,8 +378,7 @@ export class ProfileController {
   }
 
   @Post("reviews/rating")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the org reviews of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -491,8 +412,7 @@ export class ProfileController {
   }
 
   @Post("reviews/review")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the org reviews of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -532,13 +452,7 @@ export class ProfileController {
       limit: 5,
     },
   })
-  @UseGuards(RBACGuard)
-  @Roles(
-    CheckWalletRoles.ANON,
-    CheckWalletRoles.ADMIN,
-    CheckWalletRoles.DEV,
-    CheckWalletRoles.ORG,
-  )
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Generates and sends email reporting info from the user",
     schema: { $ref: getSchemaPath(ResponseWithNoData) },
@@ -572,8 +486,7 @@ export class ProfileController {
             <li>UI: ${ctx.ui}</li>
             <li>URL: ${ctx.url}</li>
             <li>User Address: ${session.address ?? "N/A"}</li>
-            <li>User Role: ${session.role ?? "N/A"}</li>
-            <li>User Flow: ${session.flow ?? "N/A"}</li>
+            <li>User Permissions: ${session.permissions.join(", ")}</li>
             <li>Wallet Connected: ${session.address !== undefined}</li>
             <li>Signed In: ${session.address !== undefined}</li>
             <li>Other Info: ${JSON.stringify(
@@ -608,8 +521,7 @@ export class ProfileController {
   }
 
   @Post("repositories/contribution")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the org reviews of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -635,8 +547,7 @@ export class ProfileController {
   }
 
   @Post("repositories/tags")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the org reviews of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -662,8 +573,7 @@ export class ProfileController {
   }
 
   @Post("jobs/block-org/:orgId")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description:
       "Blocks jobs from the passed org for the currently logged in user",
@@ -698,8 +608,7 @@ export class ProfileController {
   }
 
   @Post("jobs/apply")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description:
       "Logs the apply interaction on a job for the currently logged in user",
@@ -765,14 +674,14 @@ export class ProfileController {
 
               const job = org.jobs.find(x => x.shortUUID === shortUUID);
 
-              if (orgProfile && orgProfile.email) {
+              if (orgProfile && orgProfile.linkedAccounts?.email) {
                 const communities =
                   await this.rpcService.getCommunitiesForWallet(
                     address as string,
                   );
                 await this.mailService.sendEmail({
                   from: this.configService.getOrThrow<string>("EMAIL"),
-                  to: orgProfile.email.find(x => x.main)?.email,
+                  to: orgProfile.linkedAccounts?.email,
                   subject: `JobStash ATS: New Applicant for ${job.title}`,
                   html: `
                     Dear ${org.name},
@@ -834,8 +743,7 @@ export class ProfileController {
   }
 
   @Post("jobs/bookmark")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description:
       "Logs the bookmark interaction on a job for the currently logged in user",
@@ -873,8 +781,7 @@ export class ProfileController {
   }
 
   @Delete("jobs/bookmark")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Removes a bookmark on a job for the currently logged in user",
     schema: responseSchemaWrapper({

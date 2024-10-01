@@ -17,14 +17,12 @@ import {
   ApiBadRequestResponse,
   ApiNotFoundResponse,
 } from "@nestjs/swagger";
-import { RBACGuard } from "src/auth/rbac.guard";
+import { PBACGuard } from "src/auth/pbac.guard";
 import {
-  CheckWalletRoles,
   CACHE_CONTROL_HEADER,
   CACHE_DURATION,
   CACHE_EXPIRY,
 } from "src/shared/constants";
-import { Roles } from "src/shared/decorators";
 import {
   Investor,
   PaginatedData,
@@ -40,8 +38,7 @@ export class InvestorsController {
   constructor(private readonly investorsService: InvestorsService) {}
 
   @Get("/list")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ANON)
+  @UseGuards(PBACGuard)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
@@ -91,8 +88,7 @@ export class InvestorsController {
   }
 
   @Get("details/slug/:slug")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ANON)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the investor details for the provided slug",
     schema: {

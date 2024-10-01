@@ -28,8 +28,8 @@ import {
   getSchemaPath,
 } from "@nestjs/swagger";
 import { Response as ExpressResponse } from "express";
-import { RBACGuard } from "src/auth/rbac.guard";
-import { Roles } from "src/shared/decorators/role.decorator";
+import { PBACGuard } from "src/auth/pbac.guard";
+import { Permissions } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
   Repository,
@@ -48,7 +48,7 @@ import {
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
 import { OrganizationsService } from "./organizations.service";
-import { CheckWalletRoles, ECOSYSTEM_HEADER } from "src/shared/constants";
+import { CheckWalletPermissions, ECOSYSTEM_HEADER } from "src/shared/constants";
 import { NFTStorage, File } from "nft.storage";
 import { ConfigService } from "@nestjs/config";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -87,8 +87,8 @@ export class OrganizationsController {
   }
 
   @Get("/")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all organizations",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(ShortOrg) }),
@@ -180,8 +180,8 @@ export class OrganizationsController {
   }
 
   @Get("/all")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
@@ -244,8 +244,8 @@ export class OrganizationsController {
   }
 
   @Get("/featured")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ANON)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
@@ -376,8 +376,8 @@ export class OrganizationsController {
   }
 
   @Get("/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Returns the details of the org with the provided id",
   })
@@ -402,8 +402,8 @@ export class OrganizationsController {
 
   @Post("/upload-logo")
   @UseInterceptors(FileInterceptor("file"))
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description:
       "Uploads an organizations logo and returns the url to the cloud file",
@@ -479,8 +479,11 @@ export class OrganizationsController {
   }
 
   @Post("/create")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Creates a new organization",
     schema: responseSchemaWrapper({
@@ -523,8 +526,11 @@ export class OrganizationsController {
   }
 
   @Post("/update/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Updates an existing organization",
     schema: responseSchemaWrapper({
@@ -704,8 +710,11 @@ export class OrganizationsController {
   }
 
   @Delete("/delete/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Deletes an existing organization",
     schema: responseSchemaWrapper({
@@ -725,8 +734,11 @@ export class OrganizationsController {
   }
 
   @Post("/add-alias")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Upserts an org with a new alias",
     schema: responseSchemaWrapper({
@@ -746,8 +758,11 @@ export class OrganizationsController {
   }
 
   @Post("/add-project")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Add a project to an org",
   })
@@ -764,8 +779,11 @@ export class OrganizationsController {
   }
 
   @Post("/remove-project")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Remove a project from an org",
   })
@@ -782,8 +800,11 @@ export class OrganizationsController {
   }
 
   @Post("/transform-to-project/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Transforms an org to a project",
   })
@@ -800,8 +821,11 @@ export class OrganizationsController {
   }
 
   @Post("/communities")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Upserts an org with a new set of communities",
     schema: responseSchemaWrapper({
@@ -821,8 +845,8 @@ export class OrganizationsController {
   }
 
   @Post("/jobsites/activate")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Activates a list of detected jobsites for an org",
     schema: responseSchemaWrapper({

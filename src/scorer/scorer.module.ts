@@ -7,8 +7,6 @@ import { ScorerController } from "./scorer.controller";
 import * as https from "https";
 import { UserService } from "src/user/user.service";
 import { ModelService } from "src/model/model.service";
-import { UserFlowService } from "src/user/user-flow.service";
-import { UserRoleService } from "src/user/user-role.service";
 import { AuthService } from "src/auth/auth.service";
 import { JwtService } from "@nestjs/jwt";
 import { ProfileService } from "src/auth/profile/profile.service";
@@ -39,8 +37,6 @@ import { GithubModule } from "src/auth/github/github.module";
     ScorerService,
     UserService,
     ModelService,
-    UserFlowService,
-    UserRoleService,
     AuthService,
     JwtService,
     ProfileService,

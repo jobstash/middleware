@@ -5,7 +5,6 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import { ModelService } from "src/model/model.service";
 import {
-  OrgUserProfileEntity,
   UserOrgEntity,
   UserProfileEntity,
   UserRepoEntity,
@@ -23,7 +22,6 @@ import {
 import {
   AdjacentRepo,
   OrgStaffReview,
-  OrgUserProfile,
   PaginatedData,
   Response,
   ResponseWithNoData,
@@ -49,7 +47,6 @@ import { UpdateUserShowCaseInput } from "./dto/update-user-showcase.input";
 import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
 import { Integer } from "neo4j-driver";
 import { OrgStaffReviewEntity } from "src/shared/entities/org-staff-review.entity";
-import { UpdateOrgUserProfileInput } from "./dto/update-org-profile.input";
 import { ScorerService } from "src/scorer/scorer.service";
 import { ConfigService } from "@nestjs/config";
 import { addMonths, isBefore } from "date-fns";
@@ -70,7 +67,7 @@ export class ProfileService {
     private privyService: PrivyService,
   ) {}
 
-  async getDevUserProfile(
+  async getUserProfile(
     wallet: string,
   ): Promise<ResponseWithOptionalData<UserProfile>> {
     try {
@@ -126,54 +123,6 @@ export class ProfileService {
       return {
         success: false,
         message: "Error retrieving dev user profile",
-      };
-    }
-  }
-
-  async getOrgUserProfile(
-    wallet: string,
-  ): Promise<ResponseWithOptionalData<OrgUserProfile>> {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $wallet})
-        RETURN user {
-          .*,
-          username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-          avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-          linkedWallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address],
-          linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account { .* }][0],
-          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
-          orgId: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization:Organization) | organization.orgId][0],
-          internalReference: [(user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo) | reference { .* }][0],
-          subscriberStatus: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION|HAS_SUBSCRIPTION*2]->(subscription:Subscription) | subscription { .* }][0]
-        } as profile
-        `,
-        { wallet },
-      );
-
-      return {
-        success: true,
-        message: "User Profile retrieved successfully",
-        data: result.records[0]?.get("profile")
-          ? new OrgUserProfileEntity(
-              result.records[0]?.get("profile"),
-            ).getProperties()
-          : undefined,
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "profile.service",
-        });
-        scope.setExtra("input", wallet);
-        Sentry.captureException(err);
-      });
-      this.logger.error(`ProfileService::getOrgUserProfile ${err.message}`);
-      return {
-        success: false,
-        message: "Error retrieving org user profile",
       };
     }
   }
@@ -297,7 +246,7 @@ export class ProfileService {
     try {
       const privyId = await this.getPrivyId(wallet);
       const user = await this.privyService.getUser(privyId);
-      const profile = data(await this.getDevUserProfile(wallet));
+      const profile = data(await this.getUserProfile(wallet));
       const orgs = [];
 
       if (user.github?.username) {
@@ -480,7 +429,7 @@ export class ProfileService {
     try {
       const privyId = await this.getPrivyId(wallet);
       const user = await this.privyService.getUser(privyId);
-      const profile = data(await this.getDevUserProfile(wallet));
+      const profile = data(await this.getUserProfile(wallet));
       const orgs: UserVerifiedOrg[] = [];
 
       if (user.github?.username) {
@@ -655,7 +604,7 @@ export class ProfileService {
     }
   }
 
-  async updateDevUserLinkedAccounts(
+  async updateUserLinkedAccounts(
     wallet: string,
     dto: UpdateDevLinkedAccountsInput,
   ): Promise<ResponseWithNoData> {
@@ -698,7 +647,7 @@ export class ProfileService {
     }
   }
 
-  async updateDevUserLocationInfo(
+  async updateUserLocationInfo(
     wallet: string,
     dto: UpdateDevLocationInput,
   ): Promise<ResponseWithNoData> {
@@ -741,7 +690,7 @@ export class ProfileService {
     }
   }
 
-  async updateDevUserAvailability(
+  async updateUserAvailability(
     wallet: string,
     availability: boolean,
   ): Promise<ResponseWithNoData> {
@@ -770,77 +719,6 @@ export class ProfileService {
           source: "profile.service",
         });
         scope.setExtra("input", { wallet, availability });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`ProfileService::updateUserProfile ${err.message}`);
-      return {
-        success: false,
-        message: "Error updating user profile",
-      };
-    }
-  }
-
-  async updateOrgUserProfile(
-    wallet: string,
-    dto: UpdateOrgUserProfileInput,
-  ): Promise<ResponseWithOptionalData<OrgUserProfile>> {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $wallet})
-        SET user.linkedin = $linkedin
-        SET user.calendly = $calendly
-
-        WITH user
-        MERGE (user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo)
-        SET contact.preferred = $preferred
-        SET contact.value = $value
-
-        WITH user
-        MERGE (user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo)
-        SET reference.referencePersonName = $referencePersonName
-        SET reference.referencePersonRole = $referencePersonRole
-        SET reference.referenceContact = $referenceContact
-        SET reference.referenceContactPlatform = $referenceContactPlatform
-        
-        WITH user
-        RETURN {
-          wallet: $wallet,
-          linkedin: user.linkedin,
-          calendly: user.calendly,
-          linkedWallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address],
-          username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-          avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-          contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
-          orgId: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization:Organization) | organization.orgId][0],
-          internalReference: [(user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo) | reference { .* }][0],
-          subscriberStatus: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION|HAS_SUBSCRIPTION*2]->(subscription:Subscription) | subscription { .* }][0]
-        } as profile
-
-      `,
-        {
-          wallet,
-          ...dto,
-          ...dto.contact,
-          ...dto.internalReference,
-        },
-      );
-
-      return {
-        success: true,
-        message: "User profile updated successfully",
-        data: new OrgUserProfileEntity(
-          result.records[0]?.get("profile"),
-        ).getProperties(),
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "profile.service",
-        });
-        scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
       });
       this.logger.error(`ProfileService::updateUserProfile ${err.message}`);

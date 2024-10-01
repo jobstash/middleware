@@ -34,15 +34,15 @@ import { ValidationError } from "class-validator";
 import { randomUUID } from "crypto";
 import { Response as ExpressResponse } from "express";
 import { File, NFTStorage } from "nft.storage";
-import { RBACGuard } from "src/auth/rbac.guard";
+import { PBACGuard } from "src/auth/pbac.guard";
 import { OrganizationsService } from "src/organizations/organizations.service";
-import { CheckWalletRoles, ECOSYSTEM_HEADER } from "src/shared/constants";
+import { CheckWalletPermissions, ECOSYSTEM_HEADER } from "src/shared/constants";
 import {
   CACHE_CONTROL_HEADER,
   CACHE_DURATION,
   CACHE_EXPIRY,
 } from "src/shared/constants/cache-control";
-import { Roles } from "src/shared/decorators";
+import { Permissions } from "src/shared/decorators";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import { ProjectProps } from "src/shared/models";
 import {
@@ -98,8 +98,8 @@ export class ProjectsController {
   }
 
   @Get("/")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
@@ -306,7 +306,7 @@ export class ProjectsController {
   }
 
   @Get("/category/:category")
-  @UseGuards(RBACGuard)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns a list of all projects under the speccified category",
     schema: responseSchemaWrapper({
@@ -377,8 +377,8 @@ export class ProjectsController {
   }
 
   @Get("/all")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Returns a paginated sorted list all projects",
     type: PaginatedData<ProjectWithRelations>,
@@ -450,8 +450,8 @@ export class ProjectsController {
   }
 
   @Get("/all/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects for an organization",
     schema: responseSchemaWrapper({
@@ -486,8 +486,8 @@ export class ProjectsController {
   }
 
   @Get("/search")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all projects with names matching the query",
     schema: responseSchemaWrapper({
@@ -522,8 +522,8 @@ export class ProjectsController {
   }
 
   @Get("prefiller")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description:
       "Returns the details of the project retrieved from the passed defillama url",
@@ -627,8 +627,8 @@ export class ProjectsController {
   }
 
   @Get("/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Returns the details of the project with the provided id",
   })
@@ -653,8 +653,8 @@ export class ProjectsController {
 
   @Post("/upload-logo")
   @UseInterceptors(FileInterceptor("file"))
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description:
       "Uploads an projects logo and returns the url to the cloud file",
@@ -726,8 +726,11 @@ export class ProjectsController {
   }
 
   @Post("/create")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Creates a new project",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
@@ -820,8 +823,11 @@ export class ProjectsController {
   }
 
   @Post("/update/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Updates an existing project",
     schema: responseSchemaWrapper({
@@ -854,8 +860,11 @@ export class ProjectsController {
   }
 
   @Delete("/delete/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.DATA_JANITOR,
+  )
   @ApiOkResponse({
     description: "Deletes an existing project",
     schema: {
@@ -868,8 +877,8 @@ export class ProjectsController {
   }
 
   @Post("/metrics/update/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Updates an existing projects metrics",
     schema: responseSchemaWrapper({
@@ -902,8 +911,8 @@ export class ProjectsController {
   }
 
   @Delete("/metrics/delete/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Deletes an existing projects metrics",
     schema: {
@@ -918,8 +927,8 @@ export class ProjectsController {
   }
 
   @Post("/link-jobs")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Adds a list of jobs to a project",
     schema: {
@@ -934,8 +943,8 @@ export class ProjectsController {
   }
 
   @Post("/link-repos")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Adds a list of repos to a project",
     schema: {
@@ -950,8 +959,8 @@ export class ProjectsController {
   }
 
   @Post("/unlink-jobs")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Removes a list of jobs from a project",
     schema: {
@@ -966,8 +975,8 @@ export class ProjectsController {
   }
 
   @Post("/unlink-repos")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Removes a list of repos from a project",
     schema: {

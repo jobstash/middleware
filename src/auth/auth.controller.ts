@@ -14,11 +14,8 @@ import {
 import { AuthGuard } from "@nestjs/passport";
 import { ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import { Response as ExpressResponse, Request } from "express";
-import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
 import { Session } from "src/shared/decorators/session.decorator";
-import { Roles } from "src/shared/decorators/role.decorator";
 import {
-  OrgUserProfile,
   Response,
   ResponseWithNoData,
   SessionObject,
@@ -32,7 +29,7 @@ import { SendVerificationEmailInput } from "./dto/send-verification-email.input"
 import { DevMagicAuthStrategy } from "./magic/dev.magic-auth.strategy";
 import { OrgMagicAuthStrategy } from "./magic/org.magic-auth.strategy";
 import { ProfileService } from "./profile/profile.service";
-import { RBACGuard } from "./rbac.guard";
+import { PBACGuard } from "./pbac.guard";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import { isEmail } from "validator";
 
@@ -48,8 +45,7 @@ export class AuthController {
   ) {}
 
   @Post("magic/dev/login")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ANON)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Generates and sends email verification link for devs",
     schema: { $ref: getSchemaPath(ResponseWithNoData) },
@@ -85,44 +81,6 @@ export class AuthController {
     }
   }
 
-  @Post("magic/org/login")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ANON)
-  @ApiOkResponse({
-    description: "Generates and sends email verification link for orgs",
-    schema: { $ref: getSchemaPath(ResponseWithNoData) },
-  })
-  async sendOrgMagicLink(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
-    @Body(new ValidationPipe({ transform: true }))
-    body: SendVerificationEmailInput,
-  ): Promise<ResponseWithNoData> {
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      const result = await this.userService.addUserEmail(
-        address,
-        body.destination,
-      );
-      if (result.success) {
-        this.orgStrategy.send(req, res);
-        return {
-          success: result.success,
-          message: result.message,
-        };
-      } else {
-        res.status(HttpStatus.BAD_REQUEST);
-        return result;
-      }
-    } else {
-      res.status(HttpStatus.BAD_REQUEST);
-      return {
-        success: false,
-        message: "Bad Request",
-      };
-    }
-  }
-
   @Get("magic/dev/login/callback")
   @UseGuards(AuthGuard("dev-magic"))
   @ApiOkResponse({
@@ -133,17 +91,8 @@ export class AuthController {
     @Session() session: SessionObject,
   ): Promise<Response<UserProfile>> {
     const profile = data(
-      await this.profileService.getDevUserProfile(session.address),
+      await this.profileService.getUserProfile(session.address),
     );
-
-    await this.userService.setWalletFlow({
-      flow: CheckWalletFlows.ONBOARD_PROFILE,
-      wallet: session.address,
-    });
-    await this.userService.setWalletRole({
-      role: CheckWalletRoles.DEV,
-      wallet: session.address,
-    });
 
     await this.profileService.runUserDataFetchingOps(session.address, true);
 
@@ -154,38 +103,8 @@ export class AuthController {
     };
   }
 
-  @Get("magic/org/login/callback")
-  @UseGuards(AuthGuard("org-magic"))
-  @ApiOkResponse({
-    description: "Callback for email verification link for orgs",
-    schema: { $ref: getSchemaPath(ResponseWithNoData) },
-  })
-  async verifyOrgMagicLink(
-    @Session() session: SessionObject,
-  ): Promise<Response<OrgUserProfile>> {
-    const profile = data(
-      await this.profileService.getOrgUserProfile(session.address),
-    );
-
-    await this.userService.setWalletFlow({
-      flow: CheckWalletFlows.ORG_PROFILE,
-      wallet: session.address,
-    });
-    await this.userService.setWalletRole({
-      role: CheckWalletRoles.ORG,
-      wallet: session.address,
-    });
-
-    return {
-      success: true,
-      message: "Signed in with email successfully",
-      data: profile,
-    };
-  }
-
   @Post("update-main-email")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Updates a users primary email",
     schema: responseSchemaWrapper({ type: "string" }),
@@ -229,8 +148,7 @@ export class AuthController {
   }
 
   @Delete("remove-email")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Removes an email from a user's profile",
     schema: responseSchemaWrapper({ type: "string" }),

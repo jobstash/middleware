@@ -7,9 +7,9 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { PrivyService } from "./privy.service";
-import { RBACGuard } from "../rbac.guard";
-import { PrivyUser, Roles } from "src/shared/decorators";
-import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
+import { PBACGuard } from "../pbac.guard";
+import { PrivyUser, Permissions } from "src/shared/decorators";
+import { CheckWalletPermissions } from "src/shared/constants";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { PrivyGuard } from "./privy.guard";
 import { User, WalletWithMetadata } from "@privy-io/server-auth";
@@ -42,102 +42,40 @@ export class PrivyController {
       const result = await this.userService.createPrivyUser(
         user,
         embeddedWallet,
-        CheckWalletRoles.DEV,
       );
       if (result.success) {
         const cryptoNative =
           (await this.userService.getCryptoNativeStatus(embeddedWallet)) ??
           false;
-        const role = await this.userService.getWalletRole(embeddedWallet);
-        const flow = await this.userService.getWalletFlow(embeddedWallet);
         const token = this.authService.createToken({
           address: embeddedWallet,
-          role: role.getName(),
-          flow: flow.getName(),
+          permissions: [],
           cryptoNative,
         });
         return {
-          role: role.getName(),
-          flow: flow.getName(),
           token,
           cryptoNative,
+          permissions: [],
         };
       } else {
         throw new BadRequestException(result);
       }
     } else {
       return {
-        role: CheckWalletRoles.ANON,
-        flow: CheckWalletFlows.LOGIN,
         token: this.authService.createToken({
           address: null,
-          role: CheckWalletRoles.ANON,
-          flow: CheckWalletFlows.LOGIN,
           cryptoNative: false,
+          permissions: [],
         }),
         cryptoNative: false,
-      };
-    }
-  }
-
-  @Get("check-org-wallet")
-  @UseGuards(PrivyGuard)
-  @HttpCode(HttpStatus.OK)
-  async checkOrgWallet(
-    @PrivyUser() user: User,
-  ): Promise<SessionObject & { token: string }> {
-    this.logger.log("/privy/check-org-wallet " + JSON.stringify(user));
-    const embeddedWallet = (
-      user.linkedAccounts.find(
-        x => x.type === "wallet" && x.walletClientType === "privy",
-      ) as WalletWithMetadata
-    )?.address;
-    if (embeddedWallet) {
-      const result = await this.userService.createPrivyUser(
-        user,
-        embeddedWallet,
-        CheckWalletRoles.ORG,
-      );
-
-      if (result.success) {
-        const cryptoNative =
-          (await this.userService.getCryptoNativeStatus(embeddedWallet)) ??
-          false;
-        const role = await this.userService.getWalletRole(embeddedWallet);
-        const flow = await this.userService.getWalletFlow(embeddedWallet);
-        const token = this.authService.createToken({
-          address: embeddedWallet,
-          role: role.getName(),
-          flow: flow.getName(),
-          cryptoNative,
-        });
-        return {
-          role: role.getName(),
-          flow: flow.getName(),
-          token,
-          cryptoNative,
-        };
-      } else {
-        throw new BadRequestException(result);
-      }
-    } else {
-      return {
-        role: CheckWalletRoles.ANON,
-        flow: CheckWalletFlows.LOGIN,
-        token: this.authService.createToken({
-          address: null,
-          role: CheckWalletRoles.ANON,
-          flow: CheckWalletFlows.LOGIN,
-          cryptoNative: false,
-        }),
-        cryptoNative: false,
+        permissions: [],
       };
     }
   }
 
   @Get("migrate-users")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @HttpCode(HttpStatus.ACCEPTED)
   async migrateUsers(): Promise<void> {
     this.logger.log("/privy/migrate-users");
@@ -145,8 +83,8 @@ export class PrivyController {
   }
 
   @Get("delete-migrated-users")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @HttpCode(HttpStatus.ACCEPTED)
   async deleteMigratedUsers(): Promise<void> {
     this.logger.log("/privy/delete-migrated-users");

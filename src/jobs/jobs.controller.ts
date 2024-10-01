@@ -50,8 +50,8 @@ import {
   CACHE_EXPIRY,
 } from "src/shared/constants/cache-control";
 import { responseSchemaWrapper } from "src/shared/helpers";
-import { RBACGuard } from "src/auth/rbac.guard";
-import { Roles } from "src/shared/decorators/role.decorator";
+import { PBACGuard } from "src/auth/pbac.guard";
+import { Permissions } from "src/shared/decorators/role.decorator";
 import { Response as ExpressResponse, Request } from "express";
 import { AuthService } from "src/auth/auth.service";
 import { ChangeJobClassificationInput } from "./dto/change-classification.input";
@@ -60,7 +60,7 @@ import { ProfileService } from "src/auth/profile/profile.service";
 import { EditJobTagsInput } from "./dto/edit-tags.input";
 import { TagsService } from "src/tags/tags.service";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
-import { CheckWalletRoles, ECOSYSTEM_HEADER } from "src/shared/constants";
+import { CheckWalletPermissions, ECOSYSTEM_HEADER } from "src/shared/constants";
 import { FeatureJobsInput } from "./dto/feature-jobs.input";
 import { UserService } from "src/user/user.service";
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
@@ -80,8 +80,7 @@ export class JobsController {
   ) {}
 
   @Get("/list")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ANON)
+  @UseGuards(PBACGuard)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiHeader({
@@ -175,8 +174,7 @@ export class JobsController {
   }
 
   @Get("details/:uuid")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ANON)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the job details for the provided slug",
     schema: {
@@ -217,8 +215,7 @@ export class JobsController {
   }
 
   @Get("/featured")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ANON)
+  @UseGuards(PBACGuard)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
@@ -279,8 +276,7 @@ export class JobsController {
   }
 
   @Get("/org/:id/applicants")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
@@ -320,8 +316,11 @@ export class JobsController {
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<ResponseWithOptionalData<JobApplicant[]>> {
     this.logger.log(`/jobs/org/${id}/applicants`);
-    const { address, role } = await this.authService.getSession(req, res);
-    if (role === CheckWalletRoles.ORG) {
+    const { address, permissions } = await this.authService.getSession(
+      req,
+      res,
+    );
+    if (permissions.includes(CheckWalletPermissions.ORG_AFFILIATE)) {
       if (!(await this.userService.userAuthorizedForOrg(address, id))) {
         res.status(HttpStatus.UNAUTHORIZED);
         return {
@@ -334,8 +333,8 @@ export class JobsController {
   }
 
   @Get("/applicants")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
@@ -375,8 +374,8 @@ export class JobsController {
   }
 
   @Get("/all")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description:
       "Returns a paginated, sorted list of all jobs that satisfy the search and filter predicate",
@@ -396,8 +395,8 @@ export class JobsController {
   @Get("/all/filters")
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Returns the configuration data for the ui filters",
     schema: {
@@ -419,8 +418,7 @@ export class JobsController {
   }
 
   @Get("/bookmarked")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the bookmarked jobs of the currently logged in user",
     schema: {
@@ -451,8 +449,7 @@ export class JobsController {
   }
 
   @Get("/applied")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the applied jobs of the currently logged in user",
     schema: {
@@ -483,8 +480,7 @@ export class JobsController {
   }
 
   @Get("/folders")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the job folders of the currently logged in user",
     schema: {
@@ -513,8 +509,7 @@ export class JobsController {
   }
 
   @Get("/folders/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ANON)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the details of the job folder with the passed id",
     schema: {
@@ -548,8 +543,11 @@ export class JobsController {
   }
 
   @Post("/org/:id/applicants")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.ORG_AFFILIATE,
+  )
   @ApiOkResponse({
     description: "Updates an orgs applicant list",
     schema: {
@@ -567,8 +565,11 @@ export class JobsController {
     @Body() body: UpdateJobApplicantListInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/jobs/org/:id/applicants`);
-    const { address, role } = await this.authService.getSession(req, res);
-    if (role === CheckWalletRoles.ORG) {
+    const { address, permissions } = await this.authService.getSession(
+      req,
+      res,
+    );
+    if (permissions.includes(CheckWalletPermissions.ORG_AFFILIATE)) {
       if (!(await this.userService.userAuthorizedForOrg(address, orgId))) {
         res.status(HttpStatus.UNAUTHORIZED);
         return {
@@ -581,8 +582,11 @@ export class JobsController {
   }
 
   @Post("/applicants")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.ORG_AFFILIATE,
+  )
   @ApiOkResponse({
     description: "Updates an orgs applicant list",
     schema: {
@@ -601,8 +605,7 @@ export class JobsController {
   }
 
   @Post("/folders")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Creates a new job folder",
     schema: {
@@ -632,8 +635,7 @@ export class JobsController {
   }
 
   @Post("/folders/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Updates the details of the job folder with the passed id",
     schema: {
@@ -676,8 +678,7 @@ export class JobsController {
   }
 
   @Delete("/folders/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV)
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Deletes the job folder with the passed id",
     schema: {
@@ -719,8 +720,8 @@ export class JobsController {
   }
 
   @Post("/change-classification")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Changes the classification of a list of jobs",
     schema: {
@@ -754,8 +755,8 @@ export class JobsController {
   }
 
   @Post("/feature")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Make a job featured",
     schema: {
@@ -797,8 +798,8 @@ export class JobsController {
   }
 
   @Post("/edit-tags")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Edits the tags of a job",
     schema: {
@@ -851,8 +852,8 @@ export class JobsController {
   }
 
   @Post("/update/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Updates an existing job's metadata",
     schema: responseSchemaWrapper({
@@ -986,8 +987,8 @@ export class JobsController {
   }
 
   @Post("/block")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Blocks a list of jobs",
     schema: {
@@ -1021,8 +1022,8 @@ export class JobsController {
   }
 
   @Post("/unblock")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Unblocks a list of jobs",
     schema: {
