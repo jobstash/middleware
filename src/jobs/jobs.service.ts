@@ -54,6 +54,8 @@ import { UpdateJobApplicantListInput } from "./dto/update-job-applicant-list.inp
 import { ScorerService } from "src/scorer/scorer.service";
 import { PaymentsService } from "src/payments/payments.service";
 import { PricingType } from "src/payments/dto/create-charge.dto";
+import { PrivyService } from "src/auth/privy/privy.service";
+import { ProfileService } from "src/auth/profile/profile.service";
 
 @Injectable()
 export class JobsService {
@@ -66,6 +68,8 @@ export class JobsService {
     private readonly configService: ConfigService,
     private readonly scorerService: ScorerService,
     private readonly paymentsService: PaymentsService,
+    private readonly privyService: PrivyService,
+    private readonly profileService: ProfileService,
   ) {}
 
   getJobsListResults = async (): Promise<JobListResult[]> => {
@@ -1187,7 +1191,6 @@ export class JobsService {
               username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
               linkedWallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address],
               avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-              contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
               location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
               matchingSkills: apoc.coll.sum([
                 (user)-[:HAS_SKILL]->(tag)
@@ -1328,12 +1331,34 @@ export class JobsService {
         message: "Org jobs and applicants retrieved successfully",
         data: await Promise.all(
           applicants?.map(async (applicant: JobApplicant) => {
+            const privyId = await this.profileService.getPrivyId(
+              applicant.user.wallet,
+            );
+            const user = await this.privyService.getUser(privyId);
+            const wallets = await this.privyService.getUserLinkedWallets(
+              privyId,
+            );
+
             const ecosystemActivations =
               await this.rpcService.getCommunitiesForWallet(
                 applicant.user.wallet,
               );
             return new JobApplicantEntity({
               ...applicant,
+              user: {
+                ...applicant.user,
+                linkedAccounts: {
+                  discord: user.discord?.username ?? null,
+                  telegram: user.telegram?.username ?? null,
+                  twitter: user.twitter?.username ?? null,
+                  email: user.email?.address ?? null,
+                  farcaster: user.farcaster?.username ?? null,
+                  github: user.github?.username ?? null,
+                  google: user.google?.email ?? null,
+                  apple: user.apple?.email ?? null,
+                  wallets,
+                },
+              },
               ecosystemActivations,
             }).getProperties();
           }),

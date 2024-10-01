@@ -83,23 +83,34 @@ export class ProfileService {
           name: user.name,
           githubAvatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
           alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
-          linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account {
-            .*,
-            wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
-          }][0],
           location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
         } as profile
         `,
         { wallet },
       );
 
+      const privyId = await this.getPrivyId(wallet);
+      const user = await this.privyService.getUser(privyId);
+      const wallets = await this.privyService.getUserLinkedWallets(privyId);
+
       return {
         success: true,
         message: "User Profile retrieved successfully",
         data: result.records[0]?.get("profile")
-          ? new UserProfileEntity(
-              result.records[0]?.get("profile"),
-            ).getProperties()
+          ? new UserProfileEntity({
+              ...result.records[0]?.get("profile"),
+              linkedAccounts: {
+                discord: user.discord?.username ?? null,
+                telegram: user.telegram?.username ?? null,
+                twitter: user.twitter?.username ?? null,
+                email: user.email?.address ?? null,
+                farcaster: user.farcaster?.username ?? null,
+                github: user.github?.username ?? null,
+                google: user.google?.email ?? null,
+                apple: user.apple?.email ?? null,
+                wallets,
+              },
+            }).getProperties()
           : undefined,
       };
     } catch (err) {
@@ -284,10 +295,12 @@ export class ProfileService {
     wallet: string,
   ): Promise<ResponseWithOptionalData<UserOrg[]>> {
     try {
+      const privyId = await this.getPrivyId(wallet);
+      const user = await this.privyService.getUser(privyId);
       const profile = data(await this.getDevUserProfile(wallet));
       const orgs = [];
 
-      if (profile?.linkedAccounts.github) {
+      if (user.github?.username) {
         const cached = await this.getUserWorkHistory(wallet);
         let prelim: UserWorkHistory[] = [];
         if (cached.success && data(cached).length > 0) {
@@ -364,13 +377,14 @@ export class ProfileService {
         orgs.push(...processed);
       }
 
-      if (profile?.linkedAccounts.email || profile.alternateEmails.length > 0) {
-        const emails = [
-          ...profile.alternateEmails,
-          profile.linkedAccounts.email,
-          profile.linkedAccounts.google,
-          profile.linkedAccounts.apple,
-        ];
+      const emails = [
+        ...profile.alternateEmails,
+        user.email?.address,
+        user.google?.email,
+        user.apple?.email,
+      ].filter(Boolean);
+
+      if (emails.length > 0) {
         const result = await this.neogma.queryRunner.run(
           `
             MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
@@ -464,10 +478,12 @@ export class ProfileService {
     wallet: string,
   ): Promise<ResponseWithOptionalData<UserVerifiedOrg[]>> {
     try {
+      const privyId = await this.getPrivyId(wallet);
+      const user = await this.privyService.getUser(privyId);
       const profile = data(await this.getDevUserProfile(wallet));
       const orgs: UserVerifiedOrg[] = [];
 
-      if (profile?.linkedAccounts.github) {
+      if (user.github?.username) {
         const cached = await this.getUserWorkHistory(wallet);
         let prelim: UserWorkHistory[] = [];
         if (cached.success && data(cached).length > 0) {
@@ -504,13 +520,14 @@ export class ProfileService {
         orgs.push(...processed);
       }
 
-      if (profile?.linkedAccounts.email || profile.alternateEmails.length > 0) {
-        const emails = [
-          ...profile.alternateEmails,
-          profile.linkedAccounts.email,
-          profile.linkedAccounts.google,
-          profile.linkedAccounts.apple,
-        ];
+      const emails = [
+        ...profile.alternateEmails,
+        user.email?.address,
+        user.google?.email,
+        user.apple?.email,
+      ].filter(Boolean);
+
+      if (emails.length > 0) {
         const result = await this.neogma.queryRunner.run(
           `
             MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
@@ -1260,9 +1277,6 @@ export class ProfileService {
     const CACHE_VALIDITY_THRESHOLD = this.configService.get<number>(
       "CACHE_VALIDITY_THRESHOLD",
     );
-
-    const profile = data(await this.getDevUserProfile(wallet));
-
     const userCacheLock = await this.getUserCacheLock(wallet);
 
     const userCacheLockIsValid =
@@ -1285,9 +1299,10 @@ export class ProfileService {
       try {
         const privyId = await this.getPrivyId(wallet);
         const wallets = await this.privyService.getUserLinkedWallets(privyId);
+        const user = await this.privyService.getUser(privyId);
         const workHistory = (
           await this.scorerService.getUserWorkHistories([
-            { github: profile?.linkedAccounts.github, wallets },
+            { github: user.github?.username, wallets },
           ])
         )[0];
         await this.refreshWorkHistoryCache(

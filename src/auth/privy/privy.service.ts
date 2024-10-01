@@ -5,7 +5,7 @@ import { InjectConnection } from "nest-neogma";
 import { chunk } from "lodash";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
-import { PrivyClient, WalletWithMetadata } from "@privy-io/server-auth";
+import { PrivyClient, User, WalletWithMetadata } from "@privy-io/server-auth";
 import extractDomain from "src/shared/helpers/extract-domain";
 import { notStringOrNull } from "src/shared/helpers";
 import axios from "axios";
@@ -61,6 +61,10 @@ export class PrivyService {
       this.configService.get<string>("PRIVY_APP_ID"),
       this.configService.get<string>("PRIVY_APP_SECRET"),
     );
+  }
+
+  async getUser(userId: string): Promise<User> {
+    return this.privy.getUser(userId);
   }
 
   async getUserLinkedWallets(userId: string): Promise<string[]> {

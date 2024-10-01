@@ -14,11 +14,13 @@ import { REALLY_LONG_TIME } from "src/shared/constants";
 import * as https from "https";
 import { ProfileModule } from "src/auth/profile/profile.module";
 import { PaymentsModule } from "src/payments/payments.module";
+import { PrivyModule } from "src/auth/privy/privy.module";
 
 @Module({
   imports: [
     forwardRef(() => UserModule),
     forwardRef(() => ProfileModule),
+    forwardRef(() => PrivyModule),
     HttpModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
