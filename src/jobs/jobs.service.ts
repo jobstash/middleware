@@ -2898,6 +2898,7 @@ export class JobsService {
         metadata: {
           jobId: uuid,
         },
+        redirect_url: "https://jobstash.xyz/jobs",
       });
 
       if (charge) {
