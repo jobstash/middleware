@@ -132,6 +132,9 @@ export const Tags = (
             .raw(
               "OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)",
             )
+            .raw(
+              "OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)",
+            )
             .with(
               "tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others",
             )
