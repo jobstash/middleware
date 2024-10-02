@@ -165,6 +165,29 @@ export class GithubUserService {
     }
   }
 
+  async removeGithubInfoFromUser(
+    wallet: string,
+    login: string = null,
+  ): Promise<void> {
+    if (login) {
+      await this.neogma.queryRunner.run(
+        `
+      MATCH (u:User {wallet: $wallet})-[r:HAS_GITHUB_USER]->(gu:GithubUser {login: $githubLogin})
+      DELETE r
+      `,
+        { wallet, githubLogin: login },
+      );
+    } else {
+      await this.neogma.queryRunner.run(
+        `
+      MATCH (u:User {wallet: $wallet})-[r:HAS_GITHUB_USER]->(:GithubUser)
+      DELETE r
+      `,
+        { wallet },
+      );
+    }
+  }
+
   async findById(id: string): Promise<GithubUserNode | undefined> {
     const githubNode = await this.models.GithubUsers.findOne({
       where: { id: id },

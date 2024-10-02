@@ -4,6 +4,7 @@ import { AxiosError } from "axios";
 import { catchError, firstValueFrom, map, of } from "rxjs";
 import {
   AdjacentRepo,
+  EcosystemActivation,
   ResponseWithNoData,
   ResponseWithOptionalData,
   UserWorkHistory,
@@ -137,7 +138,10 @@ export class ScorerService {
   ): Promise<
     {
       username: string | null;
-      wallets: string[];
+      wallets: {
+        address: string;
+        ecosystemActivations: EcosystemActivation[];
+      }[];
       cryptoNative: boolean;
       workHistory: UserWorkHistory[];
       adjacentRepos: AdjacentRepo[];
@@ -149,7 +153,10 @@ export class ScorerService {
         .get<
           {
             username: string | null;
-            wallets: string[];
+            wallets: {
+              address: string;
+              ecosystemActivations: EcosystemActivation[];
+            }[];
             cryptoNative: boolean;
             workHistory: UserWorkHistory[];
             adjacentRepos: AdjacentRepo[];
@@ -170,7 +177,10 @@ export class ScorerService {
             return of(
               [] as {
                 username: string | null;
-                wallets: string[];
+                wallets: {
+                  address: string;
+                  ecosystemActivations: EcosystemActivation[];
+                }[];
                 cryptoNative: boolean;
                 workHistory: UserWorkHistory[];
                 adjacentRepos: AdjacentRepo[];

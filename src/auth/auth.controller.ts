@@ -145,7 +145,7 @@ export class AuthController {
       wallet: session.address,
     });
 
-    await this.profileService.runUserDataFetchingOps(session.address, true);
+    await this.profileService.getUserWorkHistory(session.address);
 
     return {
       success: true,
