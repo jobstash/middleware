@@ -189,12 +189,12 @@ export class MultiSelectFilter extends OmitType(FilterConfigLabeledValues, [
     paramKey: t.string,
     label: t.string,
     googleAnalyticsEventName: t.union([t.string, t.null]),
-    options: t.array(t.string),
+    options: t.array(FilterConfigLabel.FilterConfigLabelType),
     kind: t.string,
   });
 
   @ApiProperty()
-  options: string[];
+  options: FilterConfigLabel[];
 
   @ApiProperty()
   kind: string;
@@ -224,12 +224,12 @@ export class MultiSelectSearchFilter extends OmitType(
     paramKey: t.string,
     label: t.string,
     googleAnalyticsEventName: t.union([t.string, t.null]),
-    options: t.array(t.string),
+    options: t.array(FilterConfigLabel.FilterConfigLabelType),
     kind: t.string,
   });
 
   @ApiProperty()
-  options: string[];
+  options: FilterConfigLabel[];
 
   @ApiProperty()
   kind: string;

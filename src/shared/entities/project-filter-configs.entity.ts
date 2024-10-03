@@ -58,6 +58,7 @@ export class ProjectFilterConfigsEntity {
 
   getMultiValuePresets(
     key: string,
+    transformLabel: (x: string) => string = (x: string): string => x,
   ): MultiSelectFilter | MultiSelectSearchFilter {
     const sort = createNewSortInstance({
       comparer: new Intl.Collator(undefined, {
@@ -76,7 +77,9 @@ export class ProjectFilterConfigsEntity {
 
     return {
       ...this.configPresets[key],
-      options: sort(this.raw[key]?.filter(isValidFilterConfig) ?? []).asc(),
+      options: sort(this.raw[key]?.filter(isValidFilterConfig) ?? [])
+        .asc()
+        .map((x: string) => ({ label: transformLabel(x), value: x })),
       paramKey: this.paramKeyPresets[key],
     };
   }

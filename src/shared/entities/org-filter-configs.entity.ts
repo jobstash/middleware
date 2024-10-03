@@ -11,6 +11,7 @@ import {
 import { intConverter } from "../helpers";
 import { createNewSortInstance } from "fast-sort";
 import { OrgFilterConfigs } from "../interfaces/org-filter-configs.interface";
+import { toHeaderCase } from "js-convert-case";
 
 type RawOrgFilters = {
   minHeadCount?: number | null;
@@ -50,6 +51,7 @@ export class OrgFilterConfigsEntity {
 
   getMultiValuePresets(
     key: string,
+    transformLabel: (x: string) => string = (x: string): string => x,
   ): MultiSelectFilter | MultiSelectSearchFilter {
     const sort = createNewSortInstance({
       comparer: new Intl.Collator(undefined, {
@@ -68,7 +70,9 @@ export class OrgFilterConfigsEntity {
 
     return {
       ...this.configPresets[key],
-      options: sort(this.raw[key]?.filter(isValidFilterConfig) ?? []).asc(),
+      options: sort(this.raw[key]?.filter(isValidFilterConfig) ?? [])
+        .asc()
+        .map((x: string) => ({ label: transformLabel(x), value: x })),
       paramKey: this.paramKeyPresets[key],
     };
   }
@@ -86,7 +90,7 @@ export class OrgFilterConfigsEntity {
       fundingRounds: this.getMultiValuePresets("fundingRounds"),
       investors: this.getMultiValuePresets("investors"),
       communities: this.getMultiValuePresets("communities"),
-      locations: this.getMultiValuePresets("locations"),
+      locations: this.getMultiValuePresets("locations", x => toHeaderCase(x)),
       hasJobs: this.getSingleSelectPresets("hasJobs"),
       hasProjects: this.getSingleSelectPresets("hasProjects"),
       order: this.getSingleSelectPresets("order"),

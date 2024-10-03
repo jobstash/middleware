@@ -11,9 +11,10 @@ import {
 } from "../presets/all-jobs-filter-configs";
 import { intConverter } from "../helpers";
 import { createNewSortInstance } from "fast-sort";
+import { toHeaderCase } from "js-convert-case";
 
 type RawJobFilters = {
-  classifications?: string[] | null;
+  category?: string[] | null;
   organizations?: string[] | null;
 };
 
@@ -46,6 +47,7 @@ export class AllJobsFilterConfigsEntity {
 
   getMultiValuePresets(
     key: string,
+    transformLabel: (x: string) => string = (x: string): string => x,
   ): MultiSelectFilter | MultiSelectSearchFilter {
     const sort = createNewSortInstance({
       comparer: new Intl.Collator(undefined, {
@@ -64,7 +66,9 @@ export class AllJobsFilterConfigsEntity {
 
     return {
       ...this.configPresets[key],
-      options: sort(this.raw[key]?.filter(isValidFilterConfig) ?? []).asc(),
+      options: sort(this.raw[key]?.filter(isValidFilterConfig) ?? [])
+        .asc()
+        .map((x: string) => ({ label: transformLabel(x), value: x })),
       paramKey: this.paramKeyPresets[key],
     };
   }
@@ -79,7 +83,7 @@ export class AllJobsFilterConfigsEntity {
   getProperties(): AllJobsFilterConfigs {
     return new AllJobsFilterConfigs({
       organizations: this.getMultiValuePresets("organizations"),
-      category: this.getMultiValuePresets("category"),
+      category: this.getMultiValuePresets("category", x => toHeaderCase(x)),
     });
   }
 }

@@ -11,6 +11,7 @@ import {
 } from "../presets/job-filter-configs";
 import { intConverter } from "../helpers";
 import { createNewSortInstance } from "fast-sort";
+import { toHeaderCase } from "js-convert-case";
 
 type RawJobFilters = {
   minSalaryRange?: number | null;
@@ -89,7 +90,9 @@ export class JobFilterConfigsEntity {
 
     return {
       ...this.configPresets[key],
-      options: sort(this.raw[key]?.filter(isValidFilterConfig) ?? []).asc(),
+      options: sort(this.raw[key]?.filter(isValidFilterConfig) ?? [])
+        .asc()
+        .map((x: string) => ({ label: x, value: x })),
       paramKey: this.paramKeyPresets[key],
     };
   }
@@ -97,7 +100,7 @@ export class JobFilterConfigsEntity {
   getMultiValuePresetsWithFilterAndTransform<Y>(
     key: string,
     filter: (x: Y) => boolean,
-    transform: (x: Y) => string,
+    transform: (x: Y) => MultiSelectFilter["options"][0],
   ): MultiSelectFilter | MultiSelectSearchFilter {
     const sort = createNewSortInstance({
       comparer: new Intl.Collator(undefined, {
@@ -153,16 +156,31 @@ export class JobFilterConfigsEntity {
       }>(
         "skills",
         (x: { name: string; jobs: number }) => x.jobs >= this.threshold,
-        (x: { name: string; jobs: number }) => x.name,
+        (x: { name: string; jobs: number }) => ({
+          label: x.name,
+          value: x.name,
+        }),
       ),
       organizations: this.getMultiValuePresets("organizations"),
       chains: this.getMultiValuePresets("chains"),
       projects: this.getMultiValuePresets("projects"),
-      classifications: this.getMultiValuePresets("classifications"),
-      commitments: this.getMultiValuePresets("commitments"),
+      classifications: this.getMultiValuePresetsWithFilterAndTransform<string>(
+        "classifications",
+        (x: string) => x !== "",
+        (x: string) => ({ label: toHeaderCase(x), value: x }),
+      ),
+      commitments: this.getMultiValuePresetsWithFilterAndTransform<string>(
+        "commitments",
+        (x: string) => x !== "",
+        (x: string) => ({ label: toHeaderCase(x), value: x }),
+      ),
       communities: this.getMultiValuePresets("communities"),
       seniority: this.getMultiValuePresets("seniority"),
-      locations: this.getMultiValuePresets("locations"),
+      locations: this.getMultiValuePresetsWithFilterAndTransform<string>(
+        "locations",
+        (x: string) => x !== "",
+        (x: string) => ({ label: toHeaderCase(x), value: x }),
+      ),
       mainNet: this.getSingleSelectPresets("mainNet"),
       token: this.getSingleSelectPresets("token"),
       order: this.getSingleSelectPresets("order"),
