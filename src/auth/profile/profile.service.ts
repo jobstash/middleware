@@ -240,7 +240,7 @@ export class ProfileService {
       const user = await this.privyService.getUser(privyId);
       const profile = data(await this.getDevUserProfile(wallet));
       const orgs = [];
-      const prelim = (await this.getUserWorkHistory(wallet))?.workHistory;
+      const prelim = (await this.getUserWorkHistory(wallet))?.workHistory ?? [];
 
       if (user.github?.username) {
         const names = prelim.map(x => x.name);
@@ -299,7 +299,7 @@ export class ProfileService {
         const orgsByRepo =
           result?.records[0]
             ?.get("orgsByRepo")
-            .map(record => new UserOrgEntity(record).getProperties()) ?? [];
+            ?.map(record => new UserOrgEntity(record).getProperties()) ?? [];
         const processed = orgsByRepo.map(x => ({
           ...x,
           org: {
@@ -377,7 +377,7 @@ export class ProfileService {
         const orgsByEmail =
           result?.records[0]
             ?.get("orgsByEmail")
-            .map(record => new UserOrgEntity(record).getProperties()) ?? [];
+            ?.map(record => new UserOrgEntity(record).getProperties()) ?? [];
         orgsByEmail.forEach(x => {
           const exists = orgs.some(y => y.org.orgId === x.org.orgId);
           if (!exists) {
@@ -439,7 +439,7 @@ export class ProfileService {
       const profile = data(await this.getDevUserProfile(wallet));
       const orgs: UserVerifiedOrg[] = [];
       const workHistory = await this.getUserWorkHistory(wallet);
-      const prelim: UserWorkHistory[] = workHistory.workHistory;
+      const prelim: UserWorkHistory[] = workHistory?.workHistory ?? [];
 
       if (user.github?.username) {
         const names = prelim.map(x => x.name);
@@ -458,7 +458,7 @@ export class ProfileService {
         const orgsByRepo =
           result?.records[0]
             ?.get("orgsByRepo")
-            .map(record => record as UserVerifiedOrg) ?? [];
+            ?.map(record => record as UserVerifiedOrg) ?? [];
         const processed = orgsByRepo.map(x => ({
           id: x.id,
           name: x.name,
@@ -497,7 +497,7 @@ export class ProfileService {
         const orgsByEmail =
           result?.records[0]
             ?.get("orgsByEmail")
-            .map(record => record as UserVerifiedOrg) ?? [];
+            ?.map(record => record as UserVerifiedOrg) ?? [];
         orgsByEmail.forEach(x => {
           const exists = orgs.some(y => y.id === x.id);
           if (!exists) {
