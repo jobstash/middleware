@@ -112,6 +112,7 @@ export class JobsService {
           locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
           organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization:Organization) | organization {
               .*,
+              atsClient: [(organization)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
               hasUser: CASE WHEN EXISTS((:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization)) THEN true ELSE false END,
               discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
               website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
@@ -785,6 +786,7 @@ export class JobsService {
           locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
           organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization:Organization) | organization {
               .*,
+              atsClient: [(organization)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
               hasUser: CASE WHEN EXISTS((:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization)) THEN true ELSE false END,
               discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
               website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],

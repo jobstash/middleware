@@ -1,7 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { TagsController } from "./tags.controller";
 import { forwardRef } from "@nestjs/common";
-import { UserModule } from "src/user/user.module";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import envSchema from "src/env-schema";
 import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
@@ -14,27 +13,27 @@ import { Tag, data } from "src/shared/interfaces";
 import {
   // normalizeString,
   printDuplicateItems,
-  resetTestDB,
+  // resetTestDB,
 } from "src/shared/helpers";
 import { REALLY_LONG_TIME } from "src/shared/constants";
-import { HttpModule, HttpService } from "@nestjs/axios";
-import * as https from "https";
-import { CustomLogger } from "src/shared/utils/custom-logger";
+// import { HttpModule, HttpService } from "@nestjs/axios";
+// import * as https from "https";
+// import { CustomLogger } from "src/shared/utils/custom-logger";
 import { Integer } from "neo4j-driver";
+import { AuthModule } from "src/auth/auth.module";
 
 describe("TagsController", () => {
   let controller: TagsController;
   let models: ModelService;
-  let httpService: HttpService;
+  // let httpService: HttpService;
   // let authService: AuthService;
   // let tagsService: TagsService;
 
-  const logger = new CustomLogger(`${TagsController.name}TestSuite`);
+  // const logger = new CustomLogger(`${TagsController.name}TestSuite`);
 
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
-        forwardRef(() => UserModule),
         ConfigModule.forRoot({
           isGlobal: true,
           validationSchema: envSchema,
@@ -57,21 +56,22 @@ describe("TagsController", () => {
               retryDelay: 5000,
             } as NeogmaModuleOptions),
         }),
-        ModelModule,
-        HttpModule.registerAsync({
-          imports: [ConfigModule],
-          inject: [ConfigService],
-          useFactory: (configService: ConfigService) => ({
-            headers: {
-              "X-Secret-Key": configService.get<string>(
-                "TEST_DB_MANAGER_API_KEY",
-              ),
-            },
-            httpsAgent: new https.Agent({ rejectUnauthorized: false }),
-            timeout: REALLY_LONG_TIME,
-            baseURL: configService.get<string>("TEST_DB_MANAGER_URL"),
-          }),
-        }),
+        forwardRef(() => ModelModule),
+        forwardRef(() => AuthModule),
+        // HttpModule.registerAsync({
+        //   imports: [ConfigModule],
+        //   inject: [ConfigService],
+        //   useFactory: (configService: ConfigService) => ({
+        //     headers: {
+        //       "X-Secret-Key": configService.get<string>(
+        //         "TEST_DB_MANAGER_API_KEY",
+        //       ),
+        //     },
+        //     httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+        //     timeout: REALLY_LONG_TIME,
+        //     baseURL: configService.get<string>("TEST_DB_MANAGER_URL"),
+        //   }),
+        // }),
       ],
       controllers: [TagsController],
       providers: [TagsService, AuthService, JwtService, ModelService],
@@ -83,7 +83,7 @@ describe("TagsController", () => {
     controller = module.get<TagsController>(TagsController);
     // authService = module.get<AuthService>(AuthService);
     // tagsService = module.get<TagsService>(TagsService);
-    httpService = module.get<HttpService>(HttpService);
+    // httpService = module.get<HttpService>(HttpService);
   }, REALLY_LONG_TIME);
 
   it("should be defined", () => {
@@ -91,7 +91,7 @@ describe("TagsController", () => {
   });
 
   afterAll(async () => {
-    await resetTestDB(httpService, logger);
+    // await resetTestDB(httpService, logger);
     jest.restoreAllMocks();
   }, REALLY_LONG_TIME);
 
@@ -115,7 +115,7 @@ describe("TagsController", () => {
     async () => {
       const result = await controller.getTags();
 
-      const uuids = data(result).map(tag => tag.id);
+      const uuids = data(result).map(tag => tag.name);
       const setOfUuids = new Set([...uuids]);
 
       expect(result).toEqual({
@@ -139,7 +139,7 @@ describe("TagsController", () => {
         undefined,
       );
 
-      const uuids = data(result).map(tag => tag.id);
+      const uuids = data(result).map(tag => tag.name);
       const setOfUuids = new Set([...uuids]);
 
       expect(result).toEqual({
@@ -160,7 +160,7 @@ describe("TagsController", () => {
     async () => {
       const result = await controller.getBlockedTags();
 
-      const uuids = data(result).map(tag => tag.id);
+      const uuids = data(result).map(tag => tag.name);
       const setOfUuids = new Set([...uuids]);
 
       expect(result).toEqual({
@@ -181,7 +181,7 @@ describe("TagsController", () => {
     async () => {
       const result = await controller.getPreferredTags();
 
-      const uuids = data(result).map(preferredTag => preferredTag.tag.id);
+      const uuids = data(result).map(preferredTag => preferredTag.tag.name);
       const setOfUuids = new Set([...uuids]);
 
       expect(result).toEqual({
