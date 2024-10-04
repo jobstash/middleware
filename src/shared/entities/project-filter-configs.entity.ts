@@ -9,7 +9,7 @@ import {
   FILTER_PARAM_KEY_PRESETS,
   FILTER_CONFIG_PRESETS,
 } from "../presets/project-filter-configs";
-import { intConverter } from "../helpers";
+import { intConverter, normalizeString } from "../helpers";
 import { createNewSortInstance } from "fast-sort";
 
 type RawProjectFilters = {
@@ -59,6 +59,8 @@ export class ProjectFilterConfigsEntity {
   getMultiValuePresets(
     key: string,
     transformLabel: (x: string) => string = (x: string): string => x,
+    transformValue: (x: string) => string = (x: string): string =>
+      normalizeString(x),
   ): MultiSelectFilter | MultiSelectSearchFilter {
     const sort = createNewSortInstance({
       comparer: new Intl.Collator(undefined, {
@@ -79,7 +81,10 @@ export class ProjectFilterConfigsEntity {
       ...this.configPresets[key],
       options: sort(this.raw[key]?.filter(isValidFilterConfig) ?? [])
         .asc()
-        .map((x: string) => ({ label: transformLabel(x), value: x })),
+        .map((x: string) => ({
+          label: transformLabel(x),
+          value: transformValue(x),
+        })),
       paramKey: this.paramKeyPresets[key],
     };
   }

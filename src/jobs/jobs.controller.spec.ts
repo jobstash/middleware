@@ -22,7 +22,7 @@ import {
   notStringOrNull,
   printDuplicateItems,
   publicationDateRangeGenerator,
-  resetTestDB,
+  // resetTestDB,
 } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
@@ -33,36 +33,37 @@ import { ModelService } from "src/model/model.service";
 import { AuthService } from "src/auth/auth.service";
 import { JwtModule, JwtService } from "@nestjs/jwt";
 import { forwardRef } from "@nestjs/common";
-import { UserModule } from "src/user/user.module";
-import { ProfileService } from "src/auth/profile/profile.service";
+// import { ProfileService } from "src/auth/profile/profile.service";
 import { TagsService } from "src/tags/tags.service";
 import {
-  DEV_TEST_WALLET,
-  EPHEMERAL_TEST_WALLET,
   NOT_SO_RANDOM_TEST_SHORT_UUID,
   REALLY_LONG_TIME,
 } from "src/shared/constants";
-import { HttpModule, HttpService } from "@nestjs/axios";
+import { HttpModule } from "@nestjs/axios";
 import * as https from "https";
-import { CustomLogger } from "src/shared/utils/custom-logger";
+// import { CustomLogger } from "src/shared/utils/custom-logger";
 import { OrganizationsService } from "src/organizations/organizations.service";
-import { MailService } from "src/mail/mail.service";
+// import { MailService } from "src/mail/mail.service";
 import { addWeeks, subWeeks } from "date-fns";
 import { randomUUID } from "crypto";
-import { UserService } from "src/user/user.service";
+// import { UserService } from "src/user/user.service";
 import { ScorerService } from "src/scorer/scorer.service";
-import { SiweModule } from "src/auth/siwe/siwe.module";
+import { AuthModule } from "src/auth/auth.module";
+import { PrivyModule } from "src/auth/privy/privy.module";
+import { ProfileModule } from "src/auth/profile/profile.module";
+// import { ScorerModule } from "src/scorer/scorer.module";
+import { RpcService } from "src/user/rpc.service";
+import { PaymentsModule } from "src/payments/payments.module";
+import { UserModule } from "src/user/user.module";
 
 describe("JobsController", () => {
   let controller: JobsController;
   let models: ModelService;
-  let authService: AuthService;
-  let userService: UserService;
-  let httpService: HttpService;
+  // let httpService: HttpService;
 
   let jobFolderId: string;
 
-  const logger = new CustomLogger(`${JobsController.name}TestSuite`);
+  // const logger = new CustomLogger(`${JobsController.name}TestSuite`);
 
   const projectHasArrayPropsDuplication = (
     project: ProjectWithRelations,
@@ -146,7 +147,10 @@ describe("JobsController", () => {
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
-        forwardRef(() => SiweModule),
+        forwardRef(() => AuthModule),
+        forwardRef(() => ProfileModule),
+        forwardRef(() => PrivyModule),
+        forwardRef(() => PaymentsModule),
         forwardRef(() => UserModule),
         ConfigModule.forRoot({
           isGlobal: true,
@@ -203,11 +207,9 @@ describe("JobsController", () => {
         AuthService,
         JwtService,
         ModelService,
-        ProfileService,
         OrganizationsService,
-        MailService,
-        UserService,
         ScorerService,
+        RpcService,
       ],
     }).compile();
 
@@ -215,13 +217,11 @@ describe("JobsController", () => {
     models = module.get<ModelService>(ModelService);
     await models.onModuleInit();
     controller = module.get<JobsController>(JobsController);
-    authService = module.get<AuthService>(AuthService);
-    userService = module.get<UserService>(UserService);
-    httpService = module.get<HttpService>(HttpService);
+    // httpService = module.get<HttpService>(HttpService);
   }, REALLY_LONG_TIME);
 
   afterAll(async () => {
-    await resetTestDB(httpService, logger);
+    // await resetTestDB(httpService, logger);
     jest.restoreAllMocks();
   }, REALLY_LONG_TIME);
 
@@ -258,19 +258,6 @@ describe("JobsController", () => {
       };
 
       const newClassification = "OPERATIONS";
-
-      jest
-        .spyOn(AuthService.prototype, "getSession")
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .mockImplementation(async (r, s) => ({
-          address: EPHEMERAL_TEST_WALLET,
-          destroy: async (): Promise<void> => {
-            logger.log("session destroyed");
-          },
-          save: async (): Promise<void> => {
-            logger.log("session saved");
-          },
-        }));
 
       const job = (
         await controller.getJobsListWithSearch(
@@ -323,19 +310,6 @@ describe("JobsController", () => {
 
       const startDate = subWeeks(new Date(), 1);
       const endDate = addWeeks(startDate, 10);
-
-      jest
-        .spyOn(AuthService.prototype, "getSession")
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .mockImplementation(async (r, s) => ({
-          address: EPHEMERAL_TEST_WALLET,
-          destroy: async (): Promise<void> => {
-            logger.log("session destroyed");
-          },
-          save: async (): Promise<void> => {
-            logger.log("session saved");
-          },
-        }));
 
       const job = (
         await controller.getJobsListWithSearch(
@@ -393,19 +367,6 @@ describe("JobsController", () => {
       };
 
       const newTags = ["TypeScript"];
-
-      jest
-        .spyOn(AuthService.prototype, "getSession")
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .mockImplementation(async (r, s) => ({
-          address: EPHEMERAL_TEST_WALLET,
-          destroy: async (): Promise<void> => {
-            logger.log("session destroyed");
-          },
-          save: async (): Promise<void> => {
-            logger.log("session saved");
-          },
-        }));
 
       const job = (
         await controller.getJobsListWithSearch(
@@ -469,19 +430,6 @@ describe("JobsController", () => {
         name: x,
         normalizedName: x,
       }));
-
-      jest
-        .spyOn(AuthService.prototype, "getSession")
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .mockImplementation(async (r, s) => ({
-          address: EPHEMERAL_TEST_WALLET,
-          destroy: async (): Promise<void> => {
-            logger.log("session destroyed");
-          },
-          save: async (): Promise<void> => {
-            logger.log("session saved");
-          },
-        }));
 
       const {
         shortUUID,
@@ -575,19 +523,6 @@ describe("JobsController", () => {
         },
       };
 
-      jest
-        .spyOn(AuthService.prototype, "getSession")
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .mockImplementation(async (r, s) => ({
-          address: EPHEMERAL_TEST_WALLET,
-          destroy: async (): Promise<void> => {
-            logger.log("session destroyed");
-          },
-          save: async (): Promise<void> => {
-            logger.log("session saved");
-          },
-        }));
-
       const result = await controller.blockJobs(
         req as Request,
         res as Response,
@@ -622,19 +557,6 @@ describe("JobsController", () => {
         },
       };
 
-      jest
-        .spyOn(AuthService.prototype, "getSession")
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .mockImplementation(async (r, s) => ({
-          address: EPHEMERAL_TEST_WALLET,
-          destroy: async (): Promise<void> => {
-            logger.log("session destroyed");
-          },
-          save: async (): Promise<void> => {
-            logger.log("session saved");
-          },
-        }));
-
       const result = await controller.unblockJobs(
         req as Request,
         res as Response,
@@ -668,21 +590,6 @@ describe("JobsController", () => {
           return this;
         },
       };
-
-      jest
-        .spyOn(AuthService.prototype, "getSession")
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .mockImplementation(async (r, s) => ({
-          address: EPHEMERAL_TEST_WALLET,
-          destroy: async (): Promise<void> => {
-            logger.log("session destroyed");
-          },
-          save: async (): Promise<void> => {
-            logger.log("session saved");
-          },
-        }));
-
-      await userService.createSIWEUser(EPHEMERAL_TEST_WALLET);
 
       const result = await controller.createUserJobFolder(
         req as Request,
@@ -728,19 +635,6 @@ describe("JobsController", () => {
         },
       };
 
-      jest
-        .spyOn(AuthService.prototype, "getSession")
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .mockImplementation(async (r, s) => ({
-          address: EPHEMERAL_TEST_WALLET,
-          destroy: async (): Promise<void> => {
-            logger.log("session destroyed");
-          },
-          save: async (): Promise<void> => {
-            logger.log("session saved");
-          },
-        }));
-
       const result = await controller.updateUserJobFolder(
         req as Request,
         res as Response,
@@ -772,19 +666,6 @@ describe("JobsController", () => {
         },
       };
 
-      jest
-        .spyOn(AuthService.prototype, "getSession")
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .mockImplementation(async (r, s) => ({
-          address: EPHEMERAL_TEST_WALLET,
-          destroy: async (): Promise<void> => {
-            logger.log("session destroyed");
-          },
-          save: async (): Promise<void> => {
-            logger.log("session saved");
-          },
-        }));
-
       const result = await controller.getUserJobFolders(
         req as Request,
         res as Response,
@@ -809,19 +690,6 @@ describe("JobsController", () => {
           return this;
         },
       };
-
-      jest
-        .spyOn(AuthService.prototype, "getSession")
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .mockImplementation(async (r, s) => ({
-          address: EPHEMERAL_TEST_WALLET,
-          destroy: async (): Promise<void> => {
-            logger.log("session destroyed");
-          },
-          save: async (): Promise<void> => {
-            logger.log("session saved");
-          },
-        }));
 
       const result = await controller.deleteUserJobFolder(
         req as Request,
@@ -853,15 +721,7 @@ describe("JobsController", () => {
         page: 1,
         limit: Number(Integer.MAX_VALUE),
       };
-      jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-        address: DEV_TEST_WALLET,
-        destroy: async (): Promise<void> => {
-          logger.log("session destroyed");
-        },
-        save: async (): Promise<void> => {
-          logger.log("session saved");
-        },
-      }));
+
       const req: Partial<Request> = {};
       const res: Partial<Response> = {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -923,18 +783,6 @@ describe("JobsController", () => {
         query,
         tags,
       };
-      jest
-        .spyOn(AuthService.prototype, "getSession")
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .mockImplementation(async (r, s) => ({
-          address: EPHEMERAL_TEST_WALLET,
-          destroy: async (): Promise<void> => {
-            logger.log("session destroyed");
-          },
-          save: async (): Promise<void> => {
-            logger.log("session saved");
-          },
-        }));
 
       const matchesSalaryRange = (jobListResult: JobListResult): boolean => {
         const {
@@ -1009,18 +857,6 @@ describe("JobsController", () => {
         minHeadCount: minHeadCount,
         maxHeadCount: maxHeadCount,
       };
-      jest
-        .spyOn(AuthService.prototype, "getSession")
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .mockImplementation(async (r, s) => ({
-          address: EPHEMERAL_TEST_WALLET,
-          destroy: async (): Promise<void> => {
-            logger.log("session destroyed");
-          },
-          save: async (): Promise<void> => {
-            logger.log("session saved");
-          },
-        }));
 
       const matchesHeadCountRange = (jobListResult: JobListResult): boolean => {
         const {
@@ -1102,18 +938,6 @@ describe("JobsController", () => {
         hacks: hackFilter,
         chains: chainFilterList,
       };
-      jest
-        .spyOn(AuthService.prototype, "getSession")
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .mockImplementation(async (r, s) => ({
-          address: EPHEMERAL_TEST_WALLET,
-          destroy: async (): Promise<void> => {
-            logger.log("session destroyed");
-          },
-          save: async (): Promise<void> => {
-            logger.log("session saved");
-          },
-        }));
 
       const matchesProjects = (jobListResult: JobListResult): boolean => {
         const { projects } = jobListResult.organization;
@@ -1191,18 +1015,7 @@ describe("JobsController", () => {
         page: 1,
         limit: Number(Integer.MAX_VALUE),
       };
-      jest
-        .spyOn(AuthService.prototype, "getSession")
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .mockImplementation(async (r, s) => ({
-          address: EPHEMERAL_TEST_WALLET,
-          destroy: async (): Promise<void> => {
-            logger.log("session destroyed");
-          },
-          save: async (): Promise<void> => {
-            logger.log("session saved");
-          },
-        }));
+
       const res = await controller.getAllJobsWithSearch(params);
 
       const uuids = res.data.map(job => job.shortUUID);
@@ -1233,18 +1046,6 @@ describe("JobsController", () => {
         page: 1,
         limit: 1,
       };
-      jest
-        .spyOn(AuthService.prototype, "getSession")
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .mockImplementation(async (r, s) => ({
-          address: EPHEMERAL_TEST_WALLET,
-          destroy: async (): Promise<void> => {
-            logger.log("session destroyed");
-          },
-          save: async (): Promise<void> => {
-            logger.log("session saved");
-          },
-        }));
 
       const req: Partial<Request> = {};
       const res: Partial<Response> = {
@@ -1314,18 +1115,7 @@ describe("JobsController", () => {
           return this;
         },
       };
-      jest
-        .spyOn(AuthService.prototype, "getSession")
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .mockImplementation(async (r, s) => ({
-          address: EPHEMERAL_TEST_WALLET,
-          destroy: async (): Promise<void> => {
-            logger.log("session destroyed");
-          },
-          save: async (): Promise<void> => {
-            logger.log("session saved");
-          },
-        }));
+
       const job = (
         await controller.getJobsListWithSearch(
           req as Request,
@@ -1433,18 +1223,6 @@ describe("JobsController", () => {
         page: page,
         limit: 1,
       };
-      jest
-        .spyOn(AuthService.prototype, "getSession")
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .mockImplementation(async (r, s) => ({
-          address: EPHEMERAL_TEST_WALLET,
-          destroy: async (): Promise<void> => {
-            logger.log("session destroyed");
-          },
-          save: async (): Promise<void> => {
-            logger.log("session saved");
-          },
-        }));
 
       const req: Partial<Request> = {};
       const res: Partial<Response> = {
@@ -1477,6 +1255,12 @@ describe("JobsController", () => {
       if (isRight(validationResult)) {
         const validatedResult = validationResult.right;
         expect(validatedResult).toEqual(configs);
+        const investors = configs.investors.options.map(x => x.value);
+        printDuplicateItems(
+          new Set(investors),
+          investors,
+          "Investor with name",
+        );
       } else {
         report(validationResult).forEach(x => {
           throw new Error(x);

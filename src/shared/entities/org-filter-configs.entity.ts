@@ -8,7 +8,7 @@ import {
   FILTER_PARAM_KEY_PRESETS,
   FILTER_CONFIG_PRESETS,
 } from "../presets/org-filter-configs";
-import { intConverter } from "../helpers";
+import { intConverter, normalizeString } from "../helpers";
 import { createNewSortInstance } from "fast-sort";
 import { OrgFilterConfigs } from "../interfaces/org-filter-configs.interface";
 import { toHeaderCase } from "js-convert-case";
@@ -52,6 +52,8 @@ export class OrgFilterConfigsEntity {
   getMultiValuePresets(
     key: string,
     transformLabel: (x: string) => string = (x: string): string => x,
+    transformValue: (x: string) => string = (x: string): string =>
+      normalizeString(x),
   ): MultiSelectFilter | MultiSelectSearchFilter {
     const sort = createNewSortInstance({
       comparer: new Intl.Collator(undefined, {
@@ -72,7 +74,10 @@ export class OrgFilterConfigsEntity {
       ...this.configPresets[key],
       options: sort(this.raw[key]?.filter(isValidFilterConfig) ?? [])
         .asc()
-        .map((x: string) => ({ label: transformLabel(x), value: x })),
+        .map((x: string) => ({
+          label: transformLabel(x),
+          value: transformValue(x),
+        })),
       paramKey: this.paramKeyPresets[key],
     };
   }

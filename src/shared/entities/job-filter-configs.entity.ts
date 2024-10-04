@@ -9,7 +9,7 @@ import {
   FILTER_PARAM_KEY_PRESETS,
   FILTER_CONFIG_PRESETS,
 } from "../presets/job-filter-configs";
-import { intConverter } from "../helpers";
+import { intConverter, normalizeString } from "../helpers";
 import { createNewSortInstance } from "fast-sort";
 import { toHeaderCase } from "js-convert-case";
 
@@ -147,9 +147,21 @@ export class JobFilterConfigsEntity {
       monthlyRevenue: this.getRangePresets("monthlyRevenue"),
       audits: this.getSingleSelectPresets("audits"),
       hacks: this.getSingleSelectPresets("hacks"),
-      fundingRounds: this.getMultiValuePresets("fundingRounds"),
-      investors: this.getMultiValuePresets("investors"),
-      tags: this.getMultiValuePresets("tags"),
+      fundingRounds: this.getMultiValuePresetsWithFilterAndTransform(
+        "fundingRounds",
+        (x: string) => x !== "",
+        (x: string) => ({ label: x, value: normalizeString(x) }),
+      ),
+      investors: this.getMultiValuePresetsWithFilterAndTransform(
+        "investors",
+        (x: string) => x !== "",
+        (x: string) => ({ label: x, value: normalizeString(x) }),
+      ),
+      tags: this.getMultiValuePresetsWithFilterAndTransform(
+        "tags",
+        (x: string) => x !== "",
+        (x: string) => ({ label: x, value: normalizeString(x) }),
+      ),
       skills: this.getMultiValuePresetsWithFilterAndTransform<{
         name: string;
         jobs: number;
@@ -158,28 +170,44 @@ export class JobFilterConfigsEntity {
         (x: { name: string; jobs: number }) => x.jobs >= this.threshold,
         (x: { name: string; jobs: number }) => ({
           label: x.name,
-          value: x.name,
+          value: normalizeString(x.name),
         }),
       ),
-      organizations: this.getMultiValuePresets("organizations"),
-      chains: this.getMultiValuePresets("chains"),
-      projects: this.getMultiValuePresets("projects"),
+      organizations: this.getMultiValuePresetsWithFilterAndTransform(
+        "organizations",
+        (x: string) => x !== "",
+        (x: string) => ({ label: x, value: normalizeString(x) }),
+      ),
+      chains: this.getMultiValuePresetsWithFilterAndTransform(
+        "chains",
+        (x: string) => x !== "",
+        (x: string) => ({ label: x, value: normalizeString(x) }),
+      ),
+      projects: this.getMultiValuePresetsWithFilterAndTransform(
+        "projects",
+        (x: string) => x !== "",
+        (x: string) => ({ label: x, value: normalizeString(x) }),
+      ),
       classifications: this.getMultiValuePresetsWithFilterAndTransform<string>(
         "classifications",
         (x: string) => x !== "",
-        (x: string) => ({ label: toHeaderCase(x), value: x }),
+        (x: string) => ({ label: toHeaderCase(x), value: normalizeString(x) }),
       ),
       commitments: this.getMultiValuePresetsWithFilterAndTransform<string>(
         "commitments",
         (x: string) => x !== "",
-        (x: string) => ({ label: toHeaderCase(x), value: x }),
+        (x: string) => ({ label: toHeaderCase(x), value: normalizeString(x) }),
       ),
       communities: this.getMultiValuePresets("communities"),
-      seniority: this.getMultiValuePresets("seniority"),
+      seniority: this.getMultiValuePresetsWithFilterAndTransform(
+        "seniority",
+        (x: string) => x !== "",
+        (x: string) => ({ label: x, value: normalizeString(x) }),
+      ),
       locations: this.getMultiValuePresetsWithFilterAndTransform<string>(
         "locations",
         (x: string) => x !== "",
-        (x: string) => ({ label: toHeaderCase(x), value: x }),
+        (x: string) => ({ label: toHeaderCase(x), value: normalizeString(x) }),
       ),
       mainNet: this.getSingleSelectPresets("mainNet"),
       token: this.getSingleSelectPresets("token"),
