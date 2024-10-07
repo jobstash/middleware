@@ -1,10 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import {
-  IsEthereumAddress,
-  IsNumber,
-  IsOptional,
-  IsString,
-} from "class-validator";
+import { IsEthereumAddress, IsNumber, IsString } from "class-validator";
 
 export class GithubInfo {
   @ApiProperty()
@@ -14,28 +9,11 @@ export class GithubInfo {
 
   @ApiProperty()
   @IsString()
-  githubAccessToken: string;
-
-  @ApiProperty()
-  @IsString()
-  githubRefreshToken: string;
-
-  @ApiProperty()
-  @IsString()
   githubLogin: string;
 
   @ApiProperty()
   @IsNumber()
   githubId: string;
-
-  @ApiProperty()
-  @IsString()
-  githubNodeId: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsOptional()
-  githubGravatarId?: string | undefined;
 
   @ApiProperty()
   @IsString()

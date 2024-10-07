@@ -52,6 +52,10 @@ import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { RpcService } from "src/user/rpc.service";
 import { UpdateJobApplicantListInput } from "./dto/update-job-applicant-list.input";
 import { ScorerService } from "src/scorer/scorer.service";
+import { PaymentsService } from "src/payments/payments.service";
+import { PricingType } from "src/payments/dto/create-charge.dto";
+import { PrivyService } from "src/auth/privy/privy.service";
+import { ProfileService } from "src/auth/profile/profile.service";
 
 @Injectable()
 export class JobsService {
@@ -63,6 +67,9 @@ export class JobsService {
     private readonly rpcService: RpcService,
     private readonly configService: ConfigService,
     private readonly scorerService: ScorerService,
+    private readonly paymentsService: PaymentsService,
+    private readonly privyService: PrivyService,
+    private readonly profileService: ProfileService,
   ) {}
 
   getJobsListResults = async (): Promise<JobListResult[]> => {
@@ -105,6 +112,7 @@ export class JobsService {
           locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
           organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization:Organization) | organization {
               .*,
+              atsClient: [(organization)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
               hasUser: CASE WHEN EXISTS((:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization)) THEN true ELSE false END,
               discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
               website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
@@ -778,6 +786,7 @@ export class JobsService {
           locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
           organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization:Organization) | organization {
               .*,
+              atsClient: [(organization)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
               hasUser: CASE WHEN EXISTS((:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization)) THEN true ELSE false END,
               discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
               website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
@@ -953,14 +962,16 @@ export class JobsService {
           cryptoAdjacent: user.cryptoAdjacent,
           appliedTimestamp: r.timestamp,
           user: {
-              wallet: user.wallet,
+              wallet: $wallet,
               availableForWork: user.available,
-              email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
-              username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-              avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-              preferred: [(user)-[:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo) | preferred { .* }][0],
-              contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-              location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
+              name: user.name,
+              githubAvatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+              alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
+              linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account {
+                .*,
+                wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
+              }][0],
+              location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
               matchingSkills: apoc.coll.sum([
                 (user)-[:HAS_SKILL]->(tag)
                 WHERE (structured_jobpost)-[:HAS_TAG]->(tag) | 1
@@ -1182,7 +1193,6 @@ export class JobsService {
               username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
               linkedWallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address],
               avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-              contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
               location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
               matchingSkills: apoc.coll.sum([
                 (user)-[:HAS_SKILL]->(tag)
@@ -1323,12 +1333,34 @@ export class JobsService {
         message: "Org jobs and applicants retrieved successfully",
         data: await Promise.all(
           applicants?.map(async (applicant: JobApplicant) => {
+            const privyId = await this.profileService.getPrivyId(
+              applicant.user.wallet,
+            );
+            const user = await this.privyService.getUser(privyId);
+            const wallets = await this.privyService.getUserLinkedWallets(
+              privyId,
+            );
+
             const ecosystemActivations =
               await this.rpcService.getCommunitiesForWallet(
                 applicant.user.wallet,
               );
             return new JobApplicantEntity({
               ...applicant,
+              user: {
+                ...applicant.user,
+                linkedAccounts: {
+                  discord: user.discord?.username ?? null,
+                  telegram: user.telegram?.username ?? null,
+                  twitter: user.twitter?.username ?? null,
+                  email: user.email?.address ?? null,
+                  farcaster: user.farcaster?.username ?? null,
+                  github: user.github?.username ?? null,
+                  google: user.google?.email ?? null,
+                  apple: user.apple?.email ?? null,
+                  wallets,
+                },
+              },
               ecosystemActivations,
             }).getProperties();
           }),
@@ -2804,10 +2836,7 @@ export class JobsService {
     }
   }
 
-  async makeJobFeatured(
-    wallet: string,
-    dto: FeatureJobsInput,
-  ): Promise<ResponseWithNoData> {
+  async makeJobFeatured(dto: FeatureJobsInput): Promise<ResponseWithNoData> {
     try {
       const { endDate, startDate, shortUUID } = dto;
       const result = await this.models.StructuredJobposts.update(
@@ -2837,13 +2866,70 @@ export class JobsService {
           action: "db-call",
           source: "jobs.service",
         });
-        scope.setExtra("input", { wallet, ...dto });
+        scope.setExtra("input", { ...dto });
         Sentry.captureException(err);
       });
       this.logger.error(`JobsService::makeJobFeatured ${err.message}`);
       return {
         success: false,
         message: "Error making job featured",
+      };
+    }
+  }
+
+  async getJobPromotionPaymentUrl(
+    uuid: string,
+    ecosystem: string,
+  ): Promise<ResponseWithOptionalData<{ id: string; url: string }>> {
+    try {
+      const jobDetails = await this.getJobDetailsByUuid(uuid, ecosystem);
+      if (!jobDetails) {
+        return {
+          success: false,
+          message: "Job not found",
+        };
+      }
+      const charge = await this.paymentsService.createCharge({
+        name: jobDetails.title,
+        description: "1 week job promotion",
+        local_price: {
+          amount: this.configService.get<string>("JOB_PROMOTION_PRICE"),
+          currency: "USD",
+        },
+        pricing_type: PricingType.FIXED_PRICE,
+        metadata: {
+          jobId: uuid,
+        },
+        redirect_url: "https://jobstash.xyz/jobs",
+      });
+
+      if (charge) {
+        return {
+          success: true,
+          message: "Job promotion payment url generated successfully",
+          data: charge,
+        };
+      } else {
+        return {
+          success: false,
+          message: "Job promotion payment url generation failed",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        scope.setExtra("input", { uuid, ecosystem });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `JobsService::getJobPromotionPaymentUrl ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Error generating job promotion payment url",
       };
     }
   }

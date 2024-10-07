@@ -15,18 +15,17 @@ import { AuthGuard } from "@nestjs/passport";
 import { ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import { Response as ExpressResponse, Request } from "express";
 import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
-import { AuthUser } from "src/shared/decorators/auth-user.decorator";
+import { Session } from "src/shared/decorators/session.decorator";
 import { Roles } from "src/shared/decorators/role.decorator";
 import {
   OrgUserProfile,
   Response,
   ResponseWithNoData,
-  User,
+  SessionObject,
   UserProfile,
   data,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
-import { WalletAdminMappingDto } from "../user/dto/wallet-admin-mapping-request.dto";
 import { UserService } from "../user/user.service";
 import { AuthService } from "./auth.service";
 import { SendVerificationEmailInput } from "./dto/send-verification-email.input";
@@ -64,7 +63,7 @@ export class AuthController {
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       const result = await this.userService.addUserEmail(
-        address as string,
+        address,
         body.destination,
       );
       if (result.success) {
@@ -102,7 +101,7 @@ export class AuthController {
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       const result = await this.userService.addUserEmail(
-        address as string,
+        address,
         body.destination,
       );
       if (result.success) {
@@ -131,22 +130,22 @@ export class AuthController {
     schema: { $ref: getSchemaPath(ResponseWithNoData) },
   })
   async verifyDevMagicLink(
-    @AuthUser() user: User,
+    @Session() session: SessionObject,
   ): Promise<Response<UserProfile>> {
     const profile = data(
-      await this.profileService.getDevUserProfile(user.wallet),
+      await this.profileService.getDevUserProfile(session.address),
     );
 
     await this.userService.setWalletFlow({
       flow: CheckWalletFlows.ONBOARD_PROFILE,
-      wallet: user.wallet,
+      wallet: session.address,
     });
     await this.userService.setWalletRole({
       role: CheckWalletRoles.DEV,
-      wallet: user.wallet,
+      wallet: session.address,
     });
 
-    await this.userService.syncUserCryptoNativeStatus(user.wallet);
+    await this.profileService.getUserWorkHistory(session.address);
 
     return {
       success: true,
@@ -162,19 +161,19 @@ export class AuthController {
     schema: { $ref: getSchemaPath(ResponseWithNoData) },
   })
   async verifyOrgMagicLink(
-    @AuthUser() user: User,
+    @Session() session: SessionObject,
   ): Promise<Response<OrgUserProfile>> {
     const profile = data(
-      await this.profileService.getOrgUserProfile(user.wallet),
+      await this.profileService.getOrgUserProfile(session.address),
     );
 
     await this.userService.setWalletFlow({
       flow: CheckWalletFlows.ORG_PROFILE,
-      wallet: user.wallet,
+      wallet: session.address,
     });
     await this.userService.setWalletRole({
       role: CheckWalletRoles.ORG,
-      wallet: user.wallet,
+      wallet: session.address,
     });
 
     return {
@@ -182,35 +181,6 @@ export class AuthController {
       message: "Signed in with email successfully",
       data: profile,
     };
-  }
-
-  @Post("set-role/admin")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
-  async setAdminRole(
-    @Body() walletDto: WalletAdminMappingDto,
-  ): Promise<ResponseWithNoData> {
-    const { wallet } = walletDto;
-    this.logger.log(
-      `/auth/set-role/admin: Setting admin priviledges for ${wallet}`,
-    );
-    const user = await this.userService.findByWallet(wallet);
-
-    if (user) {
-      this.userService.setWalletRole({
-        role: CheckWalletRoles.ADMIN,
-        wallet: user.getWallet(),
-      });
-      this.userService.setWalletFlow({
-        flow: CheckWalletFlows.ADMIN_COMPLETE,
-        wallet: user.getWallet(),
-      });
-
-      this.logger.log(`admin priviliedges set for ${wallet}`);
-      return { success: true, message: "Wallet is now admin" };
-    } else {
-      return { success: false, message: "No user associated with wallet" };
-    }
   }
 
   @Post("update-main-email")
@@ -222,12 +192,12 @@ export class AuthController {
   })
   async updateUserMainEmail(
     @Query("email") email: string,
-    @Req() req: Request,
+    @Session() session: SessionObject,
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<ResponseWithNoData> {
     if (isEmail(email)) {
       this.logger.log(`/user/update-email/${email}`);
-      const { address } = await this.authService.getSession(req, res);
+      const { address } = session;
       if (address) {
         const result = await this.userService.updateUserMainEmail(
           address as string,
@@ -267,12 +237,12 @@ export class AuthController {
   })
   async removeUserEmail(
     @Query("email") email: string,
-    @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() session: SessionObject,
   ): Promise<ResponseWithNoData> {
     if (isEmail(email)) {
       this.logger.log(`/user/remove-email/${email}`);
-      const { address } = await this.authService.getSession(req, res);
+      const { address } = session;
       if (address) {
         const result = await this.userService.removeUserEmail(
           address as string,

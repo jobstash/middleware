@@ -1,7 +1,6 @@
 import { UserRoleEntity } from "../shared/entities/user-role.entity";
 import { Injectable } from "@nestjs/common";
 import {
-  data,
   DevUserProfile,
   DevUserProfileEntity,
   OrgUserProfile,
@@ -21,7 +20,6 @@ import { InjectConnection } from "nest-neogma";
 import { UserFlowService } from "./user-flow.service";
 import { UserRoleService } from "./user-role.service";
 import { CreateUserDto } from "./dto/create-user.dto";
-import { SetRoleInput } from "../auth/dto/set-role.input";
 import { SetFlowStateInput } from "../auth/dto/set-flow-state.input";
 import { ModelService } from "src/model/model.service";
 import { instanceToNode } from "src/shared/helpers";
@@ -31,6 +29,9 @@ import { GetAvailableDevsInput } from "./dto/get-available-devs.input";
 import { ScorerService } from "src/scorer/scorer.service";
 import { ConfigService } from "@nestjs/config";
 import { ProfileService } from "src/auth/profile/profile.service";
+import { User as PrivyUser } from "@privy-io/server-auth";
+import { PrivyService } from "src/auth/privy/privy.service";
+import { SetRoleInput } from "src/auth/dto/set-role.input";
 
 @Injectable()
 export class UserService {
@@ -39,11 +40,12 @@ export class UserService {
     @InjectConnection()
     private neogma: Neogma,
     private models: ModelService,
+    readonly configService: ConfigService,
     private readonly userFlowService: UserFlowService,
     private readonly userRoleService: UserRoleService,
-    private readonly configService: ConfigService,
     private readonly profileService: ProfileService,
     private readonly scorerService: ScorerService,
+    private readonly privyService: PrivyService,
   ) {}
 
   async findByWallet(wallet: string): Promise<UserEntity | undefined> {
@@ -63,75 +65,39 @@ export class UserService {
   }
 
   async findProfileByWallet(wallet: string): Promise<UserProfile | undefined> {
-    return this.neogma.queryRunner
-      .run(
-        `
-          MATCH (user:User {wallet: $wallet})
-          RETURN {
-            wallet: user.wallet,
-            availableForWork: user.available,
-            username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-            avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-            contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }]
-          } as user
-        `,
-        { wallet },
-      )
-      .then(res =>
-        res.records.length
-          ? new UserProfileEntity(res.records[0].get("user")).getProperties()
-          : undefined,
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
-          });
-          Sentry.captureException(err);
+    return this.profileService.getDevUserProfile(wallet).catch(err => {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
         });
-        this.logger.error(`UserService::findProfileByWallet ${err.message}`);
-        return undefined;
+        Sentry.captureException(err);
       });
+      this.logger.error(`UserService::findProfileByWallet ${err.message}`);
+      return undefined;
+    });
   }
 
   async findProfileByOrgId(orgId: string): Promise<OrgUserProfile | undefined> {
-    return this.neogma.queryRunner
-      .run(
-        `
+    const result = await this.neogma.queryRunner.run(
+      `
           MATCH (user:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(:Organization {orgId: $orgId})
-          RETURN user {
-            .*,
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
-            username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-            avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-            contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-            orgId: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization:Organization) | organization.orgId][0],
-            internalReference: [(user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo) | reference { .* }][0],
-            subscriberStatus: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION|HAS_SUBSCRIPTION*2]->(subscription:Subscription) | subscription { .* }][0]
-          } as profile
+          RETURN user.wallet as wallet
         `,
-        { orgId },
-      )
-      .then(res =>
-        res.records.length
-          ? new OrgUserProfileEntity(
-              res.records[0].get("profile"),
-            ).getProperties()
-          : undefined,
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
-          });
-          Sentry.captureException(err);
+      { orgId },
+    );
+    const wallet = result.records[0]?.get("wallet");
+    return this.profileService.getOrgUserProfile(wallet).catch(err => {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
         });
-        this.logger.error(`UserService::findProfileByWallet ${err.message}`);
-        return undefined;
+        Sentry.captureException(err);
       });
+      this.logger.error(`UserService::findProfileByWallet ${err.message}`);
+      return undefined;
+    });
   }
 
   async findByGithubNodeId(nodeId: string): Promise<UserEntity | undefined> {
@@ -334,8 +300,6 @@ export class UserService {
 
       const userEmails = await this.getUserEmails(wallet);
 
-      console.log(userEmails);
-
       if (userEmails.find(x => x.email === email && x.main === true)) {
         return {
           success: false,
@@ -419,60 +383,47 @@ export class UserService {
         message: "Email is not associated with this user",
       };
     } else {
-      const profile = data(await this.profileService.getDevUserProfile(wallet));
-      const thisEmail = profile?.email?.find(x => x.email === email);
-      if (
-        profile?.username ||
-        (profile.email.length > 1 && thisEmail.main === false)
-      ) {
-        const normalizedEmail = this.normalizeEmail(email);
-        const result = await this.neogma.queryRunner
-          .run(
-            `
+      const normalizedEmail = this.normalizeEmail(email);
+      const result = await this.neogma.queryRunner
+        .run(
+          `
           MATCH (u:User {wallet: $wallet})
           MATCH (u)-[:HAS_EMAIL]->(email:UserEmail {email: $email, normalized: $normalizedEmail})
           DETACH DELETE email
           RETURN u
         `,
-            { wallet, email, normalizedEmail },
-          )
-          .then(res =>
-            res.records.length
-              ? {
-                  success: true,
-                  message: "User email removed successfully",
-                  data: new UserEntity(res.records[0].get("u")),
-                }
-              : {
-                  success: false,
-                  message: "Failed to remove user email",
-                },
-          )
-          .catch(err => {
-            Sentry.withScope(scope => {
-              scope.setTags({
-                action: "db-call",
-                source: "user.service",
-              });
-              Sentry.captureException(err);
+          { wallet, email, normalizedEmail },
+        )
+        .then(res =>
+          res.records.length
+            ? {
+                success: true,
+                message: "User email removed successfully",
+                data: new UserEntity(res.records[0].get("u")),
+              }
+            : {
+                success: false,
+                message: "Failed to remove user email",
+              },
+        )
+        .catch(err => {
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "db-call",
+              source: "user.service",
             });
-            this.logger.error(`UserService::removeUserEmail ${err.message}`);
-            return {
-              success: false,
-              message: "Failed to remove user email",
-            };
+            Sentry.captureException(err);
           });
+          this.logger.error(`UserService::removeUserEmail ${err.message}`);
+          return {
+            success: false,
+            message: "Failed to remove user email",
+          };
+        });
 
-        await this.syncUserCryptoNativeStatus(wallet);
+      await this.profileService.getUserWorkHistory(wallet);
 
-        return result;
-      } else {
-        return {
-          success: false,
-          message:
-            "Email cannot be removed because it is the users primary email",
-        };
-      }
+      return result;
     }
   }
 
@@ -498,6 +449,32 @@ export class UserService {
           Sentry.captureException(err);
         });
         this.logger.error(`UserService::getUserWallet ${err.message}`);
+        return undefined;
+      });
+    return result;
+  }
+
+  async getPrivyId(wallet: string): Promise<string | undefined> {
+    const result = await this.neogma.queryRunner
+      .run(
+        `
+          MATCH (u:User {wallet:$wallet})
+          RETURN u.privyId as privyId
+        `,
+        { wallet },
+      )
+      .then(res =>
+        res.records.length ? res.records[0].get("privyId") : undefined,
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`UserService::getPrivyId ${err.message}`);
         return undefined;
       });
     return result;
@@ -535,27 +512,23 @@ export class UserService {
     return result;
   }
 
-  async syncUserCryptoNativeStatus(wallet: string): Promise<void> {
+  async syncUserLinkedWallets(wallet: string, privyId: string): Promise<void> {
     try {
-      const role = await this.getWalletRole(wallet);
-      if (role?.getName() === CheckWalletRoles.DEV) {
-        const orgs = data(await this.profileService.getUserOrgs(wallet));
-        const current = this.getCryptoNativeStatus(wallet);
-        const status = orgs.length > 0 || current;
-        this.logger.log(
-          `/user/sync-user-crypto-native-status: ${wallet}, ${status}`,
-        );
-
-        await this.neogma.queryRunner.run(
-          `
-            MATCH (user:User {wallet: $wallet})
-            SET user.cryptoNative = $cryptoNative
-          `,
-          { wallet, cryptoNative: status },
-        );
-      } else {
-        return;
-      }
+      const wallets = await this.privyService.getUserLinkedWallets(privyId);
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $wallet})
+        UNWIND $wallets as wallet
+        MERGE (user)-[:HAS_LINKED_WALLET]->(newWallet:LinkedWallet {address: wallet})
+        ON CREATE
+          SET newWallet.id = randomUUID(),
+            newWallet.createdTimestamp = timestamp()
+        ON MATCH
+          SET newWallet.updatedTimestamp = timestamp()
+        RETURN user
+        `,
+        { wallet, wallets },
+      );
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -564,20 +537,25 @@ export class UserService {
         });
         Sentry.captureException(err);
       });
-      this.logger.error(
-        `UserService::syncUserCryptoNativeStatus ${err.message}`,
-      );
+      this.logger.error(`UserService::syncUserLinkedWallets ${err.message}`);
     }
   }
 
   private async create(dto: CreateUserDto): Promise<UserEntity> {
-    return this.models.Users.createOne({
-      id: randomUUID(),
-      ...dto,
-      available: false,
-      createdTimestamp: new Date().getTime(),
-      updatedTimestamp: new Date().getTime(),
-    })
+    return this.models.Users.createOne(
+      {
+        id: randomUUID(),
+        privyId: dto.privyId ?? null,
+        name: dto.name ?? null,
+        available: false,
+        wallet: dto.wallet,
+        createdTimestamp: new Date().getTime(),
+        updatedTimestamp: new Date().getTime(),
+      },
+      {
+        validate: false,
+      },
+    )
       .then(res => (res ? new UserEntity(instanceToNode(res)) : undefined))
       .catch(err => {
         Sentry.withScope(scope => {
@@ -585,6 +563,7 @@ export class UserService {
             action: "db-call",
             source: "user.service",
           });
+          scope.setExtra("input", dto);
           Sentry.captureException(err);
         });
         this.logger.error(`UserService::create ${err.message}`);
@@ -671,53 +650,198 @@ export class UserService {
     this.logger.log(`Role ${role} set for wallet ${storedUser.getWallet()}.`);
   }
 
-  async createSIWEUser(wallet: string): Promise<User | undefined> {
+  async createPrivyUser(
+    user: PrivyUser,
+    embeddedWallet: string,
+    role: (typeof CheckWalletRoles)[keyof typeof CheckWalletRoles],
+  ): Promise<ResponseWithOptionalData<User>> {
     try {
-      const storedUser = await this.findByWallet(wallet);
+      const storedUser = await this.findByWallet(embeddedWallet);
 
       if (storedUser) {
-        const profileData = await this.findProfileByWallet(wallet);
-        await this.profileService.runUserDataFetchingOps(
-          wallet,
-          profileData?.username,
-        );
-        return storedUser.getProperties();
+        this.logger.log(`User ${embeddedWallet} already exists. Updating...`);
+        await this.syncUserLinkedWallets(embeddedWallet, user.id);
+
+        if (role === CheckWalletRoles.DEV) {
+          const contact = {
+            discord: user.discord?.username ?? null,
+            telegram: user.telegram?.username ?? null,
+            twitter: user.twitter?.username ?? null,
+            email: user.email?.address ?? null,
+            farcaster: user.farcaster?.username ?? null,
+            github: user.github?.username ?? null,
+            google: user.google?.email ?? null,
+            apple: user.apple?.email ?? null,
+          };
+
+          if (Object.values(contact).filter(Boolean).length > 0) {
+            this.logger.log(`Adding contact info for ${embeddedWallet}`);
+            const result =
+              await this.profileService.updateDevUserLinkedAccounts(
+                embeddedWallet,
+                contact,
+              );
+
+            if (result.success) {
+              this.logger.log(`Contact info added to user`);
+            } else {
+              this.logger.error(
+                `Contact info not added to user: ${result.message}`,
+              );
+              return result;
+            }
+          }
+
+          await this.profileService.getUserWorkHistory(embeddedWallet);
+          return {
+            success: true,
+            message: "User already exists",
+            data: storedUser.getProperties(),
+          };
+        } else {
+          return {
+            success: true,
+            message: "User already exists",
+            data: storedUser.getProperties(),
+          };
+        }
       }
 
       const newUserDto = {
-        wallet: wallet,
+        wallet: embeddedWallet,
+        privyId: user.id,
+        name:
+          user.farcaster?.displayName ??
+          user.google?.name ??
+          user.apple?.subject ??
+          user.github?.name ??
+          (user.telegram
+            ? `${user.telegram.firstName} ${user.telegram.lastName}`
+            : null) ??
+          user.discord?.subject ??
+          user.twitter?.name ??
+          null,
       };
 
       this.logger.log(
-        `/user/createSIWEUser: Creating user with wallet ${wallet}`,
+        `/user/createPrivyUser: Creating privy user with wallet ${embeddedWallet}`,
       );
 
       const newUser = await this.create(newUserDto);
 
-      this.logger.log(JSON.stringify(newUser));
+      if (newUser) {
+        await this.syncUserLinkedWallets(embeddedWallet, user.id);
 
-      const profileData = await this.findProfileByWallet(wallet);
-      await this.profileService.runUserDataFetchingOps(
-        wallet,
-        profileData?.username,
-        true,
-      );
+        const contact = {
+          discord: user.discord?.username ?? null,
+          telegram: user.telegram?.username ?? null,
+          twitter: user.twitter?.username ?? null,
+          email: user.email?.address ?? null,
+          farcaster: user.farcaster?.username ?? null,
+          github: user.github?.username ?? null,
+          google: user.google?.email ?? null,
+          apple: user.apple?.email ?? null,
+        };
 
-      await this.setRole(CheckWalletRoles.ANON, newUser);
-      await this.setFlow(CheckWalletFlows.PICK_ROLE, newUser);
+        if (Object.values(contact).filter(Boolean).length > 0) {
+          this.logger.log(`Adding contact info for ${embeddedWallet}`);
+          const result = await this.profileService.updateDevUserLinkedAccounts(
+            embeddedWallet,
+            contact,
+          );
 
-      return newUser.getProperties();
+          if (result.success) {
+            this.logger.log(`Contact info added to user`);
+          } else {
+            this.logger.error(
+              `Contact info not added to user: ${result.message}`,
+            );
+            return result;
+          }
+        }
+
+        if (role === CheckWalletRoles.DEV && user.email) {
+          await this.profileService.getUserWorkHistory(embeddedWallet);
+        }
+
+        await this.setRole(role, newUser);
+        await this.setFlow(
+          role === CheckWalletRoles.ORG
+            ? CheckWalletFlows.ORG_PROFILE
+            : CheckWalletFlows.ONBOARD_PROFILE,
+          newUser,
+        );
+
+        return {
+          success: true,
+          message: "User created successfully",
+          data: newUser.getProperties(),
+        };
+      } else {
+        this.logger.error(`UserService::createPrivyUser error creating user`);
+        return {
+          success: false,
+          message: "Error creating user",
+        };
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "service-call",
           source: "user.service",
         });
-        scope.setExtra("input", wallet);
+        scope.setExtra("input", embeddedWallet);
         Sentry.captureException(err);
       });
-      this.logger.error(`UserService::createSIWEUser ${err.message}`);
+      this.logger.error(`UserService::createPrivyUser ${err.message}`);
       return undefined;
+    }
+  }
+
+  async deletePrivyUser(wallet: string): Promise<ResponseWithNoData> {
+    try {
+      const userId = await this.getPrivyId(wallet);
+      this.logger.log(`/user/deletePrivyUser ${userId}`);
+      this.privyService.deletePrivyUser(userId);
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $wallet})
+        OPTIONAL MATCH (user)-[cr:HAS_CONTACT_INFO]->(contact: UserContactInfo)
+        OPTIONAL MATCH (user)-[lw:HAS_LINKED_WALLET]->(wallet:LinkedWallet)
+        OPTIONAL MATCH (user)-[pcr:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo)
+        OPTIONAL MATCH (user)-[rr:LEFT_REVIEW]->(:OrgReview)
+        OPTIONAL MATCH (user)-[gr:HAS_GITHUB_USER]->(:GithubUser)
+        OPTIONAL MATCH (user)-[scr:HAS_SHOWCASE]->(showcase:UserShowCase)
+        OPTIONAL MATCH (user)-[ul:HAS_LOCATION]->(location:UserLocation)
+        OPTIONAL MATCH (user)-[sr:HAS_SKILL]->(:Tag)
+        OPTIONAL MATCH (user)-[er:HAS_EMAIL]->(email:UserEmail|UserUnverifiedEmail)
+        OPTIONAL MATCH (user)-[ja:APPLIED_TO|BOOKMARKED|VIEWED_DETAILS]->()
+        OPTIONAL MATCH (user)-[ds:DID_SEARCH]->(search:SearchHistory)
+        OPTIONAL MATCH (user)-[cl:HAS_CACHE_LOCK]->(lock:UserCacheLock)
+        OPTIONAL MATCH (user)-[oa:HAS_ORGANIZATION_AUTHORIZATION]->()
+        OPTIONAL MATCH (user)-[:HAS_WORK_HISTORY]->(wh:UserWorkHistory)-[:WORKED_ON_REPO]->(whr:UserWorkHistoryRepo)
+        DETACH DELETE user, lw, wallet, pcr, cr, preferred, contact, rr, gr, scr, showcase, ul, location, sr, er, email, ja, ds, cl, search, lock, oa, wh, whr
+      `,
+        { wallet },
+      );
+      return {
+        success: true,
+        message: "User account deleted successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
+        });
+        scope.setExtra("input", { wallet });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`UserService::deletePrivyUser ${err.message}`);
+      return {
+        success: false,
+        message: "Error deleting user account",
+      };
     }
   }
 
@@ -871,8 +995,7 @@ export class UserService {
       });
 
     if (initial === undefined) {
-      const user = await this.findProfileByWallet(wallet);
-      await this.profileService.runUserDataFetchingOps(wallet, user?.username);
+      await this.profileService.getUserWorkHistory(wallet);
       return this.getCryptoNativeStatus(wallet);
     } else {
       return initial;
@@ -988,11 +1111,13 @@ export class UserService {
             },
             note: [(user)-[:HAS_RECRUITER_NOTE]->(note: RecruiterNote)<-[:HAS_TALENT_NOTE]-(organization) | note.note][0],
             availableForWork: user.available,
-            username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-            avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-            preferred: [(user)-[:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo) | preferred { .* }][0],
-            contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
+            name: user.name,
+            avatar: user.avatar,
+            alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
+            linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account {
+              .*,
+              wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
+            }][0],
             location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
             skills: apoc.coll.toSet([
                 (user)-[r:HAS_SKILL]->(tag) |

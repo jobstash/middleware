@@ -13,9 +13,13 @@ import { AuthService } from "src/auth/auth.service";
 import { JwtService } from "@nestjs/jwt";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { RpcService } from "src/user/rpc.service";
+import { PrivyModule } from "src/auth/privy/privy.module";
+import { GithubModule } from "src/auth/github/github.module";
 
 @Module({
   imports: [
+    PrivyModule,
+    GithubModule,
     HttpModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -43,5 +47,6 @@ import { RpcService } from "src/user/rpc.service";
     RpcService,
   ],
   controllers: [ScorerController],
+  exports: [ScorerService],
 })
 export class ScorerModule {}

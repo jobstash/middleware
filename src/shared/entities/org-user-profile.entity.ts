@@ -7,6 +7,7 @@ export class OrgUserProfileEntity {
   getProperties(): OrgUserProfile {
     return new OrgUserProfile({
       ...this.raw,
+      linkedWallets: this.raw?.linkedWallets ?? [],
       avatar: notStringOrNull(this.raw?.avatar),
       email: this.raw?.email?.map(x => ({ ...x, main: x.main ?? false })) ?? [],
       calendly: notStringOrNull(this.raw?.calendly),

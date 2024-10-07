@@ -60,7 +60,7 @@ export class ScorerController {
     const { address } = await this.authService.getSession(req, res);
 
     if (address) {
-      const orgId = await this.userService.findOrgIdByWallet(address as string);
+      const orgId = await this.userService.findOrgIdByWallet(address);
       if (orgId) {
         const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
         const platform = client?.platform;
@@ -124,9 +124,7 @@ export class ScorerController {
       const { address } = await this.authService.getSession(req, res);
 
       if (address) {
-        const orgId = await this.userService.findOrgIdByWallet(
-          address as string,
-        );
+        const orgId = await this.userService.findOrgIdByWallet(address);
         const key = await this.scorerService.generateEphemeralTokenForOrg(
           orgId,
         );
@@ -169,9 +167,7 @@ export class ScorerController {
       const { address } = await this.authService.getSession(req, res);
 
       if (address) {
-        const orgId = await this.userService.findOrgIdByWallet(
-          address as string,
-        );
+        const orgId = await this.userService.findOrgIdByWallet(address);
         const key = await this.scorerService.generateEphemeralTokenForOrg(
           orgId,
         );
@@ -179,6 +175,8 @@ export class ScorerController {
 
         const clientId = client?.id;
         const platform = client?.platform;
+        const userProfile = await this.userService.findProfileByWallet(address);
+        const wallets = (userProfile?.linkedAccounts.wallets ?? []).join(",");
 
         if (clientId && platform) {
           const res = await firstValueFrom(
@@ -186,7 +184,7 @@ export class ScorerController {
               .get<ResponseWithOptionalData<CandidateReport>>(
                 `${this.configService.get<string>(
                   "SCORER_DOMAIN",
-                )}/scorer/users/report?user=${user}&wallet=${wallet}&client_id=${clientId}&platform=${platform}&key=${key}`,
+                )}/scorer/users/report?user=${user}&wallets=${wallets}&client_id=${clientId}&platform=${platform}&key=${key}`,
               )
               .pipe(
                 catchError((err: AxiosError) => {
@@ -245,7 +243,7 @@ export class ScorerController {
     this.logger.log(`/scorer/link/org/${platform}`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      const orgId = await this.userService.findOrgIdByWallet(address as string);
+      const orgId = await this.userService.findOrgIdByWallet(address);
       try {
         const result = await this.httpService.axiosRef.post<ResponseWithNoData>(
           `/${platform}/link`,
@@ -543,7 +541,7 @@ export class ScorerController {
     this.logger.log(`/scorer/tags/greenhouse`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      const orgId = await this.userService.findOrgIdByWallet(address as string);
+      const orgId = await this.userService.findOrgIdByWallet(address);
       if (orgId) {
         const result = await firstValueFrom(
           this.httpService
@@ -605,7 +603,7 @@ export class ScorerController {
     const { address } = await this.authService.getSession(req, res);
 
     if (address) {
-      const orgId = await this.userService.findOrgIdByWallet(address as string);
+      const orgId = await this.userService.findOrgIdByWallet(address);
       if (orgId) {
         const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
         const platform = client?.platform;

@@ -11,17 +11,23 @@ import { MailModule } from "src/mail/mail.module";
 import { MailService } from "src/mail/mail.service";
 import { AuthService } from "src/auth/auth.service";
 import { OrganizationsService } from "src/organizations/organizations.service";
-import { ProfileService } from "src/auth/profile/profile.service";
 import { JobsService } from "src/jobs/jobs.service";
 import { ScorerService } from "src/scorer/scorer.service";
+import { RpcService } from "src/user/rpc.service";
+import { PrivyModule } from "src/auth/privy/privy.module";
+import { PrivyService } from "src/auth/privy/privy.service";
+import { GithubUserService } from "src/auth/github/github-user.service";
+import { ProfileModule } from "src/auth/profile/profile.module";
 import { HttpModule } from "@nestjs/axios";
 import { REALLY_LONG_TIME } from "src/shared/constants";
 import * as https from "https";
-import { RpcService } from "src/user/rpc.service";
+import { PaymentsModule } from "src/payments/payments.module";
 
 @Module({
   imports: [
     forwardRef(() => GithubModule),
+    forwardRef(() => PrivyModule),
+    forwardRef(() => ProfileModule),
     HttpModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -38,6 +44,7 @@ import { RpcService } from "src/user/rpc.service";
     }),
     ConfigModule,
     MailModule,
+    PaymentsModule,
   ],
   controllers: [UserController],
   providers: [
@@ -50,17 +57,16 @@ import { RpcService } from "src/user/rpc.service";
     AuthService,
     OrganizationsService,
     JobsService,
-    ProfileService,
     ScorerService,
     RpcService,
+    PrivyService,
+    GithubUserService,
   ],
   exports: [
     UserService,
     UserFlowService,
     UserRoleService,
     ModelService,
-    OrganizationsService,
-    ScorerService,
     RpcService,
   ],
 })

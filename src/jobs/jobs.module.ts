@@ -5,7 +5,6 @@ import { ModelService } from "src/model/model.service";
 import { UserModule } from "src/user/user.module";
 import { JwtService } from "@nestjs/jwt";
 import { AuthService } from "src/auth/auth.service";
-import { ProfileService } from "src/auth/profile/profile.service";
 import { TagsService } from "src/tags/tags.service";
 import { OrganizationsService } from "src/organizations/organizations.service";
 import { ScorerService } from "src/scorer/scorer.service";
@@ -13,12 +12,15 @@ import { HttpModule } from "@nestjs/axios";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { REALLY_LONG_TIME } from "src/shared/constants";
 import * as https from "https";
-import { SiweModule } from "src/auth/siwe/siwe.module";
+import { ProfileModule } from "src/auth/profile/profile.module";
+import { PaymentsModule } from "src/payments/payments.module";
+import { PrivyModule } from "src/auth/privy/privy.module";
 
 @Module({
   imports: [
-    forwardRef(() => SiweModule),
     forwardRef(() => UserModule),
+    forwardRef(() => ProfileModule),
+    forwardRef(() => PrivyModule),
     HttpModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -33,6 +35,7 @@ import { SiweModule } from "src/auth/siwe/siwe.module";
         baseURL: configService.get<string>("SCORER_DOMAIN"),
       }),
     }),
+    forwardRef(() => PaymentsModule),
   ],
   controllers: [JobsController],
   providers: [
@@ -41,9 +44,9 @@ import { SiweModule } from "src/auth/siwe/siwe.module";
     AuthService,
     JwtService,
     ModelService,
-    ProfileService,
     OrganizationsService,
     ScorerService,
   ],
+  exports: [JobsService],
 })
 export class JobsModule {}

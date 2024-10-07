@@ -143,10 +143,7 @@ export class JobsController {
     this.logger.log(`/jobs/list ${queryString}`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      await this.profileService.logSearchInteraction(
-        address as string,
-        queryString,
-      );
+      await this.profileService.logSearchInteraction(address, queryString);
     }
     return this.jobsService.getJobsListWithSearch(enrichedParams);
   }
@@ -210,10 +207,7 @@ export class JobsController {
     this.logger.log(`/jobs/details/${uuid}`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      await this.profileService.logViewDetailsInteraction(
-        address as string,
-        uuid,
-      );
+      await this.profileService.logViewDetailsInteraction(address, uuid);
     }
     const result = await this.jobsService.getJobDetailsByUuid(uuid, ecosystem);
     if (result === undefined) {
@@ -328,9 +322,7 @@ export class JobsController {
     this.logger.log(`/jobs/org/${id}/applicants`);
     const { address, role } = await this.authService.getSession(req, res);
     if (role === CheckWalletRoles.ORG) {
-      if (
-        !(await this.userService.userAuthorizedForOrg(address as string, id))
-      ) {
+      if (!(await this.userService.userAuthorizedForOrg(address, id))) {
         res.status(HttpStatus.UNAUTHORIZED);
         return {
           success: false,
@@ -448,10 +440,7 @@ export class JobsController {
     this.logger.log(`/jobs/bookmarked`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.jobsService.getUserBookmarkedJobs(
-        address as string,
-        ecosystem,
-      );
+      return this.jobsService.getUserBookmarkedJobs(address, ecosystem);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -483,7 +472,7 @@ export class JobsController {
     this.logger.log(`/jobs/applied`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.jobsService.getUserAppliedJobs(address as string, ecosystem);
+      return this.jobsService.getUserAppliedJobs(address, ecosystem);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -513,7 +502,7 @@ export class JobsController {
     this.logger.log(`/jobs/folders`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.jobsService.getUserJobFolders(address as string);
+      return this.jobsService.getUserJobFolders(address);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -580,9 +569,7 @@ export class JobsController {
     this.logger.log(`/jobs/org/:id/applicants`);
     const { address, role } = await this.authService.getSession(req, res);
     if (role === CheckWalletRoles.ORG) {
-      if (
-        !(await this.userService.userAuthorizedForOrg(address as string, orgId))
-      ) {
+      if (!(await this.userService.userAuthorizedForOrg(address, orgId))) {
         res.status(HttpStatus.UNAUTHORIZED);
         return {
           success: false,
@@ -634,7 +621,7 @@ export class JobsController {
     this.logger.log(`/jobs/folders`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.jobsService.createUserJobFolder(address as string, body);
+      return this.jobsService.createUserJobFolder(address, body);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -668,7 +655,7 @@ export class JobsController {
 
     if (address) {
       const canEditFolder = await this.userService.userAuthorizedForJobFolder(
-        address as string,
+        address,
         id,
       );
       if (canEditFolder) {
@@ -711,7 +698,7 @@ export class JobsController {
 
     if (address) {
       const canEditFolder = await this.userService.userAuthorizedForJobFolder(
-        address as string,
+        address,
         id,
       );
       if (canEditFolder) {
@@ -748,7 +735,7 @@ export class JobsController {
     this.logger.log(`/jobs/change-classification`);
     try {
       const { address } = await this.authService.getSession(req, res);
-      return this.jobsService.changeJobClassification(address as string, dto);
+      return this.jobsService.changeJobClassification(address, dto);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -783,7 +770,15 @@ export class JobsController {
     this.logger.log(`/jobs/feature`);
     try {
       const { address } = await this.authService.getSession(req, res);
-      return this.jobsService.makeJobFeatured(address as string, dto);
+      if (address) {
+        return this.jobsService.makeJobFeatured(dto);
+      } else {
+        res.status(HttpStatus.FORBIDDEN);
+        return {
+          success: false,
+          message: "Access denied for unauthenticated user",
+        };
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -834,7 +829,7 @@ export class JobsController {
         }
       }
       this.logger.log(`/jobs/edit-tags ${JSON.stringify(tagsToAdd)}`);
-      return this.jobsService.editJobTags(address as string, {
+      return this.jobsService.editJobTags(address, {
         ...dto,
         tags: tagsToAdd,
       });
@@ -889,7 +884,7 @@ export class JobsController {
     } = body;
 
     if (isBlocked === true) {
-      const res1a = await this.jobsService.blockJobs(address as string, {
+      const res1a = await this.jobsService.blockJobs(address, {
         shortUUIDs: [shortUUID],
       });
       if (res1a.success === false) {
@@ -898,7 +893,7 @@ export class JobsController {
       }
     } else {
       if (isBlocked === false) {
-        const res1a = await this.jobsService.unblockJobs(address as string, {
+        const res1a = await this.jobsService.unblockJobs(address, {
           shortUUIDs: [shortUUID],
         });
         if (res1a.success === false) {
@@ -909,7 +904,7 @@ export class JobsController {
     }
 
     if (isOnline === true) {
-      const res1b = await this.jobsService.makeJobsOnline(address as string, {
+      const res1b = await this.jobsService.makeJobsOnline(address, {
         shortUUIDs: [shortUUID],
       });
       if (res1b.success === false) {
@@ -918,12 +913,9 @@ export class JobsController {
       }
     } else {
       if (isOnline === false) {
-        const res1b = await this.jobsService.makeJobsOffline(
-          address as string,
-          {
-            shortUUIDs: [shortUUID],
-          },
-        );
+        const res1b = await this.jobsService.makeJobsOffline(address, {
+          shortUUIDs: [shortUUID],
+        });
         if (res1b.success === false) {
           this.logger.error(res1b.message);
           return res1b;
@@ -931,7 +923,7 @@ export class JobsController {
       }
     }
 
-    const res2 = await this.jobsService.changeJobCommitment(address as string, {
+    const res2 = await this.jobsService.changeJobCommitment(address, {
       shortUUID,
       commitment,
     });
@@ -940,32 +932,26 @@ export class JobsController {
       return res2;
     }
 
-    const res3 = await this.jobsService.changeJobClassification(
-      address as string,
-      {
-        shortUUIDs: [shortUUID],
-        classification,
-      },
-    );
+    const res3 = await this.jobsService.changeJobClassification(address, {
+      shortUUIDs: [shortUUID],
+      classification,
+    });
     if (res3.success === false) {
       this.logger.error(res3.message);
       return res3;
     }
 
-    const res4 = await this.jobsService.changeJobLocationType(
-      address as string,
-      {
-        shortUUID,
-        locationType,
-      },
-    );
+    const res4 = await this.jobsService.changeJobLocationType(address, {
+      shortUUID,
+      locationType,
+    });
     if (res4.success === false) {
       this.logger.error(res4.message);
       return res4;
     }
 
     if (project) {
-      const res5 = await this.jobsService.changeJobProject(address as string, {
+      const res5 = await this.jobsService.changeJobProject(address, {
         shortUUID,
         projectId: project,
       });
@@ -1016,7 +1002,7 @@ export class JobsController {
     this.logger.log(`/jobs/block`);
     try {
       const { address } = await this.authService.getSession(req, res);
-      return this.jobsService.blockJobs(address as string, dto);
+      return this.jobsService.blockJobs(address, dto);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -1051,7 +1037,7 @@ export class JobsController {
     this.logger.log(`/jobs/block`);
     try {
       const { address } = await this.authService.getSession(req, res);
-      return this.jobsService.unblockJobs(address as string, dto);
+      return this.jobsService.unblockJobs(address, dto);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -1067,5 +1053,26 @@ export class JobsController {
         message: `Failed to unblock jobs`,
       };
     }
+  }
+
+  @Get("promote/:uuid")
+  @ApiHeader({
+    name: ECOSYSTEM_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific ecosystem",
+  })
+  async promoteJob(
+    @Param("uuid") uuid: string,
+    @Headers(ECOSYSTEM_HEADER)
+    ecosystem: string | undefined,
+  ): Promise<
+    ResponseWithOptionalData<{
+      id: string;
+      url: string;
+    }>
+  > {
+    this.logger.log(`/jobs/promote/${uuid}`);
+    return await this.jobsService.getJobPromotionPaymentUrl(uuid, ecosystem);
   }
 }

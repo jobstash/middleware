@@ -11,16 +11,17 @@ import {
   UserRepoEntity,
   UserShowCaseEntity,
   UserSkillEntity,
-  UserWorkHistoryEntity,
 } from "src/shared/entities";
 import {
   normalizeString,
   paginate,
   intConverter,
   nonZeroOrNull,
+  sluggify,
 } from "src/shared/helpers";
 import {
   AdjacentRepo,
+  EcosystemActivation,
   OrgStaffReview,
   OrgUserProfile,
   PaginatedData,
@@ -33,6 +34,7 @@ import {
   UserRepo,
   UserShowCase,
   UserSkill,
+  UserVerifiedOrg,
   UserWorkHistory,
   data,
 } from "src/shared/interfaces";
@@ -48,10 +50,13 @@ import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
 import { Integer } from "neo4j-driver";
 import { OrgStaffReviewEntity } from "src/shared/entities/org-staff-review.entity";
 import { UpdateOrgUserProfileInput } from "./dto/update-org-profile.input";
-import { UpdateDevUserProfileInput } from "./dto/update-dev-profile.input";
 import { ScorerService } from "src/scorer/scorer.service";
 import { ConfigService } from "@nestjs/config";
-import { addMonths, isBefore } from "date-fns";
+import { PrivyService } from "../privy/privy.service";
+import { UpdateDevLinkedAccountsInput } from "./dto/update-dev-linked-accounts.input";
+import { UpdateDevLocationInput } from "./dto/update-dev-location.input";
+import { GithubUserService } from "../github/github-user.service";
+import axios from "axios";
 
 @Injectable()
 export class ProfileService {
@@ -63,6 +68,8 @@ export class ProfileService {
     private models: ModelService,
     private scorerService: ScorerService,
     private configService: ConfigService,
+    private privyService: PrivyService,
+    private githubUserService: GithubUserService,
   ) {}
 
   async getDevUserProfile(
@@ -75,24 +82,37 @@ export class ProfileService {
         RETURN {
           wallet: $wallet,
           availableForWork: user.available,
-          username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-          avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
-          preferred: [(user)-[:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo) | preferred { .* }][0],
-          contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
+          name: user.name,
+          githubAvatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+          alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
           location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
         } as profile
         `,
         { wallet },
       );
 
+      const privyId = await this.getPrivyId(wallet);
+      const user = await this.privyService.getUser(privyId);
+      const wallets = await this.privyService.getUserLinkedWallets(privyId);
+
       return {
         success: true,
         message: "User Profile retrieved successfully",
         data: result.records[0]?.get("profile")
-          ? new UserProfileEntity(
-              result.records[0]?.get("profile"),
-            ).getProperties()
+          ? new UserProfileEntity({
+              ...result.records[0]?.get("profile"),
+              linkedAccounts: {
+                discord: user.discord?.username ?? null,
+                telegram: user.telegram?.username ?? null,
+                twitter: user.twitter?.username ?? null,
+                email: user.email?.address ?? null,
+                farcaster: user.farcaster?.username ?? null,
+                github: user.github?.username ?? null,
+                google: user.google?.email ?? null,
+                apple: user.apple?.email ?? null,
+                wallets,
+              },
+            }).getProperties()
           : undefined,
       };
     } catch (err) {
@@ -123,7 +143,8 @@ export class ProfileService {
           .*,
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-          contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
+          linkedWallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address],
+          linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account { .* }][0],
           email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
           orgId: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization:Organization) | organization.orgId][0],
           internalReference: [(user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo) | reference { .* }][0],
@@ -211,83 +232,17 @@ export class ProfileService {
     }
   }
 
-  async getUserWorkHistory(
-    wallet: string,
-  ): Promise<ResponseWithOptionalData<UserWorkHistory[]>> {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $wallet})-[:HAS_WORK_HISTORY]->(history: UserWorkHistory)
-        RETURN history {
-          login: history.login,
-          name: history.name,
-          logoUrl: history.logoUrl,
-          description: history.description,
-          url: history.url,
-          firstContributedAt: history.firstContributedAt,
-          lastContributedAt: history.lastContributedAt,
-          commitsCount: history.commitsCount,
-          tenure: history.tenure,
-          createdAt: history.createdAt,
-          repositories: [
-            (history)-[:WORKED_ON_REPO]->(repo: UserWorkHistoryRepo) | repo {
-              name: repo.name,
-              description: repo.description,
-              cryptoNative: repo.cryptoNative,
-              firstContributedAt: repo.firstContributedAt,
-              lastContributedAt: repo.lastContributedAt,
-              commitsCount: repo.commitsCount,
-              createdAt: repo.createdAt,
-              skills: repo.skills,
-              tenure: repo.tenure,
-              stars: repo.stars,
-              url: repo.url
-            }
-          ]
-        } as history
-      `,
-        { wallet },
-      );
-      return {
-        success: true,
-        message: "Retrieved user work history successfully",
-        data: result.records.map(record =>
-          new UserWorkHistoryEntity(record.get("history")).getProperties(),
-        ),
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "profile.service",
-        });
-        scope.setExtra("input", { wallet });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`ProfileService::getUserWorkHistory ${err.message}`);
-      return {
-        success: false,
-        message: "Error retrieving user work history",
-      };
-    }
-  }
-
   async getUserOrgs(
     wallet: string,
   ): Promise<ResponseWithOptionalData<UserOrg[]>> {
     try {
+      const privyId = await this.getPrivyId(wallet);
+      const user = await this.privyService.getUser(privyId);
       const profile = data(await this.getDevUserProfile(wallet));
       const orgs = [];
+      const prelim = (await this.getUserWorkHistory(wallet))?.workHistory ?? [];
 
-      if (profile?.username) {
-        const cached = await this.getUserWorkHistory(wallet);
-        let prelim: UserWorkHistory[] = [];
-        if (cached.success && data(cached).length > 0) {
-          prelim = data(cached);
-        } else {
-          await this.runUserDataFetchingOps(wallet, profile.username, true);
-          prelim = data(await this.getUserWorkHistory(wallet));
-        }
+      if (user.github?.username) {
         const names = prelim.map(x => x.name);
         const result = await this.neogma.queryRunner.run(
           `
@@ -344,7 +299,7 @@ export class ProfileService {
         const orgsByRepo =
           result?.records[0]
             ?.get("orgsByRepo")
-            .map(record => new UserOrgEntity(record).getProperties()) ?? [];
+            ?.map(record => new UserOrgEntity(record).getProperties()) ?? [];
         const processed = orgsByRepo.map(x => ({
           ...x,
           org: {
@@ -356,13 +311,20 @@ export class ProfileService {
         orgs.push(...processed);
       }
 
-      if (profile?.email) {
+      const emails = [
+        ...profile.alternateEmails,
+        user.email?.address,
+        user.google?.email,
+        user.apple?.email,
+      ].filter(Boolean);
+
+      if (emails.length > 0) {
         const result = await this.neogma.queryRunner.run(
           `
-            MATCH (user:User {wallet: $wallet})
             MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
-            MATCH (user)-[:HAS_EMAIL]->(email: UserEmail)
-            WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email.email).domain
+            UNWIND $emails as email
+            WITH email, website, organization
+            WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email).domain
             OPTIONAL MATCH (user)-[:LEFT_REVIEW]->(review:OrgReview)<-[:HAS_REVIEW]-(organization)
             RETURN apoc.coll.toSet(COLLECT(organization {
                 compensation: {
@@ -410,12 +372,12 @@ export class ProfileService {
                 }
             })) as orgsByEmail
           `,
-          { wallet },
+          { wallet, emails },
         );
         const orgsByEmail =
           result?.records[0]
             ?.get("orgsByEmail")
-            .map(record => new UserOrgEntity(record).getProperties()) ?? [];
+            ?.map(record => new UserOrgEntity(record).getProperties()) ?? [];
         orgsByEmail.forEach(x => {
           const exists = orgs.some(y => y.org.orgId === x.org.orgId);
           if (!exists) {
@@ -424,6 +386,151 @@ export class ProfileService {
         });
       }
 
+      return {
+        success: true,
+        message: "Retrieved user orgs successfully",
+        data: orgs,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::getUserOrgs ${err.message}`);
+      return {
+        success: false,
+        message: "Error retrieving user orgs",
+      };
+    }
+  }
+
+  async getUserVerifiedOrgs(
+    wallet: string,
+  ): Promise<ResponseWithOptionalData<UserVerifiedOrg[]>> {
+    try {
+      const privyId = await this.getPrivyId(wallet);
+      const user = await this.privyService.getUser(privyId);
+      const contact = {
+        discord: user.discord?.username ?? null,
+        telegram: user.telegram?.username ?? null,
+        twitter: user.twitter?.username ?? null,
+        email: user.email?.address ?? null,
+        farcaster: user.farcaster?.username ?? null,
+        github: user.github?.username ?? null,
+        google: user.google?.email ?? null,
+        apple: user.apple?.email ?? null,
+      };
+
+      this.logger.log(`Updating contact info for ${wallet}`);
+      const result = await this.updateDevUserLinkedAccounts(wallet, contact);
+
+      if (result.success) {
+        this.logger.log(`Contact info updated to user`);
+      } else {
+        this.logger.error(
+          `Contact info not updated to user: ${result.message}`,
+        );
+        return result;
+      }
+      const profile = data(await this.getDevUserProfile(wallet));
+      const orgs: UserVerifiedOrg[] = [];
+      const workHistory = await this.getUserWorkHistory(wallet);
+      const prelim: UserWorkHistory[] = workHistory?.workHistory ?? [];
+
+      if (user.github?.username) {
+        const names = prelim.map(x => x.name);
+        const result = await this.neogma.queryRunner.run(
+          `
+            MATCH (user:User {wallet: $wallet}), (organization: Organization WHERE organization.name IN $names)
+            RETURN apoc.coll.toSet(COLLECT(organization {
+              id: organization.orgId,
+              name: organization.name,
+              url: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+              logo: organization.logoUrl
+            })) as orgsByRepo
+          `,
+          { wallet, names },
+        );
+        const orgsByRepo =
+          result?.records[0]
+            ?.get("orgsByRepo")
+            ?.map(record => record as UserVerifiedOrg) ?? [];
+        const processed = orgsByRepo.map(x => ({
+          id: x.id,
+          name: x.name,
+          slug: sluggify(x.name),
+          url: x.url,
+          logo: x.logo ?? null,
+          account: profile.linkedAccounts.github,
+        }));
+        orgs.push(...processed);
+      }
+
+      const emails = [
+        ...profile.alternateEmails,
+        user.email?.address,
+        user.google?.email,
+        user.apple?.email,
+      ].filter(Boolean);
+
+      if (emails.length > 0) {
+        const result = await this.neogma.queryRunner.run(
+          `
+            MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
+            UNWIND $emails as email
+            WITH email, website, organization
+            WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email).domain
+            RETURN apoc.coll.toSet(COLLECT(organization {
+              id: organization.orgId,
+              name: organization.name,
+              url: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+              logo: organization.logoUrl,
+              account: email
+            })) as orgsByEmail
+          `,
+          { wallet, emails },
+        );
+        const orgsByEmail =
+          result?.records[0]
+            ?.get("orgsByEmail")
+            ?.map(record => record as UserVerifiedOrg) ?? [];
+        orgsByEmail.forEach(x => {
+          const exists = orgs.some(y => y.id === x.id);
+          if (!exists) {
+            orgs.push({
+              id: x.id,
+              name: x.name,
+              slug: sluggify(x.name),
+              url: x.url,
+              logo: x.logo ?? null,
+              account: x.account,
+            });
+          }
+        });
+      }
+
+      if (workHistory.wallets.length > 0) {
+        const mapped: UserVerifiedOrg[] = workHistory.wallets.flatMap(x =>
+          x.ecosystemActivations.map(y => ({
+            id: y.id,
+            name: y.name,
+            slug: sluggify(y.name),
+            url: "http://ethglobal.com/packs",
+            logo: "http://ethglobal.com",
+            account: x.address,
+          })),
+        );
+        mapped.forEach(x => {
+          const exists = orgs.some(y => y.id === x.id);
+          if (!exists) {
+            orgs.push(x);
+          }
+        });
+      }
       return {
         success: true,
         message: "Retrieved user orgs successfully",
@@ -516,78 +623,157 @@ export class ProfileService {
     }
   }
 
-  async updateDevUserProfile(
+  async updateDevUserLinkedAccounts(
     wallet: string,
-    dto: UpdateDevUserProfileInput,
-  ): Promise<ResponseWithOptionalData<UserProfile>> {
+    dto: UpdateDevLinkedAccountsInput,
+  ): Promise<ResponseWithNoData> {
     try {
-      const result = await this.neogma.queryRunner.run(
+      const profile = data(await this.getDevUserProfile(wallet));
+      const privyId = await this.getPrivyId(wallet);
+      const user = await this.privyService.getUser(privyId);
+      if (
+        profile?.linkedAccounts.github !== user.github?.username ||
+        (profile.linkedAccounts.github && !user.github)
+      ) {
+        this.logger.log(
+          `Unlinking github user ${profile?.linkedAccounts.github}`,
+        );
+        await this.githubUserService.removeGithubInfoFromUser(wallet);
+      }
+      if (user.github) {
+        this.logger.log(`Fetching github info for ${user.github.username}`);
+        const githubUser = axios
+          .get<{
+            avatar_url: string;
+          }>(`https://api.github.com/users/${user.github.username}`)
+          .catch(err => {
+            this.logger.error(`UserService::fetchGithubUser ${err.message}`);
+            this.logger.error(err);
+            Sentry.withScope(scope => {
+              scope.setTags({
+                action: "external-api-call",
+                source: "user.service",
+              });
+              Sentry.captureException(err);
+            });
+            return undefined;
+          });
+
+        const result = await this.githubUserService.addGithubInfoToUser({
+          wallet,
+          githubLogin: user.github.username,
+          githubId: user.github.subject,
+          githubAvatarUrl: (await githubUser)?.data?.avatar_url ?? null,
+        });
+        if (result.success) {
+          this.logger.log(`Github info added to user`);
+        } else {
+          this.logger.error(`Github info not added to user: ${result.message}`);
+          return result;
+        }
+      }
+      await this.neogma.queryRunner.run(
+        `
+          MATCH (user:User {wallet: $wallet})
+
+          WITH user
+          MERGE (user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount)
+          ON CREATE SET
+            account += $dto,
+            account.createdTimestamp = timestamp()
+          ON MATCH SET
+            account += $dto,
+            account.updatedTimestamp = timestamp()
+        `,
+        { wallet, dto },
+      );
+      return {
+        success: true,
+        message: "User linked accounts updated successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "profiles.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `ProfileService::updateDevUserLinkedAccounts ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Error updating user linked accounts",
+      };
+    }
+  }
+
+  async updateDevUserLocationInfo(
+    wallet: string,
+    dto: UpdateDevLocationInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+          MATCH (user:User {wallet: $wallet})
+
+          WITH user
+          MERGE (user)-[:HAS_LOCATION]->(location: UserLocation)
+          ON CREATE SET
+            location += $location,
+            location.createdTimestamp = timestamp()
+          ON MATCH SET
+            location += $location,
+            location.updatedTimestamp = timestamp()
+        `,
+        { wallet, location: dto },
+      );
+      return {
+        success: true,
+        message: "User location info updated successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "profiles.service",
+        });
+        scope.setExtra("input", { wallet, ...dto });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `ProfileService::updateDevUserLocationInfo ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Error updating user location info",
+      };
+    }
+  }
+
+  async updateDevUserAvailability(
+    wallet: string,
+    availability: boolean,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})
         SET user.available = $availableForWork
         SET user.updatedTimestamp = timestamp()
 
-        WITH user
-        MERGE (user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo)
-        ON CREATE SET
-          contact += $contact,
-          contact.createdTimestamp = timestamp()
-        ON MATCH SET
-          contact += $contact,
-          contact.updatedTimestamp = timestamp()
-
-        WITH user
-        MERGE (user)-[:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo)
-        ON CREATE SET
-          preferred += $preferred,
-          preferred.createdTimestamp = timestamp()
-        ON MATCH SET
-          preferred += $preferred,
-          preferred.updatedTimestamp = timestamp()
-
-        WITH user
-        MERGE (user)-[:HAS_LOCATION]->(location: UserLocation)
-        ON CREATE SET
-          location += $location,
-          location.createdTimestamp = timestamp()
-        ON MATCH SET
-          location += $location,
-          location.updatedTimestamp = timestamp()
-
-        WITH user
-        RETURN {
-          wallet: $wallet,
-          availableForWork: user.available,
-          username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-          avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
-          preferred: [(user)-[:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo) | preferred { .* }][0],
-          contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-          location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
-        } as profile
-
       `,
         {
           wallet,
-          availableForWork: dto.availableForWork,
-          preferred: {
-            type: dto.preferred,
-            value: dto.contact[dto.preferred],
-          },
-          contact: {
-            ...dto.contact,
-            [dto.preferred]: null,
-          },
-          location: dto.location,
+          availableForWork: availability,
         },
       );
 
       return {
         success: true,
         message: "User profile updated successfully",
-        data: new UserProfileEntity(
-          result.records[0]?.get("profile"),
-        ).getProperties(),
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -595,7 +781,7 @@ export class ProfileService {
           action: "db-call",
           source: "profile.service",
         });
-        scope.setExtra("input", { wallet, ...dto });
+        scope.setExtra("input", { wallet, availability });
         Sentry.captureException(err);
       });
       this.logger.error(`ProfileService::updateUserProfile ${err.message}`);
@@ -634,6 +820,7 @@ export class ProfileService {
           wallet: $wallet,
           linkedin: user.linkedin,
           calendly: user.calendly,
+          linkedWallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address],
           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
           contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
@@ -672,50 +859,6 @@ export class ProfileService {
       return {
         success: false,
         message: "Error updating user profile",
-      };
-    }
-  }
-
-  async deleteUserAccount(wallet: string): Promise<ResponseWithNoData> {
-    try {
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $wallet})
-        OPTIONAL MATCH (user)-[cr:HAS_CONTACT_INFO]->(contact: UserContactInfo)
-        OPTIONAL MATCH (user)-[pcr:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo)
-        OPTIONAL MATCH (user)-[rr:LEFT_REVIEW]->(:OrgReview)
-        OPTIONAL MATCH (user)-[gr:HAS_GITHUB_USER]->(:GithubUser)
-        OPTIONAL MATCH (user)-[scr:HAS_SHOWCASE]->(showcase:UserShowCase)
-        OPTIONAL MATCH (user)-[ul:HAS_LOCATION]->(location:UserLocation)
-        OPTIONAL MATCH (user)-[sr:HAS_SKILL]->(:Tag)
-        OPTIONAL MATCH (user)-[er:HAS_EMAIL]->(email:UserEmail|UserUnverifiedEmail)
-        OPTIONAL MATCH (user)-[ja:APPLIED_TO|BOOKMARKED|VIEWED_DETAILS]->()
-        OPTIONAL MATCH (user)-[ds:DID_SEARCH]->(search:SearchHistory)
-        OPTIONAL MATCH (user)-[cl:HAS_CACHE_LOCK]->(lock:UserCacheLock)
-        OPTIONAL MATCH (user)-[oa:HAS_ORGANIZATION_AUTHORIZATION]->()
-        OPTIONAL MATCH (user)-[:HAS_WORK_HISTORY]->(wh:UserWorkHistory)-[:WORKED_ON_REPO]->(whr:UserWorkHistoryRepo)
-        DETACH DELETE user, pcr, cr, preferred, contact, rr, gr, scr, showcase, ul, location, sr, er, email, ja, ds, cl, search, lock, oa, wh, whr
-      `,
-        { wallet },
-      );
-
-      return {
-        success: true,
-        message: "User account deleted successfully",
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "profile.service",
-        });
-        scope.setExtra("input", { wallet });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`ProfileService::deleteUserAccount ${err.message}`);
-      return {
-        success: false,
-        message: "Error deleting user account",
       };
     }
   }
@@ -1018,6 +1161,7 @@ export class ProfileService {
         limit: Integer.MAX_SAFE_VALUE.toNumber(),
         page: 1,
       })) as Response<UserRepo[]>;
+      console.log(userRepos);
       if (userRepos.data.find(x => x.id === dto.id)) {
         await this.neogma.queryRunner.run(
           `
@@ -1113,81 +1257,115 @@ export class ProfileService {
     }
   }
 
-  async runUserDataFetchingOps(
-    wallet: string,
-    username: string | null,
-    skipCache = false,
-  ): Promise<void> {
-    const CACHE_VALIDITY_THRESHOLD = this.configService.get<number>(
-      "CACHE_VALIDITY_THRESHOLD",
-    );
-
-    const userCacheLock = await this.getUserCacheLock(wallet);
-
-    const userCacheLockIsValid =
-      (userCacheLock !== -1 || userCacheLock !== null) &&
-      isBefore(
-        new Date(),
-        addMonths(new Date(userCacheLock), CACHE_VALIDITY_THRESHOLD),
-      );
-
-    if (!userCacheLockIsValid || skipCache) {
-      if (!skipCache) {
-        this.logger.log(
-          `/profile/refresh-work-history-cache: User cache lock is invalid for wallet ${wallet}. Refreshing...`,
-        );
-      } else {
-        this.logger.log(
-          `/profile/refresh-work-history-cache: User cache lock is being hard reset for wallet ${wallet}. Refreshing...`,
-        );
-      }
-      try {
-        const workHistory = (
-          await this.scorerService.getUserWorkHistories([
-            { github: username, wallets: [wallet] },
-          ])
-        )[0];
-        await this.refreshWorkHistoryCache(
-          wallet,
-          workHistory.cryptoNative,
-          workHistory.workHistory,
-          workHistory.adjacentRepos,
-        );
-
-        await this.refreshUserRepoCache(
-          wallet,
-          workHistory.workHistory.map(x => {
-            const repos = x.repositories.map(repo => ({
-              name: repo.name,
-              description: repo.description,
-            }));
-            return {
-              login: x.login,
-              name: x.name,
-              description: x.description,
-              avatar_url: x.logoUrl,
-              repositories: repos,
-            };
-          }),
-        );
-        await this.refreshUserCacheLock([wallet]);
-      } catch (err) {
+  async getPrivyId(wallet: string): Promise<string | undefined> {
+    const result = await this.neogma.queryRunner
+      .run(
+        `
+          MATCH (u:User {wallet:$wallet})
+          RETURN u.privyId as privyId
+        `,
+        { wallet },
+      )
+      .then(res =>
+        res.records.length ? res.records[0].get("privyId") : undefined,
+      )
+      .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
-            action: "service-call",
+            action: "db-call",
             source: "profile.service",
           });
           Sentry.captureException(err);
         });
-        this.logger.error(
-          `/profile/refresh-work-history-cache: User cache lock is being hard reset for wallet ${wallet}. Refreshing...`,
-        );
-        return;
-      }
-    } else {
-      this.logger.log(
-        `/profile/refresh-work-history-cache: User cache lock is still valid for wallet ${wallet}. Skipping...`,
+        this.logger.error(`ProfileService::getPrivyId ${err.message}`);
+        return undefined;
+      });
+    return result;
+  }
+
+  async getUserWorkHistory(wallet: string): Promise<{
+    username: string | null;
+    wallets: {
+      address: string;
+      ecosystemActivations: EcosystemActivation[];
+    }[];
+    cryptoNative: boolean;
+    workHistory: UserWorkHistory[];
+    adjacentRepos: AdjacentRepo[];
+  }> {
+    try {
+      const privyId = await this.getPrivyId(wallet);
+      const wallets = await this.privyService.getUserLinkedWallets(privyId);
+      const user = await this.privyService.getUser(privyId);
+      const profile = data(await this.getDevUserProfile(wallet));
+      const workHistory = (
+        await this.scorerService.getUserWorkHistories([
+          {
+            github: user.github?.username,
+            wallets,
+          },
+        ])
+      )[0];
+      const orgs = [];
+      const emails = [
+        ...profile.alternateEmails,
+        user.email?.address,
+        user.google?.email,
+        user.apple?.email,
+      ].filter(Boolean);
+      const result = await this.neogma.queryRunner.run(
+        `
+            MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
+            UNWIND $emails as email
+            WITH email, website, organization
+            WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email).domain
+            RETURN apoc.coll.toSet(COLLECT(organization.orgId)) as orgsByEmail
+          `,
+        { wallet, emails },
       );
+      const orgsByEmail =
+        result?.records[0]
+          ?.get("orgsByEmail")
+          .map(record => record as string) ?? [];
+      orgsByEmail.forEach((x: string) => {
+        const exists = orgs.some(y => y === x);
+        if (!exists) {
+          orgs.push(x);
+        }
+      });
+      await this.refreshWorkHistoryCache(
+        wallet,
+        workHistory.cryptoNative || orgs.length > 0,
+        workHistory.workHistory,
+        workHistory.adjacentRepos,
+      );
+
+      await this.refreshUserRepoCache(
+        wallet,
+        workHistory.workHistory.map(x => {
+          const repos = x.repositories.map(repo => ({
+            name: repo.name,
+            description: repo.description,
+          }));
+          return {
+            login: x.login,
+            name: x.name,
+            description: x.description,
+            avatar_url: x.logoUrl,
+            repositories: repos,
+          };
+        }),
+      );
+      return workHistory;
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "profile.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`/profile/refresh-work-history-cache: ${err.message}`);
     }
   }
 
@@ -1369,14 +1547,6 @@ export class ProfileService {
         await this.neogma.queryRunner.run(
           `
             MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(ghu:GithubUser)
-            OPTIONAL MATCH (ghu)-[r:CONTRIBUTED_TO]->(repo: GithubRepository)
-            DETACH DELETE r
-          `,
-          { wallet },
-        );
-        await this.neogma.queryRunner.run(
-          `
-            MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(ghu:GithubUser)
             
             UNWIND $org.repositories as orgRepo
             MERGE (ghu)-[:CONTRIBUTED_TO]->(repo: GithubRepository {nameWithOwner: orgRepo.nameWithOwner})
@@ -1396,6 +1566,14 @@ export class ProfileService {
             MERGE (gho)-[:HAS_REPOSITORY]->(repo)
           `,
           { wallet, org: { ...processed } },
+        );
+        await this.neogma.queryRunner.run(
+          `
+            MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(ghu:GithubUser)
+            OPTIONAL MATCH (ghu)-[r:CONTRIBUTED_TO]->(repo: GithubRepository WHERE NOT repo.nameWithOwner IN $repos)
+            DETACH DELETE r
+          `,
+          { wallet, repos: processed.repositories.map(x => x.nameWithOwner) },
         );
       }
       return {

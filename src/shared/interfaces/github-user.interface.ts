@@ -21,12 +21,6 @@ export class GithubUser {
   login: string;
 
   @ApiProperty()
-  nodeId: string;
-
-  @ApiPropertyOptional()
-  gravatarId?: string | null;
-
-  @ApiProperty()
   avatarUrl: string;
 
   @ApiPropertyOptional()
@@ -36,20 +30,10 @@ export class GithubUser {
   updatedTimestamp: number | null;
 
   constructor(raw: GithubUser) {
-    const {
-      id,
-      login,
-      nodeId,
-      gravatarId,
-      avatarUrl,
-      createdTimestamp,
-      updatedTimestamp,
-    } = raw;
+    const { id, login, avatarUrl, createdTimestamp, updatedTimestamp } = raw;
     const result = GithubUser.GithubUserType.decode(raw);
     this.id = id;
     this.login = login;
-    this.nodeId = nodeId;
-    this.gravatarId = gravatarId;
     this.avatarUrl = avatarUrl;
     this.createdTimestamp = createdTimestamp;
     this.updatedTimestamp = updatedTimestamp;

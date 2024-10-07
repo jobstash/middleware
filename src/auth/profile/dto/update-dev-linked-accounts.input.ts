@@ -1,12 +1,7 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { IsEmail, IsOptional, IsString } from "class-validator";
+import { IsOptional, IsString } from "class-validator";
 
-export class UpdateDevContactInput {
-  @ApiPropertyOptional()
-  @IsEmail()
-  @IsOptional()
-  email: string | null;
-
+export class UpdateDevLinkedAccountsInput {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -25,10 +20,25 @@ export class UpdateDevContactInput {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  lens: string | null;
+  twitter: string | null;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  twitter: string | null;
+  email: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  google: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  github: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  apple: string | null;
 }

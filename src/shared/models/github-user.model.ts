@@ -56,8 +56,6 @@ export const GithubUsers = (
           required: true,
         },
         login: { type: "string", allowEmpty: false, required: true },
-        nodeId: { type: "string", allowEmpty: false, required: true },
-        gravatarId: { type: "string", allowEmpty: true, required: false },
         avatarUrl: { type: "string", allowEmpty: false, required: true },
         createdTimestamp: { type: "number", allowEmpty: true, required: false },
         updatedTimestamp: { type: "number", allowEmpty: true, required: false },

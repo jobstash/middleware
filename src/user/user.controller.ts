@@ -16,7 +16,9 @@ import { RBACGuard } from "src/auth/rbac.guard";
 import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
 import {
   AdjacentRepo,
+  data,
   DevUserProfile,
+  EcosystemActivation,
   OrgUserProfile,
   ResponseWithNoData,
   UserProfile,
@@ -31,7 +33,6 @@ import { ApiKeyGuard } from "src/auth/api-key.guard";
 import { ApiOkResponse } from "@nestjs/swagger";
 import { UserWorkHistory } from "src/shared/interfaces/user/user-work-history.interface";
 import { ProfileService } from "src/auth/profile/profile.service";
-import { JobsService } from "src/jobs/jobs.service";
 import { ScorerService } from "src/scorer/scorer.service";
 import { AddUserNoteInput } from "./dto/add-user-note.dto";
 
@@ -43,7 +44,6 @@ export class UserController {
     private readonly userService: UserService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
-    private readonly jobsService: JobsService,
     private readonly profileService: ProfileService,
     private readonly scorerService: ScorerService,
   ) {}
@@ -67,7 +67,7 @@ export class UserController {
   ): Promise<DevUserProfile[]> {
     const { address } = await this.authService.getSession(req, res);
     const orgId = address
-      ? await this.userService.findOrgIdByWallet(address as string)
+      ? await this.userService.findOrgIdByWallet(address)
       : null;
     this.logger.log(`/users/devs/available ${JSON.stringify(params)}`);
     return this.userService.getDevsAvailableForWork(params, orgId);
@@ -97,7 +97,7 @@ export class UserController {
   ): Promise<ResponseWithNoData> {
     const { wallet, verdict, orgId } = body;
     this.logger.log(`/users/orgs/authorize ${wallet}`);
-    const org = await this.userService.findProfileByWallet(wallet);
+    const org = data(await this.profileService.getOrgUserProfile(wallet));
 
     if (org) {
       if (verdict === "approve") {
@@ -126,7 +126,7 @@ export class UserController {
         });
         await this.mailService.sendEmail({
           from: this.configService.getOrThrow<string>("EMAIL"),
-          to: org.email,
+          to: org.email[0].email,
           subject: "Application Review Outcome",
           text:
             verdict === "approve"
@@ -192,7 +192,10 @@ export class UserController {
   async getWorkHistory(@Query("users") users: string): Promise<
     {
       username: string | null;
-      wallets: string[];
+      wallets: {
+        address: string;
+        ecosystemActivations: EcosystemActivation[];
+      }[];
       cryptoNative: boolean;
       workHistory: UserWorkHistory[];
       adjacentRepos: AdjacentRepo[];
@@ -215,7 +218,7 @@ export class UserController {
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       const orgId = address
-        ? await this.userService.findOrgIdByWallet(address as string)
+        ? await this.userService.findOrgIdByWallet(address)
         : null;
       this.logger.log(`/users/devs/note ${JSON.stringify(body)}`);
       return this.userService.addUserNote(body.wallet, body.note, orgId);

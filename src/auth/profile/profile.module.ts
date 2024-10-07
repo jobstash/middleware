@@ -1,26 +1,31 @@
-import { Module, forwardRef } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { ProfileService } from "./profile.service";
 import { ProfileController } from "./profile.controller";
-import { UserModule } from "../../user/user.module";
-import { AuthService } from "../auth.service";
 import { JwtService } from "@nestjs/jwt";
 import { ModelService } from "src/model/model.service";
 import { OrganizationsService } from "src/organizations/organizations.service";
 import { MailModule } from "src/mail/mail.module";
-import { ConfigModule, ConfigService } from "@nestjs/config";
 import { MailService } from "src/mail/mail.service";
-import { ThrottlerModule } from "@nestjs/throttler";
-import { UserService } from "src/user/user.service";
 import { RpcService } from "../../user/rpc.service";
 import { ScorerService } from "src/scorer/scorer.service";
+import { JobsService } from "src/jobs/jobs.service";
 import { HttpModule } from "@nestjs/axios";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { ThrottlerModule } from "@nestjs/throttler";
 import { REALLY_LONG_TIME } from "src/shared/constants";
 import * as https from "https";
-import { JobsService } from "src/jobs/jobs.service";
+import { AuthModule } from "../auth.module";
+import { PrivyModule } from "../privy/privy.module";
+import { GithubModule } from "../github/github.module";
+import { UserModule } from "src/user/user.module";
+import { PaymentsModule } from "src/payments/payments.module";
 
 @Module({
   imports: [
+    forwardRef(() => AuthModule),
     forwardRef(() => UserModule),
+    forwardRef(() => PrivyModule),
+    forwardRef(() => GithubModule),
     HttpModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -38,19 +43,19 @@ import { JobsService } from "src/jobs/jobs.service";
     MailModule,
     ConfigModule,
     ThrottlerModule.forRoot(),
+    PaymentsModule,
   ],
   controllers: [ProfileController],
   providers: [
     ProfileService,
-    AuthService,
     JwtService,
     ModelService,
     MailService,
-    UserService,
     OrganizationsService,
     RpcService,
     ScorerService,
     JobsService,
   ],
+  exports: [ProfileService],
 })
 export class ProfileModule {}

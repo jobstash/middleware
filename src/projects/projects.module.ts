@@ -4,9 +4,10 @@ import { ProjectsController } from "./projects.controller";
 import { ModelService } from "src/model/model.service";
 import { ProjectCategoryService } from "./project-category.service";
 import { OrganizationsService } from "src/organizations/organizations.service";
+import { AuthModule } from "src/auth/auth.module";
 
 @Module({
-  imports: [],
+  imports: [AuthModule],
   controllers: [ProjectsController],
   providers: [
     ProjectsService,

@@ -14,7 +14,12 @@ import { isAfter, isBefore } from "date-fns";
 import { uniqBy } from "lodash";
 
 type RawJobPost = StructuredJobpostWithRelations & {
-  organization?: (OrganizationWithRelations & { hasUser: boolean }) | null;
+  organization?:
+    | (OrganizationWithRelations & {
+        hasUser: boolean;
+        atsClient: "jobstash" | "greenhouse" | "workable" | "lever" | null;
+      })
+    | null;
 };
 
 export class JobDetailsEntity {
@@ -73,6 +78,7 @@ export class JobDetailsEntity {
         ),
         reviewCount: reviews.length,
         hasUser: organization?.hasUser ?? false,
+        atsClient: organization?.atsClient ?? null,
         docs: notStringOrNull(organization?.docs),
         logoUrl: notStringOrNull(organization?.logoUrl),
         headcountEstimate: nonZeroOrNull(organization?.headcountEstimate),

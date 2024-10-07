@@ -1,7 +1,7 @@
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
-import { JobApplicant } from "../interfaces";
+import { JobApplicant, UserProfile } from "../interfaces";
 import { JobListResultEntity } from "./job-list-result.entity";
-import { RawUserProfile, UserProfileEntity } from "./user-profile.entity";
+import { UserProfileEntity } from "./user-profile.entity";
 import { UserShowCaseEntity } from "./user-showcase.entity";
 import { UserSkillEntity } from "./user-skill.entity";
 
@@ -29,7 +29,7 @@ export class JobApplicantEntity {
       appliedTimestamp: nonZeroOrNull(applicant?.appliedTimestamp),
       user: {
         ...new UserProfileEntity(
-          user as unknown as RawUserProfile,
+          user as unknown as UserProfile,
         ).getProperties(),
         skills:
           skills?.map(skill => new UserSkillEntity(skill).getProperties()) ??

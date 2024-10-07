@@ -44,12 +44,12 @@ import { ReportInput } from "./dto/report.input";
 import { MailService } from "src/mail/mail.service";
 import { ConfigService } from "@nestjs/config";
 import { Throttle } from "@nestjs/throttler";
-import { UpdateDevUserProfileInput } from "./dto/update-dev-profile.input";
 import { UpdateOrgUserProfileInput } from "./dto/update-org-profile.input";
 import { UserService } from "src/user/user.service";
 import * as Sentry from "@sentry/node";
 import { RpcService } from "../../user/rpc.service";
 import { JobsService } from "src/jobs/jobs.service";
+import { UpdateDevLocationInput } from "./dto/update-dev-location.input";
 
 @Controller("profile")
 export class ProfileController {
@@ -81,7 +81,7 @@ export class ProfileController {
     this.logger.log(`/profile/dev/info`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.getDevUserProfile(address as string);
+      return this.profileService.getDevUserProfile(address);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -107,7 +107,7 @@ export class ProfileController {
     this.logger.log(`/profile/org/info`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.getOrgUserProfile(address as string);
+      return this.profileService.getOrgUserProfile(address);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -134,7 +134,7 @@ export class ProfileController {
     this.logger.log(`/profile/repositories`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.getUserRepos(address as string, params);
+      return this.profileService.getUserRepos(address, params);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -156,11 +156,38 @@ export class ProfileController {
   async getUserOrgs(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<Response<UserOrg[]> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<UserOrg[]>> {
     this.logger.log(`/profile/organizations`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.getUserOrgs(address as string);
+      return this.profileService.getUserOrgs(address);
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Get("organizations/verified")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @ApiOkResponse({
+    description:
+      "Returns the verified organizations of the currently logged in user",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Response<UserOrg[]>),
+    }),
+  })
+  async getUserVerifiedOrgs(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ): Promise<ResponseWithOptionalData<{ id: string; name: string }[]>> {
+    this.logger.log(`/profile/organizations/verified`);
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.profileService.getUserVerifiedOrgs(address);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -186,7 +213,7 @@ export class ProfileController {
     this.logger.log(`/profile/showcase`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.getUserShowCase(address as string);
+      return this.profileService.getUserShowCase(address);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -217,7 +244,7 @@ export class ProfileController {
     this.logger.log(`/profile/skills`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.getUserSkills(address as string);
+      return this.profileService.getUserSkills(address);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -227,41 +254,50 @@ export class ProfileController {
     }
   }
 
-  @Post("dev/info")
+  @Post("dev/availability")
   @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @Roles(CheckWalletRoles.DEV)
   @ApiOkResponse({
-    description: "Updates the profile of the currently logged in dev user",
-    schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Response<UserProfile>),
-    }),
+    description: "Updates the availability of the currently logged in dev user",
+  })
+  async setDevUserAvailability(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: ExpressResponse,
+    @Body("availability") availability: boolean,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(
+      `/profile/dev/availability ${JSON.stringify(availability)}`,
+    );
+    const { address } = await this.authService.getSession(req, res);
+    if (address) {
+      return this.profileService.updateDevUserAvailability(
+        address,
+        availability,
+      );
+    } else {
+      res.status(HttpStatus.FORBIDDEN);
+      return {
+        success: false,
+        message: "Access denied for unauthenticated user",
+      };
+    }
+  }
+
+  @Post("dev/location")
+  @UseGuards(RBACGuard)
+  @Roles(CheckWalletRoles.DEV)
+  @ApiOkResponse({
+    description: "Updates the location of the currently logged in dev user",
   })
   async setDevUserProfile(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
-    @Body() body: UpdateDevUserProfileInput,
-  ): Promise<Response<UserProfile> | ResponseWithNoData> {
+    @Body() body: UpdateDevLocationInput,
+  ): Promise<ResponseWithNoData> {
     this.logger.log(`/profile/dev/info ${JSON.stringify(body)}`);
-    const { address, flow } = await this.authService.getSession(req, res);
+    const { address } = await this.authService.getSession(req, res);
     if (address) {
-      const preferredContactData = body.contact[body.preferred];
-      if (preferredContactData) {
-        if ((flow as string) === CheckWalletFlows.ONBOARD_PROFILE) {
-          await this.userService.setWalletFlow({
-            flow: CheckWalletFlows.SIGNUP_COMPLETE,
-            wallet: address as string,
-          });
-        }
-        return this.profileService.updateDevUserProfile(
-          address as string,
-          body,
-        );
-      } else {
-        return {
-          success: false,
-          message: "Contact data is required for preferred contact type",
-        };
-      }
+      return this.profileService.updateDevUserLocationInfo(address, body);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -291,10 +327,10 @@ export class ProfileController {
       if ((flow as string) === CheckWalletFlows.ORG_PROFILE) {
         await this.userService.setWalletFlow({
           flow: CheckWalletFlows.ORG_APPROVAL_PENDING,
-          wallet: address as string,
+          wallet: address,
         });
       }
-      return this.profileService.updateOrgUserProfile(address as string, body);
+      return this.profileService.updateOrgUserProfile(address, body);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -321,7 +357,7 @@ export class ProfileController {
     this.logger.log(`/profile/showcase ${JSON.stringify(body)}`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.updateUserShowCase(address as string, body);
+      return this.profileService.updateUserShowCase(address, body);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -348,7 +384,7 @@ export class ProfileController {
     this.logger.log(`/profile/skills ${JSON.stringify(body)}`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.updateUserSkills(address as string, body);
+      return this.profileService.updateUserSkills(address, body);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -374,7 +410,7 @@ export class ProfileController {
     const { address } = await this.authService.getSession(req, res);
     this.logger.log(`/profile/delete ${address}`);
     if (address) {
-      return this.profileService.deleteUserAccount(address as string);
+      return this.userService.deletePrivyUser(address);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -403,7 +439,7 @@ export class ProfileController {
     if (address) {
       const org = await this.organizationsService.findByOrgId(params.orgId);
       if (org) {
-        return this.profileService.reviewOrgSalary(address as string, params);
+        return this.profileService.reviewOrgSalary(address, params);
       } else {
         return {
           success: false,
@@ -438,7 +474,7 @@ export class ProfileController {
     if (address) {
       const org = await this.organizationsService.findByOrgId(params.orgId);
       if (org) {
-        return this.profileService.rateOrg(address as string, params);
+        return this.profileService.rateOrg(address, params);
       } else {
         return {
           success: false,
@@ -473,7 +509,7 @@ export class ProfileController {
     if (address) {
       const org = await this.organizationsService.findByOrgId(params.orgId);
       if (org) {
-        return this.profileService.reviewOrg(address as string, params);
+        return this.profileService.reviewOrg(address, params);
       } else {
         return {
           success: false,
@@ -538,7 +574,7 @@ export class ProfileController {
             <li>User Address: ${session.address ?? "N/A"}</li>
             <li>User Role: ${session.role ?? "N/A"}</li>
             <li>User Flow: ${session.flow ?? "N/A"}</li>
-            <li>Wallet Connected: ${session.nonce !== undefined}</li>
+            <li>Wallet Connected: ${session.address !== undefined}</li>
             <li>Signed In: ${session.address !== undefined}</li>
             <li>Other Info: ${JSON.stringify(
               ctx.other !== "" ? JSON.parse(ctx.other) : {},
@@ -588,10 +624,7 @@ export class ProfileController {
     this.logger.log(`/profile/repositories/contribution`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.updateRepoContribution(
-        address as string,
-        params,
-      );
+      return this.profileService.updateRepoContribution(address, params);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -618,7 +651,7 @@ export class ProfileController {
     this.logger.log(`/profile/repositories/tags`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.updateRepoTagsUsed(address as string, params);
+      return this.profileService.updateRepoTagsUsed(address, params);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {
@@ -648,7 +681,7 @@ export class ProfileController {
     if (address) {
       const org = await this.organizationsService.findByOrgId(orgId);
       if (org) {
-        return this.profileService.blockOrgJobs(address as string, orgId);
+        return this.profileService.blockOrgJobs(address, orgId);
       } else {
         return {
           success: false,
@@ -691,7 +724,7 @@ export class ProfileController {
 
         if (job) {
           const hasApplied = await this.profileService.verifyApplyInteraction(
-            address as string,
+            address,
             shortUUID,
           );
 
@@ -764,7 +797,7 @@ export class ProfileController {
                 });
               }
               return await this.profileService.logApplyInteraction(
-                address as string,
+                address,
                 shortUUID,
               );
             }
@@ -788,7 +821,7 @@ export class ProfileController {
           action: "service-call",
           source: "profile.controller",
         });
-        scope.setExtra("input", { wallet: address as string });
+        scope.setExtra("input", { wallet: address });
         Sentry.captureException(err);
       });
       this.logger.log(`/profile/jobs/apply ${JSON.stringify(err)}`);
@@ -819,7 +852,7 @@ export class ProfileController {
     const { address } = await this.authService.getSession(req, res);
     if (address) {
       const isBookmarked = await this.profileService.verifyBookmarkInteraction(
-        address as string,
+        address,
         job,
       );
       if (isBookmarked) {
@@ -828,10 +861,7 @@ export class ProfileController {
           message: "Job is already bookmarked for this user",
         };
       } else {
-        return this.profileService.logBookmarkInteraction(
-          address as string,
-          job,
-        );
+        return this.profileService.logBookmarkInteraction(address, job);
       }
     } else {
       res.status(HttpStatus.FORBIDDEN);
@@ -859,10 +889,7 @@ export class ProfileController {
     this.logger.log(`/profile/job/bookmark`);
     const { address } = await this.authService.getSession(req, res);
     if (address) {
-      return this.profileService.removeBookmarkInteraction(
-        address as string,
-        job,
-      );
+      return this.profileService.removeBookmarkInteraction(address, job);
     } else {
       res.status(HttpStatus.FORBIDDEN);
       return {

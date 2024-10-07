@@ -55,7 +55,7 @@ export class HacksController {
     @Body() createHackDto: CreateHackDto,
   ): Promise<Response<Hack> | ResponseWithNoData> {
     const { address } = await this.authService.getSession(req, res);
-    return this.hacksService.create(address as string, createHackDto);
+    return this.hacksService.create(address, createHackDto);
   }
 
   @Get()

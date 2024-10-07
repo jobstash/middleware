@@ -224,21 +224,21 @@ export const FILTER_CONFIG_PRESETS = {
     kind: FilterKind.SINGLE_SELECT,
     options: SINGLE_SELECT_OPTIONS.token,
   },
-  order: {
-    position: 23,
-    label: "Order",
-    show: true,
-    googleAnalyticsEventName: "filter_joblist_order",
-    kind: FilterKind.SINGLE_SELECT,
-    options: SINGLE_SELECT_OPTIONS.order,
-  },
   orderBy: {
-    position: 24,
+    position: 23,
     label: "Order By",
     show: true,
     googleAnalyticsEventName: "filter_joblist_order_by",
     kind: FilterKind.SINGLE_SELECT,
     options: SINGLE_SELECT_OPTIONS.orderBy,
+  },
+  order: {
+    position: 24,
+    label: "Order",
+    show: true,
+    googleAnalyticsEventName: "filter_joblist_order",
+    kind: FilterKind.SINGLE_SELECT,
+    options: SINGLE_SELECT_OPTIONS.order,
   },
 };
 

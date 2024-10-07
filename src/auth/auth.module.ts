@@ -1,6 +1,5 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { AuthController } from "./auth.controller";
-import { JwtAuthModule } from "./jwt/jwt-auth.module";
 import { JwtModule, JwtService } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AuthService } from "./auth.service";
@@ -8,13 +7,12 @@ import { UserModule } from "../user/user.module";
 import { MailModule } from "src/mail/mail.module";
 import { MagicAuthModule } from "./magic/magic-auth.module";
 import { ProfileModule } from "./profile/profile.module";
-import { ProfileService } from "./profile/profile.service";
 import { ModelService } from "src/model/model.service";
 
 @Module({
   imports: [
     forwardRef(() => UserModule),
-    JwtAuthModule,
+    forwardRef(() => ProfileModule),
     ConfigModule,
     MailModule,
     MagicAuthModule,
@@ -31,12 +29,7 @@ import { ModelService } from "src/model/model.service";
     }),
   ],
   controllers: [AuthController],
-  providers: [
-    JwtService,
-    ConfigService,
-    AuthService,
-    ProfileService,
-    ModelService,
-  ],
+  providers: [JwtService, ConfigService, AuthService, ModelService],
+  exports: [AuthService],
 })
 export class AuthModule {}

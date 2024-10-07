@@ -1,13 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
-import { IronSession, IronSessionOptions, getIronSession } from "iron-session";
 import { Request, Response } from "express";
+import { SessionObject } from "src/shared/interfaces";
+import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
 
 @Injectable()
 export class AuthService {
   private readonly jwtConfig: object;
-  private readonly sessionConfig: IronSessionOptions;
   constructor(
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
@@ -16,56 +16,42 @@ export class AuthService {
       secret: this.configService.get<string>("JWT_SECRET"),
       mutatePayload: false,
     };
-    this.sessionConfig = {
-      cookieName:
-        configService.get<string>("COOKIE_NAME") || "connectkit-next-siwe",
-      password: configService.get<string>("SESSION_SECRET"),
-      cookieOptions: {
-        secure: configService.get<string>("NODE_ENV") === "production",
-      },
-    };
   }
 
-  async getSession<
-    TSessionData extends Record<string, unknown> = Record<string, unknown>,
-  >(req: Request, res: Response): Promise<IronSession & TSessionData> {
-    const session = (await getIronSession(
-      req,
-      res,
-      this.sessionConfig,
-    )) as IronSession &
-      TSessionData & {
-        nonce?: string;
-        address?: string;
-        token?: string;
-        role?: string;
-        flow?: string;
-        chainId?: number;
+  async getSession(
+    req: Request,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _res: Response,
+  ): Promise<SessionObject | null> {
+    const token = req.headers?.authorization?.replace("Bearer ", "") ?? null;
+    if (token) {
+      const decoded = this.decodeToken(token);
+      if (decoded) {
+        return {
+          address: decoded.address ?? null,
+          role: decoded.role ?? CheckWalletRoles.ANON,
+          flow: decoded.flow ?? CheckWalletFlows.LOGIN,
+          cryptoNative: decoded.cryptoNative ?? false,
+        };
+      } else {
+        return {
+          address: null,
+          role: CheckWalletRoles.ANON,
+          flow: CheckWalletFlows.LOGIN,
+          cryptoNative: false,
+        };
+      }
+    } else {
+      return {
+        address: null,
+        role: CheckWalletRoles.ANON,
+        flow: CheckWalletFlows.LOGIN,
+        cryptoNative: false,
       };
-    return session;
+    }
   }
 
-  getLoggableSession<
-    TSessionData extends Record<string, unknown> = Record<string, unknown>,
-  >(
-    session: IronSession &
-      TSessionData & {
-        nonce?: string;
-        address?: string;
-        token?: string;
-        role?: string;
-        flow?: string;
-        chainId?: number;
-      },
-  ): IronSession & TSessionData {
-    return {
-      ...session,
-      nonce: "[REDACTED]",
-      token: "[REDACTED]",
-    };
-  }
-
-  createToken(claim: object): string {
+  createToken(claim: SessionObject): string {
     const token = this.jwtService.sign(claim, this.jwtConfig);
 
     return token;
@@ -80,7 +66,7 @@ export class AuthService {
     }
   }
 
-  decodeToken(token: string): object | string | null {
+  decodeToken(token: string): SessionObject | null {
     try {
       return this.jwtService.decode(token, this.jwtConfig);
     } catch (error) {

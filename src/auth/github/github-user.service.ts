@@ -7,6 +7,7 @@ import {
   Response,
   ResponseWithNoData,
   User,
+  UserEntity,
 } from "../../shared/types";
 import { CreateGithubUserDto } from "./dto/user/create-github-user.dto";
 import { UpdateGithubUserDto } from "./dto/user/update-github-user.dto";
@@ -14,7 +15,6 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import { instanceToNode, propertiesMatch } from "src/shared/helpers";
 import * as Sentry from "@sentry/node";
-import { UserService } from "../../user/user.service";
 import { GithubInfo } from "./dto/github-info.input";
 import { ModelService } from "src/model/model.service";
 
@@ -26,7 +26,6 @@ export class GithubUserService {
     @InjectConnection()
     private neogma: Neogma,
     private models: ModelService,
-    private readonly userService: UserService,
   ) {}
 
   async githubUserHasUser(githubId: string): Promise<boolean> {
@@ -39,6 +38,17 @@ export class GithubUserService {
     return result.records[0]?.get("hasUser") as boolean;
   }
 
+  async getWalletByGithub(githubId: string): Promise<string> {
+    const result = await this.neogma.queryRunner.run(
+      `
+        MATCH (u:User)-[:HAS_GITHUB_USER]->(:GithubUser {id: $githubId})
+        RETURN u.wallet as wallet
+      `,
+      { githubId },
+    );
+    return result.records[0]?.get("wallet") as string;
+  }
+
   async unsafe__linkGithubUser(
     wallet: string,
     githubLogin: string,
@@ -46,7 +56,7 @@ export class GithubUserService {
     const res = await this.neogma.queryRunner.run(
       `
       MATCH (u:User {wallet: $wallet}), (gu:GithubUser {login: $githubLogin})
-      CREATE (u)-[:HAS_GITHUB_USER]->(gu)
+      MERGE (u)-[:HAS_GITHUB_USER]->(gu)
       RETURN gu
       `,
       { wallet, githubLogin },
@@ -90,7 +100,15 @@ export class GithubUserService {
     const { wallet, ...updateObject } = args;
 
     try {
-      const storedUserNode = await this.userService.findByWallet(wallet);
+      const storedUserNode = new UserEntity(
+        instanceToNode(
+          await this.models.Users.findOne({
+            where: {
+              wallet: wallet,
+            },
+          }),
+        ),
+      );
       if (!storedUserNode) {
         return { success: false, message: "User not found" };
       }
@@ -99,8 +117,6 @@ export class GithubUserService {
       const payload = {
         id: updateObject.githubId,
         login: updateObject.githubLogin,
-        nodeId: updateObject.githubNodeId,
-        gravatarId: updateObject.githubGravatarId ?? null,
         avatarUrl: updateObject.githubAvatarUrl,
       };
 
@@ -114,21 +130,12 @@ export class GithubUserService {
         }
 
         await this.update(githubUserNode.getId(), payload);
-        const hasUser = await this.githubUserHasUser(githubUserNode.getId());
-
-        if (!hasUser) {
-          await this.unsafe__linkGithubUser(wallet, updateObject.githubLogin);
-          return {
-            success: true,
-            message: "Github data persisted successfully",
-            data: storedUserNode.getProperties(),
-          };
-        } else {
-          return {
-            success: false,
-            message: "Github user node already has a user associated with it",
-          };
-        }
+        await this.unsafe__linkGithubUser(wallet, updateObject.githubLogin);
+        return {
+          success: true,
+          message: "Github data persisted successfully",
+          data: storedUserNode.getProperties(),
+        };
       } else {
         this.logger.log("debug - GH User node not found, creating...");
         await this.create(payload);
@@ -155,6 +162,29 @@ export class GithubUserService {
         success: false,
         message: "Error adding github info to user",
       };
+    }
+  }
+
+  async removeGithubInfoFromUser(
+    wallet: string,
+    login: string = null,
+  ): Promise<void> {
+    if (login) {
+      await this.neogma.queryRunner.run(
+        `
+      MATCH (u:User {wallet: $wallet})-[r:HAS_GITHUB_USER]->(gu:GithubUser {login: $githubLogin})
+      DELETE r
+      `,
+        { wallet, githubLogin: login },
+      );
+    } else {
+      await this.neogma.queryRunner.run(
+        `
+      MATCH (u:User {wallet: $wallet})-[r:HAS_GITHUB_USER]->(:GithubUser)
+      DELETE r
+      `,
+        { wallet },
+      );
     }
   }
 

@@ -61,6 +61,11 @@ const envSchema = Joi.object({
   SKILL_THRESHOLD: Joi.number(),
   TEST_DB_MANAGER_URL: Joi.string(),
   TEST_DB_MANAGER_API_KEY: Joi.string(),
+  PRIVY_APP_ID: Joi.string(),
+  PRIVY_APP_SECRET: Joi.string(),
+  LLAMA_PAY_API_KEY: Joi.string(),
+  LLAMA_PAY_WEBHOOK_KEY: Joi.string(),
+  JOB_PROMOTION_PRICE: Joi.number().required(),
 });
 
 export default envSchema;

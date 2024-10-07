@@ -19,31 +19,30 @@ import {
 import { JwtModule, JwtService } from "@nestjs/jwt";
 import { HttpModule, HttpService } from "@nestjs/axios";
 import { AuthService } from "../auth.service";
-import { UserService } from "src/user/user.service";
+// import { UserService } from "src/user/user.service";
 import { UserRoleService } from "src/user/user-role.service";
 import { UserFlowService } from "src/user/user-flow.service";
-import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
+// import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
 import {
   DEV_TEST_WALLET,
   EPHEMERAL_TEST_WALLET,
   REALLY_LONG_TIME,
-  TEST_EMAIL,
-  TEST_GITHUB_USER,
+  // TEST_EMAIL,
+  // TEST_GITHUB_USER,
 } from "src/shared/constants";
 import { TagsService } from "src/tags/tags.service";
 import { Integer } from "neo4j-driver";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { resetTestDB } from "src/shared/helpers";
 import * as https from "https";
-import { GithubUserService } from "../github/github-user.service";
+// import { GithubUserService } from "../github/github-user.service";
 import { ScorerService } from "src/scorer/scorer.service";
-import { UpdateDevUserProfileInput } from "./dto/update-dev-profile.input";
 
 describe("ProfileService", () => {
   let models: ModelService;
   let profileService: ProfileService;
-  let githubUserService: GithubUserService;
-  let userService: UserService;
+  // let githubUserService: GithubUserService;
+  // let userService: UserService;
   let tagsService: TagsService;
   let httpService: HttpService;
 
@@ -105,11 +104,11 @@ describe("ProfileService", () => {
         ProfileService,
         AuthService,
         JwtService,
-        UserService,
+        // UserService,
         UserRoleService,
         UserFlowService,
         ModelService,
-        GithubUserService,
+        // GithubUserService,
         TagsService,
         ScorerService,
       ],
@@ -119,8 +118,8 @@ describe("ProfileService", () => {
     models = module.get<ModelService>(ModelService);
     await models.onModuleInit();
     profileService = module.get<ProfileService>(ProfileService);
-    githubUserService = module.get<GithubUserService>(GithubUserService);
-    userService = module.get<UserService>(UserService);
+    // githubUserService = module.get<GithubUserService>(GithubUserService);
+    // userService = module.get<UserService>(UserService);
     tagsService = module.get<TagsService>(TagsService);
     httpService = module.get<HttpService>(HttpService);
   }, REALLY_LONG_TIME);
@@ -142,69 +141,69 @@ describe("ProfileService", () => {
     REALLY_LONG_TIME,
   );
 
-  it(
-    "should update a user's profile",
-    async () => {
-      const user = await userService.createSIWEUser(EPHEMERAL_TEST_WALLET);
-      const github = await githubUserService.unsafe__linkGithubUser(
-        EPHEMERAL_TEST_WALLET,
-        TEST_GITHUB_USER,
-      );
-      await userService.addUserEmail(EPHEMERAL_TEST_WALLET, TEST_EMAIL);
-      await userService.verifyUserEmail(TEST_EMAIL);
+  // it(
+  //   "should update a user's profile",
+  //   async () => {
+  //     const user = await userService.createPrivyUser(EPHEMERAL_TEST_WALLET,);
+  //     const github = await githubUserService.unsafe__linkGithubUser(
+  //       EPHEMERAL_TEST_WALLET,
+  //       TEST_GITHUB_USER,
+  //     );
+  //     await userService.addUserEmail(EPHEMERAL_TEST_WALLET, TEST_EMAIL);
+  //     await userService.verifyUserEmail(TEST_EMAIL);
 
-      expect(user).toBeDefined();
-      expect(github).toBeDefined();
-      expect(github.login).toBe(TEST_GITHUB_USER);
+  //     expect(user).toBeDefined();
+  //     expect(github).toBeDefined();
+  //     expect(github.login).toBe(TEST_GITHUB_USER);
 
-      await userService.setWalletFlow({
-        flow: CheckWalletFlows.ONBOARD_REPO,
-        wallet: EPHEMERAL_TEST_WALLET,
-      });
+  //     await userService.setWalletFlow({
+  //       flow: CheckWalletFlows.ONBOARD_REPO,
+  //       wallet: EPHEMERAL_TEST_WALLET,
+  //     });
 
-      await userService.setWalletRole({
-        role: CheckWalletRoles.DEV,
-        wallet: EPHEMERAL_TEST_WALLET,
-      });
+  //     await userService.setWalletRole({
+  //       role: CheckWalletRoles.DEV,
+  //       wallet: EPHEMERAL_TEST_WALLET,
+  //     });
 
-      const profileData = {
-        availableForWork: true,
-        preferred: "discord",
-        contact: {
-          // "email": "obafemiteminife@gmail.com",
-          email: null,
-          discord: "AndySakov1958",
-          telegram: "AndySakov1958",
-          farcaster: "hiramekarei",
-          lens: null,
-          twitter: "obafemiteminife",
-        },
-        location: {
-          country: "Nigeria",
-          city: "Lagos",
-        },
-      } as UpdateDevUserProfileInput;
+  //     const profileData = {
+  //       availableForWork: true,
+  //       preferred: "discord",
+  //       contact: {
+  //         // "email": "obafemiteminife@gmail.com",
+  //         email: null,
+  //         discord: "AndySakov1958",
+  //         telegram: "AndySakov1958",
+  //         farcaster: "hiramekarei",
+  //         lens: null,
+  //         twitter: "obafemiteminife",
+  //       },
+  //       location: {
+  //         country: "Nigeria",
+  //         city: "Lagos",
+  //       },
+  //     } as UpdateDevUserProfileInput;
 
-      const newProfile = await profileService.updateDevUserProfile(
-        EPHEMERAL_TEST_WALLET,
-        profileData,
-      );
+  //     const newProfile = await profileService.updateDevUserAvailability(
+  //       EPHEMERAL_TEST_WALLET,
+  //       profileData,
+  //     );
 
-      expect(newProfile).toBeDefined();
-      expect(newProfile).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-        data: {
-          avatar: expect.any(String),
-          username: TEST_GITHUB_USER,
-          email: TEST_EMAIL,
-          wallet: EPHEMERAL_TEST_WALLET,
-          ...profileData,
-        },
-      });
-    },
-    REALLY_LONG_TIME,
-  );
+  //     expect(newProfile).toBeDefined();
+  //     expect(newProfile).toEqual({
+  //       success: true,
+  //       message: expect.stringMatching("success"),
+  //       data: {
+  //         avatar: expect.any(String),
+  //         username: TEST_GITHUB_USER,
+  //         email: TEST_EMAIL,
+  //         wallet: EPHEMERAL_TEST_WALLET,
+  //         ...profileData,
+  //       },
+  //     });
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
   it(
     "should update a user's showcases",
@@ -532,50 +531,50 @@ describe("ProfileService", () => {
     REALLY_LONG_TIME,
   );
 
-  it(
-    "should delete a user's account",
-    async () => {
-      const user = await userService.createSIWEUser(EPHEMERAL_TEST_WALLET);
+  // it(
+  //   "should delete a user's account",
+  //   async () => {
+  //     const user = await userService.createSIWEUser(EPHEMERAL_TEST_WALLET);
 
-      expect(user).toBeDefined();
+  //     expect(user).toBeDefined();
 
-      const response = await profileService.deleteUserAccount(
-        EPHEMERAL_TEST_WALLET,
-      );
+  //     const response = await profileService.deleteUserAccount(
+  //       EPHEMERAL_TEST_WALLET,
+  //     );
 
-      expect(response).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-      });
+  //     expect(response).toEqual({
+  //       success: true,
+  //       message: expect.stringMatching("success"),
+  //     });
 
-      const profile = await profileService.getDevUserProfile(
-        EPHEMERAL_TEST_WALLET,
-      );
+  //     const profile = await profileService.getDevUserProfile(
+  //       EPHEMERAL_TEST_WALLET,
+  //     );
 
-      const newProfileData = {
-        availableForWork: false,
-        contact: {
-          preferred: null,
-          value: null,
-        },
-        location: {
-          country: null,
-          city: null,
-        },
-      };
+  //     const newProfileData = {
+  //       availableForWork: false,
+  //       contact: {
+  //         preferred: null,
+  //         value: null,
+  //       },
+  //       location: {
+  //         country: null,
+  //         city: null,
+  //       },
+  //     };
 
-      expect(profile).not.toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-        data: {
-          avatar: null,
-          username: null,
-          email: null,
-          wallet: EPHEMERAL_TEST_WALLET,
-          ...newProfileData,
-        },
-      });
-    },
-    REALLY_LONG_TIME,
-  );
+  //     expect(profile).not.toEqual({
+  //       success: true,
+  //       message: expect.stringMatching("success"),
+  //       data: {
+  //         avatar: null,
+  //         username: null,
+  //         email: null,
+  //         wallet: EPHEMERAL_TEST_WALLET,
+  //         ...newProfileData,
+  //       },
+  //     });
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 });

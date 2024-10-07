@@ -7,6 +7,10 @@ export class UserEntity {
     return (<Record<string, string>>this.node.properties).id;
   }
 
+  getPrivyd(): string {
+    return (<Record<string, string>>this.node.properties).privyd;
+  }
+
   getWallet(): string | undefined {
     return (<Record<string, string>>this.node.properties).wallet;
   }
