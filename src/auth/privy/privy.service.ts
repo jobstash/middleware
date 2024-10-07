@@ -71,6 +71,10 @@ export class PrivyService {
       if (!user?.linkedAccounts) {
         this.logger.warn(`User ${userId} has no linked accounts`);
         this.logger.warn(user);
+      } else {
+        this.logger.log(
+          `Fetched user after ${attempts} attempt${attempts > 1 ? "s" : ""}`,
+        );
       }
     } catch (err) {
       Sentry.withScope(scope => {
