@@ -154,6 +154,13 @@ export class PrivyController {
     this.privyService.unsafe__________deleteMigratedUsers();
   }
 
+  @Get("die")
+  @UseGuards(ApiKeyGuard)
+  @HttpCode(HttpStatus.ACCEPTED)
+  die(): void {
+    process.exit(1);
+  }
+
   // @Get("check-relevant-unmigrated-users")
   // @HttpCode(HttpStatus.ACCEPTED)
   // async checkRelevantUnMigratedUsers(): Promise<void> {

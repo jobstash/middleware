@@ -68,6 +68,10 @@ export class PrivyService {
     let user: User;
     try {
       user = await this.privy.getUser(userId);
+      if (!user?.linkedAccounts) {
+        this.logger.warn(`User ${userId} has no linked accounts`);
+        this.logger.warn(user);
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -91,18 +95,26 @@ export class PrivyService {
 
   async getUserLinkedWallets(userId: string): Promise<string[]> {
     const user = await this.getUser(userId);
-    return user.linkedAccounts
-      .filter(x => x.type === "wallet" && x.walletClientType !== "privy")
-      .map(x => (x as WalletWithMetadata).address);
+    if (user?.linkedAccounts) {
+      return user.linkedAccounts
+        .filter(x => x.type === "wallet" && x.walletClientType !== "privy")
+        .map(x => (x as WalletWithMetadata).address);
+    } else {
+      return [];
+    }
   }
 
-  async getUserEmbeddedWallet(userId: string): Promise<string> {
+  async getUserEmbeddedWallet(userId: string): Promise<string | null> {
     const user = await this.getUser(userId);
-    return (
-      user.linkedAccounts.find(
-        x => x.type === "wallet" && x.walletClientType === "privy",
-      ) as WalletWithMetadata
-    )?.address;
+    if (user?.linkedAccounts) {
+      return (
+        user.linkedAccounts.find(
+          x => x.type === "wallet" && x.walletClientType === "privy",
+        ) as WalletWithMetadata
+      )?.address;
+    } else {
+      return null;
+    }
   }
 
   async deletePrivyUser(userId: string): Promise<void> {
