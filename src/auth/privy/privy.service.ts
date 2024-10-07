@@ -73,7 +73,9 @@ export class PrivyService {
         this.logger.warn(user);
       } else {
         this.logger.log(
-          `Fetched user after ${attempts} attempt${attempts > 1 ? "s" : ""}`,
+          `Fetched user after ${attempts + 1} attempt${
+            attempts > 1 ? "s" : ""
+          }`,
         );
       }
     } catch (err) {
@@ -85,7 +87,7 @@ export class PrivyService {
         Sentry.captureException(err);
       });
       this.logger.error(`PrivyService::getUser ${err.message}`);
-      const backOffTime = Math.min(60000, Math.pow(2, attempts) * 1000); // Cap back-off time to 60 seconds
+      const backOffTime = Math.min(360000, Math.pow(2, attempts) * 1000); // Cap back-off time to 60 seconds
       this.logger.warn(
         `Rate limited on get user request. Retrying after ${
           backOffTime / 1000
