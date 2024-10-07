@@ -10,6 +10,7 @@ import extractDomain from "src/shared/helpers/extract-domain";
 import { notStringOrNull } from "src/shared/helpers";
 import axios from "axios";
 import { UserService } from "src/user/user.service";
+import { th } from "date-fns/locale";
 // import { ScorerService } from "src/scorer/scorer.service";
 // import { UNMIGRATED_USERS } from "src/shared/constants/unmigrated-users";
 // import { ProfileService } from "../profile/profile.service";
@@ -63,19 +64,40 @@ export class PrivyService {
     );
   }
 
-  async getUser(userId: string): Promise<User> {
-    return this.privy.getUser(userId);
+  async getUser(userId: string, attempts = 0): Promise<User> {
+    let user: User;
+    try {
+      user = await this.privy.getUser(userId);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "privy.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`PrivyService::getUser ${err.message}`);
+      const backOffTime = Math.min(60000, Math.pow(2, attempts) * 1000); // Cap back-off time to 60 seconds
+      this.logger.warn(
+        `Rate limited on get user request. Retrying after ${
+          backOffTime / 1000
+        } seconds...`,
+      );
+      await new Promise(resolve => setTimeout(resolve, backOffTime));
+      return this.getUser(userId, attempts + 1);
+    }
+    return user;
   }
 
   async getUserLinkedWallets(userId: string): Promise<string[]> {
-    const user = await this.privy.getUser(userId);
+    const user = await this.getUser(userId);
     return user.linkedAccounts
       .filter(x => x.type === "wallet" && x.walletClientType !== "privy")
       .map(x => (x as WalletWithMetadata).address);
   }
 
   async getUserEmbeddedWallet(userId: string): Promise<string> {
-    const user = await this.privy.getUser(userId);
+    const user = await this.getUser(userId);
     return (
       user.linkedAccounts.find(
         x => x.type === "wallet" && x.walletClientType === "privy",
@@ -183,7 +205,7 @@ export class PrivyService {
                   privyId: result.id,
                 },
               );
-              const newUser = await this.privy.getUser(result.id);
+              const newUser = await this.getUser(result.id);
               await userService.createPrivyUser(
                 newUser,
                 newWallet,
