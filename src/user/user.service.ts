@@ -24,6 +24,7 @@ import { ProfileService } from "src/auth/profile/profile.service";
 import { User as PrivyUser } from "@privy-io/server-auth";
 import { PrivyService } from "src/auth/privy/privy.service";
 import { PermissionService } from "./permission.service";
+import { CheckWalletPermissions } from "src/shared/constants";
 
 @Injectable()
 export class UserService {
@@ -782,38 +783,45 @@ export class UserService {
     wallet: string,
     orgId: string,
   ): Promise<ResponseWithNoData> {
-    return (
-      this.neogma.queryRunner
-        .run(
-          `
+    const userPermissions =
+      await this.permissionService.getPermissionsForWallet(wallet);
+    const authorizationResult = await this.neogma.queryRunner
+      .run(
+        `
           MATCH (u:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
           MERGE (u)-[:HAS_ORGANIZATION_AUTHORIZATION]->(org)
           RETURN true as res
         `,
-          { wallet, orgId },
-        )
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .then(_ => {
-          return {
-            success: true,
-            message: "Set user authorization for org successfully",
-          };
-        })
-        .catch(err => {
-          Sentry.withScope(scope => {
-            scope.setTags({
-              action: "db-call",
-              source: "user.service",
-            });
-            Sentry.captureException(err);
+        { wallet, orgId },
+      )
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      .then(_ => {
+        return {
+          success: true,
+          message: "Set user authorization for org successfully",
+        };
+      })
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
           });
-          this.logger.error(`UserService::getFlowForWallet ${err.message}`);
-          return {
-            success: false,
-            message: "Setting user authorization for org failed",
-          };
-        })
-    );
+          Sentry.captureException(err);
+        });
+        this.logger.error(`UserService::getFlowForWallet ${err.message}`);
+        return {
+          success: false,
+          message: "Setting user authorization for org failed",
+        };
+      });
+    if (authorizationResult.success) {
+      await this.permissionService.syncUserPermissions(wallet, [
+        ...userPermissions.map(x => x.name),
+        CheckWalletPermissions.ORG_AFFILIATE,
+      ]);
+    }
+    return authorizationResult;
   }
 
   async findAll(): Promise<UserProfile[]> {
@@ -851,7 +859,7 @@ export class UserService {
       });
   }
 
-  async getDevsAvailableForWork(
+  async getUsersAvailableForWork(
     params: GetAvailableDevsInput,
     orgId: string | null,
   ): Promise<DevUserProfile[]> {
@@ -875,7 +883,6 @@ export class UserService {
         `
           MATCH (user:User), (organization: Organization {orgId: $orgId})
           WHERE user.available = true
-          AND (user)-[:HAS_ROLE]->(:UserRole { name: "DEV" })
 
           RETURN {
             wallet: user.wallet,
@@ -964,90 +971,6 @@ export class UserService {
         return [];
       });
   }
-
-  // async getOrgsAwaitingApproval(): Promise<OrgUserProfile[]> {
-  //   return this.neogma.queryRunner
-  //     .run(
-  //       `
-  //         MATCH (user:User)
-  //         WHERE (user)-[:HAS_ROLE]->(:UserRole { name: "ORG" })
-  //         AND (user)-[:HAS_USER_FLOW_STAGE]->(:UserFlow { name: "ORG-APPROVAL-PENDING" })
-  //         RETURN {
-  //           wallet: user.wallet,
-  //           linkedin: user.linkedin,
-  //           calendly: user.calendly,
-  //           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-  //           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-  //           contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-  //           email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
-  //           orgId: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization:Organization) | organization.orgId][0],
-  //           internalReference: [(user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo) | reference { .* }][0],
-  //           subscriberStatus: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION|HAS_SUBSCRIPTION*2]->(subscription:Subscription) | subscription { .* }][0]
-  //         } as user
-  //       `,
-  //     )
-  //     .then(res =>
-  //       res.records.length
-  //         ? res.records.map(record =>
-  //             new OrgUserProfileEntity(record.get("user")).getProperties(),
-  //           )
-  //         : [],
-  //     )
-  //     .catch(err => {
-  //       Sentry.withScope(scope => {
-  //         scope.setTags({
-  //           action: "db-call",
-  //           source: "user.service",
-  //         });
-  //         Sentry.captureException(err);
-  //       });
-  //       this.logger.error(
-  //         `UserService::getOrgsAwaitingApproval ${err.message}`,
-  //       );
-  //       return [];
-  //     });
-  // }
-
-  // async getApprovedOrgs(): Promise<OrgUserProfile[]> {
-  //   return this.neogma.queryRunner
-  //     .run(
-  //       `
-  //         MATCH (user:User)
-  //         WHERE (user)-[:HAS_ROLE]->(:UserRole { name: "ORG" })
-  //         AND (user)-[:HAS_USER_FLOW_STAGE]->(:UserFlow { name: "ORG-COMPLETE" })
-  //         RETURN {
-  //           wallet: user.wallet,
-  //           linkedin: user.linkedin,
-  //           calendly: user.calendly,
-  //           username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-  //           avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-  //           contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-  //           email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
-  //           orgId: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization:Organization) | organization.orgId][0],
-  //           internalReference: [(user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo) | reference { .* }][0],
-  //           subscriberStatus: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION|HAS_SUBSCRIPTION*2]->(subscription:Subscription) | subscription { .* }][0]
-  //         } as user
-  //       `,
-  //     )
-  //     .then(res =>
-  //       res.records.length
-  //         ? res.records.map(record =>
-  //             new OrgUserProfileEntity(record.get("user")).getProperties(),
-  //           )
-  //         : [],
-  //     )
-  //     .catch(err => {
-  //       Sentry.withScope(scope => {
-  //         scope.setTags({
-  //           action: "db-call",
-  //           source: "user.service",
-  //         });
-  //         Sentry.captureException(err);
-  //       });
-  //       this.logger.error(`UserService::getApprovedOrgs ${err.message}`);
-  //       return [];
-  //     });
-  // }
 
   async addUserNote(
     wallet: string,

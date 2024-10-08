@@ -55,13 +55,13 @@ export class UserController {
     return this.userService.findAll();
   }
 
-  @Get("devs/available")
+  @Get("available")
   @UseGuards(PBACGuard)
   @Permissions(
     CheckWalletPermissions.ADMIN,
     CheckWalletPermissions.ORG_AFFILIATE,
   )
-  async getDevsAvailableForWork(
+  async getUsersAvailableForWork(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
     @Query(new ValidationPipe({ transform: true }))
@@ -71,29 +71,13 @@ export class UserController {
     const orgId = address
       ? await this.userService.findOrgIdByWallet(address)
       : null;
-    this.logger.log(`/users/devs/available ${JSON.stringify(params)}`);
-    return this.userService.getDevsAvailableForWork(params, orgId);
+    this.logger.log(`/users/available ${JSON.stringify(params)}`);
+    return this.userService.getUsersAvailableForWork(params, orgId);
   }
-
-  // @Get("orgs/pending")
-  // @UseGuards(PBACGuard)
-  // @Permissions(CheckWalletPermissions.ADMIN)
-  // async getOrgsAwaitingApproval(): Promise<UserProfile[]> {
-  //   this.logger.log("/users/orgs/pending");
-  //   return this.userService.getOrgsAwaitingApproval();
-  // }
-
-  // @Get("orgs/approved")
-  // @UseGuards(PBACGuard)
-  // @Permissions(CheckWalletPermissions.ADMIN)
-  // async getApprovedOrgs(): Promise<UserProfile[]> {
-  //   this.logger.log("/users/orgs/approved");
-  //   return this.userService.getApprovedOrgs();
-  // }
 
   @Post("orgs/authorize")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   async authorizeOrgApplication(
     @Body() body: AuthorizeOrgApplicationInput,
   ): Promise<ResponseWithNoData> {
