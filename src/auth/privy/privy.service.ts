@@ -10,7 +10,6 @@ import extractDomain from "src/shared/helpers/extract-domain";
 import { notStringOrNull } from "src/shared/helpers";
 import axios from "axios";
 import { UserService } from "src/user/user.service";
-import { th } from "date-fns/locale";
 // import { ScorerService } from "src/scorer/scorer.service";
 // import { UNMIGRATED_USERS } from "src/shared/constants/unmigrated-users";
 // import { ProfileService } from "../profile/profile.service";

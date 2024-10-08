@@ -42,6 +42,7 @@ export class JobApplicantEntity {
         workHistory: workHistory?.map(workHistory => ({
           ...workHistory,
           name: notStringOrNull(workHistory.name),
+          description: notStringOrNull(workHistory.description),
           login: notStringOrNull(workHistory.login),
           logoUrl: notStringOrNull(workHistory.logoUrl),
           url: notStringOrNull(workHistory.url),
@@ -52,6 +53,7 @@ export class JobApplicantEntity {
             workHistory?.repositories?.map(repository => ({
               ...repository,
               cryptoNative: repository?.cryptoNative ?? false,
+              description: notStringOrNull(repository.description),
               name: notStringOrNull(repository.name),
               firstContributedAt: nonZeroOrNull(repository.firstContributedAt),
               lastContributedAt: nonZeroOrNull(repository.lastContributedAt),
