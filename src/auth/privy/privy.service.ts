@@ -1,6 +1,5 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { InjectConnection } from "nest-neogma";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { PrivyClient, User, WalletWithMetadata } from "@privy-io/server-auth";
@@ -9,10 +8,7 @@ import { PrivyClient, User, WalletWithMetadata } from "@privy-io/server-auth";
 export class PrivyService {
   private logger = new CustomLogger(PrivyService.name);
   private privy: PrivyClient;
-  constructor(
-    @InjectConnection()
-    private readonly configService: ConfigService,
-  ) {
+  constructor(private readonly configService: ConfigService) {
     this.privy = new PrivyClient(
       this.configService.get<string>("PRIVY_APP_ID"),
       this.configService.get<string>("PRIVY_APP_SECRET"),
