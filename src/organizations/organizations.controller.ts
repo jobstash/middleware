@@ -64,6 +64,7 @@ import { UpdateOrgAliasesInput } from "./dto/update-organization-aliases.input";
 import { UpdateOrgCommunitiesInput } from "./dto/update-organization-communities.input";
 import { ActivateOrgJobsiteInput } from "./dto/activate-organization-jobsites.input";
 import { UpdateOrgProjectInput } from "./dto/update-organization-projects.input";
+import { AddOrganizationByUrlInput } from "./dto/add-organization-by-url.input";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -520,6 +521,27 @@ export class OrganizationsController {
         message: `An unexpected error occured`,
       };
     }
+  }
+
+  @Post("/add-by-url")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
+  @ApiOkResponse({
+    description: "Queues a new organization for import on etl",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Organization),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong creating the organization on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async addOrganizationByUrl(
+    @Body() body: AddOrganizationByUrlInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/organizations/add-by-url ${JSON.stringify(body)}`);
+    return this.organizationsService.addOrganizationByUrl(body);
   }
 
   @Post("/update/:id")

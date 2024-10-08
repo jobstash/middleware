@@ -48,6 +48,9 @@ import { ActivateOrgJobsiteInput } from "./dto/activate-organization-jobsites.in
 import { UpdateOrgDetectedJobsitesInput } from "./dto/update-organization-detected-jobsites.input";
 import { UpdateOrgJobsitesInput } from "./dto/update-organization-jobsites.input";
 import { UpdateOrgProjectInput } from "./dto/update-organization-projects.input";
+import { AddOrganizationByUrlInput } from "./dto/add-organization-by-url.input";
+import { ConfigService } from "@nestjs/config";
+import axios from "axios";
 
 @Injectable()
 export class OrganizationsService {
@@ -56,6 +59,7 @@ export class OrganizationsService {
     @InjectConnection()
     private neogma: Neogma,
     private models: ModelService,
+    private configService: ConfigService,
   ) {}
 
   getOrgListResults = async (): Promise<OrgDetailsResult[]> => {
@@ -1068,6 +1072,70 @@ export class OrganizationsService {
     });
 
     return new OrganizationEntity(res.records[0]?.get("org"));
+  }
+
+  async addOrganizationByUrl(
+    dto: AddOrganizationByUrlInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      const clientId = this.configService.get<string>("ETL_CLIENT_ID");
+      const clientSecret = this.configService.get<string>("ETL_CLIENT_SECRET");
+      const url = this.configService.get<string>("ETL_DOMAIN");
+
+      const auth0Domain = this.configService.get<string>("AUTH0_DOMAIN");
+      const audience = this.configService.get<string>("AUTH0_AUDIENCE");
+      const response = await axios.post(`${auth0Domain}/oauth/token`, {
+        client_id: clientId,
+        client_secret: clientSecret,
+        audience,
+        grant_type: "client_credentials",
+      });
+      if (response.data) {
+        const authToken = response.data.access_token;
+        const response2 = await axios.get(
+          `${url}/organization-importer/import-organization-by-url?url=${dto.url}&name=${dto.name}`,
+          {
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+          },
+        );
+        if (response2.data) {
+          return {
+            success: true,
+            message: "Organization queued for import successfully",
+          };
+        } else {
+          this.logger.warn(
+            `Error queueing organization ${dto} for import: ${response2.data}`,
+          );
+          return {
+            success: false,
+            message: "Error adding organization",
+          };
+        }
+      } else {
+        return {
+          success: false,
+          message: "Error fetching auth token",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "organizations.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::addOrganizationByUrl ${err.message}`,
+      );
+      return {
+        success: false,
+        message: `Error adding organization by url`,
+      };
+    }
   }
 
   async update(
