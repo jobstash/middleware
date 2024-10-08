@@ -26,8 +26,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { UserService } from "../user/user.service";
 import { AuthService } from "./auth.service";
 import { SendVerificationEmailInput } from "./dto/send-verification-email.input";
-import { DevMagicAuthStrategy } from "./magic/dev.magic-auth.strategy";
-import { OrgMagicAuthStrategy } from "./magic/org.magic-auth.strategy";
+import { MagicAuthStrategy } from "./magic/magic.strategy";
 import { ProfileService } from "./profile/profile.service";
 import { PBACGuard } from "./pbac.guard";
 import { responseSchemaWrapper } from "src/shared/helpers";
@@ -40,11 +39,10 @@ export class AuthController {
     private readonly userService: UserService,
     private readonly profileService: ProfileService,
     private readonly authService: AuthService,
-    private devStrategy: DevMagicAuthStrategy,
-    private orgStrategy: OrgMagicAuthStrategy,
+    private strategy: MagicAuthStrategy,
   ) {}
 
-  @Post("magic/dev/login")
+  @Post("magic/login")
   @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Generates and sends email verification link for devs",
@@ -63,7 +61,7 @@ export class AuthController {
         body.destination,
       );
       if (result.success) {
-        this.devStrategy.send(req, res);
+        this.strategy.send(req, res);
         return {
           success: result.success,
           message: result.message,
@@ -81,7 +79,7 @@ export class AuthController {
     }
   }
 
-  @Get("magic/dev/login/callback")
+  @Get("magic/login/callback")
   @UseGuards(AuthGuard("dev-magic"))
   @ApiOkResponse({
     description: "Callback for email verification link for devs",
