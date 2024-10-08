@@ -3,5 +3,7 @@ export const CheckWalletPermissions = {
   SUPER_ADMIN: "SUPER_ADMIN" as const,
   ADMIN: "ADMIN" as const,
   ORG_AFFILIATE: "ORG_AFFILIATE" as const,
-  DATA_JANITOR: "DATA_JANITOR" as const,
+  PROJECT_MANAGER: "PROJECT_MANAGER" as const,
+  ORG_MANAGER: "ORG_MANAGER" as const,
+  TAGS_MANAGER: "TAGS_MANAGER" as const,
 };
