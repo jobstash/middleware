@@ -480,10 +480,7 @@ export class OrganizationsController {
 
   @Post("/create")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
-  )
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
     description: "Creates a new organization",
     schema: responseSchemaWrapper({
@@ -527,10 +524,7 @@ export class OrganizationsController {
 
   @Post("/update/:id")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
-  )
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
     description: "Updates an existing organization",
     schema: responseSchemaWrapper({
@@ -711,10 +705,7 @@ export class OrganizationsController {
 
   @Delete("/delete/:id")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
-  )
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
     description: "Deletes an existing organization",
     schema: responseSchemaWrapper({
@@ -735,10 +726,7 @@ export class OrganizationsController {
 
   @Post("/add-alias")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
-  )
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
     description: "Upserts an org with a new alias",
     schema: responseSchemaWrapper({
@@ -759,10 +747,7 @@ export class OrganizationsController {
 
   @Post("/add-project")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
-  )
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
     description: "Add a project to an org",
   })
@@ -780,10 +765,7 @@ export class OrganizationsController {
 
   @Post("/remove-project")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
-  )
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
     description: "Remove a project from an org",
   })
@@ -801,10 +783,7 @@ export class OrganizationsController {
 
   @Post("/transform-to-project/:id")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
-  )
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
     description: "Transforms an org to a project",
   })
@@ -822,10 +801,7 @@ export class OrganizationsController {
 
   @Post("/communities")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
-  )
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
     description: "Upserts an org with a new set of communities",
     schema: responseSchemaWrapper({

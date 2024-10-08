@@ -34,10 +34,13 @@ export class PBACGuard implements CanActivate {
     }
 
     const canAccess =
-      (session.permissions.includes(CheckWalletPermissions.SUPER_ADMIN) ||
-        requiredPermissions.every(perm => session.permissions.includes(perm)) ||
-        requiredPermissions.length === 0) &&
-      session?.address;
+      requiredPermissions.length === 0
+        ? true
+        : (session.permissions.includes(CheckWalletPermissions.SUPER_ADMIN) ||
+            requiredPermissions.every(perm =>
+              session.permissions.includes(perm),
+            )) &&
+          session?.address;
 
     if (canAccess) {
       return true;

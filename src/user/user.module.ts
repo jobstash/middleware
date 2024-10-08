@@ -20,6 +20,7 @@ import { HttpModule } from "@nestjs/axios";
 import { REALLY_LONG_TIME } from "src/shared/constants";
 import * as https from "https";
 import { PaymentsModule } from "src/payments/payments.module";
+import { PermissionService } from "./permission.service";
 
 @Module({
   imports: [
@@ -57,7 +58,8 @@ import { PaymentsModule } from "src/payments/payments.module";
     RpcService,
     PrivyService,
     GithubUserService,
+    PermissionService,
   ],
-  exports: [UserService, ModelService, RpcService],
+  exports: [UserService, ModelService, RpcService, PermissionService],
 })
 export class UserModule {}

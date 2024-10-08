@@ -54,7 +54,7 @@ export class TagsController {
   @UseGuards(PBACGuard)
   @Permissions(
     CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
+    CheckWalletPermissions.TAGS_MANAGER,
   )
   @ApiOkResponse({
     description: "Returns a list of all tags",
@@ -125,7 +125,7 @@ export class TagsController {
   @UseGuards(PBACGuard)
   @Permissions(
     CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
+    CheckWalletPermissions.TAGS_MANAGER,
   )
   @ApiOkResponse({
     description: "Returns a list of all blocked tags",
@@ -160,7 +160,7 @@ export class TagsController {
   @UseGuards(PBACGuard)
   @Permissions(
     CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
+    CheckWalletPermissions.TAGS_MANAGER,
   )
   @ApiOkResponse({
     description: "Retrieve a list of preferred tags and their synonym chains",
@@ -197,7 +197,7 @@ export class TagsController {
   @UseGuards(PBACGuard)
   @Permissions(
     CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
+    CheckWalletPermissions.TAGS_MANAGER,
   )
   @ApiOkResponse({
     description: "Retrieve a list of paired tags and their pairings",
@@ -311,7 +311,7 @@ export class TagsController {
   @UseGuards(PBACGuard)
   @Permissions(
     CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
+    CheckWalletPermissions.TAGS_MANAGER,
   )
   @ApiOkResponse({
     description: "Link one tag as a synonym of another",
@@ -383,7 +383,7 @@ export class TagsController {
   @UseGuards(PBACGuard)
   @Permissions(
     CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
+    CheckWalletPermissions.TAGS_MANAGER,
   )
   @ApiOkResponse({
     description: "Flag a list of tags as a blocked",
@@ -453,7 +453,7 @@ export class TagsController {
   @UseGuards(PBACGuard)
   @Permissions(
     CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
+    CheckWalletPermissions.TAGS_MANAGER,
   )
   @ApiOkResponse({
     description: "Unblock a list of blocked tags",
@@ -523,7 +523,7 @@ export class TagsController {
   @UseGuards(PBACGuard)
   @Permissions(
     CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
+    CheckWalletPermissions.TAGS_MANAGER,
   )
   @ApiOkResponse({
     description: "Create a new tag pairing or sync an old one",
@@ -610,7 +610,7 @@ export class TagsController {
   @UseGuards(PBACGuard)
   @Permissions(
     CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
+    CheckWalletPermissions.TAGS_MANAGER,
   )
   @ApiOkResponse({
     description: "Create a new preferred tag",
@@ -759,7 +759,7 @@ export class TagsController {
   @UseGuards(PBACGuard)
   @Permissions(
     CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
+    CheckWalletPermissions.TAGS_MANAGER,
   )
   @ApiOkResponse({
     description: "Delete a preferred tag",
@@ -813,7 +813,7 @@ export class TagsController {
   @UseGuards(PBACGuard)
   @Permissions(
     CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
+    CheckWalletPermissions.TAGS_MANAGER,
   )
   @ApiOkResponse({
     description: "Deletes synonyms for a preferred tag",

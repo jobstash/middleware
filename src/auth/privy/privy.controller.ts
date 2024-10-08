@@ -7,7 +7,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { PrivyService } from "./privy.service";
-import { PrivyUser } from "src/shared/decorators";
+import { PrivySession } from "src/shared/decorators";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { PrivyGuard } from "./privy.guard";
 import { User, WalletWithMetadata } from "@privy-io/server-auth";
@@ -29,7 +29,7 @@ export class PrivyController {
   @UseGuards(PrivyGuard)
   @HttpCode(HttpStatus.OK)
   async checkWallet(
-    @PrivyUser() user: User,
+    @PrivySession() user: User,
   ): Promise<SessionObject & { token: string }> {
     this.logger.log("/privy/check-wallet " + JSON.stringify(user));
     const embeddedWallet = (

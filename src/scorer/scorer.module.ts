@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { ScorerService } from "./scorer.service";
 import { HttpModule } from "@nestjs/axios";
 import { ConfigModule, ConfigService } from "@nestjs/config";
@@ -13,11 +13,13 @@ import { ProfileService } from "src/auth/profile/profile.service";
 import { RpcService } from "src/user/rpc.service";
 import { PrivyModule } from "src/auth/privy/privy.module";
 import { GithubModule } from "src/auth/github/github.module";
+import { UserModule } from "src/user/user.module";
 
 @Module({
   imports: [
     PrivyModule,
     GithubModule,
+    forwardRef(() => UserModule),
     HttpModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

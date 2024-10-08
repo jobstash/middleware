@@ -1,14 +1,5 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Query,
-  UseGuards,
-} from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { GrantsService } from "./grants.service";
-import { PBACGuard } from "src/auth/pbac.guard";
 import {
   ApiOkResponse,
   ApiUnprocessableEntityResponse,
@@ -39,7 +30,6 @@ export class GrantsController {
   ) {}
 
   @Get("")
-  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns a list of all grants",
     schema: responseSchemaWrapper({
@@ -60,7 +50,6 @@ export class GrantsController {
   }
 
   @Get(":slug")
-  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the details of the grant with the passed slug",
     schema: responseSchemaWrapper({
@@ -91,7 +80,6 @@ export class GrantsController {
   }
 
   @Get(":slug/grantees")
-  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the grantees of the grant with the passed slug",
     schema: responseSchemaWrapper({
@@ -115,7 +103,6 @@ export class GrantsController {
   }
 
   @Get(":slug/grantees/:granteeSlug")
-  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the details of the grantee with the passed slug",
     schema: responseSchemaWrapper({
@@ -136,7 +123,6 @@ export class GrantsController {
   }
 
   @Post("query")
-  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns a list of grants that match the query",
     schema: responseSchemaWrapper({
@@ -153,7 +139,6 @@ export class GrantsController {
   }
 
   @Post("mail")
-  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Sends an email to the admin",
     schema: responseSchemaWrapper({ type: "string" }),

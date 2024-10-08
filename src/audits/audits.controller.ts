@@ -37,7 +37,7 @@ export class AuditsController {
 
   @Post()
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Creates an audit and relates it to a project",
     schema: responseSchemaWrapper({
@@ -60,7 +60,7 @@ export class AuditsController {
 
   @Get()
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Creates an audit and relates it to a project",
     schema: responseSchemaWrapper({
@@ -78,7 +78,7 @@ export class AuditsController {
 
   @Get(":id")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Fetches an existing audit",
     schema: responseSchemaWrapper({
@@ -98,7 +98,7 @@ export class AuditsController {
 
   @Patch(":id")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Updates an existing audit",
     schema: responseSchemaWrapper({
@@ -119,7 +119,7 @@ export class AuditsController {
 
   @Delete(":id")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Deletes an audit and detaches it from its project",
     schema: responseSchemaWrapper({

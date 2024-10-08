@@ -6,7 +6,6 @@ import {
   Param,
   Query,
   Res,
-  UseGuards,
   ValidationPipe,
 } from "@nestjs/common";
 import { InvestorsService } from "./investors.service";
@@ -17,7 +16,6 @@ import {
   ApiBadRequestResponse,
   ApiNotFoundResponse,
 } from "@nestjs/swagger";
-import { PBACGuard } from "src/auth/pbac.guard";
 import {
   CACHE_CONTROL_HEADER,
   CACHE_DURATION,
@@ -38,7 +36,6 @@ export class InvestorsController {
   constructor(private readonly investorsService: InvestorsService) {}
 
   @Get("/list")
-  @UseGuards(PBACGuard)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
@@ -88,7 +85,6 @@ export class InvestorsController {
   }
 
   @Get("details/slug/:slug")
-  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns the investor details for the provided slug",
     schema: {
@@ -109,7 +105,7 @@ export class InvestorsController {
       "Returns that no investor details were found for the specified slug",
     type: ResponseWithNoData,
   })
-  async getJobDetailsByUuid(
+  async getInvestorDetailsByUuid(
     @Param("slug") slug: string,
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<Investor | undefined> {

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Header,
   Headers,
@@ -14,23 +15,6 @@ import {
   UseGuards,
   ValidationPipe,
 } from "@nestjs/common";
-import { JobsService } from "./jobs.service";
-import {
-  JobFilterConfigs,
-  JobListResult,
-  PaginatedData,
-  ResponseWithNoData,
-  ValidationError,
-  AllJobsListResult,
-  AllJobsFilterConfigs,
-  Response,
-  StructuredJobpostWithRelations,
-  ResponseWithOptionalData,
-  JobApplicant,
-  JobpostFolder,
-  data,
-  JobDetailsResult,
-} from "src/shared/types";
 import {
   ApiBadRequestResponse,
   ApiExtraModels,
@@ -41,31 +25,49 @@ import {
   getSchemaPath,
 } from "@nestjs/swagger";
 import * as Sentry from "@sentry/node";
-import { CustomLogger } from "src/shared/utils/custom-logger";
-import { JobListParams } from "./dto/job-list.input";
-import { AllJobsParams } from "./dto/all-jobs.input";
+import { Response as ExpressResponse, Request } from "express";
+import { AuthService } from "src/auth/auth.service";
+import { PBACGuard } from "src/auth/pbac.guard";
+import { ProfileService } from "src/auth/profile/profile.service";
+import { CheckWalletPermissions, ECOSYSTEM_HEADER } from "src/shared/constants";
 import {
   CACHE_CONTROL_HEADER,
   CACHE_DURATION,
   CACHE_EXPIRY,
 } from "src/shared/constants/cache-control";
-import { responseSchemaWrapper } from "src/shared/helpers";
-import { PBACGuard } from "src/auth/pbac.guard";
+import { Session } from "src/shared/decorators";
 import { Permissions } from "src/shared/decorators/role.decorator";
-import { Response as ExpressResponse, Request } from "express";
-import { AuthService } from "src/auth/auth.service";
-import { ChangeJobClassificationInput } from "./dto/change-classification.input";
-import { BlockJobsInput } from "./dto/block-jobs.input";
-import { ProfileService } from "src/auth/profile/profile.service";
-import { EditJobTagsInput } from "./dto/edit-tags.input";
+import { responseSchemaWrapper } from "src/shared/helpers";
+import {
+  AllJobsFilterConfigs,
+  AllJobsListResult,
+  JobApplicant,
+  JobDetailsResult,
+  JobFilterConfigs,
+  JobListResult,
+  JobpostFolder,
+  PaginatedData,
+  Response,
+  ResponseWithNoData,
+  ResponseWithOptionalData,
+  SessionObject,
+  StructuredJobpostWithRelations,
+  ValidationError,
+} from "src/shared/types";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 import { TagsService } from "src/tags/tags.service";
-import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
-import { CheckWalletPermissions, ECOSYSTEM_HEADER } from "src/shared/constants";
-import { FeatureJobsInput } from "./dto/feature-jobs.input";
 import { UserService } from "src/user/user.service";
-import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
+import { AllJobsParams } from "./dto/all-jobs.input";
+import { BlockJobsInput } from "./dto/block-jobs.input";
+import { ChangeJobClassificationInput } from "./dto/change-classification.input";
 import { CreateJobFolderInput } from "./dto/create-job-folder.input";
+import { EditJobTagsInput } from "./dto/edit-tags.input";
+import { FeatureJobsInput } from "./dto/feature-jobs.input";
+import { JobListParams } from "./dto/job-list.input";
 import { UpdateJobApplicantListInput } from "./dto/update-job-applicant-list.input";
+import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
+import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
+import { JobsService } from "./jobs.service";
 
 @Controller("jobs")
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
@@ -277,6 +279,7 @@ export class JobsController {
 
   @Get("/org/:id/applicants")
   @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
@@ -316,25 +319,20 @@ export class JobsController {
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<ResponseWithOptionalData<JobApplicant[]>> {
     this.logger.log(`/jobs/org/${id}/applicants`);
-    const { address, permissions } = await this.authService.getSession(
-      req,
-      res,
-    );
-    if (permissions.includes(CheckWalletPermissions.ORG_AFFILIATE)) {
-      if (!(await this.userService.userAuthorizedForOrg(address, id))) {
-        res.status(HttpStatus.UNAUTHORIZED);
-        return {
-          success: false,
-          message: "You are not authorized to access this resource",
-        };
-      }
+    const { address } = await this.authService.getSession(req, res);
+    if (!(await this.userService.userAuthorizedForOrg(address, id))) {
+      res.status(HttpStatus.UNAUTHORIZED);
+      return {
+        success: false,
+        message: "You are not authorized to access this resource",
+      };
     }
     return this.jobsService.getJobsByOrgIdWithApplicants(id, list);
   }
 
   @Get("/applicants")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
@@ -375,7 +373,7 @@ export class JobsController {
 
   @Get("/all")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description:
       "Returns a paginated, sorted list of all jobs that satisfy the search and filter predicate",
@@ -396,7 +394,7 @@ export class JobsController {
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Returns the configuration data for the ui filters",
     schema: {
@@ -419,6 +417,7 @@ export class JobsController {
 
   @Get("/bookmarked")
   @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Returns the bookmarked jobs of the currently logged in user",
     schema: {
@@ -430,26 +429,17 @@ export class JobsController {
     },
   })
   async getUserBookmarkedJobs(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
     @Headers(ECOSYSTEM_HEADER)
     ecosystem: string | undefined,
+    @Session() session: SessionObject,
   ): Promise<Response<JobListResult[]> | ResponseWithNoData> {
     this.logger.log(`/jobs/bookmarked`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.jobsService.getUserBookmarkedJobs(address, ecosystem);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
+    return this.jobsService.getUserBookmarkedJobs(session.address, ecosystem);
   }
 
   @Get("/applied")
   @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Returns the applied jobs of the currently logged in user",
     schema: {
@@ -461,26 +451,17 @@ export class JobsController {
     },
   })
   async getUserAppliedJobs(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
     @Headers(ECOSYSTEM_HEADER)
     ecosystem: string | undefined,
+    @Session() session: SessionObject,
   ): Promise<Response<JobListResult[]> | ResponseWithNoData> {
     this.logger.log(`/jobs/applied`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.jobsService.getUserAppliedJobs(address, ecosystem);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
+    return this.jobsService.getUserAppliedJobs(session.address, ecosystem);
   }
 
   @Get("/folders")
   @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Returns the job folders of the currently logged in user",
     schema: {
@@ -492,24 +473,15 @@ export class JobsController {
     },
   })
   async getUserJobFolders(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() session: SessionObject,
   ): Promise<Response<JobpostFolder[]> | ResponseWithNoData> {
     this.logger.log(`/jobs/folders`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.jobsService.getUserJobFolders(address);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
+    return this.jobsService.getUserJobFolders(session.address);
   }
 
   @Get("/folders/:id")
   @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Returns the details of the job folder with the passed id",
     schema: {
@@ -521,33 +493,15 @@ export class JobsController {
     },
   })
   async getUserJobFolderById(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
     @Param("id") id: string,
-  ): Promise<Response<JobpostFolder> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<JobpostFolder>> {
     this.logger.log(`/jobs/folders/:id`);
-    const { address } = await this.authService.getSession(req, res);
-    const result = await this.jobsService.getUserJobFolderById(id);
-    if (address) {
-      return result;
-    } else {
-      if (data(result)?.isPublic) {
-        return result;
-      } else {
-        return {
-          success: false,
-          message: "Public job folder not found for that id",
-        };
-      }
-    }
+    return this.jobsService.getUserJobFolderById(id);
   }
 
   @Post("/org/:id/applicants")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.ORG_AFFILIATE,
-  )
+  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
   @ApiOkResponse({
     description: "Updates an orgs applicant list",
     schema: {
@@ -559,53 +513,45 @@ export class JobsController {
     },
   })
   async updateOrgJobApplicantList(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() session: SessionObject,
     @Param("id") orgId: string,
     @Body() body: UpdateJobApplicantListInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/jobs/org/:id/applicants`);
-    const { address, permissions } = await this.authService.getSession(
-      req,
-      res,
-    );
-    if (permissions.includes(CheckWalletPermissions.ORG_AFFILIATE)) {
-      if (!(await this.userService.userAuthorizedForOrg(address, orgId))) {
-        res.status(HttpStatus.UNAUTHORIZED);
-        return {
-          success: false,
-          message: "You are not authorized to access this resource",
-        };
-      }
+    if (
+      !(await this.userService.userAuthorizedForOrg(session.address, orgId))
+    ) {
+      throw new ForbiddenException({
+        success: false,
+        message: "You are not authorized to access this resource",
+      });
     }
     return this.jobsService.updateOrgJobApplicantList(orgId, body);
   }
 
-  @Post("/applicants")
-  @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.ORG_AFFILIATE,
-  )
-  @ApiOkResponse({
-    description: "Updates an orgs applicant list",
-    schema: {
-      allOf: [
-        {
-          $ref: getSchemaPath(ResponseWithNoData),
-        },
-      ],
-    },
-  })
-  async updateJobApplicantList(
-    @Body() body: UpdateJobApplicantListInput,
-  ): Promise<ResponseWithNoData> {
-    this.logger.log(`/jobs/applicants`);
-    return this.jobsService.updateJobApplicantList(body);
-  }
+  // @Post("/applicants")
+  // @UseGuards(PBACGuard)
+  // @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
+  // @ApiOkResponse({
+  //   description: "Updates an orgs applicant list",
+  //   schema: {
+  //     allOf: [
+  //       {
+  //         $ref: getSchemaPath(ResponseWithNoData),
+  //       },
+  //     ],
+  //   },
+  // })
+  // async updateJobApplicantList(
+  //   @Body() body: UpdateJobApplicantListInput,
+  // ): Promise<ResponseWithNoData> {
+  //   this.logger.log(`/jobs/applicants`);
+  //   return this.jobsService.updateJobApplicantList(body);
+  // }
 
   @Post("/folders")
   @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Creates a new job folder",
     schema: {
@@ -617,25 +563,16 @@ export class JobsController {
     },
   })
   async createUserJobFolder(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() session: SessionObject,
     @Body() body: CreateJobFolderInput,
   ): Promise<Response<JobpostFolder> | ResponseWithNoData> {
     this.logger.log(`/jobs/folders`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.jobsService.createUserJobFolder(address, body);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
+    return this.jobsService.createUserJobFolder(session.address, body);
   }
 
   @Post("/folders/:id")
   @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Updates the details of the job folder with the passed id",
     schema: {
@@ -647,38 +584,28 @@ export class JobsController {
     },
   })
   async updateUserJobFolder(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() session: SessionObject,
     @Param("id") id: string,
     @Body() body: UpdateJobFolderInput,
   ): Promise<Response<JobpostFolder> | ResponseWithNoData> {
     this.logger.log(`/jobs/folders/:id`);
-    const { address } = await this.authService.getSession(req, res);
-
-    if (address) {
-      const canEditFolder = await this.userService.userAuthorizedForJobFolder(
-        address,
-        id,
-      );
-      if (canEditFolder) {
-        return this.jobsService.updateUserJobFolder(id, body);
-      } else {
-        return {
-          success: false,
-          message: "You are not authorized to perform this action",
-        };
-      }
+    const canEditFolder = await this.userService.userAuthorizedForJobFolder(
+      session.address,
+      id,
+    );
+    if (canEditFolder) {
+      return this.jobsService.updateUserJobFolder(id, body);
     } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
+      throw new ForbiddenException({
         success: false,
-        message: "Access denied for unauthenticated user",
-      };
+        message: "You are not authorized to perform this action",
+      });
     }
   }
 
   @Delete("/folders/:id")
   @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Deletes the job folder with the passed id",
     schema: {
@@ -690,38 +617,27 @@ export class JobsController {
     },
   })
   async deleteUserJobFolder(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() session: SessionObject,
     @Param("id") id: string,
   ): Promise<Response<JobpostFolder> | ResponseWithNoData> {
     this.logger.log(`/jobs/folders/:id`);
-    const { address } = await this.authService.getSession(req, res);
-
-    if (address) {
-      const canEditFolder = await this.userService.userAuthorizedForJobFolder(
-        address,
-        id,
-      );
-      if (canEditFolder) {
-        return this.jobsService.deleteUserJobFolder(id);
-      } else {
-        return {
-          success: false,
-          message: "You are not authorized to perform this action",
-        };
-      }
+    const canEditFolder = await this.userService.userAuthorizedForJobFolder(
+      session.address,
+      id,
+    );
+    if (canEditFolder) {
+      return this.jobsService.deleteUserJobFolder(id);
     } else {
-      res.status(HttpStatus.FORBIDDEN);
       return {
         success: false,
-        message: "Access denied for unauthenticated user",
+        message: "You are not authorized to perform this action",
       };
     }
   }
 
   @Post("/change-classification")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Changes the classification of a list of jobs",
     schema: {
@@ -729,14 +645,12 @@ export class JobsController {
     },
   })
   async changeClassification(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() session: SessionObject,
     @Body() dto: ChangeJobClassificationInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/jobs/change-classification`);
     try {
-      const { address } = await this.authService.getSession(req, res);
-      return this.jobsService.changeJobClassification(address, dto);
+      return this.jobsService.changeJobClassification(session.address, dto);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -756,7 +670,7 @@ export class JobsController {
 
   @Post("/feature")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Make a job featured",
     schema: {
@@ -764,22 +678,11 @@ export class JobsController {
     },
   })
   async makeFeatured(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
     @Body() dto: FeatureJobsInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/jobs/feature`);
     try {
-      const { address } = await this.authService.getSession(req, res);
-      if (address) {
-        return this.jobsService.makeJobFeatured(dto);
-      } else {
-        res.status(HttpStatus.FORBIDDEN);
-        return {
-          success: false,
-          message: "Access denied for unauthenticated user",
-        };
-      }
+      return this.jobsService.makeJobFeatured(dto);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -799,7 +702,7 @@ export class JobsController {
 
   @Post("/edit-tags")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Edits the tags of a job",
     schema: {
@@ -807,12 +710,10 @@ export class JobsController {
     },
   })
   async editTags(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() session: SessionObject,
     @Body() dto: EditJobTagsInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const { address } = await this.authService.getSession(req, res);
       const { tags } = dto;
       const tagsToAdd = [];
       for (const tag of tags) {
@@ -830,7 +731,7 @@ export class JobsController {
         }
       }
       this.logger.log(`/jobs/edit-tags ${JSON.stringify(tagsToAdd)}`);
-      return this.jobsService.editJobTags(address, {
+      return this.jobsService.editJobTags(session.address, {
         ...dto,
         tags: tagsToAdd,
       });
@@ -853,7 +754,7 @@ export class JobsController {
 
   @Post("/update/:id")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Updates an existing job's metadata",
     schema: responseSchemaWrapper({
@@ -866,13 +767,11 @@ export class JobsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async updateJobMetadata(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() session: SessionObject,
     @Param("id") shortUUID: string,
     @Body(new ValidationPipe({ transform: true })) body: UpdateJobMetadataInput,
   ): Promise<Response<JobListResult> | ResponseWithNoData> {
     this.logger.log(`/jobs/update/${shortUUID} ${JSON.stringify(body)}`);
-    const { address } = await this.authService.getSession(req, res);
     const {
       commitment,
       classification,
@@ -883,6 +782,7 @@ export class JobsController {
       tags,
       ...dto
     } = body;
+    const { address } = session;
 
     if (isBlocked === true) {
       const res1a = await this.jobsService.blockJobs(address, {
@@ -962,7 +862,7 @@ export class JobsController {
       }
     }
 
-    const res6 = await this.editTags(req, res, {
+    const res6 = await this.editTags(session, {
       shortUUID,
       tags: tags.map(x => x.name),
     });
@@ -988,7 +888,7 @@ export class JobsController {
 
   @Post("/block")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Blocks a list of jobs",
     schema: {
@@ -996,14 +896,12 @@ export class JobsController {
     },
   })
   async blockJobs(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() session: SessionObject,
     @Body() dto: BlockJobsInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/jobs/block`);
     try {
-      const { address } = await this.authService.getSession(req, res);
-      return this.jobsService.blockJobs(address, dto);
+      return this.jobsService.blockJobs(session.address, dto);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -1023,7 +921,7 @@ export class JobsController {
 
   @Post("/unblock")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Unblocks a list of jobs",
     schema: {
@@ -1031,14 +929,12 @@ export class JobsController {
     },
   })
   async unblockJobs(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() session: SessionObject,
     @Body() dto: BlockJobsInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/jobs/block`);
     try {
-      const { address } = await this.authService.getSession(req, res);
-      return this.jobsService.unblockJobs(address, dto);
+      return this.jobsService.unblockJobs(session.address, dto);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({

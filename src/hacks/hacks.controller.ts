@@ -37,7 +37,7 @@ export class HacksController {
 
   @Post()
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Creates an hack and relates it to a project",
     schema: responseSchemaWrapper({
@@ -60,7 +60,7 @@ export class HacksController {
 
   @Get()
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all hacks",
     schema: responseSchemaWrapper({
@@ -78,7 +78,7 @@ export class HacksController {
 
   @Get(":id")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Fetches an existing hack",
     schema: responseSchemaWrapper({
@@ -98,7 +98,7 @@ export class HacksController {
 
   @Patch(":id")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Updates an existing hack",
     schema: responseSchemaWrapper({
@@ -119,7 +119,7 @@ export class HacksController {
 
   @Delete(":id")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Deletes an hack and detaches it from its project",
     schema: responseSchemaWrapper({

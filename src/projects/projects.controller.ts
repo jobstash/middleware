@@ -729,7 +729,7 @@ export class ProjectsController {
   @UseGuards(PBACGuard)
   @Permissions(
     CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
+    CheckWalletPermissions.PROJECT_MANAGER,
   )
   @ApiOkResponse({
     description: "Creates a new project",
@@ -826,7 +826,7 @@ export class ProjectsController {
   @UseGuards(PBACGuard)
   @Permissions(
     CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
+    CheckWalletPermissions.PROJECT_MANAGER,
   )
   @ApiOkResponse({
     description: "Updates an existing project",
@@ -863,7 +863,7 @@ export class ProjectsController {
   @UseGuards(PBACGuard)
   @Permissions(
     CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.DATA_JANITOR,
+    CheckWalletPermissions.PROJECT_MANAGER,
   )
   @ApiOkResponse({
     description: "Deletes an existing project",

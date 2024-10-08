@@ -23,6 +23,7 @@ import { ConfigService } from "@nestjs/config";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { User as PrivyUser } from "@privy-io/server-auth";
 import { PrivyService } from "src/auth/privy/privy.service";
+import { PermissionService } from "./permission.service";
 
 @Injectable()
 export class UserService {
@@ -35,6 +36,7 @@ export class UserService {
     private readonly profileService: ProfileService,
     private readonly scorerService: ScorerService,
     private readonly privyService: PrivyService,
+    private readonly permissionService: PermissionService,
   ) {}
 
   async findByWallet(wallet: string): Promise<UserEntity | undefined> {
@@ -662,14 +664,6 @@ export class UserService {
 
         await this.profileService.getUserWorkHistory(embeddedWallet);
 
-        // await this.setRole(role, newUser);
-        // await this.setFlow(
-        //   role === CheckWalletRoles.ORG
-        //     ? CheckWalletFlows.ORG_PROFILE
-        //     : CheckWalletFlows.ONBOARD_PROFILE,
-        //   newUser,
-        // );
-
         return {
           success: true,
           message: "User created successfully",
@@ -775,6 +769,13 @@ export class UserService {
     } else {
       return initial;
     }
+  }
+
+  async syncUserPermissions(
+    wallet: string,
+    permissions: string[],
+  ): Promise<void> {
+    return this.permissionService.syncUserPermissions(wallet, permissions);
   }
 
   async authorizeUserForOrg(
