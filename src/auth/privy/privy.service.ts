@@ -63,24 +63,63 @@ export class PrivyService {
     );
   }
 
-  async getUser(userId: string): Promise<User> {
-    return this.privy.getUser(userId);
+  async getUser(userId: string, attempts = 0): Promise<User> {
+    let user: User;
+    try {
+      user = await this.privy.getUser(userId);
+      if (!user?.linkedAccounts) {
+        this.logger.warn(`User ${userId} has no linked accounts`);
+        this.logger.warn(user);
+      } else {
+        this.logger.log(
+          `Fetched user after ${attempts + 1} attempt${
+            attempts > 1 ? "s" : ""
+          }`,
+        );
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "privy.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`PrivyService::getUser ${err.message}`);
+      const backOffTime = Math.min(360000, Math.pow(2, attempts) * 1000); // Cap back-off time to 60 seconds
+      this.logger.warn(
+        `Rate limited on get user request. Retrying after ${
+          backOffTime / 1000
+        } seconds...`,
+      );
+      await new Promise(resolve => setTimeout(resolve, backOffTime));
+      return this.getUser(userId, attempts + 1);
+    }
+    return user;
   }
 
   async getUserLinkedWallets(userId: string): Promise<string[]> {
-    const user = await this.privy.getUser(userId);
-    return user.linkedAccounts
-      .filter(x => x.type === "wallet" && x.walletClientType !== "privy")
-      .map(x => (x as WalletWithMetadata).address);
+    const user = await this.getUser(userId);
+    if (user?.linkedAccounts) {
+      return user.linkedAccounts
+        .filter(x => x.type === "wallet" && x.walletClientType !== "privy")
+        .map(x => (x as WalletWithMetadata).address);
+    } else {
+      return [];
+    }
   }
 
-  async getUserEmbeddedWallet(userId: string): Promise<string> {
-    const user = await this.privy.getUser(userId);
-    return (
-      user.linkedAccounts.find(
-        x => x.type === "wallet" && x.walletClientType === "privy",
-      ) as WalletWithMetadata
-    )?.address;
+  async getUserEmbeddedWallet(userId: string): Promise<string | null> {
+    const user = await this.getUser(userId);
+    if (user?.linkedAccounts) {
+      return (
+        user.linkedAccounts.find(
+          x => x.type === "wallet" && x.walletClientType === "privy",
+        ) as WalletWithMetadata
+      )?.address;
+    } else {
+      return null;
+    }
   }
 
   async deletePrivyUser(userId: string): Promise<void> {
@@ -179,7 +218,7 @@ export class PrivyService {
                   privyId: result.id,
                 },
               );
-              const newUser = await this.privy.getUser(result.id);
+              const newUser = await this.getUser(result.id);
               await userService.createPrivyUser(newUser, newWallet);
               this.logger.log(`Done!`);
             }

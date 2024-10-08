@@ -1,6 +1,5 @@
 import { Injectable } from "@nestjs/common";
 import {
-  data,
   DevUserProfile,
   DevUserProfileEntity,
   ResponseWithNoData,
@@ -24,8 +23,6 @@ import { ConfigService } from "@nestjs/config";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { User as PrivyUser } from "@privy-io/server-auth";
 import { PrivyService } from "src/auth/privy/privy.service";
-import { GithubUserService } from "src/auth/github/github-user.service";
-import axios from "axios";
 
 @Injectable()
 export class UserService {
@@ -38,7 +35,6 @@ export class UserService {
     private readonly profileService: ProfileService,
     private readonly scorerService: ScorerService,
     private readonly privyService: PrivyService,
-    private readonly githubUserService: GithubUserService,
   ) {}
 
   async findByWallet(wallet: string): Promise<UserEntity | undefined> {
@@ -293,8 +289,6 @@ export class UserService {
 
       const userEmails = await this.getUserEmails(wallet);
 
-      console.log(userEmails);
-
       if (userEmails.find(x => x.email === email && x.main === true)) {
         return {
           success: false,
@@ -416,7 +410,7 @@ export class UserService {
           };
         });
 
-      await this.profileService.runUserDataFetchingOps(wallet, true);
+      await this.profileService.getUserWorkHistory(wallet);
 
       return result;
     }
@@ -577,48 +571,6 @@ export class UserService {
         this.logger.log(`User ${embeddedWallet} already exists. Updating...`);
         await this.syncUserLinkedWallets(embeddedWallet, user.id);
 
-        const profile = data(
-          await this.profileService.getUserProfile(embeddedWallet),
-        );
-
-        if (
-          user.github &&
-          profile?.linkedAccounts.github !== user.github.username
-        ) {
-          this.logger.log(`Fetching github info for ${user.github.username}`);
-          const githubUser = axios
-            .get<{
-              avatar_url: string;
-            }>(`https://api.github.com/users/${user.github.username}`)
-            .catch(err => {
-              this.logger.error(`UserService::fetchGithubUser ${err.message}`);
-              this.logger.error(err);
-              Sentry.withScope(scope => {
-                scope.setTags({
-                  action: "external-api-call",
-                  source: "user.service",
-                });
-                Sentry.captureException(err);
-              });
-              return undefined;
-            });
-
-          const result = await this.githubUserService.addGithubInfoToUser({
-            wallet: embeddedWallet,
-            githubLogin: user.github.username,
-            githubId: user.github.subject,
-            githubAvatarUrl: (await githubUser)?.data?.avatar_url ?? null,
-          });
-          if (result.success) {
-            this.logger.log(`Github info added to user`);
-          } else {
-            this.logger.error(
-              `Github info not added to user: ${result.message}`,
-            );
-            return result;
-          }
-        }
-
         const contact = {
           discord: user.discord?.username ?? null,
           telegram: user.telegram?.username ?? null,
@@ -647,7 +599,7 @@ export class UserService {
           }
         }
 
-        await this.profileService.runUserDataFetchingOps(embeddedWallet);
+        await this.profileService.getUserWorkHistory(embeddedWallet);
         return {
           success: true,
           message: "User already exists",
@@ -680,40 +632,6 @@ export class UserService {
       if (newUser) {
         await this.syncUserLinkedWallets(embeddedWallet, user.id);
 
-        if (user.github) {
-          this.logger.log(`Fetching github info for ${user.github.username}`);
-          const githubUser = axios
-            .get<{
-              avatar_url: string;
-            }>(`https://api.github.com/users/${user.github.username}`)
-            .catch(err => {
-              this.logger.error(`UserService::fetchGithubUser ${err.message}`);
-              Sentry.withScope(scope => {
-                scope.setTags({
-                  action: "external-api-call",
-                  source: "user.service",
-                });
-                Sentry.captureException(err);
-              });
-              return undefined;
-            });
-
-          const result = await this.githubUserService.addGithubInfoToUser({
-            wallet: embeddedWallet,
-            githubLogin: user.github.username,
-            githubId: user.github.subject,
-            githubAvatarUrl: (await githubUser).data.avatar_url,
-          });
-          if (result.success) {
-            this.logger.log(`Github info added to user`);
-          } else {
-            this.logger.error(
-              `Github info not added to user: ${result.message}`,
-            );
-            return result;
-          }
-        }
-
         const contact = {
           discord: user.discord?.username ?? null,
           telegram: user.telegram?.username ?? null,
@@ -741,7 +659,16 @@ export class UserService {
             return result;
           }
         }
-        await this.profileService.runUserDataFetchingOps(embeddedWallet, true);
+
+        await this.profileService.getUserWorkHistory(embeddedWallet);
+
+        // await this.setRole(role, newUser);
+        // await this.setFlow(
+        //   role === CheckWalletRoles.ORG
+        //     ? CheckWalletFlows.ORG_PROFILE
+        //     : CheckWalletFlows.ONBOARD_PROFILE,
+        //   newUser,
+        // );
 
         return {
           success: true,
@@ -843,7 +770,7 @@ export class UserService {
       });
 
     if (initial === undefined) {
-      await this.profileService.runUserDataFetchingOps(wallet);
+      await this.profileService.getUserWorkHistory(wallet);
       return this.getCryptoNativeStatus(wallet);
     } else {
       return initial;

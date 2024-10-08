@@ -1683,6 +1683,11 @@ export const PUBLIC_API_SCHEMAS = {
                 description: "Whether the organization has a user",
                 type: "boolean",
               },
+              atsClient: {
+                description:
+                  "The name of the ATS client used by the organization",
+                type: "string",
+              },
             },
           },
         },

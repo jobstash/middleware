@@ -7,15 +7,14 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { PrivyService } from "./privy.service";
-import { PBACGuard } from "../pbac.guard";
-import { PrivyUser, Permissions } from "src/shared/decorators";
-import { CheckWalletPermissions } from "src/shared/constants";
+import { PrivyUser } from "src/shared/decorators";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { PrivyGuard } from "./privy.guard";
 import { User, WalletWithMetadata } from "@privy-io/server-auth";
 import { AuthService } from "../auth.service";
 import { SessionObject } from "src/shared/interfaces";
 import { UserService } from "src/user/user.service";
+import { ApiKeyGuard } from "../api-key.guard";
 
 @Controller("privy")
 export class PrivyController {
@@ -74,8 +73,8 @@ export class PrivyController {
   }
 
   @Get("migrate-users")
-  @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @UseGuards(ApiKeyGuard)
+  // @Roles(CheckWalletRoles.ADMIN)
   @HttpCode(HttpStatus.ACCEPTED)
   async migrateUsers(): Promise<void> {
     this.logger.log("/privy/migrate-users");
@@ -83,12 +82,19 @@ export class PrivyController {
   }
 
   @Get("delete-migrated-users")
-  @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @UseGuards(ApiKeyGuard)
+  // @Roles(CheckWalletRoles.ADMIN)
   @HttpCode(HttpStatus.ACCEPTED)
   async deleteMigratedUsers(): Promise<void> {
     this.logger.log("/privy/delete-migrated-users");
     this.privyService.unsafe__________deleteMigratedUsers();
+  }
+
+  @Get("die")
+  @UseGuards(ApiKeyGuard)
+  @HttpCode(HttpStatus.ACCEPTED)
+  die(): void {
+    process.exit(1);
   }
 
   // @Get("check-relevant-unmigrated-users")

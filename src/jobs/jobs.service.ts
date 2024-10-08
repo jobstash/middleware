@@ -79,10 +79,13 @@ export class JobsService {
       WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
       MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
       WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-      OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-      WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost
-      OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
-      WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost
+      WITH DISTINCT tag, structured_jobpost
+      OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+      OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+      WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
+      WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
+      WITH DISTINCT canonicalTag as tag, structured_jobpost
+      WITH COLLECT(tag { .* }) as tags, structured_jobpost
       RETURN structured_jobpost {
           id: structured_jobpost.id,
           url: structured_jobpost.url,
@@ -112,6 +115,7 @@ export class JobsService {
           locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
           organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization:Organization) | organization {
               .*,
+              atsClient: [(organization)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
               hasUser: CASE WHEN EXISTS((:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization)) THEN true ELSE false END,
               discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
               website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
@@ -209,11 +213,13 @@ export class JobsService {
     const generatedQuery = `
           MATCH (structured_jobpost:StructuredJobpost)
           MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-          WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-          WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost
-          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
-          WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost
+          WITH DISTINCT tag, structured_jobpost
+          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+          WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
+          WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
+          WITH DISTINCT canonicalTag as tag, structured_jobpost
+          WITH COLLECT(tag { .* }) as tags, structured_jobpost
           RETURN structured_jobpost {
               id: structured_jobpost.id,
               url: structured_jobpost.url,
@@ -751,11 +757,13 @@ export class JobsService {
       MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID})-[:HAS_STATUS]->(:JobpostOnlineStatus)
       WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
       MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-      OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-      WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost
-      OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
-      WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost
+      WITH DISTINCT tag, structured_jobpost
+      OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+      OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+      WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
+      WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
+      WITH DISTINCT canonicalTag as tag, structured_jobpost
+      WITH COLLECT(tag { .* }) as tags, structured_jobpost
       RETURN structured_jobpost {
           id: structured_jobpost.id,
           url: structured_jobpost.url,
@@ -785,6 +793,7 @@ export class JobsService {
           locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
           organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization:Organization) | organization {
               .*,
+              atsClient: [(organization)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
               hasUser: CASE WHEN EXISTS((:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization)) THEN true ELSE false END,
               discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
               website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
@@ -930,11 +939,12 @@ export class JobsService {
         MATCH (org:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
         MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-        WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-        WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost
-        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
-        WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost
+        WITH DISTINCT tag, structured_jobpost
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+        WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
+        WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
+        WITH DISTINCT canonicalTag as tag, structured_jobpost
       
         MATCH (user:User)-[r:APPLIED_TO]->(structured_jobpost)
         WHERE user.available = true
@@ -960,7 +970,7 @@ export class JobsService {
           cryptoAdjacent: user.cryptoAdjacent,
           appliedTimestamp: r.timestamp,
           user: {
-              wallet: $wallet,
+              wallet: user.wallet,
               availableForWork: user.available,
               name: user.name,
               githubAvatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
@@ -969,7 +979,7 @@ export class JobsService {
                 .*,
                 wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
               }][0],
-              location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
+              location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
               matchingSkills: apoc.coll.sum([
                 (user)-[:HAS_SKILL]->(tag)
                 WHERE (structured_jobpost)-[:HAS_TAG]->(tag) | 1
@@ -1094,7 +1104,7 @@ export class JobsService {
                 }
               ]
             }][0],
-            tags: apoc.coll.toSet(tags)
+            tags: apoc.coll.toSet(COLLECT(tag))
           }
         } as result
       `;
@@ -1157,11 +1167,13 @@ export class JobsService {
         MATCH (:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
         MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-        WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-        WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost
-        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
-        WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost
+        WITH DISTINCT tag, structured_jobpost
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+        WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
+        WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
+        WITH DISTINCT canonicalTag as tag, structured_jobpost
+        WITH COLLECT(tag { .* }) as tags, structured_jobpost
       
         MATCH (user:User)-[r:APPLIED_TO]->(structured_jobpost)
         WHERE user.available = true
@@ -1488,11 +1500,13 @@ export class JobsService {
         MATCH (:User {wallet: $wallet})-[:BOOKMARKED]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
         MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-        WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-        WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost
-        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
-        WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost
+        WITH DISTINCT tag, structured_jobpost
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+        WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
+        WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
+        WITH DISTINCT canonicalTag as tag, structured_jobpost
+        WITH COLLECT(tag { .* }) as tags, structured_jobpost
         RETURN structured_jobpost {
             id: structured_jobpost.id,
             url: structured_jobpost.url,
@@ -1640,11 +1654,13 @@ export class JobsService {
         MATCH (:User {wallet: $wallet})-[:APPLIED_TO]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
         MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-        WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-        WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost
-        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
-        WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost
+        WITH DISTINCT tag, structured_jobpost
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+        WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
+        WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
+        WITH DISTINCT canonicalTag as tag, structured_jobpost
+        WITH COLLECT(tag { .* }) as tags, structured_jobpost
         RETURN structured_jobpost {
             id: structured_jobpost.id,
             url: structured_jobpost.url,
@@ -1795,11 +1811,12 @@ export class JobsService {
         CALL {
           WITH structured_jobpost
           MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-          WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-          WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost
-          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
-          RETURN apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags
+          WITH DISTINCT tag
+          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+          WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
+          WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
+          RETURN COLLECT(DISTINCT canonicalTag) AS tags
         }
 
         WITH apoc.coll.toSet(COLLECT(structured_jobpost {
@@ -1951,11 +1968,12 @@ export class JobsService {
         CALL {
           WITH structured_jobpost
           MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-          WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-          WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost
-          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
-          RETURN apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags
+          WITH DISTINCT tag
+          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+          WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
+          WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
+          WITH COLLECT(DISTINCT canonicalTag as tag) AS tags
         }
 
         WITH apoc.coll.toSet(COLLECT(structured_jobpost {

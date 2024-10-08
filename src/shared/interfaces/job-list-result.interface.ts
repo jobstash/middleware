@@ -30,6 +30,13 @@ export class JobListResult extends StructuredJobpostWithRelations {
         OrganizationWithRelations.OrganizationWithRelationsType,
         t.strict({
           hasUser: t.boolean,
+          atsClient: t.union([
+            t.literal("jobstash"),
+            t.literal("greenhouse"),
+            t.literal("workable"),
+            t.literal("lever"),
+            t.null,
+          ]),
         }),
       ]),
     }),
@@ -39,7 +46,10 @@ export class JobListResult extends StructuredJobpostWithRelations {
     type: "array",
     items: { $ref: getSchemaPath(OrganizationWithRelations) },
   })
-  organization: OrganizationWithRelations & { hasUser: boolean };
+  organization: OrganizationWithRelations & {
+    hasUser: boolean;
+    atsClient: "jobstash" | "greenhouse" | "workable" | "lever" | null;
+  };
 
   constructor(raw: JobListResult) {
     const { organization, ...jobpostProperties } = raw;

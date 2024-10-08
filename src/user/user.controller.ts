@@ -18,6 +18,7 @@ import {
   AdjacentRepo,
   data,
   DevUserProfile,
+  EcosystemActivation,
   ResponseWithNoData,
   UserProfile,
 } from "src/shared/interfaces";
@@ -186,7 +187,10 @@ export class UserController {
   async getWorkHistory(@Query("users") users: string): Promise<
     {
       username: string | null;
-      wallets: string[];
+      wallets: {
+        address: string;
+        ecosystemActivations: EcosystemActivation[];
+      }[];
       cryptoNative: boolean;
       workHistory: UserWorkHistory[];
       adjacentRepos: AdjacentRepo[];
