@@ -1100,7 +1100,7 @@ export class OrganizationsService {
             },
           },
         );
-        if (response2.data) {
+        if ([200, 201, 202].includes(response2.status)) {
           return {
             success: true,
             message: "Organization queued for import successfully",
@@ -1123,7 +1123,7 @@ export class OrganizationsService {
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
-          action: "service-call",
+          action: "external-api-call",
           source: "organizations.service",
         });
         Sentry.captureException(err);
