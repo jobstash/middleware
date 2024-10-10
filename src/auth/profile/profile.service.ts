@@ -415,14 +415,14 @@ export class ProfileService {
       const privyId = await this.getPrivyId(wallet);
       const user = await this.privyService.getUser(privyId);
       const contact = {
-        discord: user.discord?.username ?? null,
-        telegram: user.telegram?.username ?? null,
-        twitter: user.twitter?.username ?? null,
-        email: user.email?.address ?? null,
-        farcaster: user.farcaster?.username ?? null,
-        github: user.github?.username ?? null,
-        google: user.google?.email ?? null,
-        apple: user.apple?.email ?? null,
+        discord: user?.discord?.username ?? null,
+        telegram: user?.telegram?.username ?? null,
+        twitter: user?.twitter?.username ?? null,
+        email: user?.email?.address ?? null,
+        farcaster: user?.farcaster?.username ?? null,
+        github: user?.github?.username ?? null,
+        google: user?.google?.email ?? null,
+        apple: user?.apple?.email ?? null,
       };
 
       this.logger.log(`Updating contact info for ${wallet}`);
@@ -631,6 +631,7 @@ export class ProfileService {
       const profile = data(await this.getDevUserProfile(wallet));
       const privyId = await this.getPrivyId(wallet);
       const user = await this.privyService.getUser(privyId);
+
       if (
         profile?.linkedAccounts.github &&
         (profile?.linkedAccounts.github !== dto.github || !dto.github)
@@ -641,7 +642,7 @@ export class ProfileService {
         await this.githubUserService.removeGithubInfoFromUser(wallet);
       }
 
-      if (dto.github && profile?.linkedAccounts.github !== dto.github) {
+      if (dto.github) {
         this.logger.log(`Fetching github info for ${dto.github}`);
         const githubUser = axios
           .get<{

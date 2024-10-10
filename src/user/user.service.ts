@@ -664,14 +664,14 @@ export class UserService {
 
         if (role === CheckWalletRoles.DEV) {
           const contact = {
-            discord: user.discord?.username ?? null,
-            telegram: user.telegram?.username ?? null,
-            twitter: user.twitter?.username ?? null,
-            email: user.email?.address ?? null,
-            farcaster: user.farcaster?.username ?? null,
-            github: user.github?.username ?? null,
-            google: user.google?.email ?? null,
-            apple: user.apple?.email ?? null,
+            discord: user?.discord?.username ?? null,
+            telegram: user?.telegram?.username ?? null,
+            twitter: user?.twitter?.username ?? null,
+            email: user?.email?.address ?? null,
+            farcaster: user?.farcaster?.username ?? null,
+            github: user?.github?.username ?? null,
+            google: user?.google?.email ?? null,
+            apple: user?.apple?.email ?? null,
           };
 
           if (Object.values(contact).filter(Boolean).length > 0) {
