@@ -65,6 +65,40 @@ export class PrivyService {
     }
   }
 
+  async getUsers(attempts = 1): Promise<User[]> {
+    let users: User[];
+    try {
+      users = await this.privy.getUsers();
+      if (!users) {
+        this.logger.warn(`Users could not be fetched`);
+      } else {
+        this.logger.log(
+          `Fetched users after ${attempts + 1} attempt${
+            attempts > 1 ? "s" : ""
+          }`,
+        );
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "privy.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`PrivyService::getUsers ${err.message}`);
+      const backOffTime = Math.min(360000, Math.pow(2, attempts) * 1000); // Cap back-off time to 60 seconds
+      this.logger.warn(
+        `Rate limited on get users request. Retrying after ${
+          backOffTime / 1000
+        } seconds...`,
+      );
+      await new Promise(resolve => setTimeout(resolve, backOffTime));
+      return this.getUsers(attempts + 1);
+    }
+    return users;
+  }
+
   async deletePrivyUser(userId: string): Promise<void> {
     await this.privy.deleteUser(userId).catch(err => {
       Sentry.withScope(scope => {

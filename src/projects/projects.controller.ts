@@ -99,7 +99,10 @@ export class ProjectsController {
 
   @Get("/")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description: "Returns a list of all projects",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
@@ -306,7 +309,6 @@ export class ProjectsController {
   }
 
   @Get("/category/:category")
-  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Returns a list of all projects under the speccified category",
     schema: responseSchemaWrapper({
@@ -378,7 +380,10 @@ export class ProjectsController {
 
   @Get("/all")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description: "Returns a paginated sorted list all projects",
     type: PaginatedData<ProjectWithRelations>,
@@ -451,7 +456,10 @@ export class ProjectsController {
 
   @Get("/all/:id")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description: "Returns a list of all projects for an organization",
     schema: responseSchemaWrapper({
@@ -487,7 +495,10 @@ export class ProjectsController {
 
   @Get("/search")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description: "Returns a list of all projects with names matching the query",
     schema: responseSchemaWrapper({
@@ -523,7 +534,10 @@ export class ProjectsController {
 
   @Get("prefiller")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description:
       "Returns the details of the project retrieved from the passed defillama url",
@@ -628,7 +642,10 @@ export class ProjectsController {
 
   @Get("/:id")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description: "Returns the details of the project with the provided id",
   })

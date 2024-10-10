@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import {
-  DevUserProfile,
-  DevUserProfileEntity,
+  UserAvailableForWork,
+  UserAvailableForWorkEntity,
   ResponseWithNoData,
   ResponseWithOptionalData,
   User,
@@ -17,11 +17,11 @@ import { CreateUserDto } from "./dto/create-user.dto";
 import { ModelService } from "src/model/model.service";
 import { instanceToNode } from "src/shared/helpers";
 import { randomUUID } from "crypto";
-import { GetAvailableDevsInput } from "./dto/get-available-devs.input";
+import { GetAvailableDevsInput } from "./dto/get-available-users.input";
 import { ScorerService } from "src/scorer/scorer.service";
 import { ConfigService } from "@nestjs/config";
 import { ProfileService } from "src/auth/profile/profile.service";
-import { User as PrivyUser } from "@privy-io/server-auth";
+import { User as PrivyUser, WalletWithMetadata } from "@privy-io/server-auth";
 import { PrivyService } from "src/auth/privy/privy.service";
 import { PermissionService } from "./permission.service";
 import { CheckWalletPermissions } from "src/shared/constants";
@@ -574,6 +574,15 @@ export class UserService {
         this.logger.log(`User ${embeddedWallet} already exists. Updating...`);
         await this.syncUserLinkedWallets(embeddedWallet, user.id);
 
+        const permissions =
+          await this.permissionService.getPermissionsForWallet(embeddedWallet);
+
+        if (permissions.length === 0) {
+          await this.permissionService.syncUserPermissions(embeddedWallet, [
+            CheckWalletPermissions.USER,
+          ]);
+        }
+
         const contact = {
           discord: user?.discord?.username ?? null,
           telegram: user?.telegram?.username ?? null,
@@ -825,6 +834,7 @@ export class UserService {
   }
 
   async findAll(): Promise<UserProfile[]> {
+    const users = await this.privyService.getUsers();
     return this.neogma.queryRunner
       .run(
         `
@@ -832,17 +842,40 @@ export class UserService {
           RETURN {
             wallet: user.wallet,
             availableForWork: user.available,
-            username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-            avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-            contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }]
+            name: user.name,
+            githubAvatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+            alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
+            location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
           } as user
         `,
       )
       .then(res =>
         res.records.length
-          ? res.records.map(record =>
-              new UserProfileEntity(record.get("user")).getProperties(),
+          ? Promise.all(
+              res.records.map(async record => {
+                const raw = record.get("user");
+                const privyId = raw.privyId;
+                const user = users.find(x => x.id === privyId);
+                new UserProfileEntity({
+                  ...raw,
+                  linkedAccounts: {
+                    discord: user?.discord?.username ?? null,
+                    telegram: user?.telegram?.username ?? null,
+                    twitter: user?.twitter?.username ?? null,
+                    email: user?.email?.address ?? null,
+                    farcaster: user?.farcaster?.username ?? null,
+                    github: user?.github?.username ?? null,
+                    google: user?.google?.email ?? null,
+                    apple: user?.apple?.email ?? null,
+                    wallets: user?.linkedAccounts
+                      ?.filter(
+                        x =>
+                          x.type === "wallet" && x.walletClientType !== "privy",
+                      )
+                      ?.map(x => (x as WalletWithMetadata).address),
+                  },
+                }).getProperties();
+              }),
             )
           : [],
       )
@@ -862,13 +895,13 @@ export class UserService {
   async getUsersAvailableForWork(
     params: GetAvailableDevsInput,
     orgId: string | null,
-  ): Promise<DevUserProfile[]> {
+  ): Promise<UserAvailableForWork[]> {
     const paramsPassed = {
       city: params.city ? new RegExp(params.city, "gi") : null,
       country: params.country ? new RegExp(params.country, "gi") : null,
     };
 
-    const locationFilter = (dev: DevUserProfile): boolean => {
+    const locationFilter = (dev: UserAvailableForWork): boolean => {
       const cityMatch = paramsPassed.city
         ? paramsPassed.city.test(dev.location?.city)
         : true;
@@ -945,7 +978,7 @@ export class UserService {
           );
         for (const record of res.records) {
           const user = record.get("user");
-          const profile = new DevUserProfileEntity({
+          const profile = new UserAvailableForWorkEntity({
             ...user,
             ecosystemActivations:
               ecosystemActivations.find(x => x.wallet === user.wallet)

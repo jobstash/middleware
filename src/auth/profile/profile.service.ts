@@ -121,10 +121,10 @@ export class ProfileService {
         scope.setExtra("input", wallet);
         Sentry.captureException(err);
       });
-      this.logger.error(`ProfileService::getDevUserProfile ${err.message}`);
+      this.logger.error(`ProfileService::getUserProfile ${err.message}`);
       return {
         success: false,
-        message: "Error retrieving dev user profile",
+        message: "Error retrieving user profile",
       };
     }
   }

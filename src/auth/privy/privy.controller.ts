@@ -13,6 +13,7 @@ import { User, WalletWithMetadata } from "@privy-io/server-auth";
 import { AuthService } from "../auth.service";
 import { SessionObject } from "src/shared/interfaces";
 import { UserService } from "src/user/user.service";
+import { PermissionService } from "src/user/permission.service";
 
 @Controller("privy")
 export class PrivyController {
@@ -20,6 +21,7 @@ export class PrivyController {
   constructor(
     private readonly authService: AuthService,
     private readonly userService: UserService,
+    private readonly permissionService: PermissionService,
   ) {}
 
   @Get("check-wallet")
@@ -43,15 +45,18 @@ export class PrivyController {
         const cryptoNative =
           (await this.userService.getCryptoNativeStatus(embeddedWallet)) ??
           false;
+        const permissions = (
+          await this.permissionService.getPermissionsForWallet(embeddedWallet)
+        ).map(x => x.name);
         const token = this.authService.createToken({
           address: embeddedWallet,
-          permissions: [],
+          permissions,
           cryptoNative,
         });
         return {
           token,
           cryptoNative,
-          permissions: [],
+          permissions,
         };
       } else {
         throw new BadRequestException(result);

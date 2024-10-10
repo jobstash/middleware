@@ -17,7 +17,7 @@ import { CheckWalletPermissions } from "src/shared/constants";
 import {
   AdjacentRepo,
   data,
-  DevUserProfile,
+  UserAvailableForWork,
   EcosystemActivation,
   ResponseWithNoData,
   UserProfile,
@@ -25,7 +25,7 @@ import {
 import { AuthorizeOrgApplicationInput } from "./dto/authorize-org-application.dto";
 import { MailService } from "src/mail/mail.service";
 import { ConfigService } from "@nestjs/config";
-import { GetAvailableDevsInput } from "./dto/get-available-devs.input";
+import { GetAvailableDevsInput as GetAvailableUsersInput } from "./dto/get-available-users.input";
 import { AuthService } from "src/auth/auth.service";
 import { Request, Response } from "express";
 import { ApiKeyGuard } from "src/auth/api-key.guard";
@@ -65,8 +65,8 @@ export class UserController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
     @Query(new ValidationPipe({ transform: true }))
-    params: GetAvailableDevsInput,
-  ): Promise<DevUserProfile[]> {
+    params: GetAvailableUsersInput,
+  ): Promise<UserAvailableForWork[]> {
     const { address } = await this.authService.getSession(req, res);
     const orgId = address
       ? await this.userService.findOrgIdByWallet(address)
@@ -186,7 +186,7 @@ export class UserController {
     );
   }
 
-  @Post("devs/note")
+  @Post("note")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
   async addUserNote(
@@ -199,7 +199,7 @@ export class UserController {
       const orgId = address
         ? await this.userService.findOrgIdByWallet(address)
         : null;
-      this.logger.log(`/users/devs/note ${JSON.stringify(body)}`);
+      this.logger.log(`/users/note ${JSON.stringify(body)}`);
       return this.userService.addUserNote(body.wallet, body.note, orgId);
     } else {
       return {

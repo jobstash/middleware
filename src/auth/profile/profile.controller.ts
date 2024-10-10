@@ -61,10 +61,10 @@ export class ProfileController {
     private readonly jobsService: JobsService,
   ) {}
 
-  @Get("dev/info")
+  @Get("info")
   @UseGuards(PBACGuard)
   @ApiOkResponse({
-    description: "Returns the profile of the currently logged in dev user",
+    description: "Returns the profile of the currently logged in user",
     schema: responseSchemaWrapper({
       $ref: getSchemaPath(Response<UserProfile>),
     }),
@@ -218,12 +218,12 @@ export class ProfileController {
     }
   }
 
-  @Post("dev/availability")
+  @Post("availability")
   @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Updates the availability of the currently logged in dev user",
   })
-  async setDevUserAvailability(
+  async setUserAvailability(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body("availability") availability: boolean,
@@ -243,12 +243,12 @@ export class ProfileController {
     }
   }
 
-  @Post("dev/location")
+  @Post("location")
   @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Updates the location of the currently logged in dev user",
   })
-  async setDevUserProfile(
+  async setUserLocationInfo(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Body() body: UpdateDevLocationInput,

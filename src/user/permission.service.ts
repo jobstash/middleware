@@ -4,6 +4,7 @@ import { InjectConnection } from "nest-neogma";
 import { ResponseWithNoData, UserPermission } from "src/shared/interfaces";
 import { CreateUserPermissionDto } from "./dto/create-user-permission.dto";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import { UserPermissionEntity } from "src/shared/entities/user-permission.entity";
 
 @Injectable()
 export class PermissionService {
@@ -22,7 +23,7 @@ export class PermissionService {
       { name },
     );
     return res.records.length
-      ? new UserPermission(res.records[0].get("up"))
+      ? new UserPermissionEntity(res.records[0].get("up")).getProperties()
       : undefined;
   }
 
@@ -42,7 +43,9 @@ export class PermissionService {
           },
         },
       )
-      .then(res => new UserPermission(res.records[0].get("ur")));
+      .then(res =>
+        new UserPermissionEntity(res.records[0].get("ur")).getProperties(),
+      );
   }
 
   async getPermissionsForWallet(wallet: string): Promise<UserPermission[]> {
@@ -55,8 +58,10 @@ export class PermissionService {
     );
 
     return res.records.length
-      ? res.records.map(record => new UserPermission(record.get("up")))
-      : undefined;
+      ? res.records.map(record =>
+          new UserPermissionEntity(record.get("up")).getProperties(),
+        )
+      : [];
   }
 
   async userHasPermission(wallet: string, name: string): Promise<boolean> {
