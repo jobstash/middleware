@@ -387,11 +387,15 @@ export class ProfileService {
       }
       const profile = data(await this.getUserProfile(wallet));
       const orgs: UserVerifiedOrg[] = [];
+
+      this.logger.log(`Fetching work history for ${wallet}`);
       const workHistory = await this.getUserWorkHistory(wallet);
       const prelim: UserWorkHistory[] = workHistory?.workHistory ?? [];
 
       if (user.github?.username) {
+        this.logger.log(`Fetching orgs for ${wallet} based on github username`);
         const names = prelim.map(x => x.name);
+        console.log(names);
         const result = await this.neogma.queryRunner.run(
           `
             MATCH (user:User {wallet: $wallet}), (organization: Organization WHERE organization.name IN $names)
@@ -408,6 +412,7 @@ export class ProfileService {
           result?.records[0]
             ?.get("orgsByRepo")
             ?.map(record => record as UserVerifiedOrg) ?? [];
+        console.log(orgsByRepo);
         const processed = orgsByRepo.map(x => ({
           id: x.id,
           name: x.name,
@@ -427,6 +432,7 @@ export class ProfileService {
       ].filter(Boolean);
 
       if (emails.length > 0) {
+        this.logger.log(`Fetching orgs for ${wallet} based on email`);
         const result = await this.neogma.queryRunner.run(
           `
             MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
@@ -463,6 +469,9 @@ export class ProfileService {
       }
 
       if (workHistory.wallets.length > 0) {
+        this.logger.log(
+          `Fetching orgs for ${wallet} based on ecosystem activations`,
+        );
         const mapped: UserVerifiedOrg[] = workHistory.wallets.flatMap(x =>
           x.ecosystemActivations.map(y => ({
             id: y.id,
@@ -480,6 +489,7 @@ export class ProfileService {
           }
         });
       }
+      this.logger.log(`Found ${orgs.length} orgs`);
       return {
         success: true,
         message: "Retrieved user orgs successfully",
