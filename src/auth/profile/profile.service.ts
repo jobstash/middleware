@@ -632,20 +632,21 @@ export class ProfileService {
       const privyId = await this.getPrivyId(wallet);
       const user = await this.privyService.getUser(privyId);
       if (
-        profile?.linkedAccounts.github !== user.github?.username ||
-        (profile.linkedAccounts.github && !user.github)
+        profile?.linkedAccounts.github &&
+        (profile?.linkedAccounts.github !== dto.github || !dto.github)
       ) {
         this.logger.log(
           `Unlinking github user ${profile?.linkedAccounts.github}`,
         );
         await this.githubUserService.removeGithubInfoFromUser(wallet);
       }
-      if (user.github) {
-        this.logger.log(`Fetching github info for ${user.github.username}`);
+
+      if (dto.github && profile?.linkedAccounts.github !== dto.github) {
+        this.logger.log(`Fetching github info for ${dto.github}`);
         const githubUser = axios
           .get<{
             avatar_url: string;
-          }>(`https://api.github.com/users/${user.github.username}`)
+          }>(`https://api.github.com/users/${dto.github}`)
           .catch(err => {
             this.logger.error(`UserService::fetchGithubUser ${err.message}`);
             this.logger.error(err);
@@ -661,7 +662,7 @@ export class ProfileService {
 
         const result = await this.githubUserService.addGithubInfoToUser({
           wallet,
-          githubLogin: user.github.username,
+          githubLogin: dto.github,
           githubId: user.github.subject,
           githubAvatarUrl: (await githubUser)?.data?.avatar_url ?? null,
         });
