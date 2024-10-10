@@ -650,7 +650,15 @@ export class ProjectsService {
 
           RETURN project { .* } as project
         `,
-        { ...project, normalizedName: normalizeString(project.name) },
+        {
+          ...project,
+          tvl: project.tvl ?? null,
+          monthlyFees: project.monthlyFees ?? null,
+          monthlyVolume: project.monthlyVolume ?? null,
+          monthlyRevenue: project.monthlyRevenue ?? null,
+          monthlyActiveUsers: project.monthlyActiveUsers ?? null,
+          normalizedName: normalizeString(project.name),
+        },
       );
       return new ProjectMoreInfoEntity(result?.records[0]?.get("project"));
     } catch (err) {

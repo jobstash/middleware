@@ -664,7 +664,7 @@ export class OrganizationsController {
 
       const res10 = await this.organizationsService.updateOrgProjects(
         id,
-        projects,
+        projects ?? [],
       );
 
       if (!res10.success) {
@@ -692,7 +692,7 @@ export class OrganizationsController {
 
       const res12 = await this.organizationsService.updateOrgJobsites({
         orgId: id,
-        jobsites,
+        jobsites: jobsites ?? [],
       });
 
       if (!res12.success) {
@@ -707,7 +707,7 @@ export class OrganizationsController {
       return {
         success: true,
         message: "Organization updated successfully",
-        data: result.getProperties(),
+        data: result?.getProperties(),
       };
     } catch (error) {
       this.logger.error(`/organizations/update/${id} ${error}`);
