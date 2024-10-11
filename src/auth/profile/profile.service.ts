@@ -512,6 +512,57 @@ export class ProfileService {
     }
   }
 
+  async getUserAuthorizedOrgs(
+    wallet: string,
+  ): Promise<ResponseWithOptionalData<UserVerifiedOrg[]>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+            MATCH (user:User {wallet: $wallet})-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization: Organization)
+            RETURN apoc.coll.toSet(COLLECT(organization {
+              id: organization.orgId,
+              name: organization.name,
+              url: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+              logo: organization.logoUrl
+            })) as orgs
+          `,
+        { wallet },
+      );
+      const orgs =
+        result?.records[0]
+          ?.get("orgs")
+          ?.map(record => record as UserVerifiedOrg) ?? [];
+      const processed = orgs.map(x => ({
+        id: x.id,
+        name: x.name,
+        slug: sluggify(x.name),
+        url: x.url,
+        logo: x.logo ?? null,
+        account: "N/A",
+      }));
+
+      return {
+        success: true,
+        message: "Retrieved user authorized orgs successfully",
+        data: processed,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::getUserOrgs ${err.message}`);
+      return {
+        success: false,
+        message: "Error retrieving user orgs",
+      };
+    }
+  }
+
   async getUserShowCase(
     wallet: string,
   ): Promise<ResponseWithOptionalData<UserShowCase[]>> {
