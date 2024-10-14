@@ -6,6 +6,7 @@ import {
   Header,
   Headers,
   HttpStatus,
+  NotFoundException,
   Param,
   ParseFilePipeBuilder,
   Post,
@@ -376,31 +377,6 @@ export class OrganizationsController {
     return result;
   }
 
-  @Get("/:id")
-  @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
-  @ApiOkResponse({
-    description: "Returns the details of the org with the provided id",
-  })
-  async getOrgDetails(
-    @Param("id") id: string,
-    @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<Response<ShortOrg> | ResponseWithNoData> {
-    this.logger.log(`/organizations/${id}`);
-    const result = await this.organizationsService.getOrgById(id);
-
-    if (result === undefined) {
-      res.status(HttpStatus.NOT_FOUND);
-      return { success: true, message: "No organization found for id " + id };
-    } else {
-      return {
-        success: true,
-        message: "Retrieved organization details successfully",
-        data: result,
-      };
-    }
-  }
-
   @Post("/upload-logo")
   @UseInterceptors(FileInterceptor("file"))
   @UseGuards(PBACGuard)
@@ -528,9 +504,6 @@ export class OrganizationsController {
   @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
     description: "Queues a new organization for import on etl",
-    schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Organization),
-    }),
   })
   @ApiUnprocessableEntityResponse({
     description:
@@ -896,5 +869,31 @@ export class OrganizationsController {
           message: `Error retrieving organization repositories!`,
         };
       });
+  }
+
+  @Get("/:id")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
+  @ApiOkResponse({
+    description: "Returns the details of the org with the provided id",
+  })
+  async getOrgDetails(
+    @Param("id") id: string,
+  ): Promise<Response<ShortOrg> | ResponseWithNoData> {
+    this.logger.log(`/organizations/${id}`);
+    const result = await this.organizationsService.getOrgById(id);
+
+    if (result === undefined) {
+      throw new NotFoundException({
+        success: true,
+        message: "No organization found for id " + id,
+      });
+    } else {
+      return {
+        success: true,
+        message: "Retrieved organization details successfully",
+        data: result,
+      };
+    }
   }
 }

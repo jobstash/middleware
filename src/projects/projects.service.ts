@@ -36,6 +36,9 @@ import { CreateProjectInput } from "./dto/create-project.input";
 import { LinkJobsToProjectInput } from "./dto/link-jobs-to-project.dto";
 import { LinkReposToProjectInput } from "./dto/link-repos-to-project.dto";
 import { CreateProjectMetricsInput } from "./dto/create-project-metrics.input";
+import { AddProjectByUrlInput } from "./dto/add-project-by-url.input";
+import axios from "axios";
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class ProjectsService {
@@ -44,6 +47,7 @@ export class ProjectsService {
     @InjectConnection()
     private neogma: Neogma,
     private models: ModelService,
+    private readonly configService: ConfigService,
   ) {}
 
   async getProjectsListWithSearch(
@@ -672,6 +676,70 @@ export class ProjectsService {
       });
       this.logger.error(`ProjectsService::create ${err.message}`);
       return undefined;
+    }
+  }
+
+  async addProjectByUrl(
+    dto: AddProjectByUrlInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      const clientId = this.configService.get<string>("ETL_CLIENT_ID");
+      const clientSecret = this.configService.get<string>("ETL_CLIENT_SECRET");
+      const url = this.configService.get<string>("ETL_DOMAIN");
+
+      const auth0Domain = this.configService.get<string>("AUTH0_DOMAIN");
+      const audience = this.configService.get<string>("AUTH0_AUDIENCE");
+      const response = await axios.post(`${auth0Domain}/oauth/token`, {
+        client_id: clientId,
+        client_secret: clientSecret,
+        audience,
+        grant_type: "client_credentials",
+      });
+      if (response.data) {
+        const authToken = response.data.access_token;
+        const response2 = await axios.get(
+          `${url}/project-importer/import-project-by-url?url=${dto.url}&name=${
+            dto.name
+          }&orgId=${dto.orgId ?? ""}&defiLlamaSlug=${dto.defiLlamaSlug ?? ""}`,
+          {
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+          },
+        );
+        if ([200, 201, 202].includes(response2.status)) {
+          return {
+            success: true,
+            message: "Project queued for import successfully",
+          };
+        } else {
+          this.logger.warn(
+            `Error queueing project ${dto} for import: ${response2.data}`,
+          );
+          return {
+            success: false,
+            message: "Error adding project",
+          };
+        }
+      } else {
+        return {
+          success: false,
+          message: "Error fetching auth token",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "external-api-call",
+          source: "projects.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProjectsService::addProjectByUrl ${err.message}`);
+      return {
+        success: false,
+        message: `Error adding project by url`,
+      };
     }
   }
 

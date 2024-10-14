@@ -73,6 +73,7 @@ import { ProjectListParams } from "./dto/project-list.input";
 import { UpdateProjectInput } from "./dto/update-project.input";
 import { ProjectCategoryService } from "./project-category.service";
 import { ProjectsService } from "./projects.service";
+import { AddProjectByUrlInput } from "./dto/add-project-by-url.input";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -640,34 +641,6 @@ export class ProjectsController {
     }
   }
 
-  @Get("/:id")
-  @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.PROJECT_MANAGER,
-  )
-  @ApiOkResponse({
-    description: "Returns the details of the project with the provided id",
-  })
-  async getProjectDetails(
-    @Param("id") id: string,
-    @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<ResponseWithOptionalData<ProjectProps>> {
-    this.logger.log(`/projects/${id}`);
-    const result = await this.projectsService.getProjectById(id);
-
-    if (result === null) {
-      res.status(HttpStatus.NOT_FOUND);
-      return { success: true, message: "No project found for id " + id };
-    } else {
-      return {
-        success: true,
-        message: "Retrieved project details successfully",
-        data: result,
-      };
-    }
-  }
-
   @Post("/upload-logo")
   @UseInterceptors(FileInterceptor("file"))
   @UseGuards(PBACGuard)
@@ -839,6 +812,24 @@ export class ProjectsController {
     };
   }
 
+  @Post("/add-by-url")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
+  @ApiOkResponse({
+    description: "Queues a new project for import on etl",
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong creating the project on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async addProjectByUrl(
+    @Body() body: AddProjectByUrlInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/projects/add-by-url ${JSON.stringify(body)}`);
+    return this.projectsService.addProjectByUrl(body);
+  }
+
   @Post("/update/:id")
   @UseGuards(PBACGuard)
   @Permissions(
@@ -1005,5 +996,33 @@ export class ProjectsController {
   ): Promise<Response<ProjectProps> | ResponseWithNoData> {
     this.logger.log(`/projects/unlink-repos`);
     return this.projectsService.unlinkReposFromProject(body);
+  }
+
+  @Get("/:id")
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
+  @ApiOkResponse({
+    description: "Returns the details of the project with the provided id",
+  })
+  async getProjectDetails(
+    @Param("id") id: string,
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ): Promise<ResponseWithOptionalData<ProjectProps>> {
+    this.logger.log(`/projects/${id}`);
+    const result = await this.projectsService.getProjectById(id);
+
+    if (result === null) {
+      res.status(HttpStatus.NOT_FOUND);
+      return { success: true, message: "No project found for id " + id };
+    } else {
+      return {
+        success: true,
+        message: "Retrieved project details successfully",
+        data: result,
+      };
+    }
   }
 }

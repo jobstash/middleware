@@ -905,9 +905,11 @@ export class OrganizationsService {
 
       const res = await this.neogma.queryRunner.run(generatedQuery, { id });
 
-      return new ShortOrgEntity(
-        toShortOrg(res.records[0]?.get("res") as OrgDetailsResult),
-      ).getProperties();
+      return res.records[0]?.get("res")
+        ? new ShortOrgEntity(
+            toShortOrg(res.records[0]?.get("res") as OrgDetailsResult),
+          ).getProperties()
+        : undefined;
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -996,7 +998,7 @@ export class OrganizationsService {
       { domain },
     );
     const result = orgs.records.length
-      ? (orgs.records[0]?.get("orgId") as string)
+      ? (orgs?.records[0]?.get("orgId") as string)
       : undefined;
 
     return {
