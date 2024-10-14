@@ -310,7 +310,7 @@ export class ProjectsController {
 
   @Get("/category/:category")
   @ApiOkResponse({
-    description: "Returns a list of all projects under the speccified category",
+    description: "Returns a list of all projects under the specified category",
     schema: responseSchemaWrapper({
       $ref: getSchemaPath(ProjectWithRelations),
     }),

@@ -42,4 +42,16 @@ export class AppController {
   diff(): string {
     return this.configService.get<string>("DIFF");
   }
+
+  @Get("sitemap")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @ApiOkResponse({
+    description: "Returns the sitemap of the currently deployed code",
+    schema: {
+      $ref: getSchemaPath(String),
+    },
+  })
+  async sitemap(): Promise<string> {
+    return this.appService.sitemap();
+  }
 }

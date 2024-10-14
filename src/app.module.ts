@@ -27,6 +27,7 @@ import { GrantsModule } from "./grants/grants.module";
 import { GoogleBigQueryModule } from "./google-bigquery/google-bigquery.module";
 import { SearchModule } from "./search/search.module";
 import { PaymentsModule } from "./payments/payments.module";
+import { UserModule } from "./user/user.module";
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { PaymentsModule } from "./payments/payments.module";
     AuthModule,
     JobsModule,
     TagsModule,
+    UserModule,
     GithubModule,
     OrganizationsModule,
     ProjectsModule,
