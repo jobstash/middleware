@@ -986,26 +986,94 @@ export class OrganizationsService {
     );
   }
 
+  isValidUrl(urlString: string): boolean {
+    try {
+      if (urlString.startsWith("@")) {
+        throw new Error("Not a valid URL but a Username instead: " + urlString);
+      }
+      const url = new URL(urlString);
+      return ["http:", "https:"].includes(url.protocol);
+    } catch (_) {
+      throw new Error("Not a valid URL: " + urlString);
+    }
+  }
+
+  ensureProtocol(url: string): string {
+    if (!url.match(/^[a-zA-Z]+:\/\//)) {
+      return "http://" + url;
+    }
+    return url;
+  }
+
+  toAbsoluteURL(url: string, baseUrl?: string): string {
+    try {
+      // If the URL is already absolute, return as is
+      new URL(url);
+      return url;
+    } catch {
+      // If URL creation failed, check if it's a domain name or a relative path
+      if (url.includes(".")) {
+        // It's likely a domain name, prepend 'https://'
+        return "https://" + url;
+      } else {
+        // It's a relative path, use the base URL to create an absolute URL
+        return new URL(url, baseUrl).href;
+      }
+    }
+  }
+
   async findOrgIdByWebsite(
     domain: string,
   ): Promise<ResponseWithOptionalData<string>> {
-    const orgs = await this.neogma.queryRunner.run(
-      `
+    try {
+      if (this.isValidUrl(this.ensureProtocol(domain))) {
+        try {
+          new URL(this.toAbsoluteURL(this.ensureProtocol(domain)));
+        } catch (err) {
+          return {
+            success: false,
+            message: "Invalid url",
+          };
+        }
+        const orgs = await this.neogma.queryRunner.run(
+          `
         MATCH (organization:Organization)-[:HAS_WEBSITE]->(website:Website)
-        WHERE apoc.data.url(website.url).host CONTAINS $domain
+        WHERE apoc.data.url(website.url).host CONTAINS $domain OR website.url CONTAINS $domain OR $domain CONTAINS website.url
         RETURN organization.orgId as orgId
       `,
-      { domain },
-    );
-    const result = orgs.records.length
-      ? (orgs?.records[0]?.get("orgId") as string)
-      : undefined;
+          { domain: this.toAbsoluteURL(this.ensureProtocol(domain)) },
+        );
+        const result = orgs.records.length
+          ? (orgs?.records[0]?.get("orgId") as string)
+          : undefined;
 
-    return {
-      success: result ? true : false,
-      message: result ? "Retrieved org id successfully" : "No org found",
-      data: result,
-    };
+        return {
+          success: result ? true : false,
+          message: result ? "Retrieved org id successfully" : "No org found",
+          data: result,
+        };
+      } else {
+        return {
+          success: false,
+          message: "Invalid url",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "organizations.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::findOrgIdByWebsite ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Error finding org id by website",
+      };
+    }
   }
 
   async create(
