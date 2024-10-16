@@ -998,11 +998,8 @@ export class OrganizationsService {
     }
   }
 
-  ensureProtocol(url: string): string {
-    if (!url.match(/^[a-zA-Z]+:\/\//)) {
-      return "https://" + url;
-    }
-    return url;
+  ensureProtocol(url: string): string[] {
+    return ["https://" + url, "http://" + url];
   }
 
   toAbsoluteURL(url: string, baseUrl?: string): string {
@@ -1026,9 +1023,9 @@ export class OrganizationsService {
     domain: string,
   ): Promise<ResponseWithOptionalData<string>> {
     try {
-      if (this.isValidUrl(this.ensureProtocol(domain))) {
+      if (this.ensureProtocol(domain).every(this.isValidUrl)) {
         try {
-          new URL(this.toAbsoluteURL(this.ensureProtocol(domain)));
+          this.ensureProtocol(domain).map(x => new URL(this.toAbsoluteURL(x)));
         } catch (err) {
           return {
             success: false,
@@ -1038,10 +1035,16 @@ export class OrganizationsService {
         const orgs = await this.neogma.queryRunner.run(
           `
         MATCH (organization:Organization)-[:HAS_WEBSITE]->(website:Website)
-        WHERE apoc.data.url(website.url).host CONTAINS $domain OR website.url CONTAINS $domain OR $domain CONTAINS website.url
+        UNWIND $domains as domain
+        WITH organization, domain, website
+        WHERE apoc.data.url(website.url).host CONTAINS domain OR website.url CONTAINS domain OR domain CONTAINS website.url
         RETURN organization.orgId as orgId
       `,
-          { domain: this.toAbsoluteURL(this.ensureProtocol(domain)) },
+          {
+            domains: this.ensureProtocol(domain).map(x =>
+              this.toAbsoluteURL(x),
+            ),
+          },
         );
         const result = orgs.records.length
           ? (orgs?.records[0]?.get("orgId") as string)
