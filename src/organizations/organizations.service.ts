@@ -1000,7 +1000,7 @@ export class OrganizationsService {
 
   ensureProtocol(url: string): string {
     if (!url.match(/^[a-zA-Z]+:\/\//)) {
-      return "http://" + url;
+      return "https://" + url;
     }
     return url;
   }
