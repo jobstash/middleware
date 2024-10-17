@@ -14,6 +14,7 @@ import {
   Jobsite,
   TinyOrg,
   Organization,
+  FundingRound,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -252,11 +253,11 @@ export class OrganizationsService {
             communityFilterList.includes(normalizeString(community)),
           ).length > 0) &&
         (!fundingRoundFilterList ||
-          fundingRounds.filter(fundingRound =>
-            fundingRoundFilterList.includes(
-              normalizeString(fundingRound.roundName),
+          fundingRoundFilterList.includes(
+            normalizeString(
+              sort<FundingRound>(fundingRounds).desc(x => x.date)[0]?.roundName,
             ),
-          ).length > 0)
+          ))
       );
     };
 

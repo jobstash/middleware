@@ -33,6 +33,7 @@ import {
   JobpostFolder,
   data,
   JobDetailsResult,
+  FundingRound,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { AllJobsParams } from "./dto/all-jobs.input";
@@ -451,11 +452,11 @@ export class JobsService {
             investorFilterList.includes(normalizeString(investor.name)),
           ).length > 0) &&
         (!fundingRoundFilterList ||
-          fundingRounds.filter(fundingRound =>
-            fundingRoundFilterList.includes(
-              normalizeString(fundingRound.roundName),
+          fundingRoundFilterList.includes(
+            normalizeString(
+              sort<FundingRound>(fundingRounds).desc(x => x.date)[0]?.roundName,
             ),
-          ).length > 0) &&
+          )) &&
         (!query || matchesQuery) &&
         (!tagFilterList ||
           tags.filter(tag => tagFilterList.includes(normalizeString(tag.name)))
@@ -492,8 +493,9 @@ export class JobsService {
           return p1?.monthlyRevenue ?? 0;
         case "fundingDate":
           return (
-            jlr.organization.fundingRounds.sort((a, b) => b.date - a.date)[0]
-              ?.date ?? 0
+            sort<FundingRound>(jlr.organization.fundingRounds).desc(
+              x => x.date,
+            )[0].date ?? 0
           );
         case "headcountEstimate":
           return jlr.organization?.headcountEstimate ?? 0;
