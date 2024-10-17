@@ -540,6 +540,14 @@ export class OrganizationsController {
     this.logger.log(`/organizations/update/${id} ${JSON.stringify(body)}`);
 
     try {
+      const org = await this.organizationsService.findByOrgId(id);
+
+      if (!org) {
+        throw new NotFoundException({
+          success: false,
+          message: `Org with orgId ${id} not found`,
+        });
+      }
       const {
         grants,
         projects,
@@ -679,11 +687,18 @@ export class OrganizationsController {
 
       const result = await this.organizationsService.update(id, dto);
 
-      return {
-        success: true,
-        message: "Organization updated successfully",
-        data: result?.getProperties(),
-      };
+      if (result) {
+        return {
+          success: true,
+          message: "Organization updated successfully",
+          data: result?.getProperties(),
+        };
+      } else {
+        return {
+          success: false,
+          message: "Error updating org",
+        };
+      }
     } catch (error) {
       this.logger.error(`/organizations/update/${id} ${error}`);
       Sentry.withScope(scope => {

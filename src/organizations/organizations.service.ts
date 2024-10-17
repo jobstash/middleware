@@ -1182,7 +1182,7 @@ export class OrganizationsService {
     this.logger.log(JSON.stringify(properties));
     const res = await this.neogma.queryRunner.run(
       `
-        MATCH (org: Organization {id: $id})
+        MATCH (org: Organization {orgId: $id})
         SET org.logoUrl = $logoUrl
         SET org.name = $name
         SET org.altName = $altName
