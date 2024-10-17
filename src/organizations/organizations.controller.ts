@@ -49,7 +49,7 @@ import {
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
 import { OrganizationsService } from "./organizations.service";
-import { CheckWalletPermissions, ECOSYSTEM_HEADER } from "src/shared/constants";
+import { CheckWalletPermissions, COMMUNITY_HEADER } from "src/shared/constants";
 import { NFTStorage, File } from "nft.storage";
 import { ConfigService } from "@nestjs/config";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -128,10 +128,10 @@ export class OrganizationsController {
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiHeader({
-    name: ECOSYSTEM_HEADER,
+    name: COMMUNITY_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific ecosystem",
+      "Optional header to tailor the response for a specific community",
   })
   @ApiOkResponse({
     description:
@@ -171,12 +171,12 @@ export class OrganizationsController {
   async getOrgsListWithSearch(
     @Query(new ValidationPipe({ transform: true }))
     params: OrgListParams,
-    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER) community: string | undefined,
   ): Promise<PaginatedData<ShortOrg>> {
     const enrichedParams = {
       ...params,
-      communities: ecosystem
-        ? [...(params.communities ?? []), ecosystem]
+      communities: community
+        ? [...(params.communities ?? []), community]
         : params.communities,
     };
     this.logger.log(`/organizations/list ${JSON.stringify(enrichedParams)}`);
@@ -220,10 +220,10 @@ export class OrganizationsController {
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiHeader({
-    name: ECOSYSTEM_HEADER,
+    name: COMMUNITY_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific ecosystem",
+      "Optional header to tailor the response for a specific community",
   })
   @ApiOkResponse({
     description: "Returns the configuration data for the ui filters",
@@ -241,10 +241,10 @@ export class OrganizationsController {
     type: ValidationError,
   })
   async getFilterConfigs(
-    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER) community: string | undefined,
   ): Promise<OrgFilterConfigs> {
     this.logger.log(`/jobs/filters`);
-    return this.organizationsService.getFilterConfigs(ecosystem);
+    return this.organizationsService.getFilterConfigs(community);
   }
 
   @Get("/featured")
@@ -268,10 +268,10 @@ export class OrganizationsController {
     },
   })
   async getFeaturedOrgsList(
-    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER) community: string | undefined,
   ): Promise<ResponseWithOptionalData<ShortOrg[]>> {
     this.logger.log(`/organizations/featured`);
-    return this.organizationsService.getFeaturedOrgs(ecosystem);
+    return this.organizationsService.getFeaturedOrgs(community);
   }
 
   @Get("id/:domain")
@@ -294,10 +294,10 @@ export class OrganizationsController {
 
   @Get("details/:id")
   @ApiHeader({
-    name: ECOSYSTEM_HEADER,
+    name: COMMUNITY_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific ecosystem",
+      "Optional header to tailor the response for a specific community",
   })
   @ApiOkResponse({
     description:
@@ -323,12 +323,12 @@ export class OrganizationsController {
   async getOrgDetailsById(
     @Param("id") id: string,
     @Res({ passthrough: true }) res: ExpressResponse,
-    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER) community: string | undefined,
   ): Promise<OrgDetailsResult | undefined> {
     this.logger.log(`/organizations/details/${id}`);
     const result = await this.organizationsService.getOrgDetailsById(
       id,
-      ecosystem,
+      community,
     );
     if (result === undefined) {
       res.status(HttpStatus.NOT_FOUND);
@@ -338,10 +338,10 @@ export class OrganizationsController {
 
   @Get("details/slug/:slug")
   @ApiHeader({
-    name: ECOSYSTEM_HEADER,
+    name: COMMUNITY_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific ecosystem",
+      "Optional header to tailor the response for a specific community",
   })
   @ApiOkResponse({
     description: "Returns the organization details for the provided slug",
@@ -366,12 +366,12 @@ export class OrganizationsController {
   async getOrgDetailsBySlug(
     @Param("slug") slug: string,
     @Res({ passthrough: true }) res: ExpressResponse,
-    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER) community: string | undefined,
   ): Promise<OrgDetailsResult | undefined> {
     this.logger.log(`/organizations/details/slug/${slug}`);
     const result = await this.organizationsService.getOrgDetailsBySlug(
       slug,
-      ecosystem,
+      community,
     );
     if (result === undefined) {
       res.status(HttpStatus.NOT_FOUND);

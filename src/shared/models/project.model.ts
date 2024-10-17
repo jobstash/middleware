@@ -111,7 +111,7 @@ export interface ProjectStatics {
   getProjectsByCategory: (category: string) => Promise<ProjectProps[]>;
   getProjectCompetitors: (
     id: string,
-    ecosystem: string | undefined,
+    community: string | undefined,
   ) => Promise<ProjectWithRelations[]>;
   searchProjects: (query: string) => Promise<ProjectProps[]>;
   getProjectById: (id: string) => Promise<ProjectProps | null>;
@@ -986,9 +986,9 @@ export const Projects = (
         },
         getProjectCompetitors: async function (
           id: string,
-          ecosystem: string | undefined,
+          community: string | undefined,
         ) {
-          const params = new BindParam({ id, ecosystem: ecosystem ?? null });
+          const params = new BindParam({ id, community: community ?? null });
           const query = new QueryBuilder(params)
             .match({
               related: [
@@ -1023,7 +1023,7 @@ export const Projects = (
               ],
             })
             .where(
-              "CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $ecosystem})) END",
+              "CASE WHEN $community IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $community})) END",
             )
             .raw("AND project.id <> $id")
             .raw(

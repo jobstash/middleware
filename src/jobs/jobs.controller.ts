@@ -26,7 +26,7 @@ import * as Sentry from "@sentry/node";
 import { AuthService } from "src/auth/auth.service";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { ProfileService } from "src/auth/profile/profile.service";
-import { CheckWalletPermissions, ECOSYSTEM_HEADER } from "src/shared/constants";
+import { CheckWalletPermissions, COMMUNITY_HEADER } from "src/shared/constants";
 import {
   CACHE_CONTROL_HEADER,
   CACHE_DURATION,
@@ -83,10 +83,10 @@ export class JobsController {
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiHeader({
-    name: ECOSYSTEM_HEADER,
+    name: COMMUNITY_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific ecosystem",
+      "Optional header to tailor the response for a specific community",
   })
   @ApiOkResponse({
     description:
@@ -127,13 +127,13 @@ export class JobsController {
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
     params: JobListParams,
-    @Headers(ECOSYSTEM_HEADER)
-    ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER)
+    community: string | undefined,
   ): Promise<PaginatedData<JobListResult>> {
     const enrichedParams = {
       ...params,
-      communities: ecosystem
-        ? [...(params.communities ?? []), ecosystem]
+      communities: community
+        ? [...(params.communities ?? []), community]
         : params.communities,
     };
     const queryString = JSON.stringify(enrichedParams);
@@ -163,11 +163,11 @@ export class JobsController {
     type: ValidationError,
   })
   async getFilterConfigs(
-    @Headers(ECOSYSTEM_HEADER)
-    ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER)
+    community: string | undefined,
   ): Promise<JobFilterConfigs> {
     this.logger.log(`/jobs/filters`);
-    return this.jobsService.getFilterConfigs(ecosystem);
+    return this.jobsService.getFilterConfigs(community);
   }
 
   @Get("details/:uuid")
@@ -195,14 +195,14 @@ export class JobsController {
   async getJobDetailsByUuid(
     @Param("uuid") uuid: string,
     @Session() { address }: SessionObject,
-    @Headers(ECOSYSTEM_HEADER)
-    ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER)
+    community: string | undefined,
   ): Promise<JobDetailsResult | undefined> {
     this.logger.log(`/jobs/details/${uuid}`);
     if (address) {
       await this.profileService.logViewDetailsInteraction(address, uuid);
     }
-    const result = await this.jobsService.getJobDetailsByUuid(uuid, ecosystem);
+    const result = await this.jobsService.getJobDetailsByUuid(uuid, community);
     if (result === undefined) {
       throw new NotFoundException({
         success: false,
@@ -233,11 +233,11 @@ export class JobsController {
     },
   })
   async getFeaturedJobsList(
-    @Headers(ECOSYSTEM_HEADER)
-    ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER)
+    community: string | undefined,
   ): Promise<ResponseWithOptionalData<JobListResult[]>> {
     this.logger.log(`/jobs/featured`);
-    return this.jobsService.getFeaturedJobs(ecosystem);
+    return this.jobsService.getFeaturedJobs(community);
   }
 
   @Get("/org/:id")
@@ -267,11 +267,11 @@ export class JobsController {
   })
   async getOrgJobsList(
     @Param("id") id: string,
-    @Headers(ECOSYSTEM_HEADER)
-    ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER)
+    community: string | undefined,
   ): Promise<JobListResult[]> {
     this.logger.log(`/jobs/org/${id}`);
-    return this.jobsService.getJobsByOrgId(id, ecosystem);
+    return this.jobsService.getJobsByOrgId(id, community);
   }
 
   @Get("/org/:id/applicants")
@@ -426,12 +426,12 @@ export class JobsController {
     },
   })
   async getUserBookmarkedJobs(
-    @Headers(ECOSYSTEM_HEADER)
-    ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER)
+    community: string | undefined,
     @Session() { address }: SessionObject,
   ): Promise<Response<JobListResult[]> | ResponseWithNoData> {
     this.logger.log(`/jobs/bookmarked`);
-    return this.jobsService.getUserBookmarkedJobs(address, ecosystem);
+    return this.jobsService.getUserBookmarkedJobs(address, community);
   }
 
   @Get("/applied")
@@ -448,12 +448,12 @@ export class JobsController {
     },
   })
   async getUserAppliedJobs(
-    @Headers(ECOSYSTEM_HEADER)
-    ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER)
+    community: string | undefined,
     @Session() { address }: SessionObject,
   ): Promise<Response<JobListResult[]> | ResponseWithNoData> {
     this.logger.log(`/jobs/applied`);
-    return this.jobsService.getUserAppliedJobs(address, ecosystem);
+    return this.jobsService.getUserAppliedJobs(address, community);
   }
 
   @Get("/folders")
@@ -932,15 +932,15 @@ export class JobsController {
 
   @Get("promote/:uuid")
   @ApiHeader({
-    name: ECOSYSTEM_HEADER,
+    name: COMMUNITY_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific ecosystem",
+      "Optional header to tailor the response for a specific community",
   })
   async promoteJob(
     @Param("uuid") uuid: string,
-    @Headers(ECOSYSTEM_HEADER)
-    ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER)
+    community: string | undefined,
   ): Promise<
     ResponseWithOptionalData<{
       id: string;
@@ -948,6 +948,6 @@ export class JobsController {
     }>
   > {
     this.logger.log(`/jobs/promote/${uuid}`);
-    return await this.jobsService.getJobPromotionPaymentUrl(uuid, ecosystem);
+    return await this.jobsService.getJobPromotionPaymentUrl(uuid, community);
   }
 }

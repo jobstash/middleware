@@ -3,7 +3,6 @@ import {
   Controller,
   Get,
   Header,
-  Headers,
   Post,
   Query,
   Req,
@@ -20,7 +19,6 @@ import {
   CACHE_DURATION,
   CACHE_EXPIRY,
   CheckWalletPermissions,
-  ECOSYSTEM_HEADER,
 } from "src/shared/constants";
 import { Permissions } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
@@ -95,11 +93,10 @@ export class TagsController {
   })
   async getPopularTags(
     @Query("limit") limit: number,
-    @Headers(ECOSYSTEM_HEADER) ecosystem: string,
   ): Promise<ResponseWithOptionalData<Tag[]>> {
     this.logger.log(`/tags/popular`);
     return this.tagsService
-      .getPopularTags(limit, ecosystem)
+      .getPopularTags(limit)
       .then(res => ({
         success: true,
         message: "Retrieved popular tags",
