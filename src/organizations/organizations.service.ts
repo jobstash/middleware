@@ -1189,7 +1189,8 @@ export class OrganizationsService {
         SET org.description = $description
         SET org.summary = $summary
         SET org.location = $location
-        SET org.headcountEstimate = $headcountEstimate     
+        SET org.headcountEstimate = $headcountEstimate
+        SET org.updatedTimestamp = timestamp()
 
         RETURN org
       `,
