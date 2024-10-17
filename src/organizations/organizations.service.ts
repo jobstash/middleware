@@ -809,45 +809,49 @@ export class OrganizationsService {
     }
   }
 
-  async getOrgById(id: string): Promise<ShortOrg | undefined> {
+  async getOrgById(id: string): Promise<OrganizationWithLinks | undefined> {
     try {
-      const generatedQuery = `
-        MATCH (organization:Organization {id: $id})
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (organization:Organization {orgId: $id})
         RETURN organization {
           .*,
-          discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-          website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-          docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-          telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-          github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+          discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite],
+          website: [(organization)-[:HAS_WEBSITE]->(website) | website.url],
+          rawWebsite: [(organization)-[:HAS_RAW_WEBSITE]->(website) | website.url],
+          docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url],
+          telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username],
+          github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-          twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+          grant: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url],
+          twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
           fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
           investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
           community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
           grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
-          jobs: [
-            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | structured_jobpost {
-              id: structured_jobpost.id,
-              title: structured_jobpost.title,
-              access: structured_jobpost.access,
-              salary: structured_jobpost.salary,
-              location: structured_jobpost.location,
-              summary: structured_jobpost.summary,
-              shortUUID: structured_jobpost.shortUUID,
-              seniority: structured_jobpost.seniority,
-              paysInCrypto: structured_jobpost.paysInCrypto,
-              minimumSalary: structured_jobpost.minimumSalary,
-              maximumSalary: structured_jobpost.maximumSalary,
-              salaryCurrency: structured_jobpost.salaryCurrency,
-              offersTokenAllocation: structured_jobpost.offersTokenAllocation,
-              featured: structured_jobpost.featured,
-              featureStartDate: structured_jobpost.featureStartDate,
-              featureEndDate: structured_jobpost.featureEndDate,
-              classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
-              commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
-              locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
-              timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END
+          jobCount: apoc.coll.sum([
+            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | 1
+          ]),
+          openEngineeringJobCount: apoc.coll.sum([
+            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+            WHERE (structured_jobpost)-[:HAS_CLASSIFICATION]->(:JobpostClassification {name: "ENGINEERING"}) | 1
+          ]),
+          totalEngineeringJobCount: apoc.coll.sum([
+            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)
+            WHERE (structured_jobpost)-[:HAS_CLASSIFICATION]->(:JobpostClassification {name: "ENGINEERING"}) | 1
+          ]),
+          jobsite: [
+            (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
+              id: jobsite.id,
+              url: jobsite.url,
+              type: jobsite.type
+            }
+          ],
+          detectedJobsite: [
+            (organization)-[:HAS_JOBSITE]->(jobsite:DetectedJobsite) | jobsite {
+              id: jobsite.id,
+              url: jobsite.url,
+              type: jobsite.type
             }
           ],
           projects: [
@@ -871,43 +875,14 @@ export class OrganizationsService {
                 (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
               ]
             }
-          ],
-          tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }],
-          reviews: [
-            (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
-              compensation: {
-                salary: review.salary,
-                currency: review.currency,
-                offersTokenAllocation: review.offersTokenAllocation
-              },
-              rating: {
-                onboarding: review.onboarding,
-                careerGrowth: review.careerGrowth,
-                benefits: review.benefits,
-                workLifeBalance: review.workLifeBalance,
-                diversityInclusion: review.diversityInclusion,
-                management: review.management,
-                product: review.product,
-                compensation: review.compensation
-              },
-              review: {
-                title: review.title,
-                location: review.location,
-                timezone: review.timezone,
-                pros: review.pros,
-                cons: review.cons
-              },
-              reviewedTimestamp: review.reviewedTimestamp
-            }
           ]
-        } as res
-        `;
-
-      const res = await this.neogma.queryRunner.run(generatedQuery, { id });
-
-      return res.records[0]?.get("res")
-        ? new ShortOrgEntity(
-            toShortOrg(res.records[0]?.get("res") as OrgDetailsResult),
+        } as org
+        `,
+        { id },
+      );
+      return result.records.length > 0
+        ? new OrganizationWithLinksEntity(
+            result.records[0].get("org"),
           ).getProperties()
         : undefined;
     } catch (err) {

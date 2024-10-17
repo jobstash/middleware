@@ -879,7 +879,7 @@ export class OrganizationsController {
   })
   async getOrgDetails(
     @Param("id") id: string,
-  ): Promise<Response<ShortOrg> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<OrganizationWithLinks>> {
     this.logger.log(`/organizations/${id}`);
     const result = await this.organizationsService.getOrgById(id);
 
