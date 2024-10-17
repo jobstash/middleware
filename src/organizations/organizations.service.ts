@@ -691,38 +691,25 @@ export class OrganizationsService {
         MATCH (organization:Organization)
         RETURN organization {
           .*,
-          discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite],
-          website: [(organization)-[:HAS_WEBSITE]->(website) | website.url],
-          rawWebsite: [(organization)-[:HAS_RAW_WEBSITE]->(website) | website.url],
+          discords: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite],
+          websites: [(organization)-[:HAS_WEBSITE]->(website) | website.url],
+          rawWebsites: [(organization)-[:HAS_RAW_WEBSITE]->(website) | website.url],
           docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url],
-          telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username],
-          github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login],
+          telegrams: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username],
+          githubs: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-          grant: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url],
-          twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
-          fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
-          investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
-          community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+          grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url],
+          twitters: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
+          communities: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
           grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
-          jobCount: apoc.coll.sum([
-            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | 1
-          ]),
-          openEngineeringJobCount: apoc.coll.sum([
-            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
-            WHERE (structured_jobpost)-[:HAS_CLASSIFICATION]->(:JobpostClassification {name: "ENGINEERING"}) | 1
-          ]),
-          totalEngineeringJobCount: apoc.coll.sum([
-            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)
-            WHERE (structured_jobpost)-[:HAS_CLASSIFICATION]->(:JobpostClassification {name: "ENGINEERING"}) | 1
-          ]),
-          jobsite: [
+          jobsites: [
             (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
               id: jobsite.id,
               url: jobsite.url,
               type: jobsite.type
             }
           ],
-          detectedJobsite: [
+          detectedJobsites: [
             (organization)-[:HAS_JOBSITE]->(jobsite:DetectedJobsite) | jobsite {
               id: jobsite.id,
               url: jobsite.url,
@@ -816,38 +803,25 @@ export class OrganizationsService {
         MATCH (organization:Organization {orgId: $id})
         RETURN organization {
           .*,
-          discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite],
-          website: [(organization)-[:HAS_WEBSITE]->(website) | website.url],
-          rawWebsite: [(organization)-[:HAS_RAW_WEBSITE]->(website) | website.url],
+          discords: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite],
+          websites: [(organization)-[:HAS_WEBSITE]->(website) | website.url],
+          rawWebsites: [(organization)-[:HAS_RAW_WEBSITE]->(website) | website.url],
           docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url],
-          telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username],
-          github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login],
+          telegrams: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username],
+          githubs: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-          grant: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url],
-          twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
-          fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
-          investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
-          community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+          grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url],
+          twitters: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
+          communities: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
           grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
-          jobCount: apoc.coll.sum([
-            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | 1
-          ]),
-          openEngineeringJobCount: apoc.coll.sum([
-            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
-            WHERE (structured_jobpost)-[:HAS_CLASSIFICATION]->(:JobpostClassification {name: "ENGINEERING"}) | 1
-          ]),
-          totalEngineeringJobCount: apoc.coll.sum([
-            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)
-            WHERE (structured_jobpost)-[:HAS_CLASSIFICATION]->(:JobpostClassification {name: "ENGINEERING"}) | 1
-          ]),
-          jobsite: [
+          jobsites: [
             (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
               id: jobsite.id,
               url: jobsite.url,
               type: jobsite.type
             }
           ],
-          detectedJobsite: [
+          detectedJobsites: [
             (organization)-[:HAS_JOBSITE]->(jobsite:DetectedJobsite) | jobsite {
               id: jobsite.id,
               url: jobsite.url,
@@ -1081,22 +1055,22 @@ export class OrganizationsService {
 
     await this.updateOrgWebsites({
       orgId: organization.orgId,
-      websites: organization.website,
+      websites: organization.websites,
     });
 
     await this.updateOrgTwitters({
       orgId: organization.orgId,
-      twitters: organization.twitter,
+      twitters: organization.twitters,
     });
 
     await this.updateOrgGithubs({
       orgId: organization.orgId,
-      githubs: organization.github,
+      githubs: organization.githubs,
     });
 
     await this.updateOrgDiscords({
       orgId: organization.orgId,
-      discords: organization.discord,
+      discords: organization.discords,
     });
 
     await this.updateOrgDocs({
@@ -1106,7 +1080,7 @@ export class OrganizationsService {
 
     await this.updateOrgTelegrams({
       orgId: organization.orgId,
-      telegrams: organization.telegram,
+      telegrams: organization.telegrams,
     });
 
     await this.updateOrgAliases({

@@ -9,39 +9,30 @@ export class OrganizationWithLinksEntity {
   getProperties(): OrganizationWithLinks {
     const organization = this.raw;
     const {
-      jobCount,
-      openEngineeringJobCount,
-      totalEngineeringJobCount,
-      discord,
-      website,
-      rawWebsite,
-      telegram,
-      github,
+      discords,
+      websites,
+      telegrams,
+      githubs,
       aliases,
-      twitter,
+      twitters,
       docs,
       projects,
-      fundingRounds,
-      investors,
-      community,
-      detectedJobsite,
-      jobsite,
-      grant,
+      communities,
+      detectedJobsites,
+      jobsites,
+      grants,
     } = organization;
 
     return new OrganizationWithLinks({
       ...organization,
-      jobCount: jobCount ?? 0,
-      openEngineeringJobCount: openEngineeringJobCount ?? 0,
-      totalEngineeringJobCount: totalEngineeringJobCount ?? 0,
       docs: docs ?? [],
       logoUrl: notStringOrNull(organization?.logoUrl),
       location: notStringOrNull(organization?.location),
       headcountEstimate: nonZeroOrNull(organization?.headcountEstimate),
-      github: github ?? [],
-      twitter: twitter ?? [],
-      discord: discord ?? [],
-      telegram: telegram ?? [],
+      githubs: githubs ?? [],
+      twitters: twitters ?? [],
+      discords: discords ?? [],
+      telegrams: telegrams ?? [],
       createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
       updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
       projects:
@@ -128,55 +119,24 @@ export class OrganizationWithLinksEntity {
               };
             }) ?? [],
           repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
-          investors: Array.from(
-            uniqBy(
-              project?.investors ??
-                organization?.investors?.map(investor => ({
-                  id: investor.id,
-                  name: investor.name,
-                  normalizedName: investor.normalizedName,
-                })) ??
-                [],
-              "id",
-            ),
-          ),
+          investors: Array.from(uniqBy(project?.investors ?? [], "id")),
         })) ?? [],
-      fundingRounds:
-        fundingRounds?.map(fr => ({
-          ...fr,
-          raisedAmount: nonZeroOrNull(fr?.raisedAmount),
-          roundName: notStringOrNull(fr?.roundName),
-          sourceLink: notStringOrNull(fr?.sourceLink),
-          createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
-          updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
-        })) ?? [],
-      investors: Array.from(
-        uniqBy(
-          investors?.map(investor => ({
-            id: investor.id,
-            name: investor.name,
-            normalizedName: investor.normalizedName,
-          })) ?? [],
-          "id",
-        ),
-      ),
-      community: community ?? [],
-      website: website ?? [],
-      rawWebsite: rawWebsite ?? [],
+      communities: communities ?? [],
+      websites: websites ?? [],
       aliases: aliases ?? [],
-      detectedJobsite:
-        detectedJobsite.map(detectedJobsite => ({
+      detectedJobsites:
+        detectedJobsites.map(detectedJobsite => ({
           id: detectedJobsite.id,
           url: detectedJobsite.url,
           type: detectedJobsite.type,
         })) ?? [],
-      jobsite:
-        jobsite.map(jobsite => ({
+      jobsites:
+        jobsites.map(jobsite => ({
           id: jobsite.id,
           url: jobsite.url,
           type: jobsite.type,
         })) ?? [],
-      grant: grant ?? [],
+      grants: grants ?? [],
     });
   }
 }

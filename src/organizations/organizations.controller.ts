@@ -93,7 +93,9 @@ export class OrganizationsController {
   @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all organizations",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(ShortOrg) }),
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(OrganizationWithLinks),
+    }),
   })
   async getOrganizations(): Promise<
     ResponseWithOptionalData<OrganizationWithLinks[]>
@@ -543,12 +545,12 @@ export class OrganizationsController {
         projects,
         communities,
         aliases,
-        website,
-        twitter,
-        github,
-        discord,
+        websites,
+        twitters,
+        githubs,
+        discords,
         docs,
-        telegram,
+        telegrams,
         jobsites,
         detectedJobsites,
         ...dto
@@ -574,7 +576,7 @@ export class OrganizationsController {
 
       const res3 = await this.organizationsService.updateOrgWebsites({
         orgId: id,
-        websites: website ?? [],
+        websites: websites ?? [],
       });
 
       if (!res3.success) {
@@ -583,7 +585,7 @@ export class OrganizationsController {
 
       const res4 = await this.organizationsService.updateOrgTwitters({
         orgId: id,
-        twitters: twitter ?? [],
+        twitters: twitters ?? [],
       });
 
       if (!res4.success) {
@@ -592,7 +594,7 @@ export class OrganizationsController {
 
       const res5 = await this.organizationsService.updateOrgGithubs({
         orgId: id,
-        githubs: github ?? [],
+        githubs: githubs ?? [],
       });
 
       if (!res5.success) {
@@ -601,7 +603,7 @@ export class OrganizationsController {
 
       const res6 = await this.organizationsService.updateOrgDiscords({
         orgId: id,
-        discords: discord ?? [],
+        discords: discords ?? [],
       });
 
       if (!res6.success) {
@@ -619,7 +621,7 @@ export class OrganizationsController {
 
       const res8 = await this.organizationsService.updateOrgTelegrams({
         orgId: id,
-        telegrams: telegram ?? [],
+        telegrams: telegrams ?? [],
       });
 
       if (!res8.success) {
