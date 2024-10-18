@@ -816,8 +816,9 @@ export class ProjectsService {
             OPTIONAL MATCH (project)-[:HAS_TELEGRAM]->(telegram)
             OPTIONAL MATCH (project)-[:HAS_TWITTER]->(twitter)
             OPTIONAL MATCH (project)-[:HAS_WEBSITE]->(website)
+            OPTIONAL MATCH (project)-[:HAS_RAW_WEBSITE]->(rawWebsite)-[:HAS_RAW_WEBSITE_METADATA]->(metadata)
             DETACH DELETE audit, hack, discord, docsite,
-              github, telegram, twitter, website, project
+              github, telegram, twitter, website, project, rawWebsite, metadata
         `,
         {
           id,
