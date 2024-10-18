@@ -15,9 +15,9 @@ import {
 } from "@nestjs/common";
 import * as Sentry from "@sentry/node";
 import { ScorerService } from "./scorer.service";
-import { RBACGuard } from "src/auth/rbac.guard";
-import { CheckWalletRoles } from "src/shared/constants";
-import { Roles } from "src/shared/decorators";
+import { PBACGuard } from "src/auth/pbac.guard";
+import { CheckWalletPermissions } from "src/shared/constants";
+import { Permissions } from "src/shared/decorators";
 import { ConfigService } from "@nestjs/config";
 import { UserService } from "src/user/user.service";
 import { AuthService } from "src/auth/auth.service";
@@ -51,8 +51,8 @@ export class ScorerController {
   ) {}
 
   @Get("client")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
   async getClient(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
@@ -111,8 +111,8 @@ export class ScorerController {
 
   @Get("oauth/lever")
   @Redirect()
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
   async triggerLeverOauth(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
@@ -154,8 +154,8 @@ export class ScorerController {
   }
 
   @Get("user/report")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
   async generateUserReport(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
@@ -231,8 +231,8 @@ export class ScorerController {
   }
 
   @Post("link/org/:platform")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
   async setupOrgLink(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
@@ -281,8 +281,8 @@ export class ScorerController {
   }
 
   @Post("update/preferences")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
   async setupClientPreferences(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
@@ -343,8 +343,8 @@ export class ScorerController {
   }
 
   @Post("register/:platform")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
   async registerAccount(
     @Param("platform") platform: "workable" | "greenhouse" | "jobstash",
     @Body() body: CreateClientInput,
@@ -457,8 +457,8 @@ export class ScorerController {
   }
 
   @Post("webhooks/:platform")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
   async retryWebhooks(
     @Param("platform") platform: "lever" | "workable" | "greenhouse",
     @Body() body: RetryCreateClientWebhooksInput,
@@ -531,8 +531,8 @@ export class ScorerController {
   }
 
   @Post("tags/greenhouse")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
   async retryTagsForGreenhouseClient(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
@@ -594,8 +594,8 @@ export class ScorerController {
   }
 
   @Delete("client")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
   async deleteClient(
     @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,

@@ -10,5 +10,6 @@ import { UserModule } from "src/user/user.module";
   imports: [forwardRef(() => UserModule)],
   controllers: [TagsController],
   providers: [TagsService, AuthService, JwtService, ModelService],
+  exports: [TagsService],
 })
 export class TagsModule {}

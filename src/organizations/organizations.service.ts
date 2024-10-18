@@ -14,6 +14,7 @@ import {
   Jobsite,
   TinyOrg,
   Organization,
+  FundingRound,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -48,6 +49,9 @@ import { ActivateOrgJobsiteInput } from "./dto/activate-organization-jobsites.in
 import { UpdateOrgDetectedJobsitesInput } from "./dto/update-organization-detected-jobsites.input";
 import { UpdateOrgJobsitesInput } from "./dto/update-organization-jobsites.input";
 import { UpdateOrgProjectInput } from "./dto/update-organization-projects.input";
+import { AddOrganizationByUrlInput } from "./dto/add-organization-by-url.input";
+import { ConfigService } from "@nestjs/config";
+import axios from "axios";
 
 @Injectable()
 export class OrganizationsService {
@@ -56,6 +60,7 @@ export class OrganizationsService {
     @InjectConnection()
     private neogma: Neogma,
     private models: ModelService,
+    private configService: ConfigService,
   ) {}
 
   getOrgListResults = async (): Promise<OrgDetailsResult[]> => {
@@ -248,11 +253,11 @@ export class OrganizationsService {
             communityFilterList.includes(normalizeString(community)),
           ).length > 0) &&
         (!fundingRoundFilterList ||
-          fundingRounds.filter(fundingRound =>
-            fundingRoundFilterList.includes(
-              normalizeString(fundingRound.roundName),
+          fundingRoundFilterList.includes(
+            normalizeString(
+              sort<FundingRound>(fundingRounds).desc(x => x.date)[0]?.roundName,
             ),
-          ).length > 0)
+          ))
       );
     };
 
@@ -335,7 +340,7 @@ export class OrganizationsService {
   }
 
   async getFeaturedOrgs(
-    ecosystem: string | undefined,
+    community: string | undefined,
   ): Promise<ResponseWithOptionalData<ShortOrg[]>> {
     try {
       const orgs = await this.getOrgListResults();
@@ -346,7 +351,7 @@ export class OrganizationsService {
         data: orgs
           .filter(
             org =>
-              (ecosystem ? org.community.includes(ecosystem) : true) &&
+              (community ? org.community.includes(community) : true) &&
               org.jobs.some(
                 job =>
                   job.featured === true &&
@@ -370,7 +375,7 @@ export class OrganizationsService {
   }
 
   async getFilterConfigs(
-    ecosystem: string | undefined,
+    community: string | undefined,
   ): Promise<OrgFilterConfigs> {
     try {
       return await this.neogma.queryRunner
@@ -379,38 +384,38 @@ export class OrganizationsService {
           RETURN {
               minHeadCount: apoc.coll.min([
                 (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) 
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END | org.headcountEstimate
+                WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END | org.headcountEstimate
               ]),
               maxHeadCount: apoc.coll.max([
                 (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) 
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END | org.headcountEstimate
+                WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END | org.headcountEstimate
               ]),
               fundingRounds: apoc.coll.toSet([
                 (org: Organization)-[:HAS_FUNDING_ROUND]->(round: FundingRound)
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
+                WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
                 AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
                 AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | round.roundName
               ]),
               investors: apoc.coll.toSet([
                 (org: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor)
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
+                WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
                 AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
                 AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | investor.name
               ]),
               communities: apoc.coll.toSet([
                 (org: Organization)-[:IS_MEMBER_OF_COMMUNITY]->(community: OrganizationCommunity)
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
+                WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
                 AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
                 AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | community.name
               ]),
               locations: apoc.coll.toSet([
                 (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_LOCATION_TYPE]->(location: JobpostLocationType)
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
+                WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
                 AND (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | location.name
               ])
           } AS res
       `,
-          { ecosystem: ecosystem ?? null },
+          { community: community ?? null },
         )
         .then(res =>
           res.records.length
@@ -436,13 +441,13 @@ export class OrganizationsService {
 
   async getOrgDetailsById(
     orgId: string,
-    ecosystem: string | undefined,
+    community: string | undefined,
   ): Promise<OrgDetailsResult | undefined> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (organization:Organization {orgId: $orgId})
-        WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $ecosystem})) END
+        WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $community})) END
         RETURN organization {
             .*,
             discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
@@ -532,7 +537,7 @@ export class OrganizationsService {
             ]
           } as res
         `,
-        { orgId, ecosystem: ecosystem ?? null },
+        { orgId, community: community ?? null },
       );
       return result.records[0]?.get("res")
         ? new OrgDetailsResultEntity({
@@ -559,13 +564,13 @@ export class OrganizationsService {
 
   async getOrgDetailsBySlug(
     slug: string,
-    ecosystem: string | undefined,
+    community: string | undefined,
   ): Promise<OrgDetailsResult | undefined> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (organization:Organization {normalizedName: $slug})
-        WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $ecosystem})) END
+        WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $community})) END
         RETURN organization {
             .*,
             discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
@@ -655,7 +660,7 @@ export class OrganizationsService {
             ]
           } as res
         `,
-        { slug, ecosystem: ecosystem ?? null },
+        { slug, community: community ?? null },
       );
       return result.records[0]?.get("res")
         ? new OrgDetailsResultEntity({
@@ -687,38 +692,25 @@ export class OrganizationsService {
         MATCH (organization:Organization)
         RETURN organization {
           .*,
-          discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite],
-          website: [(organization)-[:HAS_WEBSITE]->(website) | website.url],
-          rawWebsite: [(organization)-[:HAS_RAW_WEBSITE]->(website) | website.url],
+          discords: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite],
+          websites: [(organization)-[:HAS_WEBSITE]->(website) | website.url],
+          rawWebsites: [(organization)-[:HAS_RAW_WEBSITE]->(website) | website.url],
           docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url],
-          telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username],
-          github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login],
+          telegrams: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username],
+          githubs: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-          grant: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url],
-          twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
-          fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
-          investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
-          community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+          grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url],
+          twitters: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
+          communities: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
           grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
-          jobCount: apoc.coll.sum([
-            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | 1
-          ]),
-          openEngineeringJobCount: apoc.coll.sum([
-            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
-            WHERE (structured_jobpost)-[:HAS_CLASSIFICATION]->(:JobpostClassification {name: "ENGINEERING"}) | 1
-          ]),
-          totalEngineeringJobCount: apoc.coll.sum([
-            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)
-            WHERE (structured_jobpost)-[:HAS_CLASSIFICATION]->(:JobpostClassification {name: "ENGINEERING"}) | 1
-          ]),
-          jobsite: [
+          jobsites: [
             (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
               id: jobsite.id,
               url: jobsite.url,
               type: jobsite.type
             }
           ],
-          detectedJobsite: [
+          detectedJobsites: [
             (organization)-[:HAS_JOBSITE]->(jobsite:DetectedJobsite) | jobsite {
               id: jobsite.id,
               url: jobsite.url,
@@ -805,45 +797,36 @@ export class OrganizationsService {
     }
   }
 
-  async getOrgById(id: string): Promise<ShortOrg | undefined> {
+  async getOrgById(id: string): Promise<OrganizationWithLinks | undefined> {
     try {
-      const generatedQuery = `
-        MATCH (organization:Organization {id: $id})
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (organization:Organization {orgId: $id})
         RETURN organization {
           .*,
-          discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-          website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-          docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-          telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-          github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+          discords: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite],
+          websites: [(organization)-[:HAS_WEBSITE]->(website) | website.url],
+          rawWebsites: [(organization)-[:HAS_RAW_WEBSITE]->(website) | website.url],
+          docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url],
+          telegrams: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username],
+          githubs: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-          twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-          fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
-          investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
-          community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+          grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url],
+          twitters: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
+          communities: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
           grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
-          jobs: [
-            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | structured_jobpost {
-              id: structured_jobpost.id,
-              title: structured_jobpost.title,
-              access: structured_jobpost.access,
-              salary: structured_jobpost.salary,
-              location: structured_jobpost.location,
-              summary: structured_jobpost.summary,
-              shortUUID: structured_jobpost.shortUUID,
-              seniority: structured_jobpost.seniority,
-              paysInCrypto: structured_jobpost.paysInCrypto,
-              minimumSalary: structured_jobpost.minimumSalary,
-              maximumSalary: structured_jobpost.maximumSalary,
-              salaryCurrency: structured_jobpost.salaryCurrency,
-              offersTokenAllocation: structured_jobpost.offersTokenAllocation,
-              featured: structured_jobpost.featured,
-              featureStartDate: structured_jobpost.featureStartDate,
-              featureEndDate: structured_jobpost.featureEndDate,
-              classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
-              commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
-              locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
-              timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END
+          jobsites: [
+            (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
+              id: jobsite.id,
+              url: jobsite.url,
+              type: jobsite.type
+            }
+          ],
+          detectedJobsites: [
+            (organization)-[:HAS_JOBSITE]->(jobsite:DetectedJobsite) | jobsite {
+              id: jobsite.id,
+              url: jobsite.url,
+              type: jobsite.type
             }
           ],
           projects: [
@@ -867,43 +850,16 @@ export class OrganizationsService {
                 (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
               ]
             }
-          ],
-          tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }],
-          reviews: [
-            (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
-              compensation: {
-                salary: review.salary,
-                currency: review.currency,
-                offersTokenAllocation: review.offersTokenAllocation
-              },
-              rating: {
-                onboarding: review.onboarding,
-                careerGrowth: review.careerGrowth,
-                benefits: review.benefits,
-                workLifeBalance: review.workLifeBalance,
-                diversityInclusion: review.diversityInclusion,
-                management: review.management,
-                product: review.product,
-                compensation: review.compensation
-              },
-              review: {
-                title: review.title,
-                location: review.location,
-                timezone: review.timezone,
-                pros: review.pros,
-                cons: review.cons
-              },
-              reviewedTimestamp: review.reviewedTimestamp
-            }
           ]
-        } as res
-        `;
-
-      const res = await this.neogma.queryRunner.run(generatedQuery, { id });
-
-      return new ShortOrgEntity(
-        toShortOrg(res.records[0]?.get("res") as OrgDetailsResult),
-      ).getProperties();
+        } as org
+        `,
+        { id },
+      );
+      return result.records.length > 0
+        ? new OrganizationWithLinksEntity(
+            result.records[0].get("org"),
+          ).getProperties()
+        : undefined;
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -980,26 +936,97 @@ export class OrganizationsService {
     );
   }
 
+  isValidUrl(urlString: string): boolean {
+    try {
+      if (urlString.startsWith("@")) {
+        throw new Error("Not a valid URL but a Username instead: " + urlString);
+      }
+      const url = new URL(urlString);
+      return ["http:", "https:"].includes(url.protocol);
+    } catch (_) {
+      throw new Error("Not a valid URL: " + urlString);
+    }
+  }
+
+  ensureProtocol(url: string): string[] {
+    return ["https://" + url, "http://" + url];
+  }
+
+  toAbsoluteURL(url: string, baseUrl?: string): string {
+    try {
+      // If the URL is already absolute, return as is
+      new URL(url);
+      return url;
+    } catch {
+      // If URL creation failed, check if it's a domain name or a relative path
+      if (url.includes(".")) {
+        // It's likely a domain name, prepend 'https://'
+        return "https://" + url;
+      } else {
+        // It's a relative path, use the base URL to create an absolute URL
+        return new URL(url, baseUrl).href;
+      }
+    }
+  }
+
   async findOrgIdByWebsite(
     domain: string,
   ): Promise<ResponseWithOptionalData<string>> {
-    const orgs = await this.neogma.queryRunner.run(
-      `
+    try {
+      if (this.ensureProtocol(domain).every(this.isValidUrl)) {
+        try {
+          this.ensureProtocol(domain).map(x => new URL(this.toAbsoluteURL(x)));
+        } catch (err) {
+          return {
+            success: false,
+            message: "Invalid url",
+          };
+        }
+        const orgs = await this.neogma.queryRunner.run(
+          `
         MATCH (organization:Organization)-[:HAS_WEBSITE]->(website:Website)
-        WHERE apoc.data.url(website.url).host CONTAINS $domain
+        UNWIND $domains as domain
+        WITH organization, domain, website
+        WHERE apoc.data.url(website.url).host CONTAINS domain OR website.url CONTAINS domain OR domain CONTAINS website.url
         RETURN organization.orgId as orgId
       `,
-      { domain },
-    );
-    const result = orgs.records.length
-      ? (orgs.records[0]?.get("orgId") as string)
-      : undefined;
+          {
+            domains: this.ensureProtocol(domain).map(x =>
+              this.toAbsoluteURL(x),
+            ),
+          },
+        );
+        const result = orgs.records.length
+          ? (orgs?.records[0]?.get("orgId") as string)
+          : undefined;
 
-    return {
-      success: result ? true : false,
-      message: result ? "Retrieved org id successfully" : "No org found",
-      data: result,
-    };
+        return {
+          success: result ? true : false,
+          message: result ? "Retrieved org id successfully" : "No org found",
+          data: result,
+        };
+      } else {
+        return {
+          success: false,
+          message: "Invalid url",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "organizations.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::findOrgIdByWebsite ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Error finding org id by website",
+      };
+    }
   }
 
   async create(
@@ -1029,22 +1056,22 @@ export class OrganizationsService {
 
     await this.updateOrgWebsites({
       orgId: organization.orgId,
-      websites: organization.website,
+      websites: organization.websites,
     });
 
     await this.updateOrgTwitters({
       orgId: organization.orgId,
-      twitters: organization.twitter,
+      twitters: organization.twitters,
     });
 
     await this.updateOrgGithubs({
       orgId: organization.orgId,
-      githubs: organization.github,
+      githubs: organization.githubs,
     });
 
     await this.updateOrgDiscords({
       orgId: organization.orgId,
-      discords: organization.discord,
+      discords: organization.discords,
     });
 
     await this.updateOrgDocs({
@@ -1054,7 +1081,7 @@ export class OrganizationsService {
 
     await this.updateOrgTelegrams({
       orgId: organization.orgId,
-      telegrams: organization.telegram,
+      telegrams: organization.telegrams,
     });
 
     await this.updateOrgAliases({
@@ -1068,6 +1095,70 @@ export class OrganizationsService {
     });
 
     return new OrganizationEntity(res.records[0]?.get("org"));
+  }
+
+  async addOrganizationByUrl(
+    dto: AddOrganizationByUrlInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      const clientId = this.configService.get<string>("ETL_CLIENT_ID");
+      const clientSecret = this.configService.get<string>("ETL_CLIENT_SECRET");
+      const url = this.configService.get<string>("ETL_DOMAIN");
+
+      const auth0Domain = this.configService.get<string>("AUTH0_DOMAIN");
+      const audience = this.configService.get<string>("AUTH0_AUDIENCE");
+      const response = await axios.post(`${auth0Domain}/oauth/token`, {
+        client_id: clientId,
+        client_secret: clientSecret,
+        audience,
+        grant_type: "client_credentials",
+      });
+      if (response.data) {
+        const authToken = response.data.access_token;
+        const response2 = await axios.get(
+          `${url}/organization-importer/import-organization-by-url?url=${dto.url}&name=${dto.name}`,
+          {
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+          },
+        );
+        if ([200, 201, 202].includes(response2.status)) {
+          return {
+            success: true,
+            message: "Organization queued for import successfully",
+          };
+        } else {
+          this.logger.warn(
+            `Error queueing organization ${dto} for import: ${response2.data}`,
+          );
+          return {
+            success: false,
+            message: "Error adding organization",
+          };
+        }
+      } else {
+        return {
+          success: false,
+          message: "Error fetching auth token",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "external-api-call",
+          source: "organizations.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::addOrganizationByUrl ${err.message}`,
+      );
+      return {
+        success: false,
+        message: `Error adding organization by url`,
+      };
+    }
   }
 
   async update(
@@ -1098,7 +1189,8 @@ export class OrganizationsService {
         SET org.description = $description
         SET org.summary = $summary
         SET org.location = $location
-        SET org.headcountEstimate = $headcountEstimate     
+        SET org.headcountEstimate = $headcountEstimate
+        SET org.updatedTimestamp = timestamp()
 
         RETURN org
       `,
@@ -1117,13 +1209,14 @@ export class OrganizationsService {
             OPTIONAL MATCH (organization)-[:HAS_JOBSITE]->(jobsite)-[:HAS_JOBPOST]->(jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost)
             OPTIONAL MATCH (organization)-[:HAS_DISCORD]->(discord)
             OPTIONAL MATCH (organization)-[:HAS_WEBSITE]->(website)
+            OPTIONAL MATCH (organization)-[:HAS_RAW_WEBSITE]->(rawWebsite)-[:HAS_RAW_WEBSITE_METADATA]-(metadata)
             OPTIONAL MATCH (organization)-[:HAS_DOCSITE]->(docsite)
             OPTIONAL MATCH (organization)-[:HAS_TELEGRAM]->(telegram)
             OPTIONAL MATCH (organization)-[:HAS_GITHUB]->(github:GithubOrganization)
             OPTIONAL MATCH (organization)-[:HAS_ORGANIZATION_ALIAS]->(alias)
             OPTIONAL MATCH (organization)-[:HAS_TWITTER]->(twitter)
             DETACH DELETE jobsite, jobpost, structured_jobpost,
-              discord, website, docsite, telegram, github, alias, twitter, tag
+              discord, website, docsite, telegram, github, alias, twitter, tag, rawWebsite, metadata
 
             WITH organization
             OPTIONAL MATCH (organization)-[:HAS_PROJECT]->(project)

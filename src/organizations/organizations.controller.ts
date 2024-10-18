@@ -6,6 +6,7 @@ import {
   Header,
   Headers,
   HttpStatus,
+  NotFoundException,
   Param,
   ParseFilePipeBuilder,
   Post,
@@ -28,8 +29,8 @@ import {
   getSchemaPath,
 } from "@nestjs/swagger";
 import { Response as ExpressResponse } from "express";
-import { RBACGuard } from "src/auth/rbac.guard";
-import { Roles } from "src/shared/decorators/role.decorator";
+import { PBACGuard } from "src/auth/pbac.guard";
+import { Permissions } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
   Repository,
@@ -48,7 +49,7 @@ import {
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
 import { OrganizationsService } from "./organizations.service";
-import { CheckWalletRoles, ECOSYSTEM_HEADER } from "src/shared/constants";
+import { CheckWalletPermissions, COMMUNITY_HEADER } from "src/shared/constants";
 import { NFTStorage, File } from "nft.storage";
 import { ConfigService } from "@nestjs/config";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -64,6 +65,7 @@ import { UpdateOrgAliasesInput } from "./dto/update-organization-aliases.input";
 import { UpdateOrgCommunitiesInput } from "./dto/update-organization-communities.input";
 import { ActivateOrgJobsiteInput } from "./dto/activate-organization-jobsites.input";
 import { UpdateOrgProjectInput } from "./dto/update-organization-projects.input";
+import { AddOrganizationByUrlInput } from "./dto/add-organization-by-url.input";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -87,11 +89,13 @@ export class OrganizationsController {
   }
 
   @Get("/")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all organizations",
-    schema: responseSchemaWrapper({ $ref: getSchemaPath(ShortOrg) }),
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(OrganizationWithLinks),
+    }),
   })
   async getOrganizations(): Promise<
     ResponseWithOptionalData<OrganizationWithLinks[]>
@@ -124,10 +128,10 @@ export class OrganizationsController {
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiHeader({
-    name: ECOSYSTEM_HEADER,
+    name: COMMUNITY_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific ecosystem",
+      "Optional header to tailor the response for a specific community",
   })
   @ApiOkResponse({
     description:
@@ -167,12 +171,12 @@ export class OrganizationsController {
   async getOrgsListWithSearch(
     @Query(new ValidationPipe({ transform: true }))
     params: OrgListParams,
-    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER) community: string | undefined,
   ): Promise<PaginatedData<ShortOrg>> {
     const enrichedParams = {
       ...params,
-      communities: ecosystem
-        ? [...(params.communities ?? []), ecosystem]
+      communities: community
+        ? [...(params.communities ?? []), community]
         : params.communities,
     };
     this.logger.log(`/organizations/list ${JSON.stringify(enrichedParams)}`);
@@ -180,8 +184,8 @@ export class OrganizationsController {
   }
 
   @Get("/all")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
@@ -216,10 +220,10 @@ export class OrganizationsController {
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiHeader({
-    name: ECOSYSTEM_HEADER,
+    name: COMMUNITY_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific ecosystem",
+      "Optional header to tailor the response for a specific community",
   })
   @ApiOkResponse({
     description: "Returns the configuration data for the ui filters",
@@ -237,15 +241,15 @@ export class OrganizationsController {
     type: ValidationError,
   })
   async getFilterConfigs(
-    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER) community: string | undefined,
   ): Promise<OrgFilterConfigs> {
     this.logger.log(`/jobs/filters`);
-    return this.organizationsService.getFilterConfigs(ecosystem);
+    return this.organizationsService.getFilterConfigs(community);
   }
 
   @Get("/featured")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ANON)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
@@ -264,10 +268,10 @@ export class OrganizationsController {
     },
   })
   async getFeaturedOrgsList(
-    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER) community: string | undefined,
   ): Promise<ResponseWithOptionalData<ShortOrg[]>> {
     this.logger.log(`/organizations/featured`);
-    return this.organizationsService.getFeaturedOrgs(ecosystem);
+    return this.organizationsService.getFeaturedOrgs(community);
   }
 
   @Get("id/:domain")
@@ -290,10 +294,10 @@ export class OrganizationsController {
 
   @Get("details/:id")
   @ApiHeader({
-    name: ECOSYSTEM_HEADER,
+    name: COMMUNITY_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific ecosystem",
+      "Optional header to tailor the response for a specific community",
   })
   @ApiOkResponse({
     description:
@@ -319,12 +323,12 @@ export class OrganizationsController {
   async getOrgDetailsById(
     @Param("id") id: string,
     @Res({ passthrough: true }) res: ExpressResponse,
-    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER) community: string | undefined,
   ): Promise<OrgDetailsResult | undefined> {
     this.logger.log(`/organizations/details/${id}`);
     const result = await this.organizationsService.getOrgDetailsById(
       id,
-      ecosystem,
+      community,
     );
     if (result === undefined) {
       res.status(HttpStatus.NOT_FOUND);
@@ -334,10 +338,10 @@ export class OrganizationsController {
 
   @Get("details/slug/:slug")
   @ApiHeader({
-    name: ECOSYSTEM_HEADER,
+    name: COMMUNITY_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific ecosystem",
+      "Optional header to tailor the response for a specific community",
   })
   @ApiOkResponse({
     description: "Returns the organization details for the provided slug",
@@ -362,12 +366,12 @@ export class OrganizationsController {
   async getOrgDetailsBySlug(
     @Param("slug") slug: string,
     @Res({ passthrough: true }) res: ExpressResponse,
-    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER) community: string | undefined,
   ): Promise<OrgDetailsResult | undefined> {
     this.logger.log(`/organizations/details/slug/${slug}`);
     const result = await this.organizationsService.getOrgDetailsBySlug(
       slug,
-      ecosystem,
+      community,
     );
     if (result === undefined) {
       res.status(HttpStatus.NOT_FOUND);
@@ -375,35 +379,10 @@ export class OrganizationsController {
     return result;
   }
 
-  @Get("/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
-  @ApiOkResponse({
-    description: "Returns the details of the org with the provided id",
-  })
-  async getOrgDetails(
-    @Param("id") id: string,
-    @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<Response<ShortOrg> | ResponseWithNoData> {
-    this.logger.log(`/organizations/${id}`);
-    const result = await this.organizationsService.getOrgById(id);
-
-    if (result === undefined) {
-      res.status(HttpStatus.NOT_FOUND);
-      return { success: true, message: "No organization found for id " + id };
-    } else {
-      return {
-        success: true,
-        message: "Retrieved organization details successfully",
-        data: result,
-      };
-    }
-  }
-
   @Post("/upload-logo")
   @UseInterceptors(FileInterceptor("file"))
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description:
       "Uploads an organizations logo and returns the url to the cloud file",
@@ -479,8 +458,8 @@ export class OrganizationsController {
   }
 
   @Post("/create")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
     description: "Creates a new organization",
     schema: responseSchemaWrapper({
@@ -522,9 +501,27 @@ export class OrganizationsController {
     }
   }
 
+  @Post("/add-by-url")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
+  @ApiOkResponse({
+    description: "Queues a new organization for import on etl",
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong creating the organization on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async addOrganizationByUrl(
+    @Body() body: AddOrganizationByUrlInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/organizations/add-by-url ${JSON.stringify(body)}`);
+    return this.organizationsService.addOrganizationByUrl(body);
+  }
+
   @Post("/update/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
     description: "Updates an existing organization",
     schema: responseSchemaWrapper({
@@ -543,17 +540,25 @@ export class OrganizationsController {
     this.logger.log(`/organizations/update/${id} ${JSON.stringify(body)}`);
 
     try {
+      const org = await this.organizationsService.findByOrgId(id);
+
+      if (!org) {
+        throw new NotFoundException({
+          success: false,
+          message: `Org with orgId ${id} not found`,
+        });
+      }
       const {
         grants,
         projects,
         communities,
         aliases,
-        website,
-        twitter,
-        github,
-        discord,
+        websites,
+        twitters,
+        githubs,
+        discords,
         docs,
-        telegram,
+        telegrams,
         jobsites,
         detectedJobsites,
         ...dto
@@ -579,7 +584,7 @@ export class OrganizationsController {
 
       const res3 = await this.organizationsService.updateOrgWebsites({
         orgId: id,
-        websites: website ?? [],
+        websites: websites ?? [],
       });
 
       if (!res3.success) {
@@ -588,7 +593,7 @@ export class OrganizationsController {
 
       const res4 = await this.organizationsService.updateOrgTwitters({
         orgId: id,
-        twitters: twitter ?? [],
+        twitters: twitters ?? [],
       });
 
       if (!res4.success) {
@@ -597,7 +602,7 @@ export class OrganizationsController {
 
       const res5 = await this.organizationsService.updateOrgGithubs({
         orgId: id,
-        githubs: github ?? [],
+        githubs: githubs ?? [],
       });
 
       if (!res5.success) {
@@ -606,7 +611,7 @@ export class OrganizationsController {
 
       const res6 = await this.organizationsService.updateOrgDiscords({
         orgId: id,
-        discords: discord ?? [],
+        discords: discords ?? [],
       });
 
       if (!res6.success) {
@@ -624,7 +629,7 @@ export class OrganizationsController {
 
       const res8 = await this.organizationsService.updateOrgTelegrams({
         orgId: id,
-        telegrams: telegram ?? [],
+        telegrams: telegrams ?? [],
       });
 
       if (!res8.success) {
@@ -642,7 +647,7 @@ export class OrganizationsController {
 
       const res10 = await this.organizationsService.updateOrgProjects(
         id,
-        projects,
+        projects ?? [],
       );
 
       if (!res10.success) {
@@ -670,7 +675,7 @@ export class OrganizationsController {
 
       const res12 = await this.organizationsService.updateOrgJobsites({
         orgId: id,
-        jobsites,
+        jobsites: jobsites ?? [],
       });
 
       if (!res12.success) {
@@ -682,11 +687,18 @@ export class OrganizationsController {
 
       const result = await this.organizationsService.update(id, dto);
 
-      return {
-        success: true,
-        message: "Organization updated successfully",
-        data: result.getProperties(),
-      };
+      if (result) {
+        return {
+          success: true,
+          message: "Organization updated successfully",
+          data: result?.getProperties(),
+        };
+      } else {
+        return {
+          success: false,
+          message: "Error updating org",
+        };
+      }
     } catch (error) {
       this.logger.error(`/organizations/update/${id} ${error}`);
       Sentry.withScope(scope => {
@@ -704,8 +716,8 @@ export class OrganizationsController {
   }
 
   @Delete("/delete/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
     description: "Deletes an existing organization",
     schema: responseSchemaWrapper({
@@ -725,8 +737,8 @@ export class OrganizationsController {
   }
 
   @Post("/add-alias")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
     description: "Upserts an org with a new alias",
     schema: responseSchemaWrapper({
@@ -746,8 +758,8 @@ export class OrganizationsController {
   }
 
   @Post("/add-project")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
     description: "Add a project to an org",
   })
@@ -764,8 +776,8 @@ export class OrganizationsController {
   }
 
   @Post("/remove-project")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
     description: "Remove a project from an org",
   })
@@ -782,8 +794,8 @@ export class OrganizationsController {
   }
 
   @Post("/transform-to-project/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
     description: "Transforms an org to a project",
   })
@@ -800,8 +812,8 @@ export class OrganizationsController {
   }
 
   @Post("/communities")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
     description: "Upserts an org with a new set of communities",
     schema: responseSchemaWrapper({
@@ -821,8 +833,8 @@ export class OrganizationsController {
   }
 
   @Post("/jobsites/activate")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Activates a list of detected jobsites for an org",
     schema: responseSchemaWrapper({
@@ -874,5 +886,31 @@ export class OrganizationsController {
           message: `Error retrieving organization repositories!`,
         };
       });
+  }
+
+  @Get("/:id")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
+  @ApiOkResponse({
+    description: "Returns the details of the org with the provided id",
+  })
+  async getOrgDetails(
+    @Param("id") id: string,
+  ): Promise<ResponseWithOptionalData<OrganizationWithLinks>> {
+    this.logger.log(`/organizations/${id}`);
+    const result = await this.organizationsService.getOrgById(id);
+
+    if (result === undefined) {
+      throw new NotFoundException({
+        success: true,
+        message: "No organization found for id " + id,
+      });
+    } else {
+      return {
+        success: true,
+        message: "Retrieved organization details successfully",
+        data: result,
+      };
+    }
   }
 }

@@ -3,7 +3,6 @@ import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { Request, Response } from "express";
 import { SessionObject } from "src/shared/interfaces";
-import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
 
 @Injectable()
 export class AuthService {
@@ -29,24 +28,21 @@ export class AuthService {
       if (decoded) {
         return {
           address: decoded.address ?? null,
-          role: decoded.role ?? CheckWalletRoles.ANON,
-          flow: decoded.flow ?? CheckWalletFlows.LOGIN,
           cryptoNative: decoded.cryptoNative ?? false,
+          permissions: decoded.permissions ?? [],
         };
       } else {
         return {
           address: null,
-          role: CheckWalletRoles.ANON,
-          flow: CheckWalletFlows.LOGIN,
           cryptoNative: false,
+          permissions: [],
         };
       }
     } else {
       return {
         address: null,
-        role: CheckWalletRoles.ANON,
-        flow: CheckWalletFlows.LOGIN,
         cryptoNative: false,
+        permissions: [],
       };
     }
   }

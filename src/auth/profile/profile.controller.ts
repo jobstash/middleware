@@ -7,30 +7,27 @@ import {
   Param,
   Post,
   Query,
-  Req,
   Res,
   UseGuards,
   ValidationPipe,
 } from "@nestjs/common";
 import { ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
-import { Response as ExpressResponse, Request } from "express";
+import { Response as ExpressResponse } from "express";
 import { OrganizationsService } from "src/organizations/organizations.service";
-import { Roles } from "src/shared/decorators/role.decorator";
-import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
-  OrgUserProfile,
   PaginatedData,
   Response,
   ResponseWithNoData,
   ResponseWithOptionalData,
+  SessionObject,
   UserOrg,
   UserProfile,
   UserRepo,
+  UserVerifiedOrg,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
-import { AuthService } from "../auth.service";
-import { RBACGuard } from "../rbac.guard";
+import { PBACGuard } from "../pbac.guard";
 import { RateOrgInput } from "./dto/rate-org.input";
 import { RepoListParams } from "./dto/repo-list.input";
 import { ReviewOrgSalaryInput } from "./dto/review-org-salary.input";
@@ -43,19 +40,19 @@ import { ProfileService } from "./profile.service";
 import { ReportInput } from "./dto/report.input";
 import { MailService } from "src/mail/mail.service";
 import { ConfigService } from "@nestjs/config";
-import { Throttle } from "@nestjs/throttler";
-import { UpdateOrgUserProfileInput } from "./dto/update-org-profile.input";
 import { UserService } from "src/user/user.service";
 import * as Sentry from "@sentry/node";
 import { RpcService } from "../../user/rpc.service";
 import { JobsService } from "src/jobs/jobs.service";
 import { UpdateDevLocationInput } from "./dto/update-dev-location.input";
+import { Permissions, Session } from "src/shared/decorators";
+import { CheckWalletPermissions } from "src/shared/constants";
+import { Throttle } from "@nestjs/throttler";
 
 @Controller("profile")
 export class ProfileController {
   private logger = new CustomLogger(ProfileController.name);
   constructor(
-    private readonly authService: AuthService,
     private readonly rpcService: RpcService,
     private readonly userService: UserService,
     private readonly profileService: ProfileService,
@@ -65,61 +62,25 @@ export class ProfileController {
     private readonly jobsService: JobsService,
   ) {}
 
-  @Get("dev/info")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @Get("info")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
-    description: "Returns the profile of the currently logged in dev user",
+    description: "Returns the profile of the currently logged in user",
     schema: responseSchemaWrapper({
       $ref: getSchemaPath(Response<UserProfile>),
     }),
   })
-  async getDevUserProfile(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+  async getUserProfile(
+    @Session() { address }: SessionObject,
   ): Promise<ResponseWithOptionalData<UserProfile>> {
     this.logger.log(`/profile/dev/info`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.profileService.getDevUserProfile(address);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
-  }
-
-  @Get("org/info")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ORG, CheckWalletRoles.ADMIN)
-  @ApiOkResponse({
-    description: "Returns the profile of the currently logged in org user",
-    schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Response<UserProfile>),
-    }),
-  })
-  async getOrgUserProfile(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<ResponseWithOptionalData<OrgUserProfile>> {
-    this.logger.log(`/profile/org/info`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.profileService.getOrgUserProfile(address);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
+    return this.profileService.getUserProfile(address);
   }
 
   @Get("repositories")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Returns the repos of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -127,26 +88,17 @@ export class ProfileController {
     }),
   })
   async getUserRepos(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true })) params: RepoListParams,
   ): Promise<PaginatedData<UserRepo> | ResponseWithNoData> {
     this.logger.log(`/profile/repositories`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.profileService.getUserRepos(address, params);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
+
+    return this.profileService.getUserRepos(address, params);
   }
 
   @Get("organizations")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Returns the organizations of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -154,52 +106,54 @@ export class ProfileController {
     }),
   })
   async getUserOrgs(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
   ): Promise<ResponseWithOptionalData<UserOrg[]>> {
     this.logger.log(`/profile/organizations`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.profileService.getUserOrgs(address);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
+
+    return this.profileService.getUserOrgs(address);
   }
 
   @Get("organizations/verified")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description:
       "Returns the verified organizations of the currently logged in user",
     schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Response<UserOrg[]>),
+      $ref: getSchemaPath(Response<UserVerifiedOrg[]>),
     }),
   })
   async getUserVerifiedOrgs(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<ResponseWithOptionalData<{ id: string; name: string }[]>> {
+    @Session() { address }: SessionObject,
+  ): Promise<ResponseWithOptionalData<UserVerifiedOrg[]>> {
     this.logger.log(`/profile/organizations/verified`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.profileService.getUserVerifiedOrgs(address);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
+
+    return this.profileService.getUserVerifiedOrgs(address);
+  }
+
+  @Get("organizations/authorized")
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ORG_AFFILIATE,
+  )
+  @ApiOkResponse({
+    description:
+      "Returns the authorized organizations of the currently logged in user",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Response<UserVerifiedOrg[]>),
+    }),
+  })
+  async getUserAuthorizedOrgs(
+    @Session() { address }: SessionObject,
+  ): Promise<ResponseWithOptionalData<UserVerifiedOrg[]>> {
+    this.logger.log(`/profile/organizations/authorized`);
+    return this.profileService.getUserAuthorizedOrgs(address);
   }
 
   @Get("showcase")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Returns the showcase of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -207,25 +161,16 @@ export class ProfileController {
     }),
   })
   async getUserShowCase(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
   ): Promise<Response<{ label: string; url: string }[]> | ResponseWithNoData> {
     this.logger.log(`/profile/showcase`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.profileService.getUserShowCase(address);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
+
+    return this.profileService.getUserShowCase(address);
   }
 
   @Get("skills")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Returns the skills of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -235,114 +180,50 @@ export class ProfileController {
     }),
   })
   async getUserSkills(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
   ): Promise<
     | Response<{ id: string; name: string; canTeach: boolean }[]>
     | ResponseWithNoData
   > {
     this.logger.log(`/profile/skills`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.profileService.getUserSkills(address);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
+
+    return this.profileService.getUserSkills(address);
   }
 
-  @Post("dev/availability")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV)
+  @Post("availability")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Updates the availability of the currently logged in dev user",
   })
-  async setDevUserAvailability(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+  async setUserAvailability(
+    @Session() { address }: SessionObject,
     @Body("availability") availability: boolean,
   ): Promise<ResponseWithNoData> {
     this.logger.log(
       `/profile/dev/availability ${JSON.stringify(availability)}`,
     );
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.profileService.updateDevUserAvailability(
-        address,
-        availability,
-      );
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
+
+    return this.profileService.updateUserAvailability(address, availability);
   }
 
-  @Post("dev/location")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV)
+  @Post("location")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Updates the location of the currently logged in dev user",
   })
-  async setDevUserProfile(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+  async setUserLocationInfo(
+    @Session() { address }: SessionObject,
     @Body() body: UpdateDevLocationInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/profile/dev/info ${JSON.stringify(body)}`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.profileService.updateDevUserLocationInfo(address, body);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
-  }
-
-  @Post("org/info")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ORG, CheckWalletRoles.ADMIN)
-  @ApiOkResponse({
-    description: "Updates the profile of the currently logged in org user",
-    schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Response<OrgUserProfile>),
-    }),
-  })
-  async setOrgUserProfile(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
-    @Body() body: UpdateOrgUserProfileInput,
-  ): Promise<ResponseWithOptionalData<OrgUserProfile>> {
-    this.logger.log(`/profile/org/info ${JSON.stringify(body)}`);
-    const { address, flow } = await this.authService.getSession(req, res);
-    if (address) {
-      if ((flow as string) === CheckWalletFlows.ORG_PROFILE) {
-        await this.userService.setWalletFlow({
-          flow: CheckWalletFlows.ORG_APPROVAL_PENDING,
-          wallet: address,
-        });
-      }
-      return this.profileService.updateOrgUserProfile(address, body);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
+    return this.profileService.updateUserLocationInfo(address, body);
   }
 
   @Post("showcase")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Updates the work credentials of the currently logged in user",
     schema: {
@@ -350,26 +231,17 @@ export class ProfileController {
     },
   })
   async updateUserShowCase(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
     @Body() body: UpdateUserShowCaseInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/profile/showcase ${JSON.stringify(body)}`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.profileService.updateUserShowCase(address, body);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
+
+    return this.profileService.updateUserShowCase(address, body);
   }
 
   @Post("skills")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Updates the work credentials of the currently logged in user",
     schema: {
@@ -377,26 +249,17 @@ export class ProfileController {
     },
   })
   async updateUserSkills(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
     @Body() body: UpdateUserSkillsInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/profile/skills ${JSON.stringify(body)}`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.profileService.updateUserSkills(address, body);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
+
+    return this.profileService.updateUserSkills(address, body);
   }
 
   @Post("delete")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Updates the profile of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -404,25 +267,16 @@ export class ProfileController {
     }),
   })
   async deleteUserAccount(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
   ): Promise<ResponseWithNoData> {
-    const { address } = await this.authService.getSession(req, res);
     this.logger.log(`/profile/delete ${address}`);
-    if (address) {
-      return this.userService.deletePrivyUser(address);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
+
+    return this.userService.deletePrivyUser(address);
   }
 
   @Post("reviews/salary")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Returns the org reviews of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -430,34 +284,25 @@ export class ProfileController {
     }),
   })
   async reviewOrgSalary(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
     @Body() params: ReviewOrgSalaryInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/profile/reviews/salary`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      const org = await this.organizationsService.findByOrgId(params.orgId);
-      if (org) {
-        return this.profileService.reviewOrgSalary(address, params);
-      } else {
-        return {
-          success: false,
-          message: "Invalid orgId or orgId not found",
-        };
-      }
+
+    const org = await this.organizationsService.findByOrgId(params.orgId);
+    if (org) {
+      return this.profileService.reviewOrgSalary(address, params);
     } else {
-      res.status(HttpStatus.FORBIDDEN);
       return {
         success: false,
-        message: "Access denied for unauthenticated user",
+        message: "Invalid orgId or orgId not found",
       };
     }
   }
 
   @Post("reviews/rating")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Returns the org reviews of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -465,34 +310,25 @@ export class ProfileController {
     }),
   })
   async rateOrg(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
     @Body() params: RateOrgInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/profile/reviews/rating`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      const org = await this.organizationsService.findByOrgId(params.orgId);
-      if (org) {
-        return this.profileService.rateOrg(address, params);
-      } else {
-        return {
-          success: false,
-          message: "Invalid orgId or orgId not found",
-        };
-      }
+
+    const org = await this.organizationsService.findByOrgId(params.orgId);
+    if (org) {
+      return this.profileService.rateOrg(address, params);
     } else {
-      res.status(HttpStatus.FORBIDDEN);
       return {
         success: false,
-        message: "Access denied for unauthenticated user",
+        message: "Invalid orgId or orgId not found",
       };
     }
   }
 
   @Post("reviews/review")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Returns the org reviews of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -500,27 +336,18 @@ export class ProfileController {
     }),
   })
   async reviewOrg(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
     @Body() params: ReviewOrgInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/profile/reviews/review`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      const org = await this.organizationsService.findByOrgId(params.orgId);
-      if (org) {
-        return this.profileService.reviewOrg(address, params);
-      } else {
-        return {
-          success: false,
-          message: "Invalid orgId or orgId not found",
-        };
-      }
+
+    const org = await this.organizationsService.findByOrgId(params.orgId);
+    if (org) {
+      return this.profileService.reviewOrg(address, params);
     } else {
-      res.status(HttpStatus.FORBIDDEN);
       return {
         success: false,
-        message: "Access denied for unauthenticated user",
+        message: "Invalid orgId or orgId not found",
       };
     }
   }
@@ -532,20 +359,14 @@ export class ProfileController {
       limit: 5,
     },
   })
-  @UseGuards(RBACGuard)
-  @Roles(
-    CheckWalletRoles.ANON,
-    CheckWalletRoles.ADMIN,
-    CheckWalletRoles.DEV,
-    CheckWalletRoles.ORG,
-  )
+  @UseGuards(PBACGuard)
   @ApiOkResponse({
     description: "Generates and sends email reporting info from the user",
     schema: { $ref: getSchemaPath(ResponseWithNoData) },
   })
   async reportReview(
-    @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() session: SessionObject,
     @Body(new ValidationPipe({ transform: true }))
     body: ReportInput,
   ): Promise<ResponseWithNoData> {
@@ -553,7 +374,6 @@ export class ProfileController {
     this.logger.log(
       `/profile/report ${JSON.stringify({ description, subject, ctx })}`,
     );
-    const session = await this.authService.getSession(req, res);
     const parsedUrl = new URL(ctx.url);
     const allowedHosts = this.configService
       .get<string>("ALLOWED_ORIGINS")
@@ -572,8 +392,7 @@ export class ProfileController {
             <li>UI: ${ctx.ui}</li>
             <li>URL: ${ctx.url}</li>
             <li>User Address: ${session.address ?? "N/A"}</li>
-            <li>User Role: ${session.role ?? "N/A"}</li>
-            <li>User Flow: ${session.flow ?? "N/A"}</li>
+            <li>User Permissions: ${session.permissions.join(", ")}</li>
             <li>Wallet Connected: ${session.address !== undefined}</li>
             <li>Signed In: ${session.address !== undefined}</li>
             <li>Other Info: ${JSON.stringify(
@@ -608,8 +427,8 @@ export class ProfileController {
   }
 
   @Post("repositories/contribution")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Returns the org reviews of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -617,26 +436,17 @@ export class ProfileController {
     }),
   })
   async updateRepoContribution(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
     @Body() params: UpdateRepoContributionInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/profile/repositories/contribution`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.profileService.updateRepoContribution(address, params);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
+
+    return this.profileService.updateRepoContribution(address, params);
   }
 
   @Post("repositories/tags")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Returns the org reviews of the currently logged in user",
     schema: responseSchemaWrapper({
@@ -644,26 +454,17 @@ export class ProfileController {
     }),
   })
   async updateRepoTagsUsed(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
     @Body() params: UpdateRepoTagsUsedInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/profile/repositories/tags`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.profileService.updateRepoTagsUsed(address, params);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
+
+    return this.profileService.updateRepoTagsUsed(address, params);
   }
 
   @Post("jobs/block-org/:orgId")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description:
       "Blocks jobs from the passed org for the currently logged in user",
@@ -672,34 +473,25 @@ export class ProfileController {
     }),
   })
   async blockOrgJobs(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
     @Param("orgId") orgId: string,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/profile/job/block-org`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      const org = await this.organizationsService.findByOrgId(orgId);
-      if (org) {
-        return this.profileService.blockOrgJobs(address, orgId);
-      } else {
-        return {
-          success: false,
-          message: "Invalid orgId or orgId not found",
-        };
-      }
+
+    const org = await this.organizationsService.findByOrgId(orgId);
+    if (org) {
+      return this.profileService.blockOrgJobs(address, orgId);
     } else {
-      res.status(HttpStatus.FORBIDDEN);
       return {
         success: false,
-        message: "Access denied for unauthenticated user",
+        message: "Invalid orgId or orgId not found",
       };
     }
   }
 
   @Post("jobs/apply")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description:
       "Logs the apply interaction on a job for the currently logged in user",
@@ -708,73 +500,70 @@ export class ProfileController {
     }),
   })
   async logApplyInteraction(
-    @Req() req: Request,
     @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
     @Body("shortUUID") shortUUID: string,
   ): Promise<ResponseWithOptionalData<string>> {
     this.logger.log(`/profile/jobs/apply`);
-    const { address } = await this.authService.getSession(req, res);
+
     try {
-      if (address) {
-        const job = await this.jobsService.getJobDetailsByUuid(
+      const job = await this.jobsService.getJobDetailsByUuid(
+        shortUUID,
+        undefined,
+        false,
+      );
+
+      if (job) {
+        const hasApplied = await this.profileService.verifyApplyInteraction(
+          address,
           shortUUID,
-          undefined,
-          false,
         );
 
-        if (job) {
-          const hasApplied = await this.profileService.verifyApplyInteraction(
-            address,
-            shortUUID,
-          );
-
-          if (hasApplied) {
-            return {
-              success: true,
-              message: "Job has already been applied to by this user",
-            };
-          } else {
-            if (job.access === "protected") {
-              const isCryptoNative =
-                await this.userService.getCryptoNativeStatus(address as string);
-              if (isCryptoNative) {
-                return {
-                  success: true,
-                  message: "User is a crypto native",
-                  data: job.url,
-                };
-              } else {
-                return {
-                  success: false,
-                  message: "User is not a crypto native",
-                };
-              }
+        if (hasApplied) {
+          return {
+            success: true,
+            message: "Job has already been applied to by this user",
+          };
+        } else {
+          if (job.access === "protected") {
+            const isCryptoNative = await this.userService.getCryptoNativeStatus(
+              address as string,
+            );
+            if (isCryptoNative) {
+              return {
+                success: true,
+                message: "User is a crypto native",
+                data: job.url,
+              };
             } else {
-              const orgId = await this.userService.findOrgIdByJobShortUUID(
-                shortUUID,
+              return {
+                success: false,
+                message: "User is not a crypto native",
+              };
+            }
+          } else {
+            const orgId = await this.userService.findOrgIdByJobShortUUID(
+              shortUUID,
+            );
+
+            const orgProfile = await this.userService.findProfileByOrgId(orgId);
+
+            const org = await this.organizationsService.getOrgDetailsById(
+              orgId,
+              undefined,
+            );
+
+            const job = org.jobs.find(x => x.shortUUID === shortUUID);
+
+            if (orgProfile && orgProfile.linkedAccounts?.email) {
+              const communities = await this.rpcService.getCommunitiesForWallet(
+                address as string,
               );
-
-              const orgProfile = await this.userService.findProfileByOrgId(
-                orgId,
-              );
-
-              const org = await this.organizationsService.getOrgDetailsById(
-                orgId,
-                undefined,
-              );
-
-              const job = org.jobs.find(x => x.shortUUID === shortUUID);
-
-              if (orgProfile && orgProfile.email) {
-                const communities =
-                  await this.rpcService.getCommunitiesForWallet(
-                    address as string,
-                  );
-                await this.mailService.sendEmail({
-                  from: this.configService.getOrThrow<string>("EMAIL"),
-                  to: orgProfile.email.find(x => x.main)?.email,
-                  subject: `JobStash ATS: New Applicant for ${job.title}`,
-                  html: `
+              await this.mailService.sendEmail({
+                from: this.configService.getOrThrow<string>("EMAIL"),
+                to: orgProfile.linkedAccounts?.email,
+                subject: `JobStash ATS: New Applicant for ${job.title}`,
+                html: `
                     Dear ${org.name},
                     
                     You have a new applicant.
@@ -794,25 +583,18 @@ export class ProfileController {
                     Thank you for using JobStash ATS!
                     The JobStash Team
                   `,
-                });
-              }
-              return await this.profileService.logApplyInteraction(
-                address,
-                shortUUID,
-              );
+              });
             }
+            return await this.profileService.logApplyInteraction(
+              address,
+              shortUUID,
+            );
           }
-        } else {
-          return {
-            success: false,
-            message: "Job not found",
-          };
         }
       } else {
-        res.status(HttpStatus.FORBIDDEN);
         return {
           success: false,
-          message: "Access denied for unauthenticated user",
+          message: "Job not found",
         };
       }
     } catch (err) {
@@ -834,8 +616,8 @@ export class ProfileController {
   }
 
   @Post("jobs/bookmark")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description:
       "Logs the bookmark interaction on a job for the currently logged in user",
@@ -844,37 +626,27 @@ export class ProfileController {
     }),
   })
   async logBookmarkInteraction(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
     @Body("shortUUID") job: string,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/profile/job/bookmark`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      const isBookmarked = await this.profileService.verifyBookmarkInteraction(
-        address,
-        job,
-      );
-      if (isBookmarked) {
-        return {
-          success: false,
-          message: "Job is already bookmarked for this user",
-        };
-      } else {
-        return this.profileService.logBookmarkInteraction(address, job);
-      }
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
+    const isBookmarked = await this.profileService.verifyBookmarkInteraction(
+      address,
+      job,
+    );
+    if (isBookmarked) {
       return {
         success: false,
-        message: "Access denied for unauthenticated user",
+        message: "Job is already bookmarked for this user",
       };
+    } else {
+      return this.profileService.logBookmarkInteraction(address, job);
     }
   }
 
   @Delete("jobs/bookmark")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Removes a bookmark on a job for the currently logged in user",
     schema: responseSchemaWrapper({
@@ -882,20 +654,10 @@ export class ProfileController {
     }),
   })
   async removeBookmarkInteraction(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
     @Body("shortUUID") job: string,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/profile/job/bookmark`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      return this.profileService.removeBookmarkInteraction(address, job);
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
-      return {
-        success: false,
-        message: "Access denied for unauthenticated user",
-      };
-    }
+    return this.profileService.removeBookmarkInteraction(address, job);
   }
 }

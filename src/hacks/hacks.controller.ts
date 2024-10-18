@@ -17,9 +17,9 @@ import { Request, Response as ExpressResponse } from "express";
 import { AuthService } from "src/auth/auth.service";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { Hack, Response, ResponseWithNoData } from "src/shared/interfaces";
-import { RBACGuard } from "src/auth/rbac.guard";
-import { Roles } from "src/shared/decorators";
-import { CheckWalletRoles } from "src/shared/constants";
+import { PBACGuard } from "src/auth/pbac.guard";
+import { Permissions } from "src/shared/decorators";
+import { CheckWalletPermissions } from "src/shared/constants";
 import {
   ApiOkResponse,
   ApiUnprocessableEntityResponse,
@@ -36,8 +36,8 @@ export class HacksController {
   ) {}
 
   @Post()
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Creates an hack and relates it to a project",
     schema: responseSchemaWrapper({
@@ -59,8 +59,8 @@ export class HacksController {
   }
 
   @Get()
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Returns a list of all hacks",
     schema: responseSchemaWrapper({
@@ -77,8 +77,8 @@ export class HacksController {
   }
 
   @Get(":id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Fetches an existing hack",
     schema: responseSchemaWrapper({
@@ -97,8 +97,8 @@ export class HacksController {
   }
 
   @Patch(":id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Updates an existing hack",
     schema: responseSchemaWrapper({
@@ -118,8 +118,8 @@ export class HacksController {
   }
 
   @Delete(":id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({
     description: "Deletes an hack and detaches it from its project",
     schema: responseSchemaWrapper({

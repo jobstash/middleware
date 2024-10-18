@@ -16,7 +16,7 @@ export class ProjectListResult {
   public static readonly ProjectListResultType = t.strict({
     id: t.string,
     name: t.string,
-    orgId: t.string,
+    orgId: t.union([t.string, t.null]),
     normalizedName: t.string,
     website: t.union([t.string, t.null]),
     logo: t.union([t.string, t.null]),
@@ -44,7 +44,7 @@ export class ProjectListResult {
   name: string;
 
   @ApiProperty()
-  orgId: string;
+  orgId: string | null;
 
   @ApiProperty()
   normalizedName: string;

@@ -1,1 +1,1 @@
-export const ECOSYSTEM_HEADER = "X-Ecosystem";
+export const COMMUNITY_HEADER = "X-Community";

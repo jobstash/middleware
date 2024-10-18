@@ -5,7 +5,6 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import { ModelService } from "src/model/model.service";
 import {
-  OrgUserProfileEntity,
   UserOrgEntity,
   UserProfileEntity,
   UserRepoEntity,
@@ -23,7 +22,6 @@ import {
   AdjacentRepo,
   EcosystemActivation,
   OrgStaffReview,
-  OrgUserProfile,
   PaginatedData,
   Response,
   ResponseWithNoData,
@@ -49,7 +47,6 @@ import { UpdateUserShowCaseInput } from "./dto/update-user-showcase.input";
 import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
 import { Integer } from "neo4j-driver";
 import { OrgStaffReviewEntity } from "src/shared/entities/org-staff-review.entity";
-import { UpdateOrgUserProfileInput } from "./dto/update-org-profile.input";
 import { ScorerService } from "src/scorer/scorer.service";
 import { ConfigService } from "@nestjs/config";
 import { PrivyService } from "../privy/privy.service";
@@ -72,7 +69,7 @@ export class ProfileService {
     private githubUserService: GithubUserService,
   ) {}
 
-  async getDevUserProfile(
+  async getUserProfile(
     wallet: string,
   ): Promise<ResponseWithOptionalData<UserProfile>> {
     try {
@@ -124,58 +121,10 @@ export class ProfileService {
         scope.setExtra("input", wallet);
         Sentry.captureException(err);
       });
-      this.logger.error(`ProfileService::getDevUserProfile ${err.message}`);
+      this.logger.error(`ProfileService::getUserProfile ${err.message}`);
       return {
         success: false,
-        message: "Error retrieving dev user profile",
-      };
-    }
-  }
-
-  async getOrgUserProfile(
-    wallet: string,
-  ): Promise<ResponseWithOptionalData<OrgUserProfile>> {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $wallet})
-        RETURN user {
-          .*,
-          username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-          avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-          linkedWallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address],
-          linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account { .* }][0],
-          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
-          orgId: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization:Organization) | organization.orgId][0],
-          internalReference: [(user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo) | reference { .* }][0],
-          subscriberStatus: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION|HAS_SUBSCRIPTION*2]->(subscription:Subscription) | subscription { .* }][0]
-        } as profile
-        `,
-        { wallet },
-      );
-
-      return {
-        success: true,
-        message: "User Profile retrieved successfully",
-        data: result.records[0]?.get("profile")
-          ? new OrgUserProfileEntity(
-              result.records[0]?.get("profile"),
-            ).getProperties()
-          : undefined,
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "profile.service",
-        });
-        scope.setExtra("input", wallet);
-        Sentry.captureException(err);
-      });
-      this.logger.error(`ProfileService::getOrgUserProfile ${err.message}`);
-      return {
-        success: false,
-        message: "Error retrieving org user profile",
+        message: "Error retrieving user profile",
       };
     }
   }
@@ -238,7 +187,7 @@ export class ProfileService {
     try {
       const privyId = await this.getPrivyId(wallet);
       const user = await this.privyService.getUser(privyId);
-      const profile = data(await this.getDevUserProfile(wallet));
+      const profile = data(await this.getUserProfile(wallet));
       const orgs = [];
       const prelim = (await this.getUserWorkHistory(wallet))?.workHistory ?? [];
 
@@ -415,18 +364,18 @@ export class ProfileService {
       const privyId = await this.getPrivyId(wallet);
       const user = await this.privyService.getUser(privyId);
       const contact = {
-        discord: user.discord?.username ?? null,
-        telegram: user.telegram?.username ?? null,
-        twitter: user.twitter?.username ?? null,
-        email: user.email?.address ?? null,
-        farcaster: user.farcaster?.username ?? null,
-        github: user.github?.username ?? null,
-        google: user.google?.email ?? null,
-        apple: user.apple?.email ?? null,
+        discord: user?.discord?.username ?? null,
+        telegram: user?.telegram?.username ?? null,
+        twitter: user?.twitter?.username ?? null,
+        email: user?.email?.address ?? null,
+        farcaster: user?.farcaster?.username ?? null,
+        github: user?.github?.username ?? null,
+        google: user?.google?.email ?? null,
+        apple: user?.apple?.email ?? null,
       };
 
       this.logger.log(`Updating contact info for ${wallet}`);
-      const result = await this.updateDevUserLinkedAccounts(wallet, contact);
+      const result = await this.updateUserLinkedAccounts(wallet, contact);
 
       if (result.success) {
         this.logger.log(`Contact info updated to user`);
@@ -436,13 +385,17 @@ export class ProfileService {
         );
         return result;
       }
-      const profile = data(await this.getDevUserProfile(wallet));
+      const profile = data(await this.getUserProfile(wallet));
       const orgs: UserVerifiedOrg[] = [];
+
+      this.logger.log(`Fetching work history for ${wallet}`);
       const workHistory = await this.getUserWorkHistory(wallet);
       const prelim: UserWorkHistory[] = workHistory?.workHistory ?? [];
 
       if (user.github?.username) {
+        this.logger.log(`Fetching orgs for ${wallet} based on github username`);
         const names = prelim.map(x => x.name);
+        console.log(names);
         const result = await this.neogma.queryRunner.run(
           `
             MATCH (user:User {wallet: $wallet}), (organization: Organization WHERE organization.name IN $names)
@@ -459,6 +412,7 @@ export class ProfileService {
           result?.records[0]
             ?.get("orgsByRepo")
             ?.map(record => record as UserVerifiedOrg) ?? [];
+        console.log(orgsByRepo);
         const processed = orgsByRepo.map(x => ({
           id: x.id,
           name: x.name,
@@ -478,6 +432,7 @@ export class ProfileService {
       ].filter(Boolean);
 
       if (emails.length > 0) {
+        this.logger.log(`Fetching orgs for ${wallet} based on email`);
         const result = await this.neogma.queryRunner.run(
           `
             MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
@@ -514,6 +469,9 @@ export class ProfileService {
       }
 
       if (workHistory.wallets.length > 0) {
+        this.logger.log(
+          `Fetching orgs for ${wallet} based on ecosystem activations`,
+        );
         const mapped: UserVerifiedOrg[] = workHistory.wallets.flatMap(x =>
           x.ecosystemActivations.map(y => ({
             id: y.id,
@@ -531,10 +489,62 @@ export class ProfileService {
           }
         });
       }
+      this.logger.log(`Found ${orgs.length} orgs`);
       return {
         success: true,
         message: "Retrieved user orgs successfully",
         data: orgs,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProfileService::getUserOrgs ${err.message}`);
+      return {
+        success: false,
+        message: "Error retrieving user orgs",
+      };
+    }
+  }
+
+  async getUserAuthorizedOrgs(
+    wallet: string,
+  ): Promise<ResponseWithOptionalData<UserVerifiedOrg[]>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+            MATCH (user:User {wallet: $wallet})-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization: Organization)
+            RETURN apoc.coll.toSet(COLLECT(organization {
+              id: organization.orgId,
+              name: organization.name,
+              url: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+              logo: organization.logoUrl
+            })) as orgs
+          `,
+        { wallet },
+      );
+      const orgs =
+        result?.records[0]
+          ?.get("orgs")
+          ?.map(record => record as UserVerifiedOrg) ?? [];
+      const processed = orgs.map(x => ({
+        id: x.id,
+        name: x.name,
+        slug: sluggify(x.name),
+        url: x.url,
+        logo: x.logo ?? null,
+        account: "N/A",
+      }));
+
+      return {
+        success: true,
+        message: "Retrieved user authorized orgs successfully",
+        data: processed,
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -623,29 +633,31 @@ export class ProfileService {
     }
   }
 
-  async updateDevUserLinkedAccounts(
+  async updateUserLinkedAccounts(
     wallet: string,
     dto: UpdateDevLinkedAccountsInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const profile = data(await this.getDevUserProfile(wallet));
+      const profile = data(await this.getUserProfile(wallet));
       const privyId = await this.getPrivyId(wallet);
       const user = await this.privyService.getUser(privyId);
+
       if (
-        profile?.linkedAccounts.github !== user.github?.username ||
-        (profile.linkedAccounts.github && !user.github)
+        profile?.linkedAccounts.github &&
+        (profile?.linkedAccounts.github !== dto.github || !dto.github)
       ) {
         this.logger.log(
           `Unlinking github user ${profile?.linkedAccounts.github}`,
         );
         await this.githubUserService.removeGithubInfoFromUser(wallet);
       }
-      if (user.github) {
-        this.logger.log(`Fetching github info for ${user.github.username}`);
+
+      if (dto.github) {
+        this.logger.log(`Fetching github info for ${dto.github}`);
         const githubUser = axios
           .get<{
             avatar_url: string;
-          }>(`https://api.github.com/users/${user.github.username}`)
+          }>(`https://api.github.com/users/${dto.github}`)
           .catch(err => {
             this.logger.error(`UserService::fetchGithubUser ${err.message}`);
             this.logger.error(err);
@@ -661,7 +673,7 @@ export class ProfileService {
 
         const result = await this.githubUserService.addGithubInfoToUser({
           wallet,
-          githubLogin: user.github.username,
+          githubLogin: dto.github,
           githubId: user.github.subject,
           githubAvatarUrl: (await githubUser)?.data?.avatar_url ?? null,
         });
@@ -710,7 +722,7 @@ export class ProfileService {
     }
   }
 
-  async updateDevUserLocationInfo(
+  async updateUserLocationInfo(
     wallet: string,
     dto: UpdateDevLocationInput,
   ): Promise<ResponseWithNoData> {
@@ -753,7 +765,7 @@ export class ProfileService {
     }
   }
 
-  async updateDevUserAvailability(
+  async updateUserAvailability(
     wallet: string,
     availability: boolean,
   ): Promise<ResponseWithNoData> {
@@ -782,77 +794,6 @@ export class ProfileService {
           source: "profile.service",
         });
         scope.setExtra("input", { wallet, availability });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`ProfileService::updateUserProfile ${err.message}`);
-      return {
-        success: false,
-        message: "Error updating user profile",
-      };
-    }
-  }
-
-  async updateOrgUserProfile(
-    wallet: string,
-    dto: UpdateOrgUserProfileInput,
-  ): Promise<ResponseWithOptionalData<OrgUserProfile>> {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $wallet})
-        SET user.linkedin = $linkedin
-        SET user.calendly = $calendly
-
-        WITH user
-        MERGE (user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo)
-        SET contact.preferred = $preferred
-        SET contact.value = $value
-
-        WITH user
-        MERGE (user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo)
-        SET reference.referencePersonName = $referencePersonName
-        SET reference.referencePersonRole = $referencePersonRole
-        SET reference.referenceContact = $referenceContact
-        SET reference.referenceContactPlatform = $referenceContactPlatform
-        
-        WITH user
-        RETURN {
-          wallet: $wallet,
-          linkedin: user.linkedin,
-          calendly: user.calendly,
-          linkedWallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address],
-          username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-          avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-          contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-          email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
-          orgId: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization:Organization) | organization.orgId][0],
-          internalReference: [(user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo) | reference { .* }][0],
-          subscriberStatus: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION|HAS_SUBSCRIPTION*2]->(subscription:Subscription) | subscription { .* }][0]
-        } as profile
-
-      `,
-        {
-          wallet,
-          ...dto,
-          ...dto.contact,
-          ...dto.internalReference,
-        },
-      );
-
-      return {
-        success: true,
-        message: "User profile updated successfully",
-        data: new OrgUserProfileEntity(
-          result.records[0]?.get("profile"),
-        ).getProperties(),
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "profile.service",
-        });
-        scope.setExtra("input", { wallet, ...dto });
         Sentry.captureException(err);
       });
       this.logger.error(`ProfileService::updateUserProfile ${err.message}`);
@@ -1297,7 +1238,7 @@ export class ProfileService {
       const privyId = await this.getPrivyId(wallet);
       const wallets = await this.privyService.getUserLinkedWallets(privyId);
       const user = await this.privyService.getUser(privyId);
-      const profile = data(await this.getDevUserProfile(wallet));
+      const profile = data(await this.getUserProfile(wallet));
       const workHistory = (
         await this.scorerService.getUserWorkHistories([
           {

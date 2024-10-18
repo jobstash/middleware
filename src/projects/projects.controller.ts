@@ -34,15 +34,15 @@ import { ValidationError } from "class-validator";
 import { randomUUID } from "crypto";
 import { Response as ExpressResponse } from "express";
 import { File, NFTStorage } from "nft.storage";
-import { RBACGuard } from "src/auth/rbac.guard";
+import { PBACGuard } from "src/auth/pbac.guard";
 import { OrganizationsService } from "src/organizations/organizations.service";
-import { CheckWalletRoles, ECOSYSTEM_HEADER } from "src/shared/constants";
+import { CheckWalletPermissions, COMMUNITY_HEADER } from "src/shared/constants";
 import {
   CACHE_CONTROL_HEADER,
   CACHE_DURATION,
   CACHE_EXPIRY,
 } from "src/shared/constants/cache-control";
-import { Roles } from "src/shared/decorators";
+import { Permissions } from "src/shared/decorators";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import { ProjectProps } from "src/shared/models";
 import {
@@ -73,6 +73,7 @@ import { ProjectListParams } from "./dto/project-list.input";
 import { UpdateProjectInput } from "./dto/update-project.input";
 import { ProjectCategoryService } from "./project-category.service";
 import { ProjectsService } from "./projects.service";
+import { AddProjectByUrlInput } from "./dto/add-project-by-url.input";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -98,8 +99,11 @@ export class ProjectsController {
   }
 
   @Get("/")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description: "Returns a list of all projects",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
@@ -133,10 +137,10 @@ export class ProjectsController {
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiHeader({
-    name: ECOSYSTEM_HEADER,
+    name: COMMUNITY_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific ecosystem",
+      "Optional header to tailor the response for a specific community",
   })
   @ApiOkResponse({
     description:
@@ -176,12 +180,12 @@ export class ProjectsController {
   async getProjectsListWithSearch(
     @Query(new ValidationPipe({ transform: true }))
     params: ProjectListParams,
-    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER) community: string | undefined,
   ): Promise<PaginatedData<ProjectListResult>> {
     const enrichedParams = {
       ...params,
-      communities: ecosystem
-        ? [...(params.communities ?? []), ecosystem]
+      communities: community
+        ? [...(params.communities ?? []), community]
         : params.communities,
     };
     this.logger.log(`/projects/list ${JSON.stringify(enrichedParams)}`);
@@ -192,10 +196,10 @@ export class ProjectsController {
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiHeader({
-    name: ECOSYSTEM_HEADER,
+    name: COMMUNITY_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific ecosystem",
+      "Optional header to tailor the response for a specific community",
   })
   @ApiOkResponse({
     description: "Returns the configuration data for the ui filters",
@@ -213,18 +217,18 @@ export class ProjectsController {
     type: ValidationError,
   })
   async getFilterConfigs(
-    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER) community: string | undefined,
   ): Promise<ProjectFilterConfigs> {
     this.logger.log(`/projects/filters`);
-    return this.projectsService.getFilterConfigs(ecosystem);
+    return this.projectsService.getFilterConfigs(community);
   }
 
   @Get("details/:id")
   @ApiHeader({
-    name: ECOSYSTEM_HEADER,
+    name: COMMUNITY_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific ecosystem",
+      "Optional header to tailor the response for a specific community",
   })
   @ApiOkResponse({
     description: "Returns the project details for the provided id",
@@ -249,12 +253,12 @@ export class ProjectsController {
   async getProjectDetailsById(
     @Param("id") id: string,
     @Res({ passthrough: true }) res: ExpressResponse,
-    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER) community: string | undefined,
   ): Promise<ProjectDetailsResult | undefined> {
     this.logger.log(`/projects/details/${id}`);
     const result = await this.projectsService.getProjectDetailsById(
       id,
-      ecosystem,
+      community,
     );
     if (result === undefined) {
       res.status(HttpStatus.NOT_FOUND);
@@ -264,10 +268,10 @@ export class ProjectsController {
 
   @Get("details/slug/:slug")
   @ApiHeader({
-    name: ECOSYSTEM_HEADER,
+    name: COMMUNITY_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific ecosystem",
+      "Optional header to tailor the response for a specific community",
   })
   @ApiOkResponse({
     description: "Returns the project details for the provided slug",
@@ -292,12 +296,12 @@ export class ProjectsController {
   async getProjectDetailsBySlug(
     @Param("slug") slug: string,
     @Res({ passthrough: true }) res: ExpressResponse,
-    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER) community: string | undefined,
   ): Promise<ProjectDetailsResult | undefined> {
     this.logger.log(`/projects/details/slug/${slug}`);
     const result = await this.projectsService.getProjectDetailsBySlug(
       slug,
-      ecosystem,
+      community,
     );
     if (result === undefined) {
       res.status(HttpStatus.NOT_FOUND);
@@ -306,9 +310,8 @@ export class ProjectsController {
   }
 
   @Get("/category/:category")
-  @UseGuards(RBACGuard)
   @ApiOkResponse({
-    description: "Returns a list of all projects under the speccified category",
+    description: "Returns a list of all projects under the specified category",
     schema: responseSchemaWrapper({
       $ref: getSchemaPath(ProjectWithRelations),
     }),
@@ -350,15 +353,15 @@ export class ProjectsController {
   })
   async getProjectCompetitors(
     @Param("id") id: string,
-    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
+    @Headers(COMMUNITY_HEADER) community: string | undefined,
   ): Promise<Response<ProjectProps[]> | ResponseWithNoData> {
     this.logger.log(`/projects/competitors/${id}`);
     return this.projectsService
-      .getProjectCompetitors(id, ecosystem)
+      .getProjectCompetitors(id, community)
       .then(res => ({
         success: true,
         message: "Retrieved all competing projects successfully",
-        data: res,
+        data: res ?? [],
       }))
       .catch(err => {
         Sentry.withScope(scope => {
@@ -377,8 +380,11 @@ export class ProjectsController {
   }
 
   @Get("/all")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description: "Returns a paginated sorted list all projects",
     type: PaginatedData<ProjectWithRelations>,
@@ -450,8 +456,11 @@ export class ProjectsController {
   }
 
   @Get("/all/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description: "Returns a list of all projects for an organization",
     schema: responseSchemaWrapper({
@@ -486,8 +495,11 @@ export class ProjectsController {
   }
 
   @Get("/search")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description: "Returns a list of all projects with names matching the query",
     schema: responseSchemaWrapper({
@@ -522,8 +534,11 @@ export class ProjectsController {
   }
 
   @Get("prefiller")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description:
       "Returns the details of the project retrieved from the passed defillama url",
@@ -626,35 +641,10 @@ export class ProjectsController {
     }
   }
 
-  @Get("/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
-  @ApiOkResponse({
-    description: "Returns the details of the project with the provided id",
-  })
-  async getProjectDetails(
-    @Param("id") id: string,
-    @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<ResponseWithOptionalData<ProjectProps>> {
-    this.logger.log(`/projects/${id}`);
-    const result = await this.projectsService.getProjectById(id);
-
-    if (result === null) {
-      res.status(HttpStatus.NOT_FOUND);
-      return { success: true, message: "No project found for id " + id };
-    } else {
-      return {
-        success: true,
-        message: "Retrieved project details successfully",
-        data: result,
-      };
-    }
-  }
-
   @Post("/upload-logo")
   @UseInterceptors(FileInterceptor("file"))
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description:
       "Uploads an projects logo and returns the url to the cloud file",
@@ -726,8 +716,11 @@ export class ProjectsController {
   }
 
   @Post("/create")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description: "Creates a new project",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
@@ -819,9 +812,30 @@ export class ProjectsController {
     };
   }
 
+  @Post("/add-by-url")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
+  @ApiOkResponse({
+    description: "Queues a new project for import on etl",
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong creating the project on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async addProjectByUrl(
+    @Body() body: AddProjectByUrlInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/projects/add-by-url ${JSON.stringify(body)}`);
+    return this.projectsService.addProjectByUrl(body);
+  }
+
   @Post("/update/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description: "Updates an existing project",
     schema: responseSchemaWrapper({
@@ -854,8 +868,11 @@ export class ProjectsController {
   }
 
   @Delete("/delete/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.DATA_JANITOR)
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description: "Deletes an existing project",
     schema: {
@@ -868,8 +885,8 @@ export class ProjectsController {
   }
 
   @Post("/metrics/update/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Updates an existing projects metrics",
     schema: responseSchemaWrapper({
@@ -902,8 +919,8 @@ export class ProjectsController {
   }
 
   @Delete("/metrics/delete/:id")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Deletes an existing projects metrics",
     schema: {
@@ -918,8 +935,8 @@ export class ProjectsController {
   }
 
   @Post("/link-jobs")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Adds a list of jobs to a project",
     schema: {
@@ -934,8 +951,8 @@ export class ProjectsController {
   }
 
   @Post("/link-repos")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Adds a list of repos to a project",
     schema: {
@@ -950,8 +967,8 @@ export class ProjectsController {
   }
 
   @Post("/unlink-jobs")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Removes a list of jobs from a project",
     schema: {
@@ -966,8 +983,8 @@ export class ProjectsController {
   }
 
   @Post("/unlink-repos")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   @ApiOkResponse({
     description: "Removes a list of repos from a project",
     schema: {
@@ -979,5 +996,33 @@ export class ProjectsController {
   ): Promise<Response<ProjectProps> | ResponseWithNoData> {
     this.logger.log(`/projects/unlink-repos`);
     return this.projectsService.unlinkReposFromProject(body);
+  }
+
+  @Get("/:id")
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
+  @ApiOkResponse({
+    description: "Returns the details of the project with the provided id",
+  })
+  async getProjectDetails(
+    @Param("id") id: string,
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ): Promise<ResponseWithOptionalData<ProjectProps>> {
+    this.logger.log(`/projects/${id}`);
+    const result = await this.projectsService.getProjectById(id);
+
+    if (result === null) {
+      res.status(HttpStatus.NOT_FOUND);
+      return { success: true, message: "No project found for id " + id };
+    } else {
+      return {
+        success: true,
+        message: "Retrieved project details successfully",
+        data: result,
+      };
+    }
   }
 }

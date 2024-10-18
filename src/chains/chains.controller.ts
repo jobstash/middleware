@@ -6,7 +6,6 @@ import {
   Param,
   Query,
   Res,
-  UseGuards,
   ValidationPipe,
 } from "@nestjs/common";
 import { ChainsService } from "./chains.service";
@@ -17,14 +16,11 @@ import {
   ApiBadRequestResponse,
   ApiNotFoundResponse,
 } from "@nestjs/swagger";
-import { RBACGuard } from "src/auth/rbac.guard";
 import {
-  CheckWalletRoles,
   CACHE_CONTROL_HEADER,
   CACHE_DURATION,
   CACHE_EXPIRY,
 } from "src/shared/constants";
-import { Roles } from "src/shared/decorators";
 import {
   Chain,
   PaginatedData,
@@ -40,8 +36,6 @@ export class ChainsController {
   constructor(private readonly chainsService: ChainsService) {}
 
   @Get("/list")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ANON)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
@@ -91,8 +85,6 @@ export class ChainsController {
   }
 
   @Get("details/slug/:slug")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.DEV, CheckWalletRoles.ANON)
   @ApiOkResponse({
     description: "Returns the chain details for the provided slug",
     schema: {
@@ -113,7 +105,7 @@ export class ChainsController {
       "Returns that no chain details were found for the specified slug",
     type: ResponseWithNoData,
   })
-  async getJobDetailsByUuid(
+  async getChainDetailsByUuid(
     @Param("slug") slug: string,
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<Chain | undefined> {

@@ -16,10 +16,10 @@ export class Project {
   public static readonly ProjectType = t.strict({
     id: t.string,
     name: t.string,
-    orgId: t.string,
     normalizedName: t.string,
     tvl: t.union([t.number, t.null]),
     logo: t.union([t.string, t.null]),
+    orgId: t.union([t.string, t.null]),
     isMainnet: t.union([t.boolean, t.null]),
     tokenSymbol: t.union([t.string, t.null]),
     monthlyFees: t.union([t.number, t.null]),
@@ -48,10 +48,10 @@ export class Project {
   monthlyRevenue?: number | null;
   @ApiPropertyOptional()
   monthlyActiveUsers?: number | null;
-  @ApiProperty()
+  @ApiPropertyOptional()
   isMainnet?: boolean | null;
-  @ApiProperty()
-  orgId: string;
+  @ApiPropertyOptional()
+  orgId: string | null;
 
   constructor(raw: Project) {
     const {

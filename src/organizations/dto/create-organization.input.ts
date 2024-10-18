@@ -57,22 +57,22 @@ export class CreateOrganizationInput {
   @ApiPropertyOptional()
   @IsOptional()
   @IsArray()
-  website?: string[];
+  websites?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsArray()
-  twitter?: string[];
+  twitters?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsArray()
-  github?: string[];
+  githubs?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsArray()
-  discord?: string[];
+  discords?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -82,7 +82,7 @@ export class CreateOrganizationInput {
   @ApiPropertyOptional()
   @IsOptional()
   @IsArray()
-  telegram?: string[];
+  telegrams?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()

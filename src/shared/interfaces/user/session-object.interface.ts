@@ -4,9 +4,7 @@ export class SessionObject {
   @ApiProperty()
   address?: string;
   @ApiProperty()
-  role: string | null;
-  @ApiProperty()
-  flow: string | null;
+  permissions: string[];
   @ApiProperty()
   cryptoNative: boolean;
 }

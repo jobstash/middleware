@@ -10,11 +10,8 @@ import * as SendGrid from "@sendgrid/mail";
 import { MailService } from "src/mail/mail.service";
 
 @Injectable()
-export class DevMagicAuthStrategy extends PassportStrategy(
-  Strategy,
-  "dev-magic",
-) {
-  private readonly logger = new CustomLogger(DevMagicAuthStrategy.name);
+export class MagicAuthStrategy extends PassportStrategy(Strategy, "magic") {
+  private readonly logger = new CustomLogger(MagicAuthStrategy.name);
   constructor(
     private readonly configService: ConfigService,
     private readonly userService: UserService,
@@ -25,7 +22,7 @@ export class DevMagicAuthStrategy extends PassportStrategy(
       jwtOptions: {
         expiresIn: configService.get<string>("MAGIC_LINK_EXPIRES_IN"),
       },
-      callbackUrl: "/callback/dev/magic-login",
+      callbackUrl: "/callback/magic-login",
       sendMagicLink: async (destination: string, href: string) =>
         this.sendToken(destination, href),
       // eslint-disable-next-line @typescript-eslint/ban-types
@@ -79,7 +76,7 @@ export class DevMagicAuthStrategy extends PassportStrategy(
           scope.setExtra("input", payload);
           Sentry.captureException(err);
         });
-        this.logger.error(`DevMagicAuthStrategy::verifyUser ${err.message}`);
+        this.logger.error(`MagicAuthStrategy::verifyUser ${err.message}`);
         return null;
       });
   }

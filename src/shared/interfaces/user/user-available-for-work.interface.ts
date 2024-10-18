@@ -7,8 +7,8 @@ import { UserShowCase } from "./user-showcase.interface";
 import { UserSkill } from "./user-skill.interface";
 import { UserWorkHistory } from "./user-work-history.interface";
 
-export class DevUserProfile extends UserProfile {
-  public static readonly DevUserProfileType = t.intersection([
+export class UserAvailableForWork extends UserProfile {
+  public static readonly UserAvailableForWorkType = t.intersection([
     UserProfile.UserProfileType,
     t.strict({
       cryptoAdjacent: t.boolean,
@@ -52,7 +52,7 @@ export class DevUserProfile extends UserProfile {
   @ApiProperty()
   note: string | null;
 
-  constructor(raw: DevUserProfile) {
+  constructor(raw: UserAvailableForWork) {
     const {
       skills,
       showcases,
@@ -75,7 +75,7 @@ export class DevUserProfile extends UserProfile {
     this.note = note;
     this.ecosystemActivations = ecosystemActivations;
 
-    const result = DevUserProfile.DevUserProfileType.decode(raw);
+    const result = UserAvailableForWork.UserAvailableForWorkType.decode(raw);
 
     if (isLeft(result)) {
       report(result).forEach(x => {

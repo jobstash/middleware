@@ -36,6 +36,9 @@ import { CreateProjectInput } from "./dto/create-project.input";
 import { LinkJobsToProjectInput } from "./dto/link-jobs-to-project.dto";
 import { LinkReposToProjectInput } from "./dto/link-repos-to-project.dto";
 import { CreateProjectMetricsInput } from "./dto/create-project-metrics.input";
+import { AddProjectByUrlInput } from "./dto/add-project-by-url.input";
+import axios from "axios";
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class ProjectsService {
@@ -44,6 +47,7 @@ export class ProjectsService {
     @InjectConnection()
     private neogma: Neogma,
     private models: ModelService,
+    private readonly configService: ConfigService,
   ) {}
 
   async getProjectsListWithSearch(
@@ -211,7 +215,7 @@ export class ProjectsService {
   }
 
   async getFilterConfigs(
-    ecosystem: string | undefined,
+    community: string | undefined,
   ): Promise<ProjectFilterConfigs> {
     try {
       return await this.neogma.queryRunner
@@ -220,82 +224,82 @@ export class ProjectsService {
             RETURN {
                 maxTvl: apoc.coll.max([
                   (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
+                  WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
                   AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
                   AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.tvl
                 ]),
                 minTvl: apoc.coll.min([
                   (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
+                  WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
                   AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
                   AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.tvl
                 ]),
                 minMonthlyVolume: apoc.coll.min([
                   (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
+                  WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
                   AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
                   AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyVolume
                 ]),
                 maxMonthlyVolume: apoc.coll.max([
                   (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
+                  WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
                   AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
                   AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyVolume
                 ]),
                 minMonthlyFees: apoc.coll.max([
                   (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
+                  WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
                   AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
                   AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyFees
                 ]),
                 maxMonthlyFees: apoc.coll.max([
                   (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
+                  WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
                   AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
                   AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyFees
                 ]),
                 minMonthlyRevenue: apoc.coll.max([
                   (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
+                  WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
                   AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
                   AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyRevenue
                 ]),
                 maxMonthlyRevenue: apoc.coll.max([
                   (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
+                  WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
                   AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
                   AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyRevenue
                 ]),
                 investors: apoc.coll.toSet([
                   (org: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
+                  WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
                   AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
                   AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | investor.name
                 ]),
                 communities: apoc.coll.toSet([
                   (org: Organization)-[:IS_MEMBER_OF_COMMUNITY]->(community: OrganizationCommunity)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
+                  WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
                   AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
                   AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | community.name
                 ]),
                 categories: apoc.coll.toSet([
                   (org)-[:HAS_PROJECT|HAS_CATEGORY*2]->(category: ProjectCategory)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
+                  WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
                   AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | category.name
                 ]),
                 chains: apoc.coll.toSet([
                   (org)-[:HAS_PROJECT|IS_DEPLOYED_ON*2]->(chain: Chain)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END
+                  WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
                   AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
                   AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | chain.name
                 ]),
                 organizations: apoc.coll.toSet([
                   (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $ecosystem})) END | org.name
+                  WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END | org.name
                 ])
             } as res
           `,
-          { ecosystem: ecosystem ?? null },
+          { community: community ?? null },
         )
         .then(res =>
           res.records.length
@@ -319,15 +323,15 @@ export class ProjectsService {
 
   async getProjectDetailsById(
     id: string,
-    ecosystem: string | undefined,
+    community: string | undefined,
   ): Promise<ProjectDetailsResult | null> {
     try {
       const details = await this.models.Projects.getProjectDetailsById(id);
       const result = details
         ? new ProjectDetailsEntity(details).getProperties()
         : undefined;
-      if (ecosystem) {
-        return result?.organization.community.includes(ecosystem)
+      if (community) {
+        return result?.organization.community.includes(community)
           ? result
           : undefined;
       } else {
@@ -351,15 +355,15 @@ export class ProjectsService {
 
   async getProjectDetailsBySlug(
     slug: string,
-    ecosystem: string | undefined,
+    community: string | undefined,
   ): Promise<ProjectDetailsResult | null> {
     try {
       const details = await this.models.Projects.getProjectDetailsBySlug(slug);
       const result = details
         ? new ProjectDetailsEntity(details).getProperties()
         : undefined;
-      if (ecosystem) {
-        return result?.organization.community.includes(ecosystem)
+      if (community) {
+        return result?.organization.community.includes(community)
           ? result
           : undefined;
       } else {
@@ -392,15 +396,11 @@ export class ProjectsService {
     >
   > {
     try {
-      const projects = await this.models.Projects.getAllProjectsData(
+      const projects = await this.models.Projects.getAllProjectsData();
+      return paginate(
         page,
         limit,
-      );
-      return {
-        page: page,
-        count: limit,
-        total: -1,
-        data: projects.map(project => ({
+        projects.map(project => ({
           ...new ProjectWithRelationsEntity({
             ...project,
             orgId: "-1",
@@ -461,7 +461,7 @@ export class ProjectsService {
               }
             : null,
         })),
-      };
+      );
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -547,11 +547,11 @@ export class ProjectsService {
 
   async getProjectCompetitors(
     id: string,
-    ecosystem: string | undefined,
+    community: string | undefined,
   ): Promise<ProjectListResult[]> {
     try {
       return (
-        await this.models.Projects.getProjectCompetitors(id, ecosystem)
+        await this.models.Projects.getProjectCompetitors(id, community)
       ).map(project =>
         new ProjectCompetitorListResultEntity(project).getProperties(),
       );
@@ -650,7 +650,15 @@ export class ProjectsService {
 
           RETURN project { .* } as project
         `,
-        { ...project, normalizedName: normalizeString(project.name) },
+        {
+          ...project,
+          tvl: project.tvl ?? null,
+          monthlyFees: project.monthlyFees ?? null,
+          monthlyVolume: project.monthlyVolume ?? null,
+          monthlyRevenue: project.monthlyRevenue ?? null,
+          monthlyActiveUsers: project.monthlyActiveUsers ?? null,
+          normalizedName: normalizeString(project.name),
+        },
       );
       return new ProjectMoreInfoEntity(result?.records[0]?.get("project"));
     } catch (err) {
@@ -664,6 +672,70 @@ export class ProjectsService {
       });
       this.logger.error(`ProjectsService::create ${err.message}`);
       return undefined;
+    }
+  }
+
+  async addProjectByUrl(
+    dto: AddProjectByUrlInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      const clientId = this.configService.get<string>("ETL_CLIENT_ID");
+      const clientSecret = this.configService.get<string>("ETL_CLIENT_SECRET");
+      const url = this.configService.get<string>("ETL_DOMAIN");
+
+      const auth0Domain = this.configService.get<string>("AUTH0_DOMAIN");
+      const audience = this.configService.get<string>("AUTH0_AUDIENCE");
+      const response = await axios.post(`${auth0Domain}/oauth/token`, {
+        client_id: clientId,
+        client_secret: clientSecret,
+        audience,
+        grant_type: "client_credentials",
+      });
+      if (response.data) {
+        const authToken = response.data.access_token;
+        const response2 = await axios.get(
+          `${url}/project-importer/import-project-by-url?url=${dto.url}&name=${
+            dto.name
+          }&orgId=${dto.orgId ?? ""}&defiLlamaSlug=${dto.defiLlamaSlug ?? ""}`,
+          {
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+          },
+        );
+        if ([200, 201, 202].includes(response2.status)) {
+          return {
+            success: true,
+            message: "Project queued for import successfully",
+          };
+        } else {
+          this.logger.warn(
+            `Error queueing project ${dto} for import: ${response2.data}`,
+          );
+          return {
+            success: false,
+            message: "Error adding project",
+          };
+        }
+      } else {
+        return {
+          success: false,
+          message: "Error fetching auth token",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "external-api-call",
+          source: "projects.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProjectsService::addProjectByUrl ${err.message}`);
+      return {
+        success: false,
+        message: `Error adding project by url`,
+      };
     }
   }
 
@@ -744,8 +816,9 @@ export class ProjectsService {
             OPTIONAL MATCH (project)-[:HAS_TELEGRAM]->(telegram)
             OPTIONAL MATCH (project)-[:HAS_TWITTER]->(twitter)
             OPTIONAL MATCH (project)-[:HAS_WEBSITE]->(website)
+            OPTIONAL MATCH (project)-[:HAS_RAW_WEBSITE]->(rawWebsite)-[:HAS_RAW_WEBSITE_METADATA]->(metadata)
             DETACH DELETE audit, hack, discord, docsite,
-              github, telegram, twitter, website, project
+              github, telegram, twitter, website, project, rawWebsite, metadata
         `,
         {
           id,

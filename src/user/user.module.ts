@@ -1,8 +1,6 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { UserService } from "./user.service";
-import { UserFlowService } from "./user-flow.service";
-import { UserRoleService } from "./user-role.service";
 import { GithubModule } from "../auth/github/github.module";
 import { UserController } from "./user.controller";
 import { ModelService } from "src/model/model.service";
@@ -22,6 +20,7 @@ import { HttpModule } from "@nestjs/axios";
 import { REALLY_LONG_TIME } from "src/shared/constants";
 import * as https from "https";
 import { PaymentsModule } from "src/payments/payments.module";
+import { PermissionService } from "./permission.service";
 
 @Module({
   imports: [
@@ -49,8 +48,6 @@ import { PaymentsModule } from "src/payments/payments.module";
   controllers: [UserController],
   providers: [
     UserService,
-    UserFlowService,
-    UserRoleService,
     ModelService,
     JwtService,
     MailService,
@@ -61,13 +58,8 @@ import { PaymentsModule } from "src/payments/payments.module";
     RpcService,
     PrivyService,
     GithubUserService,
+    PermissionService,
   ],
-  exports: [
-    UserService,
-    UserFlowService,
-    UserRoleService,
-    ModelService,
-    RpcService,
-  ],
+  exports: [UserService, ModelService, RpcService, PermissionService],
 })
 export class UserModule {}

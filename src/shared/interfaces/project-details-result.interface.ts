@@ -11,15 +11,18 @@ export class ProjectDetailsResult extends ProjectWithRelations {
   public static readonly ProjectDetailsType = t.intersection([
     ProjectWithRelations.ProjectWithRelationsType,
     t.strict({
-      organization: t.intersection([
-        OrganizationWithRelations.OrganizationWithRelationsType,
-        t.strict({ tags: t.array(Tag.TagType) }),
+      organization: t.union([
+        t.intersection([
+          OrganizationWithRelations.OrganizationWithRelationsType,
+          t.strict({ tags: t.array(Tag.TagType) }),
+        ]),
+        t.null,
       ]),
     }),
   ]);
 
   @ApiPropertyOptional()
-  organization: OrganizationWithRelations & { tags: Tag[] };
+  organization: (OrganizationWithRelations & { tags: Tag[] }) | null;
 
   constructor(raw: ProjectDetailsResult) {
     const { organization, ...projectProps } = raw;

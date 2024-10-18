@@ -27,11 +27,7 @@ export interface TagStatics {
   getPreferredTags: () => Promise<TagPreference[]>;
   getBlockedTags: () => Promise<Tag[]>;
   getUnblockedTags: () => Promise<Tag[]>;
-  getPopularTags: (
-    limit: number,
-    threshold: number,
-    ecosystem: string | undefined,
-  ) => Promise<Tag[]>;
+  getPopularTags: (limit: number, threshold: number) => Promise<Tag[]>;
   getPairedTags: () => Promise<TagPair[]>;
 }
 

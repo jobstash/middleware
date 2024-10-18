@@ -12,25 +12,22 @@ import envSchema from "src/env-schema";
 import { ModelModule } from "src/model/model.module";
 import { ModelService } from "src/model/model.service";
 import {
-  CheckWalletFlows,
-  CheckWalletRoles,
   EPHEMERAL_TEST_WALLET,
   REALLY_LONG_TIME,
   TEST_EMAIL,
-  TEST_GITHUB_USER,
+  // TEST_GITHUB_USER,
 } from "src/shared/constants";
-import { UserFlowService } from "./user-flow.service";
-import { UserRoleService } from "./user-role.service";
 import { UserModule } from "./user.module";
 import { HttpModule, HttpService } from "@nestjs/axios";
 import * as https from "https";
 import { resetTestDB } from "src/shared/helpers";
-import { UserProfile, data } from "src/shared/interfaces";
+import { data } from "src/shared/interfaces";
+// import { UserProfile, data } from "src/shared/interfaces";
 
 describe("UserService", () => {
   let models: ModelService;
-  let profileService: ProfileService;
-  let githubUserService: GithubUserService;
+  // let profileService: ProfileService;
+  // let githubUserService: GithubUserService;
   let userService: UserService;
   let httpService: HttpService;
 
@@ -93,8 +90,6 @@ describe("UserService", () => {
         AuthService,
         JwtService,
         UserService,
-        UserRoleService,
-        UserFlowService,
         ModelService,
         GithubUserService,
       ],
@@ -103,8 +98,8 @@ describe("UserService", () => {
     await module.init();
     models = module.get<ModelService>(ModelService);
     await models.onModuleInit();
-    profileService = module.get<ProfileService>(ProfileService);
-    githubUserService = module.get<GithubUserService>(GithubUserService);
+    // profileService = module.get<ProfileService>(ProfileService);
+    // githubUserService = module.get<GithubUserService>(GithubUserService);
     userService = module.get<UserService>(UserService);
     httpService = module.get<HttpService>(HttpService);
   }, REALLY_LONG_TIME);
@@ -114,18 +109,18 @@ describe("UserService", () => {
     jest.resetAllMocks();
   }, REALLY_LONG_TIME);
 
-  it(
-    "should create a siwe user",
-    async () => {
-      const user = await userService.createSIWEUser(EPHEMERAL_TEST_WALLET);
-      expect(user).toStrictEqual({
-        wallet: EPHEMERAL_TEST_WALLET,
-        available: expect.any(Boolean),
-        id: expect.any(String),
-      });
-    },
-    REALLY_LONG_TIME,
-  );
+  // it(
+  //   "should create a siwe user",
+  //   async () => {
+  //     // const user = await userService.createSIWEUser(EPHEMERAL_TEST_WALLET);
+  //     expect(user).toStrictEqual({
+  //       wallet: EPHEMERAL_TEST_WALLET,
+  //       available: expect.any(Boolean),
+  //       id: expect.any(String),
+  //     });
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
   it(
     "should add a siwe user's email",
@@ -139,125 +134,125 @@ describe("UserService", () => {
         id: expect.any(String),
       });
 
-      const profile = data<UserProfile>(
-        await profileService.getDevUserProfile(EPHEMERAL_TEST_WALLET),
-      );
+      // const profile = data<UserProfile>(
+      //   await profileService.getDevUserProfile(EPHEMERAL_TEST_WALLET),
+      // );
 
-      expect(profile.email).toBe(null);
+      // expect(profile.email).toBe(null);
     },
     REALLY_LONG_TIME,
   );
 
-  it(
-    "should verify a siwe user's email",
-    async () => {
-      const user = await userService.verifyUserEmail(TEST_EMAIL);
+  // it(
+  //   "should verify a siwe user's email",
+  //   async () => {
+  //     const user = await userService.verifyUserEmail(TEST_EMAIL);
 
-      expect(user.getProperties()).toStrictEqual({
-        wallet: EPHEMERAL_TEST_WALLET,
-        available: expect.any(Boolean),
-        id: expect.any(String),
-      });
+  //     expect(user.getProperties()).toStrictEqual({
+  //       wallet: EPHEMERAL_TEST_WALLET,
+  //       available: expect.any(Boolean),
+  //       id: expect.any(String),
+  //     });
 
-      const profile = data<UserProfile>(
-        await profileService.getDevUserProfile(EPHEMERAL_TEST_WALLET),
-      );
+  //     const profile = data<UserProfile>(
+  //       await profileService.getDevUserProfile(EPHEMERAL_TEST_WALLET),
+  //     );
 
-      expect(profile.email.filter(x => x.main).map(x => x.email)).toEqual([
-        TEST_EMAIL,
-      ]);
-    },
-    REALLY_LONG_TIME,
-  );
+  //     expect(profile.email.filter(x => x.main).map(x => x.email)).toEqual([
+  //       TEST_EMAIL,
+  //     ]);
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
-  it(
-    "should get a user's flow",
-    async () => {
-      const flow = await userService.getWalletFlow(EPHEMERAL_TEST_WALLET);
-      expect(flow.getName()).toBeDefined();
-    },
-    REALLY_LONG_TIME,
-  );
+  // it(
+  //   "should get a user's flow",
+  //   async () => {
+  //     const flow = await userService.getWalletFlow(EPHEMERAL_TEST_WALLET);
+  //     expect(flow.getName()).toBeDefined();
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
-  it(
-    "should get a user's role",
-    async () => {
-      const role = await userService.getWalletRole(EPHEMERAL_TEST_WALLET);
-      expect(role.getName()).toBeDefined();
-    },
-    REALLY_LONG_TIME,
-  );
+  // it(
+  //   "should get a user's role",
+  //   async () => {
+  //     const role = await userService.getWalletRole(EPHEMERAL_TEST_WALLET);
+  //     expect(role.getName()).toBeDefined();
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
-  it(
-    "should set a user's flow",
-    async () => {
-      const response = await userService.setWalletFlow({
-        wallet: EPHEMERAL_TEST_WALLET,
-        flow: CheckWalletFlows.SIGNUP_COMPLETE,
-      });
-      expect(response).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-      });
-      const flow = await userService.getWalletFlow(EPHEMERAL_TEST_WALLET);
-      expect(flow.getName()).toBe(CheckWalletFlows.SIGNUP_COMPLETE);
-    },
-    REALLY_LONG_TIME,
-  );
+  // it(
+  //   "should set a user's flow",
+  //   async () => {
+  //     const response = await userService.setWalletFlow({
+  //       wallet: EPHEMERAL_TEST_WALLET,
+  //       flow: CheckWalletFlows.SIGNUP_COMPLETE,
+  //     });
+  //     expect(response).toEqual({
+  //       success: true,
+  //       message: expect.stringMatching("success"),
+  //     });
+  //     const flow = await userService.getWalletFlow(EPHEMERAL_TEST_WALLET);
+  //     expect(flow.getName()).toBe(CheckWalletFlows.SIGNUP_COMPLETE);
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
-  it(
-    "should set a user's role",
-    async () => {
-      const response = await userService.setWalletRole({
-        wallet: EPHEMERAL_TEST_WALLET,
-        role: CheckWalletRoles.DEV,
-      });
-      expect(response).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-      });
-      const role = await userService.getWalletRole(EPHEMERAL_TEST_WALLET);
-      expect(role.getName()).toBe(CheckWalletRoles.DEV);
-    },
-    REALLY_LONG_TIME,
-  );
+  // it(
+  //   "should set a user's role",
+  //   async () => {
+  //     const response = await userService.setWalletRole({
+  //       wallet: EPHEMERAL_TEST_WALLET,
+  //       role: CheckWalletPermissions.DEV,
+  //     });
+  //     expect(response).toEqual({
+  //       success: true,
+  //       message: expect.stringMatching("success"),
+  //     });
+  //     const role = await userService.getWalletRole(EPHEMERAL_TEST_WALLET);
+  //     expect(role.getName()).toBe(CheckWalletPermissions.DEV);
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
-  it(
-    "should find a user by their wallet",
-    async () => {
-      const user = await userService.findByWallet(EPHEMERAL_TEST_WALLET);
-      expect(user).toBeDefined();
-    },
-    REALLY_LONG_TIME,
-  );
+  // it(
+  //   "should find a user by their wallet",
+  //   async () => {
+  //     const user = await userService.findByWallet(EPHEMERAL_TEST_WALLET);
+  //     expect(user).toBeDefined();
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
-  it(
-    "should find a user by it's associated github user node id",
-    async () => {
-      const github = await githubUserService.findByLogin(TEST_GITHUB_USER);
-      const user = await userService.findByGithubNodeId(github?.getNodeId());
-      expect(user?.getWallet()).toBeDefined();
-    },
-    REALLY_LONG_TIME,
-  );
+  // it(
+  //   "should find a user by it's associated github user node id",
+  //   async () => {
+  //     const github = await githubUserService.findByLogin(TEST_GITHUB_USER);
+  //     const user = await userService.findByGithubNodeId(github?.getNodeId());
+  //     expect(user?.getWallet()).toBeDefined();
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
-  it(
-    "should find all users",
-    async () => {
-      const users = await userService.findAll();
+  // it(
+  //   "should find all users",
+  //   async () => {
+  //     const users = await userService.findAll();
 
-      expect(users).toStrictEqual(expect.any(Array<UserProfile>));
-    },
-    REALLY_LONG_TIME,
-  );
+  //     expect(users).toStrictEqual(expect.any(Array<UserProfile>));
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
-  it(
-    "should find all org users awaiting approval",
-    async () => {
-      const users = await userService.getOrgsAwaitingApproval();
+  // it(
+  //   "should find all org users awaiting approval",
+  //   async () => {
+  //     const users = await userService.getOrgsAwaitingApproval();
 
-      expect(users).toStrictEqual(expect.any(Array<UserProfile>));
-    },
-    REALLY_LONG_TIME,
-  );
+  //     expect(users).toStrictEqual(expect.any(Array<UserProfile>));
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 });

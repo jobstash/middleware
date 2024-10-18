@@ -11,22 +11,21 @@ import {
 } from "@nestjs/common";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { UserService } from "./user.service";
-import { Roles } from "src/shared/decorators";
-import { RBACGuard } from "src/auth/rbac.guard";
-import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
+import { Permissions } from "src/shared/decorators";
+import { PBACGuard } from "src/auth/pbac.guard";
+import { CheckWalletPermissions } from "src/shared/constants";
 import {
   AdjacentRepo,
   data,
-  DevUserProfile,
+  UserAvailableForWork,
   EcosystemActivation,
-  OrgUserProfile,
   ResponseWithNoData,
   UserProfile,
 } from "src/shared/interfaces";
 import { AuthorizeOrgApplicationInput } from "./dto/authorize-org-application.dto";
 import { MailService } from "src/mail/mail.service";
 import { ConfigService } from "@nestjs/config";
-import { GetAvailableDevsInput } from "./dto/get-available-devs.input";
+import { GetAvailableDevsInput as GetAvailableUsersInput } from "./dto/get-available-users.input";
 import { AuthService } from "src/auth/auth.service";
 import { Request, Response } from "express";
 import { ApiKeyGuard } from "src/auth/api-key.guard";
@@ -49,55 +48,42 @@ export class UserController {
   ) {}
 
   @Get("")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
   async getAllUsers(): Promise<UserProfile[]> {
     this.logger.log("/users");
     return this.userService.findAll();
   }
 
-  @Get("devs/available")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN, CheckWalletRoles.ORG)
-  async getDevsAvailableForWork(
+  @Get("available")
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.ORG_AFFILIATE,
+  )
+  async getUsersAvailableForWork(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
     @Query(new ValidationPipe({ transform: true }))
-    params: GetAvailableDevsInput,
-  ): Promise<DevUserProfile[]> {
+    params: GetAvailableUsersInput,
+  ): Promise<UserAvailableForWork[]> {
     const { address } = await this.authService.getSession(req, res);
     const orgId = address
       ? await this.userService.findOrgIdByWallet(address)
       : null;
-    this.logger.log(`/users/devs/available ${JSON.stringify(params)}`);
-    return this.userService.getDevsAvailableForWork(params, orgId);
-  }
-
-  @Get("orgs/pending")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
-  async getOrgsAwaitingApproval(): Promise<OrgUserProfile[]> {
-    this.logger.log("/users/orgs/pending");
-    return this.userService.getOrgsAwaitingApproval();
-  }
-
-  @Get("orgs/approved")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
-  async getApprovedOrgs(): Promise<OrgUserProfile[]> {
-    this.logger.log("/users/orgs/approved");
-    return this.userService.getApprovedOrgs();
+    this.logger.log(`/users/available ${JSON.stringify(params)}`);
+    return this.userService.getUsersAvailableForWork(params, orgId);
   }
 
   @Post("orgs/authorize")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ADMIN)
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   async authorizeOrgApplication(
     @Body() body: AuthorizeOrgApplicationInput,
   ): Promise<ResponseWithNoData> {
     const { wallet, verdict, orgId } = body;
     this.logger.log(`/users/orgs/authorize ${wallet}`);
-    const org = data(await this.profileService.getOrgUserProfile(wallet));
+    const org = data(await this.profileService.getUserProfile(wallet));
 
     if (org) {
       if (verdict === "approve") {
@@ -116,17 +102,10 @@ export class UserController {
           };
         }
       }
-      if (org.email) {
-        await this.userService.setWalletFlow({
-          flow:
-            verdict === "approve"
-              ? CheckWalletFlows.ORG_COMPLETE
-              : CheckWalletFlows.ORG_REJECTED,
-          wallet: wallet,
-        });
+      if (org.linkedAccounts?.email) {
         await this.mailService.sendEmail({
           from: this.configService.getOrThrow<string>("EMAIL"),
-          to: org.email[0].email,
+          to: org.linkedAccounts?.email,
           subject: "Application Review Outcome",
           text:
             verdict === "approve"
@@ -207,9 +186,9 @@ export class UserController {
     );
   }
 
-  @Post("devs/note")
-  @UseGuards(RBACGuard)
-  @Roles(CheckWalletRoles.ORG)
+  @Post("note")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
   async addUserNote(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -220,7 +199,7 @@ export class UserController {
       const orgId = address
         ? await this.userService.findOrgIdByWallet(address)
         : null;
-      this.logger.log(`/users/devs/note ${JSON.stringify(body)}`);
+      this.logger.log(`/users/note ${JSON.stringify(body)}`);
       return this.userService.addUserNote(body.wallet, body.note, orgId);
     } else {
       return {

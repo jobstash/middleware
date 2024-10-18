@@ -1,13 +1,13 @@
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
-import { DevUserProfile } from "../interfaces";
+import { UserAvailableForWork } from "../interfaces";
 import { UserShowCaseEntity } from "./user-showcase.entity";
 import { UserSkillEntity } from "./user-skill.entity";
 
-export class DevUserProfileEntity {
-  constructor(private readonly raw: DevUserProfile) {}
+export class UserAvailableForWorkEntity {
+  constructor(private readonly raw: UserAvailableForWork) {}
 
-  getProperties(): DevUserProfile {
-    return new DevUserProfile({
+  getProperties(): UserAvailableForWork {
+    return new UserAvailableForWork({
       ...this.raw,
       note: notStringOrNull(this.raw?.note),
       cryptoNative: this.raw?.cryptoNative ?? false,

@@ -1,4 +1,6 @@
 import { CustomDecorator, SetMetadata } from "@nestjs/common";
+import { CheckWalletPermissions } from "../constants";
 
-export const Roles = (...roles: string[]): CustomDecorator<string> =>
-  SetMetadata("roles", roles);
+export const Permissions = (
+  ...permissions: (keyof typeof CheckWalletPermissions)[]
+): CustomDecorator<string> => SetMetadata("permissions", permissions);

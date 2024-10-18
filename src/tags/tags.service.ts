@@ -99,15 +99,11 @@ export class TagsService {
     }
   }
 
-  async getPopularTags(
-    limit: number,
-    ecosystem: string | undefined,
-  ): Promise<Tag[]> {
+  async getPopularTags(limit: number): Promise<Tag[]> {
     try {
       return this.models.Tags.getPopularTags(
         limit,
         this.configService.get<number>("SKILL_THRESHOLD"),
-        ecosystem,
       );
     } catch (err) {
       Sentry.withScope(scope => {

@@ -1,15 +1,11 @@
-import { UserRoleEntity } from "../shared/entities/user-role.entity";
 import { Injectable } from "@nestjs/common";
 import {
-  DevUserProfile,
-  DevUserProfileEntity,
-  OrgUserProfile,
-  OrgUserProfileEntity,
+  UserAvailableForWork,
+  UserAvailableForWorkEntity,
   ResponseWithNoData,
   ResponseWithOptionalData,
   User,
   UserEntity,
-  UserFlowEntity,
   UserProfile,
   UserProfileEntity,
 } from "src/shared/types";
@@ -17,21 +13,18 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
-import { UserFlowService } from "./user-flow.service";
-import { UserRoleService } from "./user-role.service";
 import { CreateUserDto } from "./dto/create-user.dto";
-import { SetFlowStateInput } from "../auth/dto/set-flow-state.input";
 import { ModelService } from "src/model/model.service";
 import { instanceToNode } from "src/shared/helpers";
 import { randomUUID } from "crypto";
-import { CheckWalletRoles, CheckWalletFlows } from "src/shared/constants";
-import { GetAvailableDevsInput } from "./dto/get-available-devs.input";
+import { GetAvailableDevsInput } from "./dto/get-available-users.input";
 import { ScorerService } from "src/scorer/scorer.service";
 import { ConfigService } from "@nestjs/config";
 import { ProfileService } from "src/auth/profile/profile.service";
-import { User as PrivyUser } from "@privy-io/server-auth";
+import { User as PrivyUser, WalletWithMetadata } from "@privy-io/server-auth";
 import { PrivyService } from "src/auth/privy/privy.service";
-import { SetRoleInput } from "src/auth/dto/set-role.input";
+import { PermissionService } from "./permission.service";
+import { CheckWalletPermissions } from "src/shared/constants";
 
 @Injectable()
 export class UserService {
@@ -41,11 +34,10 @@ export class UserService {
     private neogma: Neogma,
     private models: ModelService,
     readonly configService: ConfigService,
-    private readonly userFlowService: UserFlowService,
-    private readonly userRoleService: UserRoleService,
     private readonly profileService: ProfileService,
     private readonly scorerService: ScorerService,
     private readonly privyService: PrivyService,
+    private readonly permissionService: PermissionService,
   ) {}
 
   async findByWallet(wallet: string): Promise<UserEntity | undefined> {
@@ -65,7 +57,7 @@ export class UserService {
   }
 
   async findProfileByWallet(wallet: string): Promise<UserProfile | undefined> {
-    return this.profileService.getDevUserProfile(wallet).catch(err => {
+    return this.profileService.getUserProfile(wallet).catch(err => {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
@@ -78,7 +70,7 @@ export class UserService {
     });
   }
 
-  async findProfileByOrgId(orgId: string): Promise<OrgUserProfile | undefined> {
+  async findProfileByOrgId(orgId: string): Promise<UserProfile | undefined> {
     const result = await this.neogma.queryRunner.run(
       `
           MATCH (user:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(:Organization {orgId: $orgId})
@@ -87,7 +79,7 @@ export class UserService {
       { orgId },
     );
     const wallet = result.records[0]?.get("wallet");
-    return this.profileService.getOrgUserProfile(wallet).catch(err => {
+    return this.profileService.getUserProfile(wallet).catch(err => {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
@@ -571,89 +563,9 @@ export class UserService {
       });
   }
 
-  private async setFlow(flow: string, storedUser: UserEntity): Promise<void> {
-    // Flow
-    // Find a flow node
-    let storedFlowNode = await this.userFlowService.find(flow);
-
-    // If its not there, create it
-    if (!storedFlowNode) {
-      this.logger.log(`No user flow node for ${flow} found. Creating one...`);
-      storedFlowNode = await this.userFlowService.create({
-        name: flow,
-      });
-    }
-
-    // Check current flow association of user
-    const currentFlow = await this.userFlowService.getFlowForWallet(
-      storedUser.getWallet(),
-    );
-    // If user already has the desired flow, return
-    if (currentFlow && currentFlow.getName() === flow) {
-      return;
-    }
-
-    // If user has a different flow, unrelate it
-    if (currentFlow && currentFlow.getName()) {
-      await this.userFlowService.unrelateUserFromUserFlow(
-        storedUser.getId(),
-        currentFlow.getId(),
-      );
-    }
-
-    // Relate user to desired flow
-    await this.userFlowService.relateUserToUserFlow(
-      storedUser.getId(),
-      storedFlowNode.getId(),
-    );
-
-    // log the flow
-    this.logger.log(`Flow ${flow} set for wallet ${storedUser.getWallet()}.`);
-  }
-
-  private async setRole(role: string, storedUser: UserEntity): Promise<void> {
-    // Find a role node
-    let storedRoleNode = await this.userRoleService.find(role);
-
-    // If its not there, create it
-    if (!storedRoleNode) {
-      this.logger.log(`No user role node for ${role} found. Creating one...`);
-      storedRoleNode = await this.userRoleService.create({
-        name: role,
-      });
-    }
-
-    // Check current role association of user
-    const currentRole = await this.userRoleService.getRoleForWallet(
-      storedUser.getWallet(),
-    );
-    // If user already has the desired role, return
-    if (currentRole && currentRole.getName() === role) {
-      return;
-    }
-
-    // If user has a different role, unrelate it
-    if (currentRole && currentRole.getName()) {
-      await this.userRoleService.unlinkUserFromRole(
-        storedUser.getId(),
-        currentRole.getId(),
-      );
-    }
-
-    // Relate user to desired role
-    await this.userRoleService.linkUserToRole(
-      storedUser.getId(),
-      storedRoleNode.getId(),
-    );
-
-    // log the role
-    this.logger.log(`Role ${role} set for wallet ${storedUser.getWallet()}.`);
-  }
-
   async createPrivyUser(
     user: PrivyUser,
     embeddedWallet: string,
-    role: (typeof CheckWalletRoles)[keyof typeof CheckWalletRoles],
   ): Promise<ResponseWithOptionalData<User>> {
     try {
       const storedUser = await this.findByWallet(embeddedWallet);
@@ -662,49 +574,49 @@ export class UserService {
         this.logger.log(`User ${embeddedWallet} already exists. Updating...`);
         await this.syncUserLinkedWallets(embeddedWallet, user.id);
 
-        if (role === CheckWalletRoles.DEV) {
-          const contact = {
-            discord: user.discord?.username ?? null,
-            telegram: user.telegram?.username ?? null,
-            twitter: user.twitter?.username ?? null,
-            email: user.email?.address ?? null,
-            farcaster: user.farcaster?.username ?? null,
-            github: user.github?.username ?? null,
-            google: user.google?.email ?? null,
-            apple: user.apple?.email ?? null,
-          };
+        const permissions =
+          await this.permissionService.getPermissionsForWallet(embeddedWallet);
 
-          if (Object.values(contact).filter(Boolean).length > 0) {
-            this.logger.log(`Adding contact info for ${embeddedWallet}`);
-            const result =
-              await this.profileService.updateDevUserLinkedAccounts(
-                embeddedWallet,
-                contact,
-              );
-
-            if (result.success) {
-              this.logger.log(`Contact info added to user`);
-            } else {
-              this.logger.error(
-                `Contact info not added to user: ${result.message}`,
-              );
-              return result;
-            }
-          }
-
-          await this.profileService.getUserWorkHistory(embeddedWallet);
-          return {
-            success: true,
-            message: "User already exists",
-            data: storedUser.getProperties(),
-          };
-        } else {
-          return {
-            success: true,
-            message: "User already exists",
-            data: storedUser.getProperties(),
-          };
+        if (permissions.length === 0) {
+          await this.permissionService.syncUserPermissions(embeddedWallet, [
+            CheckWalletPermissions.USER,
+          ]);
         }
+
+        const contact = {
+          discord: user?.discord?.username ?? null,
+          telegram: user?.telegram?.username ?? null,
+          twitter: user?.twitter?.username ?? null,
+          email: user?.email?.address ?? null,
+          farcaster: user?.farcaster?.username ?? null,
+          github: user?.github?.username ?? null,
+          google: user?.google?.email ?? null,
+          apple: user?.apple?.email ?? null,
+        };
+
+        if (Object.values(contact).filter(Boolean).length > 0) {
+          this.logger.log(`Adding contact info for ${embeddedWallet}`);
+          const result = await this.profileService.updateUserLinkedAccounts(
+            embeddedWallet,
+            contact,
+          );
+
+          if (result.success) {
+            this.logger.log(`Contact info added to user`);
+          } else {
+            this.logger.error(
+              `Contact info not added to user: ${result.message}`,
+            );
+            return result;
+          }
+        }
+
+        await this.profileService.getUserWorkHistory(embeddedWallet);
+        return {
+          success: true,
+          message: "User already exists",
+          data: storedUser.getProperties(),
+        };
       }
 
       const newUserDto = {
@@ -745,7 +657,7 @@ export class UserService {
 
         if (Object.values(contact).filter(Boolean).length > 0) {
           this.logger.log(`Adding contact info for ${embeddedWallet}`);
-          const result = await this.profileService.updateDevUserLinkedAccounts(
+          const result = await this.profileService.updateUserLinkedAccounts(
             embeddedWallet,
             contact,
           );
@@ -760,17 +672,7 @@ export class UserService {
           }
         }
 
-        if (role === CheckWalletRoles.DEV && user.email) {
-          await this.profileService.getUserWorkHistory(embeddedWallet);
-        }
-
-        await this.setRole(role, newUser);
-        await this.setFlow(
-          role === CheckWalletRoles.ORG
-            ? CheckWalletFlows.ORG_PROFILE
-            : CheckWalletFlows.ONBOARD_PROFILE,
-          newUser,
-        );
+        await this.profileService.getUserWorkHistory(embeddedWallet);
 
         return {
           success: true,
@@ -845,129 +747,6 @@ export class UserService {
     }
   }
 
-  async setWalletFlow(input: SetFlowStateInput): Promise<ResponseWithNoData> {
-    this.logger.log(`/user/setWalletFlow: ${JSON.stringify(input)}`);
-
-    try {
-      const { wallet, flow } = input;
-      const user = await this.findByWallet(wallet);
-      if (!user) {
-        this.logger.log(`User with wallet ${wallet} not found!`);
-        return {
-          success: false,
-          message: "Flow not set because wallet could not be found",
-        };
-      }
-
-      await this.setFlow(flow, user);
-
-      this.logger.log(`Flow ${flow} set for wallet ${wallet}.`);
-      return { success: true, message: "Flow set successfully" };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "service-call",
-          source: "user.service",
-        });
-        scope.setExtra("input", input);
-        Sentry.captureException(err);
-      });
-      this.logger.error(`UserService::setWalletFlow ${err.message}`);
-      return {
-        success: false,
-        message: "Flow not set because of unexpected error",
-      };
-    }
-  }
-
-  async setWalletRole(input: SetRoleInput): Promise<ResponseWithNoData> {
-    this.logger.log(`/user/setWalletRole: ${JSON.stringify(input)}`);
-    try {
-      const { wallet, role } = input;
-      const user = await this.findByWallet(wallet);
-      if (!user) {
-        this.logger.log(`User with wallet ${wallet} not found!`);
-        return {
-          success: false,
-          message: "Role not set because wallet could not be found",
-        };
-      }
-
-      await this.setRole(role, user);
-
-      this.logger.log(`Role ${role} set for wallet ${wallet}.`);
-      return { success: true, message: "Role set successfully" };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "service-call",
-          source: "user.service",
-        });
-        scope.setExtra("input", input);
-        Sentry.captureException(err);
-      });
-      this.logger.error(`UserService::setWalletRole ${err.message}`);
-      return {
-        success: false,
-        message: "Flow not set because of unexpected error",
-      };
-    }
-  }
-
-  async getWalletRole(wallet: string): Promise<UserRoleEntity | undefined> {
-    return this.neogma.queryRunner
-      .run(
-        `
-          MATCH (u:User {wallet: $wallet})-[:HAS_ROLE]->(ur:UserRole)
-          RETURN ur
-        `,
-        { wallet },
-      )
-      .then(res =>
-        res.records.length
-          ? new UserRoleEntity(res.records[0].get("ur"))
-          : undefined,
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
-          });
-          Sentry.captureException(err);
-        });
-        this.logger.error(`UserService::getRoleForWallet ${err.message}`);
-        return undefined;
-      });
-  }
-
-  async getWalletFlow(wallet: string): Promise<UserFlowEntity | undefined> {
-    return this.neogma.queryRunner
-      .run(
-        `
-          MATCH (u:User {wallet: $wallet})-[:HAS_USER_FLOW_STAGE]->(uf:UserFlow)
-          RETURN uf
-        `,
-        { wallet },
-      )
-      .then(res =>
-        res.records.length
-          ? new UserFlowEntity(res.records[0].get("uf"))
-          : undefined,
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
-          });
-          Sentry.captureException(err);
-        });
-        this.logger.error(`UserService::getFlowForWallet ${err.message}`);
-        return undefined;
-      });
-  }
-
   async getCryptoNativeStatus(wallet: string): Promise<boolean | undefined> {
     const initial = await this.neogma.queryRunner
       .run(
@@ -1002,45 +781,60 @@ export class UserService {
     }
   }
 
+  async syncUserPermissions(
+    wallet: string,
+    permissions: string[],
+  ): Promise<void> {
+    return this.permissionService.syncUserPermissions(wallet, permissions);
+  }
+
   async authorizeUserForOrg(
     wallet: string,
     orgId: string,
   ): Promise<ResponseWithNoData> {
-    return (
-      this.neogma.queryRunner
-        .run(
-          `
+    const userPermissions =
+      await this.permissionService.getPermissionsForWallet(wallet);
+    const authorizationResult = await this.neogma.queryRunner
+      .run(
+        `
           MATCH (u:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
           MERGE (u)-[:HAS_ORGANIZATION_AUTHORIZATION]->(org)
           RETURN true as res
         `,
-          { wallet, orgId },
-        )
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .then(_ => {
-          return {
-            success: true,
-            message: "Set user authorization for org successfully",
-          };
-        })
-        .catch(err => {
-          Sentry.withScope(scope => {
-            scope.setTags({
-              action: "db-call",
-              source: "user.service",
-            });
-            Sentry.captureException(err);
+        { wallet, orgId },
+      )
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      .then(_ => {
+        return {
+          success: true,
+          message: "Set user authorization for org successfully",
+        };
+      })
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
           });
-          this.logger.error(`UserService::getFlowForWallet ${err.message}`);
-          return {
-            success: false,
-            message: "Setting user authorization for org failed",
-          };
-        })
-    );
+          Sentry.captureException(err);
+        });
+        this.logger.error(`UserService::getFlowForWallet ${err.message}`);
+        return {
+          success: false,
+          message: "Setting user authorization for org failed",
+        };
+      });
+    if (authorizationResult.success) {
+      await this.permissionService.syncUserPermissions(wallet, [
+        ...userPermissions.map(x => x.name),
+        CheckWalletPermissions.ORG_AFFILIATE,
+      ]);
+    }
+    return authorizationResult;
   }
 
   async findAll(): Promise<UserProfile[]> {
+    const users = await this.privyService.getUsers();
     return this.neogma.queryRunner
       .run(
         `
@@ -1048,17 +842,40 @@ export class UserService {
           RETURN {
             wallet: user.wallet,
             availableForWork: user.available,
-            username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-            avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-            contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }]
+            name: user.name,
+            githubAvatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
+            alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
+            location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
           } as user
         `,
       )
       .then(res =>
         res.records.length
-          ? res.records.map(record =>
-              new UserProfileEntity(record.get("user")).getProperties(),
+          ? Promise.all(
+              res.records.map(async record => {
+                const raw = record.get("user");
+                const privyId = raw.privyId;
+                const user = users.find(x => x.id === privyId);
+                new UserProfileEntity({
+                  ...raw,
+                  linkedAccounts: {
+                    discord: user?.discord?.username ?? null,
+                    telegram: user?.telegram?.username ?? null,
+                    twitter: user?.twitter?.username ?? null,
+                    email: user?.email?.address ?? null,
+                    farcaster: user?.farcaster?.username ?? null,
+                    github: user?.github?.username ?? null,
+                    google: user?.google?.email ?? null,
+                    apple: user?.apple?.email ?? null,
+                    wallets: user?.linkedAccounts
+                      ?.filter(
+                        x =>
+                          x.type === "wallet" && x.walletClientType !== "privy",
+                      )
+                      ?.map(x => (x as WalletWithMetadata).address),
+                  },
+                }).getProperties();
+              }),
             )
           : [],
       )
@@ -1075,16 +892,16 @@ export class UserService {
       });
   }
 
-  async getDevsAvailableForWork(
+  async getUsersAvailableForWork(
     params: GetAvailableDevsInput,
     orgId: string | null,
-  ): Promise<DevUserProfile[]> {
+  ): Promise<UserAvailableForWork[]> {
     const paramsPassed = {
       city: params.city ? new RegExp(params.city, "gi") : null,
       country: params.country ? new RegExp(params.country, "gi") : null,
     };
 
-    const locationFilter = (dev: DevUserProfile): boolean => {
+    const locationFilter = (dev: UserAvailableForWork): boolean => {
       const cityMatch = paramsPassed.city
         ? paramsPassed.city.test(dev.location?.city)
         : true;
@@ -1099,7 +916,6 @@ export class UserService {
         `
           MATCH (user:User), (organization: Organization {orgId: $orgId})
           WHERE user.available = true
-          AND (user)-[:HAS_ROLE]->(:UserRole { name: "DEV" })
 
           RETURN {
             wallet: user.wallet,
@@ -1162,7 +978,7 @@ export class UserService {
           );
         for (const record of res.records) {
           const user = record.get("user");
-          const profile = new DevUserProfileEntity({
+          const profile = new UserAvailableForWorkEntity({
             ...user,
             ecosystemActivations:
               ecosystemActivations.find(x => x.wallet === user.wallet)
@@ -1185,90 +1001,6 @@ export class UserService {
         this.logger.error(
           `UserService::getDevsAvailableForWork ${err.message}`,
         );
-        return [];
-      });
-  }
-
-  async getOrgsAwaitingApproval(): Promise<OrgUserProfile[]> {
-    return this.neogma.queryRunner
-      .run(
-        `
-          MATCH (user:User)
-          WHERE (user)-[:HAS_ROLE]->(:UserRole { name: "ORG" })
-          AND (user)-[:HAS_USER_FLOW_STAGE]->(:UserFlow { name: "ORG-APPROVAL-PENDING" })
-          RETURN {
-            wallet: user.wallet,
-            linkedin: user.linkedin,
-            calendly: user.calendly,
-            username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-            avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-            contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
-            orgId: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization:Organization) | organization.orgId][0],
-            internalReference: [(user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo) | reference { .* }][0],
-            subscriberStatus: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION|HAS_SUBSCRIPTION*2]->(subscription:Subscription) | subscription { .* }][0]
-          } as user
-        `,
-      )
-      .then(res =>
-        res.records.length
-          ? res.records.map(record =>
-              new OrgUserProfileEntity(record.get("user")).getProperties(),
-            )
-          : [],
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
-          });
-          Sentry.captureException(err);
-        });
-        this.logger.error(
-          `UserService::getOrgsAwaitingApproval ${err.message}`,
-        );
-        return [];
-      });
-  }
-
-  async getApprovedOrgs(): Promise<OrgUserProfile[]> {
-    return this.neogma.queryRunner
-      .run(
-        `
-          MATCH (user:User)
-          WHERE (user)-[:HAS_ROLE]->(:UserRole { name: "ORG" })
-          AND (user)-[:HAS_USER_FLOW_STAGE]->(:UserFlow { name: "ORG-COMPLETE" })
-          RETURN {
-            wallet: user.wallet,
-            linkedin: user.linkedin,
-            calendly: user.calendly,
-            username: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.login][0],
-            avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-            contact: [(user)-[:HAS_CONTACT_INFO]->(contact: UserContactInfo) | contact { .* }][0],
-            email: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email { email: email.email, main: email.main }],
-            orgId: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization:Organization) | organization.orgId][0],
-            internalReference: [(user)-[:HAS_INTERNAL_REFERENCE]->(reference: OrgUserReferenceInfo) | reference { .* }][0],
-            subscriberStatus: [(user)-[:HAS_ORGANIZATION_AUTHORIZATION|HAS_SUBSCRIPTION*2]->(subscription:Subscription) | subscription { .* }][0]
-          } as user
-        `,
-      )
-      .then(res =>
-        res.records.length
-          ? res.records.map(record =>
-              new OrgUserProfileEntity(record.get("user")).getProperties(),
-            )
-          : [],
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
-          });
-          Sentry.captureException(err);
-        });
-        this.logger.error(`UserService::getApprovedOrgs ${err.message}`);
         return [];
       });
   }

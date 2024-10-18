@@ -4,20 +4,13 @@ import {
   IsString,
   IsNumber,
   IsUrl,
-  IsIn,
   IsEthereumAddress,
 } from "class-validator";
-import { CheckWalletRoles } from "src/shared/constants";
 
 export class UpdateUserWithGithubInfoDto {
   @IsNotEmpty()
   @IsEthereumAddress()
   wallet: string;
-
-  @IsNotEmpty()
-  @IsString()
-  @IsIn([CheckWalletRoles.DEV, CheckWalletRoles.ORG])
-  role: string;
 
   @IsNotEmpty()
   @IsString()

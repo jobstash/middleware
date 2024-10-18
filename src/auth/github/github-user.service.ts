@@ -53,6 +53,7 @@ export class GithubUserService {
     wallet: string,
     githubLogin: string,
   ): Promise<GithubUser | undefined> {
+    this.logger.log(`Linking github user ${githubLogin} to wallet ${wallet}`);
     const res = await this.neogma.queryRunner.run(
       `
       MATCH (u:User {wallet: $wallet}), (gu:GithubUser {login: $githubLogin})

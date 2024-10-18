@@ -20,11 +20,6 @@ export class UpdateOrganizationInput extends OmitType(CreateOrganizationInput, [
   @ApiProperty()
   @IsOptional()
   @IsArray()
-  communities: string[];
-
-  @ApiProperty()
-  @IsOptional()
-  @IsArray()
   jobsites: UpdateJobsites[];
 
   @ApiProperty()

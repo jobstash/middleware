@@ -20,8 +20,6 @@ import { JwtModule, JwtService } from "@nestjs/jwt";
 import { HttpModule, HttpService } from "@nestjs/axios";
 import { AuthService } from "../auth.service";
 // import { UserService } from "src/user/user.service";
-import { UserRoleService } from "src/user/user-role.service";
-import { UserFlowService } from "src/user/user-flow.service";
 // import { CheckWalletFlows, CheckWalletRoles } from "src/shared/constants";
 import {
   DEV_TEST_WALLET,
@@ -105,8 +103,6 @@ describe("ProfileService", () => {
         AuthService,
         JwtService,
         // UserService,
-        UserRoleService,
-        UserFlowService,
         ModelService,
         // GithubUserService,
         TagsService,
@@ -465,7 +461,7 @@ describe("ProfileService", () => {
   it(
     "should get a user's profile",
     async () => {
-      const profile = await profileService.getDevUserProfile(DEV_TEST_WALLET);
+      const profile = await profileService.getUserProfile(DEV_TEST_WALLET);
       expect(profile).toEqual({
         success: true,
         message: expect.stringMatching("success"),

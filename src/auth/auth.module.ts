@@ -5,7 +5,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AuthService } from "./auth.service";
 import { UserModule } from "../user/user.module";
 import { MailModule } from "src/mail/mail.module";
-import { MagicAuthModule } from "./magic/magic-auth.module";
+import { MagicAuthModule } from "./magic/magic.module";
 import { ProfileModule } from "./profile/profile.module";
 import { ModelService } from "src/model/model.service";
 
