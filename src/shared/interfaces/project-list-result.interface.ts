@@ -167,7 +167,7 @@ export class ProjectListResult {
 export class ProjectCompetitorListResult extends ProjectListResult {
   public static readonly ProjectCompetitorListResultType = t.intersection([
     ProjectListResult.ProjectListResultType,
-    t.strict({ description: t.string }),
+    t.strict({ description: t.union([t.string, t.null]) }),
   ]);
 
   @ApiProperty()
