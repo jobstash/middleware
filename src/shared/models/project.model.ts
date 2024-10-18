@@ -92,10 +92,7 @@ export interface ProjectMethods {
 }
 
 export interface ProjectStatics {
-  getAllProjectsData: (
-    page: number,
-    limit: number,
-  ) => Promise<
+  getAllProjectsData: () => Promise<
     (ProjectWithRelations & {
       rawWebsite: RawProjectWebsite;
     })[]
@@ -367,7 +364,7 @@ export const Projects = (
         },
       },
       statics: {
-        getAllProjectsData: async function (page: number, limit: number) {
+        getAllProjectsData: async function () {
           const query = new QueryBuilder()
             .match({
               label: "Project",
@@ -396,7 +393,7 @@ export const Projects = (
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
-                  investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
+                  investors: [(org)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                   ],
@@ -432,9 +429,7 @@ export const Projects = (
                   ][0]
                 } as result
             `,
-            )
-            .skip(page * limit)
-            .limit(limit);
+            );
           const result = await query.run(neogma.queryRunner);
           const projects: (ProjectWithRelations & {
             rawWebsite: RawProjectWebsite | null;
@@ -463,9 +458,9 @@ export const Projects = (
               OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
               WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
               OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-              WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost, project, organization
+              WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost, project
               OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
-              WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost, project, organization
+              WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost, project
               WITH apoc.coll.toSet(COLLECT(structured_jobpost {
                   id: structured_jobpost.id,
                   url: structured_jobpost.url,
@@ -494,15 +489,15 @@ export const Projects = (
                   commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
                   locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
                   tags: apoc.coll.toSet(tags)
-              })) AS jobs, project, organization
+              })) AS jobs, project
             `,
             )
             .return(
               `
               project {
                   .*,
-                  orgId: [(organization)-[:HAS_PROJECT]->(project) | org.orgId][0],
-                  orgName: [(organization)-[:HAS_PROJECT]->(project) | org.name][0],
+                  orgId: [(org)-[:HAS_PROJECT]->(project) | org.orgId][0],
+                  orgName: [(org)-[:HAS_PROJECT]->(project) | org.name][0],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -563,9 +558,9 @@ export const Projects = (
               OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
               WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
               OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-              WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost, project, organization
+              WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost, project
               OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
-              WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost, project, organization
+              WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost, project
               WITH apoc.coll.toSet(COLLECT(structured_jobpost {
                   id: structured_jobpost.id,
                   url: structured_jobpost.url,
@@ -594,15 +589,15 @@ export const Projects = (
                   commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
                   locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
                   tags: apoc.coll.toSet(tags)
-              })) AS jobs, project, organization
+              })) AS jobs, project
             `,
             )
             .return(
               `
               project {
                   .*,
-                  orgId: [(organization)-[:HAS_PROJECT]->(project) | org.orgId][0],
-                  orgName: [(organization)-[:HAS_PROJECT]->(project) | org.name][0],
+                  orgId: [(org)-[:HAS_PROJECT]->(project) | org.orgId][0],
+                  orgName: [(org)-[:HAS_PROJECT]->(project) | org.name][0],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -653,9 +648,9 @@ export const Projects = (
               OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
               WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
               OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-              WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost, project, organization
+              WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost, project
               OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
-              WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost, project, organization
+              WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost, project
               WITH apoc.coll.toSet(COLLECT(structured_jobpost {
                   id: structured_jobpost.id,
                   url: structured_jobpost.url,
@@ -684,15 +679,15 @@ export const Projects = (
                   commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
                   locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
                   tags: apoc.coll.toSet(tags)
-              })) AS jobs, project, organization
+              })) AS jobs, project
             `,
             )
             .return(
               `
               project {
                   .*,
-                  orgId: [(organization)-[:HAS_PROJECT]->(project) | org.orgId][0],
-                  orgName: [(organization)-[:HAS_PROJECT]->(project) | org.name][0],
+                  orgId: [(org)-[:HAS_PROJECT]->(project) | org.orgId][0],
+                  orgName: [(org)-[:HAS_PROJECT]->(project) | org.name][0],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -782,14 +777,6 @@ export const Projects = (
             .match({
               related: [
                 {
-                  label: "Organization",
-                  identifier: "organization",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_PROJECT",
-                },
-                {
                   label: "Project",
                   identifier: "project",
                   where: {
@@ -805,9 +792,9 @@ export const Projects = (
               OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
               WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
               OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-              WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost, project, organization
+              WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost, project
               OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
-              WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost, project, organization
+              WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost, project
               WITH apoc.coll.toSet(COLLECT(structured_jobpost {
                   id: structured_jobpost.id,
                   url: structured_jobpost.url,
@@ -836,15 +823,15 @@ export const Projects = (
                   commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
                   locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
                   tags: apoc.coll.toSet(tags)
-              })) AS jobs, project, organization
+              })) AS jobs, project
             `,
             )
             .return(
               `
               project {
                   .*,
-                  orgId: [(organization)-[:HAS_PROJECT]->(project) | org.orgId][0],
-                  orgName: [(organization)-[:HAS_PROJECT]->(project) | org.name][0],
+                  orgId: [(org)-[:HAS_PROJECT]->(project) | org.orgId][0],
+                  orgName: [(org)-[:HAS_PROJECT]->(project) | org.name][0],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -933,11 +920,6 @@ export const Projects = (
           const query = new QueryBuilder().match({
             related: [
               {
-                label: "Organization",
-                identifier: "organization",
-              },
-              { direction: "out", name: "HAS_PROJECT" },
-              {
                 label: "Project",
                 identifier: "project",
               },
@@ -952,7 +934,7 @@ export const Projects = (
           }).return(`
             project {
                 .*,
-                orgId: [(organization)-[:HAS_PROJECT]->(project) | org.orgId][0]
+                orgId: [(org)-[:HAS_PROJECT]->(project) | org.orgId][0]
             }
           `);
           const result = await query.run(neogma.queryRunner);
@@ -994,7 +976,7 @@ export const Projects = (
               ],
             })
             .where(
-              "CASE WHEN $community IS NULL THEN true ELSE EXISTS((project)<-[:HAS_PROJECT]-(organization)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $community})) END",
+              "CASE WHEN $community IS NULL THEN true ELSE EXISTS((project)<-[:HAS_PROJECT]-(:Organization)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $community})) END",
             )
             .raw("AND project.id <> $id")
             .raw(
@@ -1004,9 +986,9 @@ export const Projects = (
               OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
               WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
               OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-              WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost, project, organization
+              WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost, project
               OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
-              WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost, project, organization
+              WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost, project
               WITH apoc.coll.toSet(COLLECT(structured_jobpost {
                   id: structured_jobpost.id,
                   url: structured_jobpost.url,
@@ -1035,15 +1017,15 @@ export const Projects = (
                   commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
                   locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
                   tags: apoc.coll.toSet(tags)
-              })) AS jobs, project, organization
+              })) AS jobs, project
             `,
             )
             .return(
               `
               project {
                   .*,
-                  orgId: [(organization)-[:HAS_PROJECT]->(project) | org.orgId][0],
-                  orgName: [(organization)-[:HAS_PROJECT]->(project) | org.name][0],
+                  orgId: [(org)-[:HAS_PROJECT]->(project) | org.orgId][0],
+                  orgName: [(org)-[:HAS_PROJECT]->(project) | org.name][0],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -1060,7 +1042,7 @@ export const Projects = (
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
-                  investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
+                  investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
@@ -1086,7 +1068,7 @@ export const Projects = (
           }).return(`
               project {
                   .*,
-                  orgId: [(organization)-[:HAS_PROJECT]->(project) | org.orgId][0]
+                  orgId: [(org)-[:HAS_PROJECT]->(project) | org.orgId][0]
               }
             `);
           const result = await query.run(neogma.queryRunner);
@@ -1102,11 +1084,6 @@ export const Projects = (
             .match({
               related: [
                 {
-                  label: "Organization",
-                  identifier: "organization",
-                },
-                { direction: "out", name: "HAS_PROJECT" },
-                {
                   label: "Project",
                   identifier: "project",
                 },
@@ -1115,7 +1092,7 @@ export const Projects = (
             .raw("WHERE project.name =~ $query").return(`
               project {
                   .*,
-                  orgId: [(organization)-[:HAS_PROJECT]->(project) | org.orgId][0]
+                  orgId: [(org)-[:HAS_PROJECT]->(project) | org.orgId][0]
               }
             `);
           const result = await searchQuery.run(neogma.queryRunner);

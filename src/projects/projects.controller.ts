@@ -361,7 +361,7 @@ export class ProjectsController {
       .then(res => ({
         success: true,
         message: "Retrieved all competing projects successfully",
-        data: res,
+        data: res ?? [],
       }))
       .catch(err => {
         Sentry.withScope(scope => {

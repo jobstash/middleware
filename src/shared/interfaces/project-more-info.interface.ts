@@ -8,7 +8,7 @@ export class ProjectMoreInfo extends Project {
   public static readonly ProjectMoreInfoType = t.intersection([
     Project.ProjectType,
     t.strict({
-      description: t.string,
+      description: t.union([t.string, t.null]),
       defiLlamaId: t.union([t.string, t.null]),
       tokenAddress: t.union([t.string, t.null]),
       defiLlamaSlug: t.union([t.string, t.null]),
@@ -19,7 +19,7 @@ export class ProjectMoreInfo extends Project {
   ]);
 
   @ApiPropertyOptional()
-  description: string;
+  description: string | null;
   @ApiPropertyOptional()
   defiLlamaId?: string | null;
   @ApiPropertyOptional()

@@ -67,52 +67,54 @@ export class ProjectDetailsEntity {
           ...chain,
           logo: notStringOrNull(chain?.logo),
         })) ?? [],
-      organization: {
-        ...organization,
-        aggregateRating:
-          reviews.length > 0
-            ? reviews.reduce((a, b) => a + b) / reviews.length
-            : 0,
-        aggregateRatings: generateOrgAggregateRatings(
-          organization?.reviews?.map(x => x.rating) ?? [],
-        ),
-        reviewCount: reviews.length,
-        docs: notStringOrNull(organization?.docs),
-        logoUrl: notStringOrNull(organization?.logoUrl),
-        headcountEstimate: nonZeroOrNull(organization?.headcountEstimate),
-        github: notStringOrNull(organization?.github),
-        twitter: notStringOrNull(organization?.twitter),
-        discord: notStringOrNull(organization?.discord),
-        telegram: notStringOrNull(organization?.telegram),
-        createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
-        updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
-        fundingRounds:
-          organization?.fundingRounds.map(fr => ({
-            ...fr,
-            raisedAmount: nonZeroOrNull(fr?.raisedAmount),
-            roundName: notStringOrNull(fr?.roundName),
-            sourceLink: notStringOrNull(fr?.sourceLink),
-            createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
-            updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
-          })) ?? [],
-        community: organization?.community ?? [],
-        investors: Array.from(
-          uniqBy(
-            organization?.investors?.map(investor => ({
-              id: investor.id,
-              name: investor.name,
-              normalizedName: investor.normalizedName,
-            })) ?? [],
-            "id",
-          ),
-        ),
-        tags: organization?.tags ?? [],
-        projects: [],
-        reviews:
-          organization?.reviews.map(review =>
-            new OrgReviewEntity(review).getProperties(),
-          ) ?? [],
-      },
+      organization: organization
+        ? {
+            ...organization,
+            aggregateRating:
+              reviews.length > 0
+                ? reviews.reduce((a, b) => a + b) / reviews.length
+                : 0,
+            aggregateRatings: generateOrgAggregateRatings(
+              organization?.reviews?.map(x => x.rating) ?? [],
+            ),
+            reviewCount: reviews.length,
+            docs: notStringOrNull(organization?.docs),
+            logoUrl: notStringOrNull(organization?.logoUrl),
+            headcountEstimate: nonZeroOrNull(organization?.headcountEstimate),
+            github: notStringOrNull(organization?.github),
+            twitter: notStringOrNull(organization?.twitter),
+            discord: notStringOrNull(organization?.discord),
+            telegram: notStringOrNull(organization?.telegram),
+            createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
+            updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
+            fundingRounds:
+              organization?.fundingRounds.map(fr => ({
+                ...fr,
+                raisedAmount: nonZeroOrNull(fr?.raisedAmount),
+                roundName: notStringOrNull(fr?.roundName),
+                sourceLink: notStringOrNull(fr?.sourceLink),
+                createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
+                updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
+              })) ?? [],
+            community: organization?.community ?? [],
+            investors: Array.from(
+              uniqBy(
+                organization?.investors?.map(investor => ({
+                  id: investor.id,
+                  name: investor.name,
+                  normalizedName: investor.normalizedName,
+                })) ?? [],
+                "id",
+              ),
+            ),
+            tags: organization?.tags ?? [],
+            projects: [],
+            reviews:
+              organization?.reviews.map(review =>
+                new OrgReviewEntity(review).getProperties(),
+              ) ?? [],
+          }
+        : null,
       repos:
         project?.repos?.map(repo => ({
           ...repo,

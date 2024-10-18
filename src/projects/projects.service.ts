@@ -396,15 +396,11 @@ export class ProjectsService {
     >
   > {
     try {
-      const projects = await this.models.Projects.getAllProjectsData(
+      const projects = await this.models.Projects.getAllProjectsData();
+      return paginate(
         page,
         limit,
-      );
-      return {
-        page: page,
-        count: limit,
-        total: -1,
-        data: projects.map(project => ({
+        projects.map(project => ({
           ...new ProjectWithRelationsEntity({
             ...project,
             orgId: "-1",
@@ -465,7 +461,7 @@ export class ProjectsService {
               }
             : null,
         })),
-      };
+      );
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
