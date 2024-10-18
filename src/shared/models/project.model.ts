@@ -451,14 +451,6 @@ export const Projects = (
             .match({
               related: [
                 {
-                  label: "Organization",
-                  identifier: "organization",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_PROJECT",
-                },
-                {
                   label: "Project",
                   identifier: "project",
                 },
@@ -509,8 +501,8 @@ export const Projects = (
               `
               project {
                   .*,
-                  orgId: organization.orgId,
-                  orgName: organization.name,
+                  orgId: [(organization)-[:HAS_PROJECT]->(project) | org.orgId][0],
+                  orgName: [(organization)-[:HAS_PROJECT]->(project) | org.name][0],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -533,7 +525,7 @@ export const Projects = (
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
-                  investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
+                  investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
@@ -559,14 +551,6 @@ export const Projects = (
             .match({
               related: [
                 {
-                  label: "Organization",
-                  identifier: "organization",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_PROJECT",
-                },
-                {
                   label: "Project",
                   identifier: "project",
                 },
@@ -617,8 +601,8 @@ export const Projects = (
               `
               project {
                   .*,
-                  orgId: organization.orgId,
-                  orgName: organization.name,
+                  orgId: [(organization)-[:HAS_PROJECT]->(project) | org.orgId][0],
+                  orgName: [(organization)-[:HAS_PROJECT]->(project) | org.name][0],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -635,7 +619,7 @@ export const Projects = (
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
-                  investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
+                  investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
@@ -653,14 +637,6 @@ export const Projects = (
           const query = new QueryBuilder()
             .match({
               related: [
-                {
-                  label: "Organization",
-                  identifier: "organization",
-                },
-                {
-                  direction: "out",
-                  name: "HAS_PROJECT",
-                },
                 {
                   label: "Project",
                   identifier: "project",
@@ -715,8 +691,8 @@ export const Projects = (
               `
               project {
                   .*,
-                  orgId: organization.orgId,
-                  orgName: organization.name,
+                  orgId: [(organization)-[:HAS_PROJECT]->(project) | org.orgId][0],
+                  orgName: [(organization)-[:HAS_PROJECT]->(project) | org.name][0],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -783,7 +759,7 @@ export const Projects = (
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
-                  investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
+                  investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
@@ -867,8 +843,8 @@ export const Projects = (
               `
               project {
                   .*,
-                  orgId: organization.orgId,
-                  orgName: organization.name,
+                  orgId: [(organization)-[:HAS_PROJECT]->(project) | org.orgId][0],
+                  orgName: [(organization)-[:HAS_PROJECT]->(project) | org.name][0],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -935,7 +911,7 @@ export const Projects = (
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
-                  investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
+                  investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
@@ -976,7 +952,7 @@ export const Projects = (
           }).return(`
             project {
                 .*,
-                orgId: organization.orgId
+                orgId: [(organization)-[:HAS_PROJECT]->(project) | org.orgId][0]
             }
           `);
           const result = await query.run(neogma.queryRunner);
@@ -1008,11 +984,6 @@ export const Projects = (
             .match({
               related: [
                 {
-                  label: "Organization",
-                  identifier: "organization",
-                },
-                { direction: "out", name: "HAS_PROJECT" },
-                {
                   label: "Project",
                   identifier: "project",
                 },
@@ -1023,7 +994,7 @@ export const Projects = (
               ],
             })
             .where(
-              "CASE WHEN $community IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $community})) END",
+              "CASE WHEN $community IS NULL THEN true ELSE EXISTS((project)<-[:HAS_PROJECT]-(organization)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $community})) END",
             )
             .raw("AND project.id <> $id")
             .raw(
@@ -1071,8 +1042,8 @@ export const Projects = (
               `
               project {
                   .*,
-                  orgId: organization.orgId,
-                  orgName: organization.name,
+                  orgId: [(organization)-[:HAS_PROJECT]->(project) | org.orgId][0],
+                  orgName: [(organization)-[:HAS_PROJECT]->(project) | org.name][0],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -1089,7 +1060,7 @@ export const Projects = (
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
-                  investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
+                  investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
@@ -1107,11 +1078,6 @@ export const Projects = (
           const query = new QueryBuilder().match({
             related: [
               {
-                label: "Organization",
-                identifier: "organization",
-              },
-              { direction: "out", name: "HAS_PROJECT" },
-              {
                 label: "Project",
                 identifier: "project",
                 where: { id: id },
@@ -1120,7 +1086,7 @@ export const Projects = (
           }).return(`
               project {
                   .*,
-                  orgId: organization.orgId
+                  orgId: [(organization)-[:HAS_PROJECT]->(project) | org.orgId][0]
               }
             `);
           const result = await query.run(neogma.queryRunner);
@@ -1149,7 +1115,7 @@ export const Projects = (
             .raw("WHERE project.name =~ $query").return(`
               project {
                   .*,
-                  orgId: organization.orgId
+                  orgId: [(organization)-[:HAS_PROJECT]->(project) | org.orgId][0]
               }
             `);
           const result = await searchQuery.run(neogma.queryRunner);
