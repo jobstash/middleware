@@ -792,7 +792,13 @@ export class ProjectsService {
 
           RETURN project { .* } as project
         `,
-        { ...project, id, normalizedName: normalizeString(project.name) },
+        {
+          ...project,
+          id,
+          normalizedName: normalizeString(project.name),
+          orgId: project.orgId ?? null,
+          description: project.description ?? null,
+        },
       );
       return new ProjectMoreInfoEntity(result?.records[0]?.get("project"));
     } catch (err) {

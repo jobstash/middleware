@@ -25,6 +25,7 @@ export class ProjectDetailsEntity {
 
     return new ProjectDetailsResult({
       ...project,
+      orgId: notStringOrNull(project?.orgId),
       defiLlamaId: notStringOrNull(project?.defiLlamaId),
       defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug),
       defiLlamaParent: notStringOrNull(project?.defiLlamaParent),
