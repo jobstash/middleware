@@ -175,9 +175,15 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "filter_joblist_projects",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
-
-  tvl: {
+  ecosystems: {
     position: 17,
+    label: "Ecosystems",
+    show: false,
+    googleAnalyticsEventName: "filter_joblist_ecosystems",
+    kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
+  },
+  tvl: {
+    position: 18,
     label: "TVL",
     show: false,
     googleAnalyticsEventName: "filter_joblist_tvl",
@@ -185,7 +191,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   monthlyVolume: {
-    position: 18,
+    position: 19,
     label: "Volume/mo",
     show: false,
     googleAnalyticsEventName: "filter_joblist_monthly_volume",
@@ -193,7 +199,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   monthlyFees: {
-    position: 19,
+    position: 20,
     label: "Fees/mo",
     show: false,
     googleAnalyticsEventName: "filter_joblist_monthly_fees",
@@ -201,7 +207,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   monthlyRevenue: {
-    position: 20,
+    position: 21,
     label: "Revenue/mo",
     show: false,
     googleAnalyticsEventName: "filter_joblist_monthly_revenue",
@@ -209,7 +215,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   mainNet: {
-    position: 21,
+    position: 22,
     label: "Mainnet",
     show: false,
     googleAnalyticsEventName: "filter_joblist_is_mainet",
@@ -217,7 +223,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.mainNet,
   },
   token: {
-    position: 22,
+    position: 23,
     label: "Has Token",
     show: false,
     googleAnalyticsEventName: "filter_joblist_has_token",
@@ -225,7 +231,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.token,
   },
   orderBy: {
-    position: 23,
+    position: 24,
     label: "Order By",
     show: true,
     googleAnalyticsEventName: "filter_joblist_order_by",
@@ -233,7 +239,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.orderBy,
   },
   order: {
-    position: 24,
+    position: 25,
     label: "Order",
     show: true,
     googleAnalyticsEventName: "filter_joblist_order",
@@ -260,6 +266,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
   investors: "investors",
   organizations: "organizations",
   chains: "chains",
+  ecosystems: "ecosystems",
   projects: "projects",
   classifications: "classifications",
   commitments: "commitments",

@@ -43,6 +43,7 @@ export class ProjectListResultEntity {
           ...chain,
           logo: notStringOrNull(chain?.logo),
         })) ?? [],
+      ecosystems: project.ecosystems ?? [],
       jobs:
         project?.jobs.map(jobpost => {
           const now = new Date().getTime();

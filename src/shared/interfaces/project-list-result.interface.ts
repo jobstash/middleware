@@ -31,6 +31,7 @@ export class ProjectListResult {
     hacks: t.array(Hack.HackType),
     audits: t.array(Audit.AuditType),
     chains: t.array(Chain.ChainType),
+    ecosystems: t.array(t.string),
     jobs: t.array(
       StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
     ),
@@ -97,6 +98,9 @@ export class ProjectListResult {
   })
   chains: Chain[];
 
+  @ApiProperty()
+  ecosystems: string[];
+
   @ApiProperty({
     type: "array",
     items: { $ref: getSchemaPath(StructuredJobpostWithRelations) },
@@ -128,6 +132,7 @@ export class ProjectListResult {
       hacks,
       audits,
       chains,
+      ecosystems,
       jobs,
       repos,
     } = raw;
@@ -147,6 +152,7 @@ export class ProjectListResult {
     this.website = website;
     this.category = category;
     this.isMainnet = isMainnet;
+    this.ecosystems = ecosystems;
     this.tokenSymbol = tokenSymbol;
     this.monthlyFees = monthlyFees;
     this.monthlyVolume = monthlyVolume;
@@ -170,8 +176,8 @@ export class ProjectCompetitorListResult extends ProjectListResult {
     t.strict({ description: t.union([t.string, t.null]) }),
   ]);
 
-  @ApiProperty()
-  description: string;
+  @ApiPropertyOptional()
+  description: string | null;
 
   constructor(raw: ProjectCompetitorListResult) {
     super(raw);

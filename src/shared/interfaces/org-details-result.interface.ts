@@ -38,6 +38,7 @@ export class OrgDetailsResult extends Organization {
       fundingRounds: t.array(FundingRound.FundingRoundType),
       investors: t.array(Investor.InvestorType),
       community: t.array(t.string),
+      ecosystems: t.array(t.string),
       grants: t.array(t.string),
       jobs: t.array(OrgJob.OrgJobType),
       tags: t.array(Tag.TagType),
@@ -77,6 +78,9 @@ export class OrgDetailsResult extends Organization {
 
   @ApiProperty()
   community: string[];
+
+  @ApiProperty()
+  ecosystems: string[];
 
   @ApiProperty()
   grants: string[];
@@ -133,6 +137,7 @@ export class OrgDetailsResult extends Organization {
       projects,
       fundingRounds,
       investors,
+      ecosystems,
       community,
       reviews,
       jobs,
@@ -157,6 +162,7 @@ export class OrgDetailsResult extends Organization {
     this.fundingRounds = fundingRounds;
     this.investors = investors;
     this.community = community;
+    this.ecosystems = ecosystems;
     this.reviews = reviews;
     this.jobs = jobs;
     this.tags = tags;

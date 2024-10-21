@@ -144,6 +144,9 @@ export class JobsService {
                   ],
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  ecosystems: [
+                    (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ]
                 }
               ],
@@ -154,6 +157,9 @@ export class JobsService {
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
               community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+              ecosystems: [
+                (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
+              ],
               grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
               reviews: [
                 (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
@@ -638,6 +644,12 @@ export class JobsService {
                 AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
                 AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | community.name
               ]),
+              ecosystems: apoc.coll.toSet([
+                (org: Organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem)
+                WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
+                AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | ecosystem.name
+              ]),
               projects: apoc.coll.toSet([
                 (org)-[:HAS_PROJECT]->(project:Project)
                 WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
@@ -823,6 +835,9 @@ export class JobsService {
                   ],
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  ecosystems: [
+                    (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ]
                 }
               ],
@@ -833,6 +848,9 @@ export class JobsService {
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
               community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+              ecosystems: [
+                (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
+              ],
               grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
               reviews: [
                 (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
@@ -1067,7 +1085,10 @@ export class JobsService {
                   ],
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
-                  ]
+                  ],
+                  ecosystems: [
+                    (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+                  ],
                 }
               ],
               fundingRounds: apoc.coll.toSet([
@@ -1077,6 +1098,9 @@ export class JobsService {
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
               community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+              ecosystems: [
+                (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
+              ],
               grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
               reviews: [
                 (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
@@ -1291,6 +1315,9 @@ export class JobsService {
                   ],
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  ecosystems: [
+                    (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ]
                 }
               ],
@@ -1301,6 +1328,9 @@ export class JobsService {
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
               community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+              ecosystems: [
+                (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
+              ],
               grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
               reviews: [
                 (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
@@ -1546,6 +1576,9 @@ export class JobsService {
                 aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
                 twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                 community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+                ecosystems: [
+                  (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
+                ],
                 grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
                 projects: [
                   (organization)-[:HAS_PROJECT]->(project) | project {
@@ -1566,6 +1599,9 @@ export class JobsService {
                     ],
                     chains: [
                       (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                    ],
+                    ecosystems: [
+                      (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                     ],
                     jobs: [
                       (project)-[:HAS_JOB]->(job) | job { .* }
@@ -1700,6 +1736,9 @@ export class JobsService {
                 aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
                 twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                 community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+                ecosystems: [
+                  (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
+                ],
                 grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
                 projects: [
                   (organization)-[:HAS_PROJECT]->(project) | project {
@@ -1720,6 +1759,9 @@ export class JobsService {
                     ],
                     chains: [
                       (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                    ],
+                    ecosystems: [
+                      (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                     ],
                     jobs: [
                       (project)-[:HAS_JOB]->(job) | job { .* }
@@ -1858,6 +1900,9 @@ export class JobsService {
                 aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
                 twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                 community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+                ecosystems: [
+                  (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
+                ],
                 grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
                 projects: [
                   (organization)-[:HAS_PROJECT]->(project) | project {
@@ -1878,6 +1923,9 @@ export class JobsService {
                     ],
                     chains: [
                       (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                    ],
+                    ecosystems: [
+                      (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                     ],
                     jobs: [
                       (project)-[:HAS_JOB]->(job) | job { .* }
@@ -2015,6 +2063,9 @@ export class JobsService {
                 aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
                 twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
                 community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+                ecosystems: [
+                  (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
+                ],
                 grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
                 projects: [
                   (organization)-[:HAS_PROJECT]->(project) | project {
@@ -2035,6 +2086,9 @@ export class JobsService {
                     ],
                     chains: [
                       (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                    ],
+                    ecosystems: [
+                      (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                     ],
                     jobs: [
                       (project)-[:HAS_JOB]->(job) | job { .* }

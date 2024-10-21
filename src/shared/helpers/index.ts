@@ -405,6 +405,7 @@ export const toShortOrg = (org: OrgDetailsResult): ShortOrg => {
     aggregateRating,
     reviewCount,
     community,
+    ecosystems,
     grants,
   } = org;
   const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
@@ -419,6 +420,7 @@ export const toShortOrg = (org: OrgDetailsResult): ShortOrg => {
     aggregateRating,
     reviewCount,
     community,
+    ecosystems,
     grants,
     jobCount: org.jobs.length,
     projectCount: org.projects.length,

@@ -27,6 +27,7 @@ export class ProjectFilterConfigs {
     chains: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     investors: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     communities: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+    ecosystems: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     categories: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     organizations: MultiSelectSearchFilter.MultiSelectSearchFilterType,
   });
@@ -41,6 +42,8 @@ export class ProjectFilterConfigs {
   categories: MultiSelectSearchFilter;
   @ApiProperty()
   communities: MultiSelectSearchFilter;
+  @ApiProperty()
+  ecosystems: MultiSelectSearchFilter;
   @ApiProperty()
   tvl: RangeFilter;
   @ApiProperty()
@@ -75,6 +78,7 @@ export class ProjectFilterConfigs {
       investors,
       categories,
       communities,
+      ecosystems,
       monthlyFees,
       organizations,
       monthlyVolume,
@@ -94,6 +98,7 @@ export class ProjectFilterConfigs {
     this.investors = investors;
     this.categories = categories;
     this.communities = communities;
+    this.ecosystems = ecosystems;
     this.monthlyFees = monthlyFees;
     this.organizations = organizations;
     this.monthlyVolume = monthlyVolume;

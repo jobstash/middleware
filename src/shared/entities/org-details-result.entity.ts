@@ -116,6 +116,7 @@ export class OrgDetailsResultEntity {
               ...chain,
               logo: notStringOrNull(chain?.logo),
             })) ?? [],
+          ecosystems: project.ecosystems ?? [],
           jobs:
             project?.jobs?.map(jobpost => {
               const now = new Date().getTime();
@@ -189,6 +190,7 @@ export class OrgDetailsResultEntity {
       ),
       community: organization?.community ?? [],
       grants: organization?.grants ?? [],
+      ecosystems: organization?.ecosystems ?? [],
       jobs:
         jobs?.map(jobpost => {
           const now = new Date().getTime();

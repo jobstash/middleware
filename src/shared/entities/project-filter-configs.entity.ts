@@ -26,6 +26,7 @@ type RawProjectFilters = {
   audits?: string[] | null;
   investors?: string[] | null;
   communities?: string[] | null;
+  ecosystems?: string[] | null;
   organizations?: string[] | null;
 };
 
@@ -106,6 +107,7 @@ export class ProjectFilterConfigsEntity {
       hacks: this.getSingleSelectPresets("hacks"),
       organizations: this.getMultiValuePresets("organizations"),
       chains: this.getMultiValuePresets("chains"),
+      ecosystems: this.getMultiValuePresets("ecosystems"),
       categories: this.getMultiValuePresets("categories"),
       investors: this.getMultiValuePresets("investors"),
       communities: this.getMultiValuePresets("communities"),

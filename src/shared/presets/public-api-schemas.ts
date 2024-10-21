@@ -896,6 +896,14 @@ export const PUBLIC_API_SCHEMAS = {
               $ref: getSchemaPath(Chain),
             },
           },
+          ecosystems: {
+            description:
+              "The list of ecosystems the chains project is deployed on belong to",
+            type: "array",
+            items: {
+              type: "string",
+            },
+          },
           jobs: {
             description: "The list of open positions the project has",
             type: "array",

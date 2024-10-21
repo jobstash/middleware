@@ -393,6 +393,9 @@ export const Projects = (
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
+                  ecosystems: [
+                    (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+                  ],
                   investors: [(org)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
@@ -520,6 +523,9 @@ export const Projects = (
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
+                  ecosystems: [
+                    (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+                  ],
                   investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   jobs: jobs,
                   repos: [
@@ -614,6 +620,9 @@ export const Projects = (
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
+                  ecosystems: [
+                    (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+                  ],
                   investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   jobs: jobs,
                   repos: [
@@ -707,6 +716,9 @@ export const Projects = (
                     fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
                     investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                     community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+                    ecosystems: [
+                      (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
+                    ],
                     grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
                     jobs: [
                       (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost) | structured_jobpost {
@@ -753,6 +765,9 @@ export const Projects = (
                   ],
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  ecosystems: [
+                    (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ],
                   investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   jobs: jobs,
@@ -851,6 +866,9 @@ export const Projects = (
                     fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
                     investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                     community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+                    ecosystems: [
+                      (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
+                    ],
                     grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
                     jobs: [
                       (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost) | structured_jobpost {
@@ -897,6 +915,9 @@ export const Projects = (
                   ],
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  ecosystems: [
+                    (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ],
                   investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   jobs: jobs,
@@ -1041,6 +1062,9 @@ export const Projects = (
                   ],
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  ecosystems: [
+                    (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ],
                   investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   jobs: jobs,

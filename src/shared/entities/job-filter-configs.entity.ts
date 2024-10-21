@@ -36,6 +36,7 @@ type RawJobFilters = {
   audits?: string[] | null;
   locations?: string[] | null;
   communities?: string[] | null;
+  ecosystems?: string[] | null;
   organizations?: string[] | null;
   seniority?: string[] | null;
 };
@@ -198,6 +199,7 @@ export class JobFilterConfigsEntity {
         (x: string) => x !== "",
         (x: string) => ({ label: toHeaderCase(x), value: normalizeString(x) }),
       ),
+      ecosystems: this.getMultiValuePresets("ecosystems"),
       communities: this.getMultiValuePresets("communities"),
       seniority: this.getMultiValuePresetsWithFilterAndTransform(
         "seniority",

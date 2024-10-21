@@ -36,6 +36,7 @@ export class JobFilterConfigs {
     projects: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     investors: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     communities: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+    ecosystems: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     classifications: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     commitments: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     fundingRounds: MultiSelectSearchFilter.MultiSelectSearchFilterType,
@@ -62,6 +63,8 @@ export class JobFilterConfigs {
   investors: MultiSelectSearchFilter;
   @ApiProperty()
   communities: MultiSelectSearchFilter;
+  @ApiProperty()
+  ecosystems: MultiSelectSearchFilter;
   @ApiProperty()
   organizations: MultiSelectSearchFilter;
   @ApiProperty()
@@ -112,6 +115,7 @@ export class JobFilterConfigs {
       headcountEstimate,
       investors,
       communities,
+      ecosystems,
       classifications,
       commitments,
       monthlyFees,
@@ -141,6 +145,7 @@ export class JobFilterConfigs {
     this.headcountEstimate = headcountEstimate;
     this.investors = investors;
     this.communities = communities;
+    this.ecosystems = ecosystems;
     this.monthlyFees = monthlyFees;
     this.fundingRounds = fundingRounds;
     this.organizations = organizations;

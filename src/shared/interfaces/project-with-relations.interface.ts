@@ -28,6 +28,7 @@ export class ProjectWithRelations extends ProjectMoreInfo {
       hacks: t.array(Hack.HackType),
       audits: t.array(Audit.AuditType),
       chains: t.array(Chain.ChainType),
+      ecosystems: t.array(t.string),
       jobs: t.array(
         StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
       ),
@@ -75,6 +76,9 @@ export class ProjectWithRelations extends ProjectMoreInfo {
   })
   chains: Chain[];
 
+  @ApiProperty()
+  ecosystems: string[];
+
   @ApiProperty({
     type: "array",
     items: { $ref: getSchemaPath(StructuredJobpostWithRelations) },
@@ -105,6 +109,7 @@ export class ProjectWithRelations extends ProjectMoreInfo {
       hacks,
       audits,
       chains,
+      ecosystems,
       jobs,
       investors,
       repos,
@@ -123,6 +128,7 @@ export class ProjectWithRelations extends ProjectMoreInfo {
     this.hacks = hacks;
     this.audits = audits;
     this.chains = chains;
+    this.ecosystems = ecosystems;
     this.jobs = jobs;
     this.investors = investors;
     this.repos = repos;

@@ -23,7 +23,6 @@ import {
   getSchemaPath,
 } from "@nestjs/swagger";
 import * as Sentry from "@sentry/node";
-import { AuthService } from "src/auth/auth.service";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { CheckWalletPermissions, COMMUNITY_HEADER } from "src/shared/constants";
@@ -72,7 +71,6 @@ export class JobsController {
   private readonly logger = new CustomLogger(JobsController.name);
   constructor(
     private readonly jobsService: JobsService,
-    private readonly authService: AuthService,
     private readonly tagsService: TagsService,
     private readonly profileService: ProfileService,
     private readonly userService: UserService,

@@ -67,6 +67,7 @@ export class ProjectDetailsEntity {
           ...chain,
           logo: notStringOrNull(chain?.logo),
         })) ?? [],
+      ecosystems: project.ecosystems ?? [],
       organization: organization
         ? {
             ...organization,
@@ -97,6 +98,8 @@ export class ProjectDetailsEntity {
                 updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
               })) ?? [],
             community: organization?.community ?? [],
+            grants: organization?.grants ?? [],
+            ecosystems: organization?.ecosystems ?? [],
             investors: Array.from(
               uniqBy(
                 organization?.investors?.map(investor => ({

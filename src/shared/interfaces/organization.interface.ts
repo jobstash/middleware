@@ -119,6 +119,7 @@ export class OrganizationWithRelations extends Organization {
       fundingRounds: t.array(FundingRound.FundingRoundType),
       investors: t.array(Investor.InvestorType),
       community: t.array(t.string),
+      ecosystems: t.array(t.string),
       grants: t.array(t.string),
       reviews: t.array(OrgReview.OrgReviewType),
     }),
@@ -156,6 +157,9 @@ export class OrganizationWithRelations extends Organization {
 
   @ApiProperty()
   community: string[];
+
+  @ApiProperty()
+  ecosystems: string[];
 
   @ApiProperty()
   grants: string[];
@@ -201,6 +205,7 @@ export class OrganizationWithRelations extends Organization {
       investors,
       community,
       grants,
+      ecosystems,
       reviews,
       ...orgProperties
     } = raw;
@@ -223,6 +228,7 @@ export class OrganizationWithRelations extends Organization {
     this.investors = investors;
     this.community = community;
     this.grants = grants;
+    this.ecosystems = ecosystems;
     this.reviews = reviews;
 
     if (isLeft(result)) {
@@ -251,6 +257,7 @@ export class ShortOrg {
     lastFundingAmount: t.number,
     community: t.array(t.string),
     grants: t.array(t.string),
+    ecosystems: t.array(t.string),
     logoUrl: t.union([t.string, t.null]),
   });
 
@@ -297,6 +304,9 @@ export class ShortOrg {
   community: string[];
 
   @ApiProperty()
+  ecosystems: string[];
+
+  @ApiProperty()
   grants: string[];
 
   constructor(raw: ShortOrg) {
@@ -309,6 +319,7 @@ export class ShortOrg {
       location,
       jobCount,
       community,
+      ecosystems,
       normalizedName,
       headcountEstimate,
       aggregateRating,
@@ -328,6 +339,7 @@ export class ShortOrg {
     this.location = location;
     this.jobCount = jobCount;
     this.community = community;
+    this.ecosystems = ecosystems;
     this.normalizedName = normalizedName;
     this.headcountEstimate = headcountEstimate;
     this.aggregateRating = aggregateRating;
