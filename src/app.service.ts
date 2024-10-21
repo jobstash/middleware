@@ -38,7 +38,6 @@ export class AppService {
         investors: null,
         commitments: null,
         communities: null,
-        isProtected: null,
         maxHeadCount: null,
         minHeadCount: null,
         fundingRounds: null,

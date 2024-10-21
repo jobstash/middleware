@@ -332,7 +332,6 @@ export class JobsService {
       communities: communityFilterList,
       token,
       mainNet,
-      isProtected,
       query,
       order,
       orderBy,
@@ -382,7 +381,6 @@ export class JobsService {
         salary,
         salaryCurrency,
         timestamp,
-        access,
       } = jlr;
       const matchesQuery =
         orgName.match(query) ||
@@ -420,7 +418,6 @@ export class JobsService {
           projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
             .length > 0) &&
         (mainNet === null || projects.filter(x => x.isMainnet).length > 0) &&
-        (isProtected === null || (access === "protected") === isProtected) &&
         (!minTvl || projects.filter(x => (x?.tvl ?? 0) >= minTvl).length > 0) &&
         (!maxTvl || projects.filter(x => (x?.tvl ?? 0) < maxTvl).length > 0) &&
         (!minMonthlyVolume ||
