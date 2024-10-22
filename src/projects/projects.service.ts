@@ -15,16 +15,20 @@ import {
   ProjectMoreInfoEntity,
   ProjectWithRelationsEntity,
   RawProjectWebsite,
+  ResponseWithOptionalData,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { ProjectListParams } from "./dto/project-list.input";
 import {
+  ensureProtocol,
   instanceToNode,
+  isValidUrl,
   nonZeroOrNull,
   normalizeString,
   notStringOrNull,
   paginate,
+  toAbsoluteURL,
 } from "src/shared/helpers";
 import { createNewSortInstance } from "fast-sort";
 import { ModelService } from "src/model/model.service";
@@ -741,6 +745,64 @@ export class ProjectsService {
       return {
         success: false,
         message: `Error adding project by url`,
+      };
+    }
+  }
+
+  async findIdByWebsite(
+    domain: string,
+  ): Promise<ResponseWithOptionalData<string>> {
+    try {
+      if (ensureProtocol(domain).every(isValidUrl)) {
+        try {
+          ensureProtocol(domain).map(x => new URL(toAbsoluteURL(x)));
+        } catch (err) {
+          return {
+            success: false,
+            message: "Invalid url",
+          };
+        }
+        const projects = await this.neogma.queryRunner.run(
+          `
+            MATCH (project:Project)-[:HAS_WEBSITE]->(website:Website)
+            UNWIND $domains as domain
+            WITH project, domain, website
+            WHERE apoc.data.url(website.url).host CONTAINS domain OR website.url CONTAINS domain OR domain CONTAINS website.url
+            RETURN project.id as id
+          `,
+          {
+            domains: ensureProtocol(domain).map(x => toAbsoluteURL(x)),
+          },
+        );
+        const result = projects.records.length
+          ? (projects?.records[0]?.get("id") as string)
+          : undefined;
+
+        return {
+          success: result ? true : false,
+          message: result
+            ? "Retrieved project id successfully"
+            : "No project found",
+          data: result,
+        };
+      } else {
+        return {
+          success: false,
+          message: "Invalid url",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProjectsService::findIdByWebsite ${err.message}`);
+      return {
+        success: false,
+        message: "Error finding project id by website",
       };
     }
   }

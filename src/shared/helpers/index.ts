@@ -567,3 +567,36 @@ export const generatePublicApiSpec = (
     },
   };
 };
+
+export const isValidUrl = (urlString: string): boolean => {
+  try {
+    if (urlString.startsWith("@")) {
+      throw new Error("Not a valid URL but a Username instead: " + urlString);
+    }
+    const url = new URL(urlString);
+    return ["http:", "https:"].includes(url.protocol);
+  } catch (_) {
+    throw new Error("Not a valid URL: " + urlString);
+  }
+};
+
+export const ensureProtocol = (url: string): string[] => {
+  return ["https://" + url, "http://" + url];
+};
+
+export const toAbsoluteURL = (url: string, baseUrl?: string): string => {
+  try {
+    // If the URL is already absolute, return as is
+    new URL(url);
+    return url;
+  } catch {
+    // If URL creation failed, check if it's a domain name or a relative path
+    if (url.includes(".")) {
+      // It's likely a domain name, prepend 'https://'
+      return "https://" + url;
+    } else {
+      // It's a relative path, use the base URL to create an absolute URL
+      return new URL(url, baseUrl).href;
+    }
+  }
+};

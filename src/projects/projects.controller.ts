@@ -223,6 +223,24 @@ export class ProjectsController {
     return this.projectsService.getFilterConfigs(community);
   }
 
+  @Get("id/:domain")
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of query params that failed validation",
+    type: ValidationError,
+  })
+  @ApiNotFoundResponse({
+    description:
+      "Returns that no project id was found for the specified domain",
+    type: ResponseWithNoData,
+  })
+  async getProjectIdByDomain(
+    @Param("domain") domain: string,
+  ): Promise<ResponseWithOptionalData<string>> {
+    this.logger.log(`/project/id/${domain}`);
+    return this.projectsService.findIdByWebsite(domain);
+  }
+
   @Get("details/:id")
   @ApiHeader({
     name: COMMUNITY_HEADER,
