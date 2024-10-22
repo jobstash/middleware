@@ -10,7 +10,7 @@ export class ProjectWithRelationsEntity {
     const project = this.raw;
     return new ProjectWithRelations({
       ...project,
-      orgId: notStringOrNull(project?.orgId),
+      orgIds: project?.orgIds ?? [],
       tokenSymbol: notStringOrNull(project?.tokenSymbol, ["-"]),
       tokenAddress: notStringOrNull(project?.tokenAddress, ["-"]),
       defiLlamaId: notStringOrNull(project?.defiLlamaId, ["-"]),

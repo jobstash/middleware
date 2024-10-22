@@ -11,27 +11,29 @@ export class ProjectDetailsResult extends ProjectWithRelations {
   public static readonly ProjectDetailsType = t.intersection([
     ProjectWithRelations.ProjectWithRelationsType,
     t.strict({
-      organization: t.union([
-        t.intersection([
-          OrganizationWithRelations.OrganizationWithRelationsType,
-          t.strict({ tags: t.array(Tag.TagType) }),
+      organizations: t.array(
+        t.union([
+          t.intersection([
+            OrganizationWithRelations.OrganizationWithRelationsType,
+            t.strict({ tags: t.array(Tag.TagType) }),
+          ]),
+          t.null,
         ]),
-        t.null,
-      ]),
+      ),
     }),
   ]);
 
   @ApiPropertyOptional()
-  organization: (OrganizationWithRelations & { tags: Tag[] }) | null;
+  organizations: (OrganizationWithRelations & { tags: Tag[] })[];
 
   constructor(raw: ProjectDetailsResult) {
-    const { organization, ...projectProps } = raw;
+    const { organizations, ...projectProps } = raw;
 
     super(projectProps);
 
     const result = ProjectDetailsResult.ProjectDetailsType.decode(raw);
 
-    this.organization = organization;
+    this.organizations = organizations;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

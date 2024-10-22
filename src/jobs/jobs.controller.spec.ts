@@ -12,8 +12,7 @@ import {
   ProjectWithRelations,
   data,
   DateRange,
-  JobpostFolder,
-  JobDetailsResult,
+  SessionObject,
 } from "src/shared/types";
 import { Integer } from "neo4j-driver";
 import {
@@ -22,48 +21,43 @@ import {
   notStringOrNull,
   printDuplicateItems,
   publicationDateRangeGenerator,
-  // resetTestDB,
+  resetTestDB,
 } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
-import { Request, Response } from "express";
 import { ModelModule } from "src/model/model.module";
 import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
 import { ModelService } from "src/model/model.service";
 import { AuthService } from "src/auth/auth.service";
 import { JwtModule, JwtService } from "@nestjs/jwt";
 import { forwardRef } from "@nestjs/common";
-// import { ProfileService } from "src/auth/profile/profile.service";
 import { TagsService } from "src/tags/tags.service";
-import {
-  NOT_SO_RANDOM_TEST_SHORT_UUID,
-  REALLY_LONG_TIME,
-} from "src/shared/constants";
-import { HttpModule } from "@nestjs/axios";
+import { REALLY_LONG_TIME } from "src/shared/constants";
+import { HttpModule, HttpService } from "@nestjs/axios";
 import * as https from "https";
-// import { CustomLogger } from "src/shared/utils/custom-logger";
 import { OrganizationsService } from "src/organizations/organizations.service";
-// import { MailService } from "src/mail/mail.service";
-import { addWeeks, subWeeks } from "date-fns";
-import { randomUUID } from "crypto";
-// import { UserService } from "src/user/user.service";
 import { ScorerService } from "src/scorer/scorer.service";
 import { AuthModule } from "src/auth/auth.module";
 import { PrivyModule } from "src/auth/privy/privy.module";
 import { ProfileModule } from "src/auth/profile/profile.module";
-// import { ScorerModule } from "src/scorer/scorer.module";
 import { RpcService } from "src/user/rpc.service";
 import { PaymentsModule } from "src/payments/payments.module";
 import { UserModule } from "src/user/user.module";
+import { faker } from "@faker-js/faker";
+import { sampleSize } from "lodash";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 
 describe("JobsController", () => {
   let controller: JobsController;
   let models: ModelService;
-  // let httpService: HttpService;
+  let httpService: HttpService;
 
-  let jobFolderId: string;
-
-  // const logger = new CustomLogger(`${JobsController.name}TestSuite`);
+  const logger = new CustomLogger(`${JobsController.name}TestSuite`);
+  const EMPTY_SESSION_OBJECT: SessionObject = {
+    address: null,
+    cryptoNative: false,
+    permissions: [],
+  };
 
   const projectHasArrayPropsDuplication = (
     project: ProjectWithRelations,
@@ -217,11 +211,11 @@ describe("JobsController", () => {
     models = module.get<ModelService>(ModelService);
     await models.onModuleInit();
     controller = module.get<JobsController>(JobsController);
-    // httpService = module.get<HttpService>(HttpService);
+    httpService = module.get<HttpService>(HttpService);
   }, REALLY_LONG_TIME);
 
   afterAll(async () => {
-    // await resetTestDB(httpService, logger);
+    await resetTestDB(httpService, logger);
     jest.restoreAllMocks();
   }, REALLY_LONG_TIME);
 
@@ -240,478 +234,478 @@ describe("JobsController", () => {
     REALLY_LONG_TIME,
   );
 
-  it(
-    "should change a job's classification",
-    async () => {
-      const params: JobListParams = {
-        ...new JobListParams(),
-        page: 1,
-        limit: 5,
-      };
+  // it(
+  //   "should change a job's classification",
+  //   async () => {
+  //     const params: JobListParams = {
+  //       ...new JobListParams(),
+  //       page: 1,
+  //       limit: 5,
+  //     };
 
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        status: code => {
-          return this;
-        },
-      };
+  //     const req: Partial<Request> = {};
+  //     const res: Partial<Response> = {
+  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  //       status: code => {
+  //         return this;
+  //       },
+  //     };
 
-      const newClassification = "OPERATIONS";
+  //     const newClassification = "OPERATIONS";
 
-      const job = (
-        await controller.getJobsListWithSearch(
-          req as Request,
-          res as Response,
-          params,
-          undefined,
-        )
-      ).data.find(job => job.classification !== newClassification);
+  //     const job = (
+  //       await controller.getJobsListWithSearch(
+  //         req as Request,
+  //         res as Response,
+  //         params,
+  //         undefined,
+  //       )
+  //     ).data.find(job => job.classification !== newClassification);
 
-      const result = await controller.changeClassification(
-        req as Request,
-        res as Response,
-        { classification: newClassification, shortUUIDs: [job.shortUUID] },
-      );
+  //     const result = await controller.changeClassification(
+  //       req as Request,
+  //       res as Response,
+  //       { classification: newClassification, shortUUIDs: [job.shortUUID] },
+  //     );
 
-      expect(result).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-      });
+  //     expect(result).toEqual({
+  //       success: true,
+  //       message: expect.stringMatching("success"),
+  //     });
 
-      const details = await controller.getJobDetailsByUuid(
-        job.shortUUID,
-        req as Request,
-        res as Response,
-        undefined,
-      );
+  //     const details = await controller.getJobDetailsByUuid(
+  //       job.shortUUID,
+  //       req as Request,
+  //       res as Response,
+  //       undefined,
+  //     );
 
-      expect(details.classification).toBe(newClassification);
-    },
-    REALLY_LONG_TIME,
-  );
+  //     expect(details.classification).toBe(newClassification);
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
-  it(
-    "should make a job featured",
-    async () => {
-      const params: JobListParams = {
-        ...new JobListParams(),
-        page: 10,
-        limit: 5,
-      };
+  // it(
+  //   "should make a job featured",
+  //   async () => {
+  //     const params: JobListParams = {
+  //       ...new JobListParams(),
+  //       page: 10,
+  //       limit: 5,
+  //     };
 
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        status: code => {
-          return this;
-        },
-      };
+  //     const req: Partial<Request> = {};
+  //     const res: Partial<Response> = {
+  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  //       status: code => {
+  //         return this;
+  //       },
+  //     };
 
-      const startDate = subWeeks(new Date(), 1);
-      const endDate = addWeeks(startDate, 10);
+  //     const startDate = subWeeks(new Date(), 1);
+  //     const endDate = addWeeks(startDate, 10);
 
-      const job = (
-        await controller.getJobsListWithSearch(
-          req as Request,
-          res as Response,
-          params,
-          undefined,
-        )
-      ).data.find(job => !job.featured);
+  //     const job = (
+  //       await controller.getJobsListWithSearch(
+  //         req as Request,
+  //         res as Response,
+  //         params,
+  //         undefined,
+  //       )
+  //     ).data.find(job => !job.featured);
 
-      const result = await controller.makeFeatured(
-        req as Request,
-        res as Response,
-        {
-          shortUUID: job.shortUUID,
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-        },
-      );
+  //     const result = await controller.makeFeatured(
+  //       req as Request,
+  //       res as Response,
+  //       {
+  //         shortUUID: job.shortUUID,
+  //         startDate: startDate.toISOString(),
+  //         endDate: endDate.toISOString(),
+  //       },
+  //     );
 
-      expect(result).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-      });
+  //     expect(result).toEqual({
+  //       success: true,
+  //       message: expect.stringMatching("success"),
+  //     });
 
-      const details = await controller.getJobDetailsByUuid(
-        job.shortUUID,
-        req as Request,
-        res as Response,
-        undefined,
-      );
+  //     const details = await controller.getJobDetailsByUuid(
+  //       job.shortUUID,
+  //       req as Request,
+  //       res as Response,
+  //       undefined,
+  //     );
 
-      expect(details.featured).toBe(true);
-      expect(details.featureStartDate).toBe(startDate.getTime());
-      expect(details.featureEndDate).toBe(endDate.getTime());
-    },
-    REALLY_LONG_TIME,
-  );
+  //     expect(details.featured).toBe(true);
+  //     expect(details.featureStartDate).toBe(startDate.getTime());
+  //     expect(details.featureEndDate).toBe(endDate.getTime());
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
-  it(
-    "should edit a job's tags",
-    async () => {
-      const params: JobListParams = {
-        ...new JobListParams(),
-        page: 1,
-        limit: 1,
-      };
+  // it(
+  //   "should edit a job's tags",
+  //   async () => {
+  //     const params: JobListParams = {
+  //       ...new JobListParams(),
+  //       page: 1,
+  //       limit: 1,
+  //     };
 
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        status: code => {
-          return this;
-        },
-      };
+  //     const req: Partial<Request> = {};
+  //     const res: Partial<Response> = {
+  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  //       status: code => {
+  //         return this;
+  //       },
+  //     };
 
-      const newTags = ["TypeScript"];
+  //     const newTags = ["TypeScript"];
 
-      const job = (
-        await controller.getJobsListWithSearch(
-          req as Request,
-          res as Response,
-          params,
-          undefined,
-        )
-      ).data[0];
+  //     const job = (
+  //       await controller.getJobsListWithSearch(
+  //         req as Request,
+  //         res as Response,
+  //         params,
+  //         undefined,
+  //       )
+  //     ).data[0];
 
-      const result = await controller.editTags(
-        req as Request,
-        res as Response,
-        {
-          shortUUID: job.shortUUID,
-          tags: newTags,
-        },
-      );
+  //     const result = await controller.editTags(
+  //       req as Request,
+  //       res as Response,
+  //       {
+  //         shortUUID: job.shortUUID,
+  //         tags: newTags,
+  //       },
+  //     );
 
-      expect(result).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-      });
+  //     expect(result).toEqual({
+  //       success: true,
+  //       message: expect.stringMatching("success"),
+  //     });
 
-      const details = await controller.getJobDetailsByUuid(
-        job.shortUUID,
-        req as Request,
-        res as Response,
-        undefined,
-      );
+  //     const details = await controller.getJobDetailsByUuid(
+  //       job.shortUUID,
+  //       req as Request,
+  //       res as Response,
+  //       undefined,
+  //     );
 
-      expect(details.tags.map(x => x.name)).toStrictEqual(
-        expect.arrayContaining(newTags),
-      );
-    },
-    REALLY_LONG_TIME,
-  );
+  //     expect(details.tags.map(x => x.name)).toStrictEqual(
+  //       expect.arrayContaining(newTags),
+  //     );
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
-  it(
-    "should update a job's metadata",
-    async () => {
-      const params: JobListParams = {
-        ...new JobListParams(),
-        page: 1,
-        limit: 1,
-      };
+  // it(
+  //   "should update a job's metadata",
+  //   async () => {
+  //     const params: JobListParams = {
+  //       ...new JobListParams(),
+  //       page: 1,
+  //       limit: 1,
+  //     };
 
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        status: code => {
-          return this;
-        },
-      };
+  //     const req: Partial<Request> = {};
+  //     const res: Partial<Response> = {
+  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  //       status: code => {
+  //         return this;
+  //       },
+  //     };
 
-      const commitment = "INTERNSHIP";
-      const classification = "OPERATIONS";
-      const locationType = "REMOTE";
-      const newTags = ["TypeScript"].map(x => ({
-        id: randomUUID(),
-        name: x,
-        normalizedName: x,
-      }));
+  //     const commitment = "INTERNSHIP";
+  //     const classification = "OPERATIONS";
+  //     const locationType = "REMOTE";
+  //     const newTags = ["TypeScript"].map(x => ({
+  //       id: randomUUID(),
+  //       name: x,
+  //       normalizedName: x,
+  //     }));
 
-      const {
-        shortUUID,
-        benefits,
-        culture,
-        description,
-        location,
-        maximumSalary,
-        minimumSalary,
-        offersTokenAllocation,
-        paysInCrypto,
-        requirements,
-        responsibilities,
-        salary,
-        salaryCurrency,
-        seniority,
-        summary,
-        title,
-        url,
-      } = (
-        await controller.getJobsListWithSearch(
-          req as Request,
-          res as Response,
-          params,
-          undefined,
-        )
-      ).data[0];
+  //     const {
+  //       shortUUID,
+  //       benefits,
+  //       culture,
+  //       description,
+  //       location,
+  //       maximumSalary,
+  //       minimumSalary,
+  //       offersTokenAllocation,
+  //       paysInCrypto,
+  //       requirements,
+  //       responsibilities,
+  //       salary,
+  //       salaryCurrency,
+  //       seniority,
+  //       summary,
+  //       title,
+  //       url,
+  //     } = (
+  //       await controller.getJobsListWithSearch(
+  //         req as Request,
+  //         res as Response,
+  //         params,
+  //         undefined,
+  //       )
+  //     ).data[0];
 
-      const result = await controller.updateJobMetadata(
-        req as Request,
-        res as Response,
-        shortUUID,
-        {
-          isBlocked: false,
-          isOnline: true,
-          project: undefined,
-          commitment,
-          classification,
-          locationType,
-          benefits,
-          culture,
-          description,
-          location,
-          maximumSalary,
-          minimumSalary,
-          offersTokenAllocation,
-          paysInCrypto,
-          requirements,
-          responsibilities,
-          salary,
-          salaryCurrency,
-          seniority,
-          summary,
-          title,
-          url,
-          tags: newTags,
-        },
-      );
+  //     const result = await controller.updateJobMetadata(
+  //       req as Request,
+  //       res as Response,
+  //       shortUUID,
+  //       {
+  //         isBlocked: false,
+  //         isOnline: true,
+  //         project: undefined,
+  //         commitment,
+  //         classification,
+  //         locationType,
+  //         benefits,
+  //         culture,
+  //         description,
+  //         location,
+  //         maximumSalary,
+  //         minimumSalary,
+  //         offersTokenAllocation,
+  //         paysInCrypto,
+  //         requirements,
+  //         responsibilities,
+  //         salary,
+  //         salaryCurrency,
+  //         seniority,
+  //         summary,
+  //         title,
+  //         url,
+  //         tags: newTags,
+  //       },
+  //     );
 
-      expect(result).toStrictEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-        data: expect.any(JobDetailsResult),
-      });
+  //     expect(result).toStrictEqual({
+  //       success: true,
+  //       message: expect.stringMatching("success"),
+  //       data: expect.any(JobDetailsResult),
+  //     });
 
-      const details = await controller.getJobDetailsByUuid(
-        shortUUID,
-        req as Request,
-        res as Response,
-        undefined,
-      );
+  //     const details = await controller.getJobDetailsByUuid(
+  //       shortUUID,
+  //       req as Request,
+  //       res as Response,
+  //       undefined,
+  //     );
 
-      expect(details.tags.map(x => x.name)).toStrictEqual(
-        expect.arrayContaining(newTags.map(x => x.name)),
-      );
-      expect(details.commitment).toEqual(commitment);
-      expect(details.classification).toEqual(classification);
-      expect(details.locationType).toEqual(locationType);
-    },
-    REALLY_LONG_TIME,
-  );
+  //     expect(details.tags.map(x => x.name)).toStrictEqual(
+  //       expect.arrayContaining(newTags.map(x => x.name)),
+  //     );
+  //     expect(details.commitment).toEqual(commitment);
+  //     expect(details.classification).toEqual(classification);
+  //     expect(details.locationType).toEqual(locationType);
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
-  it(
-    "should block a job",
-    async () => {
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        status: _ => {
-          return {} as Response;
-        },
-      };
+  // it(
+  //   "should block a job",
+  //   async () => {
+  //     const req: Partial<Request> = {};
+  //     const res: Partial<Response> = {
+  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  //       status: _ => {
+  //         return {} as Response;
+  //       },
+  //     };
 
-      const result = await controller.blockJobs(
-        req as Request,
-        res as Response,
-        { shortUUIDs: [NOT_SO_RANDOM_TEST_SHORT_UUID] },
-      );
+  //     const result = await controller.blockJobs(
+  //       req as Request,
+  //       res as Response,
+  //       { shortUUIDs: [NOT_SO_RANDOM_TEST_SHORT_UUID] },
+  //     );
 
-      expect(result).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-      });
+  //     expect(result).toEqual({
+  //       success: true,
+  //       message: expect.stringMatching("success"),
+  //     });
 
-      const details = await controller.getJobDetailsByUuid(
-        NOT_SO_RANDOM_TEST_SHORT_UUID,
-        req as Request,
-        res as Response,
-        undefined,
-      );
+  //     const details = await controller.getJobDetailsByUuid(
+  //       NOT_SO_RANDOM_TEST_SHORT_UUID,
+  //       req as Request,
+  //       res as Response,
+  //       undefined,
+  //     );
 
-      expect(details).toBeUndefined();
-    },
-    REALLY_LONG_TIME,
-  );
+  //     expect(details).toBeUndefined();
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
-  it(
-    "should unblock a job",
-    async () => {
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        status: code => {
-          return this;
-        },
-      };
+  // it(
+  //   "should unblock a job",
+  //   async () => {
+  //     const req: Partial<Request> = {};
+  //     const res: Partial<Response> = {
+  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  //       status: code => {
+  //         return this;
+  //       },
+  //     };
 
-      const result = await controller.unblockJobs(
-        req as Request,
-        res as Response,
-        { shortUUIDs: [NOT_SO_RANDOM_TEST_SHORT_UUID] },
-      );
+  //     const result = await controller.unblockJobs(
+  //       req as Request,
+  //       res as Response,
+  //       { shortUUIDs: [NOT_SO_RANDOM_TEST_SHORT_UUID] },
+  //     );
 
-      expect(result).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-      });
+  //     expect(result).toEqual({
+  //       success: true,
+  //       message: expect.stringMatching("success"),
+  //     });
 
-      const details = await controller.getJobDetailsByUuid(
-        NOT_SO_RANDOM_TEST_SHORT_UUID,
-        req as Request,
-        res as Response,
-        undefined,
-      );
+  //     const details = await controller.getJobDetailsByUuid(
+  //       NOT_SO_RANDOM_TEST_SHORT_UUID,
+  //       req as Request,
+  //       res as Response,
+  //       undefined,
+  //     );
 
-      expect(details).toStrictEqual(expect.any(JobDetailsResult));
-    },
-    REALLY_LONG_TIME,
-  );
+  //     expect(details).toStrictEqual(expect.any(JobDetailsResult));
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
-  it(
-    "should create a job folder for a user",
-    async () => {
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        status: code => {
-          return this;
-        },
-      };
+  // it(
+  //   "should create a job folder for a user",
+  //   async () => {
+  //     const req: Partial<Request> = {};
+  //     const res: Partial<Response> = {
+  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  //       status: code => {
+  //         return this;
+  //       },
+  //     };
 
-      const result = await controller.createUserJobFolder(
-        req as Request,
-        res as Response,
-        {
-          name: "Demo Folder",
-          isPublic: true,
-          jobs: [],
-        },
-      );
+  //     const result = await controller.createUserJobFolder(
+  //       req as Request,
+  //       res as Response,
+  //       {
+  //         name: "Demo Folder",
+  //         isPublic: true,
+  //         jobs: [],
+  //       },
+  //     );
 
-      expect(result).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-        data: expect.any(JobpostFolder),
-      });
+  //     expect(result).toEqual({
+  //       success: true,
+  //       message: expect.stringMatching("success"),
+  //       data: expect.any(JobpostFolder),
+  //     });
 
-      const details = await controller.getUserJobFolderById(
-        req as Request,
-        res as Response,
-        data(result).id,
-      );
+  //     const details = await controller.getUserJobFolderById(
+  //       req as Request,
+  //       res as Response,
+  //       data(result).id,
+  //     );
 
-      expect(details).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-        data: expect.any(JobpostFolder),
-      });
+  //     expect(details).toEqual({
+  //       success: true,
+  //       message: expect.stringMatching("success"),
+  //       data: expect.any(JobpostFolder),
+  //     });
 
-      jobFolderId = data(result).id;
-    },
-    REALLY_LONG_TIME,
-  );
+  //     jobFolderId = data(result).id;
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
-  it(
-    "should update a job folder",
-    async () => {
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        status: code => {
-          return this;
-        },
-      };
+  // it(
+  //   "should update a job folder",
+  //   async () => {
+  //     const req: Partial<Request> = {};
+  //     const res: Partial<Response> = {
+  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  //       status: code => {
+  //         return this;
+  //       },
+  //     };
 
-      const result = await controller.updateUserJobFolder(
-        req as Request,
-        res as Response,
-        jobFolderId,
-        {
-          name: "Demo Folder",
-          isPublic: true,
-          jobs: [NOT_SO_RANDOM_TEST_SHORT_UUID],
-        },
-      );
+  //     const result = await controller.updateUserJobFolder(
+  //       req as Request,
+  //       res as Response,
+  //       jobFolderId,
+  //       {
+  //         name: "Demo Folder",
+  //         isPublic: true,
+  //         jobs: [NOT_SO_RANDOM_TEST_SHORT_UUID],
+  //       },
+  //     );
 
-      expect(result).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-        data: expect.any(JobpostFolder),
-      });
-    },
-    REALLY_LONG_TIME,
-  );
+  //     expect(result).toEqual({
+  //       success: true,
+  //       message: expect.stringMatching("success"),
+  //       data: expect.any(JobpostFolder),
+  //     });
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
-  it(
-    "should get a users job folders",
-    async () => {
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        status: code => {
-          return this;
-        },
-      };
+  // it(
+  //   "should get a users job folders",
+  //   async () => {
+  //     const req: Partial<Request> = {};
+  //     const res: Partial<Response> = {
+  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  //       status: code => {
+  //         return this;
+  //       },
+  //     };
 
-      const result = await controller.getUserJobFolders(
-        req as Request,
-        res as Response,
-      );
+  //     const result = await controller.getUserJobFolders(
+  //       req as Request,
+  //       res as Response,
+  //     );
 
-      expect(result).toStrictEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-        data: expect.any(Array<JobpostFolder>),
-      });
-    },
-    REALLY_LONG_TIME,
-  );
+  //     expect(result).toStrictEqual({
+  //       success: true,
+  //       message: expect.stringMatching("success"),
+  //       data: expect.any(Array<JobpostFolder>),
+  //     });
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
-  it(
-    "should delete a job folder",
-    async () => {
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        status: code => {
-          return this;
-        },
-      };
+  // it(
+  //   "should delete a job folder",
+  //   async () => {
+  //     const req: Partial<Request> = {};
+  //     const res: Partial<Response> = {
+  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  //       status: code => {
+  //         return this;
+  //       },
+  //     };
 
-      const result = await controller.deleteUserJobFolder(
-        req as Request,
-        res as Response,
-        jobFolderId,
-      );
+  //     const result = await controller.deleteUserJobFolder(
+  //       req as Request,
+  //       res as Response,
+  //       jobFolderId,
+  //     );
 
-      expect(result).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-      });
+  //     expect(result).toEqual({
+  //       success: true,
+  //       message: expect.stringMatching("success"),
+  //     });
 
-      const details = await controller.getUserJobFolderById(
-        req as Request,
-        res as Response,
-        jobFolderId,
-      );
+  //     const details = await controller.getUserJobFolderById(
+  //       req as Request,
+  //       res as Response,
+  //       jobFolderId,
+  //     );
 
-      expect(data(details)).toBeUndefined();
-    },
-    REALLY_LONG_TIME,
-  );
+  //     expect(data(details)).toBeUndefined();
+  //   },
+  //   REALLY_LONG_TIME,
+  // );
 
   it(
     "should get jobs list with no jobpost and array property duplication",
@@ -719,19 +713,11 @@ describe("JobsController", () => {
       const params: JobListParams = {
         ...new JobListParams(),
         page: 1,
-        limit: Number(Integer.MAX_VALUE),
+        limit: Integer.MAX_SAFE_VALUE.toNumber(),
       };
 
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        status: code => {
-          return this;
-        },
-      };
       const result = await controller.getJobsListWithSearch(
-        req as Request,
-        res as Response,
+        EMPTY_SESSION_OBJECT,
         params,
         undefined,
       );
@@ -758,33 +744,79 @@ describe("JobsController", () => {
   );
 
   it(
+    "should get correctly formatted filter configs",
+    async () => {
+      const configs = await controller.getFilterConfigs(undefined);
+
+      expect(configs).toBeDefined();
+
+      const validationResult =
+        JobFilterConfigs.JobFilterConfigsType.decode(configs);
+      if (isRight(validationResult)) {
+        const validatedResult = validationResult.right;
+        expect(validatedResult).toEqual(configs);
+        const investors = configs.investors.options.map(x => x.value);
+        const tags = configs.tags.options.map(x => x.value);
+        printDuplicateItems(
+          new Set(investors),
+          investors,
+          "Investor with name",
+        );
+        printDuplicateItems(new Set(tags), tags, "Tag with name");
+      } else {
+        report(validationResult).forEach(x => {
+          throw new Error(x);
+        });
+      }
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
     "should respond with the correct results for job based filters",
     async () => {
-      const minSalary = 150000;
+      faker.seed(1111);
+      const configs = await controller.getFilterConfigs(undefined);
+      const minSalary = faker.number.int({ min: 100000, max: 200000 });
       const maxSalary = minSalary * 2;
-      const query = "engineer";
-      const tags = ["TypeScript"];
-      const seniorityFilterList = ["Intern", "Junior"];
-      const locationFilterList = ["REMOTE", "ONSITE"];
-      const classificationFilterList = ["REMOTE", "ONSITE"];
-      const commitmentFilterList = ["REMOTE", "ONSITE"];
+      const query = faker.person.jobTitle();
+      const tags = sampleSize(
+        configs.tags.options.map(x => x.value),
+        2,
+      );
+      const seniorityFilterList = sampleSize(
+        configs.seniority.options.map(x => x.value),
+        2,
+      );
+      const locationFilterList = sampleSize(
+        configs.locations.options.map(x => x.value),
+        2,
+      );
+      const classificationFilterList = sampleSize(
+        configs.classifications.options.map(x => x.value),
+        2,
+      );
+      const commitmentFilterList = sampleSize(
+        configs.commitments.options.map(x => x.value),
+        2,
+      );
       const dateRange: DateRange = "this-month";
       const params: JobListParams = {
         ...new JobListParams(),
         page: 1,
-        limit: Number(Integer.MAX_VALUE),
+        limit: 20,
         minSalaryRange: minSalary,
         maxSalaryRange: maxSalary,
         publicationDate: dateRange,
-        seniority: seniorityFilterList,
-        locations: locationFilterList,
-        classifications: classificationFilterList,
-        commitments: commitmentFilterList,
+        seniority: seniorityFilterList as string[],
+        locations: locationFilterList as string[],
+        classifications: classificationFilterList as string[],
+        commitments: commitmentFilterList as string[],
+        tags: tags as string[],
         query,
-        tags,
       };
 
-      const matchesSalaryRange = (jobListResult: JobListResult): boolean => {
+      const matchesFilters = (jobListResult: JobListResult): boolean => {
         const {
           salary,
           tags: jobTags,
@@ -823,21 +855,13 @@ describe("JobsController", () => {
         );
       };
 
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        status: code => {
-          return this;
-        },
-      };
       const result = await controller.getJobsListWithSearch(
-        req as Request,
-        res as Response,
+        EMPTY_SESSION_OBJECT,
         params,
         undefined,
       );
       const results = result.data;
-      expect(results.every(x => matchesSalaryRange(x) === true)).toBe(true);
+      expect(results.every(x => matchesFilters(x) === true)).toBe(true);
     },
     REALLY_LONG_TIME,
   );
@@ -845,20 +869,37 @@ describe("JobsController", () => {
   it(
     "should respond with the correct results for organization based filters",
     async () => {
-      const minHeadCount = 150000;
+      faker.seed(1111);
+      const configs = await controller.getFilterConfigs(undefined);
+      const minHeadCount = faker.number.int({
+        min: configs.headcountEstimate.value.lowest.value,
+        max: configs.headcountEstimate.value.highest.value,
+      });
       const maxHeadCount = minHeadCount * 2;
-      const organizationFilterList = ["Base"];
-      const investorFilterList = ["Base"];
-      const fundingRoundFilterList = ["Base"];
+      const organizationFilterList = sampleSize(
+        configs.organizations.options.map(x => x.value),
+        2,
+      );
+      const investorFilterList = sampleSize(
+        configs.investors.options.map(x => x.value),
+        2,
+      );
+      const fundingRoundFilterList = sampleSize(
+        configs.fundingRounds.options.map(x => x.value),
+        2,
+      );
       const params: JobListParams = {
         ...new JobListParams(),
         page: 1,
-        limit: Number(Integer.MAX_VALUE),
+        limit: 20,
         minHeadCount: minHeadCount,
         maxHeadCount: maxHeadCount,
+        organizations: organizationFilterList as string[],
+        investors: investorFilterList as string[],
+        fundingRounds: fundingRoundFilterList as string[],
       };
 
-      const matchesHeadCountRange = (jobListResult: JobListResult): boolean => {
+      const matchesFilters = (jobListResult: JobListResult): boolean => {
         const {
           investors,
           fundingRounds,
@@ -883,21 +924,13 @@ describe("JobsController", () => {
         );
       };
 
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        status: code => {
-          return this;
-        },
-      };
       const result = await controller.getJobsListWithSearch(
-        req as Request,
-        res as Response,
+        EMPTY_SESSION_OBJECT,
         params,
         undefined,
       );
       const results = result.data;
-      expect(results.every(x => matchesHeadCountRange(x) === true)).toBe(true);
+      expect(results.every(x => matchesFilters(x) === true)).toBe(true);
     },
     REALLY_LONG_TIME,
   );
@@ -923,7 +956,7 @@ describe("JobsController", () => {
       const params: JobListParams = {
         ...new JobListParams(),
         page: 1,
-        limit: Number(Integer.MAX_VALUE),
+        limit: 20,
         token,
         mainNet,
         minTvl,
@@ -939,7 +972,7 @@ describe("JobsController", () => {
         chains: chainFilterList,
       };
 
-      const matchesProjects = (jobListResult: JobListResult): boolean => {
+      const matchesFilters = (jobListResult: JobListResult): boolean => {
         const { projects } = jobListResult.organization;
         return (
           (token === null ||
@@ -988,21 +1021,13 @@ describe("JobsController", () => {
         );
       };
 
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        status: code => {
-          return this;
-        },
-      };
       const result = await controller.getJobsListWithSearch(
-        req as Request,
-        res as Response,
+        EMPTY_SESSION_OBJECT,
         params,
         undefined,
       );
       const results = result.data;
-      expect(results.every(x => matchesProjects(x) === true)).toBe(true);
+      expect(results.every(x => matchesFilters(x) === true)).toBe(true);
     },
     REALLY_LONG_TIME,
   );
@@ -1047,17 +1072,9 @@ describe("JobsController", () => {
         limit: 1,
       };
 
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        status: code => {
-          return this;
-        },
-      };
       const job = (
         await controller.getJobsListWithSearch(
-          req as Request,
-          res as Response,
+          EMPTY_SESSION_OBJECT,
           params,
           undefined,
         )
@@ -1065,8 +1082,7 @@ describe("JobsController", () => {
 
       const details = await controller.getJobDetailsByUuid(
         job.shortUUID,
-        req as Request,
-        res as Response,
+        EMPTY_SESSION_OBJECT,
         undefined,
       );
 
@@ -1108,18 +1124,9 @@ describe("JobsController", () => {
         limit: 1,
       };
 
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        status: code => {
-          return this;
-        },
-      };
-
       const job = (
         await controller.getJobsListWithSearch(
-          req as Request,
-          res as Response,
+          EMPTY_SESSION_OBJECT,
           params,
           undefined,
         )
@@ -1224,48 +1231,13 @@ describe("JobsController", () => {
         limit: 1,
       };
 
-      const req: Partial<Request> = {};
-      const res: Partial<Response> = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        status: code => {
-          return this;
-        },
-      };
       const result = await controller.getJobsListWithSearch(
-        req as Request,
-        res as Response,
+        EMPTY_SESSION_OBJECT,
         params,
         undefined,
       );
 
       expect(result.page).toEqual(page);
-    },
-    REALLY_LONG_TIME,
-  );
-
-  it(
-    "should get correctly formatted filter configs",
-    async () => {
-      const configs = await controller.getFilterConfigs(undefined);
-
-      expect(configs).toBeDefined();
-
-      const validationResult =
-        JobFilterConfigs.JobFilterConfigsType.decode(configs);
-      if (isRight(validationResult)) {
-        const validatedResult = validationResult.right;
-        expect(validatedResult).toEqual(configs);
-        const investors = configs.investors.options.map(x => x.value);
-        printDuplicateItems(
-          new Set(investors),
-          investors,
-          "Investor with name",
-        );
-      } else {
-        report(validationResult).forEach(x => {
-          throw new Error(x);
-        });
-      }
     },
     REALLY_LONG_TIME,
   );

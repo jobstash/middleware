@@ -19,7 +19,7 @@ export class Project {
     normalizedName: t.string,
     tvl: t.union([t.number, t.null]),
     logo: t.union([t.string, t.null]),
-    orgId: t.union([t.string, t.null]),
+    orgIds: t.array(t.string),
     isMainnet: t.union([t.boolean, t.null]),
     tokenSymbol: t.union([t.string, t.null]),
     monthlyFees: t.union([t.number, t.null]),
@@ -51,7 +51,7 @@ export class Project {
   @ApiPropertyOptional()
   isMainnet?: boolean | null;
   @ApiPropertyOptional()
-  orgId: string | null;
+  orgIds: string[];
 
   constructor(raw: Project) {
     const {
@@ -59,7 +59,7 @@ export class Project {
       tvl,
       name,
       logo,
-      orgId,
+      orgIds,
       isMainnet,
       tokenSymbol,
       monthlyFees,
@@ -75,7 +75,7 @@ export class Project {
     this.tvl = tvl;
     this.name = name;
     this.logo = logo;
-    this.orgId = orgId;
+    this.orgIds = orgIds;
     this.isMainnet = isMainnet;
     this.tokenSymbol = tokenSymbol;
     this.monthlyFees = monthlyFees;

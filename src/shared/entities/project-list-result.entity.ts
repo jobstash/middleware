@@ -10,7 +10,7 @@ export class ProjectListResultEntity {
 
     return new ProjectListResult({
       ...project,
-      orgId: notStringOrNull(project?.orgId),
+      orgIds: project?.orgIds ?? [],
       tokenSymbol: notStringOrNull(project?.tokenSymbol, ["-"]),
       tvl: nonZeroOrNull(project?.tvl),
       monthlyVolume: nonZeroOrNull(project?.monthlyVolume),

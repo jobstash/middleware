@@ -128,7 +128,7 @@ export class JobsService {
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
-                  orgId: organization.orgId,
+                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -816,7 +816,7 @@ export class JobsService {
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
-                  orgId: organization.orgId,
+                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -1066,7 +1066,7 @@ export class JobsService {
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
-                  orgId: organization.orgId,
+                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -1296,7 +1296,7 @@ export class JobsService {
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
-                  orgId: organization.orgId,
+                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -1580,7 +1580,7 @@ export class JobsService {
                 projects: [
                   (organization)-[:HAS_PROJECT]->(project) | project {
                     .*,
-                    orgId: organization.orgId,
+                    orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
                     discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                     website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                     docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -1740,7 +1740,7 @@ export class JobsService {
                 projects: [
                   (organization)-[:HAS_PROJECT]->(project) | project {
                     .*,
-                    orgId: organization.orgId,
+                    orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
                     discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                     website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                     docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -1904,7 +1904,7 @@ export class JobsService {
                 projects: [
                   (organization)-[:HAS_PROJECT]->(project) | project {
                     .*,
-                    orgId: organization.orgId,
+                    orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
                     discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                     website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                     docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -2067,7 +2067,7 @@ export class JobsService {
                 projects: [
                   (organization)-[:HAS_PROJECT]->(project) | project {
                     .*,
-                    orgId: organization.orgId,
+                    orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
                     discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                     website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                     docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],

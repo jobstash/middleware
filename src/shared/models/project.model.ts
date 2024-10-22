@@ -146,7 +146,7 @@ export const Projects = (
           allowEmpty: false,
           required: true,
         },
-        orgId: {
+        orgIds: {
           type: "string",
           allowEmpty: false,
           required: true,
@@ -290,7 +290,7 @@ export const Projects = (
           return {
             id: this.id,
             name: this.name,
-            orgId: this.orgId,
+            orgIds: this.orgIds,
             isMainnet: this.isMainnet,
             tvl: this.tvl,
             logo: this.logo,
@@ -374,6 +374,7 @@ export const Projects = (
               `
               project {
                   .*,
+                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -499,7 +500,7 @@ export const Projects = (
               `
               project {
                   .*,
-                  orgId: [(org)-[:HAS_PROJECT]->(project) | org.orgId][0],
+                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
                   orgName: [(org)-[:HAS_PROJECT]->(project) | org.name][0],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
@@ -602,7 +603,7 @@ export const Projects = (
               `
               project {
                   .*,
-                  orgId: [(org)-[:HAS_PROJECT]->(project) | org.orgId][0],
+                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
                   orgName: [(org)-[:HAS_PROJECT]->(project) | org.name][0],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
@@ -695,7 +696,7 @@ export const Projects = (
               `
               project {
                   .*,
-                  orgId: [(org)-[:HAS_PROJECT]->(project) | org.orgId][0],
+                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
                   orgName: [(org)-[:HAS_PROJECT]->(project) | org.name][0],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
@@ -704,7 +705,7 @@ export const Projects = (
                   github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
                   twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-                  organization: [(organization)-[:HAS_PROJECT]->(project) | organization {
+                  organizations: [(organization)-[:HAS_PROJECT]->(project) | organization {
                     .*,
                     discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                     website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
@@ -756,7 +757,7 @@ export const Projects = (
                         reviewedTimestamp: review.reviewedTimestamp
                       }
                     ]
-                  }][0],
+                  }],
                   hacks: [
                     (project)-[:HAS_HACK]->(hack) | hack { .* }
                   ],
@@ -845,7 +846,7 @@ export const Projects = (
               `
               project {
                   .*,
-                  orgId: [(org)-[:HAS_PROJECT]->(project) | org.orgId][0],
+                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
                   orgName: [(org)-[:HAS_PROJECT]->(project) | org.name][0],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
@@ -854,7 +855,7 @@ export const Projects = (
                   github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
                   twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-                  organization: [(organization)-[:HAS_PROJECT]->(project) | organization {
+                  organizations: [(organization)-[:HAS_PROJECT]->(project) | organization {
                     .*,
                     discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                     website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
@@ -906,7 +907,7 @@ export const Projects = (
                         reviewedTimestamp: review.reviewedTimestamp
                       }
                     ]
-                  }][0],
+                  }],
                   hacks: [
                     (project)-[:HAS_HACK]->(hack) | hack { .* }
                   ],
@@ -955,7 +956,7 @@ export const Projects = (
           }).return(`
             project {
                 .*,
-                orgId: [(org)-[:HAS_PROJECT]->(project) | org.orgId][0]
+                orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId]
             }
           `);
           const result = await query.run(neogma.queryRunner);
@@ -1045,7 +1046,7 @@ export const Projects = (
               `
               project {
                   .*,
-                  orgId: [(org)-[:HAS_PROJECT]->(project) | org.orgId][0],
+                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
                   orgName: [(org)-[:HAS_PROJECT]->(project) | org.name][0],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
@@ -1092,7 +1093,7 @@ export const Projects = (
           }).return(`
               project {
                   .*,
-                  orgId: [(org)-[:HAS_PROJECT]->(project) | org.orgId][0]
+                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId]
               }
             `);
           const result = await query.run(neogma.queryRunner);
@@ -1116,7 +1117,7 @@ export const Projects = (
             .raw("WHERE project.name =~ $query").return(`
               project {
                   .*,
-                  orgId: [(org)-[:HAS_PROJECT]->(project) | org.orgId][0]
+                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId]
               }
             `);
           const result = await searchQuery.run(neogma.queryRunner);

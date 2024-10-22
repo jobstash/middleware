@@ -8,7 +8,7 @@ export class ProjectMoreInfoEntity {
     const project = this.raw;
     return new ProjectMoreInfo({
       ...project,
-      orgId: notStringOrNull(project?.orgId),
+      orgIds: project?.orgIds ?? [],
       description: notStringOrNull(project?.description),
       tokenSymbol: notStringOrNull(project?.tokenSymbol, ["-"]),
       tokenAddress: notStringOrNull(project?.tokenAddress, ["-"]),

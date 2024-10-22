@@ -341,7 +341,9 @@ export class ProjectsService {
         ? new ProjectDetailsEntity(details).getProperties()
         : undefined;
       if (community) {
-        return result?.organization.community.includes(community)
+        return result?.organizations
+          .flatMap(x => x.community)
+          .includes(community)
           ? result
           : undefined;
       } else {
@@ -373,7 +375,9 @@ export class ProjectsService {
         ? new ProjectDetailsEntity(details).getProperties()
         : undefined;
       if (community) {
-        return result?.organization.community.includes(community)
+        return result?.organizations
+          .flatMap(x => x.community)
+          .includes(community)
           ? result
           : undefined;
       } else {
@@ -413,7 +417,6 @@ export class ProjectsService {
         projects.map(project => ({
           ...new ProjectWithRelationsEntity({
             ...project,
-            orgId: "-1",
           }).getProperties(),
           rawWebsite: project.rawWebsite
             ? {
@@ -489,11 +492,11 @@ export class ProjectsService {
     try {
       const projects = await this.models.Projects.getProjectsData();
       return projects
-        .filter(project => project.orgId === id)
+        .filter(project => project.orgIds.includes(id))
         .map(project => ({
           id: project.id,
           name: project.name,
-          orgId: project.orgId,
+          orgIds: project.orgIds,
           isMainnet: project.isMainnet,
           tvl: project.tvl,
           logo: project.logo,
@@ -629,7 +632,6 @@ export class ProjectsService {
         `
           CREATE (project:Project {
             id: randomUUID(),
-            orgId: $orgId,
             name: $name,
             normalizedName: $normalizedName,
             tvl: $tvl,
@@ -706,7 +708,7 @@ export class ProjectsService {
         const response2 = await axios.get(
           `${url}/project-importer/import-project-by-url?url=${dto.url}&name=${
             dto.name
-          }&orgId=${dto.orgId ?? ""}&defiLlamaSlug=${dto.defiLlamaSlug ?? ""}`,
+          }&defiLlamaSlug=${dto.defiLlamaSlug ?? ""}`,
           {
             headers: {
               Authorization: `Bearer ${authToken}`,
@@ -822,7 +824,6 @@ export class ProjectsService {
           OPTIONAL MATCH (project)-[:HAS_TWITTER]->(twitter: Twitter) 
           OPTIONAL MATCH (project)-[:HAS_GITHUB]->(github: Github)
           
-          SET project.orgId = $orgId
           SET project.name = $name
           SET project.normalizedName = $normalizedName
           SET project.tvl = $tvl
@@ -858,7 +859,6 @@ export class ProjectsService {
           ...project,
           id,
           normalizedName: normalizeString(project.name),
-          orgId: project.orgId ?? null,
           description: project.description ?? null,
         },
       );

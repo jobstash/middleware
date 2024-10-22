@@ -9,10 +9,5 @@ export class UpdateProjectInput extends OmitType(CreateProjectInput, [
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  orgId: string | null;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
   description: string | null;
 }

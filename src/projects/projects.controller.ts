@@ -625,7 +625,7 @@ export class ProjectsController {
             data: {
               ...new ProjectMoreInfoEntity({
                 id: randomUUID(),
-                orgId: "-1",
+                orgIds: [],
                 name: project.name,
                 logo: project.logo,
                 tokenSymbol: project.symbol,
