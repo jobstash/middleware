@@ -2,7 +2,7 @@ import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import { IsOptional, IsString } from "class-validator";
 
-export class GetAvailableDevsInput {
+export class GetAvailableUsersInput {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

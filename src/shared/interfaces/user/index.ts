@@ -16,3 +16,4 @@ export * from "./user-lean-stats.interface";
 export * from "./user-github-organization.interface";
 export * from "./user-verified-org.inteface";
 export * from "./user-permission.interface";
+export * from "./user-org-affiliation-request.interface";

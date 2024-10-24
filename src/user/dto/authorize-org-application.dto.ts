@@ -3,7 +3,6 @@ import {
   IsEthereumAddress,
   IsIn,
   IsNotEmpty,
-  IsOptional,
   IsString,
 } from "class-validator";
 
@@ -19,7 +18,7 @@ export class AuthorizeOrgApplicationInput {
   @IsEnum(["approve", "reject"] as const)
   verdict: "approve" | "reject";
 
-  @IsOptional()
+  @IsNotEmpty()
   @IsString()
   orgId: string;
 }

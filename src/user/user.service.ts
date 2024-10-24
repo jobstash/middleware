@@ -8,6 +8,7 @@ import {
   UserEntity,
   UserProfile,
   UserProfileEntity,
+  UserOrgAffiliationRequest,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -15,9 +16,9 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { ModelService } from "src/model/model.service";
-import { instanceToNode } from "src/shared/helpers";
+import { instanceToNode, nonZeroOrNull } from "src/shared/helpers";
 import { randomUUID } from "crypto";
-import { GetAvailableDevsInput } from "./dto/get-available-users.input";
+import { GetAvailableUsersInput } from "./dto/get-available-users.input";
 import { ScorerService } from "src/scorer/scorer.service";
 import { ConfigService } from "@nestjs/config";
 import { ProfileService } from "src/auth/profile/profile.service";
@@ -797,13 +798,15 @@ export class UserService {
       await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
-        MERGE (user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(org)
+        MERGE (user)-[r:REQUESTED_TO_BECOME_AFFILIATED_TO]->(org)
+        SET r.status = "pending"
+        SET r.timestamp = timestamp()
         `,
         { wallet, orgId },
       );
       return {
         success: true,
-        message: "Organization request sent successfully",
+        message: "Organization affiliation request sent successfully",
       };
     } else {
       this.logger.error(
@@ -819,50 +822,72 @@ export class UserService {
   async authorizeUserForOrg(
     wallet: string,
     orgId: string,
+    verdict: "approve" | "reject",
   ): Promise<ResponseWithNoData> {
-    const userPermissions =
-      await this.permissionService.getPermissionsForWallet(wallet);
-    const authorizationResult = await this.neogma.queryRunner
-      .run(
+    try {
+      const userPermissions =
+        await this.permissionService.getPermissionsForWallet(wallet);
+
+      await this.neogma.queryRunner.run(
         `
-          MATCH (u:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
-          MERGE (u)-[:HAS_ORGANIZATION_AUTHORIZATION]->(org)
-          RETURN true as res
+          MATCH (u:User {wallet: $wallet})-[r:REQUESTED_TO_BECOME_AFFILIATED_TO]->(org:Organization {orgId: $orgId})
+          SET r.status = $verdict
+          SET r.timestamp = timestamp()
         `,
+        {
+          wallet,
+          orgId,
+          verdict: verdict === "approve" ? "approved" : "rejected",
+        },
+      );
+
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (u:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
+        MERGE (u)-[:HAS_ORGANIZATION_AUTHORIZATION]->(org)
+      `,
         { wallet, orgId },
-      )
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      .then(_ => {
-        return {
-          success: true,
-          message: "Set user authorization for org successfully",
-        };
-      })
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
-          });
-          Sentry.captureException(err);
+      );
+
+      if (verdict === "approve") {
+        await this.permissionService.syncUserPermissions(wallet, [
+          ...userPermissions.map(x => x.name),
+          CheckWalletPermissions.ORG_AFFILIATE,
+        ]);
+      }
+
+      return {
+        success: true,
+        message: "Organization affiliation request updated successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
         });
-        this.logger.error(`UserService::getFlowForWallet ${err.message}`);
-        return {
-          success: false,
-          message: "Setting user authorization for org failed",
-        };
+        Sentry.captureException(err);
       });
-    if (authorizationResult.success) {
-      await this.permissionService.syncUserPermissions(wallet, [
-        ...userPermissions.map(x => x.name),
-        CheckWalletPermissions.ORG_AFFILIATE,
-      ]);
+      this.logger.error(`UserService::authorizeUserForOrg ${err.message}`);
+      return {
+        success: false,
+        message: "Setting user authorization for org failed",
+      };
     }
-    return authorizationResult;
   }
 
   async findAll(): Promise<UserProfile[]> {
     const users = await this.privyService.getUsers();
+    const userMap: Map<string, PrivyUser> = new Map(
+      users.map(x => [
+        (
+          x.linkedAccounts.find(
+            x => x.type === "wallet" && x.walletClientType === "privy",
+          ) as WalletWithMetadata
+        )?.address,
+        x,
+      ]),
+    );
     return this.neogma.queryRunner
       .run(
         `
@@ -877,14 +902,14 @@ export class UserService {
           } as user
         `,
       )
-      .then(res =>
-        res.records.length
-          ? Promise.all(
+      .then(async res => {
+        return res.records.length
+          ? await Promise.all(
               res.records.map(async record => {
                 const raw = record.get("user");
-                const privyId = raw.privyId;
-                const user = users.find(x => x.id === privyId);
-                new UserProfileEntity({
+                const embeddedWallet = raw.wallet;
+                const user = userMap.get(embeddedWallet);
+                return new UserProfileEntity({
                   ...raw,
                   linkedAccounts: {
                     discord: user?.discord?.username ?? null,
@@ -905,8 +930,8 @@ export class UserService {
                 }).getProperties();
               }),
             )
-          : [],
-      )
+          : <UserProfile[]>[];
+      })
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -921,7 +946,7 @@ export class UserService {
   }
 
   async getUsersAvailableForWork(
-    params: GetAvailableDevsInput,
+    params: GetAvailableUsersInput,
     orgId: string | null,
   ): Promise<UserAvailableForWork[]> {
     const paramsPassed = {
@@ -1028,6 +1053,104 @@ export class UserService {
         });
         this.logger.error(
           `UserService::getDevsAvailableForWork ${err.message}`,
+        );
+        return [];
+      });
+  }
+
+  async getMyOrgAffiliationRequests(
+    wallet: string,
+    list: "all" | "pending" | "approved" | "rejected",
+  ): Promise<UserOrgAffiliationRequest[]> {
+    return this.neogma.queryRunner
+      .run(
+        `
+          MATCH (user:User { wallet: $wallet })-[r:REQUESTED_TO_BECOME_AFFILIATED_TO]->(org:Organization)
+          WHERE CASE WHEN $list = "all" THEN true
+          WHEN $list = "pending" THEN r.status = "pending"
+          WHEN $list = "approved" THEN r.status = "approved"
+          WHEN $list = "rejected" THEN r.status = "rejected"
+          ELSE true
+          END
+          RETURN {
+            wallet: user.wallet,
+            orgId: org.orgId,
+            status: r.status,
+            timestamp: r.timestamp
+          } as request
+        `,
+        { wallet, list },
+      )
+      .then(async res =>
+        res.records.map(x => {
+          const request = x.get("request");
+          return {
+            wallet: request.wallet,
+            orgId: request.orgId,
+            status: request.status,
+            timestamp: nonZeroOrNull(request.timestamp),
+          };
+        }),
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
+          });
+          scope.setExtra("input", { wallet, list });
+          Sentry.captureException(err);
+        });
+        this.logger.error(
+          `UserService::getMyOrgAffiliationRequests ${err.message}`,
+        );
+        return [];
+      });
+  }
+
+  async getUserOrgAffiliationRequests(
+    list: "all" | "pending" | "approved" | "rejected",
+  ): Promise<UserOrgAffiliationRequest[]> {
+    return this.neogma.queryRunner
+      .run(
+        `
+          MATCH (user:User)-[r:REQUESTED_TO_BECOME_AFFILIATED_TO]->(org:Organization)
+          WHERE CASE WHEN $list = "all" THEN true
+          WHEN $list = "pending" THEN r.status = "pending"
+          WHEN $list = "approved" THEN r.status = "approved"
+          WHEN $list = "rejected" THEN r.status = "rejected"
+          ELSE true
+          END
+          RETURN {
+            wallet: user.wallet,
+            orgId: org.orgId,
+            status: r.status,
+            timestamp: r.timestamp
+          } as request
+        `,
+        { list },
+      )
+      .then(async res =>
+        res.records.map(x => {
+          const request = x.get("request");
+          return {
+            wallet: request.wallet,
+            orgId: request.orgId,
+            status: request.status,
+            timestamp: nonZeroOrNull(request.timestamp),
+          };
+        }),
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(
+          `UserService::getUserOrgAffiliationRequests ${err.message}`,
         );
         return [];
       });

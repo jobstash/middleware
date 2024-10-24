@@ -4,8 +4,6 @@ import {
   Get,
   Post,
   Query,
-  Req,
-  Res,
   UseGuards,
   ValidationPipe,
 } from "@nestjs/common";
@@ -22,13 +20,12 @@ import {
   ResponseWithNoData,
   UserProfile,
   SessionObject,
+  UserOrgAffiliationRequest,
 } from "src/shared/interfaces";
 import { AuthorizeOrgApplicationInput } from "./dto/authorize-org-application.dto";
 import { MailService } from "src/mail/mail.service";
 import { ConfigService } from "@nestjs/config";
-import { GetAvailableDevsInput as GetAvailableUsersInput } from "./dto/get-available-users.input";
-import { AuthService } from "src/auth/auth.service";
-import { Request, Response } from "express";
+import { GetAvailableUsersInput } from "./dto/get-available-users.input";
 import { ApiKeyGuard } from "src/auth/api-key.guard";
 import { ApiOkResponse } from "@nestjs/swagger";
 import { UserWorkHistory } from "src/shared/interfaces/user/user-work-history.interface";
@@ -40,7 +37,6 @@ import { AddUserNoteInput } from "./dto/add-user-note.dto";
 export class UserController {
   private logger = new CustomLogger(UserController.name);
   constructor(
-    private readonly authService: AuthService,
     private readonly userService: UserService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
@@ -50,7 +46,7 @@ export class UserController {
 
   @Get("")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   async getAllUsers(): Promise<UserProfile[]> {
     this.logger.log("/users");
     return this.userService.findAll();
@@ -63,12 +59,10 @@ export class UserController {
     CheckWalletPermissions.ORG_AFFILIATE,
   )
   async getUsersAvailableForWork(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
+    @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
     params: GetAvailableUsersInput,
   ): Promise<UserAvailableForWork[]> {
-    const { address } = await this.authService.getSession(req, res);
     const orgId = address
       ? await this.userService.findOrgIdByWallet(address)
       : null;
@@ -76,18 +70,42 @@ export class UserController {
     return this.userService.getUsersAvailableForWork(params, orgId);
   }
 
-  @Post("orgs/request")
+  @Get("orgs/my-affiliation-requests")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  async getMyOrgAffiliationRequests(
+    @Session() { address }: SessionObject,
+    @Query("list") list: "all" | "pending" | "approved" | "rejected" = "all",
+    @Query("orgId") orgId: string | null = null,
+  ): Promise<UserOrgAffiliationRequest[]> {
+    this.logger.log(`/users/orgs/my-affiliation-requests ${list}`);
+    return this.userService
+      .getMyOrgAffiliationRequests(address, list)
+      .then(x => x.filter(y => (orgId ? y.orgId === orgId : true)));
+  }
+
+  @Get("orgs/affiliation-requests")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  async getUsersOrgAffiliationRequests(
+    @Query("list") list: "all" | "pending" | "approved" | "rejected" = "all",
+  ): Promise<UserOrgAffiliationRequest[]> {
+    this.logger.log(`/users/orgs/affiliation-requests ${list}`);
+    return this.userService.getUserOrgAffiliationRequests(list);
+  }
+
+  @Post("orgs/request-affiliation")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER)
   async requestOrgApplication(
     @Body("orgId") orgId: string,
-    @Session() { address: wallet }: SessionObject,
+    @Session() { address }: SessionObject,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/users/orgs/request ${wallet}, ${orgId}`);
-    const user = data(await this.profileService.getUserProfile(wallet));
+    this.logger.log(`/users/orgs/request-affiliation ${address}, ${orgId}`);
+    const user = data(await this.profileService.getUserProfile(address));
 
     if (user) {
-      return this.userService.requestOrgAffiliation(wallet, orgId);
+      return this.userService.requestOrgAffiliation(address, orgId);
     } else {
       return {
         success: false,
@@ -104,33 +122,26 @@ export class UserController {
   ): Promise<ResponseWithNoData> {
     const { wallet, verdict, orgId } = body;
     this.logger.log(`/users/orgs/authorize ${wallet}`);
-    const org = data(await this.profileService.getUserProfile(wallet));
+    const user = data(await this.profileService.getUserProfile(wallet));
 
-    if (org) {
-      if (verdict === "approve") {
-        if (orgId) {
-          const result = await this.userService.authorizeUserForOrg(
-            wallet as string,
-            orgId,
-          );
-          if (!result.success) {
-            return result;
-          }
-        } else {
-          return {
-            success: false,
-            message: "Org must be included if the verdict is approved",
-          };
-        }
-      }
-      if (org.linkedAccounts?.email) {
-        await this.mailService.sendEmail({
-          from: this.configService.getOrThrow<string>("EMAIL"),
-          to: org.linkedAccounts?.email,
-          subject: "Application Review Outcome",
-          text:
-            verdict === "approve"
-              ? `
+    const result = await this.userService.authorizeUserForOrg(
+      wallet as string,
+      orgId,
+      verdict,
+    );
+
+    if (!result.success) {
+      return result;
+    }
+
+    if (user.linkedAccounts?.email) {
+      await this.mailService.sendEmail({
+        from: this.configService.getOrThrow<string>("EMAIL"),
+        to: user.linkedAccounts?.email,
+        subject: "Application Review Outcome",
+        text:
+          verdict === "approve"
+            ? `
           Good Day,
 
           I hope this email finds you well. We appreciate your interest in our crypto job aggregator service and your recent application for inclusion in our platform. After a thorough review of your application, we are pleased to inform you that your organization has been approved.
@@ -147,7 +158,7 @@ export class UserController {
           Organization Review Lead
           JobStash.xyz
           `
-              : `
+            : `
           Dear $RECRUITER,
 
           I wanted to take a moment to express my appreciation for taking the time to apply as an organization at JobStash. We received a lot of interest, and we were impressed with your desire to contribute.
@@ -164,20 +175,15 @@ export class UserController {
           Organization Review Lead
           JobStash.xyz
           `,
-        });
-      }
-      return {
-        success: true,
-        message: `Org ${
-          verdict === "approve" ? "approved" : "rejected"
-        } successfully`,
-      };
-    } else {
-      return {
-        success: false,
-        message: "Org not found for that wallet",
-      };
+      });
     }
+
+    return {
+      success: true,
+      message: `${
+        verdict === "approve" ? "Approved" : "Rejected"
+      } org affiliation request successfully`,
+    };
   }
 
   @Get("/work-history")
@@ -209,13 +215,14 @@ export class UserController {
 
   @Post("note")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.ORG_AFFILIATE,
+  )
   async addUserNote(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
+    @Session() { address }: SessionObject,
     @Body() body: AddUserNoteInput,
   ): Promise<ResponseWithNoData> {
-    const { address } = await this.authService.getSession(req, res);
     if (address) {
       const orgId = address
         ? await this.userService.findOrgIdByWallet(address)
