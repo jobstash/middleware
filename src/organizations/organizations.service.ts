@@ -1372,7 +1372,7 @@ export class OrganizationsService {
           MATCH (:Organization {orgId: $orgId})-[:HAS_JOBSITE]->(jobsite:DetectedJobsite)
           REMOVE jobsite:DetectedJobsite
           SET jobsite:Jobsite
-          RETURN jobsite
+          RETURN jobsite { .* } as jobsite
         `,
         {
           ...dto,
@@ -1599,29 +1599,18 @@ export class OrganizationsService {
     try {
       await this.neogma.queryRunner.run(
         `
-          UNWIND $detectedJobsites as detectedJobsite
-          WITH detectedJobsite
-          MATCH (dj:DetectedJobsite WHERE dj.id = detectedJobsite.id)
-          SET dj.url = detectedJobsite.url
-          SET dj.type = detectedJobsite.type
-        `,
-        { ...dto },
-      );
+          MATCH (org:Organization {orgId: $orgId})-[:HAS_JOBSITE]->(oldDetectedJobsite:DetectedJobsite)
+          DETACH DELETE oldDetectedJobsite
 
-      await this.neogma.queryRunner.run(
-        `
+          WITH org
           UNWIND $detectedJobsites as detectedJobsite
-          WITH detectedJobsite
-          WHERE NOT EXISTS((:Organization {orgId: $orgId})-[:HAS_JOBSITE]->(:DetectedJobsite  { id: detectedJobsite.id }))
-
+          WITH detectedJobsite, org
           CREATE (dj:DetectedJobsite {id: detectedJobsite.id, url: detectedJobsite.url, type: detectedJobsite.type})
-          WITH dj
-          MATCH (org:Organization {orgId: $orgId})
+          WITH dj, org
           MERGE (org)-[:HAS_JOBSITE]->(dj)
         `,
         { ...dto },
       );
-
       return {
         success: true,
         message: "Updated organization detected jobsites successfully",

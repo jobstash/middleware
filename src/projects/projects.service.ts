@@ -708,7 +708,7 @@ export class ProjectsService {
         const response2 = await axios.get(
           `${url}/project-importer/import-project-by-url?url=${dto.url}&name=${
             dto.name
-          }&defiLlamaSlug=${dto.defiLlamaSlug ?? ""}`,
+          }&orgId=${dto.orgId ?? ""}&defiLlamaSlug=${dto.defiLlamaSlug ?? ""}`,
           {
             headers: {
               Authorization: `Bearer ${authToken}`,
