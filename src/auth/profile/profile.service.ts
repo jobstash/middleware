@@ -54,6 +54,7 @@ import { UpdateDevLinkedAccountsInput } from "./dto/update-dev-linked-accounts.i
 import { UpdateDevLocationInput } from "./dto/update-dev-location.input";
 import { GithubUserService } from "../github/github-user.service";
 import axios from "axios";
+import { uniqBy } from "lodash";
 
 @Injectable()
 export class ProfileService {
@@ -600,21 +601,24 @@ export class ProfileService {
     wallet: string,
   ): Promise<ResponseWithOptionalData<UserSkill[]>> {
     try {
-      const skills = await this.models.Users.findRelationships({
-        alias: "skills",
-        where: { source: { wallet: wallet } },
-      });
-
+      const result = await this.neogma.queryRunner.run(
+        `
+          MATCH (user:User {wallet: $wallet})-[r:HAS_SKILL]->(skill:Tag)
+          RETURN skill { .*, canTeach: r.canTeach } as skill
+        `,
+        { wallet },
+      );
       return {
         success: true,
-        message: "User skills retrieved successfully",
-        data:
-          skills.map(x =>
-            new UserSkillEntity({
-              ...x.target.getDataValues(),
-              canTeach: x.relationship.canTeach,
-            }).getProperties(),
-          ) ?? [],
+        message: "Retrieved user skills successfully",
+        data: uniqBy(
+          result.records.map(record =>
+            new UserSkillEntity(
+              record.get("skill") as UserSkill,
+            ).getProperties(),
+          ),
+          "id",
+        ),
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -861,33 +865,26 @@ export class ProfileService {
     dto: UpdateUserSkillsInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const newSkills = dto.skills;
-      await this.models.Users.deleteRelationships({
-        alias: "skills",
-        where: {
-          source: {
-            wallet: wallet,
-          },
+      await this.neogma.queryRunner.run(
+        `
+          MATCH (user:User {wallet: $wallet})-[r:HAS_SKILL]->(:Tag)
+          DELETE r
+
+          WITH user
+          UNWIND $skills as skillData
+          WITH skillData, user
+          MATCH (skill:Tag {id: skillData.id, normalizedName: skillData.normalizedName})
+          MERGE (user)-[r:HAS_SKILL]->(skill)
+          SET r.canTeach = skillData.canTeach
+        `,
+        {
+          wallet,
+          skills: dto.skills.map(x => ({
+            ...x,
+            normalizedName: normalizeString(x.name),
+          })),
         },
-      });
-      if (newSkills.length !== 0) {
-        for (const skill of newSkills) {
-          await this.models.Users.relateTo({
-            alias: "skills",
-            where: {
-              source: {
-                wallet: wallet,
-              },
-              target: {
-                normalizedName: normalizeString(skill.name),
-              },
-            },
-            properties: {
-              canTeach: skill.canTeach,
-            },
-          });
-        }
-      }
+      );
 
       return {
         success: true,
