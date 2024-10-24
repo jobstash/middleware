@@ -1369,7 +1369,7 @@ export class OrganizationsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-          MATCH (:Organization {orgId: $orgId})-[:HAS_JOBSITE]->(jobsite:DetectedJobsite)
+          MATCH (:Organization {orgId: $orgId})-[:HAS_JOBSITE]->(jobsite:DetectedJobsite WHERE jobsite.id IN $jobsiteIds)
           REMOVE jobsite:DetectedJobsite
           SET jobsite:Jobsite
           RETURN jobsite { .* } as jobsite
@@ -1599,15 +1599,19 @@ export class OrganizationsService {
     try {
       await this.neogma.queryRunner.run(
         `
-          MATCH (org:Organization {orgId: $orgId})-[:HAS_JOBSITE]->(oldDetectedJobsite:DetectedJobsite)
+          MATCH (org:Organization {orgId: $orgId})
+          OPTIONAL MATCH (org)-[:HAS_JOBSITE]->(oldDetectedJobsite:DetectedJobsite)
           DETACH DELETE oldDetectedJobsite
 
           WITH org
           UNWIND $detectedJobsites as detectedJobsite
           WITH detectedJobsite, org
-          CREATE (dj:DetectedJobsite {id: detectedJobsite.id, url: detectedJobsite.url, type: detectedJobsite.type})
-          WITH dj, org
-          MERGE (org)-[:HAS_JOBSITE]->(dj)
+          MERGE (org)-[:HAS_JOBSITE]->(dj: DetectedJobsite { url: detectedJobsite.url, type: detectedJobsite.type })
+          ON CREATE SET
+            dj.id = detectedJobsite.id,
+            dj.createdTimestamp = timestamp()
+          ON MATCH SET
+            dj.updatedTimestamp = timestamp()
         `,
         { ...dto },
       );
