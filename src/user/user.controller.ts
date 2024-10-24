@@ -11,7 +11,7 @@ import {
 } from "@nestjs/common";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { UserService } from "./user.service";
-import { Permissions } from "src/shared/decorators";
+import { Permissions, Session } from "src/shared/decorators";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { CheckWalletPermissions } from "src/shared/constants";
 import {
@@ -21,6 +21,7 @@ import {
   EcosystemActivation,
   ResponseWithNoData,
   UserProfile,
+  SessionObject,
 } from "src/shared/interfaces";
 import { AuthorizeOrgApplicationInput } from "./dto/authorize-org-application.dto";
 import { MailService } from "src/mail/mail.service";
@@ -73,6 +74,26 @@ export class UserController {
       : null;
     this.logger.log(`/users/available ${JSON.stringify(params)}`);
     return this.userService.getUsersAvailableForWork(params, orgId);
+  }
+
+  @Post("orgs/request")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  async requestOrgApplication(
+    @Body("orgId") orgId: string,
+    @Session() { address: wallet }: SessionObject,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/users/orgs/request ${wallet}, ${orgId}`);
+    const user = data(await this.profileService.getUserProfile(wallet));
+
+    if (user) {
+      return this.userService.requestOrgAffiliation(wallet, orgId);
+    } else {
+      return {
+        success: false,
+        message: "User not found",
+      };
+    }
   }
 
   @Post("orgs/authorize")

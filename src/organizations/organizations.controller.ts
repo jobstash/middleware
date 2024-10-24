@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -45,6 +46,7 @@ import {
   OrganizationWithLinks,
   Jobsite,
   TinyOrg,
+  data,
 } from "src/shared/types";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
@@ -66,6 +68,8 @@ import { UpdateOrgCommunitiesInput } from "./dto/update-organization-communities
 import { ActivateOrgJobsiteInput } from "./dto/activate-organization-jobsites.input";
 import { UpdateOrgProjectInput } from "./dto/update-organization-projects.input";
 import { AddOrganizationByUrlInput } from "./dto/add-organization-by-url.input";
+import { CreateOrgJobsiteInput } from "./dto/create-organization-jobsites.input";
+import { randomUUID } from "crypto";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -834,7 +838,7 @@ export class OrganizationsController {
 
   @Post("/jobsites/activate")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
     description: "Activates a list of detected jobsites for an org",
     schema: responseSchemaWrapper({
@@ -851,6 +855,55 @@ export class OrganizationsController {
   ): Promise<ResponseWithOptionalData<Jobsite[]>> {
     this.logger.log(`/organizations/jobsites/activate ${JSON.stringify(body)}`);
     return this.organizationsService.activateOrgJobsites(body);
+  }
+
+  @Post("/jobsites/create")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
+  @ApiOkResponse({
+    description: "Creates jobsites for an org",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Organization),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong activating the organization jobsites on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async createOrgJobsite(
+    @Body() body: CreateOrgJobsiteInput,
+  ): Promise<ResponseWithOptionalData<Jobsite>> {
+    this.logger.log(`/organizations/jobsites/create ${JSON.stringify(body)}`);
+    const { orgId, ...jobsite } = body;
+    const org = data(await this.getOrgDetails(orgId));
+    if (org) {
+      const id = randomUUID();
+      const result = await this.organizationsService.updateOrgDetectedJobsites({
+        orgId: body.orgId,
+        detectedJobsites: [...org.detectedJobsites, { id, ...jobsite }],
+      });
+      if (result.success) {
+        const final = data(
+          await this.organizationsService.activateOrgJobsites({
+            orgId: body.orgId,
+            jobsiteIds: [id],
+          }),
+        );
+        return {
+          success: true,
+          message: "Jobsite created successfully",
+          data: final[0],
+        };
+      } else {
+        return result;
+      }
+    } else {
+      throw new BadRequestException({
+        success: false,
+        message: "Organization not found",
+      });
+    }
   }
 
   @Get("/repositories/:id")

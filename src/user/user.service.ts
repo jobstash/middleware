@@ -788,6 +788,34 @@ export class UserService {
     return this.permissionService.syncUserPermissions(wallet, permissions);
   }
 
+  async requestOrgAffiliation(
+    wallet: string,
+    orgId: string,
+  ): Promise<ResponseWithNoData> {
+    const user = await this.findByWallet(wallet);
+    if (user) {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
+        MERGE (user)-[:HAS_ORGANIZATION_AUTHORIZATION]->(org)
+        `,
+        { wallet, orgId },
+      );
+      return {
+        success: true,
+        message: "Organization request sent successfully",
+      };
+    } else {
+      this.logger.error(
+        `UserService::requestOrgAffiliation ${wallet}, ${orgId}`,
+      );
+      return {
+        success: false,
+        message: "User not found",
+      };
+    }
+  }
+
   async authorizeUserForOrg(
     wallet: string,
     orgId: string,

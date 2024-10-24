@@ -2,7 +2,6 @@ import { Module, forwardRef } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { UserService } from "./user.service";
 import { GithubModule } from "../auth/github/github.module";
-import { UserController } from "./user.controller";
 import { ModelService } from "src/model/model.service";
 import { JwtService } from "@nestjs/jwt";
 import { MailModule } from "src/mail/mail.module";
@@ -21,6 +20,7 @@ import { REALLY_LONG_TIME } from "src/shared/constants";
 import * as https from "https";
 import { PaymentsModule } from "src/payments/payments.module";
 import { PermissionService } from "./permission.service";
+import { UserController } from "./user.controller";
 
 @Module({
   imports: [
