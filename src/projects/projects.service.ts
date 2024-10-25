@@ -852,6 +852,20 @@ export class ProjectsService {
         },
       );
 
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (project:Project {id: $id})
+        OPTIONAL MATCH (project)-[:HAS_WEBSITE]->(website:Website)
+        OPTIONAL MATCH (project)-[:HAS_DISCORD]->(discord:Discord)
+        OPTIONAL MATCH (project)-[:HAS_DOCSITE]->(docsite:DocSite)
+        OPTIONAL MATCH (project)-[:HAS_TELEGRAM]->(telegram:Telegram)
+        OPTIONAL MATCH (project)-[r:HAS_GITHUB]->(github:GithubOrganization)
+        OPTIONAL MATCH (project)-[:HAS_TWITTER]->(twitter:Twitter)
+        DETACH DELETE website, discord, docsite, telegram, r, twitter
+      `,
+        { id },
+      );
+
       if (project.website) {
         await this.neogma.queryRunner.run(
           `
