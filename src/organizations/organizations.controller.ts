@@ -661,20 +661,16 @@ export class OrganizationsController {
         };
       }
 
-      if (detectedJobsites?.length > 0) {
-        const res11 = await this.organizationsService.updateOrgDetectedJobsites(
-          {
-            orgId: id,
-            detectedJobsites,
-          },
-        );
+      const res11 = await this.organizationsService.updateOrgDetectedJobsites({
+        orgId: id,
+        detectedJobsites: detectedJobsites ?? [],
+      });
 
-        if (!res11.success) {
-          return {
-            success: res11.success,
-            message: "Error updating org detected jobsites",
-          };
-        }
+      if (!res11.success) {
+        return {
+          success: res11.success,
+          message: "Error updating org detected jobsites",
+        };
       }
 
       const res12 = await this.organizationsService.updateOrgJobsites({
