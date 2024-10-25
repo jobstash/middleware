@@ -817,12 +817,6 @@ export class ProjectsService {
       const result = await this.neogma.queryRunner.run(
         `
           MATCH (project:Project {id: $id})
-          OPTIONAL MATCH (project)-[:HAS_DISCORD]->(discord:Discord) 
-          OPTIONAL MATCH (project)-[:HAS_WEBSITE]->(website:Website) 
-          OPTIONAL MATCH (project)-[:HAS_DOCSITE]->(docsite:DocSite) 
-          OPTIONAL MATCH (project)-[:HAS_TELEGRAM]->(telegram:Telegram) 
-          OPTIONAL MATCH (project)-[:HAS_TWITTER]->(twitter: Twitter) 
-          OPTIONAL MATCH (project)-[:HAS_GITHUB]->(github: Github)
           
           SET project.name = $name
           SET project.normalizedName = $normalizedName
@@ -840,11 +834,6 @@ export class ProjectsService {
           SET project.defiLlamaSlug = $defiLlamaSlug
           SET project.defiLlamaParent = $defiLlamaParent
           SET project.updatedTimestamp = timestamp()
-          SET discord.invite = $discord
-          SET docsite.url = $docs
-          SET telegram.username = $telegram
-          SET twitter.username = $twitter
-          SET github.login = $github
 
           WITH project
           OPTIONAL MATCH (project)-[r:HAS_CATEGORY]->(:ProjectCategory)
@@ -862,6 +851,120 @@ export class ProjectsService {
           description: project.description ?? null,
         },
       );
+
+      if (project.website) {
+        await this.neogma.queryRunner.run(
+          `
+          MATCH (project:Project {id: $id})
+          MERGE (project)-[:HAS_WEBSITE]->(website:Website { url: $website })
+          ON CREATE SET
+            website.id = randomUUID(),
+            website.createdTimestamp = timestamp()
+          ON MATCH SET
+            website.updatedTimestamp = timestamp()
+        `,
+          {
+            ...project,
+            id,
+            website: project.website,
+          },
+        );
+      }
+
+      if (project.discord) {
+        await this.neogma.queryRunner.run(
+          `
+          MATCH (project:Project {id: $id})
+          MERGE (project)-[:HAS_DISCORD]->(discord:Discord { invite: $discord })
+          ON CREATE SET
+            discord.id = randomUUID(),
+            discord.createdTimestamp = timestamp()
+          ON MATCH SET
+            discord.updatedTimestamp = timestamp()
+        `,
+          {
+            ...project,
+            id,
+            discord: project.discord,
+          },
+        );
+      }
+
+      if (project.docs) {
+        await this.neogma.queryRunner.run(
+          `
+          MATCH (project:Project {id: $id})
+          MERGE (project)-[:HAS_DOCSITE]->(docsite:DocSite { url: $docs })
+          ON CREATE SET
+            docsite.id = randomUUID(),
+            docsite.createdTimestamp = timestamp()
+          ON MATCH SET
+            docsite.updatedTimestamp = timestamp()
+        `,
+          {
+            ...project,
+            id,
+            docs: project.docs,
+          },
+        );
+      }
+
+      if (project.telegram) {
+        await this.neogma.queryRunner.run(
+          `
+          MATCH (project:Project {id: $id})
+          MERGE (project)-[:HAS_TELEGRAM]->(telegram:Telegram { username: $telegram })
+          ON CREATE SET
+            telegram.id = randomUUID(),
+            telegram.createdTimestamp = timestamp()
+          ON MATCH SET
+            telegram.updatedTimestamp = timestamp()
+        `,
+          {
+            ...project,
+            id,
+            telegram: project.telegram,
+          },
+        );
+      }
+
+      if (project.github) {
+        await this.neogma.queryRunner.run(
+          `
+          MATCH (project:Project {id: $id})
+          MERGE (project)-[:HAS_GITHUB]->(github:GithubOrganization { login: $github })
+          ON CREATE SET
+            github.id = randomUUID(),
+            github.createdTimestamp = timestamp()
+          ON MATCH SET
+            github.updatedTimestamp = timestamp()
+        `,
+          {
+            ...project,
+            id,
+            github: project.github,
+          },
+        );
+      }
+
+      if (project.twitter) {
+        await this.neogma.queryRunner.run(
+          `
+          MATCH (project:Project {id: $id})
+          MERGE (project)-[:HAS_TWITTER]->(twitter:Twitter { username: $twitter })
+          ON CREATE SET
+            twitter.id = randomUUID(),
+            twitter.createdTimestamp = timestamp()
+          ON MATCH SET
+            twitter.updatedTimestamp = timestamp()
+        `,
+          {
+            ...project,
+            id,
+            twitter: project.twitter,
+          },
+        );
+      }
       return new ProjectMoreInfoEntity(result?.records[0]?.get("project"));
     } catch (err) {
       Sentry.withScope(scope => {
