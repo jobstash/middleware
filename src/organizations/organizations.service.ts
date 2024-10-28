@@ -1224,7 +1224,7 @@ export class OrganizationsService {
 
             WITH organization
             OPTIONAL MATCH (organization)-[:HAS_PROJECT]->(project)
-            WITH COUNT((org)-[:HAS_PROJECT]->(project) | org.orgId) === 1 AS shouldDelete, organization, project
+            WITH COUNT([(org)-[:HAS_PROJECT]->(project) | org.orgId]) = 1 AS shouldDelete, organization, project
             WHERE shouldDelete
             OPTIONAL MATCH (project)-[:HAS_AUDIT]->(audit)
             OPTIONAL MATCH (project)-[:HAS_HACK]->(hack)
