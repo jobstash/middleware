@@ -4,6 +4,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { Client, createClient } from "./generated";
 import { GoogleBigQueryService } from "src/google-bigquery/google-bigquery.service";
 import {
+  DaoipFundingData,
   Grantee,
   GranteeApplicationMetadata,
   GranteeDetails,
@@ -29,6 +30,8 @@ import {
 import { Alchemy, Network } from "alchemy-sdk";
 import { Neo4jVectorStore } from "@langchain/community/vectorstores/neo4j_vector";
 import { OpenAIEmbeddings } from "@langchain/openai";
+import axios from "axios";
+import { KARMAGAP_PROGRAM_MAPPINGS } from "src/shared/constants/daoip-karmagap-program-mappings";
 
 @Injectable()
 export class GrantsService implements OnModuleInit, OnModuleDestroy {
@@ -75,6 +78,42 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy(): Promise<void> {
     await this.vectorStore.close();
   }
+
+  getDaoipFundingData = async (): Promise<DaoipFundingData[]> => {
+    try {
+      const data = await axios.get(
+        "https://raw.githubusercontent.com/opensource-observer/oss-funding/main/data/funding_data.json",
+      );
+      return data.data;
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "external-api-call",
+          source: "grants.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`GrantsService::getDaoipFundingData ${err.message}`);
+      return [];
+    }
+  };
+
+  getDaoipFundingDataBySlug = async (
+    programId: string,
+    granteeProjectSlug: string,
+  ): Promise<DaoipFundingData[]> => {
+    const fundingDataParams = KARMAGAP_PROGRAM_MAPPINGS[programId];
+
+    const daiopFundingData = (await this.getDaoipFundingData()).filter(
+      x =>
+        x.from_funder_name === fundingDataParams?.from_funder_name &&
+        x.grant_pool_name === fundingDataParams?.grant_pool_name,
+    );
+
+    return daiopFundingData.filter(
+      x => x.to_project_name === granteeProjectSlug,
+    );
+  };
 
   query = async (
     query: string,
@@ -516,6 +555,11 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
           m => m.project_name === granteeSlug,
         ) ?? {}) as RawGrantProjectContractMetrics;
 
+        const projectDaoipFundingData = await this.getDaoipFundingDataBySlug(
+          program.programId,
+          granteeSlug,
+        );
+
         const projectMetricsConverter = (
           codeMetrics: RawGrantProjectCodeMetrics,
           onChainMetrics: RawGrantProjectOnchainMetrics,
@@ -818,6 +862,29 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
                     value: x.address,
                     stats: [],
                   })),
+                }
+              : null,
+            projectDaoipFundingData.length > 0
+              ? {
+                  label: "DAOIP Funding Data",
+                  tab: "daoip-funding-data",
+                  stats: projectDaoipFundingData.flatMap(x => [
+                    {
+                      label: "Funding Amount",
+                      value: `${x.amount} ${x.metadata.token_unit}`,
+                      stats: [],
+                    },
+                    {
+                      label: "Funding Date",
+                      value: new Date(x.funding_date).toDateString(),
+                      stats: [],
+                    },
+                    {
+                      label: "Funding Source",
+                      value: x.from_funder_name,
+                      stats: [],
+                    },
+                  ]),
                 }
               : null,
           ].filter(Boolean);

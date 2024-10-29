@@ -652,3 +652,20 @@ export class GrantListResult {
     }
   }
 }
+
+export interface DaoipFundingData {
+  to_project_name: string;
+  amount: number;
+  funding_date: string;
+  from_funder_name: string;
+  grant_pool_name: string;
+  metadata: DaoipFundingDataMetadata;
+  file_path: string;
+}
+
+export interface DaoipFundingDataMetadata {
+  application_name: string;
+  application_url: string;
+  token_amount: number;
+  token_unit: string;
+}
