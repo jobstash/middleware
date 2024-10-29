@@ -108,7 +108,21 @@ export class ProjectsController {
     description: "Returns a list of all projects",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
   })
-  async getProjects(): Promise<Response<Project[]> | ResponseWithNoData> {
+  async getProjects(): Promise<
+    ResponseWithOptionalData<
+      Omit<
+        ProjectWithRelations,
+        | "hacks"
+        | "audits"
+        | "chains"
+        | "ecosystems"
+        | "jobs"
+        | "investors"
+        | "repos"
+        | "communities"
+      >[]
+    >
+  > {
     this.logger.log(`/projects`);
     return this.projectsService
       .getProjects()

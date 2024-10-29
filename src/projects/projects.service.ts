@@ -43,6 +43,7 @@ import { CreateProjectMetricsInput } from "./dto/create-project-metrics.input";
 import { AddProjectByUrlInput } from "./dto/add-project-by-url.input";
 import axios from "axios";
 import { ConfigService } from "@nestjs/config";
+import { omit } from "lodash";
 
 @Injectable()
 export class ProjectsService {
@@ -522,10 +523,45 @@ export class ProjectsService {
     }
   }
 
-  async getProjects(): Promise<Project[]> {
+  async getProjects(): Promise<
+    Omit<
+      ProjectWithRelations,
+      | "hacks"
+      | "audits"
+      | "chains"
+      | "ecosystems"
+      | "jobs"
+      | "investors"
+      | "repos"
+      | "communities"
+    >[]
+  > {
     try {
-      const projects = await this.models.Projects.findMany();
-      return projects.map(project => project.getBaseProperties());
+      const projects = await this.models.Projects.getProjectsData();
+      return projects.map(x =>
+        omit(
+          {
+            ...x,
+            logoUrl: notStringOrNull(x.logo),
+            tokenAddress: notStringOrNull(x.tokenAddress),
+            defiLlamaId: notStringOrNull(x.defiLlamaId),
+            defiLlamaSlug: notStringOrNull(x.defiLlamaSlug),
+            defiLlamaParent: notStringOrNull(x.defiLlamaParent),
+            createdTimestamp: nonZeroOrNull(x.createdTimestamp),
+            updatedTimestamp: nonZeroOrNull(x.updatedTimestamp),
+          },
+          [
+            "hacks",
+            "audits",
+            "chains",
+            "ecosystems",
+            "jobs",
+            "investors",
+            "repos",
+            "communities",
+          ],
+        ),
+      );
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
