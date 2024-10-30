@@ -188,7 +188,9 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
     }
   };
 
-  getGrantsListResults = async (): Promise<KarmaGapGrantProgram[]> => {
+  getGrantsListResults = async (
+    status: "active" | "inactive" | null = null,
+  ): Promise<KarmaGapGrantProgram[]> => {
     const result = await this.neogma.queryRunner.run(
       `
         MATCH (program:KarmaGapProgram)
@@ -236,7 +238,9 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
 
     this.logger.log(`Found ${programs.length} programs`);
 
-    return programs;
+    return programs.filter(x =>
+      status ? x.status.toLowerCase() === status.toLowerCase() : true,
+    );
   };
 
   getGrantBySlug = async (
@@ -999,9 +1003,10 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
   async getGrantsList(
     page: number,
     limit: number,
+    status: "active" | "inactive" | null = null,
   ): Promise<PaginatedData<GrantListResult>> {
     try {
-      const programs = await this.getGrantsListResults();
+      const programs = await this.getGrantsListResults(status);
       const thankArb = programs.find(x => x.programId === "451");
       const others = programs.filter(x => x.programId !== "451");
       return paginate<GrantListResult>(

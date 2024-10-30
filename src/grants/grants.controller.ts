@@ -44,9 +44,10 @@ export class GrantsController {
   async findAll(
     @Query("page") page = 1,
     @Query("limit") limit = 20,
+    @Query("status") status: "active" | "inactive" | null = null,
   ): Promise<PaginatedData<GrantListResult>> {
     this.logger.log(`/grants/list ${JSON.stringify({ page, limit })}`);
-    return this.grantsService.getGrantsList(page, limit);
+    return this.grantsService.getGrantsList(page, limit, status);
   }
 
   @Get(":slug")
