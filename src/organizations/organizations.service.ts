@@ -1938,6 +1938,22 @@ export class OrganizationsService {
     id: string,
   ): Promise<ResponseWithOptionalData<Omit<Organization, "orgId">>> {
     try {
+      const checkExists = await this.neogma.queryRunner.run(
+        `
+        MATCH (org:Organization {orgId: $id})
+        MATCH (project:Project {name: org.name})
+        RETURN COUNT(project) > 0 as exists
+      `,
+        { id: id },
+      );
+
+      if (checkExists.records[0]?.get("exists") as boolean) {
+        return {
+          success: false,
+          message: "Project already exists",
+        };
+      }
+
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (org:Organization {orgId: $id})
