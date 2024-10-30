@@ -44,6 +44,21 @@ export const Jobsites = (
           allowEmpty: false,
           required: true,
         },
+        type: {
+          type: "string",
+          allowEmpty: false,
+          required: true,
+        },
+        createdTimestamp: {
+          type: "number",
+          allowEmpty: true,
+          required: false,
+        },
+        updatedTimestamp: {
+          type: "number",
+          allowEmpty: true,
+          required: false,
+        },
       },
       primaryKeyField: "id",
       relationships: {

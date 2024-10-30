@@ -98,7 +98,7 @@ export interface ProjectStatics {
     })[]
   >;
   getProjectsData: () => Promise<
-    (ProjectWithRelations & { orgName: string; communities: string[] })[]
+    (ProjectWithRelations & { orgNames: string[]; communities: string[] })[]
   >;
   getProjectsMoreInfoData: () => Promise<ProjectWithRelations[]>;
   getProjectDetailsById: (id: string) => Promise<ProjectDetailsResult | null>;
@@ -111,7 +111,13 @@ export interface ProjectStatics {
     community: string | undefined,
   ) => Promise<ProjectWithRelations[]>;
   searchProjects: (query: string) => Promise<ProjectProps[]>;
-  getProjectById: (id: string) => Promise<ProjectProps | null>;
+  getProjectById: (id: string) => Promise<
+    | (ProjectWithRelations & {
+        orgNames: string[];
+        communities: string[];
+      })
+    | null
+  >;
 }
 
 export const Projects = (
@@ -501,7 +507,7 @@ export const Projects = (
               project {
                   .*,
                   orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
-                  orgName: [(org)-[:HAS_PROJECT]->(project) | org.name][0],
+                  orgNames: [(org)-[:HAS_PROJECT]->(project) | org.name],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -529,6 +535,20 @@ export const Projects = (
                   ],
                   investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   jobs: jobs,
+                  jobsites: [
+                    (project)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
+                      id: jobsite.id,
+                      url: jobsite.url,
+                      type: jobsite.type
+                    }
+                  ],
+                  detectedJobsites: [
+                    (project)-[:HAS_JOBSITE]->(jobsite:DetectedJobsite) | jobsite {
+                      id: jobsite.id,
+                      url: jobsite.url,
+                      type: jobsite.type
+                    }
+                  ],
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                   ]
@@ -537,12 +557,12 @@ export const Projects = (
             );
           const result = await query.run(neogma.queryRunner);
           const projects: (ProjectWithRelations & {
-            orgName: string;
+            orgNames: string[];
             communities: string[];
           })[] = result?.records?.map(
             record =>
               record.get("result") as ProjectWithRelations & {
-                orgName: string;
+                orgNames: string[];
                 communities: string[];
               },
           );
@@ -604,7 +624,6 @@ export const Projects = (
               project {
                   .*,
                   orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
-                  orgName: [(org)-[:HAS_PROJECT]->(project) | org.name][0],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -697,7 +716,6 @@ export const Projects = (
               project {
                   .*,
                   orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
-                  orgName: [(org)-[:HAS_PROJECT]->(project) | org.name][0],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -847,7 +865,6 @@ export const Projects = (
               project {
                   .*,
                   orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
-                  orgName: [(org)-[:HAS_PROJECT]->(project) | org.name][0],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -1047,7 +1064,6 @@ export const Projects = (
               project {
                   .*,
                   orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
-                  orgName: [(org)-[:HAS_PROJECT]->(project) | org.name][0],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -1093,14 +1109,59 @@ export const Projects = (
           }).return(`
               project {
                   .*,
-                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId]
+                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
+                  orgNames: [(org)-[:HAS_PROJECT]->(project) | org.name],
+                  discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                  website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                  docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                  telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                  github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+                  category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                  twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+                  communities: [
+                    (organization)-[:IS_MEMBER_OF_COMMUNITY]->(community: OrganizationCommunity) | community.name
+                  ],
+                  aliases: [
+                    (project)-[:HAS_PROJECT_ALIAS]->(alias: ProjectAlias) | alias.name
+                  ],
+                  hacks: [
+                    (project)-[:HAS_HACK]->(hack) | hack { .* }
+                  ],
+                  audits: [
+                    (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                  ],
+                  chains: [
+                    (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  ecosystems: [
+                    (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+                  ],
+                  investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
+                  jobsites: [
+                    (project)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
+                      id: jobsite.id,
+                      url: jobsite.url,
+                      type: jobsite.type
+                    }
+                  ],
+                  detectedJobsites: [
+                    (project)-[:HAS_JOBSITE]->(jobsite:DetectedJobsite) | jobsite {
+                      id: jobsite.id,
+                      url: jobsite.url,
+                      type: jobsite.type
+                    }
+                  ],
+                  repos: [
+                    (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
+                  ]
               }
             `);
           const result = await query.run(neogma.queryRunner);
           return result?.records[0]?.get("project")
-            ? new ProjectMoreInfoEntity(
-                result?.records[0]?.get("project"),
-              ).getProperties()
+            ? (result?.records[0]?.get("project") as ProjectWithRelations & {
+                orgNames: string[];
+                communities: string[];
+              })
             : null;
         },
         searchProjects: async function (query: string) {

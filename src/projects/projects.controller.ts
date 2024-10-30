@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -6,6 +7,7 @@ import {
   Header,
   Headers,
   HttpStatus,
+  NotFoundException,
   Param,
   ParseFilePipeBuilder,
   Post,
@@ -43,13 +45,15 @@ import {
   CACHE_EXPIRY,
 } from "src/shared/constants/cache-control";
 import { Permissions } from "src/shared/decorators";
-import { responseSchemaWrapper } from "src/shared/helpers";
+import { nonZeroOrNull, responseSchemaWrapper } from "src/shared/helpers";
 import { ProjectProps } from "src/shared/models";
 import {
+  data,
   DefiLlamaProject,
   DefiLlamaProjectPrefill,
   DexSummary,
   FeeOverview,
+  Jobsite,
   OptionsSummary,
   PaginatedData,
   Project,
@@ -74,6 +78,8 @@ import { UpdateProjectInput } from "./dto/update-project.input";
 import { ProjectCategoryService } from "./project-category.service";
 import { ProjectsService } from "./projects.service";
 import { AddProjectByUrlInput } from "./dto/add-project-by-url.input";
+import { ActivateProjectJobsiteInput } from "./dto/activate-project-jobsites.input";
+import { CreateProjectJobsiteInput } from "./dto/create-project-jobsites.input";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -881,9 +887,33 @@ export class ProjectsController {
   })
   async updateProject(
     @Param("id") id: string,
-    @Body() body: UpdateProjectInput,
+    @Body() { jobsites, detectedJobsites, ...body }: UpdateProjectInput,
   ): Promise<Response<ProjectMoreInfo> | ResponseWithNoData> {
     this.logger.log(`/projects/update ${JSON.stringify(body)}`);
+    const res1 = await this.projectsService.updateProjectDetectedJobsites({
+      id: id,
+      detectedJobsites: detectedJobsites ?? [],
+    });
+
+    if (!res1.success) {
+      return {
+        success: res1.success,
+        message: "Error updating project detected jobsites",
+      };
+    }
+
+    const res2 = await this.projectsService.updateProjectJobsites({
+      id: id,
+      jobsites: jobsites ?? [],
+    });
+
+    if (!res2.success) {
+      return {
+        success: res2.success,
+        message: "Error updating project jobsites",
+      };
+    }
+
     const result = await this.projectsService.update(id, body);
     if (result !== undefined) {
       return {
@@ -896,6 +926,87 @@ export class ProjectsController {
         success: false,
         message: "Error updating project",
       };
+    }
+  }
+
+  @Post("/jobsites/activate")
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
+  @ApiOkResponse({
+    description: "Activates a list of detected jobsites for a project",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Project),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong activating the project jobsites on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async activateProjectJobsites(
+    @Body() body: ActivateProjectJobsiteInput,
+  ): Promise<ResponseWithOptionalData<Jobsite[]>> {
+    this.logger.log(`/projects/jobsites/activate ${JSON.stringify(body)}`);
+    return this.projectsService.activateProjectJobsites(body);
+  }
+
+  @Post("/jobsites/create")
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
+  @ApiOkResponse({
+    description: "Creates jobsites for a project",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Project),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong creating the project jobsites on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async createProjectJobsite(
+    @Body() body: CreateProjectJobsiteInput,
+  ): Promise<ResponseWithOptionalData<Jobsite>> {
+    this.logger.log(`/projects/jobsites/create ${JSON.stringify(body)}`);
+    const { id, ...jobsite } = body;
+    const project = data(await this.getProjectDetails(id));
+    if (project) {
+      const id = randomUUID();
+      const result = await this.projectsService.updateProjectDetectedJobsites({
+        id: body.id,
+        detectedJobsites: [...project.detectedJobsites, { id, ...jobsite }],
+      });
+      if (result.success) {
+        const final = data(
+          await this.projectsService.activateProjectJobsites({
+            id: body.id,
+            jobsiteIds: [id],
+          }),
+        );
+        const result = final[0];
+        return {
+          success: true,
+          message: "Jobsite created successfully",
+          data: {
+            ...final[0],
+            createdTimestamp: nonZeroOrNull(result.createdTimestamp),
+            updatedTimestamp: nonZeroOrNull(result.updatedTimestamp),
+          },
+        };
+      } else {
+        return result;
+      }
+    } else {
+      throw new BadRequestException({
+        success: false,
+        message: "Project not found",
+      });
     }
   }
 
@@ -1041,14 +1152,29 @@ export class ProjectsController {
   })
   async getProjectDetails(
     @Param("id") id: string,
-    @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<ResponseWithOptionalData<ProjectProps>> {
+  ): Promise<
+    ResponseWithOptionalData<
+      Omit<
+        ProjectWithRelations,
+        | "hacks"
+        | "audits"
+        | "chains"
+        | "ecosystems"
+        | "jobs"
+        | "investors"
+        | "repos"
+        | "communities"
+      >
+    >
+  > {
     this.logger.log(`/projects/${id}`);
     const result = await this.projectsService.getProjectById(id);
 
-    if (result === null) {
-      res.status(HttpStatus.NOT_FOUND);
-      return { success: true, message: "No project found for id " + id };
+    if (!result) {
+      throw new NotFoundException({
+        success: false,
+        message: "Project not found",
+      });
     } else {
       return {
         success: true,

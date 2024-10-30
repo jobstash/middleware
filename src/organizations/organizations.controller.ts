@@ -32,7 +32,7 @@ import {
 import { Response as ExpressResponse } from "express";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { Permissions } from "src/shared/decorators/role.decorator";
-import { responseSchemaWrapper } from "src/shared/helpers";
+import { nonZeroOrNull, responseSchemaWrapper } from "src/shared/helpers";
 import {
   Repository,
   Organization,
@@ -864,7 +864,7 @@ export class OrganizationsController {
   })
   @ApiUnprocessableEntityResponse({
     description:
-      "Something went wrong activating the organization jobsites on the destination service",
+      "Something went wrong creating the organization jobsites on the destination service",
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async createOrgJobsite(
@@ -886,10 +886,15 @@ export class OrganizationsController {
             jobsiteIds: [id],
           }),
         );
+        const result = final[0];
         return {
           success: true,
           message: "Jobsite created successfully",
-          data: final[0],
+          data: {
+            ...final[0],
+            createdTimestamp: nonZeroOrNull(result.createdTimestamp),
+            updatedTimestamp: nonZeroOrNull(result.updatedTimestamp),
+          },
         };
       } else {
         return result;

@@ -16,6 +16,7 @@ import {
   ProjectWithRelationsEntity,
   RawProjectWebsite,
   ResponseWithOptionalData,
+  Jobsite,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -44,6 +45,9 @@ import { AddProjectByUrlInput } from "./dto/add-project-by-url.input";
 import axios from "axios";
 import { ConfigService } from "@nestjs/config";
 import { omit } from "lodash";
+import { ActivateProjectJobsiteInput } from "./dto/activate-project-jobsites.input";
+import { UpdateProjectJobsitesInput } from "./dto/update-project-jobsites.input";
+import { UpdateProjectDetectedJobsitesInput } from "./dto/update-project-detected-jobsites.input";
 
 @Injectable()
 export class ProjectsService {
@@ -93,7 +97,7 @@ export class ProjectsService {
     } = paramsPassed;
 
     const results: (ProjectWithRelations & {
-      orgName: string;
+      orgNames: string[];
       communities: string[];
     })[] = [];
 
@@ -124,7 +128,7 @@ export class ProjectsService {
 
     const projectFilters = (
       project: ProjectWithRelations & {
-        orgName: string;
+        orgNames: string[];
         communities: string[];
         aliases: string[];
       },
@@ -137,7 +141,9 @@ export class ProjectsService {
         (!categoryFilterList ||
           categoryFilterList.includes(normalizeString(project.category))) &&
         (!organizationFilterList ||
-          organizationFilterList.includes(normalizeString(project.orgName))) &&
+          organizationFilterList.some(x =>
+            project.orgNames.map(normalizeString).includes(x),
+          )) &&
         (mainNet === null || project.isMainnet === mainNet) &&
         (!minTvl || (project?.tvl ?? 0) >= minTvl) &&
         (!maxTvl || (project?.tvl ?? 0) < maxTvl) &&
@@ -637,9 +643,51 @@ export class ProjectsService {
     }
   }
 
-  async getProjectById(id: string): Promise<ProjectProps | null> {
+  async getProjectById(
+    id: string,
+  ): Promise<
+    Omit<
+      ProjectWithRelations,
+      | "hacks"
+      | "audits"
+      | "chains"
+      | "ecosystems"
+      | "jobs"
+      | "investors"
+      | "repos"
+      | "communities"
+    >
+  > {
     try {
-      return this.models.Projects.getProjectById(id);
+      const res = await this.models.Projects.getProjectById(id);
+      if (res) {
+        return omit(
+          {
+            ...res,
+            logoUrl: notStringOrNull(res.logo),
+            category: notStringOrNull(res.category),
+            description: notStringOrNull(res.description),
+            tokenAddress: notStringOrNull(res.tokenAddress),
+            defiLlamaId: notStringOrNull(res.defiLlamaId),
+            defiLlamaSlug: notStringOrNull(res.defiLlamaSlug),
+            defiLlamaParent: notStringOrNull(res.defiLlamaParent),
+            createdTimestamp: nonZeroOrNull(res.createdTimestamp),
+            updatedTimestamp: nonZeroOrNull(res.updatedTimestamp),
+          },
+          [
+            "hacks",
+            "audits",
+            "chains",
+            "ecosystems",
+            "jobs",
+            "investors",
+            "repos",
+            "communities",
+          ],
+        );
+      } else {
+        return undefined;
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -847,7 +895,7 @@ export class ProjectsService {
 
   async update(
     id: string,
-    project: UpdateProjectInput,
+    project: Omit<UpdateProjectInput, "jobsites" | "detectedJobsites">,
   ): Promise<ProjectMoreInfoEntity> {
     try {
       const result = await this.neogma.queryRunner.run(
@@ -1030,6 +1078,131 @@ export class ProjectsService {
     }
   }
 
+  async activateProjectJobsites(
+    dto: ActivateProjectJobsiteInput,
+  ): Promise<ResponseWithOptionalData<Jobsite[]>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          MATCH (:Project {id: $id})-[:HAS_JOBSITE]->(jobsite:DetectedJobsite WHERE jobsite.id IN $jobsiteIds)
+          REMOVE jobsite:DetectedJobsite
+          SET jobsite:Jobsite
+          RETURN jobsite { .* } as jobsite
+        `,
+        {
+          ...dto,
+        },
+      );
+      const jobsites = result.records.map(
+        record => record.get("jobsite") as Jobsite,
+      );
+      return {
+        success: true,
+        message: "Activated project jobsites successfully",
+        data: jobsites,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `ProjectsService::activateProjectJobsites ${err.message}`,
+      );
+      return { success: false, message: "Failed to activate project jobsites" };
+    }
+  }
+
+  async updateProjectJobsites(
+    dto: UpdateProjectJobsitesInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+          UNWIND $jobsites as jobsite
+          WITH jobsite
+          WHERE jobsite.id IS NOT NULL
+
+          OPTIONAL MATCH (j:Jobsite)
+          WHERE j.id = jobsite.id AND j IS NOT NULL
+          SET j.url = jobsite.url
+          SET j.type = jobsite.type
+        `,
+        { ...dto },
+      );
+
+      return {
+        success: true,
+        message: "Updated project jobsites successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `ProjectsService::updateProjectJobsites ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to update project jobsites",
+      };
+    }
+  }
+
+  async updateProjectDetectedJobsites(
+    dto: UpdateProjectDetectedJobsitesInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+          MATCH (project:Project {id: $id})
+          OPTIONAL MATCH (project)-[:HAS_JOBSITE]->(oldDetectedJobsite:DetectedJobsite)
+          DETACH DELETE oldDetectedJobsite
+
+          WITH project
+          UNWIND $detectedJobsites as detectedJobsite
+          WITH detectedJobsite, project
+          MERGE (project)-[:HAS_JOBSITE]->(dj: DetectedJobsite { url: detectedJobsite.url, type: detectedJobsite.type })
+          ON CREATE SET
+            dj.id = detectedJobsite.id,
+            dj.createdTimestamp = timestamp()
+          ON MATCH SET
+            dj.updatedTimestamp = timestamp()
+        `,
+        dto,
+      );
+      return {
+        success: true,
+        message: "Updated project detected jobsites successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", dto);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `ProjectsService::updateProjectDetectedJobsites ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to update project detected jobsites",
+      };
+    }
+  }
+
   async delete(id: string): Promise<ResponseWithNoData> {
     try {
       await this.neogma.queryRunner.run(
@@ -1044,8 +1217,9 @@ export class ProjectsService {
             OPTIONAL MATCH (project)-[:HAS_TWITTER]->(twitter)
             OPTIONAL MATCH (project)-[:HAS_WEBSITE]->(website)
             OPTIONAL MATCH (project)-[:HAS_RAW_WEBSITE]->(rawWebsite)-[:HAS_RAW_WEBSITE_METADATA]->(metadata)
+            OPTIONAL MATCH (project)-[:HAS_JOBSITE]->(jobsite:Jobsite|DetectedJobsite)
             DETACH DELETE audit, hack, discord, docsite,
-              github, telegram, twitter, website, project, rawWebsite, metadata
+              github, telegram, twitter, website, project, rawWebsite, metadata, jobsite
         `,
         {
           id,

@@ -29,6 +29,20 @@ export class ProjectWithRelations extends ProjectMoreInfo {
       audits: t.array(Audit.AuditType),
       chains: t.array(Chain.ChainType),
       ecosystems: t.array(t.string),
+      jobsites: t.array(
+        t.strict({
+          id: t.string,
+          url: t.string,
+          type: t.string,
+        }),
+      ),
+      detectedJobsites: t.array(
+        t.strict({
+          id: t.string,
+          url: t.string,
+          type: t.string,
+        }),
+      ),
       jobs: t.array(
         StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
       ),
@@ -85,6 +99,12 @@ export class ProjectWithRelations extends ProjectMoreInfo {
   })
   jobs: StructuredJobpostWithRelations[];
 
+  @ApiProperty()
+  jobsites: { id: string; url: string; type: string }[];
+
+  @ApiProperty()
+  detectedJobsites: { id: string; url: string; type: string }[];
+
   @ApiProperty({
     type: "array",
     items: { $ref: getSchemaPath(Investor) },
@@ -111,6 +131,8 @@ export class ProjectWithRelations extends ProjectMoreInfo {
       chains,
       ecosystems,
       jobs,
+      jobsites,
+      detectedJobsites,
       investors,
       repos,
       ...projectProperties
@@ -130,6 +152,8 @@ export class ProjectWithRelations extends ProjectMoreInfo {
     this.chains = chains;
     this.ecosystems = ecosystems;
     this.jobs = jobs;
+    this.jobsites = jobsites;
+    this.detectedJobsites = detectedJobsites;
     this.investors = investors;
     this.repos = repos;
 
