@@ -81,10 +81,12 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
 
   getDaoipFundingData = async (): Promise<DaoipFundingData[]> => {
     try {
-      const data = await axios.get(
+      const res = await axios.get(
         "https://raw.githubusercontent.com/opensource-observer/oss-funding/main/data/funding_data.json",
       );
-      return data.data;
+      return (
+        (JSON.parse(res.data as unknown as string) as DaoipFundingData[]) ?? []
+      );
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -104,7 +106,8 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
   ): Promise<DaoipFundingData[]> => {
     const fundingDataParams = KARMAGAP_PROGRAM_MAPPINGS[programId];
 
-    const daiopFundingData = (await this.getDaoipFundingData()).filter(
+    const data = await this.getDaoipFundingData();
+    const daiopFundingData = (data ?? []).filter(
       x =>
         x.from_funder_name === fundingDataParams?.from_funder_name &&
         x.grant_pool_name === fundingDataParams?.grant_pool_name,
