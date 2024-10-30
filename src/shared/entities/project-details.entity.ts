@@ -46,7 +46,7 @@ export class ProjectDetailsEntity {
       createdTimestamp: nonZeroOrNull(project?.createdTimestamp),
       updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
       hacks:
-        project?.hacks.map(hack => ({
+        project?.hacks?.map(hack => ({
           ...hack,
           fundsLost: hack.fundsLost,
           date: nonZeroOrNull(hack.date),
@@ -54,7 +54,7 @@ export class ProjectDetailsEntity {
           fundsReturned: nonZeroOrNull(hack.fundsReturned),
         })) ?? [],
       audits:
-        project?.audits.map(audit => ({
+        project?.audits?.map(audit => ({
           ...audit,
           id: notStringOrNull(audit?.id),
           name: notStringOrNull(audit?.name),
@@ -64,7 +64,7 @@ export class ProjectDetailsEntity {
           link: notStringOrNull(audit?.link),
         })) ?? [],
       chains:
-        project.chains.map(chain => ({
+        project?.chains?.map(chain => ({
           ...chain,
           logo: notStringOrNull(chain?.logo),
         })) ?? [],

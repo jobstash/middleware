@@ -8,6 +8,12 @@ import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
 import { OrgJob } from "./org-job.interface";
 import { ProjectWithRelations } from "./project-with-relations.interface";
+import { Audit } from "./audit.interface";
+import { Hack } from "./hack.interface";
+import { Investor } from "./investor.interface";
+import { Repository } from "./repository.interface";
+import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relations.interface";
+import { Chain } from "./chain.interface";
 
 @ApiExtraModels(OrganizationWithRelations, OrganizationWithLinks, OrgJob)
 export class OrganizationWithLinks extends Organization {
@@ -22,7 +28,26 @@ export class OrganizationWithLinks extends Organization {
       grants: t.array(t.string),
       twitters: t.array(t.string),
       docs: t.array(t.string),
-      projects: t.array(ProjectWithRelations.ProjectWithRelationsType),
+      projects: t.array(
+        t.strict({
+          github: t.union([t.string, t.null]),
+          website: t.union([t.string, t.null]),
+          docs: t.union([t.string, t.null]),
+          category: t.union([t.string, t.null]),
+          twitter: t.union([t.string, t.null]),
+          discord: t.union([t.string, t.null]),
+          telegram: t.union([t.string, t.null]),
+          hacks: t.array(Hack.HackType),
+          audits: t.array(Audit.AuditType),
+          chains: t.array(Chain.ChainType),
+          ecosystems: t.array(t.string),
+          jobs: t.array(
+            StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
+          ),
+          investors: t.array(Investor.InvestorType),
+          repos: t.array(Repository.RepositoryType),
+        }),
+      ),
       communities: t.array(t.string),
       detectedJobsites: t.array(
         t.strict({ id: t.string, url: t.string, type: t.string }),

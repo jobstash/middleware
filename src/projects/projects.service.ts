@@ -344,17 +344,14 @@ export class ProjectsService {
   ): Promise<ProjectDetailsResult | null> {
     try {
       const details = await this.models.Projects.getProjectDetailsById(id);
-      const result = details
-        ? new ProjectDetailsEntity(details).getProperties()
-        : undefined;
       if (community) {
-        return result?.organizations
+        return details?.organizations
           .flatMap(x => x.community)
           .includes(community)
-          ? result
+          ? details
           : undefined;
       } else {
-        return result;
+        return details;
       }
     } catch (err) {
       Sentry.withScope(scope => {

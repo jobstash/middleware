@@ -396,7 +396,6 @@ export class ProfileService {
       if (user.github?.username) {
         this.logger.log(`Fetching orgs for ${wallet} based on github username`);
         const names = prelim.map(x => x.name);
-        console.log(names);
         const result = await this.neogma.queryRunner.run(
           `
             MATCH (user:User {wallet: $wallet}), (organization: Organization WHERE organization.name IN $names)
@@ -413,7 +412,6 @@ export class ProfileService {
           result?.records[0]
             ?.get("orgsByRepo")
             ?.map(record => record as UserVerifiedOrg) ?? [];
-        console.log(orgsByRepo);
         const processed = orgsByRepo.map(x => ({
           id: x.id,
           name: x.name,
@@ -1099,7 +1097,6 @@ export class ProfileService {
         limit: Integer.MAX_SAFE_VALUE.toNumber(),
         page: 1,
       })) as Response<UserRepo[]>;
-      console.log(userRepos);
       if (userRepos.data.find(x => x.id === dto.id)) {
         await this.neogma.queryRunner.run(
           `

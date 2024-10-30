@@ -34,6 +34,7 @@ import { Response } from "../interfaces/response.interface";
 import { PUBLIC_API_SCHEMAS } from "../presets/public-api-schemas";
 import { CustomLogger } from "../utils/custom-logger";
 import { emojiRegex } from "./emoji-regex";
+
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
     It accepts args for the values to filter with and the cypher filter to apply based on the various combinations of value existence possible
