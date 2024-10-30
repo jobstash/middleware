@@ -239,7 +239,9 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`Found ${programs.length} programs`);
 
     return programs.filter(x =>
-      status ? x.status.toLowerCase() === status.toLowerCase() : true,
+      status
+        ? (x.status ?? "Inactive").toLowerCase() === status.toLowerCase()
+        : true,
     );
   };
 
@@ -1009,50 +1011,101 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
       const programs = await this.getGrantsListResults(status);
       const thankArb = programs.find(x => x.programId === "451");
       const others = programs.filter(x => x.programId !== "451");
-      return paginate<GrantListResult>(
-        page,
-        limit,
-        [thankArb, ...others].map(
-          grant =>
-            new GrantListResult({
-              id: grant.programId,
-              name: grant.name,
-              slug: grant.slug ?? sluggify(grant.name),
-              status: notStringOrNull(grant.status) ?? "Inactive",
-              socialLinks: grant.socialLinks
-                ? {
-                    twitter: notStringOrNull(grant.socialLinks.twitter),
-                    website: notStringOrNull(grant.socialLinks.website),
-                    discord: notStringOrNull(grant.socialLinks.discord),
-                    orgWebsite: notStringOrNull(grant.socialLinks.orgWebsite),
-                    blog: notStringOrNull(grant.socialLinks.blog),
-                    forum: notStringOrNull(grant.socialLinks.forum),
-                    grantsSite: notStringOrNull(grant.socialLinks.grantsSite),
-                  }
-                : null,
-              eligibility: grant.eligibility,
-              metadata: {
-                ...grant.metadata,
-                description: notStringOrNull(grant.metadata.description),
-                programBudget: nonZeroOrNull(grant.metadata.programBudget),
-                amountDistributedToDate: nonZeroOrNull(
-                  grant.metadata.amountDistributedToDate,
-                ),
-                minGrantSize: nonZeroOrNull(grant.metadata.minGrantSize),
-                maxGrantSize: nonZeroOrNull(grant.metadata.maxGrantSize),
-                grantsToDate: nonZeroOrNull(grant.metadata.grantsToDate),
-                website: notStringOrNull(grant.metadata.website),
-                projectTwitter: notStringOrNull(grant.metadata.projectTwitter),
-                bugBounty: notStringOrNull(grant.metadata.bugBounty),
-                logoImg: notStringOrNull(grant.metadata.logoImg),
-                bannerImg: notStringOrNull(grant.metadata.bannerImg),
-                createdAt: nonZeroOrNull(grant.metadata.createdAt),
-                type: notStringOrNull(grant.metadata.type),
-                amount: notStringOrNull(grant.metadata.amount),
-              },
-            }),
-        ),
-      );
+      if (thankArb) {
+        return paginate<GrantListResult>(
+          page,
+          limit,
+          [thankArb, ...others].map(
+            grant =>
+              new GrantListResult({
+                id: grant.programId,
+                name: grant.name,
+                slug: grant.slug ?? sluggify(grant.name),
+                status: notStringOrNull(grant.status) ?? "Inactive",
+                socialLinks: grant.socialLinks
+                  ? {
+                      twitter: notStringOrNull(grant.socialLinks.twitter),
+                      website: notStringOrNull(grant.socialLinks.website),
+                      discord: notStringOrNull(grant.socialLinks.discord),
+                      orgWebsite: notStringOrNull(grant.socialLinks.orgWebsite),
+                      blog: notStringOrNull(grant.socialLinks.blog),
+                      forum: notStringOrNull(grant.socialLinks.forum),
+                      grantsSite: notStringOrNull(grant.socialLinks.grantsSite),
+                    }
+                  : null,
+                eligibility: grant.eligibility,
+                metadata: {
+                  ...grant.metadata,
+                  description: notStringOrNull(grant.metadata.description),
+                  programBudget: nonZeroOrNull(grant.metadata.programBudget),
+                  amountDistributedToDate: nonZeroOrNull(
+                    grant.metadata.amountDistributedToDate,
+                  ),
+                  minGrantSize: nonZeroOrNull(grant.metadata.minGrantSize),
+                  maxGrantSize: nonZeroOrNull(grant.metadata.maxGrantSize),
+                  grantsToDate: nonZeroOrNull(grant.metadata.grantsToDate),
+                  website: notStringOrNull(grant.metadata.website),
+                  projectTwitter: notStringOrNull(
+                    grant.metadata.projectTwitter,
+                  ),
+                  bugBounty: notStringOrNull(grant.metadata.bugBounty),
+                  logoImg: notStringOrNull(grant.metadata.logoImg),
+                  bannerImg: notStringOrNull(grant.metadata.bannerImg),
+                  createdAt: nonZeroOrNull(grant.metadata.createdAt),
+                  type: notStringOrNull(grant.metadata.type),
+                  amount: notStringOrNull(grant.metadata.amount),
+                },
+              }),
+          ),
+        );
+      } else {
+        return paginate<GrantListResult>(
+          page,
+          limit,
+          others.map(
+            grant =>
+              new GrantListResult({
+                id: grant.programId,
+                name: grant.name,
+                slug: grant.slug ?? sluggify(grant.name),
+                status: notStringOrNull(grant.status) ?? "Inactive",
+                socialLinks: grant.socialLinks
+                  ? {
+                      twitter: notStringOrNull(grant.socialLinks.twitter),
+                      website: notStringOrNull(grant.socialLinks.website),
+                      discord: notStringOrNull(grant.socialLinks.discord),
+                      orgWebsite: notStringOrNull(grant.socialLinks.orgWebsite),
+                      blog: notStringOrNull(grant.socialLinks.blog),
+                      forum: notStringOrNull(grant.socialLinks.forum),
+                      grantsSite: notStringOrNull(grant.socialLinks.grantsSite),
+                    }
+                  : null,
+                eligibility: grant.eligibility,
+                metadata: {
+                  ...grant.metadata,
+                  description: notStringOrNull(grant.metadata.description),
+                  programBudget: nonZeroOrNull(grant.metadata.programBudget),
+                  amountDistributedToDate: nonZeroOrNull(
+                    grant.metadata.amountDistributedToDate,
+                  ),
+                  minGrantSize: nonZeroOrNull(grant.metadata.minGrantSize),
+                  maxGrantSize: nonZeroOrNull(grant.metadata.maxGrantSize),
+                  grantsToDate: nonZeroOrNull(grant.metadata.grantsToDate),
+                  website: notStringOrNull(grant.metadata.website),
+                  projectTwitter: notStringOrNull(
+                    grant.metadata.projectTwitter,
+                  ),
+                  bugBounty: notStringOrNull(grant.metadata.bugBounty),
+                  logoImg: notStringOrNull(grant.metadata.logoImg),
+                  bannerImg: notStringOrNull(grant.metadata.bannerImg),
+                  createdAt: nonZeroOrNull(grant.metadata.createdAt),
+                  type: notStringOrNull(grant.metadata.type),
+                  amount: notStringOrNull(grant.metadata.amount),
+                },
+              }),
+          ),
+        );
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
