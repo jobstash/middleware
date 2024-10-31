@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsString } from "class-validator";
+import { IsIn, IsNotEmpty, IsString } from "class-validator";
 
 export class UpsertDetectedJobsites {
   @ApiProperty()
@@ -15,5 +15,21 @@ export class UpsertDetectedJobsites {
   @ApiProperty()
   @IsNotEmpty()
   @IsString()
-  type: string;
+  @IsIn([
+    "greenhouse",
+    "lever",
+    "workable",
+    "custom",
+    "hirechain",
+    "wellfound",
+    "onepage",
+  ])
+  type:
+    | "greenhouse"
+    | "lever"
+    | "workable"
+    | "custom"
+    | "hirechain"
+    | "onepage"
+    | "wellfound";
 }

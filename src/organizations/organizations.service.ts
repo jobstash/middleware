@@ -49,7 +49,6 @@ import { UpdateOrgDocsInput } from "./dto/update-organization-docs.input";
 import { UpdateOrgTelegramsInput } from "./dto/update-organization-telegrams.input";
 import { UpdateOrgGrantsInput } from "./dto/update-organization-grants.input";
 import { ActivateOrgJobsiteInput } from "./dto/activate-organization-jobsites.input";
-import { UpdateOrgDetectedJobsitesInput } from "./dto/update-organization-detected-jobsites.input";
 import { UpdateOrgJobsitesInput } from "./dto/update-organization-jobsites.input";
 import { UpdateOrgProjectInput } from "./dto/update-organization-projects.input";
 import { AddOrganizationByUrlInput } from "./dto/add-organization-by-url.input";
@@ -1593,9 +1592,10 @@ export class OrganizationsService {
     }
   }
 
-  async updateOrgDetectedJobsites(
-    dto: UpdateOrgDetectedJobsitesInput,
-  ): Promise<ResponseWithNoData> {
+  async updateOrgDetectedJobsites(dto: {
+    orgId: string;
+    detectedJobsites: { id: string; url: string; type: string }[];
+  }): Promise<ResponseWithNoData> {
     try {
       await this.neogma.queryRunner.run(
         `

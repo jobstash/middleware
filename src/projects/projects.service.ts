@@ -47,7 +47,6 @@ import { ConfigService } from "@nestjs/config";
 import { omit } from "lodash";
 import { ActivateProjectJobsiteInput } from "./dto/activate-project-jobsites.input";
 import { UpdateProjectJobsitesInput } from "./dto/update-project-jobsites.input";
-import { UpdateProjectDetectedJobsitesInput } from "./dto/update-project-detected-jobsites.input";
 
 @Injectable()
 export class ProjectsService {
@@ -1155,9 +1154,10 @@ export class ProjectsService {
     }
   }
 
-  async updateProjectDetectedJobsites(
-    dto: UpdateProjectDetectedJobsitesInput,
-  ): Promise<ResponseWithNoData> {
+  async updateProjectDetectedJobsites(dto: {
+    id: string;
+    detectedJobsites: { id: string; url: string; type: string }[];
+  }): Promise<ResponseWithNoData> {
     try {
       await this.neogma.queryRunner.run(
         `

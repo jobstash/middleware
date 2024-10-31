@@ -16,12 +16,21 @@ export class CreateProjectJobsiteInput {
   @ApiProperty()
   @IsNotEmpty()
   @IsString()
-  @IsIn(["greenhouse", "lever", "workable", "custom", "hirechain", "wellfound"])
+  @IsIn([
+    "greenhouse",
+    "lever",
+    "workable",
+    "custom",
+    "hirechain",
+    "wellfound",
+    "onepage",
+  ])
   type:
     | "greenhouse"
     | "lever"
     | "workable"
     | "custom"
     | "hirechain"
+    | "onepage"
     | "wellfound";
 }

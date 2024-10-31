@@ -18,6 +18,7 @@ import { ProjectWithRelations } from "./project-with-relations.interface";
 import { FundingRound } from "./funding-round.interface";
 import { Investor } from "./investor.interface";
 import { LeanOrgReview } from "./org-review.interface";
+import { OrgProject } from "./project-details-result.interface";
 
 @ApiExtraModels(OrganizationWithRelations, OrgDetailsResult, OrgJob)
 export class OrgDetailsResult extends Organization {
@@ -34,7 +35,7 @@ export class OrgDetailsResult extends Organization {
       aliases: t.array(t.string),
       twitter: t.union([t.string, t.null]),
       docs: t.union([t.string, t.null]),
-      projects: t.array(ProjectWithRelations.ProjectWithRelationsType),
+      projects: t.array(OrgProject.OrgProjectType),
       fundingRounds: t.array(FundingRound.FundingRoundType),
       investors: t.array(Investor.InvestorType),
       community: t.array(t.string),

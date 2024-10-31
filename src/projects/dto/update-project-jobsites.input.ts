@@ -1,5 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsArray, IsNotEmpty, IsString, IsUUID } from "class-validator";
+import { CreateProjectJobsiteInput } from "./create-project-jobsites.input";
 
 export class UpdateProjectJobsitesInput {
   @ApiProperty()
@@ -11,9 +12,5 @@ export class UpdateProjectJobsitesInput {
   @ApiProperty()
   @IsNotEmpty()
   @IsArray()
-  jobsites: {
-    id: string;
-    url: string;
-    type: string;
-  }[];
+  jobsites: CreateProjectJobsiteInput[];
 }
