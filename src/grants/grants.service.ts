@@ -84,9 +84,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
       const res = await axios.get(
         "https://raw.githubusercontent.com/opensource-observer/oss-funding/main/data/funding_data.json",
       );
-      return (
-        (JSON.parse(res.data as unknown as string) as DaoipFundingData[]) ?? []
-      );
+      return (res.data as unknown as DaoipFundingData[]) ?? [];
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
