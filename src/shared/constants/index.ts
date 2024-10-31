@@ -1,3 +1,5 @@
+import { SessionObject } from "../interfaces";
+
 export * from "./check-wallet-result";
 export * from "./cache-control";
 export * from "./headers";
@@ -36,3 +38,9 @@ export const NON_PUBLIC_API_ROUTES = [
   "/projects/link-repos",
   "/projects/unlink-repos",
 ];
+
+export const EMPTY_SESSION_OBJECT: SessionObject = {
+  address: null,
+  cryptoNative: false,
+  permissions: [],
+};

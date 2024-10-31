@@ -47,11 +47,16 @@ import {
   Jobsite,
   TinyOrg,
   data,
+  SessionObject,
 } from "src/shared/types";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
 import { OrganizationsService } from "./organizations.service";
-import { CheckWalletPermissions, COMMUNITY_HEADER } from "src/shared/constants";
+import {
+  CheckWalletPermissions,
+  COMMUNITY_HEADER,
+  EMPTY_SESSION_OBJECT,
+} from "src/shared/constants";
 import { NFTStorage, File } from "nft.storage";
 import { ConfigService } from "@nestjs/config";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -70,6 +75,7 @@ import { UpdateOrgProjectInput } from "./dto/update-organization-projects.input"
 import { AddOrganizationByUrlInput } from "./dto/add-organization-by-url.input";
 import { CreateOrgJobsiteInput } from "./dto/create-organization-jobsites.input";
 import { randomUUID } from "crypto";
+import { Session } from "src/shared/decorators";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -476,9 +482,12 @@ export class OrganizationsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async createOrganization(
+    @Session() { address }: SessionObject,
     @Body() body: CreateOrganizationInput,
   ): Promise<Response<Organization> | ResponseWithNoData> {
-    this.logger.log(`/organizations/create ${JSON.stringify(body)}`);
+    this.logger.log(
+      `POST /organizations/create ${JSON.stringify(body)} from ${address}`,
+    );
     let organization = await this.organizationsService.find(body.name);
 
     if (organization)
@@ -517,9 +526,12 @@ export class OrganizationsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async addOrganizationByUrl(
+    @Session() { address }: SessionObject,
     @Body() body: AddOrganizationByUrlInput,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/organizations/add-by-url ${JSON.stringify(body)}`);
+    this.logger.log(
+      `POST /organizations/add-by-url ${JSON.stringify(body)} from ${address}`,
+    );
     return this.organizationsService.addOrganizationByUrl(body);
   }
 
@@ -538,10 +550,15 @@ export class OrganizationsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async updateOrganization(
+    @Session() { address }: SessionObject,
     @Param("id") id: string,
     @Body() body: UpdateOrganizationInput,
   ): Promise<ResponseWithOptionalData<Organization>> {
-    this.logger.log(`/organizations/update/${id} ${JSON.stringify(body)}`);
+    this.logger.log(
+      `POST /organizations/update/${id} ${JSON.stringify(
+        body,
+      )} from ${address}`,
+    );
 
     try {
       const org = await this.organizationsService.findByOrgId(id);
@@ -568,19 +585,25 @@ export class OrganizationsController {
         ...dto
       } = body;
 
-      const res1 = await this.updateOrgAliases({
-        orgId: id,
-        aliases: aliases ?? [],
-      });
+      const res1 = await this.updateOrgAliases(
+        { ...EMPTY_SESSION_OBJECT, address },
+        {
+          orgId: id,
+          aliases: aliases ?? [],
+        },
+      );
 
       if (!res1.success) {
         return res1;
       }
 
-      const res2 = await this.updateOrgCommunities({
-        orgId: id,
-        communities: communities ?? [],
-      });
+      const res2 = await this.updateOrgCommunities(
+        { ...EMPTY_SESSION_OBJECT, address },
+        {
+          orgId: id,
+          communities: communities ?? [],
+        },
+      );
 
       if (!res2.success) {
         return res2;
@@ -730,9 +753,10 @@ export class OrganizationsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async deleteOrganization(
+    @Session() { address }: SessionObject,
     @Param("id") id: string,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/organizations/delete/${id}`);
+    this.logger.log(`DELETE /organizations/delete/${id} from ${address}`);
     return this.organizationsService.delete(id);
   }
 
@@ -751,9 +775,12 @@ export class OrganizationsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async updateOrgAliases(
+    @Session() { address }: SessionObject,
     @Body() body: UpdateOrgAliasesInput,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/organizations/add-alias ${JSON.stringify(body)}`);
+    this.logger.log(
+      `POST /organizations/add-alias ${JSON.stringify(body)} from ${address}`,
+    );
     return this.organizationsService.updateOrgAliases(body);
   }
 
@@ -769,9 +796,12 @@ export class OrganizationsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async addProjectToOrg(
+    @Session() { address }: SessionObject,
     @Body() body: UpdateOrgProjectInput,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/organizations/add-project ${JSON.stringify(body)}`);
+    this.logger.log(
+      `POST /organizations/add-project ${JSON.stringify(body)} from ${address}`,
+    );
     return this.organizationsService.addProjectToOrg(body);
   }
 
@@ -787,9 +817,14 @@ export class OrganizationsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async removeProjectFromOrg(
+    @Session() { address }: SessionObject,
     @Body() body: UpdateOrgProjectInput,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/organizations/remove-project ${JSON.stringify(body)}`);
+    this.logger.log(
+      `POST /organizations/remove-project ${JSON.stringify(
+        body,
+      )} from ${address}`,
+    );
     return this.organizationsService.removeProjectFromOrg(body);
   }
 
@@ -805,9 +840,12 @@ export class OrganizationsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async transformOrgToProject(
+    @Session() { address }: SessionObject,
     @Param("id") id: string,
   ): Promise<ResponseWithOptionalData<Omit<Organization, "orgId">>> {
-    this.logger.log(`/organizations/transform-to-project ${id}`);
+    this.logger.log(
+      `POST /organizations/transform-to-project ${id} from ${address}`,
+    );
     return this.organizationsService.transformOrgToProject(id);
   }
 
@@ -826,9 +864,12 @@ export class OrganizationsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async updateOrgCommunities(
+    @Session() { address }: SessionObject,
     @Body() body: UpdateOrgCommunitiesInput,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/organizations/communities ${JSON.stringify(body)}`);
+    this.logger.log(
+      `POST /organizations/communities ${JSON.stringify(body)} from ${address}`,
+    );
     return this.organizationsService.updateOrgCommunities(body);
   }
 
@@ -847,9 +888,14 @@ export class OrganizationsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async activateOrgJobsites(
+    @Session() { address }: SessionObject,
     @Body() body: ActivateOrgJobsiteInput,
   ): Promise<ResponseWithOptionalData<Jobsite[]>> {
-    this.logger.log(`/organizations/jobsites/activate ${JSON.stringify(body)}`);
+    this.logger.log(
+      `POST /organizations/jobsites/activate ${JSON.stringify(
+        body,
+      )} from ${address}`,
+    );
     return this.organizationsService.activateOrgJobsites(body);
   }
 
@@ -868,11 +914,18 @@ export class OrganizationsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async createOrgJobsite(
+    @Session() { address }: SessionObject,
     @Body() body: CreateOrgJobsiteInput,
   ): Promise<ResponseWithOptionalData<Jobsite>> {
-    this.logger.log(`/organizations/jobsites/create ${JSON.stringify(body)}`);
+    this.logger.log(
+      `POST /organizations/jobsites/create ${JSON.stringify(
+        body,
+      )} from ${address}`,
+    );
     const { orgId, ...jobsite } = body;
-    const org = data(await this.getOrgDetails(orgId));
+    const org = data(
+      await this.getOrgDetails({ ...EMPTY_SESSION_OBJECT, address }, orgId),
+    );
     if (org) {
       const id = randomUUID();
       const result = await this.organizationsService.updateOrgDetectedJobsites({
@@ -949,9 +1002,10 @@ export class OrganizationsController {
     description: "Returns the details of the org with the provided id",
   })
   async getOrgDetails(
+    @Session() { address }: SessionObject,
     @Param("id") id: string,
   ): Promise<ResponseWithOptionalData<OrganizationWithLinks>> {
-    this.logger.log(`/organizations/${id}`);
+    this.logger.log(`GET /organizations/${id} from ${address}`);
     const result = await this.organizationsService.getOrgById(id);
 
     if (result === undefined) {

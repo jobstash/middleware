@@ -38,13 +38,17 @@ import { Response as ExpressResponse } from "express";
 import { File, NFTStorage } from "nft.storage";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { OrganizationsService } from "src/organizations/organizations.service";
-import { CheckWalletPermissions, COMMUNITY_HEADER } from "src/shared/constants";
+import {
+  CheckWalletPermissions,
+  COMMUNITY_HEADER,
+  EMPTY_SESSION_OBJECT,
+} from "src/shared/constants";
 import {
   CACHE_CONTROL_HEADER,
   CACHE_DURATION,
   CACHE_EXPIRY,
 } from "src/shared/constants/cache-control";
-import { Permissions } from "src/shared/decorators";
+import { Permissions, Session } from "src/shared/decorators";
 import { nonZeroOrNull, responseSchemaWrapper } from "src/shared/helpers";
 import { ProjectProps } from "src/shared/models";
 import {
@@ -67,6 +71,7 @@ import {
   Response,
   ResponseWithNoData,
   ResponseWithOptionalData,
+  SessionObject,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { CreateProjectMetricsInput } from "./dto/create-project-metrics.input";
@@ -114,7 +119,9 @@ export class ProjectsController {
     description: "Returns a list of all projects",
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Project) }),
   })
-  async getProjects(): Promise<
+  async getProjects(
+    @Session() { address }: SessionObject,
+  ): Promise<
     ResponseWithOptionalData<
       Omit<
         ProjectWithRelations,
@@ -129,7 +136,7 @@ export class ProjectsController {
       >[]
     >
   > {
-    this.logger.log(`/projects`);
+    this.logger.log(`GET /projects from ${address}`);
     return this.projectsService
       .getProjects()
       .then(res => ({
@@ -466,6 +473,7 @@ export class ProjectsController {
     },
   })
   async getAllProjects(
+    @Session() { address }: SessionObject,
     @Query("page") page: number,
     @Query("limit") limit: number,
   ): Promise<
@@ -474,7 +482,7 @@ export class ProjectsController {
       >
     | ResponseWithNoData
   > {
-    this.logger.log(`/projects/all`);
+    this.logger.log(`GET /projects/all from ${address}`);
     return this.projectsService
       .getAllProjects(page ?? 1, limit ?? 10)
       .catch(err => {
@@ -506,9 +514,10 @@ export class ProjectsController {
     }),
   })
   async getProjectsByOrgId(
+    @Session() { address }: SessionObject,
     @Param("id") id: string,
   ): Promise<ResponseWithOptionalData<Project[]>> {
-    this.logger.log(`/projects/all/${id}`);
+    this.logger.log(`GET /projects/all/${id} from ${address}`);
     return this.projectsService
       .getProjectsByOrgId(id)
       .then(res => ({
@@ -545,9 +554,10 @@ export class ProjectsController {
     }),
   })
   async searchProjects(
+    @Session() { address }: SessionObject,
     @Query("query") query: string,
   ): Promise<ResponseWithOptionalData<ProjectProps[]>> {
-    this.logger.log(`/projects/search?query=${query}`);
+    this.logger.log(`GET /projects/search?query=${query} from ${address}`);
     return this.projectsService
       .searchProjects(query)
       .then(res => ({
@@ -582,9 +592,10 @@ export class ProjectsController {
       "Returns the details of the project retrieved from the passed defillama url",
   })
   async getProjectDetailsFromDefillama(
+    @Session() { address }: SessionObject,
     @Query("url") url: string,
   ): Promise<ResponseWithOptionalData<DefiLlamaProjectPrefill>> {
-    this.logger.log(`/prefiller?url=${url}`);
+    this.logger.log(`GET /prefiller?url=${url} from ${address}`);
 
     try {
       const uri = new URL(url);
@@ -769,9 +780,12 @@ export class ProjectsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async createProject(
+    @Session() { address }: SessionObject,
     @Body() body: CreateProjectInput,
   ): Promise<Response<Project> | ResponseWithNoData> {
-    this.logger.log(`/projects/create ${JSON.stringify(body)}`);
+    this.logger.log(
+      `POST /projects/create ${JSON.stringify(body)} from ${address}`,
+    );
     const existingProject = await this.projectsService.find(body.name);
 
     if (existingProject) {
@@ -886,10 +900,14 @@ export class ProjectsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async updateProject(
+    @Session() { address }: SessionObject,
     @Param("id") id: string,
-    @Body() { jobsites, detectedJobsites, ...body }: UpdateProjectInput,
+    @Body() dto: UpdateProjectInput,
   ): Promise<Response<ProjectMoreInfo> | ResponseWithNoData> {
-    this.logger.log(`/projects/update ${JSON.stringify(body)}`);
+    this.logger.log(
+      `POST /projects/update ${JSON.stringify(dto)} from ${address}`,
+    );
+    const { jobsites, detectedJobsites, ...body } = dto;
     const res1 = await this.projectsService.updateProjectDetectedJobsites({
       id: id,
       detectedJobsites: detectedJobsites ?? [],
@@ -947,9 +965,14 @@ export class ProjectsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async activateProjectJobsites(
+    @Session() { address }: SessionObject,
     @Body() body: ActivateProjectJobsiteInput,
   ): Promise<ResponseWithOptionalData<Jobsite[]>> {
-    this.logger.log(`/projects/jobsites/activate ${JSON.stringify(body)}`);
+    this.logger.log(
+      `POST /projects/jobsites/activate ${JSON.stringify(
+        body,
+      )} from ${address}`,
+    );
     return this.projectsService.activateProjectJobsites(body);
   }
 
@@ -971,11 +994,16 @@ export class ProjectsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async createProjectJobsite(
+    @Session() { address }: SessionObject,
     @Body() body: CreateProjectJobsiteInput,
   ): Promise<ResponseWithOptionalData<Jobsite>> {
-    this.logger.log(`/projects/jobsites/create ${JSON.stringify(body)}`);
+    this.logger.log(
+      `POST /projects/jobsites/create ${JSON.stringify(body)} from ${address}`,
+    );
     const { id, ...jobsite } = body;
-    const project = data(await this.getProjectDetails(id));
+    const project = data(
+      await this.getProjectDetails({ ...EMPTY_SESSION_OBJECT, address }, id),
+    );
     if (project) {
       const id = randomUUID();
       const result = await this.projectsService.updateProjectDetectedJobsites({
@@ -1022,14 +1050,20 @@ export class ProjectsController {
       $ref: getSchemaPath(ResponseWithNoData),
     },
   })
-  async deleteProject(@Param("id") id: string): Promise<ResponseWithNoData> {
-    this.logger.log(`/projects/delete/${id}`);
+  async deleteProject(
+    @Session() { address }: SessionObject,
+    @Param("id") id: string,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`DELETE /projects/delete/${id} from ${address}`);
     return this.projectsService.delete(id);
   }
 
   @Post("/metrics/update/:id")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description: "Updates an existing projects metrics",
     schema: responseSchemaWrapper({
@@ -1042,10 +1076,15 @@ export class ProjectsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async updateProjectMetrics(
+    @Session() { address }: SessionObject,
     @Param("id") id: string,
     @Body() body: CreateProjectMetricsInput,
   ): Promise<Response<ProjectMoreInfo> | ResponseWithNoData> {
-    this.logger.log(`/projects/metrics/update ${JSON.stringify(body)}`);
+    this.logger.log(
+      `POST /projects/metrics/update/${id} ${JSON.stringify(
+        body,
+      )} from ${address}`,
+    );
     const result = await this.projectsService.updateMetrics(id, body);
     if (result !== undefined) {
       return {
@@ -1063,7 +1102,10 @@ export class ProjectsController {
 
   @Delete("/metrics/delete/:id")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description: "Deletes an existing projects metrics",
     schema: {
@@ -1071,15 +1113,19 @@ export class ProjectsController {
     },
   })
   async deleteProjectMetrics(
+    @Session() { address }: SessionObject,
     @Param("id") id: string,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/projects/metrics/delete/${id}`);
+    this.logger.log(`DELETE /projects/metrics/delete/${id} from ${address}`);
     return this.projectsService.deleteMetrics(id);
   }
 
   @Post("/link-jobs")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description: "Adds a list of jobs to a project",
     schema: {
@@ -1087,15 +1133,21 @@ export class ProjectsController {
     },
   })
   async linkJobsToProject(
+    @Session() { address }: SessionObject,
     @Body() body: LinkJobsToProjectInput,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/projects/link-jobs`);
+    this.logger.log(
+      `POST /projects/link-jobs ${JSON.stringify(body)} from ${address}`,
+    );
     return this.projectsService.linkJobsToProject(body);
   }
 
   @Post("/link-repos")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description: "Adds a list of repos to a project",
     schema: {
@@ -1103,15 +1155,21 @@ export class ProjectsController {
     },
   })
   async linkReposToProject(
+    @Session() { address }: SessionObject,
     @Body() body: LinkReposToProjectInput,
   ): Promise<Response<ProjectProps> | ResponseWithNoData> {
-    this.logger.log(`/projects/link-repos`);
+    this.logger.log(
+      `POST /projects/link-repos ${JSON.stringify(body)} from ${address}`,
+    );
     return this.projectsService.linkReposToProject(body);
   }
 
   @Post("/unlink-jobs")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description: "Removes a list of jobs from a project",
     schema: {
@@ -1119,15 +1177,21 @@ export class ProjectsController {
     },
   })
   async unlinkJobsFromProject(
+    @Session() { address }: SessionObject,
     @Body() body: LinkJobsToProjectInput,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/projects/unlink-jobs`);
+    this.logger.log(
+      `POST /projects/unlink-jobs ${JSON.stringify(body)} from ${address}`,
+    );
     return this.projectsService.unlinkJobsFromProject(body);
   }
 
   @Post("/unlink-repos")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
   @ApiOkResponse({
     description: "Removes a list of repos from a project",
     schema: {
@@ -1135,9 +1199,12 @@ export class ProjectsController {
     },
   })
   async unlinkReposFromProject(
+    @Session() { address }: SessionObject,
     @Body() body: LinkReposToProjectInput,
   ): Promise<Response<ProjectProps> | ResponseWithNoData> {
-    this.logger.log(`/projects/unlink-repos`);
+    this.logger.log(
+      `POST /projects/unlink-repos ${JSON.stringify(body)} from ${address}`,
+    );
     return this.projectsService.unlinkReposFromProject(body);
   }
 
@@ -1151,6 +1218,7 @@ export class ProjectsController {
     description: "Returns the details of the project with the provided id",
   })
   async getProjectDetails(
+    @Session() { address }: SessionObject,
     @Param("id") id: string,
   ): Promise<
     ResponseWithOptionalData<
@@ -1167,7 +1235,7 @@ export class ProjectsController {
       >
     >
   > {
-    this.logger.log(`/projects/${id}`);
+    this.logger.log(`GET /projects/${id} from ${address}`);
     const result = await this.projectsService.getProjectById(id);
 
     if (!result) {

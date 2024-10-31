@@ -12,7 +12,6 @@ import {
   ProjectWithRelations,
   data,
   DateRange,
-  SessionObject,
 } from "src/shared/types";
 import { Integer } from "neo4j-driver";
 import {
@@ -32,7 +31,7 @@ import { AuthService } from "src/auth/auth.service";
 import { JwtModule, JwtService } from "@nestjs/jwt";
 import { forwardRef } from "@nestjs/common";
 import { TagsService } from "src/tags/tags.service";
-import { REALLY_LONG_TIME } from "src/shared/constants";
+import { EMPTY_SESSION_OBJECT, REALLY_LONG_TIME } from "src/shared/constants";
 import { HttpModule, HttpService } from "@nestjs/axios";
 import * as https from "https";
 import { OrganizationsService } from "src/organizations/organizations.service";
@@ -53,11 +52,6 @@ describe("JobsController", () => {
   let httpService: HttpService;
 
   const logger = new CustomLogger(`${JobsController.name}TestSuite`);
-  const EMPTY_SESSION_OBJECT: SessionObject = {
-    address: null,
-    cryptoNative: false,
-    permissions: [],
-  };
 
   const projectHasArrayPropsDuplication = (
     project: ProjectWithRelations,
