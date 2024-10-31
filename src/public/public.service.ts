@@ -34,10 +34,13 @@ export class PublicService {
       AND structured_jobpost.access = "public"
       MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
       WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-      OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-      WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost
-      OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
-      WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost
+      WITH DISTINCT tag, structured_jobpost
+      OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+      OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+      WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
+      WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
+      WITH DISTINCT canonicalTag as tag, structured_jobpost
+      WITH COLLECT(tag { .* }) as tags, structured_jobpost
       RETURN structured_jobpost {
           id: structured_jobpost.id,
           url: structured_jobpost.url,
@@ -57,6 +60,9 @@ export class PublicService {
           maximumSalary: structured_jobpost.maximumSalary,
           salaryCurrency: structured_jobpost.salaryCurrency,
           responsibilities: structured_jobpost.responsibilities,
+          featured: structured_jobpost.featured,
+          featureStartDate: structured_jobpost.featureStartDate,
+          featureEndDate: structured_jobpost.featureEndDate,
           timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
@@ -74,7 +80,7 @@ export class PublicService {
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
-                  orgId: organization.orgId,
+                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
                   discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
                   website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
                   docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -90,6 +96,9 @@ export class PublicService {
                   ],
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  ecosystems: [
+                    (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ]
                 }
               ],
