@@ -15,5 +15,6 @@ import { AuthModule } from "src/auth/auth.module";
     OrganizationsService,
     ModelService,
   ],
+  exports: [ProjectsService],
 })
 export class ProjectsModule {}

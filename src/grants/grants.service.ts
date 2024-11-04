@@ -5,6 +5,7 @@ import { Client, createClient } from "./generated";
 import { GoogleBigQueryService } from "src/google-bigquery/google-bigquery.service";
 import {
   DaoipFundingData,
+  DaoipProject,
   Grantee,
   GranteeApplicationMetadata,
   GranteeDetails,
@@ -13,6 +14,7 @@ import {
   GrantProject,
   KarmaGapGrantProgram,
   PaginatedData,
+  RawDaoipProject,
   RawGrantProjectCodeMetrics,
   RawGrantProjectContractMetrics,
   RawGrantProjectOnchainMetrics,
@@ -26,12 +28,16 @@ import {
   sluggify,
   notStringOrNull,
   paginate,
+  uuidfy,
+  getGoogleLogoUrl,
 } from "src/shared/helpers";
 import { Alchemy, Network } from "alchemy-sdk";
 import { Neo4jVectorStore } from "@langchain/community/vectorstores/neo4j_vector";
 import { OpenAIEmbeddings } from "@langchain/openai";
 import axios from "axios";
 import { KARMAGAP_PROGRAM_MAPPINGS } from "src/shared/constants/daoip-karmagap-program-mappings";
+import { ProjectsService } from "src/projects/projects.service";
+import { randomUUID } from "crypto";
 
 @Injectable()
 export class GrantsService implements OnModuleInit, OnModuleDestroy {
@@ -44,6 +50,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
     @InjectConnection()
     private readonly neogma: Neogma,
     private readonly configService: ConfigService,
+    private readonly projectsService: ProjectsService,
     private readonly googleBigQueryService: GoogleBigQueryService,
   ) {
     this.client = createClient({
@@ -98,9 +105,8 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
     }
   };
 
-  getDaoipFundingDataBySlug = async (
+  getDaoipFundingDataByProgramId = async (
     programId: string,
-    granteeProjectSlug: string,
   ): Promise<DaoipFundingData[]> => {
     const fundingDataParams = KARMAGAP_PROGRAM_MAPPINGS[programId];
 
@@ -110,10 +116,68 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
         x.from_funder_name === fundingDataParams?.from_funder_name &&
         x.grant_pool_name === fundingDataParams?.grant_pool_name,
     );
+    return daiopFundingData;
+  };
+
+  getDaoipFundingDataBySlug = async (
+    programId: string,
+    granteeProjectSlug: string,
+  ): Promise<DaoipFundingData[]> => {
+    const daiopFundingData = await this.getDaoipFundingDataByProgramId(
+      programId,
+    );
 
     return daiopFundingData.filter(
       x => x.to_project_name === granteeProjectSlug,
     );
+  };
+
+  getDaoipProjectBySlug = async (
+    slug: string,
+  ): Promise<DaoipProject | null> => {
+    try {
+      const result = await axios.get(
+        `https://raw.githubusercontent.com/opensource-observer/oss-directory/refs/heads/main/data/projects/${slug.charAt(
+          0,
+        )}/${slug}.yaml`,
+      );
+      if (result.status === 200) {
+        const yaml = await import("js-yaml");
+        const yamlData = yaml.load(result.data) as RawDaoipProject;
+        const project = {
+          id: randomUUID(),
+          name: yamlData.name,
+          slug,
+          description: yamlData.description ?? null,
+          website: yamlData.websites?.[0]?.url ?? null,
+          twitter: yamlData.social?.twitter?.[0]?.url ?? null,
+          github: yamlData.github?.[0]?.url ?? null,
+        };
+
+        if (project.website) {
+          await this.projectsService.addProjectByUrl({
+            url: project.website,
+            name: project.name,
+          });
+          return project;
+        } else {
+          return project;
+        }
+      } else {
+        this.logger.warn(`Could not find project ${slug} on daoip`);
+        return null;
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "grants.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`GrantsService::getDaoipProjectBySlug ${err.message}`);
+      return null;
+    }
   };
 
   query = async (
@@ -351,11 +415,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
     }
   };
 
-  getGranteesBySlug = async (
-    slug: string,
-    page: number,
-    limit: number,
-  ): Promise<PaginatedData<Grantee>> => {
+  getGranteesBySlug = async (slug: string): Promise<Grantee[]> => {
     try {
       const result = await this.neogma.queryRunner.run(
         `
@@ -405,7 +465,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
           },
         });
 
-        const grantees =
+        const gitcoinGrantees =
           program.programId === "451"
             ? result.rounds.find(
                 x =>
@@ -416,44 +476,66 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
                 x => (x.roundMetadata as GrantMetadata)?.name === program.name,
               )?.applications ?? [];
 
-        return paginate<Grantee>(
-          page,
-          limit,
-          await Promise.all(
-            grantees.map(async grantee => {
-              const apiKey = this.configService.get<string>("ALCHEMY_API_KEY");
+        const gitcoinGranteesFinal = await Promise.all(
+          gitcoinGrantees.map(async grantee => {
+            const apiKey = this.configService.get<string>("ALCHEMY_API_KEY");
 
-              const alchemy = new Alchemy({
-                apiKey,
-                network: Network.ARB_MAINNET,
-              });
+            const alchemy = new Alchemy({
+              apiKey,
+              network: Network.ARB_MAINNET,
+            });
 
-              const transaction = grantee.distributionTransaction
-                ? await alchemy.core.getTransaction(
-                    grantee.distributionTransaction,
-                  )
-                : {
-                    timestamp: 0,
-                  };
+            const transaction = grantee.distributionTransaction
+              ? await alchemy.core.getTransaction(
+                  grantee.distributionTransaction,
+                )
+              : {
+                  timestamp: 0,
+                };
 
-              const logoIpfs = notStringOrNull(
-                (grantee.metadata as GranteeApplicationMetadata)?.application
-                  .project.logoImg,
-              );
+            const logoIpfs = notStringOrNull(
+              (grantee.metadata as GranteeApplicationMetadata)?.application
+                .project.logoImg,
+            );
 
-              return new Grantee({
-                id: grantee.id,
-                name: grantee.project.name,
-                slug: sluggify(grantee.project.name),
-                logoUrl: logoIpfs ? `https://${logoIpfs}.ipfs.dweb.link` : null,
-                lastFundingDate: nonZeroOrNull(transaction.timestamp),
-                lastFundingAmount: grantee.totalAmountDonatedInUsd,
-              });
-            }),
-          ),
+            return new Grantee({
+              id: grantee.id,
+              name: grantee.project.name,
+              slug: sluggify(grantee.project.name),
+              logoUrl: logoIpfs ? `https://${logoIpfs}.ipfs.dweb.link` : null,
+              lastFundingDate: nonZeroOrNull(transaction.timestamp),
+              lastFundingAmount: `${grantee.totalAmountDonatedInUsd} USD`,
+            });
+          }),
         );
+
+        const daoipGrantees = await this.getDaoipFundingDataByProgramId(
+          program.programId,
+        );
+
+        const daoipGranteesFinal = await Promise.all(
+          daoipGrantees.map(async x => {
+            const project = await this.getDaoipProjectBySlug(
+              x.to_project_name ?? sluggify(x.metadata.application_name),
+            );
+            return new Grantee({
+              id: randomUUID(),
+              name: x.metadata.application_name,
+              slug: x.to_project_name ?? sluggify(x.metadata.application_name),
+              logoUrl: project?.website
+                ? getGoogleLogoUrl(project.website)
+                : null,
+              lastFundingDate: nonZeroOrNull(
+                new Date(x.funding_date).getTime(),
+              ),
+              lastFundingAmount: `${x.amount} ${x.metadata.token_unit}`,
+            });
+          }),
+        );
+
+        return [...gitcoinGranteesFinal, ...daoipGranteesFinal];
       } else {
-        return paginate<Grantee>(page, limit, []);
+        return [];
       }
     } catch (err) {
       Sentry.withScope(scope => {
@@ -464,7 +546,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
         Sentry.captureException(err);
       });
       this.logger.error(`GrantsService::getGranteesByProgramId ${err.message}`);
-      return paginate<Grantee>(page, limit, []);
+      return [];
     }
   };
 
@@ -523,7 +605,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
 
         const program = programs[0];
 
-        const project = (
+        const gitcoinDetails = (
           program.programId === "451"
             ? result.rounds.find(
                 x =>
@@ -536,6 +618,11 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
         ).find(x => {
           return sluggify(x.project.name) === granteeSlug;
         });
+
+        const daoipDetails = await this.getDaoipFundingDataBySlug(
+          program.programId,
+          granteeSlug,
+        );
 
         const [codeMetrics, onChainMetrics, contractMetrics] =
           await Promise.all([
@@ -561,11 +648,6 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
         const projectContractMetrics = (contractMetrics.find(
           m => m.project_name === granteeSlug,
         ) ?? {}) as RawGrantProjectContractMetrics;
-
-        const projectDaoipFundingData = await this.getDaoipFundingDataBySlug(
-          program.programId,
-          granteeSlug,
-        );
 
         const projectMetricsConverter = (
           codeMetrics: RawGrantProjectCodeMetrics,
@@ -871,11 +953,11 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
                   })),
                 }
               : null,
-            projectDaoipFundingData.length > 0
+            daoipDetails.length > 0
               ? {
                   label: "DAOIP Funding Data",
                   tab: "daoip-funding-data",
-                  stats: projectDaoipFundingData.flatMap(x => [
+                  stats: daoipDetails.flatMap(x => [
                     {
                       label: "Funding Amount",
                       value: `${x.amount} ${x.metadata.token_unit}`,
@@ -897,78 +979,126 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
           ].filter(Boolean);
         };
 
-        const grantees = (
-          program.programId === "451"
-            ? result.rounds.find(
-                x =>
-                  (x.roundMetadata as GrantMetadata)?.name ===
-                  "GG21: Thriving Arbitrum Summer",
-              )?.applications ?? []
-            : result.rounds.find(
-                x => (x.roundMetadata as GrantMetadata)?.name === program.name,
-              )?.applications ?? []
-        ).map(async grantee => {
-          const apiKey = this.configService.get<string>("ALCHEMY_API_KEY");
+        let granteeDetails: GranteeDetails | null = null;
 
-          const alchemy = new Alchemy({
-            apiKey,
-            network: Network.ARB_MAINNET,
-          });
+        if (gitcoinDetails) {
+          const gitcoinGrantees = (
+            program.programId === "451"
+              ? result.rounds.find(
+                  x =>
+                    (x.roundMetadata as GrantMetadata)?.name ===
+                    "GG21: Thriving Arbitrum Summer",
+                )?.applications ?? []
+              : result.rounds.find(
+                  x =>
+                    (x.roundMetadata as GrantMetadata)?.name === program.name,
+                )?.applications ?? []
+          ).map(async grantee => {
+            const apiKey = this.configService.get<string>("ALCHEMY_API_KEY");
 
-          const transaction = grantee.distributionTransaction
-            ? await alchemy.core.getTransaction(grantee.distributionTransaction)
-            : {
-                timestamp: 0,
-              };
+            const alchemy = new Alchemy({
+              apiKey,
+              network: Network.ARB_MAINNET,
+            });
 
-          const logoIpfs = notStringOrNull(
-            (grantee?.metadata as GranteeApplicationMetadata)?.application
-              .project.logoImg,
-          );
-          return new GranteeDetails({
-            id: grantee.id,
-            tags: grantee.tags,
-            status: grantee.status,
-            name: grantee.project.name,
-            slug: sluggify(grantee.project.name),
-            description: (grantee?.metadata as GranteeApplicationMetadata)
-              ?.application?.project?.description,
-            website: notStringOrNull(
+            const transaction = grantee.distributionTransaction
+              ? await alchemy.core.getTransaction(
+                  grantee.distributionTransaction,
+                )
+              : {
+                  timestamp: 0,
+                };
+
+            const logoIpfs = notStringOrNull(
               (grantee?.metadata as GranteeApplicationMetadata)?.application
-                ?.project?.website,
-            ),
-            logoUrl: logoIpfs ? `https://${logoIpfs}.ipfs.dweb.link` : null,
-            lastFundingDate: nonZeroOrNull(transaction.timestamp),
-            lastFundingAmount: grantee.totalAmountDonatedInUsd,
-            projects: [
-              {
-                id: (project?.metadata as GranteeApplicationMetadata)
-                  ?.application?.project?.id,
-                name: `GG21: Thriving Arbitrum Summer - ${
-                  project?.project?.name ?? granteeSlug
-                }`,
-                tags: project?.project?.tags ?? [],
-                tabs: projectCodeMetrics
-                  ? projectMetricsConverter(
-                      projectCodeMetrics,
-                      projectOnchainMetrics,
-                      projectContractMetrics,
-                    )
-                  : [],
-              },
-            ],
+                .project.logoImg,
+            );
+            return new GranteeDetails({
+              id: grantee.id,
+              tags: grantee.tags,
+              status: grantee.status,
+              name: grantee.project.name,
+              slug: sluggify(grantee.project.name),
+              description: (grantee?.metadata as GranteeApplicationMetadata)
+                ?.application?.project?.description,
+              website: notStringOrNull(
+                (grantee?.metadata as GranteeApplicationMetadata)?.application
+                  ?.project?.website,
+              ),
+              logoUrl: logoIpfs ? `https://${logoIpfs}.ipfs.dweb.link` : null,
+              lastFundingDate: nonZeroOrNull(transaction.timestamp),
+              lastFundingAmount: `${grantee.totalAmountDonatedInUsd} USD`,
+              projects: [
+                gitcoinDetails
+                  ? {
+                      id: (
+                        gitcoinDetails?.metadata as GranteeApplicationMetadata
+                      )?.application?.project?.id,
+                      name: `GG21: Thriving Arbitrum Summer - ${
+                        gitcoinDetails?.project?.name ?? granteeSlug
+                      }`,
+                      tags: gitcoinDetails?.project?.tags ?? [],
+                      tabs: projectCodeMetrics
+                        ? projectMetricsConverter(
+                            projectCodeMetrics,
+                            projectOnchainMetrics,
+                            projectContractMetrics,
+                          )
+                        : [],
+                    }
+                  : null,
+              ].filter(Boolean),
+            });
           });
-        });
+          granteeDetails = (await Promise.all(gitcoinGrantees)).find(
+            x => x.slug === granteeSlug,
+          );
+        } else {
+          const project = await this.getDaoipProjectBySlug(granteeSlug);
+          if (project) {
+            const details = daoipDetails.find(
+              x =>
+                x.to_project_name === granteeSlug ||
+                sluggify(x.metadata.application_name) === granteeSlug,
+            );
+            granteeDetails = new GranteeDetails({
+              id: uuidfy(granteeSlug),
+              tags: [],
+              status: "APPROVED",
+              name: project?.name,
+              slug: granteeSlug,
+              description: project?.description ?? null,
+              website: project?.website ?? null,
+              logoUrl: project?.website
+                ? getGoogleLogoUrl(project.website)
+                : null,
+              lastFundingDate: details?.funding_date
+                ? nonZeroOrNull(new Date(details?.funding_date).getTime())
+                : null,
+              lastFundingAmount: `${details?.amount} ${details?.metadata.token_unit}`,
+              projects: [
+                {
+                  id: uuidfy(granteeSlug),
+                  name: project?.name ?? granteeSlug,
+                  tags: [],
+                  tabs: projectCodeMetrics
+                    ? projectMetricsConverter(
+                        projectCodeMetrics,
+                        projectOnchainMetrics,
+                        projectContractMetrics,
+                      )
+                    : [],
+                },
+              ],
+            });
+          }
+        }
 
-        const grantee = (await Promise.all(grantees)).find(
-          x => x.slug === granteeSlug,
-        );
-
-        if (grantee) {
+        if (granteeDetails) {
           return {
             success: true,
             message: "Grantee retrieved successfully",
-            data: grantee,
+            data: granteeDetails,
           };
         } else {
           return {

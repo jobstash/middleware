@@ -347,7 +347,7 @@ export class Grantee {
     slug: t.string,
     logoUrl: t.union([t.string, t.null]),
     lastFundingDate: t.union([t.number, t.null]),
-    lastFundingAmount: t.number,
+    lastFundingAmount: t.string,
   });
 
   @ApiProperty()
@@ -366,7 +366,7 @@ export class Grantee {
   lastFundingDate: number | null;
 
   @ApiProperty()
-  lastFundingAmount: number;
+  lastFundingAmount: string;
 
   constructor(raw: Grantee) {
     const { id, name, slug, logoUrl, lastFundingDate, lastFundingAmount } = raw;
@@ -668,4 +668,36 @@ export interface DaoipFundingDataMetadata {
   application_url: string;
   token_amount: number;
   token_unit: string;
+}
+
+export interface DaoipUrl {
+  url: string;
+}
+
+export interface DaoipSocial {
+  twitter: DaoipUrl[] | null;
+  farcaster: DaoipUrl[] | null;
+  telegram: DaoipUrl[] | null;
+  medium: DaoipUrl[] | null;
+  mirror: DaoipUrl[] | null;
+}
+
+export interface RawDaoipProject {
+  version: string;
+  name: string;
+  display_name: string;
+  description: string | null;
+  websites: DaoipUrl[] | null;
+  social: DaoipSocial | null;
+  github: DaoipUrl[] | null;
+}
+
+export interface DaoipProject {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  website: string | null;
+  twitter: string | null;
+  github: string | null;
 }

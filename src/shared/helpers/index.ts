@@ -34,6 +34,7 @@ import { Response } from "../interfaces/response.interface";
 import { PUBLIC_API_SCHEMAS } from "../presets/public-api-schemas";
 import { CustomLogger } from "../utils/custom-logger";
 import { emojiRegex } from "./emoji-regex";
+import Sqids from "sqids";
 
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
@@ -541,6 +542,13 @@ export const randomToken = (): string => {
   return generate;
 };
 
+export const uuidfy = (from: string, minLength = 64): string => {
+  const sqids = new Sqids({
+    minLength,
+  });
+  return sqids.encode(from.split("-").map(x => x.charCodeAt(0)));
+};
+
 export const obfuscate = (value: string | null): string | null => {
   if (value) {
     const lastFour = value.slice(-4);
@@ -600,4 +608,36 @@ export const toAbsoluteURL = (url: string, baseUrl?: string): string => {
       return new URL(url, baseUrl).href;
     }
   }
+};
+
+export const getWebsiteText = (
+  website: string | null,
+): { link: string; hostname: string } => {
+  if (!website) return { link: "", hostname: "" };
+
+  const isUrl = website.startsWith("http");
+  const url = new URL(isUrl ? website : `https://${website}`);
+
+  return {
+    link: url.toString(),
+    hostname: url.hostname,
+  };
+};
+
+const URL_PREFIX = "https://www.google.com/s2/favicons?domain=";
+const URL_SUFFIX = "&sz=64";
+
+export const getGoogleLogoUrl = (url: string | null): string =>
+  `${URL_PREFIX}${getWebsiteText(url).hostname}${URL_SUFFIX}`;
+
+export const getLogoUrlHttpsAlternative = (
+  googleString: string,
+  frontendUrl: string,
+): string => {
+  const url = new URL(
+    `${googleString.startsWith("http") ? "" : frontendUrl}${googleString}`,
+  );
+  const domain = url.searchParams.get("domain");
+
+  return `${URL_PREFIX}https://${domain}${URL_SUFFIX}`;
 };

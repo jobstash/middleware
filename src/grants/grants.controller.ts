@@ -5,7 +5,7 @@ import {
   ApiUnprocessableEntityResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
-import { responseSchemaWrapper } from "src/shared/helpers";
+import { paginate, responseSchemaWrapper } from "src/shared/helpers";
 import {
   Grant,
   Grantee,
@@ -100,7 +100,9 @@ export class GrantsController {
     this.logger.log(
       `/grants/${slug}/grantees ${JSON.stringify({ page, limit })}`,
     );
-    return this.grantsService.getGranteesBySlug(slug, page, limit);
+    return this.grantsService
+      .getGranteesBySlug(slug)
+      .then(x => paginate(page, limit, x));
   }
 
   @Get(":slug/grantees/:granteeSlug")
