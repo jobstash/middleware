@@ -6,6 +6,7 @@ import {
 import {
   generateOrgAggregateRating,
   generateOrgAggregateRatings,
+  getGoogleLogoUrl,
   nonZeroOrNull,
   notStringOrNull,
 } from "../helpers";
@@ -77,7 +78,11 @@ export class JobListResultEntity {
         hasUser: organization?.hasUser ?? false,
         atsClient: organization?.atsClient ?? null,
         docs: notStringOrNull(organization?.docs),
-        logoUrl: notStringOrNull(organization?.logoUrl),
+        logoUrl:
+          notStringOrNull(organization?.logoUrl) ??
+          (organization.website
+            ? getGoogleLogoUrl(organization.website)
+            : null),
         headcountEstimate: nonZeroOrNull(organization?.headcountEstimate),
         github: notStringOrNull(organization?.github),
         twitter: notStringOrNull(organization?.twitter),
