@@ -15,9 +15,11 @@ import * as https from "https";
 import { ProfileModule } from "src/auth/profile/profile.module";
 import { PaymentsModule } from "src/payments/payments.module";
 import { PrivyModule } from "src/auth/privy/privy.module";
+import { Auth0Module } from "src/auth0/auth0.module";
 
 @Module({
   imports: [
+    Auth0Module,
     forwardRef(() => UserModule),
     forwardRef(() => ProfileModule),
     forwardRef(() => PrivyModule),

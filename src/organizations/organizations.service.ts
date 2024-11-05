@@ -54,6 +54,7 @@ import { UpdateOrgProjectInput } from "./dto/update-organization-projects.input"
 import { AddOrganizationByUrlInput } from "./dto/add-organization-by-url.input";
 import { ConfigService } from "@nestjs/config";
 import axios from "axios";
+import { Auth0Service } from "src/auth0/auth0.service";
 
 @Injectable()
 export class OrganizationsService {
@@ -63,6 +64,7 @@ export class OrganizationsService {
     private neogma: Neogma,
     private models: ModelService,
     private configService: ConfigService,
+    private readonly auth0Service: Auth0Service,
   ) {}
 
   getOrgListResults = async (): Promise<OrgDetailsResult[]> => {
@@ -1104,46 +1106,28 @@ export class OrganizationsService {
     dto: AddOrganizationByUrlInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const clientId = this.configService.get<string>("ETL_CLIENT_ID");
-      const clientSecret = this.configService.get<string>("ETL_CLIENT_SECRET");
       const url = this.configService.get<string>("ETL_DOMAIN");
-
-      const auth0Domain = this.configService.get<string>("AUTH0_DOMAIN");
-      const audience = this.configService.get<string>("AUTH0_AUDIENCE");
-      const response = await axios.post(`${auth0Domain}/oauth/token`, {
-        client_id: clientId,
-        client_secret: clientSecret,
-        audience,
-        grant_type: "client_credentials",
-      });
-      if (response.data) {
-        const authToken = response.data.access_token;
-        const response2 = await axios.get(
-          `${url}/organization-importer/import-organization-by-url?url=${dto.url}&name=${dto.name}`,
-          {
-            headers: {
-              Authorization: `Bearer ${authToken}`,
-            },
+      const authToken = await this.auth0Service.getETLToken();
+      const response2 = await axios.get(
+        `${url}/organization-importer/import-organization-by-url?url=${dto.url}&name=${dto.name}`,
+        {
+          headers: {
+            Authorization: authToken ? `Bearer ${authToken}` : undefined,
           },
-        );
-        if ([200, 201, 202].includes(response2.status)) {
-          return {
-            success: true,
-            message: "Organization queued for import successfully",
-          };
-        } else {
-          this.logger.warn(
-            `Error queueing organization ${dto} for import: ${response2.data}`,
-          );
-          return {
-            success: false,
-            message: "Error adding organization",
-          };
-        }
+        },
+      );
+      if ([200, 201, 202].includes(response2.status)) {
+        return {
+          success: true,
+          message: "Organization queued for import successfully",
+        };
       } else {
+        this.logger.warn(
+          `Error queueing organization ${dto} for import: ${response2.data}`,
+        );
         return {
           success: false,
-          message: "Error fetching auth token",
+          message: "Error adding organization",
         };
       }
     } catch (err) {

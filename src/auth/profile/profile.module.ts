@@ -19,9 +19,11 @@ import { PrivyModule } from "../privy/privy.module";
 import { GithubModule } from "../github/github.module";
 import { UserModule } from "src/user/user.module";
 import { PaymentsModule } from "src/payments/payments.module";
+import { Auth0Module } from "src/auth0/auth0.module";
 
 @Module({
   imports: [
+    Auth0Module,
     forwardRef(() => AuthModule),
     forwardRef(() => UserModule),
     forwardRef(() => PrivyModule),

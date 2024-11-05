@@ -21,9 +21,11 @@ import * as https from "https";
 import { PaymentsModule } from "src/payments/payments.module";
 import { PermissionService } from "./permission.service";
 import { UserController } from "./user.controller";
+import { Auth0Module } from "src/auth0/auth0.module";
 
 @Module({
   imports: [
+    Auth0Module,
     forwardRef(() => GithubModule),
     forwardRef(() => PrivyModule),
     forwardRef(() => ProfileModule),
