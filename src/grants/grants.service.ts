@@ -6,6 +6,7 @@ import { GoogleBigQueryService } from "src/google-bigquery/google-bigquery.servi
 import {
   DaoipFundingData,
   DaoipProject,
+  data,
   Grantee,
   GranteeApplicationMetadata,
   GranteeDetails,
@@ -527,7 +528,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
                 ? getGoogleLogoUrl(project.website)
                 : null,
               lastFundingDate: nonZeroOrNull(
-                new Date(x.funding_date).getTime(),
+                new Date(x.funding_date).getTime() / 1000,
               ),
               lastFundingAmount: x.amount,
               lastFundingUnit: x.metadata.token_unit,
@@ -1059,6 +1060,20 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
         } else {
           const project = await this.getDaoipProjectBySlug(granteeSlug);
           if (project) {
+            let internalDescription = null;
+            if (project.website) {
+              const url = new URL(project.website);
+              const internalId = data(
+                await this.projectsService.findIdByWebsite(url.hostname),
+              );
+              if (internalId) {
+                const details = await this.projectsService.getProjectById(
+                  internalId,
+                );
+                internalDescription = details?.description;
+              }
+            }
+
             const details = daoipDetails.find(
               x =>
                 x.to_project_name === granteeSlug ||
@@ -1070,13 +1085,18 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
               status: "APPROVED",
               name: project?.name,
               slug: granteeSlug,
-              description: project?.description ?? null,
+              description:
+                internalDescription ??
+                project?.description ??
+                "Could not find a description for this project",
               website: project?.website ?? null,
               logoUrl: project?.website
                 ? getGoogleLogoUrl(project.website)
                 : null,
               lastFundingDate: details?.funding_date
-                ? nonZeroOrNull(new Date(details?.funding_date).getTime())
+                ? nonZeroOrNull(
+                    new Date(details?.funding_date).getTime() / 1000,
+                  )
                 : null,
               lastFundingAmount: details?.amount,
               lastFundingUnit: details?.metadata.token_unit,
