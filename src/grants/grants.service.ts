@@ -547,7 +547,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
         });
         Sentry.captureException(err);
       });
-      this.logger.error(`GrantsService::getGranteesByProgramId ${err.message}`);
+      this.logger.error(`GrantsService::getGranteesBySlug ${err.message}`);
       return [];
     }
   };

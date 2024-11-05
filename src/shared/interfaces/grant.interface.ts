@@ -347,7 +347,7 @@ export class Grantee {
     slug: t.string,
     logoUrl: t.union([t.string, t.null]),
     lastFundingDate: t.union([t.number, t.null]),
-    lastFundingAmount: t.string,
+    lastFundingAmount: t.number,
   });
 
   @ApiProperty()
