@@ -295,17 +295,23 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
       `,
     );
 
-    const programs = result.records.map(
-      record => record.get("program") as KarmaGapGrantProgram,
-    );
+    const programs = result.records
+      .map(record => record.get("program") as KarmaGapGrantProgram)
+      .filter(x => {
+        if (status === "active") {
+          return (x.status ?? "Inactive") === "Active";
+        } else if (status === "inactive") {
+          return Object.keys(KARMAGAP_PROGRAM_MAPPINGS).includes(
+            `${x.programId}`,
+          );
+        } else {
+          return true;
+        }
+      });
 
     this.logger.log(`Found ${programs.length} programs`);
 
-    return programs.filter(x =>
-      status
-        ? (x.status ?? "Inactive").toLowerCase() === status.toLowerCase()
-        : true,
-    );
+    return programs;
   };
 
   getGrantBySlug = async (
