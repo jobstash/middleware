@@ -301,7 +301,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
         if (status === "active") {
           return (x.status ?? "Inactive") === "Active";
         } else if (status === "inactive") {
-          return Object.keys(KARMAGAP_PROGRAM_MAPPINGS).includes(
+          return [...Object.keys(KARMAGAP_PROGRAM_MAPPINGS), "451"].includes(
             `${x.programId}`,
           );
         } else {
