@@ -366,10 +366,21 @@ export class Grantee {
   lastFundingDate: number | null;
 
   @ApiProperty()
-  lastFundingAmount: string;
+  lastFundingAmount: number;
+
+  @ApiProperty()
+  lastFundingUnit: string;
 
   constructor(raw: Grantee) {
-    const { id, name, slug, logoUrl, lastFundingDate, lastFundingAmount } = raw;
+    const {
+      id,
+      name,
+      slug,
+      logoUrl,
+      lastFundingDate,
+      lastFundingAmount,
+      lastFundingUnit,
+    } = raw;
     const result = Grantee.GranteeType.decode(raw);
 
     this.id = id;
@@ -378,6 +389,7 @@ export class Grantee {
     this.logoUrl = logoUrl;
     this.lastFundingDate = lastFundingDate;
     this.lastFundingAmount = lastFundingAmount;
+    this.lastFundingUnit = lastFundingUnit;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

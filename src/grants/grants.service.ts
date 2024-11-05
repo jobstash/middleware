@@ -504,7 +504,8 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
               slug: sluggify(grantee.project.name),
               logoUrl: logoIpfs ? `https://${logoIpfs}.ipfs.dweb.link` : null,
               lastFundingDate: nonZeroOrNull(transaction.timestamp),
-              lastFundingAmount: `${grantee.totalAmountDonatedInUsd} USD`,
+              lastFundingAmount: grantee.totalAmountDonatedInUsd,
+              lastFundingUnit: "USD",
             });
           }),
         );
@@ -528,7 +529,8 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
               lastFundingDate: nonZeroOrNull(
                 new Date(x.funding_date).getTime(),
               ),
-              lastFundingAmount: `${x.amount} ${x.metadata.token_unit}`,
+              lastFundingAmount: x.amount,
+              lastFundingUnit: x.metadata.token_unit,
             });
           }),
         );
@@ -1027,7 +1029,8 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
               ),
               logoUrl: logoIpfs ? `https://${logoIpfs}.ipfs.dweb.link` : null,
               lastFundingDate: nonZeroOrNull(transaction.timestamp),
-              lastFundingAmount: `${grantee.totalAmountDonatedInUsd} USD`,
+              lastFundingAmount: grantee.totalAmountDonatedInUsd,
+              lastFundingUnit: "USD",
               projects: [
                 gitcoinDetails
                   ? {
@@ -1075,7 +1078,8 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
               lastFundingDate: details?.funding_date
                 ? nonZeroOrNull(new Date(details?.funding_date).getTime())
                 : null,
-              lastFundingAmount: `${details?.amount} ${details?.metadata.token_unit}`,
+              lastFundingAmount: details?.amount,
+              lastFundingUnit: details?.metadata.token_unit,
               projects: [
                 {
                   id: uuidfy(granteeSlug),
