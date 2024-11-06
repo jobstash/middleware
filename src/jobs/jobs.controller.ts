@@ -730,7 +730,10 @@ export class JobsController {
 
   @Post("/update/:id")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  @Permissions(
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ORG_AFFILIATE,
+  )
   @ApiOkResponse({
     description: "Updates an existing job's metadata",
     schema: responseSchemaWrapper({
@@ -747,118 +750,131 @@ export class JobsController {
     @Param("id") shortUUID: string,
     @Body(new ValidationPipe({ transform: true })) body: UpdateJobMetadataInput,
   ): Promise<Response<JobListResult> | ResponseWithNoData> {
-    this.logger.log(`/jobs/update/${shortUUID} ${JSON.stringify(body)}`);
-    const {
-      commitment,
-      classification,
-      locationType,
-      project,
-      isBlocked,
-      isOnline,
-      tags,
-      ...dto
-    } = body;
-    const { address } = session;
+    const orgId = await this.userService.findOrgIdByJobShortUUID(shortUUID);
+    const authorized = await this.userService.userAuthorizedForOrg(
+      session.address,
+      orgId,
+    );
 
-    if (isBlocked === true) {
-      const res1a = await this.jobsService.blockJobs(address, {
-        shortUUIDs: [shortUUID],
-      });
-      if (res1a.success === false) {
-        this.logger.error(res1a.message);
-        return res1a;
-      }
-    } else {
-      if (isBlocked === false) {
-        const res1a = await this.jobsService.unblockJobs(address, {
+    if (authorized) {
+      this.logger.log(`/jobs/update/${shortUUID} ${JSON.stringify(body)}`);
+      const {
+        commitment,
+        classification,
+        locationType,
+        project,
+        isBlocked,
+        isOnline,
+        tags,
+        ...dto
+      } = body;
+      const { address } = session;
+
+      if (isBlocked === true) {
+        const res1a = await this.jobsService.blockJobs(address, {
           shortUUIDs: [shortUUID],
         });
         if (res1a.success === false) {
           this.logger.error(res1a.message);
           return res1a;
         }
+      } else {
+        if (isBlocked === false) {
+          const res1a = await this.jobsService.unblockJobs(address, {
+            shortUUIDs: [shortUUID],
+          });
+          if (res1a.success === false) {
+            this.logger.error(res1a.message);
+            return res1a;
+          }
+        }
       }
-    }
 
-    if (isOnline === true) {
-      const res1b = await this.jobsService.makeJobsOnline(address, {
-        shortUUIDs: [shortUUID],
-      });
-      if (res1b.success === false) {
-        this.logger.error(res1b.message);
-        return res1b;
-      }
-    } else {
-      if (isOnline === false) {
-        const res1b = await this.jobsService.makeJobsOffline(address, {
+      if (isOnline === true) {
+        const res1b = await this.jobsService.makeJobsOnline(address, {
           shortUUIDs: [shortUUID],
         });
         if (res1b.success === false) {
           this.logger.error(res1b.message);
           return res1b;
         }
+      } else {
+        if (isOnline === false) {
+          const res1b = await this.jobsService.makeJobsOffline(address, {
+            shortUUIDs: [shortUUID],
+          });
+          if (res1b.success === false) {
+            this.logger.error(res1b.message);
+            return res1b;
+          }
+        }
       }
-    }
 
-    const res2 = await this.jobsService.changeJobCommitment(address, {
-      shortUUID,
-      commitment,
-    });
-    if (res2.success === false) {
-      this.logger.error(res2.message);
-      return res2;
-    }
-
-    const res3 = await this.jobsService.changeJobClassification(address, {
-      shortUUIDs: [shortUUID],
-      classification,
-    });
-    if (res3.success === false) {
-      this.logger.error(res3.message);
-      return res3;
-    }
-
-    const res4 = await this.jobsService.changeJobLocationType(address, {
-      shortUUID,
-      locationType,
-    });
-    if (res4.success === false) {
-      this.logger.error(res4.message);
-      return res4;
-    }
-
-    if (project) {
-      const res5 = await this.jobsService.changeJobProject(address, {
+      const res2 = await this.jobsService.changeJobCommitment(address, {
         shortUUID,
-        projectId: project,
+        commitment,
       });
-      if (res5.success === false) {
-        this.logger.error(res5.message);
-        return res5;
+      if (res2.success === false) {
+        this.logger.error(res2.message);
+        return res2;
       }
-    }
 
-    const res6 = await this.editTags(session, {
-      shortUUID,
-      tags: tags.map(x => x.name),
-    });
-    if (res6.success === false) {
-      this.logger.error(res6.message);
-      return res6;
-    }
+      const res3 = await this.jobsService.changeJobClassification(address, {
+        shortUUIDs: [shortUUID],
+        classification,
+      });
+      if (res3.success === false) {
+        this.logger.error(res3.message);
+        return res3;
+      }
 
-    const res1 = await this.jobsService.update(shortUUID, dto);
-    if (res1 !== undefined) {
-      return {
-        success: true,
-        message: "Job metadata updated successfully",
-        data: res1,
-      };
+      const res4 = await this.jobsService.changeJobLocationType(address, {
+        shortUUID,
+        locationType,
+      });
+      if (res4.success === false) {
+        this.logger.error(res4.message);
+        return res4;
+      }
+
+      if (project) {
+        const res5 = await this.jobsService.changeJobProject(address, {
+          shortUUID,
+          projectId: project,
+        });
+        if (res5.success === false) {
+          this.logger.error(res5.message);
+          return res5;
+        }
+      }
+
+      const res6 = await this.editTags(session, {
+        shortUUID,
+        tags: tags.map(x => x.name),
+      });
+      if (res6.success === false) {
+        this.logger.error(res6.message);
+        return res6;
+      }
+
+      const res1 = await this.jobsService.update(shortUUID, dto);
+      if (res1 !== undefined) {
+        return {
+          success: true,
+          message: "Job metadata updated successfully",
+          data: res1,
+        };
+      } else {
+        return {
+          success: false,
+          message: "Error updating job metadata",
+        };
+      }
     } else {
-      return {
+      throw new ForbiddenException({
         success: false,
-        message: "Error updating job metadata",
-      };
+        message: "You are not authorized to perform this action",
+      });
     }
   }
 

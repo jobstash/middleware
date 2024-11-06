@@ -130,15 +130,27 @@ export class UserService {
   }
 
   async findOrgIdByJobShortUUID(shortUUID: string): Promise<string | null> {
-    const result = await this.neogma.queryRunner.run(
-      `
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
         MATCH (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(:StructuredJobpost {shortUUID: $shortUUID})
         RETURN org.orgId as orgId
       `,
-      { shortUUID },
-    );
+        { shortUUID },
+      );
 
-    return result.records[0]?.get("orgId") as string;
+      return result.records[0]?.get("orgId") as string;
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`UserService::findOrgIdByJobShortUUID ${err.message}`);
+      return null;
+    }
   }
 
   async getUserEmails(
@@ -172,14 +184,26 @@ export class UserService {
   }
 
   async userAuthorizedForOrg(wallet: string, orgId: string): Promise<boolean> {
-    const result = await this.neogma.queryRunner.run(
-      `
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
         RETURN EXISTS((:User {wallet: $wallet})-[:HAS_ORGANIZATION_AUTHORIZATION]->(:Organization {orgId: $orgId})) AS hasOrgAuthorization
       `,
-      { wallet, orgId },
-    );
+        { wallet, orgId },
+      );
 
-    return result.records[0]?.get("hasOrgAuthorization") as boolean;
+      return result.records[0]?.get("hasOrgAuthorization") as boolean;
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`UserService::userAuthorizedForOrg ${err.message}`);
+      return false;
+    }
   }
 
   async orgHasUser(orgId: string): Promise<boolean> {
