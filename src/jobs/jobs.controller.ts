@@ -304,8 +304,8 @@ export class JobsController {
   async getOrgAllJobsList(
     @Session() { address, permissions }: SessionObject,
     @Param("id") id: string,
-    @Param("page") page: number,
-    @Param("limit") limit: number,
+    @Param("page") page = 1,
+    @Param("limit") limit = 20,
   ): Promise<PaginatedData<AllJobsListResult>> {
     const authorized = await this.userService.userAuthorizedForOrg(address, id);
     if (
