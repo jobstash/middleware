@@ -29,10 +29,6 @@ export class PBACGuard implements CanActivate {
     const requiredPermissions =
       this.reflector.get<string[]>("permissions", context.getHandler()) || [];
 
-    if (this.configService.get<string>("NODE_ENV") === "development") {
-      return true;
-    }
-
     const canAccess =
       requiredPermissions.length === 0
         ? true
