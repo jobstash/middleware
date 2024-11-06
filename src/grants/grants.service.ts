@@ -1105,7 +1105,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
                   )
                 : null,
               lastFundingAmount: details?.amount,
-              lastFundingUnit: details?.metadata.token_unit,
+              lastFundingUnit: notStringOrNull(details?.metadata.token_unit),
               projects: [
                 {
                   id: uuidfy(granteeSlug),

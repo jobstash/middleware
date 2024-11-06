@@ -348,6 +348,7 @@ export class Grantee {
     logoUrl: t.union([t.string, t.null]),
     lastFundingDate: t.union([t.number, t.null]),
     lastFundingAmount: t.number,
+    lastFundingUnit: t.union([t.string, t.null]),
   });
 
   @ApiProperty()
@@ -369,7 +370,7 @@ export class Grantee {
   lastFundingAmount: number;
 
   @ApiProperty()
-  lastFundingUnit: string;
+  lastFundingUnit: string | null;
 
   constructor(raw: Grantee) {
     const {
