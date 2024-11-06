@@ -304,14 +304,16 @@ export class JobsController {
   async getOrgAllJobsList(
     @Session() { address, permissions }: SessionObject,
     @Param("id") id: string,
-  ): Promise<AllJobsListResult[]> {
+    @Param("page") page: number,
+    @Param("limit") limit: number,
+  ): Promise<PaginatedData<AllJobsListResult>> {
     const authorized = await this.userService.userAuthorizedForOrg(address, id);
     if (
       authorized ||
       permissions.includes(CheckWalletPermissions.SUPER_ADMIN)
     ) {
       this.logger.log(`/jobs/org/${id}/all`);
-      return this.jobsService.getAllJobsByOrgId(id);
+      return this.jobsService.getAllJobsByOrgId(id, page, limit);
     } else {
       throw new UnauthorizedException({
         success: false,

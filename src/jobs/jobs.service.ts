@@ -943,11 +943,17 @@ export class JobsService {
 
   async getAllJobsByOrgId(
     id: string,
-  ): Promise<AllJobsListResult[] | undefined> {
+    page: number,
+    limit: number,
+  ): Promise<PaginatedData<AllJobsListResult>> {
     try {
-      return (await this.getAllJobsListResults())
-        .filter(x => x.organization.orgId === id)
-        .map(orgJob => new AllJobListResultEntity(orgJob).getProperties());
+      return paginate<AllJobsListResult>(
+        page,
+        limit,
+        (await this.getAllJobsListResults())
+          .filter(x => x.organization.orgId === id)
+          .map(orgJob => new AllJobListResultEntity(orgJob).getProperties()),
+      );
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
