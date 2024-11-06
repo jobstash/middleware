@@ -10,6 +10,7 @@ import {
   Param,
   Post,
   Query,
+  UnauthorizedException,
   UseGuards,
   ValidationPipe,
 } from "@nestjs/common";
@@ -270,6 +271,53 @@ export class JobsController {
   ): Promise<JobListResult[]> {
     this.logger.log(`/jobs/org/${id}`);
     return this.jobsService.getJobsByOrgId(id, community);
+  }
+
+  @Get("/org/:id/all")
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ORG_AFFILIATE,
+  )
+  @ApiOkResponse({
+    description: "Returns a list of all jobs posted by an org",
+    schema: {
+      allOf: [
+        {
+          type: "array",
+          items: { $ref: getSchemaPath(JobListResult) },
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ValidationError),
+        },
+      ],
+    },
+  })
+  async getOrgAllJobsList(
+    @Session() { address, permissions }: SessionObject,
+    @Param("id") id: string,
+  ): Promise<AllJobsListResult[]> {
+    const authorized = await this.userService.userAuthorizedForOrg(address, id);
+    if (
+      authorized ||
+      permissions.includes(CheckWalletPermissions.SUPER_ADMIN)
+    ) {
+      this.logger.log(`/jobs/org/${id}/all`);
+      return this.jobsService.getAllJobsByOrgId(id);
+    } else {
+      throw new UnauthorizedException({
+        success: false,
+        message: "You are not allowed to access this resource",
+      });
+    }
   }
 
   @Get("/org/:id/applicants")
@@ -756,7 +804,10 @@ export class JobsController {
       orgId,
     );
 
-    if (authorized) {
+    if (
+      authorized ||
+      session.permissions.includes(CheckWalletPermissions.SUPER_ADMIN)
+    ) {
       this.logger.log(`/jobs/update/${shortUUID} ${JSON.stringify(body)}`);
       const {
         commitment,

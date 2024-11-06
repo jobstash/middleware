@@ -941,6 +941,27 @@ export class JobsService {
     }
   }
 
+  async getAllJobsByOrgId(
+    id: string,
+  ): Promise<AllJobsListResult[] | undefined> {
+    try {
+      return (await this.getAllJobsListResults())
+        .filter(x => x.organization.orgId === id)
+        .map(orgJob => new AllJobListResultEntity(orgJob).getProperties());
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        scope.setExtra("input", id);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getAllJobsByOrgId ${err.message}`);
+      return undefined;
+    }
+  }
+
   async getJobsByOrgIdWithApplicants(
     orgId: string,
     list:
