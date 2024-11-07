@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Header,
   Headers,
@@ -76,6 +77,7 @@ import { AddOrganizationByUrlInput } from "./dto/add-organization-by-url.input";
 import { CreateOrgJobsiteInput } from "./dto/create-organization-jobsites.input";
 import { randomUUID } from "crypto";
 import { Session } from "src/shared/decorators";
+import { UserService } from "src/user/user.service";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -87,8 +89,9 @@ export class OrganizationsController {
   private readonly logger = new CustomLogger(OrganizationsController.name);
 
   constructor(
-    private readonly organizationsService: OrganizationsService,
+    private readonly userService: UserService,
     private readonly configService: ConfigService,
+    private readonly organizationsService: OrganizationsService,
   ) {
     (this.NFT_STORAGE_API_KEY = this.configService.get<string>(
       "NFT_STORAGE_API_KEY",
@@ -997,17 +1000,33 @@ export class OrganizationsController {
 
   @Get("/:id")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
+  @Permissions(
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_AFFILIATE],
+    [CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER],
+  )
   @ApiOkResponse({
     description: "Returns the details of the org with the provided id",
   })
   async getOrgDetails(
-    @Session() { address }: SessionObject,
+    @Session() { address, permissions }: SessionObject,
     @Param("id") id: string,
   ): Promise<ResponseWithOptionalData<OrganizationWithLinks>> {
     this.logger.log(`GET /organizations/${id} from ${address}`);
-    const result = await this.organizationsService.getOrgById(id);
 
+    if (permissions.includes(CheckWalletPermissions.ORG_AFFILIATE)) {
+      const authorized = await this.userService.userAuthorizedForOrg(
+        address,
+        id,
+      );
+      if (!authorized) {
+        throw new ForbiddenException({
+          success: false,
+          message: "You are not authorized to access this resource",
+        });
+      }
+    }
+
+    const result = await this.organizationsService.getOrgById(id);
     if (result === undefined) {
       throw new NotFoundException({
         success: true,

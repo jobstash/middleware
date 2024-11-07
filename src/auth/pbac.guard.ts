@@ -8,7 +8,6 @@ import { Request, Response } from "express";
 import { AuthService } from "./auth.service";
 import { SessionObject } from "src/shared/interfaces";
 import { Reflector } from "@nestjs/core";
-import { ConfigService } from "@nestjs/config";
 import { CheckWalletPermissions } from "src/shared/constants";
 
 @Injectable()
@@ -16,7 +15,6 @@ export class PBACGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     private readonly authService: AuthService,
-    private readonly configService: ConfigService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -27,15 +25,25 @@ export class PBACGuard implements CanActivate {
     req.user = session;
 
     const requiredPermissions =
-      this.reflector.get<string[]>("permissions", context.getHandler()) || [];
+      this.reflector.get<string[] | string[][]>(
+        "permissions",
+        context.getHandler(),
+      ) || [];
 
     const canAccess =
       requiredPermissions.length === 0
         ? true
         : (session.permissions.includes(CheckWalletPermissions.SUPER_ADMIN) ||
-            requiredPermissions.every(perm =>
-              session.permissions.includes(perm),
-            )) &&
+            requiredPermissions
+              .filter(x => Array.isArray(x))
+              .some(perm =>
+                (perm as string[]).every(x => session.permissions.includes(x)),
+              ) ||
+            (requiredPermissions
+              .filter(x => typeof x === "string")
+              .every(x => session.permissions.includes(x as string)) &&
+              requiredPermissions.filter(x => typeof x === "string").length >
+                0)) &&
           session?.address;
 
     if (canAccess) {
