@@ -3,30 +3,25 @@ import {
   Controller,
   Delete,
   Get,
-  HttpStatus,
   Param,
   Post,
   Query,
   Redirect,
-  Req,
-  Res,
-  UnauthorizedException,
   UseGuards,
 } from "@nestjs/common";
 import * as Sentry from "@sentry/node";
 import { ScorerService } from "./scorer.service";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { CheckWalletPermissions } from "src/shared/constants";
-import { Permissions } from "src/shared/decorators";
+import { Permissions, Session } from "src/shared/decorators";
 import { ConfigService } from "@nestjs/config";
 import { UserService } from "src/user/user.service";
-import { AuthService } from "src/auth/auth.service";
-import { Request, Response as ExpressResponse } from "express";
 import { SetupOrgLinkInput } from "./dto/setup-org-link.input";
 import {
   CandidateReport,
   ResponseWithNoData,
   ResponseWithOptionalData,
+  SessionObject,
   data,
 } from "src/shared/interfaces";
 import { catchError, firstValueFrom, map, of } from "rxjs";
@@ -46,65 +41,56 @@ export class ScorerController {
     private readonly scorerService: ScorerService,
     private readonly configService: ConfigService,
     private readonly userService: UserService,
-    private readonly authService: AuthService,
     private readonly httpService: HttpService,
   ) {}
 
   @Get("client")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
+  @Permissions(
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ORG_AFFILIATE,
+  )
   async getClient(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
   ): Promise<ResponseWithOptionalData<BaseClient>> {
-    const { address } = await this.authService.getSession(req, res);
-
-    if (address) {
-      const orgId = await this.userService.findOrgIdByWallet(address);
-      if (orgId) {
-        const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
-        const platform = client?.platform;
-        if (client?.id && platform) {
-          this.logger.log(`/scorer/client/${platform}/`);
-          const result = await this.scorerService.getClientById(
-            client?.id,
-            platform,
-          );
-          if (platform === "greenhouse") {
-            const res = data(result);
-            return {
-              success: true,
-              message: "Client retrieved successfully",
-              data: res,
-            };
-          } else {
-            return result;
-          }
-        } else {
+    const orgId = await this.userService.findOrgIdByWallet(address);
+    if (orgId) {
+      const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
+      const platform = client?.platform;
+      if (client?.id && platform) {
+        this.logger.log(`/scorer/client/${platform}/`);
+        const result = await this.scorerService.getClientById(
+          client?.id,
+          platform,
+        );
+        if (platform === "greenhouse") {
+          const res = data(result);
           return {
             success: true,
-            message: "No client linked to this account",
-            data: {
-              id: null,
-              name: null,
-              orgId: null,
-              hasTags: false,
-              preferences: null,
-              hasWebhooks: false,
-            },
+            message: "Client retrieved successfully",
+            data: res,
           };
+        } else {
+          return result;
         }
       } else {
         return {
-          success: false,
-          message: "Client not found",
+          success: true,
+          message: "No client linked to this account",
+          data: {
+            id: null,
+            name: null,
+            orgId: null,
+            hasTags: false,
+            preferences: null,
+            hasWebhooks: false,
+          },
         };
       }
     } else {
-      res.status(HttpStatus.FORBIDDEN);
       return {
         success: false,
-        message: "Access denied for unauthenticated user",
+        message: "Client not found",
       };
     }
   }
@@ -112,32 +98,22 @@ export class ScorerController {
   @Get("oauth/lever")
   @Redirect()
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
-  async triggerLeverOauth(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
-  ): Promise<{
+  @Permissions(
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ORG_AFFILIATE,
+  )
+  async triggerLeverOauth(@Session() { address }: SessionObject): Promise<{
     url: string;
   }> {
     this.logger.log(`/scorer/oauth/lever`);
     try {
-      const { address } = await this.authService.getSession(req, res);
-
-      if (address) {
-        const orgId = await this.userService.findOrgIdByWallet(address);
-        const key = await this.scorerService.generateEphemeralTokenForOrg(
-          orgId,
-        );
-        return {
-          url: `${this.configService.get<string>(
-            "SCORER_DOMAIN",
-          )}/lever/oauth?key=${key}`,
-        };
-      } else {
-        throw new UnauthorizedException({
-          message: "You are not authorized to access this resource",
-        });
-      }
+      const orgId = await this.userService.findOrgIdByWallet(address);
+      const key = await this.scorerService.generateEphemeralTokenForOrg(orgId);
+      return {
+        url: `${this.configService.get<string>(
+          "SCORER_DOMAIN",
+        )}/lever/oauth?key=${key}`,
+      };
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -155,35 +131,31 @@ export class ScorerController {
 
   @Get("user/report")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
+  @Permissions(
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ORG_AFFILIATE,
+  )
   async generateUserReport(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
     @Query("user") user: string,
     @Query("wallet") wallet: string,
   ): Promise<ResponseWithOptionalData<CandidateReport>> {
     this.logger.log(`/scorer/user/report`);
     try {
-      const { address } = await this.authService.getSession(req, res);
+      const orgId = await this.userService.findOrgIdByWallet(address);
+      const key = await this.scorerService.generateEphemeralTokenForOrg(orgId);
+      const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
 
-      if (address) {
-        const orgId = await this.userService.findOrgIdByWallet(address);
-        const key = await this.scorerService.generateEphemeralTokenForOrg(
-          orgId,
-        );
-        const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
+      const clientId = client?.id;
+      const platform = client?.platform;
 
-        const clientId = client?.id;
-        const platform = client?.platform;
-        const userProfile = await this.userService.findProfileByWallet(address);
-        const wallets = (userProfile?.linkedAccounts?.wallets ?? []).join(",");
-
+      if (clientId && platform) {
         const res = await firstValueFrom(
           this.httpService
             .get<ResponseWithOptionalData<CandidateReport>>(
               `${this.configService.get<string>(
                 "SCORER_DOMAIN",
-              )}/scorer/users/report?user=${user}&wallets=${wallets}&client_id=${clientId}&platform=${platform}&key=${key}`,
+              )}/scorer/users/report?user=${user}&wallet=${wallet}&client_id=${clientId}&platform=${platform}&key=${key}`,
             )
             .pipe(
               catchError((err: AxiosError) => {
@@ -204,10 +176,31 @@ export class ScorerController {
         );
         return res.data;
       } else {
-        throw new UnauthorizedException({
-          success: false,
-          message: "You are not authorized to access this resource",
-        });
+        const res = await firstValueFrom(
+          this.httpService
+            .get<ResponseWithOptionalData<CandidateReport>>(
+              `${this.configService.get<string>(
+                "SCORER_DOMAIN",
+              )}/scorer/users/report?user=${user}&wallet=${wallet}&key=${key}`,
+            )
+            .pipe(
+              catchError((err: AxiosError) => {
+                Sentry.withScope(scope => {
+                  scope.setTags({
+                    action: "proxy-call",
+                    source: "scorer.controller",
+                  });
+                  scope.setExtra("input", { user, wallet });
+                  Sentry.captureException(err);
+                });
+                this.logger.error(
+                  `ScorerController::generateUserReport ${err.message}`,
+                );
+                return [];
+              }),
+            ),
+        );
+        return res.data;
       }
     } catch (err) {
       Sentry.withScope(scope => {
@@ -228,119 +221,107 @@ export class ScorerController {
 
   @Post("link/org/:platform")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
+  @Permissions(
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ORG_AFFILIATE,
+  )
   async setupOrgLink(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
     @Param("platform")
     platform: "lever" | "workable" | "greenhouse" | "jobstash",
     @Body() body: SetupOrgLinkInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/scorer/link/org/${platform}`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      const orgId = await this.userService.findOrgIdByWallet(address);
-      try {
-        const result = await this.httpService.axiosRef.post<ResponseWithNoData>(
-          `/${platform}/link`,
-          {
-            clientId: body.clientId,
-            orgId: orgId,
-          },
-        );
-        return {
-          success: result.data.success,
-          message: result.data.message,
-        };
-      } catch (err) {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "proxy-call",
-            source: "scorer.controller",
-          });
-          scope.setExtra("input", body);
-          Sentry.captureException(err);
+    const orgId = await this.userService.findOrgIdByWallet(address);
+    try {
+      const result = await this.httpService.axiosRef.post<ResponseWithNoData>(
+        `/${platform}/link`,
+        {
+          clientId: body.clientId,
+          orgId: orgId,
+        },
+      );
+      return {
+        success: result.data.success,
+        message: result.data.message,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "proxy-call",
+          source: "scorer.controller",
         });
-        this.logger.error(`ScorerController::setupOrgLink ${err.message}`);
-        return {
-          success: false,
-          message: "Error setting up org link",
-        };
-      }
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
+        scope.setExtra("input", body);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ScorerController::setupOrgLink ${err.message}`);
       return {
         success: false,
-        message: "Access denied for unauthenticated user",
+        message: "Error setting up org link",
       };
     }
   }
 
   @Post("update/preferences")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
+  @Permissions(
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ORG_AFFILIATE,
+  )
   async setupClientPreferences(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
     @Body() body: UpdateClientPreferencesInput,
   ): Promise<ResponseWithOptionalData<string[]>> {
     this.logger.log(`/scorer/update/preferences`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      const result = await firstValueFrom(
-        this.httpService
-          .post<ResponseWithOptionalData<string[]>>(
-            `/${body.preferences.platformName}/update/preferences`,
-            {
-              clientId: body.clientId,
-              preferences: body.preferences,
-            },
-          )
-          .pipe(
-            map(res => res.data),
-            catchError((err: AxiosError) => {
-              Sentry.withScope(scope => {
-                scope.setTags({
-                  action: "proxy-call",
-                  source: "scorer.controller",
-                });
-                scope.setExtra("input", body);
-                Sentry.captureException(err);
+    const result = await firstValueFrom(
+      this.httpService
+        .post<ResponseWithOptionalData<string[]>>(
+          `/${body.preferences.platformName}/update/preferences`,
+          {
+            clientId: body.clientId,
+            preferences: body.preferences,
+          },
+        )
+        .pipe(
+          map(res => res.data),
+          catchError((err: AxiosError) => {
+            Sentry.withScope(scope => {
+              scope.setTags({
+                action: "proxy-call",
+                source: "scorer.controller",
               });
-              this.logger.error(
-                `ScorerController::updateClientPreferences ${err.message}`,
-              );
-              return of({
-                success: false,
-                message: "Error updating client preferences",
-              });
-            }),
-          ),
-      );
-      if (result.success === false) {
-        return {
-          success: result.success,
-          message: result.message,
-          data: data(result),
-        };
-      } else {
-        return {
-          success: result.success,
-          message: result.message,
-        };
-      }
-    } else {
-      res.status(HttpStatus.FORBIDDEN);
+              scope.setExtra("input", body);
+              Sentry.captureException(err);
+            });
+            this.logger.error(
+              `ScorerController::updateClientPreferences ${err.message}`,
+            );
+            return of({
+              success: false,
+              message: "Error updating client preferences",
+            });
+          }),
+        ),
+    );
+    if (result.success === false) {
       return {
-        success: false,
-        message: "Access denied for unauthenticated user",
+        success: result.success,
+        message: result.message,
+        data: data(result),
+      };
+    } else {
+      return {
+        success: result.success,
+        message: result.message,
       };
     }
   }
 
   @Post("register/:platform")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
+  @Permissions(
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ORG_AFFILIATE,
+  )
   async registerAccount(
     @Param("platform") platform: "workable" | "greenhouse" | "jobstash",
     @Body() body: CreateClientInput,
@@ -454,7 +435,10 @@ export class ScorerController {
 
   @Post("webhooks/:platform")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
+  @Permissions(
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ORG_AFFILIATE,
+  )
   async retryWebhooks(
     @Param("platform") platform: "lever" | "workable" | "greenhouse",
     @Body() body: RetryCreateClientWebhooksInput,
@@ -528,90 +512,76 @@ export class ScorerController {
 
   @Post("tags/greenhouse")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
+  @Permissions(
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ORG_AFFILIATE,
+  )
   async retryTagsForGreenhouseClient(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
     @Body() body: RetryCreateClientTagsInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/scorer/tags/greenhouse`);
-    const { address } = await this.authService.getSession(req, res);
-    if (address) {
-      const orgId = await this.userService.findOrgIdByWallet(address);
-      if (orgId) {
-        const result = await firstValueFrom(
-          this.httpService
-            .post<ResponseWithNoData>(`/greenhouse/tags`, body)
-            .pipe(
-              map(res => res.data),
-              catchError((err: AxiosError) => {
-                Sentry.withScope(scope => {
-                  scope.setTags({
-                    action: "proxy-call",
-                    source: "scorer.controller",
-                  });
-                  scope.setExtra("input", body);
-                  Sentry.captureException(err);
+    const orgId = await this.userService.findOrgIdByWallet(address);
+    if (orgId) {
+      const result = await firstValueFrom(
+        this.httpService
+          .post<ResponseWithNoData>(`/greenhouse/tags`, body)
+          .pipe(
+            map(res => res.data),
+            catchError((err: AxiosError) => {
+              Sentry.withScope(scope => {
+                scope.setTags({
+                  action: "proxy-call",
+                  source: "scorer.controller",
                 });
-                this.logger.error(
-                  `ScorerController::retryTagsForGreenhouseClient ${err.message}`,
-                );
-                return of({
-                  success: false,
-                  message: "Error proxing tag request",
-                });
-              }),
-            ),
-        );
-        if (result.success) {
-          return {
-            success: true,
-            message: "Tags created successfully",
-          };
-        } else {
-          return {
-            success: false,
-            message: "Error creating tags",
-          };
-        }
+                scope.setExtra("input", body);
+                Sentry.captureException(err);
+              });
+              this.logger.error(
+                `ScorerController::retryTagsForGreenhouseClient ${err.message}`,
+              );
+              return of({
+                success: false,
+                message: "Error proxing tag request",
+              });
+            }),
+          ),
+      );
+      if (result.success) {
+        return {
+          success: true,
+          message: "Tags created successfully",
+        };
       } else {
         return {
           success: false,
-          message: "Org not found",
+          message: "Error creating tags",
         };
       }
     } else {
-      res.status(HttpStatus.FORBIDDEN);
       return {
         success: false,
-        message: "Access denied for unauthenticated user",
+        message: "Org not found",
       };
     }
   }
 
   @Delete("client")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
+  @Permissions(
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ORG_AFFILIATE,
+  )
   async deleteClient(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address }: SessionObject,
   ): Promise<ResponseWithNoData> {
-    const { address } = await this.authService.getSession(req, res);
-
-    if (address) {
-      const orgId = await this.userService.findOrgIdByWallet(address);
-      if (orgId) {
-        const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
-        const platform = client?.platform;
-        if (client?.id && platform) {
-          this.logger.log(`/scorer/client/${platform}/`);
-          return this.scorerService.deleteClientById(client?.id, platform);
-        } else {
-          return {
-            success: false,
-            message: "Client not found",
-          };
-        }
+    const orgId = await this.userService.findOrgIdByWallet(address);
+    if (orgId) {
+      const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
+      const platform = client?.platform;
+      if (client?.id && platform) {
+        this.logger.log(`/scorer/client/${platform}/`);
+        return this.scorerService.deleteClientById(client?.id, platform);
       } else {
         return {
           success: false,
@@ -619,10 +589,9 @@ export class ScorerController {
         };
       }
     } else {
-      res.status(HttpStatus.FORBIDDEN);
       return {
         success: false,
-        message: "Access denied for unauthenticated user",
+        message: "Client not found",
       };
     }
   }
