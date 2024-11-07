@@ -1137,6 +1137,7 @@ export class JobsService {
         WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
         WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
         WITH DISTINCT canonicalTag as tag, structured_jobpost
+        WITH COLLECT(tag { .* }) as tags, structured_jobpost
       
         MATCH (user:User)-[r:APPLIED_TO]->(structured_jobpost)
         WHERE user.available = true
@@ -1260,7 +1261,7 @@ export class JobsService {
                   ],
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                  ],
+                  ]
                 }
               ],
               fundingRounds: apoc.coll.toSet([
@@ -1302,7 +1303,7 @@ export class JobsService {
                 }
               ]
             }][0],
-            tags: apoc.coll.toSet(COLLECT(tag))
+            tags: apoc.coll.toSet(tags)
           }
         } as result
       `;
@@ -1315,7 +1316,7 @@ export class JobsService {
 
       const ecosystemActivations =
         await this.scorerService.getWalletEcosystemActivations(
-          applicants.map(x => x.user.wallet),
+          applicants.flatMap(x => x?.linkedAccounts?.wallets).filter(Boolean),
           orgId,
         );
 
@@ -2854,6 +2855,15 @@ export class JobsService {
       });
       return true;
     } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        scope.setExtra("input", { shortUUID, ...job });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::updateJobMetadata ${err.message}`);
       return false;
     }
   }

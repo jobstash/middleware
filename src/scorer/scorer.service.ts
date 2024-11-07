@@ -196,12 +196,11 @@ export class ScorerService {
     wallets: string[],
     orgId: string,
   ): Promise<{ wallet: string; ecosystemActivations: string[] }[]> => {
+    const params = Buffer.from(wallets.join(",")).toString("base64");
     const res = await firstValueFrom(
       this.httpService
         .get<{ wallet: string; ecosystemActivations: string[] }[]>(
-          `/scorer/users/ecosystem-activations?wallets=${wallets.join(
-            ",",
-          )}&orgId=${orgId}`,
+          `/scorer/users/ecosystem-activations?wallets=${params}&orgId=${orgId}`,
         )
         .pipe(
           map(res => res.data),
