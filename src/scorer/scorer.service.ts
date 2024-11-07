@@ -196,30 +196,34 @@ export class ScorerService {
     wallets: string[],
     orgId: string,
   ): Promise<{ wallet: string; ecosystemActivations: string[] }[]> => {
-    const params = Buffer.from(wallets.join(",")).toString("base64");
-    const res = await firstValueFrom(
-      this.httpService
-        .get<{ wallet: string; ecosystemActivations: string[] }[]>(
-          `/scorer/users/ecosystem-activations?wallets=${params}&orgId=${orgId}`,
-        )
-        .pipe(
-          map(res => res.data),
-          catchError((err: AxiosError) => {
-            Sentry.withScope(scope => {
-              scope.setTags({
-                action: "proxy-call",
-                source: "scorer.service",
+    if (wallets.length === 0) {
+      return [];
+    } else {
+      const params = Buffer.from(wallets.join(",")).toString("base64");
+      const res = await firstValueFrom(
+        this.httpService
+          .get<{ wallet: string; ecosystemActivations: string[] }[]>(
+            `/scorer/users/ecosystem-activations?wallets=${params}&orgId=${orgId}`,
+          )
+          .pipe(
+            map(res => res.data),
+            catchError((err: AxiosError) => {
+              Sentry.withScope(scope => {
+                scope.setTags({
+                  action: "proxy-call",
+                  source: "scorer.service",
+                });
+                scope.setExtra("input", wallets);
+                Sentry.captureException(err);
               });
-              scope.setExtra("input", wallets);
-              Sentry.captureException(err);
-            });
-            this.logger.error(`ScorerService::getLeanStats ${err.message}`);
-            return of(
-              [] as { wallet: string; ecosystemActivations: string[] }[],
-            );
-          }),
-        ),
-    );
-    return res;
+              this.logger.error(`ScorerService::getLeanStats ${err.message}`);
+              return of(
+                [] as { wallet: string; ecosystemActivations: string[] }[],
+              );
+            }),
+          ),
+      );
+      return res;
+    }
   };
 }
