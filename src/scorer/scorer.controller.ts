@@ -176,37 +176,33 @@ export class ScorerController {
         const clientId = client?.id;
         const platform = client?.platform;
         const userProfile = await this.userService.findProfileByWallet(address);
-        const wallets = (userProfile?.linkedAccounts.wallets ?? []).join(",");
+        const wallets = (userProfile?.linkedAccounts?.wallets ?? []).join(",");
 
-        if (clientId && platform) {
-          const res = await firstValueFrom(
-            this.httpService
-              .get<ResponseWithOptionalData<CandidateReport>>(
-                `${this.configService.get<string>(
-                  "SCORER_DOMAIN",
-                )}/scorer/users/report?user=${user}&wallets=${wallets}&client_id=${clientId}&platform=${platform}&key=${key}`,
-              )
-              .pipe(
-                catchError((err: AxiosError) => {
-                  Sentry.withScope(scope => {
-                    scope.setTags({
-                      action: "proxy-call",
-                      source: "scorer.controller",
-                    });
-                    scope.setExtra("input", { user, wallet });
-                    Sentry.captureException(err);
+        const res = await firstValueFrom(
+          this.httpService
+            .get<ResponseWithOptionalData<CandidateReport>>(
+              `${this.configService.get<string>(
+                "SCORER_DOMAIN",
+              )}/scorer/users/report?user=${user}&wallets=${wallets}&client_id=${clientId}&platform=${platform}&key=${key}`,
+            )
+            .pipe(
+              catchError((err: AxiosError) => {
+                Sentry.withScope(scope => {
+                  scope.setTags({
+                    action: "proxy-call",
+                    source: "scorer.controller",
                   });
-                  this.logger.error(
-                    `ScorerController::generateUserReport ${err.message}`,
-                  );
-                  return [];
-                }),
-              ),
-          );
-          return res.data;
-        } else {
-          return { success: false, message: "Client preferences not found" };
-        }
+                  scope.setExtra("input", { user, wallet });
+                  Sentry.captureException(err);
+                });
+                this.logger.error(
+                  `ScorerController::generateUserReport ${err.message}`,
+                );
+                return [];
+              }),
+            ),
+        );
+        return res.data;
       } else {
         throw new UnauthorizedException({
           success: false,

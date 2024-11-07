@@ -55,7 +55,7 @@ export class UserController {
   @Get("available")
   @UseGuards(PBACGuard)
   @Permissions(
-    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.USER,
     CheckWalletPermissions.ORG_AFFILIATE,
   )
   async getUsersAvailableForWork(

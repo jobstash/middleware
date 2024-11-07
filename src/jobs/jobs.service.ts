@@ -2844,14 +2844,18 @@ export class JobsService {
       | "isBlocked"
       | "isOnline"
     >,
-  ): Promise<JobListResult | undefined> {
-    await this.models.StructuredJobposts.update(job, {
-      return: false,
-      where: {
-        shortUUID: shortUUID,
-      },
-    });
-    return this.getJobDetailsByUuid(shortUUID, undefined);
+  ): Promise<boolean> {
+    try {
+      await this.models.StructuredJobposts.update(job, {
+        return: false,
+        where: {
+          shortUUID: shortUUID,
+        },
+      });
+      return true;
+    } catch (err) {
+      return false;
+    }
   }
 
   async blockJobs(

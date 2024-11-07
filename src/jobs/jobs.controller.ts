@@ -911,11 +911,10 @@ export class JobsController {
       }
 
       const res1 = await this.jobsService.update(shortUUID, dto);
-      if (res1 !== undefined) {
+      if (res1 !== false) {
         return {
           success: true,
           message: "Job metadata updated successfully",
-          data: res1,
         };
       } else {
         return {
