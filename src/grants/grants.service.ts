@@ -155,15 +155,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
           github: yamlData.github?.[0]?.url ?? null,
         };
 
-        if (project.website) {
-          await this.projectsService.addProjectByUrl({
-            url: project.website,
-            name: project.name,
-          });
-          return project;
-        } else {
-          return project;
-        }
+        return project;
       } else {
         this.logger.warn(`Could not find project ${slug} on daoip`);
         return null;
