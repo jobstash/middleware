@@ -131,10 +131,7 @@ export class ScorerController {
 
   @Get("user/report")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.USER,
-    CheckWalletPermissions.ORG_AFFILIATE,
-  )
+  @Permissions(CheckWalletPermissions.USER)
   async generateUserReport(
     @Session() { address }: SessionObject,
     @Query("user") user: string,
