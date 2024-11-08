@@ -540,7 +540,10 @@ export class OrganizationsController {
 
   @Post("/update/:id")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
+  @Permissions(
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_AFFILIATE],
+    [CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER],
+  )
   @ApiOkResponse({
     description: "Updates an existing organization",
     schema: responseSchemaWrapper({
@@ -553,7 +556,7 @@ export class OrganizationsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async updateOrganization(
-    @Session() { address }: SessionObject,
+    @Session() { address, permissions }: SessionObject,
     @Param("id") id: string,
     @Body() body: UpdateOrganizationInput,
   ): Promise<ResponseWithOptionalData<Organization>> {
@@ -562,6 +565,19 @@ export class OrganizationsController {
         body,
       )} from ${address}`,
     );
+
+    if (permissions.includes(CheckWalletPermissions.ORG_AFFILIATE)) {
+      const authorized = await this.userService.userAuthorizedForOrg(
+        address,
+        id,
+      );
+      if (!authorized) {
+        throw new ForbiddenException({
+          success: false,
+          message: "You are not authorized to access this resource",
+        });
+      }
+    }
 
     try {
       const org = await this.organizationsService.findByOrgId(id);
