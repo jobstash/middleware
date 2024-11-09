@@ -1197,13 +1197,14 @@ export class OrganizationsService {
             OPTIONAL MATCH (organization)-[:HAS_DISCORD]->(discord)
             OPTIONAL MATCH (organization)-[:HAS_WEBSITE]->(website)
             OPTIONAL MATCH (organization)-[:HAS_RAW_WEBSITE]->(rawWebsite)-[:HAS_RAW_WEBSITE_METADATA]-(metadata)
+            OPTIONAL MATCH (organization)-[:HAS_GRANTSITE]->(grantsite)
             OPTIONAL MATCH (organization)-[:HAS_DOCSITE]->(docsite)
             OPTIONAL MATCH (organization)-[:HAS_TELEGRAM]->(telegram)
             OPTIONAL MATCH (organization)-[:HAS_GITHUB]->(github:GithubOrganization)
             OPTIONAL MATCH (organization)-[:HAS_ORGANIZATION_ALIAS]->(alias)
             OPTIONAL MATCH (organization)-[:HAS_TWITTER]->(twitter)
             DETACH DELETE jobsite, jobpost, structured_jobpost,
-              discord, website, docsite, telegram, github, alias, twitter, tag, rawWebsite, metadata
+              discord, website, docsite, telegram, github, alias, twitter, tag, rawWebsite, metadata, grantsite
 
             WITH organization
             OPTIONAL MATCH (organization)-[:HAS_PROJECT]->(project)
