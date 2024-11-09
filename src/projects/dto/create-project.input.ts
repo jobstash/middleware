@@ -28,7 +28,6 @@ export class CreateProjectInput {
   @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
-  @IsPositive()
   tvl?: number | null;
 
   @ApiPropertyOptional()
