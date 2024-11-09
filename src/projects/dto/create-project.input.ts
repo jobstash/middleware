@@ -4,7 +4,6 @@ import {
   IsNotEmpty,
   IsNumber,
   IsOptional,
-  IsPositive,
   IsString,
   IsUrl,
 } from "class-validator";
@@ -33,25 +32,21 @@ export class CreateProjectInput {
   @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
-  @IsPositive()
   monthlyFees?: number | null;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
-  @IsPositive()
   monthlyVolume?: number | null;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
-  @IsPositive()
   monthlyRevenue?: number | null;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
-  @IsPositive()
   monthlyActiveUsers?: number | null;
 
   @ApiProperty()
