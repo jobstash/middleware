@@ -894,7 +894,10 @@ export class OrganizationsController {
 
   @Post("/jobsites/activate")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
+  @Permissions(
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_AFFILIATE],
+    [CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER],
+  )
   @ApiOkResponse({
     description: "Activates a list of detected jobsites for an org",
     schema: responseSchemaWrapper({
@@ -907,7 +910,7 @@ export class OrganizationsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async activateOrgJobsites(
-    @Session() { address }: SessionObject,
+    @Session() { address, permissions }: SessionObject,
     @Body() body: ActivateOrgJobsiteInput,
   ): Promise<ResponseWithOptionalData<Jobsite[]>> {
     this.logger.log(
@@ -915,6 +918,19 @@ export class OrganizationsController {
         body,
       )} from ${address}`,
     );
+
+    if (permissions.includes(CheckWalletPermissions.ORG_AFFILIATE)) {
+      const authorized = await this.userService.userAuthorizedForOrg(
+        address,
+        body.orgId,
+      );
+      if (!authorized) {
+        throw new ForbiddenException({
+          success: false,
+          message: "You are not authorized to access this resource",
+        });
+      }
+    }
     return this.organizationsService.activateOrgJobsites(body);
   }
 
