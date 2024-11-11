@@ -1098,8 +1098,8 @@ export class JobsService {
   ): Promise<PaginatedData<AllJobsListResult>> {
     try {
       return paginate<AllOrgJobsListResult>(
-        page,
-        limit,
+        page ?? 1,
+        limit ?? 20,
         await this.getAllOrgJobsListResults(id),
       );
     } catch (err) {

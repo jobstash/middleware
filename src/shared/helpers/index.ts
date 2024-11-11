@@ -501,20 +501,14 @@ export const paginate = <T>(
   limit: number,
   data: T[],
 ): PaginatedData<T> => {
+  const maxPage = Math.ceil(data.length / limit);
+  const thisPageData =
+    page > maxPage ? [] : data.slice((page - 1) * limit, page * limit);
   return {
-    page: Number((data.length > 0 ? page ?? 1 : -1) ?? -1),
-    count: Number(
-      limit > data.length
-        ? data.length
-        : page * limit > data.length
-        ? 0
-        : limit,
-    ),
+    page: Number(page),
+    count: thisPageData.length,
     total: Number(data.length),
-    data:
-      page > 1 && page * limit > data.length
-        ? []
-        : data.slice((page - 1) * limit, page * limit),
+    data: thisPageData,
   };
 };
 
