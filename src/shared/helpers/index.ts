@@ -512,7 +512,7 @@ export const paginate = <T>(
     ),
     total: Number(data.length),
     data:
-      page * limit > data.length
+      page > 1 && page * limit > data.length
         ? []
         : data.slice((page - 1) * limit, page * limit),
   };
