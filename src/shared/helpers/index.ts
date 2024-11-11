@@ -503,9 +503,18 @@ export const paginate = <T>(
 ): PaginatedData<T> => {
   return {
     page: Number((data.length > 0 ? page ?? 1 : -1) ?? -1),
-    count: Number(limit > data.length ? data.length : limit),
+    count: Number(
+      limit > data.length
+        ? data.length
+        : page * limit > data.length
+        ? 0
+        : limit,
+    ),
     total: Number(data.length),
-    data: data.slice((page - 1) * limit, page * limit),
+    data:
+      page * limit > data.length
+        ? []
+        : data.slice((page - 1) * limit, page * limit),
   };
 };
 
