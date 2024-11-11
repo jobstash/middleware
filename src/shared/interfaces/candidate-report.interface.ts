@@ -4,8 +4,8 @@ import * as t from "io-ts";
 
 export class CandidateReportUser {
   public static readonly CandidateReportUserType = t.strict({
-    wallet: t.string,
-    avatar: t.string,
+    wallet: t.union([t.string, t.null]),
+    avatar: t.union([t.string, t.null]),
     github: t.string,
     cryptoNative: t.boolean,
     averageTenure: t.union([t.number, t.null]),
@@ -13,8 +13,8 @@ export class CandidateReportUser {
     tags: t.array(t.string),
   });
 
-  wallet: string;
-  avatar: string;
+  wallet: string | null;
+  avatar: string | null;
   github: string; // github username
   cryptoNative: boolean;
   averageTenure: number | null;
