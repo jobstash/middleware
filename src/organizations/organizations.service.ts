@@ -55,6 +55,7 @@ import { AddOrganizationByUrlInput } from "./dto/add-organization-by-url.input";
 import { ConfigService } from "@nestjs/config";
 import axios from "axios";
 import { Auth0Service } from "src/auth0/auth0.service";
+import { ImportOrgJobsiteInput } from "./dto/import-organization-jobsites.input";
 
 @Injectable()
 export class OrganizationsService {
@@ -1242,6 +1243,68 @@ export class OrganizationsService {
       return {
         success: false,
         message: "Failed to delete organization",
+      };
+    }
+  }
+
+  async importOrganizationJobsiteById(
+    dto: ImportOrgJobsiteInput,
+  ): Promise<ResponseWithNoData> {
+    try {
+      const jobsite = (
+        await this.neogma.queryRunner.run(
+          `
+        MATCH (:Organization {orgId: $orgId})-[:HAS_JOBSITE]->(jobsite:DetectedJobsite WHERE jobsite.id = $jobsiteId)
+        RETURN jobsite { .* } as jobsite
+      `,
+          dto,
+        )
+      ).records[0]?.get("jobsite") as Jobsite;
+      if (jobsite) {
+        const url = this.configService.get<string>("ETL_DOMAIN");
+        const authToken = await this.auth0Service.getETLToken();
+        const response2 = await axios.get(
+          `${url}/jobposts/jobsite?jobsite=${jobsite.url}`,
+          {
+            headers: {
+              Authorization: authToken ? `Bearer ${authToken}` : undefined,
+            },
+          },
+        );
+        if ([200, 201, 202].includes(response2.status)) {
+          return {
+            success: true,
+            message: "Organization jobsite queued for import successfully",
+          };
+        } else {
+          this.logger.warn(
+            `Error queueing organization jobsite ${dto} for import: ${response2.data}`,
+          );
+          return {
+            success: false,
+            message: "Error importing organization jobsite",
+          };
+        }
+      } else {
+        return {
+          success: false,
+          message: "Organization jobsite not found",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "external-api-call",
+          source: "organizations.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `OrganizationsService::importOrganizationJobsiteById ${err.message}`,
+      );
+      return {
+        success: false,
+        message: `Error importing organization jobsite`,
       };
     }
   }

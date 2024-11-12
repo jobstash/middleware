@@ -78,6 +78,7 @@ import { CreateOrgJobsiteInput } from "./dto/create-organization-jobsites.input"
 import { randomUUID } from "crypto";
 import { Session } from "src/shared/decorators";
 import { UserService } from "src/user/user.service";
+import { ImportOrgJobsiteInput } from "./dto/import-organization-jobsites.input";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -890,6 +891,48 @@ export class OrganizationsController {
       `POST /organizations/communities ${JSON.stringify(body)} from ${address}`,
     );
     return this.organizationsService.updateOrgCommunities(body);
+  }
+
+  @Post("/jobsites/import")
+  @UseGuards(PBACGuard)
+  @Permissions(
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_AFFILIATE],
+    [CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER],
+  )
+  @ApiOkResponse({
+    description: "Imports a jobsite for an org",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Organization),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong importing the organization jobsites on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async importOrgJobsite(
+    @Session() { address, permissions }: SessionObject,
+    @Body() body: ImportOrgJobsiteInput,
+  ): Promise<ResponseWithOptionalData<Jobsite[]>> {
+    this.logger.log(
+      `POST /organizations/jobsites/import ${JSON.stringify(
+        body,
+      )} from ${address}`,
+    );
+
+    if (permissions.includes(CheckWalletPermissions.ORG_AFFILIATE)) {
+      const authorized = await this.userService.userAuthorizedForOrg(
+        address,
+        body.orgId,
+      );
+      if (!authorized) {
+        throw new ForbiddenException({
+          success: false,
+          message: "You are not authorized to access this resource",
+        });
+      }
+    }
+    return this.organizationsService.importOrganizationJobsiteById(body);
   }
 
   @Post("/jobsites/activate")
