@@ -969,6 +969,122 @@ export class UserService {
       });
   }
 
+  async getUsersVerifiedOrgs(
+    wallets: string[],
+  ): Promise<{ wallet: string; orgs: string[] }[]> {
+    const users = (await this.privyService.getUsers())
+      .map(user => ({
+        discord: user?.discord?.username ?? null,
+        telegram: user?.telegram?.username ?? null,
+        twitter: user?.twitter?.username ?? null,
+        email: user?.email?.address ?? null,
+        farcaster: user?.farcaster?.username ?? null,
+        github: user?.github?.username ?? null,
+        google: user?.google?.email ?? null,
+        apple: user?.apple?.email ?? null,
+        wallets: user.linkedAccounts
+          .filter(x => x.type === "wallet" && x.walletClientType !== "privy")
+          .map(x => (x as WalletWithMetadata).address),
+        embeddedWallet: (
+          user.linkedAccounts.find(
+            x => x.type === "wallet" && x.walletClientType === "privy",
+          ) as WalletWithMetadata
+        )?.address,
+      }))
+      .filter(x => wallets.includes(x.embeddedWallet));
+
+    const workHistories = await this.scorerService.getUserWorkHistories(
+      users
+        .filter(x => x.github)
+        .map(x => ({
+          github: x.github,
+          wallets: [],
+        })),
+    );
+
+    const emails = users.flatMap(
+      x => [x.email, x.google, x.apple].filter(Boolean) as string[],
+    );
+
+    const orgsByGithub = (
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (organization: Organization WHERE organization.name IN $names)
+        RETURN {
+          name: organization.name,
+          orgId: organization.orgId
+        } as orgByGithub
+      `,
+        {
+          names: workHistories.flatMap(x => x.workHistory.map(y => y.name)),
+        },
+      )
+    ).records.map(x => x.get("orgByGithub") as { name: string; orgId: string });
+
+    const orgsByEmail = (
+      await this.neogma.queryRunner.run(
+        `
+            MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
+            UNWIND $emails as email
+            WITH email, website, organization
+            WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email).domain
+            RETURN organization {
+              id: organization.orgId,
+              name: organization.name,
+              account: email
+            } as orgByEmail
+          `,
+        { emails },
+      )
+    ).records.map(
+      x =>
+        x.get("orgByEmail") as {
+          id: string;
+          name: string;
+          account: string;
+        },
+    );
+
+    const result = [
+      ...workHistories
+        .map(x => {
+          const user = users.find(x => x.github === x.github);
+          const wallet = user?.embeddedWallet;
+          const workHistoryNames = x.workHistory.map(y => y.name);
+          const orgs = [
+            ...orgsByGithub
+              .filter(x => workHistoryNames.includes(x.name))
+              .map(x => x.orgId),
+          ];
+          return {
+            wallet,
+            orgs,
+          };
+        })
+        .filter(x => wallets.includes(x.wallet)),
+      ...users
+        .map(x => {
+          const wallet = x.embeddedWallet;
+          const orgs = [
+            ...orgsByEmail
+              .filter(y =>
+                [x.email, x.google, x.apple]
+                  .filter(Boolean)
+                  .includes(y.account),
+              )
+              .map(x => x.id),
+          ];
+          return {
+            wallet,
+            orgs,
+          };
+        })
+        .filter(x => wallets.includes(x.wallet)),
+    ];
+
+    return result;
+  }
+
   async getUsersAvailableForWork(
     params: GetAvailableUsersInput,
     orgId: string | null,
@@ -1053,6 +1169,14 @@ export class UserService {
               .filter(Boolean),
             orgId,
           );
+        const usersVerifiedOrgs = await this.getUsersVerifiedOrgs(
+          res.records
+            .map(x => {
+              const user = x.get("user");
+              return (locationFilter(user) ? user.wallet : null) ?? null;
+            })
+            .filter(Boolean),
+        );
         for (const record of res.records) {
           const user = record.get("user");
           const profile = new UserAvailableForWorkEntity({
@@ -1062,7 +1186,12 @@ export class UserService {
                 ?.ecosystemActivations ?? [],
           }).getProperties();
           if (locationFilter(profile)) {
-            results.push(profile);
+            const verifiedOrgs = usersVerifiedOrgs.find(
+              x => x.wallet === profile.wallet,
+            );
+            if (!(verifiedOrgs?.orgs ?? []).includes(orgId)) {
+              results.push(profile);
+            }
           }
         }
         return results;
