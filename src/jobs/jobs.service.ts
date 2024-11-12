@@ -2033,7 +2033,8 @@ export class JobsService {
           OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
           WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
           WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
-          RETURN COLLECT(DISTINCT canonicalTag) AS tags
+          WITH DISTINCT canonicalTag as tag
+          RETURN COLLECT(tag { .* }) as tags
         }
 
         WITH apoc.coll.toSet(COLLECT(structured_jobpost {
@@ -2196,7 +2197,8 @@ export class JobsService {
           OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
           WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
           WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
-          WITH COLLECT(DISTINCT canonicalTag as tag) AS tags
+          WITH DISTINCT canonicalTag as tag
+          RETURN COLLECT(tag { .* }) as tags
         }
 
         WITH apoc.coll.toSet(COLLECT(structured_jobpost {
