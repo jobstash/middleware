@@ -466,6 +466,8 @@ export function normalizeString(original: string): string {
     ["-", "_hyphen_"],
     ["+", "_plus_"],
     ["=", "_equals_"],
+    ["/", "_slash_"],
+    ["\\", "_backslash_"],
   ]);
 
   if (!original) return null;
