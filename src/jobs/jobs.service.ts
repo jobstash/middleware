@@ -17,6 +17,7 @@ import {
   notStringOrNull,
   paginate,
   publicationDateRangeGenerator,
+  sluggify,
 } from "src/shared/helpers";
 import {
   AllJobsFilterConfigs,
@@ -2744,10 +2745,19 @@ export class JobsService {
     dto: UpdateJobFolderInput,
   ): Promise<ResponseWithOptionalData<JobpostFolder>> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
+      const existing = data(
+        await this.getUserJobFolderById(sluggify(dto.name)),
+      );
+      if (existing) {
+        return {
+          success: false,
+          message: "Folder already exists",
+        };
+      } else {
+        const result = await this.neogma.queryRunner.run(
+          `
         MATCH (user:User {wallet: $wallet})
-        CREATE (folder:JobpostFolder {id: randomUUID()})
+        CREATE (folder:JobpostFolder {id: $id})
         SET folder.name = $name
         SET folder.isPublic = $isPublic
 
@@ -2760,23 +2770,24 @@ export class JobsService {
 
         RETURN folder { .* } as folder
         `,
-        { wallet, ...dto },
-      );
+          { wallet, ...dto, id: sluggify(dto.name) },
+        );
 
-      const res = result.records[0]?.get("folder");
+        const res = result.records[0]?.get("folder");
 
-      if (res) {
-        const details = data(await this.getUserJobFolderById(res.id));
-        return {
-          success: true,
-          message: "Job folder created successfully",
-          data: details,
-        };
-      } else {
-        return {
-          success: false,
-          message: "Job folder creation failed",
-        };
+        if (res) {
+          const details = data(await this.getUserJobFolderById(res.id));
+          return {
+            success: true,
+            message: "Job folder created successfully",
+            data: details,
+          };
+        } else {
+          return {
+            success: false,
+            message: "Job folder creation failed",
+          };
+        }
       }
     } catch (err) {
       Sentry.withScope(scope => {
@@ -2803,6 +2814,7 @@ export class JobsService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (folder:JobpostFolder {id: $id})
+        SET folder.id = $newId
         SET folder.name = $name
         SET folder.isPublic = $isPublic
 
@@ -2816,7 +2828,7 @@ export class JobsService {
 
         RETURN folder { .* } as folder
         `,
-        { id, ...dto },
+        { id, ...dto, newId: sluggify(dto.name) },
       );
 
       const res = result.records[0]?.get("folder");
