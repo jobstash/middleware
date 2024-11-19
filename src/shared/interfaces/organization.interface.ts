@@ -9,15 +9,9 @@ import { FundingRound } from "./funding-round.interface";
 import { Investor } from "./investor.interface";
 import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
-import { ProjectWithRelations } from "./project-with-relations.interface";
+import { ProjectWithBaseRelations } from "./project-with-relations.interface";
 import { OrgReview } from "./org-review.interface";
 import { OrgRating } from "./org-ratings.interface";
-import { Audit } from "./audit.interface";
-import { Hack } from "./hack.interface";
-import { Repository } from "./repository.interface";
-import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relations.interface";
-import { Chain } from "./chain.interface";
-import { ProjectMoreInfo } from "./project-more-info.interface";
 
 export class Organization {
   public static readonly OrganizationType = t.strict({
@@ -106,7 +100,7 @@ export class Organization {
   }
 }
 
-@ApiExtraModels(ProjectWithRelations, FundingRound)
+@ApiExtraModels(ProjectWithBaseRelations, FundingRound)
 export class OrganizationWithRelations extends Organization {
   public static readonly OrganizationWithRelationsType = t.intersection([
     Organization.OrganizationType,
@@ -121,29 +115,7 @@ export class OrganizationWithRelations extends Organization {
       aliases: t.array(t.string),
       twitter: t.union([t.string, t.null]),
       docs: t.union([t.string, t.null]),
-      projects: t.array(
-        t.intersection([
-          ProjectMoreInfo.ProjectMoreInfoType,
-          t.strict({
-            github: t.union([t.string, t.null]),
-            website: t.union([t.string, t.null]),
-            docs: t.union([t.string, t.null]),
-            category: t.union([t.string, t.null]),
-            twitter: t.union([t.string, t.null]),
-            discord: t.union([t.string, t.null]),
-            telegram: t.union([t.string, t.null]),
-            hacks: t.array(Hack.HackType),
-            audits: t.array(Audit.AuditType),
-            chains: t.array(Chain.ChainType),
-            ecosystems: t.array(t.string),
-            jobs: t.array(
-              StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
-            ),
-            investors: t.array(Investor.InvestorType),
-            repos: t.array(Repository.RepositoryType),
-          }),
-        ]),
-      ),
+      projects: t.array(ProjectWithBaseRelations.ProjectWithBaseRelationsType),
       fundingRounds: t.array(FundingRound.FundingRoundType),
       investors: t.array(Investor.InvestorType),
       community: t.array(t.string),
@@ -194,9 +166,9 @@ export class OrganizationWithRelations extends Organization {
 
   @ApiProperty({
     type: "array",
-    items: { $ref: getSchemaPath(ProjectWithRelations) },
+    items: { $ref: getSchemaPath(ProjectWithBaseRelations) },
   })
-  projects: Omit<ProjectWithRelations, "detectedJobsites" | "jobsites">[];
+  projects: ProjectWithBaseRelations[];
 
   @ApiProperty({
     type: "array",
