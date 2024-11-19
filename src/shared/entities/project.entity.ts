@@ -1,7 +1,77 @@
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
-import { ProjectWithRelations } from "../interfaces";
+import { ProjectWithBaseRelations, ProjectWithRelations } from "../interfaces";
 import { Node } from "neo4j-driver";
 import { uniqBy } from "lodash";
+
+export class ProjectWithBaseRelationsEntity {
+  constructor(private readonly raw: ProjectWithBaseRelations) {}
+
+  getProperties(): ProjectWithBaseRelations {
+    const project = this.raw;
+    return new ProjectWithBaseRelations({
+      ...project,
+      orgIds: project?.orgIds ?? [],
+      tokenSymbol: notStringOrNull(project?.tokenSymbol, ["-"]),
+      tokenAddress: notStringOrNull(project?.tokenAddress, ["-"]),
+      defiLlamaId: notStringOrNull(project?.defiLlamaId, ["-"]),
+      defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug, ["-"]),
+      defiLlamaParent: notStringOrNull(project?.defiLlamaParent, ["-"]),
+      tvl: nonZeroOrNull(project?.tvl),
+      monthlyVolume: nonZeroOrNull(project?.monthlyVolume),
+      monthlyFees: nonZeroOrNull(project?.monthlyFees),
+      monthlyRevenue: nonZeroOrNull(project?.monthlyRevenue),
+      monthlyActiveUsers: nonZeroOrNull(project?.monthlyActiveUsers),
+      createdTimestamp: nonZeroOrNull(project?.createdTimestamp),
+      updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
+      isMainnet: project?.isMainnet ?? null,
+      logo: notStringOrNull(project?.logo) ?? notStringOrNull(project?.website),
+      website: notStringOrNull(project?.website),
+      github: notStringOrNull(project?.github),
+      twitter: notStringOrNull(project?.twitter),
+      telegram: notStringOrNull(project?.telegram),
+      discord: notStringOrNull(project?.discord),
+      docs: notStringOrNull(project?.docs),
+      category: notStringOrNull(project?.category),
+      hacks:
+        project?.hacks.map(hack => ({
+          ...hack,
+          fundsLost: hack.fundsLost,
+          date: nonZeroOrNull(hack.date),
+          description: notStringOrNull(hack.description),
+          fundsReturned: nonZeroOrNull(hack.fundsReturned),
+        })) ?? [],
+      audits:
+        project?.audits.map(audit => ({
+          ...audit,
+          id: notStringOrNull(audit?.id),
+          name: notStringOrNull(audit?.name),
+          defiId: notStringOrNull(audit?.defiId),
+          date: nonZeroOrNull(audit?.date),
+          techIssues: nonZeroOrNull(audit?.techIssues),
+          link: notStringOrNull(audit?.link),
+        })) ?? [],
+      chains:
+        project.chains.map(chain => ({
+          ...chain,
+          logo: notStringOrNull(chain?.logo),
+        })) ?? [],
+      investors: Array.from(
+        uniqBy(
+          project?.investors?.map(investor => ({
+            id: investor.id,
+            name: investor.name,
+            normalizedName: investor.normalizedName,
+          })) ?? [],
+          "id",
+        ),
+      ),
+      jobs: project?.jobs ?? [],
+      repos: project?.repos ?? [],
+      description: notStringOrNull(project?.description),
+      normalizedName: notStringOrNull(project?.normalizedName),
+    });
+  }
+}
 
 export class ProjectWithRelationsEntity {
   constructor(private readonly raw: ProjectWithRelations) {}

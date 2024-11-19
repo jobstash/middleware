@@ -14,8 +14,8 @@ import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relati
 import { Repository } from "./repository.interface";
 import { Investor } from "./investor.interface";
 
-export class ProjectWithRelations extends ProjectMoreInfo {
-  public static readonly ProjectWithRelationsType = t.intersection([
+export class ProjectWithBaseRelations extends ProjectMoreInfo {
+  public static readonly ProjectWithBaseRelationsType = t.intersection([
     ProjectMoreInfo.ProjectMoreInfoType,
     t.strict({
       github: t.union([t.string, t.null]),
@@ -29,20 +29,6 @@ export class ProjectWithRelations extends ProjectMoreInfo {
       audits: t.array(Audit.AuditType),
       chains: t.array(Chain.ChainType),
       ecosystems: t.array(t.string),
-      jobsites: t.array(
-        t.strict({
-          id: t.string,
-          url: t.string,
-          type: t.string,
-        }),
-      ),
-      detectedJobsites: t.array(
-        t.strict({
-          id: t.string,
-          url: t.string,
-          type: t.string,
-        }),
-      ),
       jobs: t.array(
         StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
       ),
@@ -99,12 +85,6 @@ export class ProjectWithRelations extends ProjectMoreInfo {
   })
   jobs: StructuredJobpostWithRelations[];
 
-  @ApiProperty()
-  jobsites: { id: string; url: string; type: string }[];
-
-  @ApiProperty()
-  detectedJobsites: { id: string; url: string; type: string }[];
-
   @ApiProperty({
     type: "array",
     items: { $ref: getSchemaPath(Investor) },
@@ -117,7 +97,7 @@ export class ProjectWithRelations extends ProjectMoreInfo {
   })
   repos: Repository[];
 
-  constructor(raw: ProjectWithRelations) {
+  constructor(raw: ProjectWithBaseRelations) {
     const {
       github,
       docs,
@@ -131,14 +111,13 @@ export class ProjectWithRelations extends ProjectMoreInfo {
       chains,
       ecosystems,
       jobs,
-      jobsites,
-      detectedJobsites,
       investors,
       repos,
       ...projectProperties
     } = raw;
     super(projectProperties);
-    const result = ProjectWithRelations.ProjectWithRelationsType.decode(raw);
+    const result =
+      ProjectWithBaseRelations.ProjectWithBaseRelationsType.decode(raw);
 
     this.github = github;
     this.docs = docs;
@@ -152,15 +131,58 @@ export class ProjectWithRelations extends ProjectMoreInfo {
     this.chains = chains;
     this.ecosystems = ecosystems;
     this.jobs = jobs;
-    this.jobsites = jobsites;
-    this.detectedJobsites = detectedJobsites;
     this.investors = investors;
     this.repos = repos;
 
     if (isLeft(result)) {
       report(result).forEach(x => {
         throw new Error(
-          `project instance with id ${this.id} failed validation with error '${x}'`,
+          `project with base relations instance with id ${this.id} failed validation with error '${x}'`,
+        );
+      });
+    }
+  }
+}
+
+export class ProjectWithRelations extends ProjectWithBaseRelations {
+  public static readonly ProjectWithRelationsType = t.intersection([
+    ProjectWithBaseRelations.ProjectWithBaseRelationsType,
+    t.strict({
+      jobsites: t.array(
+        t.strict({
+          id: t.string,
+          url: t.string,
+          type: t.string,
+        }),
+      ),
+      detectedJobsites: t.array(
+        t.strict({
+          id: t.string,
+          url: t.string,
+          type: t.string,
+        }),
+      ),
+    }),
+  ]);
+
+  @ApiProperty()
+  jobsites: { id: string; url: string; type: string }[];
+
+  @ApiProperty()
+  detectedJobsites: { id: string; url: string; type: string }[];
+
+  constructor(raw: ProjectWithRelations) {
+    const { jobsites, detectedJobsites, ...projectProperties } = raw;
+    super(projectProperties);
+    const result = ProjectWithRelations.ProjectWithRelationsType.decode(raw);
+
+    this.jobsites = jobsites;
+    this.detectedJobsites = detectedJobsites;
+
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(
+          `project with relations instance with id ${this.id} failed validation with error '${x}'`,
         );
       });
     }

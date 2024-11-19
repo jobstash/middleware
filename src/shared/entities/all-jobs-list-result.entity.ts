@@ -41,10 +41,12 @@ export class AllJobListResultEntity {
       timestamp: nonZeroOrNull(jobpost?.timestamp),
       url: notStringOrNull(jobpost?.url),
       title: notStringOrNull(jobpost?.title),
-      organization: {
-        ...organization,
-        projects: organization?.projects ?? [],
-      },
+      organization: organization
+        ? {
+            ...organization,
+            projects: organization?.projects ?? [],
+          }
+        : null,
       featureStartDate: isStillFeatured
         ? nonZeroOrNull(jobpost?.featureStartDate)
         : null,

@@ -49,7 +49,6 @@ import { ChangeJobLocationTypeInput } from "./dto/change-location-type.input";
 import { ChangeJobProjectInput } from "./dto/update-job-project.input";
 import { FeatureJobsInput } from "./dto/feature-jobs.input";
 import { differenceInHours } from "date-fns";
-import { randomUUID } from "crypto";
 import { ConfigService } from "@nestjs/config";
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { RpcService } from "src/user/rpc.service";
@@ -147,6 +146,9 @@ export class JobsService {
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
+                  investors: apoc.coll.toSet([
+                    (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+                  ]),
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ]
@@ -191,6 +193,36 @@ export class JobsService {
                 }
               ]
           }][0],
+          project: [
+            (structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(project:Project) | project {
+              .*,
+              atsClient: [(project)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
+              hasUser: CASE WHEN EXISTS((:User)-[:HAS_PROJECT_AUTHORIZATION]->(project)) THEN true ELSE false END,
+              orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
+              discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+              category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+              twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              hacks: [
+                (project)-[:HAS_HACK]->(hack) | hack { .* }
+              ],
+              audits: [
+                (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+              ],
+              chains: [
+                (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+              ],
+              ecosystems: [
+                (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+              ],
+              investors: apoc.coll.toSet([
+                (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+              ])
+            }
+          ][0],
           tags: apoc.coll.toSet(tags)
       } AS result
     `;
@@ -403,7 +435,7 @@ export class JobsService {
               classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
               commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
               locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
-              project: [(structured_jobpost)<-[:HAS_JOB]->(project) | project {
+              project: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(project:Project) | project {
                 id: project.id,
                 name: project.name
               }][0],
@@ -513,112 +545,165 @@ export class JobsService {
     }
 
     const jobFilters = (jlr: JobListResult): boolean => {
-      const {
-        projects,
-        investors,
-        fundingRounds,
-        name: orgName,
-        headcountEstimate,
-        community,
-      } = jlr.organization;
-      const {
-        title,
-        tags,
-        seniority,
-        locationType,
-        classification,
-        commitment,
-        salary,
-        salaryCurrency,
-        timestamp,
-      } = jlr;
-      const matchesQuery =
-        orgName.match(query) ||
-        title.match(query) ||
-        tags.filter(tag => tag.name.match(query)).length > 0 ||
-        projects.filter(project => project.name.match(query)).length > 0;
-      return (
-        (!organizationFilterList ||
-          organizationFilterList.includes(normalizeString(orgName))) &&
-        (!seniorityFilterList ||
-          seniorityFilterList.includes(normalizeString(seniority))) &&
-        (!locationFilterList ||
-          locationFilterList.includes(normalizeString(locationType))) &&
-        (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
-        (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
-        (!minSalaryRange ||
-          ((salary ?? 0) >= minSalaryRange && salaryCurrency === "USD")) &&
-        (!maxSalaryRange ||
-          ((salary ?? 0) < maxSalaryRange && salaryCurrency === "USD")) &&
-        (!startDate || timestamp >= startDate) &&
-        (!endDate || timestamp < endDate) &&
-        (!projectFilterList ||
-          projects.filter(x =>
-            projectFilterList.includes(normalizeString(x.name)),
-          ).length > 0) &&
-        (!classificationFilterList ||
-          classificationFilterList.includes(normalizeString(classification))) &&
-        (!commitmentFilterList ||
-          commitmentFilterList.includes(normalizeString(commitment))) &&
-        (!communityFilterList ||
-          community.filter(community =>
-            communityFilterList.includes(normalizeString(community)),
-          ).length > 0) &&
-        (token === null ||
-          projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
-            .length > 0) &&
-        (mainNet === null || projects.filter(x => x.isMainnet).length > 0) &&
-        (!minTvl || projects.filter(x => (x?.tvl ?? 0) >= minTvl).length > 0) &&
-        (!maxTvl || projects.filter(x => (x?.tvl ?? 0) < maxTvl).length > 0) &&
-        (!minMonthlyVolume ||
-          projects.filter(x => (x?.monthlyVolume ?? 0) >= minMonthlyVolume)
-            .length > 0) &&
-        (!maxMonthlyVolume ||
-          projects.filter(x => (x?.monthlyVolume ?? 0) < maxMonthlyVolume)
-            .length > 0) &&
-        (!minMonthlyFees ||
-          projects.filter(x => (x?.monthlyFees ?? 0) >= minMonthlyFees).length >
-            0) &&
-        (!maxMonthlyFees ||
-          projects.filter(x => (x?.monthlyFees ?? 0) < maxMonthlyFees).length >
-            0) &&
-        (!minMonthlyRevenue ||
-          projects.filter(x => (x?.monthlyRevenue ?? 0) >= minMonthlyRevenue)
-            .length > 0) &&
-        (!maxMonthlyRevenue ||
-          projects.filter(x => (x?.monthlyRevenue ?? 0) < maxMonthlyRevenue)
-            .length > 0) &&
-        (auditFilter === null ||
-          projects.filter(x => x.audits.length > 0).length > 0 ===
-            auditFilter) &&
-        (hackFilter === null ||
-          projects.filter(x => x.hacks.length > 0).length > 0 === hackFilter) &&
-        (!chainFilterList ||
-          projects.filter(
-            x =>
-              x.chains.filter(y =>
-                chainFilterList.includes(normalizeString(y.name)),
-              ).length > 0,
-          ).length > 0) &&
-        (!investorFilterList ||
-          investors.filter(investor =>
-            investorFilterList.includes(normalizeString(investor.name)),
-          ).length > 0) &&
-        (!fundingRoundFilterList ||
-          fundingRoundFilterList.includes(
-            normalizeString(
-              sort<FundingRound>(fundingRounds).desc(x => x.date)[0]?.roundName,
-            ),
-          )) &&
-        (!query || matchesQuery) &&
-        (!tagFilterList ||
-          tags.filter(tag => tagFilterList.includes(normalizeString(tag.name)))
-            .length > 0) &&
-        (!skillFilterList ||
-          tags.filter(tag =>
-            skillFilterList.includes(normalizeString(tag.name)),
-          ).length > 0)
-      );
+      if (jlr.organization) {
+        const {
+          projects,
+          investors,
+          fundingRounds,
+          name: orgName,
+          headcountEstimate,
+          community,
+        } = jlr.organization;
+        const {
+          title,
+          tags,
+          seniority,
+          locationType,
+          classification,
+          commitment,
+          salary,
+          salaryCurrency,
+          timestamp,
+        } = jlr;
+        const matchesQuery =
+          orgName.match(query) ||
+          title.match(query) ||
+          tags.filter(tag => tag.name.match(query)).length > 0 ||
+          projects.filter(project => project.name.match(query)).length > 0;
+        return (
+          (!organizationFilterList ||
+            organizationFilterList.includes(normalizeString(orgName))) &&
+          (!seniorityFilterList ||
+            seniorityFilterList.includes(normalizeString(seniority))) &&
+          (!locationFilterList ||
+            locationFilterList.includes(normalizeString(locationType))) &&
+          (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
+          (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
+          (!minSalaryRange ||
+            ((salary ?? 0) >= minSalaryRange && salaryCurrency === "USD")) &&
+          (!maxSalaryRange ||
+            ((salary ?? 0) < maxSalaryRange && salaryCurrency === "USD")) &&
+          (!startDate || timestamp >= startDate) &&
+          (!endDate || timestamp < endDate) &&
+          (!projectFilterList ||
+            projects.filter(x =>
+              projectFilterList.includes(normalizeString(x.name)),
+            ).length > 0) &&
+          (!classificationFilterList ||
+            classificationFilterList.includes(
+              normalizeString(classification),
+            )) &&
+          (!commitmentFilterList ||
+            commitmentFilterList.includes(normalizeString(commitment))) &&
+          (!communityFilterList ||
+            community.filter(community =>
+              communityFilterList.includes(normalizeString(community)),
+            ).length > 0) &&
+          (token === null ||
+            projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
+              .length > 0) &&
+          (mainNet === null || projects.filter(x => x.isMainnet).length > 0) &&
+          (!minTvl ||
+            projects.filter(x => (x?.tvl ?? 0) >= minTvl).length > 0) &&
+          (!maxTvl ||
+            projects.filter(x => (x?.tvl ?? 0) < maxTvl).length > 0) &&
+          (!minMonthlyVolume ||
+            projects.filter(x => (x?.monthlyVolume ?? 0) >= minMonthlyVolume)
+              .length > 0) &&
+          (!maxMonthlyVolume ||
+            projects.filter(x => (x?.monthlyVolume ?? 0) < maxMonthlyVolume)
+              .length > 0) &&
+          (!minMonthlyFees ||
+            projects.filter(x => (x?.monthlyFees ?? 0) >= minMonthlyFees)
+              .length > 0) &&
+          (!maxMonthlyFees ||
+            projects.filter(x => (x?.monthlyFees ?? 0) < maxMonthlyFees)
+              .length > 0) &&
+          (!minMonthlyRevenue ||
+            projects.filter(x => (x?.monthlyRevenue ?? 0) >= minMonthlyRevenue)
+              .length > 0) &&
+          (!maxMonthlyRevenue ||
+            projects.filter(x => (x?.monthlyRevenue ?? 0) < maxMonthlyRevenue)
+              .length > 0) &&
+          (auditFilter === null ||
+            projects.filter(x => x.audits.length > 0).length > 0 ===
+              auditFilter) &&
+          (hackFilter === null ||
+            projects.filter(x => x.hacks.length > 0).length > 0 ===
+              hackFilter) &&
+          (!chainFilterList ||
+            projects.filter(
+              x =>
+                x.chains.filter(y =>
+                  chainFilterList.includes(normalizeString(y.name)),
+                ).length > 0,
+            ).length > 0) &&
+          (!investorFilterList ||
+            investors.filter(investor =>
+              investorFilterList.includes(normalizeString(investor.name)),
+            ).length > 0) &&
+          (!fundingRoundFilterList ||
+            fundingRoundFilterList.includes(
+              normalizeString(
+                sort<FundingRound>(fundingRounds).desc(x => x.date)[0]
+                  ?.roundName,
+              ),
+            )) &&
+          (!query || matchesQuery) &&
+          (!tagFilterList ||
+            tags.filter(tag =>
+              tagFilterList.includes(normalizeString(tag.name)),
+            ).length > 0) &&
+          (!skillFilterList ||
+            tags.filter(tag =>
+              skillFilterList.includes(normalizeString(tag.name)),
+            ).length > 0)
+        );
+      } else {
+        const {
+          title,
+          tags,
+          seniority,
+          locationType,
+          classification,
+          commitment,
+          salary,
+          salaryCurrency,
+          timestamp,
+        } = jlr;
+
+        const matchesQuery =
+          title.match(query) ||
+          tags.filter(tag => tag.name.match(query)).length > 0;
+
+        return (
+          (!locationFilterList ||
+            locationFilterList.includes(normalizeString(locationType))) &&
+          (!seniorityFilterList ||
+            seniorityFilterList.includes(normalizeString(seniority))) &&
+          (!minSalaryRange ||
+            ((salary ?? 0) >= minSalaryRange && salaryCurrency === "USD")) &&
+          (!maxSalaryRange ||
+            ((salary ?? 0) < maxSalaryRange && salaryCurrency === "USD")) &&
+          (!startDate || timestamp >= startDate) &&
+          (!endDate || timestamp < endDate) &&
+          (!classificationFilterList ||
+            classificationFilterList.includes(
+              normalizeString(classification),
+            )) &&
+          (!commitmentFilterList ||
+            commitmentFilterList.includes(normalizeString(commitment))) &&
+          (!query || matchesQuery) &&
+          (!tagFilterList ||
+            tags.filter(tag =>
+              tagFilterList.includes(normalizeString(tag.name)),
+            ).length > 0) &&
+          (!skillFilterList ||
+            tags.filter(tag =>
+              skillFilterList.includes(normalizeString(tag.name)),
+            ).length > 0)
+        );
+      }
     };
 
     const filtered = results
@@ -626,9 +711,10 @@ export class JobsService {
       .map(x => new JobListResultEntity(x).getProperties());
 
     const getSortParam = (jlr: JobListResult): number => {
-      const p1 = jlr.organization.projects.sort(
-        (a, b) => b.monthlyVolume - a.monthlyVolume,
-      )[0];
+      const p1 =
+        jlr?.organization?.projects.sort(
+          (a, b) => b.monthlyVolume - a.monthlyVolume,
+        )[0] ?? null;
       switch (orderBy) {
         case "audits":
           return p1?.audits?.length ?? 0;
@@ -646,12 +732,12 @@ export class JobsService {
           return p1?.monthlyRevenue ?? 0;
         case "fundingDate":
           return (
-            sort<FundingRound>(jlr.organization.fundingRounds).desc(
+            sort<FundingRound>(jlr?.organization?.fundingRounds ?? []).desc(
               x => x.date,
-            )[0].date ?? 0
+            )[0]?.date ?? 0
           );
         case "headcountEstimate":
-          return jlr.organization?.headcountEstimate ?? 0;
+          return jlr?.organization?.headcountEstimate ?? 0;
         case "publicationDate":
           return jlr.timestamp;
         case "salary":
@@ -918,6 +1004,7 @@ export class JobsService {
       MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID})-[:HAS_STATUS]->(:JobpostOnlineStatus)
       WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
       MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
       WITH DISTINCT tag, structured_jobpost
       OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
       OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
@@ -983,6 +1070,9 @@ export class JobsService {
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
+                  investors: apoc.coll.toSet([
+                    (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+                  ]),
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ]
@@ -1027,6 +1117,36 @@ export class JobsService {
                 }
               ]
           }][0],
+          project: [
+            (structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(project:Project) | project {
+              .*,
+              atsClient: [(project)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
+              hasUser: CASE WHEN EXISTS((:User)-[:HAS_PROJECT_AUTHORIZATION]->(project)) THEN true ELSE false END,
+              orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
+              discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+              category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+              twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              hacks: [
+                (project)-[:HAS_HACK]->(hack) | hack { .* }
+              ],
+              audits: [
+                (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+              ],
+              chains: [
+                (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+              ],
+              ecosystems: [
+                (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+              ],
+              investors: apoc.coll.toSet([
+                (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+              ])
+            }
+          ][0],
           tags: apoc.coll.toSet(tags)
       } AS result
     `;
@@ -1232,6 +1352,8 @@ export class JobsService {
             locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
             organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization:Organization) | organization {
               .*,
+              atsClient: [(organization)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
+              hasUser: CASE WHEN EXISTS((:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization)) THEN true ELSE false END,
               discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
               website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
               docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -1259,6 +1381,9 @@ export class JobsService {
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
+                  investors: apoc.coll.toSet([
+                    (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+                  ]),
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ]
@@ -1302,7 +1427,37 @@ export class JobsService {
                   reviewedTimestamp: review.reviewedTimestamp
                 }
               ]
-            }][0],
+          }][0],
+          project: [
+            (structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(project:Project) | project {
+              .*,
+              atsClient: [(project)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
+              hasUser: CASE WHEN EXISTS((:User)-[:HAS_PROJECT_AUTHORIZATION]->(project)) THEN true ELSE false END,
+              orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
+              discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+              category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+              twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              hacks: [
+                (project)-[:HAS_HACK]->(hack) | hack { .* }
+              ],
+              audits: [
+                (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+              ],
+              chains: [
+                (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+              ],
+              ecosystems: [
+                (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+              ],
+              investors: apoc.coll.toSet([
+                (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+              ])
+            }
+          ][0],
             tags: apoc.coll.toSet(tags)
           }
         } as result
@@ -1462,6 +1617,8 @@ export class JobsService {
             locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
             organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization:Organization) | organization {
               .*,
+              atsClient: [(organization)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
+              hasUser: CASE WHEN EXISTS((:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization)) THEN true ELSE false END,
               discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
               website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
               docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
@@ -1489,6 +1646,9 @@ export class JobsService {
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
+                  investors: apoc.coll.toSet([
+                    (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+                  ]),
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ]
@@ -1532,7 +1692,37 @@ export class JobsService {
                   reviewedTimestamp: review.reviewedTimestamp
                 }
               ]
-            }][0],
+          }][0],
+          project: [
+            (structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(project:Project) | project {
+              .*,
+              atsClient: [(project)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
+              hasUser: CASE WHEN EXISTS((:User)-[:HAS_PROJECT_AUTHORIZATION]->(project)) THEN true ELSE false END,
+              orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
+              discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+              category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+              twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              hacks: [
+                (project)-[:HAS_HACK]->(hack) | hack { .* }
+              ],
+              audits: [
+                (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+              ],
+              chains: [
+                (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+              ],
+              ecosystems: [
+                (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+              ],
+              investors: apoc.coll.toSet([
+                (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+              ])
+            }
+          ][0],
             tags: apoc.coll.toSet(tags)
           }
         } as result
@@ -1636,21 +1826,27 @@ export class JobsService {
     }
 
     const jobFilters = (jlr: AllJobsListResult): boolean => {
-      const { name: orgName } = jlr.organization;
-      const { title: jobTitle, tags, classification } = jlr;
+      if (jlr.organization) {
+        const { name: orgName } = jlr.organization;
+        const { title: jobTitle, tags, classification } = jlr;
 
-      const matchesQuery =
-        orgName.match(query) ||
-        jobTitle.match(query) ||
-        tags.filter(tag => tag.name.match(query)).length > 0;
+        const matchesQuery =
+          orgName.match(query) ||
+          jobTitle.match(query) ||
+          tags.filter(tag => tag.name.match(query)).length > 0;
 
-      return (
-        (!classificationFilterList ||
-          classificationFilterList.includes(normalizeString(classification))) &&
-        (!query || matchesQuery) &&
-        (!organizationFilterList ||
-          organizationFilterList.includes(normalizeString(orgName)))
-      );
+        return (
+          (!classificationFilterList ||
+            classificationFilterList.includes(
+              normalizeString(classification),
+            )) &&
+          (!query || matchesQuery) &&
+          (!organizationFilterList ||
+            organizationFilterList.includes(normalizeString(orgName)))
+        );
+      } else {
+        return false;
+      }
     };
 
     const filtered = results.filter(jobFilters);
@@ -1740,84 +1936,113 @@ export class JobsService {
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
             locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
             organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization:Organization) | organization {
-                .*,
-                discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-                website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-                docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-                telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
-                aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-                twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-                community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
-                ecosystems: [
-                  (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
-                ],
-                grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
-                projects: [
-                  (organization)-[:HAS_PROJECT]->(project) | project {
-                    .*,
-                    orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
-                    discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-                    website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
-                    docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-                    telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                    github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
-                    category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                    twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-                    hacks: [
-                      (project)-[:HAS_HACK]->(hack) | hack { .* }
-                    ],
-                    audits: [
-                      (project)-[:HAS_AUDIT]->(audit) | audit { .* }
-                    ],
-                    chains: [
-                      (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
-                    ],
-                    ecosystems: [
-                      (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                    ],
-                    jobs: [
-                      (project)-[:HAS_JOB]->(job) | job { .* }
-                    ],
-                    repos: [
-                      (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
-                    ]
-                  }
-                ],
-                fundingRounds: apoc.coll.toSet([
-                  (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
-                ]),
-                investors: apoc.coll.toSet([
-                  (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-                ]),
-                reviews: [
-                  (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
-                    compensation: {
-                      salary: review.salary,
-                      currency: review.currency,
-                      offersTokenAllocation: review.offersTokenAllocation
-                    },
-                    rating: {
-                      onboarding: review.onboarding,
-                      careerGrowth: review.careerGrowth,
-                      benefits: review.benefits,
-                      workLifeBalance: review.workLifeBalance,
-                      diversityInclusion: review.diversityInclusion,
-                      management: review.management,
-                      product: review.product,
-                      compensation: review.compensation
-                    },
-                    review: {
-                      title: review.title,
-                      location: review.location,
-                      timezone: review.timezone,
-                      pros: review.pros,
-                      cons: review.cons
-                    },
-                    reviewedTimestamp: review.reviewedTimestamp
-                  }
-                ]
-            }][0],
+              .*,
+              atsClient: [(organization)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
+              hasUser: CASE WHEN EXISTS((:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization)) THEN true ELSE false END,
+              discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+              aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
+              twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              projects: [
+                (organization)-[:HAS_PROJECT]->(project) | project {
+                  .*,
+                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
+                  discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                  website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                  docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                  telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                  github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+                  category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                  twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+                  hacks: [
+                    (project)-[:HAS_HACK]->(hack) | hack { .* }
+                  ],
+                  audits: [
+                    (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                  ],
+                  chains: [
+                    (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  investors: apoc.coll.toSet([
+                    (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+                  ]),
+                  ecosystems: [
+                    (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+                  ]
+                }
+              ],
+              fundingRounds: apoc.coll.toSet([
+                (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+              ]),
+              investors: apoc.coll.toSet([
+                (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+              ]),
+              community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+              ecosystems: [
+                (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
+              ],
+              grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
+              reviews: [
+                (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
+                  compensation: {
+                    salary: review.salary,
+                    currency: review.currency,
+                    offersTokenAllocation: review.offersTokenAllocation
+                  },
+                  rating: {
+                    onboarding: review.onboarding,
+                    careerGrowth: review.careerGrowth,
+                    benefits: review.benefits,
+                    workLifeBalance: review.workLifeBalance,
+                    diversityInclusion: review.diversityInclusion,
+                    management: review.management,
+                    product: review.product,
+                    compensation: review.compensation
+                  },
+                  review: {
+                    title: review.title,
+                    location: review.location,
+                    timezone: review.timezone,
+                    pros: review.pros,
+                    cons: review.cons
+                  },
+                  reviewedTimestamp: review.reviewedTimestamp
+                }
+              ]
+          }][0],
+          project: [
+            (structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(project:Project) | project {
+              .*,
+              atsClient: [(project)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
+              hasUser: CASE WHEN EXISTS((:User)-[:HAS_PROJECT_AUTHORIZATION]->(project)) THEN true ELSE false END,
+              orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
+              discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+              category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+              twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              hacks: [
+                (project)-[:HAS_HACK]->(hack) | hack { .* }
+              ],
+              audits: [
+                (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+              ],
+              chains: [
+                (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+              ],
+              ecosystems: [
+                (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+              ],
+              investors: apoc.coll.toSet([
+                (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+              ])
+            }
+          ][0],
             tags: apoc.coll.toSet(tags)
         } AS result
       `,
@@ -1900,84 +2125,113 @@ export class JobsService {
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
             locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
             organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization:Organization) | organization {
-                .*,
-                discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-                website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-                docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-                telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
-                aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-                twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-                community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
-                ecosystems: [
-                  (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
-                ],
-                grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
-                projects: [
-                  (organization)-[:HAS_PROJECT]->(project) | project {
-                    .*,
-                    orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
-                    discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-                    website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
-                    docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-                    telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                    github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
-                    category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                    twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-                    hacks: [
-                      (project)-[:HAS_HACK]->(hack) | hack { .* }
-                    ],
-                    audits: [
-                      (project)-[:HAS_AUDIT]->(audit) | audit { .* }
-                    ],
-                    chains: [
-                      (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
-                    ],
-                    ecosystems: [
-                      (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                    ],
-                    jobs: [
-                      (project)-[:HAS_JOB]->(job) | job { .* }
-                    ],
-                    repos: [
-                      (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
-                    ]
-                  }
-                ],
-                fundingRounds: apoc.coll.toSet([
-                  (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
-                ]),
-                investors: apoc.coll.toSet([
-                  (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-                ]),
-                reviews: [
-                  (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
-                    compensation: {
-                      salary: review.salary,
-                      currency: review.currency,
-                      offersTokenAllocation: review.offersTokenAllocation
-                    },
-                    rating: {
-                      onboarding: review.onboarding,
-                      careerGrowth: review.careerGrowth,
-                      benefits: review.benefits,
-                      workLifeBalance: review.workLifeBalance,
-                      diversityInclusion: review.diversityInclusion,
-                      management: review.management,
-                      product: review.product,
-                      compensation: review.compensation
-                    },
-                    review: {
-                      title: review.title,
-                      location: review.location,
-                      timezone: review.timezone,
-                      pros: review.pros,
-                      cons: review.cons
-                    },
-                    reviewedTimestamp: review.reviewedTimestamp
-                  }
-                ]
-            }][0],
+              .*,
+              atsClient: [(organization)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
+              hasUser: CASE WHEN EXISTS((:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization)) THEN true ELSE false END,
+              discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+              aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
+              twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              projects: [
+                (organization)-[:HAS_PROJECT]->(project) | project {
+                  .*,
+                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
+                  discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                  website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                  docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                  telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                  github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+                  category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                  twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+                  hacks: [
+                    (project)-[:HAS_HACK]->(hack) | hack { .* }
+                  ],
+                  audits: [
+                    (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                  ],
+                  chains: [
+                    (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  investors: apoc.coll.toSet([
+                    (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+                  ]),
+                  ecosystems: [
+                    (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+                  ]
+                }
+              ],
+              fundingRounds: apoc.coll.toSet([
+                (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+              ]),
+              investors: apoc.coll.toSet([
+                (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+              ]),
+              community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+              ecosystems: [
+                (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
+              ],
+              grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
+              reviews: [
+                (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
+                  compensation: {
+                    salary: review.salary,
+                    currency: review.currency,
+                    offersTokenAllocation: review.offersTokenAllocation
+                  },
+                  rating: {
+                    onboarding: review.onboarding,
+                    careerGrowth: review.careerGrowth,
+                    benefits: review.benefits,
+                    workLifeBalance: review.workLifeBalance,
+                    diversityInclusion: review.diversityInclusion,
+                    management: review.management,
+                    product: review.product,
+                    compensation: review.compensation
+                  },
+                  review: {
+                    title: review.title,
+                    location: review.location,
+                    timezone: review.timezone,
+                    pros: review.pros,
+                    cons: review.cons
+                  },
+                  reviewedTimestamp: review.reviewedTimestamp
+                }
+              ]
+          }][0],
+          project: [
+            (structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(project:Project) | project {
+              .*,
+              atsClient: [(project)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
+              hasUser: CASE WHEN EXISTS((:User)-[:HAS_PROJECT_AUTHORIZATION]->(project)) THEN true ELSE false END,
+              orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
+              discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+              category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+              twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              hacks: [
+                (project)-[:HAS_HACK]->(hack) | hack { .* }
+              ],
+              audits: [
+                (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+              ],
+              chains: [
+                (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+              ],
+              ecosystems: [
+                (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+              ],
+              investors: apoc.coll.toSet([
+                (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+              ])
+            }
+          ][0],
             tags: apoc.coll.toSet(tags)
         } AS result
       `,
@@ -2022,7 +2276,7 @@ export class JobsService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (:User {wallet: $wallet})-[:CREATED_FOLDER]->(folder: JobpostFolder)
-        MATCH (folder)-[:CONTAINS_JOBPOST]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        OPTIONAL MATCH (folder)-[:CONTAINS_JOBPOST]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
         
         CALL {
@@ -2065,84 +2319,113 @@ export class JobsService {
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
             locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
             organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization:Organization) | organization {
-                .*,
-                discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-                website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-                docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-                telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
-                aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-                twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-                community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
-                ecosystems: [
-                  (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
-                ],
-                grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
-                projects: [
-                  (organization)-[:HAS_PROJECT]->(project) | project {
-                    .*,
-                    orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
-                    discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-                    website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
-                    docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-                    telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                    github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
-                    category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                    twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-                    hacks: [
-                      (project)-[:HAS_HACK]->(hack) | hack { .* }
-                    ],
-                    audits: [
-                      (project)-[:HAS_AUDIT]->(audit) | audit { .* }
-                    ],
-                    chains: [
-                      (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
-                    ],
-                    ecosystems: [
-                      (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                    ],
-                    jobs: [
-                      (project)-[:HAS_JOB]->(job) | job { .* }
-                    ],
-                    repos: [
-                      (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
-                    ]
-                  }
-                ],
-                fundingRounds: apoc.coll.toSet([
-                  (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
-                ]),
-                investors: apoc.coll.toSet([
-                  (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-                ]),
-                reviews: [
-                  (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
-                    compensation: {
-                      salary: review.salary,
-                      currency: review.currency,
-                      offersTokenAllocation: review.offersTokenAllocation
-                    },
-                    rating: {
-                      onboarding: review.onboarding,
-                      careerGrowth: review.careerGrowth,
-                      benefits: review.benefits,
-                      workLifeBalance: review.workLifeBalance,
-                      diversityInclusion: review.diversityInclusion,
-                      management: review.management,
-                      product: review.product,
-                      compensation: review.compensation
-                    },
-                    review: {
-                      title: review.title,
-                      location: review.location,
-                      timezone: review.timezone,
-                      pros: review.pros,
-                      cons: review.cons
-                    },
-                    reviewedTimestamp: review.reviewedTimestamp
-                  }
-                ]
-            }][0],
+              .*,
+              atsClient: [(organization)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
+              hasUser: CASE WHEN EXISTS((:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization)) THEN true ELSE false END,
+              discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+              aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
+              twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              projects: [
+                (organization)-[:HAS_PROJECT]->(project) | project {
+                  .*,
+                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
+                  discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                  website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                  docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                  telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                  github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+                  category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                  twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+                  hacks: [
+                    (project)-[:HAS_HACK]->(hack) | hack { .* }
+                  ],
+                  audits: [
+                    (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                  ],
+                  chains: [
+                    (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  investors: apoc.coll.toSet([
+                    (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+                  ]),
+                  ecosystems: [
+                    (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+                  ]
+                }
+              ],
+              fundingRounds: apoc.coll.toSet([
+                (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+              ]),
+              investors: apoc.coll.toSet([
+                (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+              ]),
+              community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+              ecosystems: [
+                (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
+              ],
+              grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
+              reviews: [
+                (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
+                  compensation: {
+                    salary: review.salary,
+                    currency: review.currency,
+                    offersTokenAllocation: review.offersTokenAllocation
+                  },
+                  rating: {
+                    onboarding: review.onboarding,
+                    careerGrowth: review.careerGrowth,
+                    benefits: review.benefits,
+                    workLifeBalance: review.workLifeBalance,
+                    diversityInclusion: review.diversityInclusion,
+                    management: review.management,
+                    product: review.product,
+                    compensation: review.compensation
+                  },
+                  review: {
+                    title: review.title,
+                    location: review.location,
+                    timezone: review.timezone,
+                    pros: review.pros,
+                    cons: review.cons
+                  },
+                  reviewedTimestamp: review.reviewedTimestamp
+                }
+              ]
+          }][0],
+          project: [
+            (structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(project:Project) | project {
+              .*,
+              atsClient: [(project)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
+              hasUser: CASE WHEN EXISTS((:User)-[:HAS_PROJECT_AUTHORIZATION]->(project)) THEN true ELSE false END,
+              orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
+              discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+              category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+              twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              hacks: [
+                (project)-[:HAS_HACK]->(hack) | hack { .* }
+              ],
+              audits: [
+                (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+              ],
+              chains: [
+                (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+              ],
+              ecosystems: [
+                (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+              ],
+              investors: apoc.coll.toSet([
+                (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+              ])
+            }
+          ][0],
             tags: apoc.coll.toSet(tags)
         })) as jobs, folder
 
@@ -2229,84 +2512,113 @@ export class JobsService {
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
             locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
             organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization:Organization) | organization {
-                .*,
-                discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-                website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-                docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-                telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
-                aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-                twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-                community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
-                ecosystems: [
-                  (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
-                ],
-                grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
-                projects: [
-                  (organization)-[:HAS_PROJECT]->(project) | project {
-                    .*,
-                    orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
-                    discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-                    website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
-                    docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-                    telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                    github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
-                    category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                    twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-                    hacks: [
-                      (project)-[:HAS_HACK]->(hack) | hack { .* }
-                    ],
-                    audits: [
-                      (project)-[:HAS_AUDIT]->(audit) | audit { .* }
-                    ],
-                    chains: [
-                      (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
-                    ],
-                    ecosystems: [
-                      (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                    ],
-                    jobs: [
-                      (project)-[:HAS_JOB]->(job) | job { .* }
-                    ],
-                    repos: [
-                      (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
-                    ]
-                  }
-                ],
-                fundingRounds: apoc.coll.toSet([
-                  (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
-                ]),
-                investors: apoc.coll.toSet([
-                  (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-                ]),
-                reviews: [
-                  (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
-                    compensation: {
-                      salary: review.salary,
-                      currency: review.currency,
-                      offersTokenAllocation: review.offersTokenAllocation
-                    },
-                    rating: {
-                      onboarding: review.onboarding,
-                      careerGrowth: review.careerGrowth,
-                      benefits: review.benefits,
-                      workLifeBalance: review.workLifeBalance,
-                      diversityInclusion: review.diversityInclusion,
-                      management: review.management,
-                      product: review.product,
-                      compensation: review.compensation
-                    },
-                    review: {
-                      title: review.title,
-                      location: review.location,
-                      timezone: review.timezone,
-                      pros: review.pros,
-                      cons: review.cons
-                    },
-                    reviewedTimestamp: review.reviewedTimestamp
-                  }
-                ]
-            }][0],
+              .*,
+              atsClient: [(organization)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
+              hasUser: CASE WHEN EXISTS((:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization)) THEN true ELSE false END,
+              discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+              aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
+              twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              projects: [
+                (organization)-[:HAS_PROJECT]->(project) | project {
+                  .*,
+                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
+                  discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                  website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                  docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                  telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                  github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+                  category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                  twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+                  hacks: [
+                    (project)-[:HAS_HACK]->(hack) | hack { .* }
+                  ],
+                  audits: [
+                    (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                  ],
+                  chains: [
+                    (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  investors: apoc.coll.toSet([
+                    (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+                  ]),
+                  ecosystems: [
+                    (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+                  ]
+                }
+              ],
+              fundingRounds: apoc.coll.toSet([
+                (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+              ]),
+              investors: apoc.coll.toSet([
+                (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+              ]),
+              community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+              ecosystems: [
+                (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
+              ],
+              grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
+              reviews: [
+                (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
+                  compensation: {
+                    salary: review.salary,
+                    currency: review.currency,
+                    offersTokenAllocation: review.offersTokenAllocation
+                  },
+                  rating: {
+                    onboarding: review.onboarding,
+                    careerGrowth: review.careerGrowth,
+                    benefits: review.benefits,
+                    workLifeBalance: review.workLifeBalance,
+                    diversityInclusion: review.diversityInclusion,
+                    management: review.management,
+                    product: review.product,
+                    compensation: review.compensation
+                  },
+                  review: {
+                    title: review.title,
+                    location: review.location,
+                    timezone: review.timezone,
+                    pros: review.pros,
+                    cons: review.cons
+                  },
+                  reviewedTimestamp: review.reviewedTimestamp
+                }
+              ]
+          }][0],
+          project: [
+            (structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(project:Project) | project {
+              .*,
+              atsClient: [(project)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
+              hasUser: CASE WHEN EXISTS((:User)-[:HAS_PROJECT_AUTHORIZATION]->(project)) THEN true ELSE false END,
+              orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
+              discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+              category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+              twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              hacks: [
+                (project)-[:HAS_HACK]->(hack) | hack { .* }
+              ],
+              audits: [
+                (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+              ],
+              chains: [
+                (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+              ],
+              ecosystems: [
+                (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+              ],
+              investors: apoc.coll.toSet([
+                (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+              ])
+            }
+          ][0],
             tags: apoc.coll.toSet(tags)
         })) as jobs, folder
 
@@ -2573,28 +2885,24 @@ export class JobsService {
     dto: ChangeJobClassificationInput,
   ): Promise<ResponseWithNoData> {
     try {
-      for (const uuid of dto.shortUUIDs) {
-        await this.models.StructuredJobposts.deleteRelationships({
-          alias: "classification",
-          where: {
-            source: { shortUUID: uuid },
-          },
-        });
-        await this.models.StructuredJobposts.relateTo({
-          alias: "classification",
-          where: {
-            source: {
-              shortUUID: uuid,
-            },
-            target: {
-              name: dto.classification,
-            },
-          },
-          properties: {
-            creator: wallet,
-          },
-        });
-      }
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (job:StructuredJobpost WHERE job.shortUUID IN $shortUUIDs)
+        OPTIONAL MATCH (job)-[r:HAS_CLASSIFICATION]->(classification:JobpostClassification)
+        DELETE r
+
+        WITH job
+        MATCH (classification:JobpostClassification {name: $classification})
+        MERGE (job)-[r:HAS_CLASSIFICATION]->(classification)
+        SET r.timestamp = timestamp()
+        SET r.creator = $creatorWallet
+      `,
+        {
+          shortUUIDs: dto.shortUUIDs,
+          classification: dto.classification,
+          creatorWallet: wallet,
+        },
+      );
       return {
         success: true,
         message: "Job classification changed successfully",
@@ -2875,36 +3183,18 @@ export class JobsService {
     dto: BlockJobsInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const blockedDesignation = await this.models.BlockedDesignation.findOne({
-        where: {
-          name: "BlockedDesignation",
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (job:StructuredJobpost WHERE job.shortUUID IN $shortUUIDs),(blocked:BlockedDesignation {name: "BlockedDesignation"})
+        MERGE (job)-[r:HAS_CLASSIFICATION]->(blocked)
+        SET r.timestamp = timestamp()
+        SET r.creator = $creatorWallet
+      `,
+        {
+          shortUUIDs: dto.shortUUIDs,
+          creatorWallet: wallet,
         },
-      });
-      if (!blockedDesignation?.__existsInDatabase) {
-        await this.models.BlockedDesignation.createOne(
-          { id: randomUUID(), name: "BlockedDesignation" },
-          {
-            merge: true,
-            assertRelationshipsOfWhere: 0,
-          },
-        );
-      }
-      for (const uuid of dto.shortUUIDs) {
-        await this.models.StructuredJobposts.relateTo({
-          alias: "blocked",
-          where: {
-            source: {
-              shortUUID: uuid,
-            },
-            target: {
-              name: "BlockedDesignation",
-            },
-          },
-          properties: {
-            creator: wallet,
-          },
-        });
-      }
+      );
 
       return {
         success: true,

@@ -930,7 +930,7 @@ export class ProjectsService {
         { id },
       );
 
-      if (project.website) {
+      if (project?.website) {
         await this.neogma.queryRunner.run(
           `
           MATCH (project:Project {id: $id})
@@ -944,7 +944,7 @@ export class ProjectsService {
           {
             ...project,
             id,
-            website: project.website,
+            website: project?.website,
           },
         );
       }

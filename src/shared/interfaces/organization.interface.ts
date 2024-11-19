@@ -17,6 +17,7 @@ import { Hack } from "./hack.interface";
 import { Repository } from "./repository.interface";
 import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relations.interface";
 import { Chain } from "./chain.interface";
+import { ProjectMoreInfo } from "./project-more-info.interface";
 
 export class Organization {
   public static readonly OrganizationType = t.strict({
@@ -121,24 +122,27 @@ export class OrganizationWithRelations extends Organization {
       twitter: t.union([t.string, t.null]),
       docs: t.union([t.string, t.null]),
       projects: t.array(
-        t.strict({
-          github: t.union([t.string, t.null]),
-          website: t.union([t.string, t.null]),
-          docs: t.union([t.string, t.null]),
-          category: t.union([t.string, t.null]),
-          twitter: t.union([t.string, t.null]),
-          discord: t.union([t.string, t.null]),
-          telegram: t.union([t.string, t.null]),
-          hacks: t.array(Hack.HackType),
-          audits: t.array(Audit.AuditType),
-          chains: t.array(Chain.ChainType),
-          ecosystems: t.array(t.string),
-          jobs: t.array(
-            StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
-          ),
-          investors: t.array(Investor.InvestorType),
-          repos: t.array(Repository.RepositoryType),
-        }),
+        t.intersection([
+          ProjectMoreInfo.ProjectMoreInfoType,
+          t.strict({
+            github: t.union([t.string, t.null]),
+            website: t.union([t.string, t.null]),
+            docs: t.union([t.string, t.null]),
+            category: t.union([t.string, t.null]),
+            twitter: t.union([t.string, t.null]),
+            discord: t.union([t.string, t.null]),
+            telegram: t.union([t.string, t.null]),
+            hacks: t.array(Hack.HackType),
+            audits: t.array(Audit.AuditType),
+            chains: t.array(Chain.ChainType),
+            ecosystems: t.array(t.string),
+            jobs: t.array(
+              StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
+            ),
+            investors: t.array(Investor.InvestorType),
+            repos: t.array(Repository.RepositoryType),
+          }),
+        ]),
       ),
       fundingRounds: t.array(FundingRound.FundingRoundType),
       investors: t.array(Investor.InvestorType),
@@ -192,7 +196,7 @@ export class OrganizationWithRelations extends Organization {
     type: "array",
     items: { $ref: getSchemaPath(ProjectWithRelations) },
   })
-  projects: ProjectWithRelations[];
+  projects: Omit<ProjectWithRelations, "detectedJobsites" | "jobsites">[];
 
   @ApiProperty({
     type: "array",

@@ -1,8 +1,4 @@
-import {
-  ApiExtraModels,
-  ApiProperty,
-  ApiPropertyOptional,
-} from "@nestjs/swagger";
+import { ApiExtraModels, ApiProperty } from "@nestjs/swagger";
 import { isLeft } from "fp-ts/lib/Either";
 import * as t from "io-ts";
 import { report } from "io-ts-human-reporter";
@@ -17,11 +13,14 @@ export class AllJobsListResult extends StructuredJobpostWithRelations {
     t.strict({
       isBlocked: t.boolean,
       isOnline: t.boolean,
-      organization: t.strict({
-        orgId: t.string,
-        name: t.string,
-        projects: t.array(t.strict({ id: t.string, name: t.string })),
-      }),
+      organization: t.union([
+        t.strict({
+          orgId: t.string,
+          name: t.string,
+          projects: t.array(t.strict({ id: t.string, name: t.string })),
+        }),
+        t.null,
+      ]),
       project: t.union([t.strict({ id: t.string, name: t.string }), t.null]),
     }),
   ]);
@@ -37,7 +36,7 @@ export class AllJobsListResult extends StructuredJobpostWithRelations {
     orgId: string;
     name: string;
     projects: { id: string; name: string }[];
-  };
+  } | null;
 
   @ApiProperty()
   project: { id: string; name: string } | null;
@@ -47,6 +46,12 @@ export class AllJobsListResult extends StructuredJobpostWithRelations {
       raw;
     super(jobpostProperties);
     const result = AllJobsListResult.AllJobsListResultType.decode(raw);
+
+    if (organization === null && project === null) {
+      throw new Error(
+        `all job list result instance with id ${this.shortUUID} has no org or project`,
+      );
+    }
 
     this.organization = organization;
     this.project = project;
@@ -80,15 +85,11 @@ export class AllOrgJobsListResult extends JobListResult {
   @ApiProperty()
   isOnline: boolean;
 
-  @ApiPropertyOptional()
-  project: { id: string; name: string } | null;
-
   constructor(raw: AllOrgJobsListResult) {
-    const { isBlocked, isOnline, project, ...jobpostProperties } = raw;
+    const { isBlocked, isOnline, ...jobpostProperties } = raw;
     super(jobpostProperties);
     const result = AllOrgJobsListResult.AllOrgJobsListResultType.decode(raw);
 
-    this.project = project;
     this.isBlocked = isBlocked;
     this.isOnline = isOnline;
 

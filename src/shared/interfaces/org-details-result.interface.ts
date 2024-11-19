@@ -90,7 +90,7 @@ export class OrgDetailsResult extends Organization {
     type: "array",
     items: { $ref: getSchemaPath(ProjectWithRelations) },
   })
-  projects: ProjectWithRelations[];
+  projects: Omit<ProjectWithRelations, "detectedJobsites" | "jobsites">[];
 
   @ApiProperty({
     type: "array",

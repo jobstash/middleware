@@ -12,6 +12,7 @@ import {
   ProjectWithRelations,
   data,
   DateRange,
+  JobDetailsResult,
 } from "src/shared/types";
 import { Integer } from "neo4j-driver";
 import {
@@ -45,6 +46,9 @@ import { UserModule } from "src/user/user.module";
 import { faker } from "@faker-js/faker";
 import { sampleSize } from "lodash";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import { addWeeks, subWeeks } from "date-fns";
+import { randomUUID } from "crypto";
+import { Auth0Module } from "src/auth0/auth0.module";
 
 describe("JobsController", () => {
   let controller: JobsController;
@@ -54,7 +58,7 @@ describe("JobsController", () => {
   const logger = new CustomLogger(`${JobsController.name}TestSuite`);
 
   const projectHasArrayPropsDuplication = (
-    project: ProjectWithRelations,
+    project: Omit<ProjectWithRelations, "detectedJobsites" | "jobsites">,
     jobPostUUID: string,
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
@@ -79,7 +83,7 @@ describe("JobsController", () => {
   };
 
   const jlrHasArrayPropsDuplication = (
-    jobListResult: JobListResult,
+    jobListResult: JobListResult | JobDetailsResult,
   ): boolean => {
     const hasDuplicateProjects = hasDuplicates(
       jobListResult.organization.projects,
@@ -135,6 +139,7 @@ describe("JobsController", () => {
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
+        Auth0Module,
         forwardRef(() => AuthModule),
         forwardRef(() => ProfileModule),
         forwardRef(() => PrivyModule),
@@ -228,345 +233,297 @@ describe("JobsController", () => {
     REALLY_LONG_TIME,
   );
 
-  // it(
-  //   "should change a job's classification",
-  //   async () => {
-  //     const params: JobListParams = {
-  //       ...new JobListParams(),
-  //       page: 1,
-  //       limit: 5,
-  //     };
+  it(
+    "should change a job's classification",
+    async () => {
+      const params: JobListParams = {
+        ...new JobListParams(),
+        page: 1,
+        limit: 5,
+      };
 
-  //     const req: Partial<Request> = {};
-  //     const res: Partial<Response> = {
-  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //       status: code => {
-  //         return this;
-  //       },
-  //     };
+      const newClassification = "OPERATIONS";
 
-  //     const newClassification = "OPERATIONS";
+      const job = (
+        await controller.getJobsListWithSearch(
+          EMPTY_SESSION_OBJECT,
+          params,
+          undefined,
+        )
+      ).data.find(job => job.classification !== newClassification);
 
-  //     const job = (
-  //       await controller.getJobsListWithSearch(
-  //         req as Request,
-  //         res as Response,
-  //         params,
-  //         undefined,
-  //       )
-  //     ).data.find(job => job.classification !== newClassification);
+      const result = await controller.changeClassification(
+        EMPTY_SESSION_OBJECT,
+        {
+          classification: newClassification,
+          shortUUIDs: [job.shortUUID],
+        },
+      );
 
-  //     const result = await controller.changeClassification(
-  //       req as Request,
-  //       res as Response,
-  //       { classification: newClassification, shortUUIDs: [job.shortUUID] },
-  //     );
+      expect(result).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+      });
 
-  //     expect(result).toEqual({
-  //       success: true,
-  //       message: expect.stringMatching("success"),
-  //     });
+      const details = await controller.getJobDetailsByUuid(
+        job.shortUUID,
+        EMPTY_SESSION_OBJECT,
+        undefined,
+      );
 
-  //     const details = await controller.getJobDetailsByUuid(
-  //       job.shortUUID,
-  //       req as Request,
-  //       res as Response,
-  //       undefined,
-  //     );
+      expect(details.classification).toBe(newClassification);
+    },
+    REALLY_LONG_TIME,
+  );
 
-  //     expect(details.classification).toBe(newClassification);
-  //   },
-  //   REALLY_LONG_TIME,
-  // );
+  it(
+    "should make a job featured",
+    async () => {
+      const params: JobListParams = {
+        ...new JobListParams(),
+        page: 10,
+        limit: 5,
+      };
 
-  // it(
-  //   "should make a job featured",
-  //   async () => {
-  //     const params: JobListParams = {
-  //       ...new JobListParams(),
-  //       page: 10,
-  //       limit: 5,
-  //     };
+      const startDate = subWeeks(new Date(), 1);
+      const endDate = addWeeks(startDate, 10);
 
-  //     const req: Partial<Request> = {};
-  //     const res: Partial<Response> = {
-  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //       status: code => {
-  //         return this;
-  //       },
-  //     };
+      const job = (
+        await controller.getJobsListWithSearch(
+          EMPTY_SESSION_OBJECT,
+          params,
+          undefined,
+        )
+      ).data.find(job => !job.featured);
 
-  //     const startDate = subWeeks(new Date(), 1);
-  //     const endDate = addWeeks(startDate, 10);
+      const result = await controller.makeFeatured({
+        shortUUID: job.shortUUID,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+      });
 
-  //     const job = (
-  //       await controller.getJobsListWithSearch(
-  //         req as Request,
-  //         res as Response,
-  //         params,
-  //         undefined,
-  //       )
-  //     ).data.find(job => !job.featured);
+      expect(result).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+      });
 
-  //     const result = await controller.makeFeatured(
-  //       req as Request,
-  //       res as Response,
-  //       {
-  //         shortUUID: job.shortUUID,
-  //         startDate: startDate.toISOString(),
-  //         endDate: endDate.toISOString(),
-  //       },
-  //     );
+      const details = await controller.getJobDetailsByUuid(
+        job.shortUUID,
+        EMPTY_SESSION_OBJECT,
+        undefined,
+      );
 
-  //     expect(result).toEqual({
-  //       success: true,
-  //       message: expect.stringMatching("success"),
-  //     });
+      expect(details.featured).toBe(true);
+      expect(details.featureStartDate).toBe(startDate.getTime());
+      expect(details.featureEndDate).toBe(endDate.getTime());
+    },
+    REALLY_LONG_TIME,
+  );
 
-  //     const details = await controller.getJobDetailsByUuid(
-  //       job.shortUUID,
-  //       req as Request,
-  //       res as Response,
-  //       undefined,
-  //     );
+  it(
+    "should edit a job's tags",
+    async () => {
+      const params: JobListParams = {
+        ...new JobListParams(),
+        page: 1,
+        limit: 1,
+      };
 
-  //     expect(details.featured).toBe(true);
-  //     expect(details.featureStartDate).toBe(startDate.getTime());
-  //     expect(details.featureEndDate).toBe(endDate.getTime());
-  //   },
-  //   REALLY_LONG_TIME,
-  // );
+      const newTags = ["TypeScript"];
 
-  // it(
-  //   "should edit a job's tags",
-  //   async () => {
-  //     const params: JobListParams = {
-  //       ...new JobListParams(),
-  //       page: 1,
-  //       limit: 1,
-  //     };
+      const job = (
+        await controller.getJobsListWithSearch(
+          EMPTY_SESSION_OBJECT,
+          params,
+          undefined,
+        )
+      ).data[0];
 
-  //     const req: Partial<Request> = {};
-  //     const res: Partial<Response> = {
-  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //       status: code => {
-  //         return this;
-  //       },
-  //     };
+      const result = await controller.editTags(EMPTY_SESSION_OBJECT, {
+        shortUUID: job.shortUUID,
+        tags: newTags,
+      });
 
-  //     const newTags = ["TypeScript"];
+      expect(result).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+      });
 
-  //     const job = (
-  //       await controller.getJobsListWithSearch(
-  //         req as Request,
-  //         res as Response,
-  //         params,
-  //         undefined,
-  //       )
-  //     ).data[0];
+      const details = await controller.getJobDetailsByUuid(
+        job.shortUUID,
+        EMPTY_SESSION_OBJECT,
+        undefined,
+      );
 
-  //     const result = await controller.editTags(
-  //       req as Request,
-  //       res as Response,
-  //       {
-  //         shortUUID: job.shortUUID,
-  //         tags: newTags,
-  //       },
-  //     );
+      expect(details.tags.map(x => x.name)).toStrictEqual(
+        expect.arrayContaining(newTags),
+      );
+    },
+    REALLY_LONG_TIME,
+  );
 
-  //     expect(result).toEqual({
-  //       success: true,
-  //       message: expect.stringMatching("success"),
-  //     });
+  it(
+    "should update a job's metadata",
+    async () => {
+      const params: JobListParams = {
+        ...new JobListParams(),
+        page: 1,
+        limit: 1,
+      };
 
-  //     const details = await controller.getJobDetailsByUuid(
-  //       job.shortUUID,
-  //       req as Request,
-  //       res as Response,
-  //       undefined,
-  //     );
+      const commitment = "INTERNSHIP";
+      const classification = "OPERATIONS";
+      const locationType = "REMOTE";
+      const newTags = ["TypeScript"].map(x => ({
+        id: randomUUID(),
+        name: x,
+        normalizedName: x,
+      }));
 
-  //     expect(details.tags.map(x => x.name)).toStrictEqual(
-  //       expect.arrayContaining(newTags),
-  //     );
-  //   },
-  //   REALLY_LONG_TIME,
-  // );
+      const {
+        shortUUID,
+        benefits,
+        culture,
+        description,
+        location,
+        maximumSalary,
+        minimumSalary,
+        offersTokenAllocation,
+        paysInCrypto,
+        requirements,
+        responsibilities,
+        salary,
+        salaryCurrency,
+        seniority,
+        summary,
+        title,
+        url,
+      } = (
+        await controller.getJobsListWithSearch(
+          EMPTY_SESSION_OBJECT,
+          params,
+          undefined,
+        )
+      ).data[0];
 
-  // it(
-  //   "should update a job's metadata",
-  //   async () => {
-  //     const params: JobListParams = {
-  //       ...new JobListParams(),
-  //       page: 1,
-  //       limit: 1,
-  //     };
+      const result = await controller.updateJobMetadata(
+        EMPTY_SESSION_OBJECT,
+        shortUUID,
+        {
+          isBlocked: false,
+          isOnline: true,
+          project: undefined,
+          commitment,
+          classification,
+          locationType,
+          benefits,
+          culture,
+          description,
+          location,
+          maximumSalary,
+          minimumSalary,
+          offersTokenAllocation,
+          paysInCrypto,
+          requirements,
+          responsibilities,
+          salary,
+          salaryCurrency,
+          seniority,
+          summary,
+          title,
+          url,
+          tags: newTags,
+        },
+      );
 
-  //     const req: Partial<Request> = {};
-  //     const res: Partial<Response> = {
-  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //       status: code => {
-  //         return this;
-  //       },
-  //     };
+      expect(result).toStrictEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+        data: expect.any(JobDetailsResult),
+      });
 
-  //     const commitment = "INTERNSHIP";
-  //     const classification = "OPERATIONS";
-  //     const locationType = "REMOTE";
-  //     const newTags = ["TypeScript"].map(x => ({
-  //       id: randomUUID(),
-  //       name: x,
-  //       normalizedName: x,
-  //     }));
+      const details = await controller.getJobDetailsByUuid(
+        shortUUID,
+        EMPTY_SESSION_OBJECT,
+        undefined,
+      );
 
-  //     const {
-  //       shortUUID,
-  //       benefits,
-  //       culture,
-  //       description,
-  //       location,
-  //       maximumSalary,
-  //       minimumSalary,
-  //       offersTokenAllocation,
-  //       paysInCrypto,
-  //       requirements,
-  //       responsibilities,
-  //       salary,
-  //       salaryCurrency,
-  //       seniority,
-  //       summary,
-  //       title,
-  //       url,
-  //     } = (
-  //       await controller.getJobsListWithSearch(
-  //         req as Request,
-  //         res as Response,
-  //         params,
-  //         undefined,
-  //       )
-  //     ).data[0];
+      expect(details.tags.map(x => x.name)).toStrictEqual(
+        expect.arrayContaining(newTags.map(x => x.name)),
+      );
+      expect(details.commitment).toEqual(commitment);
+      expect(details.classification).toEqual(classification);
+      expect(details.locationType).toEqual(locationType);
+    },
+    REALLY_LONG_TIME,
+  );
 
-  //     const result = await controller.updateJobMetadata(
-  //       req as Request,
-  //       res as Response,
-  //       shortUUID,
-  //       {
-  //         isBlocked: false,
-  //         isOnline: true,
-  //         project: undefined,
-  //         commitment,
-  //         classification,
-  //         locationType,
-  //         benefits,
-  //         culture,
-  //         description,
-  //         location,
-  //         maximumSalary,
-  //         minimumSalary,
-  //         offersTokenAllocation,
-  //         paysInCrypto,
-  //         requirements,
-  //         responsibilities,
-  //         salary,
-  //         salaryCurrency,
-  //         seniority,
-  //         summary,
-  //         title,
-  //         url,
-  //         tags: newTags,
-  //       },
-  //     );
+  it(
+    "should block a job",
+    async () => {
+      const params: JobListParams = {
+        ...new JobListParams(),
+        page: 1,
+        limit: 1,
+      };
+      const job = (
+        await controller.getJobsListWithSearch(
+          EMPTY_SESSION_OBJECT,
+          params,
+          undefined,
+        )
+      ).data[0];
 
-  //     expect(result).toStrictEqual({
-  //       success: true,
-  //       message: expect.stringMatching("success"),
-  //       data: expect.any(JobDetailsResult),
-  //     });
+      const result = await controller.blockJobs(EMPTY_SESSION_OBJECT, {
+        shortUUIDs: [job.shortUUID],
+      });
 
-  //     const details = await controller.getJobDetailsByUuid(
-  //       shortUUID,
-  //       req as Request,
-  //       res as Response,
-  //       undefined,
-  //     );
+      expect(result).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+      });
 
-  //     expect(details.tags.map(x => x.name)).toStrictEqual(
-  //       expect.arrayContaining(newTags.map(x => x.name)),
-  //     );
-  //     expect(details.commitment).toEqual(commitment);
-  //     expect(details.classification).toEqual(classification);
-  //     expect(details.locationType).toEqual(locationType);
-  //   },
-  //   REALLY_LONG_TIME,
-  // );
+      const details = await controller.getJobDetailsByUuid(
+        job.shortUUID,
+        EMPTY_SESSION_OBJECT,
+        undefined,
+      );
 
-  // it(
-  //   "should block a job",
-  //   async () => {
-  //     const req: Partial<Request> = {};
-  //     const res: Partial<Response> = {
-  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //       status: _ => {
-  //         return {} as Response;
-  //       },
-  //     };
+      expect(details).toBeUndefined();
+    },
+    REALLY_LONG_TIME,
+  );
 
-  //     const result = await controller.blockJobs(
-  //       req as Request,
-  //       res as Response,
-  //       { shortUUIDs: [NOT_SO_RANDOM_TEST_SHORT_UUID] },
-  //     );
+  it(
+    "should unblock a job",
+    async () => {
+      const jobs = await controller.getAllJobsWithSearch({
+        query: null,
+        category: null,
+        organizations: null,
+      });
 
-  //     expect(result).toEqual({
-  //       success: true,
-  //       message: expect.stringMatching("success"),
-  //     });
+      const job = jobs.data.find(x => x.isBlocked);
 
-  //     const details = await controller.getJobDetailsByUuid(
-  //       NOT_SO_RANDOM_TEST_SHORT_UUID,
-  //       req as Request,
-  //       res as Response,
-  //       undefined,
-  //     );
+      const result = await controller.unblockJobs(EMPTY_SESSION_OBJECT, {
+        shortUUIDs: [job.shortUUID],
+      });
 
-  //     expect(details).toBeUndefined();
-  //   },
-  //   REALLY_LONG_TIME,
-  // );
+      expect(result).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+      });
 
-  // it(
-  //   "should unblock a job",
-  //   async () => {
-  //     const req: Partial<Request> = {};
-  //     const res: Partial<Response> = {
-  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //       status: code => {
-  //         return this;
-  //       },
-  //     };
+      const details = await controller.getJobDetailsByUuid(
+        job.shortUUID,
+        EMPTY_SESSION_OBJECT,
+        undefined,
+      );
 
-  //     const result = await controller.unblockJobs(
-  //       req as Request,
-  //       res as Response,
-  //       { shortUUIDs: [NOT_SO_RANDOM_TEST_SHORT_UUID] },
-  //     );
-
-  //     expect(result).toEqual({
-  //       success: true,
-  //       message: expect.stringMatching("success"),
-  //     });
-
-  //     const details = await controller.getJobDetailsByUuid(
-  //       NOT_SO_RANDOM_TEST_SHORT_UUID,
-  //       req as Request,
-  //       res as Response,
-  //       undefined,
-  //     );
-
-  //     expect(details).toStrictEqual(expect.any(JobDetailsResult));
-  //   },
-  //   REALLY_LONG_TIME,
-  // );
+      expect(details).toStrictEqual(expect.any(JobDetailsResult));
+    },
+    REALLY_LONG_TIME,
+  );
 
   // it(
   //   "should create a job folder for a user",

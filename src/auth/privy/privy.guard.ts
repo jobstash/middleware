@@ -21,10 +21,18 @@ export class PrivyGuard implements CanActivate {
   }
 
   private async getSession(req: Request): Promise<User> {
-    const accessToken = req.headers.authorization.replace("Bearer ", "");
+    const accessToken =
+      req.headers.authorization?.replace("Bearer ", "") ?? null;
     try {
-      const verifiedClaims = await this.privy.verifyAuthToken(accessToken);
-      return this.privy.getUser(verifiedClaims.userId);
+      if (accessToken) {
+        const verifiedClaims = await this.privy.verifyAuthToken(accessToken);
+        return this.privy.getUser(verifiedClaims.userId);
+      } else {
+        throw new ForbiddenException({
+          success: false,
+          message: "Forbidden resource: Insufficient permissions",
+        });
+      }
     } catch (error) {
       this.logger.error(`PrivyGuard::getSession ${error.message}`);
       throw new ForbiddenException({
