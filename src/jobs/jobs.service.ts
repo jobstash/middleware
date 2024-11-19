@@ -2751,7 +2751,7 @@ export class JobsService {
       if (existing) {
         return {
           success: false,
-          message: "Folder already exists",
+          message: "Folder with that name already exists",
         };
       } else {
         const result = await this.neogma.queryRunner.run(
@@ -2811,8 +2811,17 @@ export class JobsService {
     dto: UpdateJobFolderInput,
   ): Promise<ResponseWithOptionalData<JobpostFolder>> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
+      const existing = data(
+        await this.getUserJobFolderById(sluggify(dto.name)),
+      );
+      if (existing) {
+        return {
+          success: false,
+          message: "Folder with that name already exists",
+        };
+      } else {
+        const result = await this.neogma.queryRunner.run(
+          `
         MATCH (folder:JobpostFolder {id: $id})
         SET folder.id = $newId
         SET folder.name = $name
@@ -2828,22 +2837,23 @@ export class JobsService {
 
         RETURN folder { .* } as folder
         `,
-        { id, ...dto, newId: sluggify(dto.name) },
-      );
+          { id, ...dto, newId: sluggify(dto.name) },
+        );
 
-      const res = result.records[0]?.get("folder");
-      if (res) {
-        const details = data(await this.getUserJobFolderById(id));
-        return {
-          success: true,
-          message: "Job folder updated successfully",
-          data: details,
-        };
-      } else {
-        return {
-          success: false,
-          message: "Job folder update failed",
-        };
+        const res = result.records[0]?.get("folder");
+        if (res) {
+          const details = data(await this.getUserJobFolderById(id));
+          return {
+            success: true,
+            message: "Job folder updated successfully",
+            data: details,
+          };
+        } else {
+          return {
+            success: false,
+            message: "Job folder update failed",
+          };
+        }
       }
     } catch (err) {
       Sentry.withScope(scope => {
