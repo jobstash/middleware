@@ -80,8 +80,8 @@ export class JobListResultEntity {
         docs: notStringOrNull(organization?.docs),
         logoUrl:
           notStringOrNull(organization?.logoUrl) ??
-          (organization.website
-            ? getGoogleLogoUrl(organization.website)
+          (organization?.website
+            ? getGoogleLogoUrl(organization?.website)
             : null),
         headcountEstimate: nonZeroOrNull(organization?.headcountEstimate),
         github: notStringOrNull(organization?.github),
