@@ -526,7 +526,6 @@ export class JobsController {
 
   @Get("/folders/:slug")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description: "Returns the details of the job folder with the passed slug",
     schema: {
@@ -542,31 +541,12 @@ export class JobsController {
     @Param("slug") slug: string,
   ): Promise<ResponseWithOptionalData<JobpostFolder>> {
     this.logger.log(`/jobs/folders/:slug`);
-    const res = await this.jobsService.getUserJobFolderBySlug(address, slug);
-    if (res.success) {
-      return res;
+    let res: ResponseWithOptionalData<JobpostFolder>;
+    if (address) {
+      res = await this.jobsService.getUserJobFolderBySlug(address, slug);
     } else {
-      throw new NotFoundException(res);
+      res = await this.jobsService.getPublicJobFolderBySlug(slug);
     }
-  }
-
-  @Get("/folders/public/:slug")
-  @ApiOkResponse({
-    description:
-      "Returns the details of a public job folder with the passed slug",
-    schema: {
-      allOf: [
-        {
-          $ref: getSchemaPath(Response<JobpostFolder>),
-        },
-      ],
-    },
-  })
-  async getPublicJobFolderBySlug(
-    @Param("slug") slug: string,
-  ): Promise<ResponseWithOptionalData<JobpostFolder>> {
-    this.logger.log(`/jobs/folders/public/:slug`);
-    const res = await this.jobsService.getPublicJobFolderBySlug(slug);
     if (res.success) {
       return res;
     } else {
