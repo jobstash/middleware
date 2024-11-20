@@ -10,7 +10,6 @@ import { OrgJob } from "./org-job.interface";
 import { ProjectWithRelations } from "./project-with-relations.interface";
 import { Audit } from "./audit.interface";
 import { Hack } from "./hack.interface";
-import { Investor } from "./investor.interface";
 import { Repository } from "./repository.interface";
 import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relations.interface";
 import { Chain } from "./chain.interface";
@@ -44,7 +43,6 @@ export class OrganizationWithLinks extends Organization {
           jobs: t.array(
             StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
           ),
-          investors: t.array(Investor.InvestorType),
           repos: t.array(Repository.RepositoryType),
         }),
       ),
