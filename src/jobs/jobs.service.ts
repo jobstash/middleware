@@ -216,7 +216,7 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ],
+              ]
             }
           ][0],
           tags: apoc.coll.toSet(tags)
