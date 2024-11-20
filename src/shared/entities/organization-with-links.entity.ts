@@ -1,7 +1,6 @@
 import { OrganizationWithLinks } from "../interfaces";
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { isAfter, isBefore } from "date-fns";
-import { uniqBy } from "lodash";
 
 export class OrganizationWithLinksEntity {
   constructor(private readonly raw: OrganizationWithLinks) {}
@@ -120,7 +119,6 @@ export class OrganizationWithLinksEntity {
               };
             }) ?? [],
           repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
-          investors: Array.from(uniqBy(project?.investors ?? [], "id")),
         })) ?? [],
       communities: communities ?? [],
       websites: websites ?? [],

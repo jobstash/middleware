@@ -1,7 +1,6 @@
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { ProjectWithBaseRelations, ProjectWithRelations } from "../interfaces";
 import { Node } from "neo4j-driver";
-import { uniqBy } from "lodash";
 
 export class ProjectWithBaseRelationsEntity {
   constructor(private readonly raw: ProjectWithBaseRelations) {}
@@ -55,16 +54,6 @@ export class ProjectWithBaseRelationsEntity {
           ...chain,
           logo: notStringOrNull(chain?.logo),
         })) ?? [],
-      investors: Array.from(
-        uniqBy(
-          project?.investors?.map(investor => ({
-            id: investor.id,
-            name: investor.name,
-            normalizedName: investor.normalizedName,
-          })) ?? [],
-          "id",
-        ),
-      ),
       jobs: project?.jobs ?? [],
       repos: project?.repos ?? [],
       description: notStringOrNull(project?.description),
@@ -125,16 +114,6 @@ export class ProjectWithRelationsEntity {
           ...chain,
           logo: notStringOrNull(chain?.logo),
         })) ?? [],
-      investors: Array.from(
-        uniqBy(
-          project?.investors?.map(investor => ({
-            id: investor.id,
-            name: investor.name,
-            normalizedName: investor.normalizedName,
-          })) ?? [],
-          "id",
-        ),
-      ),
       jobs: project?.jobs ?? [],
       repos: project?.repos ?? [],
       description: notStringOrNull(project?.description),

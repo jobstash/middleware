@@ -28,7 +28,7 @@ import { GoogleBigQueryModule } from "./google-bigquery/google-bigquery.module";
 import { SearchModule } from "./search/search.module";
 import { PaymentsModule } from "./payments/payments.module";
 import { UserModule } from "./user/user.module";
-import { Auth0Module } from './auth0/auth0.module';
+import { Auth0Module } from "./auth0/auth0.module";
 
 @Module({
   imports: [

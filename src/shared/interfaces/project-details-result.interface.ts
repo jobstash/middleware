@@ -182,7 +182,6 @@ export class OrgProject extends ProjectMoreInfo {
       jobs: t.array(
         StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
       ),
-      investors: t.array(Investor.InvestorType),
       repos: t.array(Repository.RepositoryType),
     }),
   ]);
@@ -237,12 +236,6 @@ export class OrgProject extends ProjectMoreInfo {
 
   @ApiProperty({
     type: "array",
-    items: { $ref: getSchemaPath(Investor) },
-  })
-  investors: Investor[];
-
-  @ApiProperty({
-    type: "array",
     items: { $ref: getSchemaPath(StructuredJobpostWithRelations) },
   })
   repos: Repository[];
@@ -261,7 +254,6 @@ export class OrgProject extends ProjectMoreInfo {
       chains,
       ecosystems,
       jobs,
-      investors,
       repos,
       ...projectProperties
     } = raw;
@@ -282,7 +274,6 @@ export class OrgProject extends ProjectMoreInfo {
     this.chains = chains;
     this.ecosystems = ecosystems;
     this.jobs = jobs;
-    this.investors = investors;
     this.repos = repos;
 
     if (isLeft(result)) {

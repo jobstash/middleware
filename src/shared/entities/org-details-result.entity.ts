@@ -156,18 +156,6 @@ export class OrgDetailsResultEntity {
               };
             }) ?? [],
           repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
-          investors: Array.from(
-            uniqBy(
-              project?.investors ??
-                organization?.investors?.map(investor => ({
-                  id: investor.id,
-                  name: investor.name,
-                  normalizedName: investor.normalizedName,
-                })) ??
-                [],
-              "id",
-            ),
-          ),
         })) ?? [],
       fundingRounds:
         fundingRounds?.map(fr => ({

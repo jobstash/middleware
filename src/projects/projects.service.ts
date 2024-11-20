@@ -17,6 +17,7 @@ import {
   RawProjectWebsite,
   ResponseWithOptionalData,
   Jobsite,
+  Investor,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -132,6 +133,7 @@ export class ProjectsService {
         orgNames: string[];
         communities: string[];
         aliases: string[];
+        investors: Investor[];
       },
     ): boolean => {
       const isValidSearchResult =
@@ -560,7 +562,6 @@ export class ProjectsService {
             "chains",
             "ecosystems",
             "jobs",
-            "investors",
             "repos",
             "communities",
           ],
@@ -651,7 +652,6 @@ export class ProjectsService {
       | "chains"
       | "ecosystems"
       | "jobs"
-      | "investors"
       | "repos"
       | "communities"
     >
@@ -678,7 +678,6 @@ export class ProjectsService {
             "chains",
             "ecosystems",
             "jobs",
-            "investors",
             "repos",
             "communities",
           ],
