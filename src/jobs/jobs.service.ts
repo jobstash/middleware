@@ -148,9 +148,6 @@ export class JobsService {
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
-                  investors: apoc.coll.toSet([
-                    (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-                  ]),
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ]
@@ -220,9 +217,6 @@ export class JobsService {
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
               ],
-              investors: apoc.coll.toSet([
-                (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-              ])
             }
           ][0],
           tags: apoc.coll.toSet(tags)
@@ -1072,9 +1066,6 @@ export class JobsService {
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
-                  investors: apoc.coll.toSet([
-                    (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-                  ]),
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ]
@@ -1143,10 +1134,7 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ],
-              investors: apoc.coll.toSet([
-                (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-              ])
+              ]
             }
           ][0],
           tags: apoc.coll.toSet(tags)
@@ -1383,9 +1371,6 @@ export class JobsService {
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
-                  investors: apoc.coll.toSet([
-                    (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-                  ]),
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ]
@@ -1454,10 +1439,7 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ],
-              investors: apoc.coll.toSet([
-                (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-              ])
+              ]
             }
           ][0],
             tags: apoc.coll.toSet(tags)
@@ -1648,9 +1630,6 @@ export class JobsService {
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
-                  investors: apoc.coll.toSet([
-                    (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-                  ]),
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ]
@@ -1719,10 +1698,7 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ],
-              investors: apoc.coll.toSet([
-                (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-              ])
+              ]
             }
           ][0],
             tags: apoc.coll.toSet(tags)
@@ -1968,9 +1944,6 @@ export class JobsService {
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
-                  investors: apoc.coll.toSet([
-                    (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-                  ]),
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ]
@@ -2039,10 +2012,7 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ],
-              investors: apoc.coll.toSet([
-                (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-              ])
+              ]
             }
           ][0],
             tags: apoc.coll.toSet(tags)
@@ -2157,9 +2127,6 @@ export class JobsService {
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
-                  investors: apoc.coll.toSet([
-                    (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-                  ]),
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ]
@@ -2228,10 +2195,7 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ],
-              investors: apoc.coll.toSet([
-                (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-              ])
+              ]
             }
           ][0],
             tags: apoc.coll.toSet(tags)
@@ -2351,9 +2315,6 @@ export class JobsService {
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
-                  investors: apoc.coll.toSet([
-                    (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-                  ]),
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ]
@@ -2422,10 +2383,7 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ],
-              investors: apoc.coll.toSet([
-                (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-              ])
+              ]
             }
           ][0],
             tags: apoc.coll.toSet(tags)
@@ -2544,9 +2502,6 @@ export class JobsService {
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
-                  investors: apoc.coll.toSet([
-                    (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-                  ]),
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ]
@@ -2615,10 +2570,7 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ],
-              investors: apoc.coll.toSet([
-                (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-              ])
+              ]
             }
           ][0],
             tags: apoc.coll.toSet(tags)
@@ -2743,9 +2695,6 @@ export class JobsService {
                   chains: [
                     (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
                   ],
-                  investors: apoc.coll.toSet([
-                    (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-                  ]),
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ]
@@ -2814,10 +2763,7 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ],
-              investors: apoc.coll.toSet([
-                (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
-              ])
+              ]
             }
           ][0],
             tags: apoc.coll.toSet(tags)

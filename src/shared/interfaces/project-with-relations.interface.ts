@@ -12,7 +12,6 @@ import { Hack } from "./hack.interface";
 import { ProjectMoreInfo } from "./project-more-info.interface";
 import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relations.interface";
 import { Repository } from "./repository.interface";
-import { Investor } from "./investor.interface";
 
 export class ProjectWithBaseRelations extends ProjectMoreInfo {
   public static readonly ProjectWithBaseRelationsType = t.intersection([
@@ -32,7 +31,6 @@ export class ProjectWithBaseRelations extends ProjectMoreInfo {
       jobs: t.array(
         StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
       ),
-      investors: t.array(Investor.InvestorType),
       repos: t.array(Repository.RepositoryType),
     }),
   ]);
@@ -87,12 +85,6 @@ export class ProjectWithBaseRelations extends ProjectMoreInfo {
 
   @ApiProperty({
     type: "array",
-    items: { $ref: getSchemaPath(Investor) },
-  })
-  investors: Investor[];
-
-  @ApiProperty({
-    type: "array",
     items: { $ref: getSchemaPath(StructuredJobpostWithRelations) },
   })
   repos: Repository[];
@@ -111,7 +103,6 @@ export class ProjectWithBaseRelations extends ProjectMoreInfo {
       chains,
       ecosystems,
       jobs,
-      investors,
       repos,
       ...projectProperties
     } = raw;
@@ -131,7 +122,6 @@ export class ProjectWithBaseRelations extends ProjectMoreInfo {
     this.chains = chains;
     this.ecosystems = ecosystems;
     this.jobs = jobs;
-    this.investors = investors;
     this.repos = repos;
 
     if (isLeft(result)) {
