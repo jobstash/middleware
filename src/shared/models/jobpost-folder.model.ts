@@ -59,6 +59,11 @@ export const JobpostFolders = (
           allowEmpty: false,
           required: true,
         },
+        slug: {
+          type: "string",
+          allowEmpty: false,
+          required: true,
+        },
         isPublic: {
           type: "boolean",
           allowEmpty: false,

@@ -524,11 +524,11 @@ export class JobsController {
     return this.jobsService.getUserJobFolders(address);
   }
 
-  @Get("/folders/:id")
+  @Get("/folders/:slug")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
-    description: "Returns the details of the job folder with the passed id",
+    description: "Returns the details of the job folder with the passed slug",
     schema: {
       allOf: [
         {
@@ -537,11 +537,11 @@ export class JobsController {
       ],
     },
   })
-  async getUserJobFolderById(
-    @Param("id") id: string,
+  async getUserJobFolderBySlug(
+    @Param("slug") slug: string,
   ): Promise<ResponseWithOptionalData<JobpostFolder>> {
-    this.logger.log(`/jobs/folders/:id`);
-    return this.jobsService.getUserJobFolderById(id);
+    this.logger.log(`/jobs/folders/:slug`);
+    return this.jobsService.getUserJobFolderBySlug(slug);
   }
 
   @Post("/org/:id/applicants")

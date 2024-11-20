@@ -1,11 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import {
-  IsArray,
-  IsBoolean,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-} from "class-validator";
+import { ApiProperty } from "@nestjs/swagger";
+import { IsArray, IsBoolean, IsNotEmpty, IsString } from "class-validator";
 
 export class CreateJobFolderInput {
   @ApiProperty()
@@ -17,8 +11,7 @@ export class CreateJobFolderInput {
   @IsArray()
   jobs: string[];
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
   @IsBoolean()
-  isPublic: boolean | null;
+  isPublic: boolean;
 }

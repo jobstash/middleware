@@ -9,6 +9,7 @@ export class JobpostFolderEntity {
     return new JobpostFolder({
       id: notStringOrNull(this.raw?.id),
       name: notStringOrNull(this.raw?.name),
+      slug: notStringOrNull(this.raw?.slug),
       isPublic: this.raw.isPublic ?? false,
       jobs: this.raw.jobs.map(x => new JobListResultEntity(x).getProperties()),
     });

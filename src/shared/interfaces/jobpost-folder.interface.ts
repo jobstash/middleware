@@ -8,6 +8,7 @@ export class JobpostFolder {
   public static readonly JobpostFolderType = t.strict({
     id: t.string,
     name: t.string,
+    slug: t.string,
     isPublic: t.boolean,
     jobs: t.array(JobListResult.JobListResultType),
   });
@@ -19,18 +20,22 @@ export class JobpostFolder {
   name: string;
 
   @ApiProperty()
+  slug: string;
+
+  @ApiProperty()
   isPublic: boolean;
 
   @ApiProperty()
   jobs: JobListResult[];
 
   constructor(raw: JobpostFolder) {
-    const { id, name, isPublic, jobs } = raw;
+    const { id, name, slug, isPublic, jobs } = raw;
 
     const result = JobpostFolder.JobpostFolderType.decode(raw);
 
     this.id = id;
     this.name = name;
+    this.slug = slug;
     this.isPublic = isPublic;
     this.jobs = jobs;
 

@@ -59,6 +59,7 @@ import { PaymentsService } from "src/payments/payments.service";
 import { PricingType } from "src/payments/dto/create-charge.dto";
 import { PrivyService } from "src/auth/privy/privy.service";
 import { ProfileService } from "src/auth/profile/profile.service";
+import { CreateJobFolderInput } from "./dto/create-job-folder.input";
 
 @Injectable()
 export class JobsService {
@@ -2662,6 +2663,205 @@ export class JobsService {
     }
   }
 
+  async getUserJobFolderBySlug(
+    slug: string,
+  ): Promise<ResponseWithOptionalData<JobpostFolder>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (folder: JobpostFolder {slug: $slug})
+        OPTIONAL MATCH (folder)-[:CONTAINS_JOBPOST]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        
+        CALL {
+          WITH structured_jobpost
+          MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+          WITH DISTINCT tag
+          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+          WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
+          WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
+          WITH DISTINCT canonicalTag as tag
+          RETURN COLLECT(tag { .* }) as tags
+        }
+
+        WITH apoc.coll.toSet(COLLECT(structured_jobpost {
+            id: structured_jobpost.id,
+            url: structured_jobpost.url,
+            title: structured_jobpost.title,
+            access: structured_jobpost.access,
+            salary: structured_jobpost.salary,
+            culture: structured_jobpost.culture,
+            location: structured_jobpost.location,
+            summary: structured_jobpost.summary,
+            benefits: structured_jobpost.benefits,
+            shortUUID: structured_jobpost.shortUUID,
+            seniority: structured_jobpost.seniority,
+            description: structured_jobpost.description,
+            requirements: structured_jobpost.requirements,
+            paysInCrypto: structured_jobpost.paysInCrypto,
+            minimumSalary: structured_jobpost.minimumSalary,
+            maximumSalary: structured_jobpost.maximumSalary,
+            salaryCurrency: structured_jobpost.salaryCurrency,
+            responsibilities: structured_jobpost.responsibilities,
+            featured: structured_jobpost.featured,
+            featureStartDate: structured_jobpost.featureStartDate,
+            featureEndDate: structured_jobpost.featureEndDate,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+            classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
+            commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
+            locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
+            organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization:Organization) | organization {
+              .*,
+              atsClient: [(organization)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
+              hasUser: CASE WHEN EXISTS((:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization)) THEN true ELSE false END,
+              discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+              aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
+              twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              projects: [
+                (organization)-[:HAS_PROJECT]->(project) | project {
+                  .*,
+                  orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
+                  discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                  website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                  docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                  telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                  github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+                  category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                  twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+                  hacks: [
+                    (project)-[:HAS_HACK]->(hack) | hack { .* }
+                  ],
+                  audits: [
+                    (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                  ],
+                  chains: [
+                    (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                  ],
+                  investors: apoc.coll.toSet([
+                    (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+                  ]),
+                  ecosystems: [
+                    (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+                  ]
+                }
+              ],
+              fundingRounds: apoc.coll.toSet([
+                (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+              ]),
+              investors: apoc.coll.toSet([
+                (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+              ]),
+              community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
+              ecosystems: [
+                (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
+              ],
+              grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
+              reviews: [
+                (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
+                  compensation: {
+                    salary: review.salary,
+                    currency: review.currency,
+                    offersTokenAllocation: review.offersTokenAllocation
+                  },
+                  rating: {
+                    onboarding: review.onboarding,
+                    careerGrowth: review.careerGrowth,
+                    benefits: review.benefits,
+                    workLifeBalance: review.workLifeBalance,
+                    diversityInclusion: review.diversityInclusion,
+                    management: review.management,
+                    product: review.product,
+                    compensation: review.compensation
+                  },
+                  review: {
+                    title: review.title,
+                    location: review.location,
+                    timezone: review.timezone,
+                    pros: review.pros,
+                    cons: review.cons
+                  },
+                  reviewedTimestamp: review.reviewedTimestamp
+                }
+              ]
+          }][0],
+          project: [
+            (structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(project:Project) | project {
+              .*,
+              atsClient: [(project)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
+              hasUser: CASE WHEN EXISTS((:User)-[:HAS_PROJECT_AUTHORIZATION]->(project)) THEN true ELSE false END,
+              orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
+              discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+              category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+              twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              hacks: [
+                (project)-[:HAS_HACK]->(hack) | hack { .* }
+              ],
+              audits: [
+                (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+              ],
+              chains: [
+                (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+              ],
+              ecosystems: [
+                (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+              ],
+              investors: apoc.coll.toSet([
+                (project)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+              ])
+            }
+          ][0],
+            tags: apoc.coll.toSet(tags)
+        })) as jobs, folder
+
+        RETURN folder {
+          .*,
+          jobs: jobs
+        } as result
+      `,
+        { slug },
+      );
+
+      const res = result?.records[0]?.get("result");
+
+      if (res) {
+        return {
+          success: true,
+          message: "User job folder retrieved successfully",
+          data: new JobpostFolderEntity(res).getProperties(),
+        };
+      } else {
+        return {
+          success: false,
+          message: "Public user job folder not found for that slug",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        scope.setExtra("input", { slug });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getUserJobFolderBySlug ${err.message}`);
+      return {
+        success: false,
+        message: "Error getting user job folder by slug",
+      };
+    }
+  }
+
   async updateJobApplicantList(
     dto: UpdateJobApplicantListInput,
   ): Promise<ResponseWithNoData> {
@@ -2742,11 +2942,11 @@ export class JobsService {
 
   async createUserJobFolder(
     wallet: string,
-    dto: UpdateJobFolderInput,
+    dto: CreateJobFolderInput,
   ): Promise<ResponseWithOptionalData<JobpostFolder>> {
     try {
       const existing = data(
-        await this.getUserJobFolderById(sluggify(dto.name)),
+        await this.getUserJobFolderBySlug(sluggify(dto.name)),
       );
       if (existing) {
         return {
@@ -2757,7 +2957,8 @@ export class JobsService {
         const result = await this.neogma.queryRunner.run(
           `
         MATCH (user:User {wallet: $wallet})
-        CREATE (folder:JobpostFolder {id: $id})
+        CREATE (folder:JobpostFolder {id: randomUUID()})
+        SET folder.slug = $slug
         SET folder.name = $name
         SET folder.isPublic = $isPublic
 
@@ -2770,7 +2971,7 @@ export class JobsService {
 
         RETURN folder { .* } as folder
         `,
-          { wallet, ...dto, id: sluggify(dto.name) },
+          { wallet, ...dto, slug: sluggify(dto.name) },
         );
 
         const res = result.records[0]?.get("folder");
@@ -2811,10 +3012,11 @@ export class JobsService {
     dto: UpdateJobFolderInput,
   ): Promise<ResponseWithOptionalData<JobpostFolder>> {
     try {
+      const toUpdate = data(await this.getUserJobFolderById(id));
       const existing = data(
-        await this.getUserJobFolderById(sluggify(dto.name)),
+        await this.getUserJobFolderBySlug(sluggify(dto.name)),
       );
-      if (existing) {
+      if (existing && existing.id !== toUpdate.id) {
         return {
           success: false,
           message: "Folder with that name already exists",
@@ -2823,7 +3025,7 @@ export class JobsService {
         const result = await this.neogma.queryRunner.run(
           `
         MATCH (folder:JobpostFolder {id: $id})
-        SET folder.id = $newId
+        SET folder.slug = $slug
         SET folder.name = $name
         SET folder.isPublic = $isPublic
 
@@ -2837,7 +3039,7 @@ export class JobsService {
 
         RETURN folder { .* } as folder
         `,
-          { id, ...dto, newId: sluggify(dto.name) },
+          { id, ...dto, slug: sluggify(dto.name) },
         );
 
         const res = result.records[0]?.get("folder");
