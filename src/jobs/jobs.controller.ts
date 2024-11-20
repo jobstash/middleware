@@ -538,10 +538,40 @@ export class JobsController {
     },
   })
   async getUserJobFolderBySlug(
+    @Session() { address }: SessionObject,
     @Param("slug") slug: string,
   ): Promise<ResponseWithOptionalData<JobpostFolder>> {
     this.logger.log(`/jobs/folders/:slug`);
-    return this.jobsService.getUserJobFolderBySlug(slug);
+    const res = await this.jobsService.getUserJobFolderBySlug(address, slug);
+    if (res.success) {
+      return res;
+    } else {
+      throw new NotFoundException(res);
+    }
+  }
+
+  @Get("/folders/public/:slug")
+  @ApiOkResponse({
+    description:
+      "Returns the details of a public job folder with the passed slug",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(Response<JobpostFolder>),
+        },
+      ],
+    },
+  })
+  async getPublicJobFolderBySlug(
+    @Param("slug") slug: string,
+  ): Promise<ResponseWithOptionalData<JobpostFolder>> {
+    this.logger.log(`/jobs/folders/public/:slug`);
+    const res = await this.jobsService.getPublicJobFolderBySlug(slug);
+    if (res.success) {
+      return res;
+    } else {
+      throw new NotFoundException(res);
+    }
   }
 
   @Post("/org/:id/applicants")
