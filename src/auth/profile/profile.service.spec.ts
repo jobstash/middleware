@@ -35,6 +35,12 @@ import { resetTestDB } from "src/shared/helpers";
 import * as https from "https";
 // import { GithubUserService } from "../github/github-user.service";
 import { ScorerService } from "src/scorer/scorer.service";
+import { AuthModule } from "../auth.module";
+import { GithubModule } from "../github/github.module";
+import { PrivyModule } from "../privy/privy.module";
+import { ThrottlerModule } from "@nestjs/throttler";
+import { MailModule } from "src/mail/mail.module";
+import { PaymentsModule } from "src/payments/payments.module";
 
 describe("ProfileService", () => {
   let models: ModelService;
@@ -49,7 +55,15 @@ describe("ProfileService", () => {
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
+        forwardRef(() => AuthModule),
         forwardRef(() => UserModule),
+        forwardRef(() => PrivyModule),
+        forwardRef(() => GithubModule),
+        forwardRef(() => UserModule),
+        MailModule,
+        ConfigModule,
+        ThrottlerModule.forRoot(),
+        PaymentsModule,
         ConfigModule.forRoot({
           isGlobal: true,
           validationSchema: envSchema,

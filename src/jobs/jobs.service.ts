@@ -3739,7 +3739,7 @@ export class JobsService {
       await this.neogma.queryRunner.run(
         `
         MATCH (job:StructuredJobpost WHERE job.shortUUID IN $shortUUIDs),(blocked:BlockedDesignation {name: "BlockedDesignation"})
-        MERGE (job)-[r:HAS_CLASSIFICATION]->(blocked)
+        MERGE (job)-[r:HAS_JOB_DESIGNATION]->(blocked)
         SET r.timestamp = timestamp()
         SET r.creator = $creatorWallet
       `,
@@ -3775,19 +3775,16 @@ export class JobsService {
     dto: BlockJobsInput,
   ): Promise<ResponseWithNoData> {
     try {
-      for (const uuid of dto.shortUUIDs) {
-        await this.models.StructuredJobposts.deleteRelationships({
-          alias: "blocked",
-          where: {
-            source: {
-              shortUUID: uuid,
-            },
-            target: {
-              name: "BlockedDesignation",
-            },
-          },
-        });
-      }
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (job:StructuredJobpost WHERE job.shortUUID IN $shortUUIDs)-[r:HAS_JOB_DESIGNATION]->(blocked:BlockedDesignation {name: "BlockedDesignation"})
+        DELETE r
+      `,
+        {
+          shortUUIDs: dto.shortUUIDs,
+          creatorWallet: wallet,
+        },
+      );
 
       return {
         success: true,

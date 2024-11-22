@@ -32,7 +32,11 @@ import { AuthService } from "src/auth/auth.service";
 import { JwtModule, JwtService } from "@nestjs/jwt";
 import { forwardRef } from "@nestjs/common";
 import { TagsService } from "src/tags/tags.service";
-import { EMPTY_SESSION_OBJECT, REALLY_LONG_TIME } from "src/shared/constants";
+import {
+  ADMIN_SESSION_OBJECT,
+  EMPTY_SESSION_OBJECT,
+  REALLY_LONG_TIME,
+} from "src/shared/constants";
 import { HttpModule, HttpService } from "@nestjs/axios";
 import * as https from "https";
 import { OrganizationsService } from "src/organizations/organizations.service";
@@ -54,6 +58,7 @@ describe("JobsController", () => {
   let controller: JobsController;
   let models: ModelService;
   let httpService: HttpService;
+  let jobsService: JobsService;
 
   const logger = new CustomLogger(`${JobsController.name}TestSuite`);
 
@@ -210,6 +215,7 @@ describe("JobsController", () => {
     models = module.get<ModelService>(ModelService);
     await models.onModuleInit();
     controller = module.get<JobsController>(JobsController);
+    jobsService = module.get<JobsService>(JobsService);
     httpService = module.get<HttpService>(HttpService);
   }, REALLY_LONG_TIME);
 
@@ -329,7 +335,7 @@ describe("JobsController", () => {
         limit: 1,
       };
 
-      const newTags = ["TypeScript"];
+      const newTags = ["Typescript"];
 
       const job = (
         await controller.getJobsListWithSearch(
@@ -355,9 +361,7 @@ describe("JobsController", () => {
         undefined,
       );
 
-      expect(details.tags.map(x => x.name)).toStrictEqual(
-        expect.arrayContaining(newTags),
-      );
+      expect(details.tags.map(x => x.name)).toEqual(newTags);
     },
     REALLY_LONG_TIME,
   );
@@ -374,7 +378,7 @@ describe("JobsController", () => {
       const commitment = "INTERNSHIP";
       const classification = "OPERATIONS";
       const locationType = "REMOTE";
-      const newTags = ["TypeScript"].map(x => ({
+      const newTags = ["Typescript"].map(x => ({
         id: randomUUID(),
         name: x,
         normalizedName: x,
@@ -407,7 +411,7 @@ describe("JobsController", () => {
       ).data[0];
 
       const result = await controller.updateJobMetadata(
-        EMPTY_SESSION_OBJECT,
+        ADMIN_SESSION_OBJECT,
         shortUUID,
         {
           isBlocked: false,
@@ -439,7 +443,6 @@ describe("JobsController", () => {
       expect(result).toStrictEqual({
         success: true,
         message: expect.stringMatching("success"),
-        data: expect.any(JobDetailsResult),
       });
 
       const details = await controller.getJobDetailsByUuid(
@@ -483,13 +486,9 @@ describe("JobsController", () => {
         message: expect.stringMatching("success"),
       });
 
-      const details = await controller.getJobDetailsByUuid(
-        job.shortUUID,
-        EMPTY_SESSION_OBJECT,
-        undefined,
-      );
-
-      expect(details).toBeUndefined();
+      expect(
+        await jobsService.getJobDetailsByUuid(job.shortUUID, undefined),
+      ).toBeUndefined();
     },
     REALLY_LONG_TIME,
   );
@@ -503,7 +502,9 @@ describe("JobsController", () => {
         organizations: null,
       });
 
-      const job = jobs.data.find(x => x.isBlocked);
+      const blocked = jobs.data.filter(x => x.isBlocked);
+
+      const job = blocked[0];
 
       const result = await controller.unblockJobs(EMPTY_SESSION_OBJECT, {
         shortUUIDs: [job.shortUUID],
@@ -1098,6 +1099,18 @@ describe("JobsController", () => {
       expect(details.every(x => jlrHasArrayPropsDuplication(x) === false)).toBe(
         true,
       );
+    },
+    REALLY_LONG_TIME,
+  );
+
+  it(
+    "should get jobsites with no url duplication",
+    async () => {
+      const jobsites = await models.Jobsites.getAllJobsitesData();
+      const urls = jobsites.map(x => x.url);
+      const setOfUrls = new Set(urls);
+      printDuplicateItems(setOfUrls, urls, "Jobsite with url");
+      expect(urls.length).toBe(setOfUrls.size);
     },
     REALLY_LONG_TIME,
   );

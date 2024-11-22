@@ -4,7 +4,6 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TestingModule, Test } from "@nestjs/testing";
 import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
 import envSchema from "src/env-schema";
-import { ModelModule } from "src/model/model.module";
 import { ModelService } from "src/model/model.service";
 import { EPHEMERAL_TEST_WALLET, REALLY_LONG_TIME } from "src/shared/constants";
 import { resetTestDB } from "src/shared/helpers";
@@ -50,7 +49,6 @@ describe("HacksService", () => {
               retryDelay: 5000,
             } as NeogmaModuleOptions),
         }),
-        ModelModule,
         HttpModule.registerAsync({
           imports: [ConfigModule],
           inject: [ConfigService],

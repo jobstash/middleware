@@ -23,14 +23,25 @@ export interface JobsiteMethods {
   getJobposts: () => Promise<JobpostInstance[]>;
 }
 
+export interface JobsiteStatics {
+  getAllJobsitesData: () => Promise<
+    (Jobsite & { projectId: string; orgId: string })[]
+  >;
+}
+
 export interface JobsiteRelations {
   jobposts: ModelRelatedNodesI<ReturnType<typeof Jobposts>, JobpostInstance>;
 }
 
 export const Jobsites = (
   neogma: Neogma,
-): NeogmaModel<JobsiteProps, JobsiteRelations, JobsiteMethods> =>
-  ModelFactory<JobsiteProps, JobsiteRelations, never, JobsiteMethods>(
+): NeogmaModel<
+  JobsiteProps,
+  JobsiteRelations,
+  JobsiteMethods,
+  JobsiteStatics
+> =>
+  ModelFactory<JobsiteProps, JobsiteRelations, JobsiteStatics, JobsiteMethods>(
     {
       label: "Jobsite",
       schema: {
@@ -101,6 +112,85 @@ export const Jobsites = (
           return (await this.findRelationships({ alias: "jobposts" })).map(
             ref => ref.target,
           );
+        },
+      },
+      statics: {
+        getAllJobsitesData: async function (): Promise<
+          (Jobsite & { projectId: string; orgId: string })[]
+        > {
+          const query = new QueryBuilder()
+            .match({
+              related: [
+                {
+                  label: "Jobsite",
+                  identifier: "jobSite",
+                },
+              ],
+            })
+            .match({
+              optional: true,
+              related: [
+                {
+                  label: "Project",
+                  identifier: "project",
+                },
+                { direction: "out", name: "HAS_JOBSITE" },
+                {
+                  identifier: "jobSite",
+                },
+              ],
+            })
+            .match({
+              optional: true,
+              related: [
+                {
+                  label: "Organization",
+                  identifier: "organization",
+                },
+                { direction: "out", name: "HAS_JOBSITE" },
+                {
+                  identifier: "jobSite",
+                },
+              ],
+            })
+            .return(
+              `
+              {
+                id: jobSite.id,
+                url: jobSite.url,
+                type: jobSite.type,
+                updatedTimestamp: jobSite.updatedTimestamp,
+                createdTimestamp: jobSite.createdTimestamp,
+                projectId: project.id,
+                orgId: organization.orgId
+              } as jobSite
+            `,
+            );
+          const result = await query.run(neogma.queryRunner);
+          return result.records.map(record => {
+            const res: {
+              id: string;
+              url: string;
+              type: string;
+              projectId: string;
+              orgId: string;
+              createdTimestamp: number;
+              updatedTimestamp: number;
+            } = record.get("jobSite");
+            return {
+              ...res,
+              projectId: res.projectId ?? null,
+              orgId: res.orgId ?? null,
+            } as {
+              id: string;
+              url: string;
+              type: string;
+              projectId: string;
+              orgId: string;
+              createdTimestamp: number;
+              updatedTimestamp: number;
+            };
+          });
         },
       },
     },

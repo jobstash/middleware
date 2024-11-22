@@ -136,7 +136,6 @@ describe("TagsController", () => {
     async () => {
       const result = await controller.getPopularTags(
         Integer.MAX_SAFE_VALUE.toNumber(),
-        undefined,
       );
 
       const uuids = data(result).map(tag => tag.name);

@@ -92,6 +92,7 @@ import {
   JobpostFolderProps,
   JobpostRelations,
   JobpostFolders,
+  JobsiteStatics,
 } from "src/shared/models";
 import { NoRelations } from "src/shared/types";
 // import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -111,7 +112,12 @@ export class ModelService implements OnModuleInit {
     StructuredJobposStatics
   >;
   public Jobposts: NeogmaModel<JobpostProps, JobpostRelations>;
-  public Jobsites: NeogmaModel<JobsiteProps, JobsiteRelations, JobsiteMethods>;
+  public Jobsites: NeogmaModel<
+    JobsiteProps,
+    JobsiteRelations,
+    JobsiteMethods,
+    JobsiteStatics
+  >;
   public Organizations: NeogmaModel<
     OrganizationProps,
     OrganizationRelations,
