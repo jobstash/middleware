@@ -1,11 +1,14 @@
 export interface SearchResult {
-  projectCategories: SearchResultItem[];
-  grants: SearchResultItem[];
-  organizations: SearchResultItem[];
-  projects: SearchResultItem[];
-  skills: SearchResultItem[];
-  investors: SearchResultItem[];
-  fundingRounds: SearchResultItem[];
+  grants: SearchResultPillar;
+  grantsImpact: SearchResultPillar;
+  organizations: SearchResultPillar;
+  projects: SearchResultPillar;
+  vcs: SearchResultPillar;
+}
+
+export interface SearchResultPillar {
+  names: SearchResultItem[];
+  [x: string]: SearchResultItem[];
 }
 
 export interface SearchResultItem {

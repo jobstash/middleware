@@ -9,8 +9,8 @@ import {
   OrgFilterConfigs,
   OrgDetailsResult,
   Organization,
-  ProjectWithRelations,
   ShortOrg,
+  OrgProject,
 } from "src/shared/types";
 import { hasDuplicates, printDuplicateItems } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
@@ -18,13 +18,17 @@ import { report } from "io-ts-human-reporter";
 import { Response } from "express";
 import { ModelService } from "src/model/model.service";
 import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
+import { Auth0Module } from "src/auth0/auth0.module";
+import { AuthModule } from "src/auth/auth.module";
+import { forwardRef } from "@nestjs/common";
+import { UserModule } from "src/user/user.module";
 
 describe("OrganizationsController", () => {
   let controller: OrganizationsController;
   let models: ModelService;
 
   const projectHasArrayPropsDuplication = (
-    project: ProjectWithRelations,
+    project: OrgProject,
     orgId: string,
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
@@ -99,6 +103,9 @@ describe("OrganizationsController", () => {
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
+        Auth0Module,
+        AuthModule,
+        forwardRef(() => UserModule),
         ConfigModule.forRoot({
           isGlobal: true,
           validationSchema: envSchema,
