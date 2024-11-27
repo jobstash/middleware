@@ -6,6 +6,8 @@ export interface SearchResult {
   vcs: SearchResultPillar;
 }
 
+export type SearchNav = keyof SearchResult;
+
 export interface SearchResultPillar {
   names: SearchResultItem[];
   [x: string]: SearchResultItem[];
@@ -14,4 +16,16 @@ export interface SearchResultPillar {
 export interface SearchResultItem {
   value: string;
   link: string;
+}
+
+export interface Pillar {
+  slug: string;
+  items: string[];
+}
+
+export interface PillarInfo {
+  title: string;
+  description: string;
+  activePillar: Pillar;
+  altPillar: Pillar | null;
 }

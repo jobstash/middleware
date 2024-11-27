@@ -2,6 +2,9 @@ import { Injectable } from "@nestjs/common";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import {
+  PillarInfo,
+  ResponseWithOptionalData,
+  SearchNav,
   SearchResult,
   SearchResultItem,
   SearchResultPillar,
@@ -10,6 +13,43 @@ import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { uniqBy } from "lodash";
 import { sluggify } from "src/shared/helpers";
+import { SearchPillarParams } from "./dto/search.input";
+
+const NAV_PILLAR_MAPPINGS: Record<SearchNav, Record<string, string> | null> = {
+  grants: {
+    ecosystems:
+      'MATCH (item:KarmaGapEcosystem)<-[:HAS_METADATA|HAS_ECOSYSTEM*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Active"}) RETURN DISTINCT item.name as item',
+    chains:
+      'MATCH (item:KarmaGapNetwork)<-[:HAS_METADATA|HAS_NETWORK*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Active"}) RETURN DISTINCT item.name as item',
+    categories:
+      'MATCH (item:KarmaGapCategory)<-[:HAS_METADATA|HAS_CATEGORY*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Active"}) RETURN DISTINCT item.name as item',
+    organizations:
+      'MATCH (item:KarmaGapOrganization)<-[:HAS_METADATA|HAS_ORGANIZATION*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Active"}) RETURN DISTINCT item.name as item',
+  },
+  grantsImpact: {
+    ecosystems:
+      'MATCH (item:KarmaGapEcosystem)<-[:HAS_METADATA|HAS_ECOSYSTEM*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Inactive"}) RETURN DISTINCT item.name as item',
+    chains:
+      'MATCH (item:KarmaGapNetwork)<-[:HAS_METADATA|HAS_NETWORK*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Inactive"}) RETURN DISTINCT item.name as item',
+    categories:
+      'MATCH (item:KarmaGapCategory)<-[:HAS_METADATA|HAS_CATEGORY*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Inactive"}) RETURN DISTINCT item.name as item',
+    organizations:
+      'MATCH (item:KarmaGapOrganization)<-[:HAS_METADATA|HAS_ORGANIZATION*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Inactive"}) RETURN DISTINCT item.name as item',
+  },
+  organizations: {
+    investors:
+      "MATCH (:Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor:Investor) RETURN DISTINCT investor.name as item",
+    fundingRounds:
+      "MATCH (:Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) RETURN DISTINCT funding_round.roundName as item",
+    tags: "MATCH (:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
+  },
+  projects: {
+    categories:
+      "MATCH (:Project)-[:HAS_CATEGORY]->(category:ProjectCategory) RETURN DISTINCT category.name as item",
+    tags: "MATCH (:Project)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
+  },
+  vcs: null,
+};
 
 @Injectable()
 export class SearchService {
@@ -132,13 +172,13 @@ export class SearchService {
     query: string,
     status: "active" | "inactive",
   ): Promise<SearchResultPillar> {
-    const statusFilter = status === "active" ? "ACTIVE" : "INACTIVE";
+    const statusFilter = status === "active" ? "Active" : "Inactive";
     const [names, ecosystems, chains, categories, organizations] =
       await Promise.all([
         await this.neogma.queryRunner.run(
           `
           CALL db.index.fulltext.queryNodes("grants", $query) YIELD node as grant
-          WHERE (grant)-[:HAS_STATUS]->(:KarmaGapGrantStatus {name: $statusFilter})
+          WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
           RETURN grant.name as name
         `,
           { query, statusFilter },
@@ -309,6 +349,50 @@ export class SearchService {
         vcs: {
           names: [],
         },
+      };
+    }
+  }
+
+  async searchPillar(
+    params: SearchPillarParams,
+  ): Promise<ResponseWithOptionalData<PillarInfo>> {
+    const query: string | undefined | null =
+      NAV_PILLAR_MAPPINGS[params.nav][params.pillar];
+    if (query) {
+      const result = await this.neogma.queryRunner.run(query);
+      const items = result.records.map(record => record.get("item"));
+      if (items.length === 0) {
+        return {
+          success: false,
+          message: "Pillar not found",
+        };
+      } else {
+        return {
+          success: true,
+          message: "Retrieved pillar info successfully",
+          data: {
+            title: "<AI Generated Title (WIP)>", // TODO: AI Title Generation
+            description: "<AI Generated Description (WIP)>", // TODO: AI Description Generation
+            activePillar: {
+              slug: params.pillar,
+              items: [
+                items.find(x => sluggify(x) === params.item),
+                ...items.filter(x => sluggify(x) !== params.item),
+              ].filter(Boolean),
+            },
+            altPillar: params.pillar2
+              ? {
+                  slug: params.pillar2,
+                  items: params.item2 ? [params.item2] : [],
+                }
+              : null,
+          },
+        };
+      }
+    } else {
+      return {
+        success: false,
+        message: "Pillar not found",
       };
     }
   }
