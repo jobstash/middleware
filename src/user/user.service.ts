@@ -529,9 +529,15 @@ export class UserService {
     return result;
   }
 
-  async syncUserLinkedWallets(wallet: string, privyId: string): Promise<void> {
+  async syncUserLinkedWallets(
+    wallet: string,
+    privyUser: PrivyUser,
+  ): Promise<void> {
     try {
-      const wallets = await this.privyService.getUserLinkedWallets(privyId);
+      const wallets =
+        privyUser?.linkedAccounts
+          ?.filter(x => x.type === "wallet" && x.walletClientType !== "privy")
+          ?.map(x => (x as WalletWithMetadata).address) ?? [];
       await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})
@@ -597,7 +603,7 @@ export class UserService {
 
       if (storedUser) {
         this.logger.log(`User ${embeddedWallet} already exists. Updating...`);
-        await this.syncUserLinkedWallets(embeddedWallet, user.id);
+        this.syncUserLinkedWallets(embeddedWallet, user);
 
         const permissions =
           await this.permissionService.getPermissionsForWallet(embeddedWallet);
@@ -621,22 +627,21 @@ export class UserService {
 
         if (Object.values(contact).filter(Boolean).length > 0) {
           this.logger.log(`Adding contact info for ${embeddedWallet}`);
-          const result = await this.profileService.updateUserLinkedAccounts(
-            embeddedWallet,
-            contact,
-          );
-
-          if (result.success) {
-            this.logger.log(`Contact info added to user`);
-          } else {
-            this.logger.error(
-              `Contact info not added to user: ${result.message}`,
-            );
-            return result;
-          }
+          this.profileService
+            .updateUserLinkedAccounts(embeddedWallet, user)
+            .then(result => {
+              if (result.success) {
+                this.logger.log(`Contact info added to user`);
+              } else {
+                this.logger.error(
+                  `Contact info not added to user: ${result.message}`,
+                );
+                return result;
+              }
+            });
         }
 
-        await this.profileService.getUserWorkHistory(embeddedWallet);
+        this.profileService.getUserWorkHistory(embeddedWallet);
         return {
           success: true,
           message: "User already exists",
@@ -667,7 +672,7 @@ export class UserService {
       const newUser = await this.create(newUserDto);
 
       if (newUser) {
-        await this.syncUserLinkedWallets(embeddedWallet, user.id);
+        this.syncUserLinkedWallets(embeddedWallet, user);
 
         const contact = {
           discord: user.discord?.username ?? null,
@@ -682,22 +687,21 @@ export class UserService {
 
         if (Object.values(contact).filter(Boolean).length > 0) {
           this.logger.log(`Adding contact info for ${embeddedWallet}`);
-          const result = await this.profileService.updateUserLinkedAccounts(
-            embeddedWallet,
-            contact,
-          );
-
-          if (result.success) {
-            this.logger.log(`Contact info added to user`);
-          } else {
-            this.logger.error(
-              `Contact info not added to user: ${result.message}`,
-            );
-            return result;
-          }
+          this.profileService
+            .updateUserLinkedAccounts(embeddedWallet, user)
+            .then(result => {
+              if (result.success) {
+                this.logger.log(`Contact info added to user`);
+              } else {
+                this.logger.error(
+                  `Contact info not added to user: ${result.message}`,
+                );
+                return result;
+              }
+            });
         }
 
-        await this.profileService.getUserWorkHistory(embeddedWallet);
+        this.profileService.getUserWorkHistory(embeddedWallet);
 
         return {
           success: true,
