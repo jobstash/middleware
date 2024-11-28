@@ -48,11 +48,10 @@ import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
 import { Integer } from "neo4j-driver";
 import { OrgStaffReviewEntity } from "src/shared/entities/org-staff-review.entity";
 import { ScorerService } from "src/scorer/scorer.service";
-import { ConfigService } from "@nestjs/config";
 import { PrivyService } from "../privy/privy.service";
-import { UpdateDevLinkedAccountsInput } from "./dto/update-dev-linked-accounts.input";
 import { UpdateDevLocationInput } from "./dto/update-dev-location.input";
 import { GithubUserService } from "../github/github-user.service";
+import { User as PrivyUser, WalletWithMetadata } from "@privy-io/server-auth";
 import axios from "axios";
 import { uniqBy } from "lodash";
 
@@ -65,7 +64,6 @@ export class ProfileService {
     private neogma: Neogma,
     private models: ModelService,
     private scorerService: ScorerService,
-    private configService: ConfigService,
     private privyService: PrivyService,
     private githubUserService: GithubUserService,
   ) {}
@@ -100,14 +98,14 @@ export class ProfileService {
           ? new UserProfileEntity({
               ...result.records[0]?.get("profile"),
               linkedAccounts: {
-                discord: user.discord?.username ?? null,
-                telegram: user.telegram?.username ?? null,
-                twitter: user.twitter?.username ?? null,
-                email: user.email?.address ?? null,
-                farcaster: user.farcaster?.username ?? null,
-                github: user.github?.username ?? null,
-                google: user.google?.email ?? null,
-                apple: user.apple?.email ?? null,
+                discord: user?.discord?.username ?? null,
+                telegram: user?.telegram?.username ?? null,
+                twitter: user?.twitter?.username ?? null,
+                email: user?.email?.address ?? null,
+                farcaster: user?.farcaster?.username ?? null,
+                github: user?.github?.username ?? null,
+                google: user?.google?.email ?? null,
+                apple: user?.apple?.email ?? null,
                 wallets,
               },
             }).getProperties()
@@ -364,19 +362,9 @@ export class ProfileService {
     try {
       const privyId = await this.getPrivyId(wallet);
       const user = await this.privyService.getUser(privyId);
-      const contact = {
-        discord: user?.discord?.username ?? null,
-        telegram: user?.telegram?.username ?? null,
-        twitter: user?.twitter?.username ?? null,
-        email: user?.email?.address ?? null,
-        farcaster: user?.farcaster?.username ?? null,
-        github: user?.github?.username ?? null,
-        google: user?.google?.email ?? null,
-        apple: user?.apple?.email ?? null,
-      };
 
       this.logger.log(`Updating contact info for ${wallet}`);
-      const result = await this.updateUserLinkedAccounts(wallet, contact);
+      const result = await this.updateUserLinkedAccounts(wallet, user);
 
       if (result.success) {
         this.logger.log(`Contact info updated to user`);
@@ -637,16 +625,24 @@ export class ProfileService {
 
   async updateUserLinkedAccounts(
     wallet: string,
-    dto: UpdateDevLinkedAccountsInput,
+    user: PrivyUser,
   ): Promise<ResponseWithNoData> {
     try {
       const profile = data(await this.getUserProfile(wallet));
-      const privyId = await this.getPrivyId(wallet);
-      const user = await this.privyService.getUser(privyId);
+      const contact = {
+        discord: user?.discord?.username ?? null,
+        telegram: user?.telegram?.username ?? null,
+        twitter: user?.twitter?.username ?? null,
+        email: user?.email?.address ?? null,
+        farcaster: user?.farcaster?.username ?? null,
+        github: user?.github?.username ?? null,
+        google: user?.google?.email ?? null,
+        apple: user?.apple?.email ?? null,
+      };
 
       if (
         profile?.linkedAccounts.github &&
-        (profile?.linkedAccounts.github !== dto.github || !dto.github)
+        (profile?.linkedAccounts.github !== contact.github || !contact.github)
       ) {
         this.logger.log(
           `Unlinking github user ${profile?.linkedAccounts.github}`,
@@ -654,12 +650,12 @@ export class ProfileService {
         await this.githubUserService.removeGithubInfoFromUser(wallet);
       }
 
-      if (dto.github) {
-        this.logger.log(`Fetching github info for ${dto.github}`);
+      if (contact.github) {
+        this.logger.log(`Fetching github info for ${contact.github}`);
         const githubUser = axios
           .get<{
             avatar_url: string;
-          }>(`https://api.github.com/users/${dto.github}`)
+          }>(`https://api.github.com/users/${contact.github}`)
           .catch(err => {
             this.logger.error(`UserService::fetchGithubUser ${err.message}`);
             this.logger.error(err);
@@ -675,7 +671,7 @@ export class ProfileService {
 
         const result = await this.githubUserService.addGithubInfoToUser({
           wallet,
-          githubLogin: dto.github,
+          githubLogin: contact.github,
           githubId: user.github.subject,
           githubAvatarUrl: (await githubUser)?.data?.avatar_url ?? null,
         });
@@ -699,7 +695,7 @@ export class ProfileService {
             account += $dto,
             account.updatedTimestamp = timestamp()
         `,
-        { wallet, dto },
+        { wallet, dto: contact },
       );
       return {
         success: true,
@@ -711,7 +707,7 @@ export class ProfileService {
           action: "service-call",
           source: "profiles.service",
         });
-        scope.setExtra("input", { wallet, ...dto });
+        scope.setExtra("input", { wallet });
         Sentry.captureException(err);
       });
       this.logger.error(
@@ -1230,8 +1226,11 @@ export class ProfileService {
   }> {
     try {
       const privyId = await this.getPrivyId(wallet);
-      const wallets = await this.privyService.getUserLinkedWallets(privyId);
       const user = await this.privyService.getUser(privyId);
+      const wallets =
+        user?.linkedAccounts
+          ?.filter(x => x.type === "wallet" && x.walletClientType !== "privy")
+          ?.map(x => (x as WalletWithMetadata).address) ?? [];
       const profile = data(await this.getUserProfile(wallet));
       const workHistory = (
         await this.scorerService.getUserWorkHistories([
