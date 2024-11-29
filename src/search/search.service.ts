@@ -375,10 +375,7 @@ export class SearchService {
             description: "<AI Generated Description (WIP)>", // TODO: AI Description Generation
             activePillar: {
               slug: params.pillar,
-              items: [
-                items.find(x => sluggify(x) === params.item),
-                ...items.filter(x => sluggify(x) !== params.item),
-              ].filter(Boolean),
+              items: items.filter(Boolean),
             },
             altPillar: params.pillar2
               ? {
