@@ -15,7 +15,10 @@ import { uniqBy } from "lodash";
 import { sluggify } from "src/shared/helpers";
 import { SearchPillarParams } from "./dto/search.input";
 
-const NAV_PILLAR_MAPPINGS: Record<SearchNav, Record<string, string> | null> = {
+const NAV_PILLAR_QUERY_MAPPINGS: Record<
+  SearchNav,
+  Record<string, string> | null
+> = {
   grants: {
     ecosystems:
       'MATCH (item:KarmaGapEcosystem)<-[:HAS_METADATA|HAS_ECOSYSTEM*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Active"}) RETURN DISTINCT item.name as item',
@@ -357,8 +360,20 @@ export class SearchService {
     params: SearchPillarParams,
   ): Promise<ResponseWithOptionalData<PillarInfo>> {
     const query: string | undefined | null =
-      NAV_PILLAR_MAPPINGS[params.nav][params.pillar];
-    if (query) {
+      NAV_PILLAR_QUERY_MAPPINGS[params.nav][params.pillar];
+    const headerText = (
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (pillar:Pillar {nav: $nav, pillar: $pillar})
+        RETURN {
+          title: pillar.title,
+          description: pillar.description
+        } as text
+      `,
+        { nav: params.nav, pillar: params.pillar },
+      )
+    ).records[0].get("text") as { title: string; description: string };
+    if (query && headerText) {
       const result = await this.neogma.queryRunner.run(query);
       const items = result.records.map(record => record.get("item"));
       if (items.length === 0) {
@@ -371,8 +386,7 @@ export class SearchService {
           success: true,
           message: "Retrieved pillar info successfully",
           data: {
-            title: "<AI Generated Title (WIP)>", // TODO: AI Title Generation
-            description: "<AI Generated Description (WIP)>", // TODO: AI Description Generation
+            ...headerText,
             activePillar: {
               slug: params.pillar,
               items: items.filter(Boolean),
