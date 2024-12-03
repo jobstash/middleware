@@ -14,6 +14,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { uniqBy } from "lodash";
 import { sluggify } from "src/shared/helpers";
 import { SearchPillarParams } from "./dto/search.input";
+import { QueryResult, RecordShape } from "neo4j-driver";
 
 const NAV_PILLAR_QUERY_MAPPINGS: Record<
   SearchNav,
@@ -124,13 +125,43 @@ export class SearchService {
     query: string,
     group: "projects" | "organizations",
   ): Promise<SearchResultItem[]> {
-    const result = await this.neogma.queryRunner.run(
-      `
+    let result: QueryResult<RecordShape>;
+
+    if (group === "projects") {
+      result = await this.neogma.queryRunner.run(
+        `
           CALL db.index.fulltext.queryNodes("tagNames", $query) YIELD node as tag
+          WHERE (:Project)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag)
+          AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
+          AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+          WITH DISTINCT tag
+          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+          WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
+          WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
+          WITH DISTINCT canonicalTag as tag
           RETURN tag.name as name
         `,
-      { query },
-    );
+        { query },
+      );
+    } else {
+      result = await this.neogma.queryRunner.run(
+        `
+          CALL db.index.fulltext.queryNodes("tagNames", $query) YIELD node as tag
+          WHERE (:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag)
+          AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
+          AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+          WITH DISTINCT tag
+          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+          WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
+          WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
+          WITH DISTINCT canonicalTag as tag
+          RETURN tag.name as name
+        `,
+        { query },
+      );
+    }
 
     return uniqBy(
       result.records.map(record => ({
@@ -189,6 +220,7 @@ export class SearchService {
         await this.neogma.queryRunner.run(
           `
           CALL db.index.fulltext.queryNodes("grantEcosystems", $query) YIELD node as ecosystem
+          WHERE (ecosystem)<-[:HAS_METADATA|HAS_ECOSYSTEM*2]-(:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
           RETURN ecosystem.name as ecosystem
         `,
           { query, statusFilter },
@@ -196,6 +228,7 @@ export class SearchService {
         this.neogma.queryRunner.run(
           `
           CALL db.index.fulltext.queryNodes("grantChains", $query) YIELD node as chain
+          WHERE (chain)<-[:HAS_METADATA|HAS_NETWORK*2]-(:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
           RETURN chain.name as chain
         `,
           { query, statusFilter },
@@ -203,6 +236,7 @@ export class SearchService {
         this.neogma.queryRunner.run(
           `
           CALL db.index.fulltext.queryNodes("grantCategories", $query) YIELD node as category
+          WHERE (category)<-[:HAS_METADATA|HAS_CATEGORY*2]-(:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
           RETURN category.name as category
         `,
           { query, statusFilter },
@@ -210,6 +244,7 @@ export class SearchService {
         this.neogma.queryRunner.run(
           `
           CALL db.index.fulltext.queryNodes("grantOrganizations", $query) YIELD node as organization
+          WHERE (organization)<-[:HAS_METADATA|HAS_ORGANIZATION*2]-(:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
           RETURN organization.name as organization
         `,
           { query, statusFilter },
