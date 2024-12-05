@@ -10,10 +10,6 @@ export class UpdateGithubUserDto {
   nodeId?: string;
 
   @IsOptional()
-  @IsString()
-  gravatarId?: string;
-
-  @IsOptional()
   @IsUrl()
   avatarUrl?: string;
 }

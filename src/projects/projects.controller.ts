@@ -297,7 +297,6 @@ export class ProjectsController {
   })
   async getProjectDetailsById(
     @Param("id") id: string,
-    @Res({ passthrough: true }) res: ExpressResponse,
     @Headers(COMMUNITY_HEADER) community: string | undefined,
   ): Promise<ProjectDetailsResult | undefined> {
     this.logger.log(`/projects/details/${id}`);
@@ -306,7 +305,10 @@ export class ProjectsController {
       community,
     );
     if (result === undefined) {
-      res.status(HttpStatus.NOT_FOUND);
+      throw new NotFoundException({
+        success: false,
+        message: "Project not found",
+      });
     }
     return result;
   }

@@ -36,7 +36,6 @@ export class ProjectDetailsResult extends ProjectMoreInfo {
       jobs: t.array(
         StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
       ),
-      investors: t.array(Investor.InvestorType),
       repos: t.array(Repository.RepositoryType),
       organizations: t.array(
         t.union([

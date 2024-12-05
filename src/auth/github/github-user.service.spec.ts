@@ -5,27 +5,35 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
 import envSchema from "src/env-schema";
 import { ModelModule } from "src/model/model.module";
-import { UserModule } from "src/user/user.module";
 import { ModelService } from "src/model/model.service";
 import {
   EPHEMERAL_TEST_GITHUB_USER,
-  EPHEMERAL_TEST_WALLET,
   NOT_SO_RANDOM_TEST_UUID,
   REALLY_LONG_TIME,
   TEST_GITHUB_USER,
 } from "src/shared/constants";
-import { UserFlowService } from "src/user/user-flow.service";
-import { UserRoleService } from "src/user/user-role.service";
 import { UserService } from "src/user/user.service";
-import { AuthService } from "../auth.service";
 import { GithubUserService } from "./github-user.service";
 import { HttpModule, HttpService } from "@nestjs/axios";
 import { CustomLogger } from "src/shared/utils/custom-logger";
-import { resetTestDB } from "src/shared/helpers";
+import { createTestUser, resetTestDB } from "src/shared/helpers";
 import * as https from "https";
 import { GithubInfo } from "./dto/github-info.input";
-import { randomUUID } from "crypto";
 import { GithubUserEntity } from "src/shared/entities";
+import { Auth0Module } from "src/auth0/auth0.module";
+import { AuthModule } from "../auth.module";
+import { PrivyModule } from "../privy/privy.module";
+import { GithubModule } from "./github.module";
+import { ProfileModule } from "../profile/profile.module";
+import { ScorerModule } from "src/scorer/scorer.module";
+import { MailService } from "@sendgrid/mail";
+import { JobsService } from "src/jobs/jobs.service";
+import { OrganizationsService } from "src/organizations/organizations.service";
+import { PermissionService } from "src/user/permission.service";
+import { RpcService } from "src/user/rpc.service";
+import { ProfileService } from "../profile/profile.service";
+import { PaymentsService } from "src/payments/payments.service";
+import { PrivyService } from "../privy/privy.service";
 
 describe("GithubUserService", () => {
   let models: ModelService;
@@ -35,10 +43,17 @@ describe("GithubUserService", () => {
 
   const logger = new CustomLogger(`${GithubUserService.name}TestSuite`);
 
+  let USER_TEST_WALLET: string;
+
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
-        forwardRef(() => UserModule),
+        Auth0Module,
+        forwardRef(() => AuthModule),
+        forwardRef(() => ScorerModule),
+        forwardRef(() => ProfileModule),
+        forwardRef(() => PrivyModule),
+        forwardRef(() => GithubModule),
         ConfigModule.forRoot({
           isGlobal: true,
           validationSchema: envSchema,
@@ -88,12 +103,16 @@ describe("GithubUserService", () => {
         }),
       ],
       providers: [
-        AuthService,
+        ProfileService,
         JwtService,
-        UserService,
-        UserRoleService,
-        UserFlowService,
         ModelService,
+        MailService,
+        OrganizationsService,
+        RpcService,
+        JobsService,
+        UserService,
+        PermissionService,
+        PaymentsService,
       ],
     }).compile();
 
@@ -103,6 +122,11 @@ describe("GithubUserService", () => {
     githubUserService = module.get<GithubUserService>(GithubUserService);
     userService = module.get<UserService>(UserService);
     httpService = module.get<HttpService>(HttpService);
+
+    USER_TEST_WALLET = await createTestUser(
+      module.get<PrivyService>(PrivyService),
+      userService,
+    );
   }, REALLY_LONG_TIME);
 
   afterAll(async () => {
@@ -135,7 +159,13 @@ describe("GithubUserService", () => {
 
       const createdNode = await githubUserService.create(dto);
 
-      expect(createdNode.getProperties()).toEqual(dto);
+      expect({
+        ...createdNode.getProperties(),
+      }).toEqual({
+        ...dto,
+        createdTimestamp: expect.any(Number),
+        updatedTimestamp: expect.any(Number),
+      });
     },
     REALLY_LONG_TIME,
   );
@@ -182,11 +212,9 @@ describe("GithubUserService", () => {
       const githubData = await githubUserService.findByLogin(
         EPHEMERAL_TEST_GITHUB_USER,
       );
-      const updatedGravatarId = randomUUID();
 
       const dto = {
         ...githubData?.getProperties(),
-        gravatarId: updatedGravatarId,
       };
 
       const updatedNode = await githubUserService.update(
@@ -194,7 +222,13 @@ describe("GithubUserService", () => {
         dto,
       );
 
-      expect(updatedNode.getProperties()).toEqual(dto);
+      expect({
+        ...updatedNode.getProperties(),
+      }).toEqual({
+        ...dto,
+        createdTimestamp: expect.any(Number),
+        updatedTimestamp: expect.any(Number),
+      });
     },
     REALLY_LONG_TIME,
   );
@@ -217,18 +251,22 @@ describe("GithubUserService", () => {
     "should upsert a github user node",
     async () => {
       const githubData = await githubUserService.findByLogin(TEST_GITHUB_USER);
-      const updatedGravatarId = randomUUID();
 
       const dto = {
         ...githubData?.getProperties(),
         id: NOT_SO_RANDOM_TEST_UUID.replace("e", "p"),
         login: EPHEMERAL_TEST_GITHUB_USER + "2",
-        gravatarId: updatedGravatarId,
       };
 
       const updatedNode = await githubUserService.upsert(dto);
 
-      expect(updatedNode.getProperties()).toEqual(dto);
+      expect({
+        ...updatedNode.getProperties(),
+      }).toEqual({
+        ...dto,
+        createdTimestamp: expect.any(Number),
+        updatedTimestamp: expect.any(Number),
+      });
     },
     REALLY_LONG_TIME,
   );
@@ -238,12 +276,12 @@ describe("GithubUserService", () => {
     async () => {
       const githubData = await githubUserService.findByLogin(TEST_GITHUB_USER);
       const args: GithubInfo = {
-        wallet: EPHEMERAL_TEST_WALLET,
+        wallet: USER_TEST_WALLET,
         githubId: NOT_SO_RANDOM_TEST_UUID,
         githubLogin: EPHEMERAL_TEST_GITHUB_USER,
         githubAvatarUrl: githubData?.getAvatarUrl(),
       };
-      const user = await userService.findByWallet(EPHEMERAL_TEST_WALLET);
+      const user = await userService.findByWallet(USER_TEST_WALLET);
       expect(user).toBeDefined();
 
       const github = await githubUserService.addGithubInfoToUser(args);
@@ -251,9 +289,10 @@ describe("GithubUserService", () => {
         success: true,
         message: expect.stringMatching("success"),
         data: {
+          ...user.getProperties(),
           available: expect.any(Boolean),
           id: expect.any(String),
-          wallet: EPHEMERAL_TEST_WALLET,
+          wallet: USER_TEST_WALLET,
         },
       });
 

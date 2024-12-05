@@ -471,6 +471,36 @@ export class UserService {
     return result;
   }
 
+  async getUserWalletByLinkedWallet(
+    linkedWallet: string,
+  ): Promise<string | undefined> {
+    const result = await this.neogma.queryRunner
+      .run(
+        `
+          MATCH (u:User)-[r:HAS_LINKED_WALLET]->(:LinkedWallet {address: $linkedWallet})
+          RETURN u.wallet as wallet
+        `,
+        { linkedWallet },
+      )
+      .then(res =>
+        res.records.length ? res.records[0].get("wallet") : undefined,
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(
+          `UserService::getUserWalletByLinkedWallet ${err.message}`,
+        );
+        return undefined;
+      });
+    return result;
+  }
+
   async getPrivyId(wallet: string): Promise<string | undefined> {
     const result = await this.neogma.queryRunner
       .run(

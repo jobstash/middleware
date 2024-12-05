@@ -16,10 +16,6 @@ export class GithubUserEntity {
     return (<Record<string, string>>this.node.properties).nodeId;
   }
 
-  getGravatarId(): string | undefined {
-    return (<Record<string, string>>this.node.properties).gravatarId;
-  }
-
   getAvatarUrl(): string | undefined {
     return (<Record<string, string>>this.node.properties).avatarUrl;
   }

@@ -118,12 +118,12 @@ describe("OrganizationsController", () => {
           inject: [ConfigService],
           useFactory: (configService: ConfigService) =>
             ({
-              host: configService.get<string>("NEO4J_HOST"),
-              password: configService.get<string>("NEO4J_PASSWORD"),
-              port: configService.get<string>("NEO4J_PORT"),
-              scheme: configService.get<string>("NEO4J_SCHEME"),
-              username: configService.get<string>("NEO4J_USERNAME"),
-              database: configService.get<string>("NEO4J_DATABASE"),
+              host: configService.get<string>("NEO4J_HOST_TEST"),
+              password: configService.get<string>("NEO4J_PASSWORD_TEST"),
+              port: configService.get<string>("NEO4J_PORT_TEST"),
+              scheme: configService.get<string>("NEO4J_SCHEME_TEST"),
+              username: configService.get<string>("NEO4J_USERNAME_TEST"),
+              database: configService.get<string>("NEO4J_DATABASE_TEST"),
             } as NeogmaModuleOptions),
         }),
       ],

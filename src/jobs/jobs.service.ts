@@ -1178,13 +1178,13 @@ export class JobsService {
         return (await this.getJobsListResults())
           .filter(
             x =>
-              x.organization.orgId === id &&
-              x.organization.community.includes(community),
+              x?.organization?.orgId === id &&
+              x?.organization?.community.includes(community),
           )
           .map(orgJob => new JobListResultEntity(orgJob).getProperties());
       } else {
         return (await this.getJobsListResults())
-          .filter(x => x.organization.orgId === id)
+          .filter(x => x?.organization?.orgId === id)
           .map(orgJob => new JobListResultEntity(orgJob).getProperties());
       }
     } catch (err) {

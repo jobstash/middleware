@@ -5,13 +5,10 @@ import {
   Header,
   Post,
   Query,
-  Req,
-  Res,
   UseGuards,
 } from "@nestjs/common";
 import { ApiExtraModels, ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import * as Sentry from "@sentry/node";
-import { Response as ExpressResponse, Request } from "express";
 import { AuthService } from "src/auth/auth.service";
 import { PBACGuard } from "src/auth/pbac.guard";
 import {
@@ -25,6 +22,7 @@ import { responseSchemaWrapper } from "src/shared/helpers";
 import {
   ResponseWithNoData,
   ResponseWithOptionalData,
+  SessionObject,
   Tag,
   TagPair,
   TagPreference,
@@ -39,6 +37,7 @@ import { DeletePreferredTagInput } from "./dto/delete-preferred-tag.input";
 import { LinkTagSynonymDto } from "./dto/link-tag-synonym.dto";
 import { TagsService } from "./tags.service";
 import { MatchTagsInput } from "./dto/match-tags.input";
+import { Session } from "src/shared/decorators";
 @Controller("tags")
 @ApiExtraModels(TagPreference, TagPreference)
 export class TagsController {
@@ -235,15 +234,10 @@ export class TagsController {
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Tag) }),
   })
   async create(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address: creatorWallet }: SessionObject,
     @Body() createTagDto: CreateTagDto,
   ): Promise<ResponseWithOptionalData<Tag>> {
     try {
-      const { address: creatorWallet } = await this.authService.getSession(
-        req,
-        res,
-      );
       const { name } = createTagDto;
 
       const normalizedName = this.tagsService.normalizeTagName(name);
@@ -315,16 +309,10 @@ export class TagsController {
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Array<Tag>) }),
   })
   async linkSynonym(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address: creatorWallet }: SessionObject,
     @Body() linkTagSynonymDto: LinkTagSynonymDto,
   ): Promise<ResponseWithOptionalData<Tag[]>> {
     try {
-      const { address: creatorWallet } = await this.authService.getSession(
-        req,
-        res,
-      );
-
       const { tagName, synonymName } = linkTagSynonymDto;
 
       const normalizedTagName = this.tagsService.normalizeTagName(tagName);
@@ -387,15 +375,10 @@ export class TagsController {
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Boolean) }),
   })
   async blockTags(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address: creatorWallet }: SessionObject,
     @Body() input: CreateBlockedTagsInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/tags/block ${JSON.stringify(input)}`);
-    const { address: creatorWallet } = await this.authService.getSession(
-      req,
-      res,
-    );
     for (const tagName of input.tagNameList) {
       try {
         const blockedNormalizedName =
@@ -457,15 +440,11 @@ export class TagsController {
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Boolean) }),
   })
   async unblockTags(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address: creatorWallet }: SessionObject,
     @Body() input: CreateBlockedTagsInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/tags/unblock ${JSON.stringify(input)}`);
-    const { address: creatorWallet } = await this.authService.getSession(
-      req,
-      res,
-    );
+
     for (const tagName of input.tagNameList) {
       try {
         const blockedNormalizedName =
@@ -527,15 +506,11 @@ export class TagsController {
     schema: responseSchemaWrapper({ $ref: getSchemaPath(TagPreference) }),
   })
   async createPairedTags(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() { address: creatorWallet }: SessionObject,
     @Body() input: CreatePairedTagsInput,
   ): Promise<ResponseWithOptionalData<Tag[]>> {
     this.logger.log(`/tags/pair ${JSON.stringify(input)}`);
-    const { address: creatorWallet } = await this.authService.getSession(
-      req,
-      res,
-    );
+
     try {
       const { originTag, pairedTagList } = input;
 
@@ -614,15 +589,12 @@ export class TagsController {
     schema: responseSchemaWrapper({ $ref: getSchemaPath(TagPreference) }),
   })
   async createPreferredTag(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: ExpressResponse,
+    @Session() session: SessionObject,
     @Body() input: CreatePreferredTagInput,
   ): Promise<ResponseWithOptionalData<TagPreference>> {
     this.logger.log(`/tags/create-preference ${JSON.stringify(input)}`);
-    const { address: creatorWallet } = await this.authService.getSession(
-      req,
-      res,
-    );
+    const { address: creatorWallet } = session;
+
     try {
       const { preferredName, synonyms } = input;
 
@@ -706,7 +678,7 @@ export class TagsController {
             await this.deletePreferredTag({
               preferredName: oldPreferredTag.tag.name,
             });
-            return this.createPreferredTag(req, res, {
+            return this.createPreferredTag(session, {
               preferredName: preferredName,
               synonyms: Array.from(
                 new Set([

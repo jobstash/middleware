@@ -162,7 +162,7 @@ export class ProfileController {
   })
   async getUserShowCase(
     @Session() { address }: SessionObject,
-  ): Promise<Response<{ label: string; url: string }[]> | ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<{ label: string; url: string }[]>> {
     this.logger.log(`/profile/showcase`);
 
     return this.profileService.getUserShowCase(address);
@@ -182,8 +182,7 @@ export class ProfileController {
   async getUserSkills(
     @Session() { address }: SessionObject,
   ): Promise<
-    | Response<{ id: string; name: string; canTeach: boolean }[]>
-    | ResponseWithNoData
+    ResponseWithOptionalData<{ id: string; name: string; canTeach: boolean }[]>
   > {
     this.logger.log(`/profile/skills`);
 

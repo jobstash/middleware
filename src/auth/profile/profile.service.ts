@@ -190,7 +190,7 @@ export class ProfileService {
       const orgs = [];
       const prelim = (await this.getUserWorkHistory(wallet))?.workHistory ?? [];
 
-      if (user.github?.username) {
+      if (user?.github?.username) {
         const names = prelim.map(x => x.name);
         const result = await this.neogma.queryRunner.run(
           `
@@ -261,9 +261,9 @@ export class ProfileService {
 
       const emails = [
         ...profile.alternateEmails,
-        user.email?.address,
-        user.google?.email,
-        user.apple?.email,
+        user?.email?.address,
+        user?.google?.email,
+        user?.apple?.email,
       ].filter(Boolean);
 
       if (emails.length > 0) {
@@ -381,7 +381,7 @@ export class ProfileService {
       const workHistory = await this.getUserWorkHistory(wallet);
       const prelim: UserWorkHistory[] = workHistory?.workHistory ?? [];
 
-      if (user.github?.username) {
+      if (user?.github?.username) {
         this.logger.log(`Fetching orgs for ${wallet} based on github username`);
         const names = prelim.map(x => x.name);
         const result = await this.neogma.queryRunner.run(
@@ -413,9 +413,9 @@ export class ProfileService {
 
       const emails = [
         ...profile.alternateEmails,
-        user.email?.address,
-        user.google?.email,
-        user.apple?.email,
+        user?.email?.address,
+        user?.google?.email,
+        user?.apple?.email,
       ].filter(Boolean);
 
       if (emails.length > 0) {
@@ -861,7 +861,8 @@ export class ProfileService {
     try {
       await this.neogma.queryRunner.run(
         `
-          MATCH (user:User {wallet: $wallet})-[r:HAS_SKILL]->(:Tag)
+          MATCH (user:User {wallet: $wallet})
+          OPTIONAL MATCH (user)-[r:HAS_SKILL]->(:Tag)
           DELETE r
 
           WITH user
@@ -906,8 +907,8 @@ export class ProfileService {
     dto: ReviewOrgSalaryInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const userOrgs = data(await this.getUserOrgs(wallet));
-      if (userOrgs?.find(x => x.org.orgId === dto.orgId)) {
+      const userOrgs = data(await this.getUserVerifiedOrgs(wallet));
+      if (userOrgs?.find(x => x.id === dto.orgId)) {
         await this.neogma.queryRunner.run(
           `
         MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
@@ -948,8 +949,8 @@ export class ProfileService {
     dto: RateOrgInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const userOrgs = data(await this.getUserOrgs(wallet));
-      if (userOrgs?.find(x => x.org.orgId === dto.orgId)) {
+      const userOrgs = data(await this.getUserVerifiedOrgs(wallet));
+      if (userOrgs?.find(x => x.id === dto.orgId)) {
         await this.neogma.queryRunner.run(
           `
         MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
@@ -995,8 +996,8 @@ export class ProfileService {
     dto: ReviewOrgInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const userOrgs = data(await this.getUserOrgs(wallet));
-      if (userOrgs?.find(x => x.org.orgId === dto.orgId)) {
+      const userOrgs = data(await this.getUserVerifiedOrgs(wallet));
+      if (userOrgs?.find(x => x.id === dto.orgId)) {
         await this.neogma.queryRunner.run(
           `
         MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
@@ -1235,7 +1236,7 @@ export class ProfileService {
       const workHistory = (
         await this.scorerService.getUserWorkHistories([
           {
-            github: user.github?.username,
+            github: user?.github?.username,
             wallets,
           },
         ])
@@ -1243,9 +1244,9 @@ export class ProfileService {
       const orgs = [];
       const emails = [
         ...profile.alternateEmails,
-        user.email?.address,
-        user.google?.email,
-        user.apple?.email,
+        user?.email?.address,
+        user?.google?.email,
+        user?.apple?.email,
       ].filter(Boolean);
       const result = await this.neogma.queryRunner.run(
         `

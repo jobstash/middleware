@@ -46,7 +46,7 @@ export const EMPTY_SESSION_OBJECT: SessionObject = {
 };
 
 export const ADMIN_SESSION_OBJECT: SessionObject = {
-  address: "0x4Ee87B49203Bd93D2c1f3118b94A37218BeD6c77",
+  address: "0xbB0d2D6eccC20aD778A0Fe7762ac20100c6D131f",
   cryptoNative: true,
   permissions: [
     "SUPER_ADMIN",

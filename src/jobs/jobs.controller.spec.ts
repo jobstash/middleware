@@ -13,9 +13,12 @@ import {
   data,
   DateRange,
   JobDetailsResult,
+  SessionObject,
+  JobpostFolder,
 } from "src/shared/types";
 import { Integer } from "neo4j-driver";
 import {
+  createTestUser,
   hasDuplicates,
   normalizeString,
   notStringOrNull,
@@ -30,7 +33,7 @@ import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
 import { ModelService } from "src/model/model.service";
 import { AuthService } from "src/auth/auth.service";
 import { JwtModule, JwtService } from "@nestjs/jwt";
-import { forwardRef } from "@nestjs/common";
+import { forwardRef, NotFoundException } from "@nestjs/common";
 import { TagsService } from "src/tags/tags.service";
 import {
   ADMIN_SESSION_OBJECT,
@@ -53,12 +56,20 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { addWeeks, subWeeks } from "date-fns";
 import { randomUUID } from "crypto";
 import { Auth0Module } from "src/auth0/auth0.module";
+import { UserService } from "src/user/user.service";
+import { ProfileService } from "src/auth/profile/profile.service";
+import { PrivyService } from "src/auth/privy/privy.service";
 
 describe("JobsController", () => {
   let controller: JobsController;
   let models: ModelService;
   let httpService: HttpService;
   let jobsService: JobsService;
+  let userService: UserService;
+  let profileService: ProfileService;
+
+  let USER_SESSION_OBJECT: SessionObject;
+  let jobFolder: JobpostFolder;
 
   const logger = new CustomLogger(`${JobsController.name}TestSuite`);
 
@@ -216,7 +227,19 @@ describe("JobsController", () => {
     await models.onModuleInit();
     controller = module.get<JobsController>(JobsController);
     jobsService = module.get<JobsService>(JobsService);
+    userService = module.get<UserService>(UserService);
     httpService = module.get<HttpService>(HttpService);
+    profileService = module.get<ProfileService>(ProfileService);
+
+    const adminWallet = await createTestUser(
+      module.get<PrivyService>(PrivyService),
+      userService,
+    );
+
+    USER_SESSION_OBJECT = {
+      ...ADMIN_SESSION_OBJECT,
+      address: adminWallet,
+    };
   }, REALLY_LONG_TIME);
 
   afterAll(async () => {
@@ -252,7 +275,7 @@ describe("JobsController", () => {
 
       const job = (
         await controller.getJobsListWithSearch(
-          EMPTY_SESSION_OBJECT,
+          ADMIN_SESSION_OBJECT,
           params,
           undefined,
         )
@@ -526,138 +549,96 @@ describe("JobsController", () => {
     REALLY_LONG_TIME,
   );
 
-  // it(
-  //   "should create a job folder for a user",
-  //   async () => {
-  //     const req: Partial<Request> = {};
-  //     const res: Partial<Response> = {
-  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //       status: code => {
-  //         return this;
-  //       },
-  //     };
+  it(
+    "should create a job folder for a user",
+    async () => {
+      const randomName = faker.company.name();
+      const result = await controller.createUserJobFolder(USER_SESSION_OBJECT, {
+        name: `Jobs at ${randomName}`,
+        isPublic: true,
+        jobs: [],
+      });
 
-  //     const result = await controller.createUserJobFolder(
-  //       req as Request,
-  //       res as Response,
-  //       {
-  //         name: "Demo Folder",
-  //         isPublic: true,
-  //         jobs: [],
-  //       },
-  //     );
+      expect(result).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+        data: expect.any(JobpostFolder),
+      });
 
-  //     expect(result).toEqual({
-  //       success: true,
-  //       message: expect.stringMatching("success"),
-  //       data: expect.any(JobpostFolder),
-  //     });
+      const details = await controller.getUserJobFolderBySlug(
+        USER_SESSION_OBJECT,
+        data(result).slug,
+      );
 
-  //     const details = await controller.getUserJobFolderById(
-  //       req as Request,
-  //       res as Response,
-  //       data(result).id,
-  //     );
+      expect(details).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+        data: expect.any(JobpostFolder),
+      });
 
-  //     expect(details).toEqual({
-  //       success: true,
-  //       message: expect.stringMatching("success"),
-  //       data: expect.any(JobpostFolder),
-  //     });
+      jobFolder = data(result);
+    },
+    REALLY_LONG_TIME,
+  );
 
-  //     jobFolderId = data(result).id;
-  //   },
-  //   REALLY_LONG_TIME,
-  // );
+  it(
+    "should update a job folder",
+    async () => {
+      const randomName = faker.company.name();
+      const result = await controller.updateUserJobFolder(
+        USER_SESSION_OBJECT,
+        jobFolder.id,
+        {
+          name: `Jobs at ${randomName}`,
+          isPublic: false,
+          jobs: [],
+        },
+      );
 
-  // it(
-  //   "should update a job folder",
-  //   async () => {
-  //     const req: Partial<Request> = {};
-  //     const res: Partial<Response> = {
-  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //       status: code => {
-  //         return this;
-  //       },
-  //     };
+      expect(result).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+        data: expect.any(JobpostFolder),
+      });
 
-  //     const result = await controller.updateUserJobFolder(
-  //       req as Request,
-  //       res as Response,
-  //       jobFolderId,
-  //       {
-  //         name: "Demo Folder",
-  //         isPublic: true,
-  //         jobs: [NOT_SO_RANDOM_TEST_SHORT_UUID],
-  //       },
-  //     );
+      jobFolder = data(result);
+    },
+    REALLY_LONG_TIME,
+  );
 
-  //     expect(result).toEqual({
-  //       success: true,
-  //       message: expect.stringMatching("success"),
-  //       data: expect.any(JobpostFolder),
-  //     });
-  //   },
-  //   REALLY_LONG_TIME,
-  // );
+  it(
+    "should get a users job folders",
+    async () => {
+      const result = await controller.getUserJobFolders(USER_SESSION_OBJECT);
 
-  // it(
-  //   "should get a users job folders",
-  //   async () => {
-  //     const req: Partial<Request> = {};
-  //     const res: Partial<Response> = {
-  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //       status: code => {
-  //         return this;
-  //       },
-  //     };
+      expect(result).toStrictEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+        data: expect.any(Array<JobpostFolder>),
+      });
+    },
+    REALLY_LONG_TIME,
+  );
 
-  //     const result = await controller.getUserJobFolders(
-  //       req as Request,
-  //       res as Response,
-  //     );
+  it(
+    "should delete a job folder",
+    async () => {
+      const result = await controller.deleteUserJobFolder(
+        USER_SESSION_OBJECT,
+        jobFolder.id,
+      );
 
-  //     expect(result).toStrictEqual({
-  //       success: true,
-  //       message: expect.stringMatching("success"),
-  //       data: expect.any(Array<JobpostFolder>),
-  //     });
-  //   },
-  //   REALLY_LONG_TIME,
-  // );
+      expect(result).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+      });
 
-  // it(
-  //   "should delete a job folder",
-  //   async () => {
-  //     const req: Partial<Request> = {};
-  //     const res: Partial<Response> = {
-  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //       status: code => {
-  //         return this;
-  //       },
-  //     };
-
-  //     const result = await controller.deleteUserJobFolder(
-  //       req as Request,
-  //       res as Response,
-  //       jobFolderId,
-  //     );
-
-  //     expect(result).toEqual({
-  //       success: true,
-  //       message: expect.stringMatching("success"),
-  //     });
-
-  //     const details = await controller.getUserJobFolderById(
-  //       req as Request,
-  //       res as Response,
-  //       jobFolderId,
-  //     );
-
-  //     expect(data(details)).toBeUndefined();
-  //   },
-  //   REALLY_LONG_TIME,
-  // );
+      await expect(
+        controller.getUserJobFolderBySlug(USER_SESSION_OBJECT, jobFolder.slug),
+      ).rejects.toThrowError(NotFoundException);
+    },
+    REALLY_LONG_TIME,
+  );
 
   it(
     "should get jobs list with no jobpost and array property duplication",
@@ -852,28 +833,32 @@ describe("JobsController", () => {
       };
 
       const matchesFilters = (jobListResult: JobListResult): boolean => {
-        const {
-          investors,
-          fundingRounds,
-          name: orgName,
-          headcountEstimate,
-        } = jobListResult.organization;
-        return (
-          minHeadCount <= headcountEstimate &&
-          headcountEstimate <= maxHeadCount &&
-          (!investorFilterList ||
-            investors.filter(investor =>
-              investorFilterList.includes(normalizeString(investor.name)),
-            ).length > 0) &&
-          (!fundingRoundFilterList ||
-            fundingRounds.filter(fundingRound =>
-              fundingRoundFilterList.includes(
-                normalizeString(fundingRound.roundName),
-              ),
-            ).length > 0) &&
-          (!organizationFilterList ||
-            organizationFilterList.includes(normalizeString(orgName)))
-        );
+        if (jobListResult.organization) {
+          const {
+            investors,
+            fundingRounds,
+            name: orgName,
+            headcountEstimate,
+          } = jobListResult.organization;
+          return (
+            minHeadCount <= headcountEstimate &&
+            headcountEstimate <= maxHeadCount &&
+            (!investorFilterList ||
+              investors.filter(investor =>
+                investorFilterList.includes(normalizeString(investor.name)),
+              ).length > 0) &&
+            (!fundingRoundFilterList ||
+              fundingRounds.filter(fundingRound =>
+                fundingRoundFilterList.includes(
+                  normalizeString(fundingRound.roundName),
+                ),
+              ).length > 0) &&
+            (!organizationFilterList ||
+              organizationFilterList.includes(normalizeString(orgName)))
+          );
+        } else {
+          return false;
+        }
       };
 
       const result = await controller.getJobsListWithSearch(
@@ -925,52 +910,58 @@ describe("JobsController", () => {
       };
 
       const matchesFilters = (jobListResult: JobListResult): boolean => {
-        const { projects } = jobListResult.organization;
-        return (
-          (token === null ||
-            projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
-              .length > 0) &&
-          (mainNet === null || projects.filter(x => x.isMainnet).length > 0) &&
-          (!projectFilterList ||
-            projects.filter(x =>
-              projectFilterList.includes(normalizeString(x.name)),
-            ).length > 0) &&
-          (!minTvl ||
-            projects.filter(x => (x?.tvl ?? 0) >= minTvl).length > 0) &&
-          (!maxTvl ||
-            projects.filter(x => (x?.tvl ?? 0) < maxTvl).length > 0) &&
-          (!minMonthlyVolume ||
-            projects.filter(x => (x?.monthlyVolume ?? 0) >= minMonthlyVolume)
-              .length > 0) &&
-          (!maxMonthlyVolume ||
-            projects.filter(x => (x?.monthlyVolume ?? 0) < maxMonthlyVolume)
-              .length > 0) &&
-          (!minMonthlyFees ||
-            projects.filter(x => (x?.monthlyFees ?? 0) >= minMonthlyFees)
-              .length > 0) &&
-          (!maxMonthlyFees ||
-            projects.filter(x => (x?.monthlyFees ?? 0) < maxMonthlyFees)
-              .length > 0) &&
-          (!minMonthlyRevenue ||
-            projects.filter(x => (x?.monthlyRevenue ?? 0) >= minMonthlyRevenue)
-              .length > 0) &&
-          (!maxMonthlyRevenue ||
-            projects.filter(x => (x?.monthlyRevenue ?? 0) < maxMonthlyRevenue)
-              .length > 0) &&
-          (auditFilter === null ||
-            projects.filter(x => x.audits.length > 0).length > 0 ===
-              auditFilter) &&
-          (hackFilter === null ||
-            projects.filter(x => x.hacks.length > 0).length > 0 ===
-              hackFilter) &&
-          (!chainFilterList ||
-            projects.filter(
-              x =>
-                x.chains.filter(y =>
-                  chainFilterList.includes(normalizeString(y.name)),
-                ).length > 0,
-            ).length > 0)
-        );
+        if (jobListResult.organization) {
+          const { projects } = jobListResult.organization;
+          return (
+            (token === null ||
+              projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
+                .length > 0) &&
+            (mainNet === null ||
+              projects.filter(x => x.isMainnet).length > 0) &&
+            (!projectFilterList ||
+              projects.filter(x =>
+                projectFilterList.includes(normalizeString(x.name)),
+              ).length > 0) &&
+            (!minTvl ||
+              projects.filter(x => (x?.tvl ?? 0) >= minTvl).length > 0) &&
+            (!maxTvl ||
+              projects.filter(x => (x?.tvl ?? 0) < maxTvl).length > 0) &&
+            (!minMonthlyVolume ||
+              projects.filter(x => (x?.monthlyVolume ?? 0) >= minMonthlyVolume)
+                .length > 0) &&
+            (!maxMonthlyVolume ||
+              projects.filter(x => (x?.monthlyVolume ?? 0) < maxMonthlyVolume)
+                .length > 0) &&
+            (!minMonthlyFees ||
+              projects.filter(x => (x?.monthlyFees ?? 0) >= minMonthlyFees)
+                .length > 0) &&
+            (!maxMonthlyFees ||
+              projects.filter(x => (x?.monthlyFees ?? 0) < maxMonthlyFees)
+                .length > 0) &&
+            (!minMonthlyRevenue ||
+              projects.filter(
+                x => (x?.monthlyRevenue ?? 0) >= minMonthlyRevenue,
+              ).length > 0) &&
+            (!maxMonthlyRevenue ||
+              projects.filter(x => (x?.monthlyRevenue ?? 0) < maxMonthlyRevenue)
+                .length > 0) &&
+            (auditFilter === null ||
+              projects.filter(x => x.audits.length > 0).length > 0 ===
+                auditFilter) &&
+            (hackFilter === null ||
+              projects.filter(x => x.hacks.length > 0).length > 0 ===
+                hackFilter) &&
+            (!chainFilterList ||
+              projects.filter(
+                x =>
+                  x.chains.filter(y =>
+                    chainFilterList.includes(normalizeString(y.name)),
+                  ).length > 0,
+              ).length > 0)
+          );
+        } else {
+          return false;
+        }
       };
 
       const result = await controller.getJobsListWithSearch(
@@ -1070,35 +1061,18 @@ describe("JobsController", () => {
   it(
     "should get jobs for an org with no array property duplication",
     async () => {
-      const params: JobListParams = {
-        ...new JobListParams(),
-        page: 1,
-        limit: 1,
-      };
+      const details = await controller.getOrgJobsList("105", undefined);
 
-      const job = (
-        await controller.getJobsListWithSearch(
-          EMPTY_SESSION_OBJECT,
-          params,
-          undefined,
-        )
-      ).data[0];
-
-      const details = await controller.getOrgJobsList(
-        job.organization.orgId,
-        undefined,
-      );
-
-      const uuids = details.map(job => job.shortUUID);
+      const uuids = details?.map(job => job.shortUUID) ?? [];
       const setOfUuids = new Set([...uuids]);
 
       printDuplicateItems(setOfUuids, uuids, "StructuredJobpost with UUID");
 
       expect(uuids.length).toBe(setOfUuids.size);
 
-      expect(details.every(x => jlrHasArrayPropsDuplication(x) === false)).toBe(
-        true,
-      );
+      expect(
+        (details ?? []).every(x => jlrHasArrayPropsDuplication(x) === false),
+      ).toBe(true);
     },
     REALLY_LONG_TIME,
   );
@@ -1115,75 +1089,99 @@ describe("JobsController", () => {
     REALLY_LONG_TIME,
   );
 
-  // it(
-  //   "should get a users bookmarked jobs",
-  //   async () => {
-  //     const params: JobListParams = {
-  //       ...new JobListParams(),
-  //       page: 1,
-  //       limit: 1,
-  //     };
+  it(
+    "should get a users bookmarked jobs",
+    async () => {
+      const params: JobListParams = {
+        ...new JobListParams(),
+        page: 1,
+        limit: 3,
+      };
 
-  //     const req: Partial<Request> = {};
-  //     const res: Partial<Response> = {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //   status: code => {
-  //     return this;
-  //   },
-  // };
+      const jobs = (
+        await controller.getJobsListWithSearch(
+          EMPTY_SESSION_OBJECT,
+          params,
+          undefined,
+        )
+      ).data;
 
-  //     jest.spyOn(authService, "getSession").mockImplementation(async () => ({
-  //       address: EPHEMERAL_TEST_WALLET,
-  //       destroy: async (): Promise<void> => {
-  //         logger.log("session destroyed");
-  //       },
-  //       save: async (): Promise<void> => {
-  //         logger.log("session saved");
-  //       },
-  //     }));
+      for (const job of jobs) {
+        const result = await profileService.logBookmarkInteraction(
+          USER_SESSION_OBJECT.address,
+          job.shortUUID,
+        );
 
-  //     const job = (
-  //       await controller.getJobsListWithSearch(
-  //         req as Request,
-  //         res as Response,
-  //         params,
-  //       )
-  //     ).data[0];
+        expect(result).toEqual({
+          success: true,
+          message: expect.stringMatching("success"),
+        });
+      }
 
-  //     const jobs = await controller.getOrgJobsList(job.organization.orgId);
+      const bookmarked = await controller.getUserBookmarkedJobs(
+        undefined,
+        USER_SESSION_OBJECT,
+      );
 
-  //     for (const job of jobs) {
-  //       const result = await profileController.logBookmarkInteraction(
-  //         req as Request,
-  //         res as Response,
-  //         job.shortUUID,
-  //       );
+      expect(bookmarked).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+        data: expect.any(Array<JobListResult>),
+      });
 
-  //       expect(result).toEqual({
-  //         success: true,
-  //         message: expect.stringMatching("success"),
-  //       });
-  //     }
+      expect(data(bookmarked).map(job => job.shortUUID)).toEqual(
+        expect.arrayContaining(jobs.map(job => job.shortUUID)),
+      );
+    },
+    REALLY_LONG_TIME,
+  );
 
-  //     const bookmarked = await controller.getUserBookmarkedJobs(
-  //       req as Request,
-  //       res as Response,
-  //     );
+  it(
+    "should get a user's applied jobs",
+    async () => {
+      const params: JobListParams = {
+        ...new JobListParams(),
+        page: 1,
+        limit: 3,
+      };
 
-  //     expect(bookmarked).toEqual({
-  //       success: true,
-  //       message: expect.stringMatching("success"),
-  //       data: expect.any(Array<JobListResult>),
-  //     });
+      const jobs = (
+        await controller.getJobsListWithSearch(
+          EMPTY_SESSION_OBJECT,
+          params,
+          undefined,
+        )
+      ).data;
 
-  //     console.log(JSON.stringify(data(bookmarked).map(job => job.shortUUID)));
+      for (const job of jobs) {
+        const result = await profileService.logApplyInteraction(
+          USER_SESSION_OBJECT.address,
+          job.shortUUID,
+        );
 
-  //     expect(data(bookmarked).map(job => job.shortUUID)).toEqual(
-  //       expect.arrayContaining(jobs.map(job => job.shortUUID)),
-  //     );
-  //   },
-  //   REALLY_LONG_TIME,
-  // );
+        expect(result).toEqual({
+          success: true,
+          message: expect.stringMatching("success"),
+        });
+      }
+
+      const applied = await controller.getUserAppliedJobs(
+        undefined,
+        USER_SESSION_OBJECT,
+      );
+
+      expect(applied).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+        data: expect.any(Array<JobListResult>),
+      });
+
+      expect(data(applied).map(job => job.shortUUID)).toEqual(
+        expect.arrayContaining(jobs.map(job => job.shortUUID)),
+      );
+    },
+    REALLY_LONG_TIME,
+  );
 
   it(
     "should respond with the correct page ",

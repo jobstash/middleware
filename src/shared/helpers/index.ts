@@ -22,7 +22,12 @@ import { Integer, Node } from "neo4j-driver";
 import { Neo4jSupportedProperties, NeogmaInstance } from "neogma";
 import { catchError, firstValueFrom } from "rxjs";
 import ShortUniqueId from "short-unique-id";
-import { NON_PUBLIC_API_ROUTES } from "../constants";
+import {
+  NON_PUBLIC_API_ROUTES,
+  TEST_EMAIL,
+  TEST_GITHUB_USER,
+  USER_TEST_WALLET,
+} from "../constants";
 import { DateRange, JobListOrderBy } from "../enums";
 import {
   OrgDetailsResult,
@@ -35,6 +40,9 @@ import { PUBLIC_API_SCHEMAS } from "../presets/public-api-schemas";
 import { CustomLogger } from "../utils/custom-logger";
 import { emojiRegex } from "./emoji-regex";
 import Sqids from "sqids";
+import { PrivyService } from "src/auth/privy/privy.service";
+import { UserService } from "src/user/user.service";
+import { WalletWithMetadata } from "@privy-io/server-auth";
 
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
@@ -539,6 +547,33 @@ export const resetTestDB = async (
       }),
     ),
   );
+};
+
+export const createTestUser = async (
+  privyService: PrivyService,
+  userService: UserService,
+): Promise<string> => {
+  const user = await privyService.createUser({
+    wallets: [USER_TEST_WALLET],
+    email: TEST_EMAIL,
+    github: TEST_GITHUB_USER,
+    name: "Test User",
+  });
+  const embeddedWallet = (
+    user.linkedAccounts.find(
+      x => x.type === "wallet" && x.walletClientType === "privy",
+    ) as WalletWithMetadata
+  )?.address;
+  await userService.createPrivyUser(user, embeddedWallet);
+  await userService.syncUserPermissions(embeddedWallet, [
+    "SUPER_ADMIN",
+    "USER",
+    "PROJECT_MANAGER",
+    "ORG_MANAGER",
+    "TAGS_MANAGER",
+    "ADMIN",
+  ]);
+  return embeddedWallet;
 };
 
 export const randomToken = (): string => {

@@ -15,6 +15,67 @@ export class PrivyService {
     );
   }
 
+  async createUser(data: {
+    wallets: string[];
+    email: string | null;
+    github: string | null;
+    name: string;
+  }): Promise<User> {
+    const client = this.privy;
+    type X = Parameters<typeof client.importUser>[0]["linkedAccounts"][0];
+    const linkedAccounts: X[] = [];
+
+    if (data.wallets.length > 0) {
+      linkedAccounts.push(
+        ...data.wallets.map(
+          x =>
+            ({
+              type: "wallet",
+              walletClientType: "rainbow",
+              address: x,
+              chainType: "ethereum",
+              connectorType: "wallet_connect",
+            } as X),
+        ),
+      );
+    }
+
+    if (data.email) {
+      linkedAccounts.push({
+        type: "email",
+        address: data.email,
+      });
+    }
+
+    if (data.github) {
+      linkedAccounts.push({
+        type: "github_oauth",
+        username: data.github,
+        subject: "-1",
+        email: data.email,
+        name: data.name,
+      });
+    }
+
+    try {
+      const user = await client.importUser({
+        linkedAccounts,
+        createEthereumWallet: true,
+        createSolanaWallet: false,
+      });
+      return user;
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "privy.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`PrivyService::createUser ${err.message}`);
+    }
+  }
+
   async getUser(userId: string, attempts = 0): Promise<User | undefined> {
     let user: User;
     try {

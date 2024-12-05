@@ -8,13 +8,14 @@ import { ModelService } from "src/model/model.service";
 import { EPHEMERAL_TEST_WALLET, REALLY_LONG_TIME } from "src/shared/constants";
 import { resetTestDB } from "src/shared/helpers";
 import { CustomLogger } from "src/shared/utils/custom-logger";
-import { UserModule } from "src/user/user.module";
 import { HacksService } from "./hacks.service";
 import * as https from "https";
 import { ProjectsService } from "src/projects/projects.service";
 import { ProjectCategoryService } from "src/projects/project-category.service";
 import { randomUUID } from "crypto";
 import { Hack, data } from "src/shared/interfaces";
+import { AuthModule } from "src/auth/auth.module";
+import { Auth0Module } from "src/auth0/auth0.module";
 
 describe("HacksService", () => {
   let models: ModelService;
@@ -26,7 +27,8 @@ describe("HacksService", () => {
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
-        forwardRef(() => UserModule),
+        forwardRef(() => AuthModule),
+        forwardRef(() => Auth0Module),
         ConfigModule.forRoot({
           isGlobal: true,
           validationSchema: envSchema,

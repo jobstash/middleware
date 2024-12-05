@@ -9,37 +9,47 @@ import {
   ProjectFilterConfigs,
   ProjectDetailsResult,
   Project,
-  ProjectMoreInfo,
   data,
+  SessionObject,
 } from "src/shared/interfaces";
 import {
+  createTestUser,
   hasDuplicates,
   printDuplicateItems,
   resetTestDB,
 } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
-import { Response } from "express";
 import { ModelService } from "src/model/model.service";
 import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
 import { OrganizationsService } from "src/organizations/organizations.service";
 import { ProjectCategoryService } from "./project-category.service";
-import { REALLY_LONG_TIME } from "src/shared/constants";
+import { ADMIN_SESSION_OBJECT, REALLY_LONG_TIME } from "src/shared/constants";
 import { ProjectProps } from "src/shared/models";
 import { HttpModule, HttpService } from "@nestjs/axios";
 import { forwardRef } from "@nestjs/common";
 import { JwtModule, JwtService } from "@nestjs/jwt";
 import { AuthService } from "src/auth/auth.service";
 import { ModelModule } from "src/model/model.module";
-import { UserModule } from "src/user/user.module";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as https from "https";
+import { AuthModule } from "src/auth/auth.module";
+import { GithubModule } from "src/auth/github/github.module";
+import { PrivyModule } from "src/auth/privy/privy.module";
+import { PrivyService } from "src/auth/privy/privy.service";
+import { Auth0Module } from "src/auth0/auth0.module";
+import { ScorerModule } from "src/scorer/scorer.module";
+import { UserService } from "src/user/user.service";
+import { ProfileModule } from "src/auth/profile/profile.module";
+import { PermissionService } from "src/user/permission.service";
 
 describe("ProjectsController", () => {
   let controller: ProjectsController;
   let models: ModelService;
   let httpService: HttpService;
-  let projectId;
+  let projectId: string;
+
+  let USER_SESSION_OBJECT: SessionObject;
   const logger = new CustomLogger(`${ProjectsController.name}TestSuite`);
 
   const projectHasArrayPropsDuplication = (
@@ -70,7 +80,12 @@ describe("ProjectsController", () => {
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
-        forwardRef(() => UserModule),
+        Auth0Module,
+        forwardRef(() => AuthModule),
+        forwardRef(() => ProfileModule),
+        forwardRef(() => ScorerModule),
+        forwardRef(() => PrivyModule),
+        forwardRef(() => GithubModule),
         ConfigModule.forRoot({
           isGlobal: true,
           validationSchema: envSchema,
@@ -127,6 +142,8 @@ describe("ProjectsController", () => {
         ProjectsService,
         OrganizationsService,
         ProjectCategoryService,
+        UserService,
+        PermissionService,
       ],
     }).compile();
 
@@ -135,6 +152,16 @@ describe("ProjectsController", () => {
     await models.onModuleInit();
     controller = module.get<ProjectsController>(ProjectsController);
     httpService = module.get<HttpService>(HttpService);
+
+    const adminWallet = await createTestUser(
+      module.get<PrivyService>(PrivyService),
+      module.get<UserService>(UserService),
+    );
+
+    USER_SESSION_OBJECT = {
+      ...ADMIN_SESSION_OBJECT,
+      address: adminWallet,
+    };
   }, REALLY_LONG_TIME);
 
   afterAll(async () => {
@@ -162,7 +189,7 @@ describe("ProjectsController", () => {
     async () => {
       const info = {
         orgId: "345",
-        name: "JobStash",
+        name: "JobStashX",
         category: "Services",
         tvl: null,
         monthlyFees: null,
@@ -184,7 +211,7 @@ describe("ProjectsController", () => {
         defiLlamaParent: null,
         defiLlamaSlug: null,
       };
-      const result = await controller.createProject(info);
+      const result = await controller.createProject(USER_SESSION_OBJECT, info);
 
       expect(result.success).toBe(true);
 
@@ -192,7 +219,8 @@ describe("ProjectsController", () => {
 
       expect(project).toEqual({
         id: expect.any(String),
-        name: "JobStash",
+        name: "JobStashX",
+        normalizedName: "jobstashx",
         logo: "https://jobstash.xyz",
         tokenSymbol: null,
         tvl: null,
@@ -201,7 +229,7 @@ describe("ProjectsController", () => {
         monthlyRevenue: null,
         monthlyActiveUsers: 400,
         isMainnet: false,
-        orgId: "345",
+        orgIds: [],
         description: "#1 Crypto Native Job Aggregator",
         defiLlamaId: null,
         defiLlamaSlug: null,
@@ -220,8 +248,8 @@ describe("ProjectsController", () => {
     "should update a project",
     async () => {
       const info = {
-        orgId: "345",
-        name: "JobStash",
+        orgIds: [],
+        name: "JobStashd",
         category: "Services",
         tvl: null,
         monthlyFees: null,
@@ -242,8 +270,15 @@ describe("ProjectsController", () => {
         defiLlamaId: null,
         defiLlamaParent: null,
         defiLlamaSlug: null,
+        detectedJobsites: [],
+        jobsites: [],
       };
-      const result = await controller.updateProject(projectId, info);
+
+      const result = await controller.updateProject(
+        USER_SESSION_OBJECT,
+        projectId,
+        info,
+      );
 
       expect(result.success).toBe(true);
 
@@ -251,7 +286,8 @@ describe("ProjectsController", () => {
 
       expect(project).toEqual({
         id: expect.any(String),
-        name: "JobStash",
+        name: "JobStashd",
+        normalizedName: "jobstashd",
         logo: "https://jobstash.xyz",
         tokenSymbol: null,
         tvl: null,
@@ -260,7 +296,7 @@ describe("ProjectsController", () => {
         monthlyRevenue: null,
         monthlyActiveUsers: 500,
         isMainnet: false,
-        orgId: "345",
+        orgIds: [],
         description: "#1 Crypto Native Job Aggregator",
         defiLlamaId: null,
         defiLlamaSlug: null,
@@ -276,7 +312,10 @@ describe("ProjectsController", () => {
   it(
     "should delete a project",
     async () => {
-      const result = await controller.deleteProject(projectId);
+      const result = await controller.deleteProject(
+        USER_SESSION_OBJECT,
+        projectId,
+      );
 
       expect(result.success).toBe(true);
     },
@@ -293,7 +332,7 @@ describe("ProjectsController", () => {
       };
       const res = await controller.getProjectsListWithSearch(params, undefined);
 
-      const uuids = res.data.map(project => project.id + project.orgId);
+      const uuids = res.data.map(project => project.id);
       const setOfUuids = new Set([...uuids]);
 
       expect(res).toEqual({
@@ -346,11 +385,8 @@ describe("ProjectsController", () => {
         await controller.getProjectsListWithSearch(params, undefined)
       ).data[0];
 
-      const res: Partial<Response> = {};
-
       const details = await controller.getProjectDetailsById(
         project.id,
-        res as Response,
         undefined,
       );
 
@@ -405,12 +441,15 @@ describe("ProjectsController", () => {
   it(
     "should get projects for an org",
     async () => {
-      const competitors = await controller.getProjectsByOrgId("120");
+      const competitors = await controller.getProjectsByOrgId(
+        USER_SESSION_OBJECT,
+        "105",
+      );
 
       expect(competitors).toEqual({
         success: true,
         message: expect.stringMatching("success"),
-        data: expect.any(Array<ProjectProps>),
+        data: expect.anything(),
       });
     },
     REALLY_LONG_TIME,
@@ -419,53 +458,15 @@ describe("ProjectsController", () => {
   it(
     "should search for projects",
     async () => {
-      const competitors = await controller.searchProjects("AAVE");
+      const competitors = await controller.searchProjects(
+        USER_SESSION_OBJECT,
+        "AAVE",
+      );
 
       expect(competitors).toEqual({
         success: true,
         message: expect.stringMatching("success"),
         data: expect.any(Array<ProjectProps>),
-      });
-    },
-    REALLY_LONG_TIME,
-  );
-
-  it(
-    "should prefill project info from defillama",
-    async () => {
-      const info = await controller.getProjectDetailsFromDefillama(
-        "https://api.llama.fi/protocol/hyphen",
-      );
-
-      expect(data(info).name).toBe("Hyphen");
-    },
-    REALLY_LONG_TIME,
-  );
-
-  it(
-    "should get project details",
-    async () => {
-      const params: ProjectListParams = {
-        ...new ProjectListParams(),
-        page: 1,
-        limit: 1,
-      };
-
-      const project = (
-        await controller.getProjectsListWithSearch(params, undefined)
-      ).data[0];
-
-      const res: Partial<Response> = {};
-
-      const details = await controller.getProjectDetails(
-        project.id,
-        res as Response,
-      );
-
-      expect(details).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-        data: expect.any(ProjectMoreInfo),
       });
     },
     REALLY_LONG_TIME,

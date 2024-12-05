@@ -5,35 +5,49 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import envSchema from "src/env-schema";
 import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
 import { ModelModule } from "src/model/model.module";
-import { AuthService } from "src/auth/auth.service";
 import { JwtService } from "@nestjs/jwt";
 import { ModelService } from "src/model/model.service";
 import { TagsService } from "./tags.service";
-import { Tag, data } from "src/shared/interfaces";
+import { SessionObject, Tag, data } from "src/shared/interfaces";
 import {
-  // normalizeString,
+  createTestUser,
+  normalizeString,
   printDuplicateItems,
-  // resetTestDB,
+  resetTestDB,
 } from "src/shared/helpers";
-import { REALLY_LONG_TIME } from "src/shared/constants";
-// import { HttpModule, HttpService } from "@nestjs/axios";
-// import * as https from "https";
-// import { CustomLogger } from "src/shared/utils/custom-logger";
+import { ADMIN_SESSION_OBJECT, REALLY_LONG_TIME } from "src/shared/constants";
+import { HttpModule, HttpService } from "@nestjs/axios";
+import * as https from "https";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 import { Integer } from "neo4j-driver";
 import { AuthModule } from "src/auth/auth.module";
+import { UserService } from "src/user/user.service";
+import { PrivyService } from "src/auth/privy/privy.service";
+import { GithubModule } from "src/auth/github/github.module";
+import { PrivyModule } from "src/auth/privy/privy.module";
+import { Auth0Module } from "src/auth0/auth0.module";
+import { ScorerModule } from "src/scorer/scorer.module";
+import { PermissionService } from "src/user/permission.service";
+import { RpcService } from "src/user/rpc.service";
+import { ProfileService } from "src/auth/profile/profile.service";
 
 describe("TagsController", () => {
   let controller: TagsController;
   let models: ModelService;
-  // let httpService: HttpService;
-  // let authService: AuthService;
-  // let tagsService: TagsService;
+  let httpService: HttpService;
+  let tagsService: TagsService;
 
-  // const logger = new CustomLogger(`${TagsController.name}TestSuite`);
+  let USER_SESSION_OBJECT: SessionObject;
+  const logger = new CustomLogger(`${TagsController.name}TestSuite`);
 
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
+        Auth0Module,
+        forwardRef(() => AuthModule),
+        forwardRef(() => ScorerModule),
+        forwardRef(() => PrivyModule),
+        forwardRef(() => GithubModule),
         ConfigModule.forRoot({
           isGlobal: true,
           validationSchema: envSchema,
@@ -57,33 +71,49 @@ describe("TagsController", () => {
             } as NeogmaModuleOptions),
         }),
         forwardRef(() => ModelModule),
-        forwardRef(() => AuthModule),
-        // HttpModule.registerAsync({
-        //   imports: [ConfigModule],
-        //   inject: [ConfigService],
-        //   useFactory: (configService: ConfigService) => ({
-        //     headers: {
-        //       "X-Secret-Key": configService.get<string>(
-        //         "TEST_DB_MANAGER_API_KEY",
-        //       ),
-        //     },
-        //     httpsAgent: new https.Agent({ rejectUnauthorized: false }),
-        //     timeout: REALLY_LONG_TIME,
-        //     baseURL: configService.get<string>("TEST_DB_MANAGER_URL"),
-        //   }),
-        // }),
+        HttpModule.registerAsync({
+          imports: [ConfigModule],
+          inject: [ConfigService],
+          useFactory: (configService: ConfigService) => ({
+            headers: {
+              "X-Secret-Key": configService.get<string>(
+                "TEST_DB_MANAGER_API_KEY",
+              ),
+            },
+            httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+            timeout: REALLY_LONG_TIME,
+            baseURL: configService.get<string>("TEST_DB_MANAGER_URL"),
+          }),
+        }),
       ],
       controllers: [TagsController],
-      providers: [TagsService, AuthService, JwtService, ModelService],
+      providers: [
+        ProfileService,
+        TagsService,
+        JwtService,
+        ModelService,
+        RpcService,
+        UserService,
+        PermissionService,
+      ],
     }).compile();
 
     await module.init();
     models = module.get<ModelService>(ModelService);
     await models.onModuleInit();
     controller = module.get<TagsController>(TagsController);
-    // authService = module.get<AuthService>(AuthService);
-    // tagsService = module.get<TagsService>(TagsService);
-    // httpService = module.get<HttpService>(HttpService);
+    tagsService = module.get<TagsService>(TagsService);
+    httpService = module.get<HttpService>(HttpService);
+
+    const adminWallet = await createTestUser(
+      module.get<PrivyService>(PrivyService),
+      module.get<UserService>(UserService),
+    );
+
+    USER_SESSION_OBJECT = {
+      ...ADMIN_SESSION_OBJECT,
+      address: adminWallet,
+    };
   }, REALLY_LONG_TIME);
 
   it("should be defined", () => {
@@ -91,7 +121,7 @@ describe("TagsController", () => {
   });
 
   afterAll(async () => {
-    // await resetTestDB(httpService, logger);
+    await resetTestDB(httpService, logger);
     jest.restoreAllMocks();
   }, REALLY_LONG_TIME);
 
@@ -217,375 +247,246 @@ describe("TagsController", () => {
     REALLY_LONG_TIME,
   );
 
-  // it(
-  //   "should create a tag",
-  //   async () => {
-  //     jest
-  //       .spyOn(AuthService.prototype, "getSession")
-  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //       .mockImplementation(async (r, s) => ({
-  //         address: EPHEMERAL_TEST_WALLET,
-  //         destroy: async (): Promise<void> => {
-  //           logger.log("session destroyed");
-  //         },
-  //         save: async (): Promise<void> => {
-  //           logger.log("session saved");
-  //         },
-  //       }));
-  //     const req: Partial<Request> = {};
-  //     const res: Partial<Response> = {};
+  it("should create a tag", async () => {
+    const tagName = "DemoTag";
 
-  //     const tagName = "DemoTag";
+    const tag = {
+      name: tagName,
+      normalizedName: normalizeString(tagName),
+    };
 
-  //     const tag = {
-  //       name: tagName,
-  //       normalizedName: normalizeString(tagName),
-  //     };
+    const result = await controller.create(USER_SESSION_OBJECT, tag);
 
-  //     const result = await controller.create(
-  //       req as Request,
-  //       res as Response,
-  //       tag,
-  //     );
+    expect(result).toStrictEqual({
+      success: true,
+      message: expect.stringMatching("success"),
+      data: {
+        id: expect.any(String),
+        ...tag,
+      },
+    });
+  });
 
-  //     expect(result).toStrictEqual({
-  //       success: true,
-  //       message: expect.stringMatching("success"),
-  //       data: {
-  //         id: expect.any(String),
-  //         ...tag,
-  //       },
-  //     });
+  it(
+    "should link tags as synonyms",
+    async () => {
+      const tagName = "DemoTag2";
 
-  //     const allTags = await tagsService.findAll();
+      const tag = {
+        name: tagName,
+        normalizedName: normalizeString(tagName),
+      };
 
-  //     expect(allTags).toStrictEqual(
-  //       expect.arrayContaining([
-  //         {
-  //           id: expect.any(String),
-  //           ...tag,
-  //         },
-  //       ]),
-  //     );
-  //   },
-  //   REALLY_LONG_TIME,
-  // );
+      await controller.create(USER_SESSION_OBJECT, tag);
 
-  // it(
-  //   "should link tags as synonyms",
-  //   async () => {
-  //     jest
-  //       .spyOn(AuthService.prototype, "getSession")
-  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //       .mockImplementation(async (r, s) => ({
-  //         address: EPHEMERAL_TEST_WALLET,
-  //         destroy: async (): Promise<void> => {
-  //           logger.log("session destroyed");
-  //         },
-  //         save: async (): Promise<void> => {
-  //           logger.log("session saved");
-  //         },
-  //       }));
-  //     const req: Partial<Request> = {};
-  //     const res: Partial<Response> = {};
+      const result = await controller.linkSynonym(USER_SESSION_OBJECT, {
+        tagName: "DemoTag",
+        synonymName: "DemoTag2",
+      });
 
-  //     const tagName = "DemoTag2";
+      expect(result).toStrictEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+        data: expect.any(Array<Tag>),
+      });
+    },
+    REALLY_LONG_TIME,
+  );
 
-  //     const tag = {
-  //       name: tagName,
-  //       normalizedName: normalizeString(tagName),
-  //     };
+  it(
+    "should block a tag",
+    async () => {
+      const tagName = "DemoTag3";
 
-  //     await controller.create(req as Request, res as Response, tag);
+      const tag = {
+        name: tagName,
+        normalizedName: normalizeString(tagName),
+      };
 
-  //     const result = await controller.linkSynonym(
-  //       req as Request,
-  //       res as Response,
-  //       { tagName: "DemoTag", synonymName: "DemoTag2" },
-  //     );
+      await controller.create(USER_SESSION_OBJECT, tag);
 
-  //     expect(result).toStrictEqual({
-  //       success: true,
-  //       message: expect.stringMatching("success"),
-  //       data: expect.any(Array<Tag>),
-  //     });
-  //   },
-  //   REALLY_LONG_TIME,
-  // );
+      const result = await controller.blockTags(USER_SESSION_OBJECT, {
+        tagNameList: [tagName],
+      });
 
-  // it(
-  //   "should block a tag",
-  //   async () => {
-  //     jest
-  //       .spyOn(AuthService.prototype, "getSession")
-  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //       .mockImplementation(async (r, s) => ({
-  //         address: EPHEMERAL_TEST_WALLET,
-  //         destroy: async (): Promise<void> => {
-  //           logger.log("session destroyed");
-  //         },
-  //         save: async (): Promise<void> => {
-  //           logger.log("session saved");
-  //         },
-  //       }));
-  //     const req: Partial<Request> = {};
-  //     const res: Partial<Response> = {};
+      expect(result).toStrictEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+      });
 
-  //     const tagName = "DemoTag3";
+      const blockedTags = await controller.getBlockedTags();
 
-  //     const tag = {
-  //       name: tagName,
-  //       normalizedName: normalizeString(tagName),
-  //     };
+      expect(data(blockedTags)).toStrictEqual(
+        expect.arrayContaining([
+          {
+            id: expect.any(String),
+            ...tag,
+          },
+        ]),
+      );
+    },
+    REALLY_LONG_TIME,
+  );
 
-  //     await controller.create(req as Request, res as Response, tag);
+  it(
+    "should unblock a tag",
+    async () => {
+      const tagName = "DemoTag3";
 
-  //     const result = await controller.blockTags(
-  //       req as Request,
-  //       res as Response,
-  //       { tagNameList: [tagName] },
-  //     );
+      const tag = {
+        name: tagName,
+        normalizedName: normalizeString(tagName),
+      };
 
-  //     expect(result).toStrictEqual({
-  //       success: true,
-  //       message: expect.stringMatching("success"),
-  //     });
+      const result = await controller.unblockTags(USER_SESSION_OBJECT, {
+        tagNameList: [tagName],
+      });
 
-  //     const blockedTags = await controller.getBlockedTags();
+      expect(result).toStrictEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+      });
 
-  //     expect(data(blockedTags)).toStrictEqual(
-  //       expect.arrayContaining([
-  //         {
-  //           id: expect.any(String),
-  //           ...tag,
-  //         },
-  //       ]),
-  //     );
-  //   },
-  //   REALLY_LONG_TIME,
-  // );
+      const tags = await tagsService.findAll();
 
-  // it(
-  //   "should unblock a tag",
-  //   async () => {
-  //     jest
-  //       .spyOn(AuthService.prototype, "getSession")
-  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //       .mockImplementation(async (r, s) => ({
-  //         address: EPHEMERAL_TEST_WALLET,
-  //         destroy: async (): Promise<void> => {
-  //           logger.log("session destroyed");
-  //         },
-  //         save: async (): Promise<void> => {
-  //           logger.log("session saved");
-  //         },
-  //       }));
-  //     const req: Partial<Request> = {};
-  //     const res: Partial<Response> = {};
+      expect(tags).toStrictEqual(
+        expect.arrayContaining([
+          {
+            id: expect.any(String),
+            ...tag,
+          },
+        ]),
+      );
+    },
+    REALLY_LONG_TIME,
+  );
 
-  //     const tagName = "DemoTag3";
+  it(
+    "should pair tags",
+    async () => {
+      const tagName = "DemoTag";
 
-  //     const tag = {
-  //       name: tagName,
-  //       normalizedName: normalizeString(tagName),
-  //     };
+      const tagNames = ["Demo", "Tag"];
 
-  //     const result = await controller.unblockTags(
-  //       req as Request,
-  //       res as Response,
-  //       { tagNameList: [tagName] },
-  //     );
+      for (const tag of tagNames) {
+        await controller.create(USER_SESSION_OBJECT, {
+          name: tag,
+          normalizedName: normalizeString(tag),
+        });
+      }
 
-  //     expect(result).toStrictEqual({
-  //       success: true,
-  //       message: expect.stringMatching("success"),
-  //     });
+      const tags = [tagName, ...tagNames]
+        .map(tagName => ({
+          name: tagName,
+          normalizedName: normalizeString(tagName),
+        }))
+        .map(tag => ({ id: expect.any(String), ...tag }));
 
-  //     const tags = await tagsService.findAll();
+      const result = await controller.createPairedTags(USER_SESSION_OBJECT, {
+        originTag: tagName,
+        pairedTagList: tagNames,
+      });
 
-  //     expect(tags).toStrictEqual(
-  //       expect.arrayContaining([
-  //         {
-  //           id: expect.any(String),
-  //           ...tag,
-  //         },
-  //       ]),
-  //     );
-  //   },
-  //   REALLY_LONG_TIME,
-  // );
+      expect(result).toStrictEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+        data: expect.arrayContaining(tags),
+      });
+    },
+    REALLY_LONG_TIME,
+  );
 
-  // it(
-  //   "should pair tags",
-  //   async () => {
-  //     jest
-  //       .spyOn(AuthService.prototype, "getSession")
-  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //       .mockImplementation(async (r, s) => ({
-  //         address: EPHEMERAL_TEST_WALLET,
-  //         destroy: async (): Promise<void> => {
-  //           logger.log("session destroyed");
-  //         },
-  //         save: async (): Promise<void> => {
-  //           logger.log("session saved");
-  //         },
-  //       }));
-  //     const req: Partial<Request> = {};
-  //     const res: Partial<Response> = {};
+  it(
+    "should prefer tags",
+    async () => {
+      const tagName = "DemoTag100";
 
-  //     const tagName = "DemoTag";
+      const tagNames = ["DemoTag20", "DemoTag30"];
 
-  //     const tagNames = ["Demo", "Tag"];
+      for (const tag of [tagName, ...tagNames]) {
+        await controller.create(USER_SESSION_OBJECT, {
+          name: tag,
+          normalizedName: normalizeString(tag),
+        });
+      }
 
-  //     for (const tag of tagNames) {
-  //       await controller.create(req as Request, res as Response, {
-  //         name: tag,
-  //         normalizedName: normalizeString(tag),
-  //       });
-  //     }
+      const tags = [tagName, ...tagNames]
+        .map(tagName => ({
+          name: tagName,
+          normalizedName: normalizeString(tagName),
+        }))
+        .map(tag => ({ id: expect.any(String), ...tag }));
 
-  //     const tags = [tagName, ...tagNames]
-  //       .map(tagName => ({
-  //         name: tagName,
-  //         normalizedName: normalizeString(tagName),
-  //       }))
-  //       .map(tag => ({ id: expect.any(String), ...tag }));
+      const result = await controller.createPreferredTag(USER_SESSION_OBJECT, {
+        preferredName: tagName,
+        synonyms: tagNames,
+      });
 
-  //     const result = await controller.createPairedTags(
-  //       req as Request,
-  //       res as Response,
-  //       { originTag: tagName, pairedTagList: tagNames },
-  //     );
+      expect(result).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+        data: {
+          tag: tags[0],
+          synonyms: expect.arrayContaining(
+            tags.filter(tag => tag.name !== tagName),
+          ),
+        },
+      });
 
-  //     expect(result).toStrictEqual({
-  //       success: true,
-  //       message: expect.stringMatching("success"),
-  //       data: expect.arrayContaining(tags),
-  //     });
-  //   },
-  //   REALLY_LONG_TIME,
-  // );
+      const preferredTags = await controller.getPreferredTags();
 
-  // it(
-  //   "should prefer tags",
-  //   async () => {
-  //     jest
-  //       .spyOn(AuthService.prototype, "getSession")
-  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //       .mockImplementation(async (r, s) => ({
-  //         address: EPHEMERAL_TEST_WALLET,
-  //         destroy: async (): Promise<void> => {
-  //           logger.log("session destroyed");
-  //         },
-  //         save: async (): Promise<void> => {
-  //           logger.log("session saved");
-  //         },
-  //       }));
-  //     const req: Partial<Request> = {};
-  //     const res: Partial<Response> = {};
+      expect(data(preferredTags)).toStrictEqual(
+        expect.arrayContaining([
+          {
+            tag: tags.find(tag => tag.name === tagName),
+            synonyms: tags.filter(tag => tag.name !== tagName),
+          },
+        ]),
+      );
+    },
+    REALLY_LONG_TIME,
+  );
 
-  //     const tagName = "DemoTag100";
+  it(
+    "should unprefer tags",
+    async () => {
+      const tagName = "DemoTag100";
 
-  //     const tagNames = ["DemoTag20", "DemoTag30"];
+      const tagNames = ["DemoTag20", "DemoTag30"];
 
-  //     for (const tag of [tagName, ...tagNames]) {
-  //       await controller.create(req as Request, res as Response, {
-  //         name: tag,
-  //         normalizedName: normalizeString(tag),
-  //       });
-  //     }
+      const tags = [tagName, ...tagNames]
+        .map(tagName => ({
+          name: tagName,
+          normalizedName: normalizeString(tagName),
+        }))
+        .map(tag => ({ id: expect.any(String), ...tag }));
 
-  //     const tags = [tagName, ...tagNames]
-  //       .map(tagName => ({
-  //         name: tagName,
-  //         normalizedName: normalizeString(tagName),
-  //       }))
-  //       .map(tag => ({ id: expect.any(String), ...tag }));
+      const result = await controller.deletePreferredTag({
+        preferredName: tagName,
+      });
 
-  //     const result = await controller.createPreferredTag(
-  //       req as Request,
-  //       res as Response,
-  //       { preferredName: tagName, synonyms: tagNames },
-  //     );
+      expect(result).toEqual({
+        success: true,
+        message: expect.stringMatching("success"),
+        data: {
+          tag: tags.find(tag => tag.name === tagName),
+          synonyms: expect.arrayContaining(
+            tags.filter(tag => tag.name !== tagName),
+          ),
+        },
+      });
 
-  //     expect(result).toEqual({
-  //       success: true,
-  //       message: expect.stringMatching("success"),
-  //       data: {
-  //         tag: tags[0],
-  //         synonyms: expect.arrayContaining(
-  //           tags.filter(tag => tag.name !== tagName),
-  //         ),
-  //       },
-  //     });
+      const preferredTags = await controller.getPreferredTags();
 
-  //     const preferredTags = await controller.getPreferredTags();
-
-  //     expect(data(preferredTags)).toEqual(
-  //       expect.arrayContaining([
-  //         {
-  //           tag: tags.find(tag => tag.name === tagName),
-  //           synonyms: tags.filter(tag => tag.name !== tagName).reverse(),
-  //         },
-  //       ]),
-  //     );
-  //   },
-  //   REALLY_LONG_TIME,
-  // );
-
-  // it(
-  //   "should unprefer tags",
-  //   async () => {
-  //     jest
-  //       .spyOn(AuthService.prototype, "getSession")
-  //       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //       .mockImplementation(async (r, s) => ({
-  //         address: EPHEMERAL_TEST_WALLET,
-  //         destroy: async (): Promise<void> => {
-  //           logger.log("session destroyed");
-  //         },
-  //         save: async (): Promise<void> => {
-  //           logger.log("session saved");
-  //         },
-  //       }));
-
-  //     const tagName = "DemoTag100";
-
-  //     const tagNames = ["DemoTag20", "DemoTag30"];
-
-  //     const tags = [tagName, ...tagNames]
-  //       .map(tagName => ({
-  //         name: tagName,
-  //         normalizedName: normalizeString(tagName),
-  //       }))
-  //       .map(tag => ({ id: expect.any(String), ...tag }));
-
-  //     const result = await controller.deletePreferredTag({
-  //       preferredName: tagName,
-  //     });
-
-  //     expect(result).toEqual({
-  //       success: true,
-  //       message: expect.stringMatching("success"),
-  //       data: {
-  //         tag: tags.find(tag => tag.name === tagName),
-  //         synonyms: expect.arrayContaining(
-  //           tags.filter(tag => tag.name !== tagName),
-  //         ),
-  //       },
-  //     });
-
-  //     const preferredTags = await controller.getPreferredTags();
-
-  //     expect(data(preferredTags)).not.toStrictEqual(
-  //       expect.arrayContaining([
-  //         {
-  //           tag: tags.find(tag => tag.name === tagName),
-  //           synonyms: tags.filter(tag => tag.name !== tagName),
-  //         },
-  //       ]),
-  //     );
-  //   },
-  //   REALLY_LONG_TIME,
-  // );
+      expect(data(preferredTags)).not.toStrictEqual(
+        expect.arrayContaining([
+          {
+            tag: tags.find(tag => tag.name === tagName),
+            synonyms: tags.filter(tag => tag.name !== tagName),
+          },
+        ]),
+      );
+    },
+    REALLY_LONG_TIME,
+  );
 });

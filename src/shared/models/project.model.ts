@@ -788,7 +788,6 @@ export const Projects = (
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ],
-                  investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
