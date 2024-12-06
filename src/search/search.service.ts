@@ -424,7 +424,9 @@ export class SearchService {
             ...headerText,
             activePillar: {
               slug: params.pillar,
-              items: items.filter(Boolean),
+              items: params.limit
+                ? items.filter(Boolean).slice(0, params.limit)
+                : items.filter(Boolean),
             },
             altPillar: params.pillar2
               ? {

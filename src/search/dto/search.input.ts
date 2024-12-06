@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsIn, IsOptional } from "class-validator";
+import { Type } from "class-transformer";
+import {
+  IsString,
+  IsNotEmpty,
+  IsIn,
+  IsOptional,
+  IsNumber,
+} from "class-validator";
 
 export class SearchPillarParams {
   @IsString()
@@ -20,4 +27,9 @@ export class SearchPillarParams {
   @IsString()
   @IsOptional()
   item2: string | null = null;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  limit: number | null = null;
 }
