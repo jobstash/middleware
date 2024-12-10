@@ -467,17 +467,17 @@ export class SearchService {
     params: SearchPillarItemParams,
   ): Promise<PaginatedData<string>> {
     const query = NAV_PILLAR_QUERY_MAPPINGS[params.nav][params.pillar];
-    const regex = new RegExp(
-      `[\\?&]${query.split(" ").join("|")}=([^&#]*)`,
-      "i",
-    );
+    // const regex = new RegExp(
+    //   `[\\?&]${query.split(" ").join("|")}=([^&#]*)`,
+    //   "i",
+    // );
     if (query) {
       const result = await this.neogma.queryRunner.run(query);
       const items = result.records.map(record => record.get("item") as string);
       return paginate<string>(
         params.page,
         params.limit,
-        items.filter(x => x.match(regex)).filter(Boolean),
+        items.filter(x => x.includes(params.query)).filter(Boolean),
       );
     }
   }
