@@ -27,5 +27,5 @@ export interface PillarInfo {
   title: string;
   description: string;
   activePillar: Pillar;
-  altPillar: Pillar | null;
+  altPillars: Pillar[];
 }

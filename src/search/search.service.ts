@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import {
+  PaginatedData,
   PillarInfo,
   ResponseWithOptionalData,
   SearchNav,
@@ -12,9 +13,10 @@ import {
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { uniqBy } from "lodash";
-import { sluggify } from "src/shared/helpers";
+import { paginate, sluggify } from "src/shared/helpers";
 import { SearchPillarParams } from "./dto/search.input";
 import { QueryResult, RecordShape } from "neo4j-driver";
+import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
 
 const NAV_PILLAR_QUERY_MAPPINGS: Record<
   SearchNav,
@@ -51,6 +53,10 @@ const NAV_PILLAR_QUERY_MAPPINGS: Record<
     categories:
       "MATCH (:Project)-[:HAS_CATEGORY]->(category:ProjectCategory) RETURN DISTINCT category.name as item",
     tags: "MATCH (:Project)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
+    chains:
+      "MATCH (:Project)-[:IS_DEPLOYED_ON]->(chain:Chain) RETURN DISTINCT chain.name as item",
+    investors:
+      "MATCH (:Project)<-[:HAS_PROJECT]-(:Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor:Investor) RETURN DISTINCT investor.name as item",
   },
   vcs: null,
 };
@@ -408,9 +414,28 @@ export class SearchService {
         { nav: params.nav, pillar: params.pillar },
       )
     ).records[0].get("text") as { title: string; description: string };
+
     if (query && headerText) {
       const result = await this.neogma.queryRunner.run(query);
       const items = result.records.map(record => record.get("item"));
+      const alts = Object.keys(NAV_PILLAR_QUERY_MAPPINGS[params.nav])
+        .filter(x => x !== params.pillar)
+        .map(x => {
+          const query = NAV_PILLAR_QUERY_MAPPINGS[params.nav][x];
+          return query ? [x, query] : null;
+        })
+        .filter(Boolean);
+      const altPillars = await Promise.all(
+        alts.map(async item => {
+          const [altPillar, altQuery] = item;
+          const result = await this.neogma.queryRunner.run(altQuery);
+          const items = result.records.map(record => record.get("item"));
+          return {
+            slug: altPillar,
+            items: items.filter(Boolean).slice(0, 20),
+          };
+        }),
+      );
       if (items.length === 0) {
         return {
           success: false,
@@ -424,16 +449,9 @@ export class SearchService {
             ...headerText,
             activePillar: {
               slug: params.pillar,
-              items: params.limit
-                ? items.filter(Boolean).slice(0, params.limit)
-                : items.filter(Boolean),
+              items: items.filter(Boolean).slice(0, 20),
             },
-            altPillar: params.pillar2
-              ? {
-                  slug: params.pillar2,
-                  items: params.item2 ? [params.item2] : [],
-                }
-              : null,
+            altPillars,
           },
         };
       }
@@ -442,6 +460,25 @@ export class SearchService {
         success: false,
         message: "Pillar not found",
       };
+    }
+  }
+
+  async searchPillarItems(
+    params: SearchPillarItemParams,
+  ): Promise<PaginatedData<string>> {
+    const query = NAV_PILLAR_QUERY_MAPPINGS[params.nav][params.pillar];
+    const regex = new RegExp(
+      `[\\?&]${query.split(" ").join("|")}=([^&#]*)`,
+      "i",
+    );
+    if (query) {
+      const result = await this.neogma.queryRunner.run(query);
+      const items = result.records.map(record => record.get("item") as string);
+      return paginate<string>(
+        params.page,
+        params.limit,
+        items.filter(x => x.match(regex)).filter(Boolean),
+      );
     }
   }
 }
