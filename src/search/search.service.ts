@@ -455,10 +455,10 @@ export class SearchService {
             ...headerText,
             activePillar: {
               slug: params.pillar,
-              items: go(params.item, items, {
-                limit: 20,
-                threshold: 0.3,
-              }).map(x => x.target),
+              items: [
+                wanted,
+                ...items.filter(x => sluggify(x) !== wanted).slice(0, 20),
+              ].filter(Boolean),
             },
             altPillars,
           },
