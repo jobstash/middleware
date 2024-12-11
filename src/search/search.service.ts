@@ -17,6 +17,7 @@ import { paginate, sluggify } from "src/shared/helpers";
 import { SearchPillarParams } from "./dto/search.input";
 import { QueryResult, RecordShape } from "neo4j-driver";
 import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
+import { go } from "fuzzysort";
 
 const NAV_PILLAR_QUERY_MAPPINGS: Record<
   SearchNav,
@@ -418,6 +419,7 @@ export class SearchService {
     if (query && headerText) {
       const result = await this.neogma.queryRunner.run(query);
       const items = result.records.map(record => record.get("item"));
+      const wanted = items.find(x => sluggify(x) === params.item);
       const alts = Object.keys(NAV_PILLAR_QUERY_MAPPINGS[params.nav])
         .filter(x => x !== params.pillar)
         .map(x => {
@@ -436,10 +438,14 @@ export class SearchService {
           };
         }),
       );
-      if (items.length === 0) {
+      if (
+        !wanted ||
+        items.length === 0 ||
+        altPillars.every(x => x.items.length === 0)
+      ) {
         return {
           success: false,
-          message: "Pillar not found",
+          message: "No result found",
         };
       } else {
         return {
@@ -449,7 +455,10 @@ export class SearchService {
             ...headerText,
             activePillar: {
               slug: params.pillar,
-              items: items.filter(Boolean).slice(0, 20),
+              items: go(params.item, items, {
+                limit: 20,
+                threshold: 0.3,
+              }).map(x => x.target),
             },
             altPillars,
           },
@@ -467,18 +476,35 @@ export class SearchService {
     params: SearchPillarItemParams,
   ): Promise<PaginatedData<string>> {
     const query = NAV_PILLAR_QUERY_MAPPINGS[params.nav][params.pillar];
-    // const regex = new RegExp(
-    //   `[\\?&]${query.split(" ").join("|")}=([^&#]*)`,
-    //   "i",
-    // );
     if (query) {
       const result = await this.neogma.queryRunner.run(query);
       const items = result.records.map(record => record.get("item") as string);
-      return paginate<string>(
-        params.page,
-        params.limit,
-        items.filter(x => x.includes(params.query)).filter(Boolean),
-      );
+      let results: string[];
+      if (params.query) {
+        results = go(params.query, items, {
+          threshold: 0.3,
+        }).map(x => x.target);
+      } else {
+        results = items;
+      }
+
+      if (results.length === 0) {
+        return {
+          page: -1,
+          count: 0,
+          total: 0,
+          data: [],
+        };
+      } else {
+        return paginate<string>(params.page, params.limit, results);
+      }
+    } else {
+      return {
+        page: -1,
+        count: 0,
+        total: 0,
+        data: [],
+      };
     }
   }
 }
