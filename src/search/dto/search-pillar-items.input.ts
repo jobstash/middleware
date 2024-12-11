@@ -17,8 +17,8 @@ export class SearchPillarItemParams {
   pillar: string;
 
   @IsString()
-  @IsNotEmpty()
-  query: string;
+  @IsOptional()
+  query: string | null = null;
 
   @IsNumber()
   @IsOptional()
