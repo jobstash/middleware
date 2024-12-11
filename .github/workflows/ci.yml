@@ -54,22 +54,6 @@ jobs:
       ################################
       - name: Lint Code Base
         run: yarn lint
-      #####################
-      # Run staging tests #
-      #####################
-      - name: Run Staging Tests
-        run: yarn test --detectOpenHandles --forceExit
-        env:
-          NEO4J_HOST_TEST: ${{ secrets.NEO4J_HOST_TEST }}
-          NEO4J_PASSWORD_TEST: ${{ secrets.NEO4J_PASSWORD_TEST }}
-          NEO4J_PORT_TEST: ${{ secrets.NEO4J_PORT_TEST }}
-          NEO4J_SCHEME_TEST: ${{ secrets.NEO4J_SCHEME_TEST }}
-          NEO4J_USERNAME_TEST: ${{ secrets.NEO4J_USERNAME_TEST }}
-          NEO4J_DATABASE_TEST: ${{ secrets.NEO4J_DATABASE_TEST }}
-          TEST_DB_MANAGER_URL: ${{ secrets.TEST_DB_MANAGER_URL }}
-          TEST_DB_MANAGER_API_KEY: ${{ secrets.TEST_DB_MANAGER_API_KEY }}
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
-          SKILL_THRESHOLD: ${{ secrets.SKILL_THRESHOLD }}
       ##################
       # Run prod tests #
       ##################
@@ -86,3 +70,39 @@ jobs:
           TEST_DB_MANAGER_API_KEY: ${{ secrets.TEST_DB_MANAGER_API_KEY }}
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
           SKILL_THRESHOLD: ${{ secrets.SKILL_THRESHOLD }}
+          SCORER_API_KEY: ${{ secrets.SCORER_API_KEY }}
+          SCORER_DOMAIN: ${{ secrets.SCORER_DOMAIN }}
+          ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
+          APP_PORT: ${{ secrets.APP_PORT }}
+          GITHUB_DEV_OAUTH_CLIENT_ID: ${{ secrets.GITHUB_DEV_OAUTH_CLIENT_ID }}
+          GITHUB_DEV_OAUTH_CLIENT_SECRET: ${{ secrets.GITHUB_DEV_OAUTH_CLIENT_SECRET }}
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+          GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
+          INFURA_API_KEY: ${{ secrets.INFURA_API_KEY }}
+          JWT_EXPIRES_IN: ${{ secrets.JWT_EXPIRES_IN }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          LOCAL_HTTPS: ${{ secrets.LOCAL_HTTPS }}
+          MAGIC_LINK_EXPIRES_IN: ${{ secrets.MAGIC_LINK_EXPIRES_IN }}
+          MAGIC_LINK_SECRET: ${{ secrets.MAGIC_LINK_SECRET }}
+          MW_DOMAIN: ${{ secrets.MW_DOMAIN }}
+          FE_DOMAIN: ${{ secrets.FE_DOMAIN }}
+          NFT_STORAGE_API_KEY: ${{ secrets.NFT_STORAGE_API_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          SENTRY_TRACES_SAMPLE_RATE: ${{ secrets.SENTRY_TRACES_SAMPLE_RATE }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          REPORT_CONTENT_TO_EMAIL: ${{ secrets.REPORT_CONTENT_TO_EMAIL }}
+          SWAGGER_USER: ${{ secrets.SWAGGER_USER }}
+          SWAGGER_PASSWORD: ${{ secrets.SWAGGER_PASSWORD }}
+          VCDATA_API_KEY: ${{ secrets.VCDATA_API_KEY }}
+          PRIVY_APP_ID: ${{ secrets.PRIVY_APP_ID }}
+          PRIVY_APP_SECRET: ${{ secrets.PRIVY_APP_SECRET }}
+          GRANTS_STACK_INDEXER_URL: ${{ secrets.GRANTS_STACK_INDEXER_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LLAMA_PAY_API_KEY: ${{ secrets.LLAMA_PAY_API_KEY }}
+          LLAMA_PAY_WEBHOOK_KEY: ${{ secrets.LLAMA_PAY_WEBHOOK_KEY }}
+          JOB_PROMOTION_PRICE: ${{ secrets.JOB_PROMOTION_PRICE }}
+          ETL_CLIENT_ID: ${{ secrets.ETL_CLIENT_ID }}
+          ETL_CLIENT_SECRET: ${{ secrets.ETL_CLIENT_SECRET }}
+          ETL_DOMAIN: ${{ secrets.ETL_DOMAIN }}
+          AUTH0_AUDIENCE: ${{ secrets.AUTH0_AUDIENCE }}
+          AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
