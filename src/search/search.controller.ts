@@ -41,11 +41,13 @@ export class SearchController {
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   async search(
     @Session() { address }: SessionObject,
-    @Query("query") query: string,
+    @Query("query") query: string = null,
   ): Promise<SearchResult> {
-    this.logger.log(`/search ${query}`);
-    if (address) {
-      await this.profileService.logSearchInteraction(address, query);
+    if (query) {
+      this.logger.log(`/search ${query}`);
+      if (address) {
+        await this.profileService.logSearchInteraction(address, query);
+      }
     }
     return this.searchService.search(query);
   }
