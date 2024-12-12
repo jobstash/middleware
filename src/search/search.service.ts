@@ -457,7 +457,7 @@ export class SearchService {
               slug: params.pillar,
               items: [
                 wanted,
-                ...items.filter(x => sluggify(x) !== wanted).slice(0, 20),
+                ...items.filter(x => sluggify(x) !== params.item).slice(0, 20),
               ].filter(Boolean),
             },
             altPillars,
