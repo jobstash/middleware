@@ -38,7 +38,6 @@ import {
 import { Response } from "../interfaces/response.interface";
 import { PUBLIC_API_SCHEMAS } from "../presets/public-api-schemas";
 import { CustomLogger } from "../utils/custom-logger";
-import { emojiRegex } from "./emoji-regex";
 import Sqids from "sqids";
 import { PrivyService } from "src/auth/privy/privy.service";
 import { UserService } from "src/user/user.service";
@@ -455,56 +454,6 @@ export function propertiesMatch<T extends object, U extends object>(
   }
   return true;
 }
-
-export function normalizeString(original: string): string {
-  const charToStringMap = new Map([
-    ["!", "_bang_"],
-    ["@", "_at_"],
-    ["#", "_hash_"],
-    ["$", "_dollar_"],
-    ["%", "_percent_"],
-    [",", "_comma_"],
-    ["^", "_caret_"],
-    ["&", "_and_"],
-    ["*", "_asterisk_"],
-    ["(", "_lparen_"],
-    [")", "_rparen_"],
-    ["<", "_langle_"],
-    [">", "_rangle_"],
-    ["-", "_hyphen_"],
-    ["+", "_plus_"],
-    ["=", "_equals_"],
-    ["/", "_slash_"],
-    ["\\", "_backslash_"],
-  ]);
-
-  if (!original) return null;
-
-  const normalized = original
-    .trim()
-    .split("")
-    .map(x => {
-      if (charToStringMap.has(x)) {
-        return charToStringMap.get(x);
-      } else {
-        return x;
-      }
-    })
-    .join("")
-    .split(" ")
-    .join("-")
-    .toLowerCase()
-    .replace(emojiRegex(), "");
-  return normalized;
-}
-
-export const sluggify = (str: string): string => {
-  return str
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/[\s_-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-};
 
 export const paginate = <T>(
   page: number,

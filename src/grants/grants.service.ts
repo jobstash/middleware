@@ -26,7 +26,6 @@ import { InjectConnection } from "nest-neogma";
 import { Neogma } from "neogma";
 import {
   nonZeroOrNull,
-  sluggify,
   notStringOrNull,
   paginate,
   uuidfy,
@@ -39,6 +38,7 @@ import axios from "axios";
 import { KARMAGAP_PROGRAM_MAPPINGS } from "src/shared/constants/daoip-karmagap-program-mappings";
 import { ProjectsService } from "src/projects/projects.service";
 import { randomUUID } from "crypto";
+import slugify from "slugify";
 
 @Injectable()
 export class GrantsService implements OnModuleInit, OnModuleDestroy {
@@ -194,7 +194,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
             new GrantListResult({
               id: grant.programId,
               name: grant.name,
-              slug: grant.slug ?? sluggify(grant.name),
+              slug: grant.slug ?? slugify(grant.name),
               status: notStringOrNull(grant.status) ?? "Inactive",
               socialLinks: grant.socialLinks
                 ? {
@@ -500,7 +500,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
             return new Grantee({
               id: grantee.id,
               name: grantee.project.name,
-              slug: sluggify(grantee.project.name),
+              slug: slugify(grantee.project.name),
               logoUrl: logoIpfs ? `https://${logoIpfs}.ipfs.dweb.link` : null,
               lastFundingDate: nonZeroOrNull(transaction.timestamp),
               lastFundingAmount: grantee.totalAmountDonatedInUsd,
@@ -516,12 +516,12 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
         const daoipGranteesFinal = await Promise.all(
           daoipGrantees.map(async x => {
             const project = await this.getDaoipProjectBySlug(
-              x.to_project_name ?? sluggify(x.metadata.application_name),
+              x.to_project_name ?? slugify(x.metadata.application_name),
             );
             return new Grantee({
               id: randomUUID(),
               name: x.metadata.application_name,
-              slug: x.to_project_name ?? sluggify(x.metadata.application_name),
+              slug: x.to_project_name ?? slugify(x.metadata.application_name),
               logoUrl: project?.website
                 ? getGoogleLogoUrl(project.website)
                 : null,
@@ -617,7 +617,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
                 x => (x.roundMetadata as GrantMetadata)?.name === program.name,
               )?.applications ?? []
         ).find(x => {
-          return sluggify(x.project.name) === granteeSlug;
+          return slugify(x.project.name) === granteeSlug;
         });
 
         const daoipDetails = await this.getDaoipFundingDataBySlug(
@@ -1019,7 +1019,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
               tags: grantee.tags,
               status: grantee.status,
               name: grantee.project.name,
-              slug: sluggify(grantee.project.name),
+              slug: slugify(grantee.project.name),
               description: (grantee?.metadata as GranteeApplicationMetadata)
                 ?.application?.project?.description,
               website: notStringOrNull(
@@ -1075,7 +1075,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
             const details = daoipDetails.find(
               x =>
                 x.to_project_name === granteeSlug ||
-                sluggify(x.metadata.application_name) === granteeSlug,
+                slugify(x.metadata.application_name) === granteeSlug,
             );
             granteeDetails = new GranteeDetails({
               id: uuidfy(granteeSlug),
@@ -1170,7 +1170,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
               new GrantListResult({
                 id: grant.programId,
                 name: grant.name,
-                slug: grant.slug ?? sluggify(grant.name),
+                slug: grant.slug ?? slugify(grant.name),
                 status: notStringOrNull(grant.status) ?? "Inactive",
                 socialLinks: grant.socialLinks
                   ? {
@@ -1217,7 +1217,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
               new GrantListResult({
                 id: grant.programId,
                 name: grant.name,
-                slug: grant.slug ?? sluggify(grant.name),
+                slug: grant.slug ?? slugify(grant.name),
                 status: notStringOrNull(grant.status) ?? "Inactive",
                 socialLinks: grant.socialLinks
                   ? {

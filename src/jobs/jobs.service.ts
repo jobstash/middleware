@@ -13,11 +13,9 @@ import {
   AllOrgJobsListResultEntity,
 } from "src/shared/entities";
 import {
-  normalizeString,
   notStringOrNull,
   paginate,
   publicationDateRangeGenerator,
-  sluggify,
 } from "src/shared/helpers";
 import {
   AllJobsFilterConfigs,
@@ -60,6 +58,7 @@ import { PricingType } from "src/payments/dto/create-charge.dto";
 import { PrivyService } from "src/auth/privy/privy.service";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { CreateJobFolderInput } from "./dto/create-job-folder.input";
+import slugify from "slugify";
 
 @Injectable()
 export class JobsService {
@@ -568,11 +567,11 @@ export class JobsService {
           projects.filter(project => project.name.match(query)).length > 0;
         return (
           (!organizationFilterList ||
-            organizationFilterList.includes(normalizeString(orgName))) &&
+            organizationFilterList.includes(slugify(orgName))) &&
           (!seniorityFilterList ||
-            seniorityFilterList.includes(normalizeString(seniority))) &&
+            seniorityFilterList.includes(slugify(seniority))) &&
           (!locationFilterList ||
-            locationFilterList.includes(normalizeString(locationType))) &&
+            locationFilterList.includes(slugify(locationType))) &&
           (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
           (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
           (!minSalaryRange ||
@@ -582,18 +581,15 @@ export class JobsService {
           (!startDate || timestamp >= startDate) &&
           (!endDate || timestamp < endDate) &&
           (!projectFilterList ||
-            projects.filter(x =>
-              projectFilterList.includes(normalizeString(x.name)),
-            ).length > 0) &&
+            projects.filter(x => projectFilterList.includes(slugify(x.name)))
+              .length > 0) &&
           (!classificationFilterList ||
-            classificationFilterList.includes(
-              normalizeString(classification),
-            )) &&
+            classificationFilterList.includes(slugify(classification))) &&
           (!commitmentFilterList ||
-            commitmentFilterList.includes(normalizeString(commitment))) &&
+            commitmentFilterList.includes(slugify(commitment))) &&
           (!communityFilterList ||
             community.filter(community =>
-              communityFilterList.includes(normalizeString(community)),
+              communityFilterList.includes(slugify(community)),
             ).length > 0) &&
           (token === null ||
             projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
@@ -630,30 +626,27 @@ export class JobsService {
           (!chainFilterList ||
             projects.filter(
               x =>
-                x.chains.filter(y =>
-                  chainFilterList.includes(normalizeString(y.name)),
-                ).length > 0,
+                x.chains.filter(y => chainFilterList.includes(slugify(y.name)))
+                  .length > 0,
             ).length > 0) &&
           (!investorFilterList ||
             investors.filter(investor =>
-              investorFilterList.includes(normalizeString(investor.name)),
+              investorFilterList.includes(slugify(investor.name)),
             ).length > 0) &&
           (!fundingRoundFilterList ||
             fundingRoundFilterList.includes(
-              normalizeString(
+              slugify(
                 sort<FundingRound>(fundingRounds).desc(x => x.date)[0]
                   ?.roundName,
               ),
             )) &&
           (!query || matchesQuery) &&
           (!tagFilterList ||
-            tags.filter(tag =>
-              tagFilterList.includes(normalizeString(tag.name)),
-            ).length > 0) &&
+            tags.filter(tag => tagFilterList.includes(slugify(tag.name)))
+              .length > 0) &&
           (!skillFilterList ||
-            tags.filter(tag =>
-              skillFilterList.includes(normalizeString(tag.name)),
-            ).length > 0)
+            tags.filter(tag => skillFilterList.includes(slugify(tag.name)))
+              .length > 0)
         );
       } else {
         const {
@@ -674,9 +667,9 @@ export class JobsService {
 
         return (
           (!locationFilterList ||
-            locationFilterList.includes(normalizeString(locationType))) &&
+            locationFilterList.includes(slugify(locationType))) &&
           (!seniorityFilterList ||
-            seniorityFilterList.includes(normalizeString(seniority))) &&
+            seniorityFilterList.includes(slugify(seniority))) &&
           (!minSalaryRange ||
             ((salary ?? 0) >= minSalaryRange && salaryCurrency === "USD")) &&
           (!maxSalaryRange ||
@@ -684,20 +677,16 @@ export class JobsService {
           (!startDate || timestamp >= startDate) &&
           (!endDate || timestamp < endDate) &&
           (!classificationFilterList ||
-            classificationFilterList.includes(
-              normalizeString(classification),
-            )) &&
+            classificationFilterList.includes(slugify(classification))) &&
           (!commitmentFilterList ||
-            commitmentFilterList.includes(normalizeString(commitment))) &&
+            commitmentFilterList.includes(slugify(commitment))) &&
           (!query || matchesQuery) &&
           (!tagFilterList ||
-            tags.filter(tag =>
-              tagFilterList.includes(normalizeString(tag.name)),
-            ).length > 0) &&
+            tags.filter(tag => tagFilterList.includes(slugify(tag.name)))
+              .length > 0) &&
           (!skillFilterList ||
-            tags.filter(tag =>
-              skillFilterList.includes(normalizeString(tag.name)),
-            ).length > 0)
+            tags.filter(tag => skillFilterList.includes(slugify(tag.name)))
+              .length > 0)
         );
       }
     };
@@ -1815,12 +1804,10 @@ export class JobsService {
 
         return (
           (!classificationFilterList ||
-            classificationFilterList.includes(
-              normalizeString(classification),
-            )) &&
+            classificationFilterList.includes(slugify(classification))) &&
           (!query || matchesQuery) &&
           (!organizationFilterList ||
-            organizationFilterList.includes(normalizeString(orgName)))
+            organizationFilterList.includes(slugify(orgName)))
         );
       } else {
         return false;
@@ -3278,7 +3265,7 @@ export class JobsService {
     dto: CreateJobFolderInput,
   ): Promise<ResponseWithOptionalData<JobpostFolder>> {
     try {
-      const existing = data(await this.getJobFolderBySlug(sluggify(dto.name)));
+      const existing = data(await this.getJobFolderBySlug(slugify(dto.name)));
       if (existing) {
         return {
           success: false,
@@ -3302,7 +3289,7 @@ export class JobsService {
 
         RETURN folder { .* } as folder
         `,
-          { wallet, ...dto, slug: sluggify(dto.name) },
+          { wallet, ...dto, slug: slugify(dto.name) },
         );
 
         const res = result.records[0]?.get("folder");
@@ -3344,7 +3331,7 @@ export class JobsService {
   ): Promise<ResponseWithOptionalData<JobpostFolder>> {
     try {
       const toUpdate = data(await this.getUserJobFolderById(id));
-      const existing = data(await this.getJobFolderBySlug(sluggify(dto.name)));
+      const existing = data(await this.getJobFolderBySlug(slugify(dto.name)));
       if (existing && existing.id !== toUpdate.id) {
         return {
           success: false,
@@ -3368,7 +3355,7 @@ export class JobsService {
 
         RETURN folder { .* } as folder
         `,
-          { id, ...dto, slug: sluggify(dto.name) },
+          { id, ...dto, slug: slugify(dto.name) },
         );
 
         const res = result.records[0]?.get("folder");

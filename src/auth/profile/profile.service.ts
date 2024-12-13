@@ -11,13 +11,7 @@ import {
   UserShowCaseEntity,
   UserSkillEntity,
 } from "src/shared/entities";
-import {
-  normalizeString,
-  paginate,
-  intConverter,
-  nonZeroOrNull,
-  sluggify,
-} from "src/shared/helpers";
+import { paginate, intConverter, nonZeroOrNull } from "src/shared/helpers";
 import {
   AdjacentRepo,
   EcosystemActivation,
@@ -54,6 +48,7 @@ import { GithubUserService } from "../github/github-user.service";
 import { User as PrivyUser, WalletWithMetadata } from "@privy-io/server-auth";
 import axios from "axios";
 import { uniqBy } from "lodash";
+import slugify from "slugify";
 
 @Injectable()
 export class ProfileService {
@@ -403,7 +398,7 @@ export class ProfileService {
         const processed = orgsByRepo.map(x => ({
           id: x.id,
           name: x.name,
-          slug: sluggify(x.name),
+          slug: slugify(x.name),
           url: x.url,
           logo: x.logo ?? null,
           account: profile.linkedAccounts.github,
@@ -446,7 +441,7 @@ export class ProfileService {
             orgs.push({
               id: x.id,
               name: x.name,
-              slug: sluggify(x.name),
+              slug: slugify(x.name),
               url: x.url,
               logo: x.logo ?? null,
               account: x.account,
@@ -463,7 +458,7 @@ export class ProfileService {
           x.ecosystemActivations.map(y => ({
             id: y.id,
             name: y.name,
-            slug: sluggify(y.name),
+            slug: slugify(y.name),
             url: "http://ethglobal.com/packs",
             logo: "http://ethglobal.com",
             account: x.address,
@@ -522,7 +517,7 @@ export class ProfileService {
       const processed = orgs.map(x => ({
         id: x.id,
         name: x.name,
-        slug: sluggify(x.name),
+        slug: slugify(x.name),
         url: x.url,
         logo: x.logo ?? null,
         account: "N/A",
@@ -876,7 +871,7 @@ export class ProfileService {
           wallet,
           skills: dto.skills.map(x => ({
             ...x,
-            normalizedName: normalizeString(x.name),
+            normalizedName: slugify(x.name),
           })),
         },
       );

@@ -13,11 +13,12 @@ import {
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { uniqBy } from "lodash";
-import { paginate, sluggify } from "src/shared/helpers";
+import { paginate } from "src/shared/helpers";
 import { SearchPillarParams } from "./dto/search.input";
 import { QueryResult, RecordShape } from "neo4j-driver";
 import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
 import { go } from "fuzzysort";
+import slugify from "slugify";
 
 const NAV_PILLAR_QUERY_MAPPINGS: Record<
   SearchNav,
@@ -91,7 +92,7 @@ export class SearchService {
         names: uniqBy(
           names.records.map(record => ({
             value: record.get("name"),
-            link: `/projects/names/${sluggify(record.get("name"))}`,
+            link: `/projects/names/${slugify(record.get("name"))}`,
           })),
           "value",
         ),
@@ -111,7 +112,7 @@ export class SearchService {
         names: uniqBy(
           names.records.map(record => ({
             value: record.get("name"),
-            link: `/projects/names/${sluggify(record.get("name"))}`,
+            link: `/projects/names/${slugify(record.get("name"))}`,
           })),
           "value",
         ),
@@ -142,14 +143,14 @@ export class SearchService {
         names: uniqBy(
           names.records.map(record => ({
             value: record.get("name"),
-            link: `/projects/names/${sluggify(record.get("name"))}`,
+            link: `/projects/names/${slugify(record.get("name"))}`,
           })),
           "value",
         ),
         categories: uniqBy(
           categories.records.map(record => ({
             value: record.get("name"),
-            link: `/projects/categories/${sluggify(record.get("name"))}`,
+            link: `/projects/categories/${slugify(record.get("name"))}`,
           })),
           "value",
         ),
@@ -181,14 +182,14 @@ export class SearchService {
         names: uniqBy(
           names.records.map(record => ({
             value: record.get("name"),
-            link: `/projects/names/${sluggify(record.get("name"))}`,
+            link: `/projects/names/${slugify(record.get("name"))}`,
           })),
           "value",
         ),
         categories: uniqBy(
           categories.records.map(record => ({
             value: record.get("name"),
-            link: `/projects/categories/${sluggify(record.get("name"))}`,
+            link: `/projects/categories/${slugify(record.get("name"))}`,
           })),
           "value",
         ),
@@ -280,7 +281,7 @@ export class SearchService {
     return uniqBy(
       result.records.map(record => ({
         value: record.get("name"),
-        link: `/${group}/tags/${sluggify(record.get("name"))}`,
+        link: `/${group}/tags/${slugify(record.get("name"))}`,
       })),
       "value",
     );
@@ -307,7 +308,7 @@ export class SearchService {
         names: uniqBy(
           names.records.map(record => ({
             value: record.get("name"),
-            link: `/organizations/names/${sluggify(record.get("name"))}`,
+            link: `/organizations/names/${slugify(record.get("name"))}`,
           })),
           "value",
         ),
@@ -334,7 +335,7 @@ export class SearchService {
         names: uniqBy(
           names.records.map(record => ({
             value: record.get("name"),
-            link: `/organizations/names/${sluggify(record.get("name"))}`,
+            link: `/organizations/names/${slugify(record.get("name"))}`,
           })),
           "value",
         ),
@@ -400,35 +401,35 @@ export class SearchService {
         names: uniqBy(
           names.records.map(record => ({
             value: record.get("name"),
-            link: `/grants/names/${sluggify(record.get("name"))}`,
+            link: `/grants/names/${slugify(record.get("name"))}`,
           })),
           "value",
         ),
         ecosystems: uniqBy(
           ecosystems.records.map(record => ({
             value: record.get("ecosystem"),
-            link: `/grants/ecosystems/${sluggify(record.get("ecosystem"))}`,
+            link: `/grants/ecosystems/${slugify(record.get("ecosystem"))}`,
           })),
           "value",
         ),
         chains: uniqBy(
           chains.records.map(record => ({
             value: record.get("chain"),
-            link: `/grants/chains/${sluggify(record.get("chain"))}`,
+            link: `/grants/chains/${slugify(record.get("chain"))}`,
           })),
           "value",
         ),
         categories: uniqBy(
           categories.records.map(record => ({
             value: record.get("category"),
-            link: `/grants/categories/${sluggify(record.get("category"))}`,
+            link: `/grants/categories/${slugify(record.get("category"))}`,
           })),
           "value",
         ),
         organizations: uniqBy(
           organizations.records.map(record => ({
             value: record.get("organization"),
-            link: `/grants/organizations/${sluggify(
+            link: `/grants/organizations/${slugify(
               record.get("organization"),
             )}`,
           })),
@@ -494,35 +495,35 @@ export class SearchService {
         names: uniqBy(
           names.records.map(record => ({
             value: record.get("name"),
-            link: `/grants/names/${sluggify(record.get("name"))}`,
+            link: `/grants/names/${slugify(record.get("name"))}`,
           })),
           "value",
         ),
         ecosystems: uniqBy(
           ecosystems.records.map(record => ({
             value: record.get("ecosystem"),
-            link: `/grants/ecosystems/${sluggify(record.get("ecosystem"))}`,
+            link: `/grants/ecosystems/${slugify(record.get("ecosystem"))}`,
           })),
           "value",
         ),
         chains: uniqBy(
           chains.records.map(record => ({
             value: record.get("chain"),
-            link: `/grants/chains/${sluggify(record.get("chain"))}`,
+            link: `/grants/chains/${slugify(record.get("chain"))}`,
           })),
           "value",
         ),
         categories: uniqBy(
           categories.records.map(record => ({
             value: record.get("category"),
-            link: `/grants/categories/${sluggify(record.get("category"))}`,
+            link: `/grants/categories/${slugify(record.get("category"))}`,
           })),
           "value",
         ),
         organizations: uniqBy(
           organizations.records.map(record => ({
             value: record.get("organization"),
-            link: `/grants/organizations/${sluggify(
+            link: `/grants/organizations/${slugify(
               record.get("organization"),
             )}`,
           })),
@@ -544,7 +545,7 @@ export class SearchService {
       return uniqBy(
         result.records.map(record => ({
           value: record.get("name"),
-          link: `/organizations/investors/${sluggify(record.get("name"))}`,
+          link: `/organizations/investors/${slugify(record.get("name"))}`,
         })),
         "value",
       );
@@ -562,7 +563,7 @@ export class SearchService {
       return uniqBy(
         result.records.map(record => ({
           value: record.get("name"),
-          link: `/organizations/investors/${sluggify(record.get("name"))}`,
+          link: `/organizations/investors/${slugify(record.get("name"))}`,
         })),
         "value",
       );
@@ -583,7 +584,7 @@ export class SearchService {
       return uniqBy(
         result.records.map(record => ({
           value: record.get("name"),
-          link: `/organizations/funding-rounds/${sluggify(record.get("name"))}`,
+          link: `/organizations/funding-rounds/${slugify(record.get("name"))}`,
         })),
         "value",
       );
@@ -600,7 +601,7 @@ export class SearchService {
       return uniqBy(
         result.records.map(record => ({
           value: record.get("name"),
-          link: `/organizations/funding-rounds/${sluggify(record.get("name"))}`,
+          link: `/organizations/funding-rounds/${slugify(record.get("name"))}`,
         })),
         "value",
       );
@@ -674,7 +675,7 @@ export class SearchService {
     if (query && headerText) {
       const result = await this.neogma.queryRunner.run(query);
       const items = result.records.map(record => record.get("item"));
-      const wanted = items.find(x => sluggify(x) === params.item);
+      const wanted = items.find(x => slugify(x) === params.item);
       const alts = Object.keys(NAV_PILLAR_QUERY_MAPPINGS[params.nav])
         .filter(x => x !== params.pillar)
         .map(x => {
@@ -712,7 +713,7 @@ export class SearchService {
               slug: params.pillar,
               items: [
                 wanted,
-                ...items.filter(x => sluggify(x) !== params.item).slice(0, 20),
+                ...items.filter(x => slugify(x) !== params.item).slice(0, 20),
               ].filter(Boolean),
             },
             altPillars,

@@ -27,7 +27,6 @@ import {
   instanceToNode,
   isValidUrl,
   nonZeroOrNull,
-  normalizeString,
   notStringOrNull,
   paginate,
   toAbsoluteURL,
@@ -49,6 +48,7 @@ import { omit } from "lodash";
 import { ActivateProjectJobsiteInput } from "./dto/activate-project-jobsites.input";
 import { UpdateProjectJobsitesInput } from "./dto/update-project-jobsites.input";
 import { Auth0Service } from "src/auth0/auth0.service";
+import slugify from "slugify";
 
 @Injectable()
 export class ProjectsService {
@@ -142,10 +142,10 @@ export class ProjectsService {
       return (
         (!query || isValidSearchResult) &&
         (!categoryFilterList ||
-          categoryFilterList.includes(normalizeString(project.category))) &&
+          categoryFilterList.includes(slugify(project.category))) &&
         (!organizationFilterList ||
           organizationFilterList.some(x =>
-            project.orgNames.map(normalizeString).includes(x),
+            project.orgNames.map(x => slugify(x)).includes(x),
           )) &&
         (mainNet === null || project.isMainnet === mainNet) &&
         (!minTvl || (project?.tvl ?? 0) >= minTvl) &&
@@ -166,16 +166,16 @@ export class ProjectsService {
           (project?.hacks?.length ?? 0) > 0 === hackFilter) &&
         (!chainFilterList ||
           (chainFilterList.find(x =>
-            project.chains.map(x => normalizeString(x.name)).includes(x),
+            project.chains.map(x => slugify(x.name)).includes(x),
           ) ??
             false)) &&
         (!communityFilterList ||
           project.communities.filter(community =>
-            communityFilterList.includes(normalizeString(community)),
+            communityFilterList.includes(slugify(community)),
           ).length > 0) &&
         (!investorFilterList ||
           project.investors.filter(investor =>
-            investorFilterList.includes(normalizeString(investor.name)),
+            investorFilterList.includes(slugify(investor.name)),
           ).length > 0) &&
         (token === null ||
           (notStringOrNull(project.tokenAddress) !== null) === token)
@@ -750,7 +750,7 @@ export class ProjectsService {
           monthlyVolume: project.monthlyVolume ?? null,
           monthlyRevenue: project.monthlyRevenue ?? null,
           monthlyActiveUsers: project.monthlyActiveUsers ?? null,
-          normalizedName: normalizeString(project.name),
+          normalizedName: slugify(project.name),
         },
       );
       return new ProjectMoreInfoEntity(result?.records[0]?.get("project"));
@@ -910,7 +910,7 @@ export class ProjectsService {
         {
           ...project,
           id,
-          normalizedName: normalizeString(project.name),
+          normalizedName: slugify(project.name),
           description: project.description ?? null,
         },
       );
