@@ -24,6 +24,8 @@ const NAV_PILLAR_QUERY_MAPPINGS: Record<
   Record<string, string> | null
 > = {
   grants: {
+    names:
+      'MATCH (item:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Active"}) RETURN DISTINCT item.name as item',
     ecosystems:
       'MATCH (item:KarmaGapEcosystem)<-[:HAS_METADATA|HAS_ECOSYSTEM*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Active"}) RETURN DISTINCT item.name as item',
     chains:
@@ -34,6 +36,8 @@ const NAV_PILLAR_QUERY_MAPPINGS: Record<
       'MATCH (item:KarmaGapOrganization)<-[:HAS_METADATA|HAS_ORGANIZATION*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Active"}) RETURN DISTINCT item.name as item',
   },
   grantsImpact: {
+    names:
+      'MATCH (item:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Inactive"}) RETURN DISTINCT item.name as item',
     ecosystems:
       'MATCH (item:KarmaGapEcosystem)<-[:HAS_METADATA|HAS_ECOSYSTEM*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Inactive"}) RETURN DISTINCT item.name as item',
     chains:
@@ -44,6 +48,8 @@ const NAV_PILLAR_QUERY_MAPPINGS: Record<
       'MATCH (item:KarmaGapOrganization)<-[:HAS_METADATA|HAS_ORGANIZATION*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Inactive"}) RETURN DISTINCT item.name as item',
   },
   organizations: {
+    names:
+      "MATCH (organization:Organization) RETURN DISTINCT organization.name as item",
     investors:
       "MATCH (:Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor:Investor) RETURN DISTINCT investor.name as item",
     fundingRounds:
@@ -51,6 +57,7 @@ const NAV_PILLAR_QUERY_MAPPINGS: Record<
     tags: "MATCH (:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
   },
   projects: {
+    names: "MATCH (project:Project) RETURN DISTINCT project.name as item",
     categories:
       "MATCH (:Project)-[:HAS_CATEGORY]->(category:ProjectCategory) RETURN DISTINCT category.name as item",
     tags: "MATCH (:Project)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
@@ -662,7 +669,7 @@ export class SearchService {
       `,
         { nav: params.nav, pillar: params.pillar },
       )
-    ).records[0].get("text") as { title: string; description: string };
+    ).records[0]?.get("text") as { title: string; description: string };
 
     if (query && headerText) {
       const result = await this.neogma.queryRunner.run(query);
