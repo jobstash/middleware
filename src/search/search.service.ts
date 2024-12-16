@@ -50,13 +50,13 @@ const NAV_PILLAR_QUERY_MAPPINGS: Record<
   organizations: {
     names:
       "MATCH (organization:Organization) RETURN DISTINCT organization.name as item",
+    locations:
+      "MATCH (organization:Organization) RETURN DISTINCT organization.location as item",
     investors:
       "MATCH (:Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor:Investor) RETURN DISTINCT investor.name as item",
     fundingRounds:
       "MATCH (:Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) RETURN DISTINCT funding_round.roundName as item",
     tags: "MATCH (:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
-    locations:
-      "MATCH (:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
   },
   projects: {
     names: "MATCH (project:Project) RETURN DISTINCT project.name as item",
@@ -84,7 +84,7 @@ export class SearchService {
       const names = await this.neogma.queryRunner.run(
         `
           CALL db.index.fulltext.queryNodes("investors", $query) YIELD node as vc
-          RETURN vc.name as name
+          RETURN DISTINCT vc.name as name
         `,
         { query },
       );
@@ -127,14 +127,14 @@ export class SearchService {
         this.neogma.queryRunner.run(
           `
           CALL db.index.fulltext.queryNodes("projects", $query) YIELD node as project
-          RETURN project.name as name
+          RETURN DISTINCT project.name as name
         `,
           { query },
         ),
         this.neogma.queryRunner.run(
           `
           CALL db.index.fulltext.queryNodes("projectCategories", $query) YIELD node as projectCategory
-          RETURN projectCategory.name as name
+          RETURN DISTINCT projectCategory.name as name
         `,
           { query },
         ),
@@ -162,7 +162,7 @@ export class SearchService {
         this.neogma.queryRunner.run(
           `
           MATCH (p:Project)
-          RETURN p.name as name
+          RETURN DISTINCT p.name as name, p
           ORDER BY p.createdTimestamp DESC
           LIMIT 10
         `,
@@ -171,7 +171,7 @@ export class SearchService {
           `
           MATCH (c:ProjectCategory)
           MATCH (c)<-[:HAS_CATEGORY]-(p:Project)
-          WITH c.name as name, COUNT(DISTINCT p) as popularity
+          WITH DISTINCT c.name as name, COUNT(DISTINCT p) as popularity, c
           RETURN name
           ORDER BY popularity DESC
           LIMIT 10
@@ -292,18 +292,26 @@ export class SearchService {
     query: string,
   ): Promise<SearchResultPillar> {
     if (query) {
-      const [names, investors, fundingRounds, tags] = await Promise.all([
-        this.neogma.queryRunner.run(
-          `
+      const [names, locations, investors, fundingRounds, tags] =
+        await Promise.all([
+          this.neogma.queryRunner.run(
+            `
           CALL db.index.fulltext.queryNodes("organizations", $query) YIELD node as organization
-          RETURN organization.name as name
+          RETURN DISTINCT organization.name as name
         `,
-          { query },
-        ),
-        this.searchInvestors(query),
-        this.searchFundingRounds(query),
-        this.searchTags(query, "organizations"),
-      ]);
+            { query },
+          ),
+          this.neogma.queryRunner.run(
+            `
+          CALL db.index.fulltext.queryNodes("organizationLocations", $query) YIELD node as organization
+          RETURN DISTINCT organization.location as location
+        `,
+            { query },
+          ),
+          this.searchInvestors(query),
+          this.searchFundingRounds(query),
+          this.searchTags(query, "organizations"),
+        ]);
 
       return {
         names: uniqBy(
@@ -313,30 +321,53 @@ export class SearchService {
           })),
           "value",
         ),
+        locations: uniqBy(
+          locations.records.map(record => ({
+            value: record.get("location"),
+            link: `/organizations/locations/${slugify(record.get("location"))}`,
+          })),
+          "value",
+        ),
         investors,
         fundingRounds,
         tags,
       };
     } else {
-      const [names, investors, fundingRounds, tags] = await Promise.all([
-        this.neogma.queryRunner.run(
-          `
+      const [names, locations, investors, fundingRounds, tags] =
+        await Promise.all([
+          this.neogma.queryRunner.run(
+            `
           MATCH (o:Organization)
-          RETURN o.name as name
+          RETURN DISTINCT o.name as name, o
           ORDER BY o.createdTimestamp DESC
           LIMIT 10
         `,
-        ),
-        this.searchInvestors(query),
-        this.searchFundingRounds(query),
-        this.searchTags(query, "organizations"),
-      ]);
+          ),
+          this.neogma.queryRunner.run(
+            `
+          MATCH (o:Organization)
+          RETURN DISTINCT o.location as location, o
+          ORDER BY o.createdTimestamp DESC
+          LIMIT 10
+        `,
+          ),
+          this.searchInvestors(query),
+          this.searchFundingRounds(query),
+          this.searchTags(query, "organizations"),
+        ]);
 
       return {
         names: uniqBy(
           names.records.map(record => ({
             value: record.get("name"),
             link: `/organizations/names/${slugify(record.get("name"))}`,
+          })),
+          "value",
+        ),
+        locations: uniqBy(
+          locations.records.map(record => ({
+            value: record.get("location"),
+            link: `/organizations/locations/${slugify(record.get("location"))}`,
           })),
           "value",
         ),
@@ -360,7 +391,7 @@ export class SearchService {
             `
           CALL db.index.fulltext.queryNodes("grants", $query) YIELD node as grant
           WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN grant.name as name
+          RETURN DISTINCT grant.name as name
         `,
             { query, statusFilter },
           ),
@@ -368,7 +399,7 @@ export class SearchService {
             `
           CALL db.index.fulltext.queryNodes("grantEcosystems", $query) YIELD node as ecosystem
           WHERE (ecosystem)<-[:HAS_METADATA|HAS_ECOSYSTEM*2]-(:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN ecosystem.name as ecosystem
+          RETURN DISTINCT ecosystem.name as ecosystem
         `,
             { query, statusFilter },
           ),
@@ -376,7 +407,7 @@ export class SearchService {
             `
           CALL db.index.fulltext.queryNodes("grantChains", $query) YIELD node as chain
           WHERE (chain)<-[:HAS_METADATA|HAS_NETWORK*2]-(:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN chain.name as chain
+          RETURN DISTINCT chain.name as chain
         `,
             { query, statusFilter },
           ),
@@ -384,7 +415,7 @@ export class SearchService {
             `
           CALL db.index.fulltext.queryNodes("grantCategories", $query) YIELD node as category
           WHERE (category)<-[:HAS_METADATA|HAS_CATEGORY*2]-(:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN category.name as category
+          RETURN DISTINCT category.name as category
         `,
             { query, statusFilter },
           ),
@@ -392,7 +423,7 @@ export class SearchService {
             `
           CALL db.index.fulltext.queryNodes("grantOrganizations", $query) YIELD node as organization
           WHERE (organization)<-[:HAS_METADATA|HAS_ORGANIZATION*2]-(:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN organization.name as organization
+          RETURN DISTINCT organization.name as organization
         `,
             { query, statusFilter },
           ),
@@ -444,7 +475,7 @@ export class SearchService {
             `
           MATCH (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)
           WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN grant.name as name
+          RETURN DISTINCT grant.name as name, metadata
           ORDER BY metadata.createdAt DESC
           LIMIT 10
         `,
@@ -454,7 +485,7 @@ export class SearchService {
             `
           MATCH (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)-[:HAS_ECOSYSTEM]->(ecosystem:KarmaGapEcosystem)
           WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN ecosystem.name as ecosystem
+          RETURN DISTINCT ecosystem.name as ecosystem, metadata
           ORDER BY metadata.createdAt DESC
           LIMIT 10
         `,
@@ -464,7 +495,7 @@ export class SearchService {
             `
           MATCH (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)-[:HAS_NETWORK]->(chain:KarmaGapNetwork)
           WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN chain.name as chain
+          RETURN DISTINCT chain.name as chain, metadata
           ORDER BY metadata.createdAt DESC
           LIMIT 10
         `,
@@ -474,7 +505,7 @@ export class SearchService {
             `
           MATCH (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)-[:HAS_CATEGORY]->(category:KarmaGapCategory)
           WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN category.name as category
+          RETURN DISTINCT category.name as category, metadata
           ORDER BY metadata.createdAt DESC
           LIMIT 10
         `,
@@ -484,7 +515,7 @@ export class SearchService {
             `
           MATCH (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)-[:HAS_ORGANIZATION]->(organization:KarmaGapOrganization)
           WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN organization.name as organization
+          RETURN DISTINCT organization.name as organization, metadata
           ORDER BY metadata.createdAt DESC
           LIMIT 10
         `,
@@ -539,7 +570,7 @@ export class SearchService {
       const result = await this.neogma.queryRunner.run(
         `
         CALL db.index.fulltext.queryNodes("investors", $query) YIELD node as investor
-        RETURN investor.name as name
+        RETURN DISTINCT investor.name as name
       `,
         { query },
       );
@@ -554,7 +585,7 @@ export class SearchService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (i:Investor)<-[:HAS_INVESTOR]-(f:FundingRound)
-        WITH i.name as name, COUNT(DISTINCT f) as popularity
+        WITH DISTINCT i.name as name, COUNT(DISTINCT f) as popularity
         RETURN name
         ORDER BY popularity DESC
         LIMIT 10
@@ -578,7 +609,7 @@ export class SearchService {
       const result = await this.neogma.queryRunner.run(
         `
         CALL db.index.fulltext.queryNodes("rounds", $query) YIELD node as fundingRound
-        RETURN fundingRound.roundName as name
+        RETURN DISTINCT fundingRound.roundName as name
       `,
         { query },
       );
@@ -593,7 +624,7 @@ export class SearchService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (f:FundingRound)<-[:HAS_FUNDING_ROUND]-(o:Organization)
-        WITH f.roundName as name, COUNT(DISTINCT o) as popularity
+        WITH DISTINCT f.roundName as name, COUNT(DISTINCT o) as popularity
         RETURN name
         ORDER BY popularity DESC
         LIMIT 10
@@ -672,6 +703,8 @@ export class SearchService {
         { nav: params.nav, pillar: params.pillar },
       )
     ).records[0]?.get("text") as { title: string; description: string };
+
+    console.log(query);
 
     if (query && headerText) {
       const result = await this.neogma.queryRunner.run(query);
