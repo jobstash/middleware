@@ -5,7 +5,7 @@ import { ModelService } from "src/model/model.service";
 import { UserModule } from "src/user/user.module";
 import { JwtService } from "@nestjs/jwt";
 import { AuthService } from "src/auth/auth.service";
-import { TagsService } from "src/tags/tags.service";
+// import { TagsService } from "src/tags/tags.service";
 import { OrganizationsService } from "src/organizations/organizations.service";
 import { ScorerService } from "src/scorer/scorer.service";
 import { HttpModule } from "@nestjs/axios";
@@ -16,6 +16,7 @@ import { ProfileModule } from "src/auth/profile/profile.module";
 import { PaymentsModule } from "src/payments/payments.module";
 import { PrivyModule } from "src/auth/privy/privy.module";
 import { Auth0Module } from "src/auth0/auth0.module";
+import { TagsModule } from "src/tags/tags.module";
 
 @Module({
   imports: [
@@ -38,11 +39,12 @@ import { Auth0Module } from "src/auth0/auth0.module";
       }),
     }),
     forwardRef(() => PaymentsModule),
+    TagsModule,
   ],
   controllers: [JobsController],
   providers: [
     JobsService,
-    TagsService,
+    // TagsService,
     AuthService,
     JwtService,
     ModelService,

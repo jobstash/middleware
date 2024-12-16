@@ -27,7 +27,6 @@ type RawJobFilters = {
   minHeadCount?: number | null;
   maxHeadCount?: number | null;
   tags?: string[] | null;
-  skills?: { name: string; jobs: number }[] | null;
   fundingRounds?: string[] | null;
   projects?: string[] | null;
   classifications?: string[] | null;
@@ -45,10 +44,7 @@ export class JobFilterConfigsEntity {
   configPresets = FILTER_CONFIG_PRESETS;
   paramKeyPresets = FILTER_PARAM_KEY_PRESETS;
 
-  constructor(
-    private readonly raw: RawJobFilters,
-    private readonly threshold: number,
-  ) {}
+  constructor(private readonly raw: RawJobFilters) {}
 
   getRangePresets(key: string): RangeFilter {
     const range = {
@@ -87,7 +83,9 @@ export class JobFilterConfigsEntity {
       value !== "unspecified" &&
       value !== "undefined" &&
       value !== "" &&
-      value !== "null";
+      value !== "null" &&
+      value !== undefined &&
+      value !== null;
 
     return {
       ...this.configPresets[key],
@@ -98,10 +96,9 @@ export class JobFilterConfigsEntity {
     };
   }
 
-  getMultiValuePresetsWithFilterAndTransform<Y>(
+  getMultiValuePresetsWithTransform(
     key: string,
-    filter: (x: Y) => boolean,
-    transform: (x: Y) => MultiSelectFilter["options"][0],
+    labelTransform?: (x: string) => string,
   ): MultiSelectFilter | MultiSelectSearchFilter {
     const sort = createNewSortInstance({
       comparer: new Intl.Collator(undefined, {
@@ -116,15 +113,17 @@ export class JobFilterConfigsEntity {
       value !== "unspecified" &&
       value !== "undefined" &&
       value !== "" &&
-      value !== "null";
+      value !== "null" &&
+      value !== undefined &&
+      value !== null;
 
     return {
       ...this.configPresets[key],
       options: sort(
-        this.raw[key]
-          ?.filter(isValidFilterConfig)
-          ?.filter(filter)
-          .map(transform) ?? [],
+        this.raw[key]?.filter(isValidFilterConfig).map((x: string) => ({
+          label: labelTransform ? labelTransform(x) : x,
+          value: slugify(x),
+        })) ?? [],
       ).asc(),
       paramKey: this.paramKeyPresets[key],
     };
@@ -148,68 +147,26 @@ export class JobFilterConfigsEntity {
       monthlyRevenue: this.getRangePresets("monthlyRevenue"),
       audits: this.getSingleSelectPresets("audits"),
       hacks: this.getSingleSelectPresets("hacks"),
-      fundingRounds: this.getMultiValuePresetsWithFilterAndTransform(
-        "fundingRounds",
-        (x: string) => x !== "",
-        (x: string) => ({ label: x, value: slugify(x) }),
-      ),
-      investors: this.getMultiValuePresetsWithFilterAndTransform(
-        "investors",
-        (x: string) => x !== "",
-        (x: string) => ({ label: x, value: slugify(x) }),
-      ),
-      tags: this.getMultiValuePresetsWithFilterAndTransform(
-        "tags",
-        (x: string) => x !== "",
-        (x: string) => ({ label: x, value: slugify(x) }),
-      ),
-      skills: this.getMultiValuePresetsWithFilterAndTransform<{
-        name: string;
-        jobs: number;
-      }>(
-        "skills",
-        (x: { name: string; jobs: number }) => x.jobs >= this.threshold,
-        (x: { name: string; jobs: number }) => ({
-          label: x.name,
-          value: slugify(x.name),
-        }),
-      ),
-      organizations: this.getMultiValuePresetsWithFilterAndTransform(
-        "organizations",
-        (x: string) => x !== "",
-        (x: string) => ({ label: x, value: slugify(x) }),
-      ),
-      chains: this.getMultiValuePresetsWithFilterAndTransform(
-        "chains",
-        (x: string) => x !== "",
-        (x: string) => ({ label: x, value: slugify(x) }),
-      ),
-      projects: this.getMultiValuePresetsWithFilterAndTransform(
-        "projects",
-        (x: string) => x !== "",
-        (x: string) => ({ label: x, value: slugify(x) }),
-      ),
-      classifications: this.getMultiValuePresetsWithFilterAndTransform<string>(
+      fundingRounds: this.getMultiValuePresetsWithTransform("fundingRounds"),
+      investors: this.getMultiValuePresetsWithTransform("investors"),
+      tags: this.getMultiValuePresetsWithTransform("tags"),
+      organizations: this.getMultiValuePresetsWithTransform("organizations"),
+      chains: this.getMultiValuePresetsWithTransform("chains"),
+      projects: this.getMultiValuePresetsWithTransform("projects"),
+      classifications: this.getMultiValuePresetsWithTransform(
         "classifications",
-        (x: string) => x !== "",
-        (x: string) => ({ label: toHeaderCase(x), value: slugify(x) }),
+        toHeaderCase,
       ),
-      commitments: this.getMultiValuePresetsWithFilterAndTransform<string>(
+      commitments: this.getMultiValuePresetsWithTransform(
         "commitments",
-        (x: string) => x !== "",
-        (x: string) => ({ label: toHeaderCase(x), value: slugify(x) }),
+        toHeaderCase,
       ),
       ecosystems: this.getMultiValuePresets("ecosystems"),
       communities: this.getMultiValuePresets("communities"),
-      seniority: this.getMultiValuePresetsWithFilterAndTransform(
-        "seniority",
-        (x: string) => x !== "",
-        (x: string) => ({ label: x, value: slugify(x) }),
-      ),
-      locations: this.getMultiValuePresetsWithFilterAndTransform<string>(
+      seniority: this.getMultiValuePresetsWithTransform("seniority"),
+      locations: this.getMultiValuePresetsWithTransform(
         "locations",
-        (x: string) => x !== "",
-        (x: string) => ({ label: toHeaderCase(x), value: slugify(x) }),
+        toHeaderCase,
       ),
       mainNet: this.getSingleSelectPresets("mainNet"),
       token: this.getSingleSelectPresets("token"),

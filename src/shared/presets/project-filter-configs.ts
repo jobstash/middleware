@@ -124,7 +124,7 @@ export const FILTER_CONFIG_PRESETS = {
   communities: {
     position: 12,
     label: "Communities",
-    show: false,
+    show: true,
     googleAnalyticsEventName: "filter_joblist_communities",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },

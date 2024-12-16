@@ -59,6 +59,7 @@ import { UpdateJobApplicantListInput } from "./dto/update-job-applicant-list.inp
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
 import { ChangeJobProjectInput } from "./dto/update-job-project.input";
+import { TagsService } from "src/tags/tags.service";
 
 @Injectable()
 export class JobsService {
@@ -73,6 +74,7 @@ export class JobsService {
     private readonly paymentsService: PaymentsService,
     private readonly privyService: PrivyService,
     private readonly profileService: ProfileService,
+    private readonly tagsService: TagsService,
   ) {}
 
   getJobsListResults = async (): Promise<JobListResult[]> => {
@@ -496,12 +498,10 @@ export class JobsService {
       seniority: seniorityFilterList,
       locations: locationFilterList,
       tags: tagFilterList,
-      skills: skillFilterList,
       audits: auditFilter,
       hacks: hackFilter,
       chains: chainFilterList,
       projects: projectFilterList,
-      organizations: organizationFilterList,
       investors: investorFilterList,
       fundingRounds: fundingRoundFilterList,
       classifications: classificationFilterList,
@@ -566,8 +566,6 @@ export class JobsService {
           tags.filter(tag => tag.name.match(query)).length > 0 ||
           projects.filter(project => project.name.match(query)).length > 0;
         return (
-          (!organizationFilterList ||
-            organizationFilterList.includes(slugify(orgName))) &&
           (!seniorityFilterList ||
             seniorityFilterList.includes(slugify(seniority))) &&
           (!locationFilterList ||
@@ -643,9 +641,6 @@ export class JobsService {
           (!query || matchesQuery) &&
           (!tagFilterList ||
             tags.filter(tag => tagFilterList.includes(slugify(tag.name)))
-              .length > 0) &&
-          (!skillFilterList ||
-            tags.filter(tag => skillFilterList.includes(slugify(tag.name)))
               .length > 0)
         );
       } else {
@@ -683,9 +678,6 @@ export class JobsService {
           (!query || matchesQuery) &&
           (!tagFilterList ||
             tags.filter(tag => tagFilterList.includes(slugify(tag.name)))
-              .length > 0) &&
-          (!skillFilterList ||
-            tags.filter(tag => skillFilterList.includes(slugify(tag.name)))
               .length > 0)
         );
       }
@@ -761,9 +753,14 @@ export class JobsService {
   }
 
   async getFilterConfigs(
-    community: string | undefined,
+    community: string | null = null,
   ): Promise<JobFilterConfigs> {
     try {
+      const popularity =
+        this.configService.get<string>("SKILL_THRESHOLD") ?? null;
+      const tags = (await this.tagsService.getPopularTags(100)).map(
+        x => x.name,
+      );
       return await this.neogma.queryRunner
         .run(
           `
@@ -834,16 +831,6 @@ export class JobsService {
                 (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) 
                 WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END | org.headcountEstimate
               ]),
-              tags: apoc.coll.toSet([
-                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-                WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
-                AND (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag.name
-              ]),
-              skills: apoc.coll.toSet([
-                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-                WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
-                AND (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | { name: tag.name, jobs: apoc.coll.sum([(job:StructuredJobpost)-[:HAS_TAG]->(tag) WHERE (job)-[:HAS_STATUS]->(:JobpostOnlineStatus) | 1]) }
-              ]),
               fundingRounds: apoc.coll.toSet([
                 (org: Organization)-[:HAS_FUNDING_ROUND]->(round: FundingRound)
                 WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
@@ -906,14 +893,14 @@ export class JobsService {
               ])
             } as res
           `,
-          { community: community ?? null },
+          { community, popularity },
         )
         .then(res =>
           res.records.length
-            ? new JobFilterConfigsEntity(
-                res.records[0].get("res"),
-                this.configService.get<number>("SKILL_THRESHOLD"),
-              ).getProperties()
+            ? new JobFilterConfigsEntity({
+                ...res.records[0].get("res"),
+                tags,
+              }).getProperties()
             : undefined,
         );
     } catch (err) {

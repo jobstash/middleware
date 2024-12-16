@@ -38,7 +38,7 @@ export const FILTER_CONFIG_PRESETS = {
   headcountEstimate: {
     position: 2,
     label: "Head Count",
-    show: false,
+    show: true,
     googleAnalyticsEventName: "filter_orglist_head_count",
     kind: FilterKind.RANGE,
     prefix: null,
@@ -60,14 +60,14 @@ export const FILTER_CONFIG_PRESETS = {
   communities: {
     position: 5,
     label: "Communities",
-    show: false,
+    show: true,
     googleAnalyticsEventName: "filter_joblist_communities",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   ecosystems: {
     position: 6,
     label: "Ecosystems",
-    show: false,
+    show: true,
     googleAnalyticsEventName: "filter_orglist_ecosystems",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },

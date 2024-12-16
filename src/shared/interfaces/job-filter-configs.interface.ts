@@ -30,7 +30,6 @@ export class JobFilterConfigs {
     mainNet: SingleSelectFilter.SingleSelectFilterType,
     orderBy: SingleSelectFilter.SingleSelectFilterType,
     tags: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    skills: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     publicationDate: SingleSelectFilter.SingleSelectFilterType,
     chains: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     projects: MultiSelectSearchFilter.MultiSelectSearchFilterType,
@@ -55,8 +54,6 @@ export class JobFilterConfigs {
   headcountEstimate: RangeFilter;
   @ApiProperty()
   tags: MultiSelectSearchFilter;
-  @ApiProperty()
-  skills: MultiSelectSearchFilter;
   @ApiProperty()
   fundingRounds: MultiSelectSearchFilter;
   @ApiProperty()
@@ -105,7 +102,6 @@ export class JobFilterConfigs {
       order,
       salary,
       chains,
-      skills,
       audits,
       mainNet,
       orderBy,
@@ -136,7 +132,6 @@ export class JobFilterConfigs {
     this.salary = salary;
     this.chains = chains;
     this.audits = audits;
-    this.skills = skills;
     this.mainNet = mainNet;
     this.orderBy = orderBy;
     this.projects = projects;

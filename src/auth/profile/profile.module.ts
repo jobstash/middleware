@@ -20,6 +20,7 @@ import { GithubModule } from "../github/github.module";
 import { UserModule } from "src/user/user.module";
 import { PaymentsModule } from "src/payments/payments.module";
 import { Auth0Module } from "src/auth0/auth0.module";
+import { TagsService } from "src/tags/tags.service";
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { Auth0Module } from "src/auth0/auth0.module";
     RpcService,
     ScorerService,
     JobsService,
+    TagsService,
   ],
   exports: [ProfileService],
 })
