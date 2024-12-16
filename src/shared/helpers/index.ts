@@ -42,6 +42,7 @@ import Sqids from "sqids";
 import { PrivyService } from "src/auth/privy/privy.service";
 import { UserService } from "src/user/user.service";
 import { WalletWithMetadata } from "@privy-io/server-auth";
+import _slugify from "slugify";
 
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
@@ -630,3 +631,8 @@ export const getLogoUrlHttpsAlternative = (
 
   return `${URL_PREFIX}https://${domain}${URL_SUFFIX}`;
 };
+
+export const slugify = (str: string): string =>
+  _slugify(str, {
+    lower: true,
+  });

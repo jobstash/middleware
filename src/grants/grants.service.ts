@@ -1,8 +1,24 @@
+import { Neo4jVectorStore } from "@langchain/community/vectorstores/neo4j_vector";
+import { OpenAIEmbeddings } from "@langchain/openai";
 import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { CustomLogger } from "src/shared/utils/custom-logger";
-import { Client, createClient } from "./generated";
+import * as Sentry from "@sentry/node";
+import { Alchemy, Network } from "alchemy-sdk";
+import axios from "axios";
+import { randomUUID } from "crypto";
+import { Neogma } from "neogma";
+import { InjectConnection } from "nest-neogma";
 import { GoogleBigQueryService } from "src/google-bigquery/google-bigquery.service";
+import { ProjectsService } from "src/projects/projects.service";
+import { KARMAGAP_PROGRAM_MAPPINGS } from "src/shared/constants/daoip-karmagap-program-mappings";
+import {
+  getGoogleLogoUrl,
+  nonZeroOrNull,
+  notStringOrNull,
+  paginate,
+  slugify,
+  uuidfy,
+} from "src/shared/helpers";
 import {
   DaoipFundingData,
   DaoipProject,
@@ -21,24 +37,8 @@ import {
   RawGrantProjectOnchainMetrics,
   ResponseWithOptionalData,
 } from "src/shared/interfaces";
-import * as Sentry from "@sentry/node";
-import { InjectConnection } from "nest-neogma";
-import { Neogma } from "neogma";
-import {
-  nonZeroOrNull,
-  notStringOrNull,
-  paginate,
-  uuidfy,
-  getGoogleLogoUrl,
-} from "src/shared/helpers";
-import { Alchemy, Network } from "alchemy-sdk";
-import { Neo4jVectorStore } from "@langchain/community/vectorstores/neo4j_vector";
-import { OpenAIEmbeddings } from "@langchain/openai";
-import axios from "axios";
-import { KARMAGAP_PROGRAM_MAPPINGS } from "src/shared/constants/daoip-karmagap-program-mappings";
-import { ProjectsService } from "src/projects/projects.service";
-import { randomUUID } from "crypto";
-import slugify from "slugify";
+import { CustomLogger } from "src/shared/utils/custom-logger";
+import { Client, createClient } from "./generated";
 
 @Injectable()
 export class GrantsService implements OnModuleInit, OnModuleDestroy {

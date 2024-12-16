@@ -1,9 +1,14 @@
 import { Injectable } from "@nestjs/common";
+import { User as PrivyUser, WalletWithMetadata } from "@privy-io/server-auth";
 import * as Sentry from "@sentry/node";
+import axios from "axios";
 import { randomUUID } from "crypto";
+import { uniqBy } from "lodash";
+import { Integer } from "neo4j-driver";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
 import { ModelService } from "src/model/model.service";
+import { ScorerService } from "src/scorer/scorer.service";
 import {
   UserOrgEntity,
   UserProfileEntity,
@@ -11,7 +16,13 @@ import {
   UserShowCaseEntity,
   UserSkillEntity,
 } from "src/shared/entities";
-import { paginate, intConverter, nonZeroOrNull } from "src/shared/helpers";
+import { OrgStaffReviewEntity } from "src/shared/entities/org-staff-review.entity";
+import {
+  intConverter,
+  nonZeroOrNull,
+  paginate,
+  slugify,
+} from "src/shared/helpers";
 import {
   AdjacentRepo,
   EcosystemActivation,
@@ -31,24 +42,17 @@ import {
   data,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import { GithubUserService } from "../github/github-user.service";
+import { PrivyService } from "../privy/privy.service";
 import { RateOrgInput } from "./dto/rate-org.input";
 import { RepoListParams } from "./dto/repo-list.input";
 import { ReviewOrgSalaryInput } from "./dto/review-org-salary.input";
 import { ReviewOrgInput } from "./dto/review-org.input";
+import { UpdateDevLocationInput } from "./dto/update-dev-location.input";
 import { UpdateRepoContributionInput } from "./dto/update-repo-contribution.input";
 import { UpdateRepoTagsUsedInput } from "./dto/update-repo-tags-used.input";
 import { UpdateUserShowCaseInput } from "./dto/update-user-showcase.input";
 import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
-import { Integer } from "neo4j-driver";
-import { OrgStaffReviewEntity } from "src/shared/entities/org-staff-review.entity";
-import { ScorerService } from "src/scorer/scorer.service";
-import { PrivyService } from "../privy/privy.service";
-import { UpdateDevLocationInput } from "./dto/update-dev-location.input";
-import { GithubUserService } from "../github/github-user.service";
-import { User as PrivyUser, WalletWithMetadata } from "@privy-io/server-auth";
-import axios from "axios";
-import { uniqBy } from "lodash";
-import slugify from "slugify";
 
 @Injectable()
 export class ProfileService {

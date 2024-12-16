@@ -1,64 +1,64 @@
 import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import * as Sentry from "@sentry/node";
+import { differenceInHours } from "date-fns";
 import { sort } from "fast-sort";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
+import { PrivyService } from "src/auth/privy/privy.service";
+import { ProfileService } from "src/auth/profile/profile.service";
 import { ModelService } from "src/model/model.service";
+import { PricingType } from "src/payments/dto/create-charge.dto";
+import { PaymentsService } from "src/payments/payments.service";
+import { ScorerService } from "src/scorer/scorer.service";
 import {
   AllJobListResultEntity,
   AllJobsFilterConfigsEntity,
-  JobpostFolderEntity,
+  AllOrgJobsListResultEntity,
   JobApplicantEntity,
   JobDetailsEntity,
-  AllOrgJobsListResultEntity,
+  JobpostFolderEntity,
 } from "src/shared/entities";
 import {
   notStringOrNull,
   paginate,
   publicationDateRangeGenerator,
+  slugify,
 } from "src/shared/helpers";
 import {
   AllJobsFilterConfigs,
+  AllJobsListResult,
+  AllOrgJobsListResult,
+  data,
   DateRange,
+  FundingRound,
+  JobApplicant,
+  JobDetailsResult,
   JobFilterConfigs,
   JobFilterConfigsEntity,
   JobListResult,
-  AllJobsListResult,
   JobListResultEntity,
-  PaginatedData,
-  ResponseWithNoData,
-  Response,
-  ResponseWithOptionalData,
-  JobApplicant,
   JobpostFolder,
-  data,
-  JobDetailsResult,
-  FundingRound,
-  AllOrgJobsListResult,
+  PaginatedData,
+  Response,
+  ResponseWithNoData,
+  ResponseWithOptionalData,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import { RpcService } from "src/user/rpc.service";
 import { AllJobsParams } from "./dto/all-jobs.input";
-import { JobListParams } from "./dto/job-list.input";
-import { ChangeJobClassificationInput } from "./dto/change-classification.input";
 import { BlockJobsInput } from "./dto/block-jobs.input";
-import { EditJobTagsInput } from "./dto/edit-tags.input";
-import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
+import { ChangeJobClassificationInput } from "./dto/change-classification.input";
 import { ChangeJobCommitmentInput } from "./dto/change-commitment.input";
 import { ChangeJobLocationTypeInput } from "./dto/change-location-type.input";
-import { ChangeJobProjectInput } from "./dto/update-job-project.input";
-import { FeatureJobsInput } from "./dto/feature-jobs.input";
-import { differenceInHours } from "date-fns";
-import { ConfigService } from "@nestjs/config";
-import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
-import { RpcService } from "src/user/rpc.service";
-import { UpdateJobApplicantListInput } from "./dto/update-job-applicant-list.input";
-import { ScorerService } from "src/scorer/scorer.service";
-import { PaymentsService } from "src/payments/payments.service";
-import { PricingType } from "src/payments/dto/create-charge.dto";
-import { PrivyService } from "src/auth/privy/privy.service";
-import { ProfileService } from "src/auth/profile/profile.service";
 import { CreateJobFolderInput } from "./dto/create-job-folder.input";
-import slugify from "slugify";
+import { EditJobTagsInput } from "./dto/edit-tags.input";
+import { FeatureJobsInput } from "./dto/feature-jobs.input";
+import { JobListParams } from "./dto/job-list.input";
+import { UpdateJobApplicantListInput } from "./dto/update-job-applicant-list.input";
+import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
+import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
+import { ChangeJobProjectInput } from "./dto/update-job-project.input";
 
 @Injectable()
 export class JobsService {

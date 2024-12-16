@@ -1,27 +1,13 @@
 import { Injectable } from "@nestjs/common";
-import {
-  PaginatedData,
-  ProjectFilterConfigs,
-  ProjectFilterConfigsEntity,
-  ProjectDetailsResult,
-  ProjectDetailsEntity,
-  Project,
-  ProjectWithRelations,
-  ProjectListResult,
-  ProjectListResultEntity,
-  ProjectEntity,
-  ProjectCompetitorListResultEntity,
-  ResponseWithNoData,
-  ProjectMoreInfoEntity,
-  ProjectWithRelationsEntity,
-  RawProjectWebsite,
-  ResponseWithOptionalData,
-  Jobsite,
-  Investor,
-} from "src/shared/types";
-import { CustomLogger } from "src/shared/utils/custom-logger";
+import { ConfigService } from "@nestjs/config";
 import * as Sentry from "@sentry/node";
-import { ProjectListParams } from "./dto/project-list.input";
+import axios from "axios";
+import { createNewSortInstance } from "fast-sort";
+import { omit } from "lodash";
+import { Neogma, Op } from "neogma";
+import { InjectConnection } from "nest-neogma";
+import { Auth0Service } from "src/auth0/auth0.service";
+import { ModelService } from "src/model/model.service";
 import {
   ensureProtocol,
   instanceToNode,
@@ -29,26 +15,40 @@ import {
   nonZeroOrNull,
   notStringOrNull,
   paginate,
+  slugify,
   toAbsoluteURL,
 } from "src/shared/helpers";
-import { createNewSortInstance } from "fast-sort";
-import { ModelService } from "src/model/model.service";
-import { InjectConnection } from "nest-neogma";
-import { Neogma, Op } from "neogma";
 import { ProjectProps } from "src/shared/models";
-import { UpdateProjectInput } from "./dto/update-project.input";
+import {
+  Investor,
+  Jobsite,
+  PaginatedData,
+  Project,
+  ProjectCompetitorListResultEntity,
+  ProjectDetailsEntity,
+  ProjectDetailsResult,
+  ProjectEntity,
+  ProjectFilterConfigs,
+  ProjectFilterConfigsEntity,
+  ProjectListResult,
+  ProjectListResultEntity,
+  ProjectMoreInfoEntity,
+  ProjectWithRelations,
+  ProjectWithRelationsEntity,
+  RawProjectWebsite,
+  ResponseWithNoData,
+  ResponseWithOptionalData,
+} from "src/shared/types";
+import { CustomLogger } from "src/shared/utils/custom-logger";
+import { ActivateProjectJobsiteInput } from "./dto/activate-project-jobsites.input";
+import { AddProjectByUrlInput } from "./dto/add-project-by-url.input";
+import { CreateProjectMetricsInput } from "./dto/create-project-metrics.input";
 import { CreateProjectInput } from "./dto/create-project.input";
 import { LinkJobsToProjectInput } from "./dto/link-jobs-to-project.dto";
 import { LinkReposToProjectInput } from "./dto/link-repos-to-project.dto";
-import { CreateProjectMetricsInput } from "./dto/create-project-metrics.input";
-import { AddProjectByUrlInput } from "./dto/add-project-by-url.input";
-import axios from "axios";
-import { ConfigService } from "@nestjs/config";
-import { omit } from "lodash";
-import { ActivateProjectJobsiteInput } from "./dto/activate-project-jobsites.input";
+import { ProjectListParams } from "./dto/project-list.input";
 import { UpdateProjectJobsitesInput } from "./dto/update-project-jobsites.input";
-import { Auth0Service } from "src/auth0/auth0.service";
-import slugify from "slugify";
+import { UpdateProjectInput } from "./dto/update-project.input";
 
 @Injectable()
 export class ProjectsService {

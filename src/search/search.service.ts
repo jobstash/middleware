@@ -1,6 +1,11 @@
 import { Injectable } from "@nestjs/common";
+import * as Sentry from "@sentry/node";
+import { go } from "fuzzysort";
+import { uniqBy } from "lodash";
+import { QueryResult, RecordShape } from "neo4j-driver";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nest-neogma";
+import { paginate, slugify } from "src/shared/helpers";
 import {
   PaginatedData,
   PillarInfo,
@@ -10,15 +15,9 @@ import {
   SearchResultItem,
   SearchResultPillar,
 } from "src/shared/interfaces";
-import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
-import { uniqBy } from "lodash";
-import { paginate } from "src/shared/helpers";
-import { SearchPillarParams } from "./dto/search.input";
-import { QueryResult, RecordShape } from "neo4j-driver";
 import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
-import { go } from "fuzzysort";
-import slugify from "slugify";
+import { SearchPillarParams } from "./dto/search.input";
 
 const NAV_PILLAR_QUERY_MAPPINGS: Record<
   SearchNav,
