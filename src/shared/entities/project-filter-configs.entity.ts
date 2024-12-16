@@ -9,7 +9,7 @@ import {
   FILTER_PARAM_KEY_PRESETS,
   FILTER_CONFIG_PRESETS,
 } from "../presets/project-filter-configs";
-import { intConverter, normalizeString } from "../helpers";
+import { intConverter, slugify } from "../helpers";
 import { createNewSortInstance } from "fast-sort";
 
 type RawProjectFilters = {
@@ -60,8 +60,7 @@ export class ProjectFilterConfigsEntity {
   getMultiValuePresets(
     key: string,
     transformLabel: (x: string) => string = (x: string): string => x,
-    transformValue: (x: string) => string = (x: string): string =>
-      normalizeString(x),
+    transformValue: (x: string) => string = (x: string): string => slugify(x),
   ): MultiSelectFilter | MultiSelectSearchFilter {
     const sort = createNewSortInstance({
       comparer: new Intl.Collator(undefined, {

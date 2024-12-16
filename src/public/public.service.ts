@@ -8,7 +8,7 @@ import {
   AllJobsFilterConfigsEntity,
   JobListResultEntity,
 } from "src/shared/entities";
-import { normalizeString, paginate } from "src/shared/helpers";
+import { slugify, paginate } from "src/shared/helpers";
 import {
   AllJobsFilterConfigs,
   JobListResult,
@@ -214,9 +214,8 @@ export class PublicService {
 
       return (
         (!organizationFilterList ||
-          organizationFilterList.includes(normalizeString(orgName))) &&
-        (!categoryFilterList ||
-          categoryFilterList.includes(normalizeString(category)))
+          organizationFilterList.includes(slugify(orgName))) &&
+        (!categoryFilterList || categoryFilterList.includes(slugify(category)))
       );
     };
 

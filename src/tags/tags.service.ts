@@ -14,7 +14,7 @@ import { Neogma } from "neogma";
 import { UpdateTagDto } from "./dto/update-tag.dto";
 import { TagEntity } from "src/shared/entities/tag.entity";
 import NotFoundError from "src/shared/errors/not-found-error";
-import { instanceToNode, normalizeString } from "src/shared/helpers";
+import { instanceToNode, slugify } from "src/shared/helpers";
 import { ConfigService } from "@nestjs/config";
 
 @Injectable()
@@ -636,7 +636,7 @@ export class TagsService {
   }
 
   normalizeTagName(name: string): string {
-    return normalizeString(name);
+    return slugify(name);
   }
 
   async matchTags(tags: string[]): Promise<
@@ -661,7 +661,7 @@ export class TagsService {
           ORDER BY score DESC
 
           `,
-          { query: `name:${normalizeString(tag)}~` },
+          { query: `name:${slugify(tag)}~` },
         );
         const mostMatching = result.records[0]?.get("name");
         if (mostMatching) {

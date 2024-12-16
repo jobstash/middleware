@@ -11,7 +11,7 @@ import { TagsService } from "./tags.service";
 import { SessionObject, Tag, data } from "src/shared/interfaces";
 import {
   createTestUser,
-  normalizeString,
+  slugify,
   printDuplicateItems,
   resetTestDB,
 } from "src/shared/helpers";
@@ -252,7 +252,7 @@ describe("TagsController", () => {
 
     const tag = {
       name: tagName,
-      normalizedName: normalizeString(tagName),
+      normalizedName: slugify(tagName),
     };
 
     const result = await controller.create(USER_SESSION_OBJECT, tag);
@@ -274,7 +274,7 @@ describe("TagsController", () => {
 
       const tag = {
         name: tagName,
-        normalizedName: normalizeString(tagName),
+        normalizedName: slugify(tagName),
       };
 
       await controller.create(USER_SESSION_OBJECT, tag);
@@ -300,7 +300,7 @@ describe("TagsController", () => {
 
       const tag = {
         name: tagName,
-        normalizedName: normalizeString(tagName),
+        normalizedName: slugify(tagName),
       };
 
       await controller.create(USER_SESSION_OBJECT, tag);
@@ -335,7 +335,7 @@ describe("TagsController", () => {
 
       const tag = {
         name: tagName,
-        normalizedName: normalizeString(tagName),
+        normalizedName: slugify(tagName),
       };
 
       const result = await controller.unblockTags(USER_SESSION_OBJECT, {
@@ -371,14 +371,14 @@ describe("TagsController", () => {
       for (const tag of tagNames) {
         await controller.create(USER_SESSION_OBJECT, {
           name: tag,
-          normalizedName: normalizeString(tag),
+          normalizedName: slugify(tag),
         });
       }
 
       const tags = [tagName, ...tagNames]
         .map(tagName => ({
           name: tagName,
-          normalizedName: normalizeString(tagName),
+          normalizedName: slugify(tagName),
         }))
         .map(tag => ({ id: expect.any(String), ...tag }));
 
@@ -406,14 +406,14 @@ describe("TagsController", () => {
       for (const tag of [tagName, ...tagNames]) {
         await controller.create(USER_SESSION_OBJECT, {
           name: tag,
-          normalizedName: normalizeString(tag),
+          normalizedName: slugify(tag),
         });
       }
 
       const tags = [tagName, ...tagNames]
         .map(tagName => ({
           name: tagName,
-          normalizedName: normalizeString(tagName),
+          normalizedName: slugify(tagName),
         }))
         .map(tag => ({ id: expect.any(String), ...tag }));
 
@@ -457,7 +457,7 @@ describe("TagsController", () => {
       const tags = [tagName, ...tagNames]
         .map(tagName => ({
           name: tagName,
-          normalizedName: normalizeString(tagName),
+          normalizedName: slugify(tagName),
         }))
         .map(tag => ({ id: expect.any(String), ...tag }));
 

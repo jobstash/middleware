@@ -20,7 +20,7 @@ import { Integer } from "neo4j-driver";
 import {
   createTestUser,
   hasDuplicates,
-  normalizeString,
+  slugify,
   notStringOrNull,
   printDuplicateItems,
   publicationDateRangeGenerator,
@@ -770,21 +770,18 @@ describe("JobsController", () => {
         return (
           minSalary <= salary &&
           salary <= maxSalary &&
-          jobTags.filter(tag => tags.includes(normalizeString(tag.name)))
-            .length > 0 &&
+          jobTags.filter(tag => tags.includes(slugify(tag.name))).length > 0 &&
           (!startDate || timestamp >= startDate) &&
           (!endDate || timestamp < endDate) &&
           (!query || matchesQuery) &&
           (!locationFilterList ||
-            locationFilterList.includes(normalizeString(locationType))) &&
+            locationFilterList.includes(slugify(locationType))) &&
           (!classificationFilterList ||
-            classificationFilterList.includes(
-              normalizeString(classification),
-            )) &&
+            classificationFilterList.includes(slugify(classification))) &&
           (!commitmentFilterList ||
-            commitmentFilterList.includes(normalizeString(commitment))) &&
+            commitmentFilterList.includes(slugify(commitment))) &&
           (!seniorityFilterList ||
-            seniorityFilterList.includes(normalizeString(seniority)))
+            seniorityFilterList.includes(slugify(seniority)))
         );
       };
 
@@ -845,16 +842,16 @@ describe("JobsController", () => {
             headcountEstimate <= maxHeadCount &&
             (!investorFilterList ||
               investors.filter(investor =>
-                investorFilterList.includes(normalizeString(investor.name)),
+                investorFilterList.includes(slugify(investor.name)),
               ).length > 0) &&
             (!fundingRoundFilterList ||
               fundingRounds.filter(fundingRound =>
                 fundingRoundFilterList.includes(
-                  normalizeString(fundingRound.roundName),
+                  slugify(fundingRound.roundName),
                 ),
               ).length > 0) &&
             (!organizationFilterList ||
-              organizationFilterList.includes(normalizeString(orgName)))
+              organizationFilterList.includes(slugify(orgName)))
           );
         } else {
           return false;
@@ -919,9 +916,8 @@ describe("JobsController", () => {
             (mainNet === null ||
               projects.filter(x => x.isMainnet).length > 0) &&
             (!projectFilterList ||
-              projects.filter(x =>
-                projectFilterList.includes(normalizeString(x.name)),
-              ).length > 0) &&
+              projects.filter(x => projectFilterList.includes(slugify(x.name)))
+                .length > 0) &&
             (!minTvl ||
               projects.filter(x => (x?.tvl ?? 0) >= minTvl).length > 0) &&
             (!maxTvl ||
@@ -955,7 +951,7 @@ describe("JobsController", () => {
               projects.filter(
                 x =>
                   x.chains.filter(y =>
-                    chainFilterList.includes(normalizeString(y.name)),
+                    chainFilterList.includes(slugify(y.name)),
                   ).length > 0,
               ).length > 0)
           );

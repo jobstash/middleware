@@ -9,7 +9,7 @@ import {
   FILTER_PARAM_KEY_PRESETS,
   FILTER_CONFIG_PRESETS,
 } from "../presets/job-filter-configs";
-import { intConverter, normalizeString } from "../helpers";
+import { intConverter, slugify } from "../helpers";
 import { createNewSortInstance } from "fast-sort";
 import { toHeaderCase } from "js-convert-case";
 
@@ -151,17 +151,17 @@ export class JobFilterConfigsEntity {
       fundingRounds: this.getMultiValuePresetsWithFilterAndTransform(
         "fundingRounds",
         (x: string) => x !== "",
-        (x: string) => ({ label: x, value: normalizeString(x) }),
+        (x: string) => ({ label: x, value: slugify(x) }),
       ),
       investors: this.getMultiValuePresetsWithFilterAndTransform(
         "investors",
         (x: string) => x !== "",
-        (x: string) => ({ label: x, value: normalizeString(x) }),
+        (x: string) => ({ label: x, value: slugify(x) }),
       ),
       tags: this.getMultiValuePresetsWithFilterAndTransform(
         "tags",
         (x: string) => x !== "",
-        (x: string) => ({ label: x, value: normalizeString(x) }),
+        (x: string) => ({ label: x, value: slugify(x) }),
       ),
       skills: this.getMultiValuePresetsWithFilterAndTransform<{
         name: string;
@@ -171,45 +171,45 @@ export class JobFilterConfigsEntity {
         (x: { name: string; jobs: number }) => x.jobs >= this.threshold,
         (x: { name: string; jobs: number }) => ({
           label: x.name,
-          value: normalizeString(x.name),
+          value: slugify(x.name),
         }),
       ),
       organizations: this.getMultiValuePresetsWithFilterAndTransform(
         "organizations",
         (x: string) => x !== "",
-        (x: string) => ({ label: x, value: normalizeString(x) }),
+        (x: string) => ({ label: x, value: slugify(x) }),
       ),
       chains: this.getMultiValuePresetsWithFilterAndTransform(
         "chains",
         (x: string) => x !== "",
-        (x: string) => ({ label: x, value: normalizeString(x) }),
+        (x: string) => ({ label: x, value: slugify(x) }),
       ),
       projects: this.getMultiValuePresetsWithFilterAndTransform(
         "projects",
         (x: string) => x !== "",
-        (x: string) => ({ label: x, value: normalizeString(x) }),
+        (x: string) => ({ label: x, value: slugify(x) }),
       ),
       classifications: this.getMultiValuePresetsWithFilterAndTransform<string>(
         "classifications",
         (x: string) => x !== "",
-        (x: string) => ({ label: toHeaderCase(x), value: normalizeString(x) }),
+        (x: string) => ({ label: toHeaderCase(x), value: slugify(x) }),
       ),
       commitments: this.getMultiValuePresetsWithFilterAndTransform<string>(
         "commitments",
         (x: string) => x !== "",
-        (x: string) => ({ label: toHeaderCase(x), value: normalizeString(x) }),
+        (x: string) => ({ label: toHeaderCase(x), value: slugify(x) }),
       ),
       ecosystems: this.getMultiValuePresets("ecosystems"),
       communities: this.getMultiValuePresets("communities"),
       seniority: this.getMultiValuePresetsWithFilterAndTransform(
         "seniority",
         (x: string) => x !== "",
-        (x: string) => ({ label: x, value: normalizeString(x) }),
+        (x: string) => ({ label: x, value: slugify(x) }),
       ),
       locations: this.getMultiValuePresetsWithFilterAndTransform<string>(
         "locations",
         (x: string) => x !== "",
-        (x: string) => ({ label: toHeaderCase(x), value: normalizeString(x) }),
+        (x: string) => ({ label: toHeaderCase(x), value: slugify(x) }),
       ),
       mainNet: this.getSingleSelectPresets("mainNet"),
       token: this.getSingleSelectPresets("token"),

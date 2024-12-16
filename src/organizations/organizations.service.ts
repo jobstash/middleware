@@ -23,7 +23,7 @@ import {
   ensureProtocol,
   instanceToNode,
   isValidUrl,
-  normalizeString,
+  slugify,
   paginate,
   toAbsoluteURL,
   toShortOrg,
@@ -254,18 +254,18 @@ export class OrganizationsService {
         (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
         (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
         (!locationFilterList ||
-          locationFilterList.includes(normalizeString(location))) &&
+          locationFilterList.includes(slugify(location))) &&
         (!investorFilterList ||
           investors.filter(investor =>
-            investorFilterList.includes(normalizeString(investor.name)),
+            investorFilterList.includes(slugify(investor.name)),
           ).length > 0) &&
         (!communityFilterList ||
           community.filter(community =>
-            communityFilterList.includes(normalizeString(community)),
+            communityFilterList.includes(slugify(community)),
           ).length > 0) &&
         (!fundingRoundFilterList ||
           fundingRoundFilterList.includes(
-            normalizeString(
+            slugify(
               sort<FundingRound>(fundingRounds).desc(x => x.date)[0]?.roundName,
             ),
           ))
@@ -1057,7 +1057,7 @@ export class OrganizationsService {
 
         RETURN org
       `,
-      { ...organization, normalizedName: normalizeString(organization.name) },
+      { ...organization, normalizedName: slugify(organization.name) },
     );
 
     await this.updateOrgWebsites({
@@ -1520,7 +1520,7 @@ export class OrganizationsService {
           orgId: dto.orgId,
           communities: dto.communities.map(c => ({
             name: c,
-            normalizedName: normalizeString(c),
+            normalizedName: slugify(c),
           })),
           names: dto.communities,
         },
