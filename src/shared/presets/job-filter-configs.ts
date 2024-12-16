@@ -141,7 +141,7 @@ export const FILTER_CONFIG_PRESETS = {
   organizations: {
     position: 12,
     label: "Organizations",
-    show: true,
+    show: false,
     googleAnalyticsEventName: "filter_joblist_organizations",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
@@ -164,7 +164,7 @@ export const FILTER_CONFIG_PRESETS = {
   chains: {
     position: 15,
     label: "Chains",
-    show: false,
+    show: true,
     googleAnalyticsEventName: "filter_joblist_chains",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
