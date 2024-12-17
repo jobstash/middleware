@@ -632,7 +632,7 @@ export const getLogoUrlHttpsAlternative = (
   return `${URL_PREFIX}https://${domain}${URL_SUFFIX}`;
 };
 
-export const slugify = (str: string): string =>
-  _slugify(str, {
-    lower: true,
-  });
+export const slugify = (str: string | null | undefined): string => {
+  if (str === null || str === undefined) return "";
+  return _slugify(str, { lower: true });
+};
