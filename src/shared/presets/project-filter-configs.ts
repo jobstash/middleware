@@ -55,7 +55,7 @@ export const FILTER_CONFIG_PRESETS = {
   ecosystems: {
     position: 3,
     label: "Ecosystems",
-    show: true,
+    show: false,
     googleAnalyticsEventName: "filter_projectlist_ecosystems",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
@@ -124,7 +124,7 @@ export const FILTER_CONFIG_PRESETS = {
   communities: {
     position: 12,
     label: "Communities",
-    show: true,
+    show: false,
     googleAnalyticsEventName: "filter_joblist_communities",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
