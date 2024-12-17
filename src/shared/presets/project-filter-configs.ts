@@ -84,7 +84,7 @@ export const FILTER_CONFIG_PRESETS = {
   monthlyVolume: {
     position: 7,
     label: "Volume/mo",
-    show: true,
+    show: false,
     googleAnalyticsEventName: "filter_projectlist_monthly_volume",
     kind: FilterKind.RANGE,
     prefix: "$",
@@ -92,7 +92,7 @@ export const FILTER_CONFIG_PRESETS = {
   monthlyFees: {
     position: 8,
     label: "Fees/mo",
-    show: true,
+    show: false,
     googleAnalyticsEventName: "filter_projectlist_monthly_fees",
     kind: FilterKind.RANGE,
     prefix: "$",
@@ -100,7 +100,7 @@ export const FILTER_CONFIG_PRESETS = {
   monthlyRevenue: {
     position: 9,
     label: "Revenue/mo",
-    show: true,
+    show: false,
     googleAnalyticsEventName: "filter_projectlist_monthly_revenue",
     kind: FilterKind.RANGE,
     prefix: "$",
