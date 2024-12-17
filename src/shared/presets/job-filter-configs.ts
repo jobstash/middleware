@@ -76,7 +76,7 @@ export const FILTER_CONFIG_PRESETS = {
   communities: {
     position: 3,
     label: "Communities",
-    show: true,
+    show: false,
     googleAnalyticsEventName: "filter_joblist_communities",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
@@ -112,7 +112,7 @@ export const FILTER_CONFIG_PRESETS = {
   },
   tags: {
     position: 8,
-    label: "Technologies",
+    label: "Skills",
     show: true,
     googleAnalyticsEventName: "filter_joblist_tags",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
@@ -171,7 +171,7 @@ export const FILTER_CONFIG_PRESETS = {
   ecosystems: {
     position: 16,
     label: "Ecosystems",
-    show: true,
+    show: false,
     googleAnalyticsEventName: "filter_joblist_ecosystems",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
@@ -207,16 +207,8 @@ export const FILTER_CONFIG_PRESETS = {
     kind: FilterKind.RANGE,
     prefix: "$",
   },
-  mainNet: {
-    position: 21,
-    label: "Mainnet",
-    show: true,
-    googleAnalyticsEventName: "filter_joblist_is_mainet",
-    kind: FilterKind.SINGLE_SELECT,
-    options: SINGLE_SELECT_OPTIONS.mainNet,
-  },
   token: {
-    position: 22,
+    position: 21,
     label: "Has Token",
     show: true,
     googleAnalyticsEventName: "filter_joblist_has_token",
@@ -224,7 +216,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.token,
   },
   orderBy: {
-    position: 23,
+    position: 22,
     label: "Order By",
     show: true,
     googleAnalyticsEventName: "filter_joblist_order_by",
@@ -232,7 +224,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.orderBy,
   },
   order: {
-    position: 24,
+    position: 23,
     label: "Order",
     show: true,
     googleAnalyticsEventName: "filter_joblist_order",
@@ -254,7 +246,6 @@ export const FILTER_PARAM_KEY_PRESETS = {
     highest: "maxHeadCount",
   },
   tags: "tags",
-  skills: "skills",
   fundingRounds: "fundingRounds",
   investors: "investors",
   organizations: "organizations",
@@ -282,7 +273,6 @@ export const FILTER_PARAM_KEY_PRESETS = {
   },
   audits: "audits",
   hacks: "hacks",
-  mainNet: "mainNet",
   token: "token",
   order: "order",
   orderBy: "orderBy",

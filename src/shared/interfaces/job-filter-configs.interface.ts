@@ -27,7 +27,6 @@ export class JobFilterConfigs {
     order: SingleSelectFilter.SingleSelectFilterType,
     seniority: MultiSelectFilter.MultiSelectFilterType,
     locations: MultiSelectFilter.MultiSelectFilterType,
-    mainNet: SingleSelectFilter.SingleSelectFilterType,
     orderBy: SingleSelectFilter.SingleSelectFilterType,
     tags: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     publicationDate: SingleSelectFilter.SingleSelectFilterType,
@@ -85,8 +84,6 @@ export class JobFilterConfigs {
   @ApiProperty()
   hacks: SingleSelectFilter;
   @ApiProperty()
-  mainNet: SingleSelectFilter;
-  @ApiProperty()
   token: SingleSelectFilter;
   @ApiProperty()
   order: SingleSelectFilter;
@@ -103,7 +100,6 @@ export class JobFilterConfigs {
       salary,
       chains,
       audits,
-      mainNet,
       orderBy,
       projects,
       seniority,
@@ -132,7 +128,6 @@ export class JobFilterConfigs {
     this.salary = salary;
     this.chains = chains;
     this.audits = audits;
-    this.mainNet = mainNet;
     this.orderBy = orderBy;
     this.projects = projects;
     this.seniority = seniority;

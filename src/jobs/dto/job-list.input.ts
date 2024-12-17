@@ -211,14 +211,6 @@ export class JobListParams {
   @IsBoolean()
   token?: boolean | null = null;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
-  @IsBoolean()
-  mainNet?: boolean | null = null;
-
   @ApiPropertyOptional({
     enum: ["asc", "desc"],
   })

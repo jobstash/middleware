@@ -508,7 +508,6 @@ export class JobsService {
       commitments: commitmentFilterList,
       communities: communityFilterList,
       token,
-      mainNet,
       query,
       order,
       orderBy,
@@ -592,7 +591,6 @@ export class JobsService {
           (token === null ||
             projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
               .length > 0) &&
-          (mainNet === null || projects.filter(x => x.isMainnet).length > 0) &&
           (!minTvl ||
             projects.filter(x => (x?.tvl ?? 0) >= minTvl).length > 0) &&
           (!maxTvl ||

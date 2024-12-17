@@ -29,7 +29,6 @@ export class AppService {
         chains: null,
         maxTvl: null,
         minTvl: null,
-        mainNet: null,
         orderBy: null,
         projects: null,
         locations: null,
