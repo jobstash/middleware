@@ -642,7 +642,7 @@ export class SearchService {
 
   async search(raw: string): Promise<SearchResult> {
     try {
-      const query = `*${raw}*`;
+      const query = raw ? `*${raw}*` : null;
       const [projects, organizations, grants, grantsImpact, vcs] =
         await Promise.all([
           this.searchProjects(query),
