@@ -264,7 +264,6 @@ export class OrganizationsController {
 
   @Get("/search")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
