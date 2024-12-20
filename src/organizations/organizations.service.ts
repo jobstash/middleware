@@ -1,6 +1,5 @@
 import { Injectable } from "@nestjs/common";
 import {
-  ShortOrgEntity,
   ShortOrg,
   Repository,
   PaginatedData,
@@ -56,6 +55,7 @@ import { ConfigService } from "@nestjs/config";
 import axios from "axios";
 import { Auth0Service } from "src/auth0/auth0.service";
 import { ImportOrgJobsiteInput } from "./dto/import-organization-jobsites.input";
+import { SearchOrganizationsInput } from "./dto/search-organizations.input";
 
 @Injectable()
 export class OrganizationsService {
@@ -109,7 +109,8 @@ export class OrganizationsService {
               classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
               commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
               locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
-              timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END
+              timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+              tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag.name ]
             }
           ],
           projects: [
@@ -242,9 +243,16 @@ export class OrganizationsService {
     }
 
     const orgFilters = (org: OrgDetailsResult): boolean => {
-      const { headcountEstimate, jobCount, projectCount, location, name } =
-        toShortOrg(org);
-      const { fundingRounds, investors, community, aliases } = org;
+      const [jobCount, projectCount] = [org.jobs.length, org.projects.length];
+      const {
+        fundingRounds,
+        investors,
+        community,
+        aliases,
+        headcountEstimate,
+        location,
+        name,
+      } = org;
       const isValidSearchResult =
         name.match(query) || aliases.some(alias => alias.match(query));
       return (
@@ -275,11 +283,10 @@ export class OrganizationsService {
     const filtered = results.filter(orgFilters);
 
     const getSortParam = (org: OrgDetailsResult): number | null => {
-      const shortOrg = toShortOrg(org);
       const lastJob = sort(org.jobs).desc(x => x.timestamp)[0];
       switch (orderBy) {
         case "recentFundingDate":
-          return shortOrg?.lastFundingDate ?? 0;
+          return org.lastFundingDate() ?? 0;
         case "recentJobDate":
           return lastJob?.timestamp ?? 0;
         case "headcountEstimate":
@@ -302,16 +309,14 @@ export class OrganizationsService {
     if (!order || order === "desc") {
       final = naturalSort<OrgDetailsResult>(filtered).by([
         {
-          desc: x =>
-            params.orderBy ? getSortParam(x) : toShortOrg(x).lastFundingDate,
+          desc: x => (params.orderBy ? getSortParam(x) : x.lastFundingDate()),
         },
         { asc: x => x.name },
       ]);
     } else {
       final = naturalSort<OrgDetailsResult>(filtered).by([
         {
-          asc: x =>
-            params.orderBy ? getSortParam(x) : toShortOrg(x).lastFundingDate,
+          asc: x => (params.orderBy ? getSortParam(x) : x.lastFundingDate()),
         },
         { asc: x => x.name },
       ]);
@@ -320,7 +325,7 @@ export class OrganizationsService {
     return paginate<ShortOrg>(
       page,
       limit,
-      final.map(x => new ShortOrgEntity(toShortOrg(x)).getProperties()),
+      final.map(x => toShortOrg(x)),
     );
   }
 
@@ -370,7 +375,7 @@ export class OrganizationsService {
                   now <= job.featureEndDate,
               ),
           )
-          .map(x => new ShortOrgEntity(toShortOrg(x)).getProperties()),
+          .map(x => toShortOrg(x)),
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -795,9 +800,7 @@ export class OrganizationsService {
 
   async getAll(): Promise<ShortOrg[]> {
     try {
-      return (await this.getOrgListResults()).map(org =>
-        new ShortOrgEntity(toShortOrg(org)).getProperties(),
-      );
+      return (await this.getOrgListResults()).map(org => toShortOrg(org));
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -811,18 +814,75 @@ export class OrganizationsService {
     }
   }
 
-  async searchOrganizations(query: string): Promise<ShortOrg[]> {
-    const parsedQuery = new RegExp(query, "gi");
+  async searchOrganizations(
+    params: SearchOrganizationsInput,
+    community: string | undefined,
+  ): Promise<PaginatedData<ShortOrg>> {
     try {
-      const all = await this.getAll();
-      return all.filter(x => x.name.match(parsedQuery));
+      const {
+        locations: locationFilterList,
+        investors: investorFilterList,
+        fundingRounds: fundingRoundFilterList,
+        tags: tagFilterList,
+        page: page = 1,
+        limit: limit = 20,
+      } = params;
+
+      const communityFilterList = community ? [community] : null;
+
+      const all = await this.getOrgListResults();
+
+      const orgFilters = (org: OrgDetailsResult): boolean => {
+        const { fundingRounds, investors, community, location } = org;
+        const tags = org.jobs.flatMap(x => x.tags);
+        return (
+          (!locationFilterList ||
+            locationFilterList.includes(slugify(location))) &&
+          (!investorFilterList ||
+            investors.filter(investor =>
+              investorFilterList.includes(slugify(investor.name)),
+            ).length > 0) &&
+          (!communityFilterList ||
+            community.filter(community =>
+              communityFilterList.includes(slugify(community)),
+            ).length > 0) &&
+          (!fundingRoundFilterList ||
+            fundingRoundFilterList.includes(
+              slugify(
+                sort<FundingRound>(fundingRounds).desc(x => x.date)[0]
+                  ?.roundName,
+              ),
+            )) &&
+          (!tagFilterList ||
+            tags.filter(tag => tagFilterList.includes(slugify(tag))).length > 0)
+        );
+      };
+
+      const filtered = all.filter(orgFilters).map(toShortOrg);
+
+      const naturalSort = createNewSortInstance({
+        comparer: new Intl.Collator(undefined, {
+          numeric: true,
+          sensitivity: "base",
+        }).compare,
+        inPlaceSorting: true,
+      });
+
+      const sorted = naturalSort<ShortOrg>(filtered).by([
+        {
+          desc: x => x.lastFundingDate,
+        },
+        { asc: x => x.name },
+      ]);
+
+      return paginate<ShortOrg>(page, limit, sorted);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
           source: "organizations.service",
         });
-        scope.setExtra("input", query);
+        scope.setExtra("input", params);
         Sentry.captureException(err);
       });
       this.logger.error(

@@ -24,6 +24,7 @@ export class OrgJob {
     commitment: t.union([t.string, t.null]),
     timestamp: t.union([t.number, t.null]),
     locationType: t.union([t.string, t.null]),
+    tags: t.array(t.string),
   });
 
   @ApiProperty()
@@ -83,6 +84,9 @@ export class OrgJob {
   @ApiPropertyOptional()
   locationType: string | null;
 
+  @ApiPropertyOptional()
+  tags: string[];
+
   constructor(raw: OrgJob) {
     const {
       id,
@@ -104,6 +108,7 @@ export class OrgJob {
       featureEndDate,
       timestamp,
       locationType,
+      tags,
     } = raw;
     this.id = id;
     this.shortUUID = shortUUID;
@@ -124,6 +129,7 @@ export class OrgJob {
     this.featured = featured;
     this.featureStartDate = featureStartDate;
     this.featureEndDate = featureEndDate;
+    this.tags = tags;
 
     const result = OrgJob.OrgJobType.decode(raw);
 

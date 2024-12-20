@@ -19,6 +19,7 @@ import { FundingRound } from "./funding-round.interface";
 import { Investor } from "./investor.interface";
 import { LeanOrgReview } from "./org-review.interface";
 import { OrgProject } from "./project-details-result.interface";
+import { sort } from "fast-sort";
 
 @ApiExtraModels(OrganizationWithRelations, OrgDetailsResult, OrgJob)
 export class OrgDetailsResult extends Organization {
@@ -122,7 +123,9 @@ export class OrgDetailsResult extends Organization {
   })
   tags: Tag[];
 
-  constructor(raw: OrgDetailsResult) {
+  constructor(
+    raw: Omit<OrgDetailsResult, "lastFundingAmount" | "lastFundingDate">,
+  ) {
     const {
       aggregateRating,
       aggregateRatings,
@@ -175,5 +178,15 @@ export class OrgDetailsResult extends Organization {
         );
       });
     }
+  }
+
+  lastFundingDate(): number | null {
+    const lastFundingRound = sort(this.fundingRounds).desc(x => x.date)[0];
+    return lastFundingRound?.date ?? null;
+  }
+
+  lastFundingAmount(): number | null {
+    const lastFundingRound = sort(this.fundingRounds).desc(x => x.date)[0];
+    return lastFundingRound?.raisedAmount ?? null;
   }
 }

@@ -43,6 +43,7 @@ import { PrivyService } from "src/auth/privy/privy.service";
 import { UserService } from "src/user/user.service";
 import { WalletWithMetadata } from "@privy-io/server-auth";
 import _slugify from "slugify";
+import { ShortOrgEntity } from "../entities";
 
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
@@ -419,7 +420,7 @@ export const toShortOrg = (org: OrgDetailsResult): ShortOrg => {
     grants,
   } = org;
   const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
-  return {
+  return new ShortOrgEntity({
     orgId,
     url: website,
     name,
@@ -436,7 +437,7 @@ export const toShortOrg = (org: OrgDetailsResult): ShortOrg => {
     projectCount: org.projects.length,
     lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
     lastFundingDate: lastFundingRound?.date ?? 0,
-  };
+  }).getProperties();
 };
 
 export function propertiesMatch<T extends object, U extends object>(

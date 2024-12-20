@@ -79,6 +79,7 @@ import { randomUUID } from "crypto";
 import { Session } from "src/shared/decorators";
 import { UserService } from "src/user/user.service";
 import { ImportOrgJobsiteInput } from "./dto/import-organization-jobsites.input";
+import { SearchOrganizationsInput } from "./dto/search-organizations.input";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -259,6 +260,29 @@ export class OrganizationsController {
   ): Promise<OrgFilterConfigs> {
     this.logger.log(`/jobs/filters`);
     return this.organizationsService.getFilterConfigs(community);
+  }
+
+  @Get("/search")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiOkResponse({
+    description: "Returns a list of orgs that match the search criteria",
+    type: Response<ShortOrg[]>,
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  async searchOrganizations(
+    @Query(new ValidationPipe({ transform: true }))
+    params: SearchOrganizationsInput,
+    @Headers(COMMUNITY_HEADER) community: string | undefined,
+  ): Promise<PaginatedData<ShortOrg>> {
+    this.logger.log(`/organizations/search ${JSON.stringify({ params })}`);
+    return this.organizationsService.searchOrganizations(params, community);
   }
 
   @Get("/featured")
