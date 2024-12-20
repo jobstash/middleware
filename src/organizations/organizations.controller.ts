@@ -268,7 +268,7 @@ export class OrganizationsController {
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
     description: "Returns a list of orgs that match the search criteria",
-    type: Response<ShortOrg[]>,
+    type: Response<PaginatedData<ShortOrg>>,
   })
   @ApiBadRequestResponse({
     description:

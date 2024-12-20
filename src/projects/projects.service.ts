@@ -49,6 +49,7 @@ import { LinkReposToProjectInput } from "./dto/link-repos-to-project.dto";
 import { ProjectListParams } from "./dto/project-list.input";
 import { UpdateProjectJobsitesInput } from "./dto/update-project-jobsites.input";
 import { UpdateProjectInput } from "./dto/update-project.input";
+import { SearchProjectsInput } from "./dto/search-projects.input";
 
 @Injectable()
 export class ProjectsService {
@@ -625,7 +626,87 @@ export class ProjectsService {
     }
   }
 
-  async searchProjects(query: string): Promise<ProjectProps[]> {
+  async searchProjects(
+    params: SearchProjectsInput,
+    community: string | undefined,
+  ): Promise<PaginatedData<ProjectListResult>> {
+    try {
+      const {
+        categories: categoryFilterList,
+        chains: chainFilterList,
+        investors: investorFilterList,
+        tags: tagFilterList,
+        page: page = 1,
+        limit: limit = 20,
+      } = params;
+      const communityFilterList = community ? [community] : null;
+      const all = await this.models.Projects.getProjectsData();
+
+      const projectFilters = (
+        project: ProjectWithRelations & {
+          orgNames: string[];
+          communities: string[];
+          aliases: string[];
+          investors: Investor[];
+        },
+      ): boolean => {
+        return (
+          (!tagFilterList ||
+            (tagFilterList.find(x =>
+              project.jobs
+                .flatMap(x => x.tags)
+                .map(x => slugify(x.name))
+                .includes(x),
+            ) ??
+              false)) &&
+          (!categoryFilterList ||
+            categoryFilterList.includes(slugify(project.category))) &&
+          (!chainFilterList ||
+            chainFilterList.some(x =>
+              project.chains.map(x => slugify(x.name)).includes(x),
+            )) &&
+          (!communityFilterList ||
+            project.communities.filter(community =>
+              communityFilterList.includes(slugify(community)),
+            ).length > 0) &&
+          (!investorFilterList ||
+            project.investors.filter(investor =>
+              investorFilterList.includes(slugify(investor.name)),
+            ).length > 0)
+        );
+      };
+      const filtered = all
+        .filter(projectFilters)
+        .map(x => new ProjectListResultEntity(x).getProperties());
+
+      const naturalSort = createNewSortInstance({
+        comparer: new Intl.Collator(undefined, {
+          numeric: true,
+          sensitivity: "base",
+        }).compare,
+        inPlaceSorting: true,
+      });
+
+      return paginate<ProjectListResult>(
+        page,
+        limit,
+        naturalSort<ProjectListResult>(filtered).asc(x => x.name),
+      );
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "projects.service",
+        });
+        scope.setExtra("input", params);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`ProjectsService::searchProjects ${err.message}`);
+      return undefined;
+    }
+  }
+
+  async searchAllProjects(query: string): Promise<ProjectProps[]> {
     try {
       return this.models.Projects.searchProjects(query);
     } catch (err) {

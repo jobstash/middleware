@@ -85,6 +85,7 @@ import { ProjectsService } from "./projects.service";
 import { AddProjectByUrlInput } from "./dto/add-project-by-url.input";
 import { ActivateProjectJobsiteInput } from "./dto/activate-project-jobsites.input";
 import { CreateProjectJobsiteInput } from "./dto/create-project-jobsites.input";
+import { SearchProjectsInput } from "./dto/search-projects.input";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mime = require("mime");
 
@@ -248,6 +249,28 @@ export class ProjectsController {
   ): Promise<ProjectFilterConfigs> {
     this.logger.log(`/projects/filters`);
     return this.projectsService.getFilterConfigs(community);
+  }
+
+  @Get("/search")
+  @UseGuards(PBACGuard)
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiOkResponse({
+    description: "Returns a list of orgs that match the search criteria",
+    type: Response<PaginatedData<ProjectListResult>>,
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  async searchOrganizations(
+    @Query(new ValidationPipe({ transform: true }))
+    params: SearchProjectsInput,
+    @Headers(COMMUNITY_HEADER) community: string | undefined,
+  ): Promise<PaginatedData<ProjectListResult>> {
+    this.logger.log(`/projects/search ${JSON.stringify({ params })}`);
+    return this.projectsService.searchProjects(params, community);
   }
 
   @Get("id/:domain")
@@ -545,6 +568,28 @@ export class ProjectsController {
 
   @Get("/search")
   @UseGuards(PBACGuard)
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @ApiOkResponse({
+    description: "Returns a list of projects that match the search criteria",
+    type: Response<PaginatedData<ProjectListResult>>,
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    type: ValidationError,
+  })
+  async searchProjects(
+    @Query(new ValidationPipe({ transform: true }))
+    params: SearchProjectsInput,
+    @Headers(COMMUNITY_HEADER) community: string | undefined,
+  ): Promise<PaginatedData<ProjectListResult>> {
+    this.logger.log(`/organizations/search ${JSON.stringify({ params })}`);
+    return this.projectsService.searchProjects(params, community);
+  }
+
+  @Get("/search/all")
+  @UseGuards(PBACGuard)
   @Permissions(
     CheckWalletPermissions.ADMIN,
     CheckWalletPermissions.PROJECT_MANAGER,
@@ -555,13 +600,13 @@ export class ProjectsController {
       $ref: getSchemaPath(ProjectWithRelations),
     }),
   })
-  async searchProjects(
+  async searchAllProjects(
     @Session() { address }: SessionObject,
     @Query("query") query: string,
   ): Promise<ResponseWithOptionalData<ProjectProps[]>> {
     this.logger.log(`GET /projects/search?query=${query} from ${address}`);
     return this.projectsService
-      .searchProjects(query)
+      .searchAllProjects(query)
       .then(res => ({
         success: true,
         message: "Retrieved matching projects successfully",
