@@ -640,8 +640,9 @@ export class SearchService {
     }
   }
 
-  async search(query: string): Promise<SearchResult> {
+  async search(raw: string): Promise<SearchResult> {
     try {
+      const query = `*${raw}*`;
       const [projects, organizations, grants, grantsImpact, vcs] =
         await Promise.all([
           this.searchProjects(query),
