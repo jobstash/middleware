@@ -1269,9 +1269,9 @@ export class ProfileService {
       });
       await this.refreshWorkHistoryCache(
         wallet,
-        workHistory.cryptoNative || orgs.length > 0,
-        workHistory.workHistory,
-        workHistory.adjacentRepos,
+        workHistory?.cryptoNative || orgs.length > 0,
+        workHistory?.workHistory ?? [],
+        workHistory?.adjacentRepos ?? [],
       );
 
       await this.refreshUserRepoCache(
