@@ -1,7 +1,7 @@
 import { forwardRef } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TestingModule, Test } from "@nestjs/testing";
-import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
+import { NeogmaModule, NeogmaModuleOptions } from "nestjs-neogma";
 import { Auth0Module } from "src/auth0/auth0.module";
 import envSchema from "src/env-schema";
 import { ModelService } from "src/model/model.service";
@@ -84,7 +84,7 @@ describe("ProfileController", () => {
               scheme: configService.get<string>("NEO4J_SCHEME_TEST"),
               username: configService.get<string>("NEO4J_USERNAME_TEST"),
               database: configService.get<string>("NEO4J_DATABASE_TEST"),
-            } as NeogmaModuleOptions),
+            }) as NeogmaModuleOptions,
         }),
         HttpModule.registerAsync({
           imports: [ConfigModule],
@@ -214,9 +214,8 @@ describe("ProfileController", () => {
   it(
     "should get user authorized organizations",
     async () => {
-      const result = await controller.getUserAuthorizedOrgs(
-        USER_SESSION_OBJECT,
-      );
+      const result =
+        await controller.getUserAuthorizedOrgs(USER_SESSION_OBJECT);
       expect(result).toEqual({
         success: true,
         message: expect.stringMatching("success"),

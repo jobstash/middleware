@@ -4,7 +4,7 @@ import * as Sentry from "@sentry/node";
 import { differenceInHours } from "date-fns";
 import { sort } from "fast-sort";
 import { Neogma } from "neogma";
-import { InjectConnection } from "nest-neogma";
+import { InjectConnection } from "nestjs-neogma";
 import { PrivyService } from "src/auth/privy/privy.service";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { ModelService } from "src/model/model.service";
@@ -1179,7 +1179,7 @@ export class JobsService {
     id: string,
     page: number,
     limit: number,
-  ): Promise<PaginatedData<AllJobsListResult>> {
+  ): Promise<PaginatedData<AllOrgJobsListResult>> {
     try {
       return paginate<AllOrgJobsListResult>(
         page ?? 1,
@@ -1694,9 +1694,8 @@ export class JobsService {
               applicant.user.wallet,
             );
             const user = await this.privyService.getUser(privyId);
-            const wallets = await this.privyService.getUserLinkedWallets(
-              privyId,
-            );
+            const wallets =
+              await this.privyService.getUserLinkedWallets(privyId);
 
             const ecosystemActivations =
               await this.rpcService.getCommunitiesForWallet(
@@ -1997,15 +1996,15 @@ export class JobsService {
         success: true,
         message: "User bookmarked jobs retrieved successfully",
         data: community
-          ? result.records
+          ? (result.records
               ?.map(record =>
                 new JobListResultEntity(record.get("result")).getProperties(),
               )
               .filter(job => job.organization.community.includes(community)) ??
-            []
-          : result.records?.map(record =>
+            [])
+          : (result.records?.map(record =>
               new JobListResultEntity(record.get("result")).getProperties(),
-            ) ?? [],
+            ) ?? []),
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -2180,15 +2179,15 @@ export class JobsService {
         success: true,
         message: "User applied jobs retrieved successfully",
         data: community
-          ? result.records
+          ? (result.records
               ?.map(record =>
                 new JobListResultEntity(record.get("result")).getProperties(),
               )
               .filter(job => job.organization.community.includes(community)) ??
-            []
-          : result.records?.map(record =>
+            [])
+          : (result.records?.map(record =>
               new JobListResultEntity(record.get("result")).getProperties(),
-            ) ?? [],
+            ) ?? []),
       };
     } catch (err) {
       Sentry.withScope(scope => {

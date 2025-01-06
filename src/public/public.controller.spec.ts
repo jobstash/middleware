@@ -9,7 +9,7 @@ import { CacheModule } from "@nestjs/cache-manager";
 import envSchema from "src/env-schema";
 import { ModelService } from "src/model/model.service";
 import { ModelModule } from "src/model/model.module";
-import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
+import { NeogmaModule, NeogmaModuleOptions } from "nestjs-neogma";
 
 describe("PublicController", () => {
   let controller: PublicController;
@@ -104,7 +104,7 @@ describe("PublicController", () => {
               scheme: configService.get<string>("NEO4J_SCHEME"),
               username: configService.get<string>("NEO4J_USERNAME"),
               database: configService.get<string>("NEO4J_DATABASE"),
-            } as NeogmaModuleOptions),
+            }) as NeogmaModuleOptions,
         }),
         CacheModule.register({ isGlobal: true }),
         ModelModule,

@@ -2,7 +2,7 @@ import { HttpModule, HttpService } from "@nestjs/axios";
 import { forwardRef } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TestingModule, Test } from "@nestjs/testing";
-import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
+import { NeogmaModule, NeogmaModuleOptions } from "nestjs-neogma";
 import envSchema from "src/env-schema";
 import { ModelModule } from "src/model/model.module";
 import { ModelService } from "src/model/model.service";
@@ -50,7 +50,7 @@ describe("AuditsService", () => {
               database: configService.get<string>("NEO4J_DATABASE_TEST"),
               retryAttempts: 5,
               retryDelay: 5000,
-            } as NeogmaModuleOptions),
+            }) as NeogmaModuleOptions,
         }),
         forwardRef(() => ModelModule),
         HttpModule.registerAsync({

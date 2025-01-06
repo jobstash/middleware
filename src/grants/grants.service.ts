@@ -7,7 +7,7 @@ import { Alchemy, Network } from "alchemy-sdk";
 import axios from "axios";
 import { randomUUID } from "crypto";
 import { Neogma } from "neogma";
-import { InjectConnection } from "nest-neogma";
+import { InjectConnection } from "nestjs-neogma";
 import { GoogleBigQueryService } from "src/google-bigquery/google-bigquery.service";
 import { ProjectsService } from "src/projects/projects.service";
 import { KARMAGAP_PROGRAM_MAPPINGS } from "src/shared/constants/daoip-karmagap-program-mappings";
@@ -124,9 +124,8 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
     programId: string,
     granteeProjectSlug: string,
   ): Promise<DaoipFundingData[]> => {
-    const daiopFundingData = await this.getDaoipFundingDataByProgramId(
-      programId,
-    );
+    const daiopFundingData =
+      await this.getDaoipFundingDataByProgramId(programId);
 
     return daiopFundingData.filter(
       x => x.to_project_name === granteeProjectSlug,
@@ -466,14 +465,14 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
 
         const gitcoinGrantees =
           program.programId === "451"
-            ? result.rounds.find(
+            ? (result.rounds.find(
                 x =>
                   (x.roundMetadata as GrantMetadata)?.name ===
                   "GG21: Thriving Arbitrum Summer",
-              )?.applications ?? []
-            : result.rounds.find(
+              )?.applications ?? [])
+            : (result.rounds.find(
                 x => (x.roundMetadata as GrantMetadata)?.name === program.name,
-              )?.applications ?? [];
+              )?.applications ?? []);
 
         const gitcoinGranteesFinal = await Promise.all(
           gitcoinGrantees.map(async grantee => {
@@ -608,14 +607,14 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
 
         const gitcoinDetails = (
           program.programId === "451"
-            ? result.rounds.find(
+            ? (result.rounds.find(
                 x =>
                   (x.roundMetadata as GrantMetadata)?.name ===
                   "GG21: Thriving Arbitrum Summer",
-              )?.applications ?? []
-            : result.rounds.find(
+              )?.applications ?? [])
+            : (result.rounds.find(
                 x => (x.roundMetadata as GrantMetadata)?.name === program.name,
-              )?.applications ?? []
+              )?.applications ?? [])
         ).find(x => {
           return slugify(x.project.name) === granteeSlug;
         });
@@ -985,15 +984,15 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
         if (gitcoinDetails) {
           const gitcoinGrantees = (
             program.programId === "451"
-              ? result.rounds.find(
+              ? (result.rounds.find(
                   x =>
                     (x.roundMetadata as GrantMetadata)?.name ===
                     "GG21: Thriving Arbitrum Summer",
-                )?.applications ?? []
-              : result.rounds.find(
+                )?.applications ?? [])
+              : (result.rounds.find(
                   x =>
                     (x.roundMetadata as GrantMetadata)?.name === program.name,
-                )?.applications ?? []
+                )?.applications ?? [])
           ).map(async grantee => {
             const apiKey = this.configService.get<string>("ALCHEMY_API_KEY");
 
@@ -1065,9 +1064,8 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
                 await this.projectsService.findIdByWebsite(url.hostname),
               );
               if (internalId) {
-                const details = await this.projectsService.getProjectById(
-                  internalId,
-                );
+                const details =
+                  await this.projectsService.getProjectById(internalId);
                 internalDescription = details?.description;
               }
             }

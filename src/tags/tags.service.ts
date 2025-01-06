@@ -9,7 +9,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { ModelService } from "src/model/model.service";
 import { CreateTagDto } from "./dto/create-tag.dto";
-import { InjectConnection } from "nest-neogma";
+import { InjectConnection } from "nestjs-neogma";
 import { Neogma } from "neogma";
 import { UpdateTagDto } from "./dto/update-tag.dto";
 import { TagEntity } from "src/shared/entities/tag.entity";

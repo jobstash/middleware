@@ -29,7 +29,7 @@ import {
 import { isRight } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
 import { ModelModule } from "src/model/model.module";
-import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
+import { NeogmaModule, NeogmaModuleOptions } from "nestjs-neogma";
 import { ModelService } from "src/model/model.service";
 import { AuthService } from "src/auth/auth.service";
 import { JwtModule, JwtService } from "@nestjs/jwt";
@@ -181,7 +181,7 @@ describe("JobsController", () => {
               database: configService.get<string>("NEO4J_DATABASE_TEST"),
               retryAttempts: 5,
               retryDelay: 5000,
-            } as NeogmaModuleOptions),
+            }) as NeogmaModuleOptions,
         }),
         JwtModule.registerAsync({
           imports: [ConfigModule],
@@ -824,7 +824,6 @@ describe("JobsController", () => {
         limit: 20,
         minHeadCount: minHeadCount,
         maxHeadCount: maxHeadCount,
-        organizations: organizationFilterList as string[],
         investors: investorFilterList as string[],
         fundingRounds: fundingRoundFilterList as string[],
       };
@@ -873,7 +872,6 @@ describe("JobsController", () => {
     "should respond with the correct results for project based filters",
     async () => {
       const token = false;
-      const mainNet = true;
       const minTvl = 1000;
       const maxTvl = 1000000;
       const minMonthlyVolume = 1000;
@@ -892,7 +890,6 @@ describe("JobsController", () => {
         page: 1,
         limit: 20,
         token,
-        mainNet,
         minTvl,
         maxTvl,
         minMonthlyVolume,
@@ -913,8 +910,6 @@ describe("JobsController", () => {
             (token === null ||
               projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
                 .length > 0) &&
-            (mainNet === null ||
-              projects.filter(x => x.isMainnet).length > 0) &&
             (!projectFilterList ||
               projects.filter(x => projectFilterList.includes(slugify(x.name)))
                 .length > 0) &&

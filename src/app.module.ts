@@ -4,7 +4,8 @@ import { AppService } from "./app.service";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AuthModule } from "./auth/auth.module";
 import * as Sentry from "@sentry/node";
-import * as Tracing from "@sentry/tracing";
+import { nodeProfilingIntegration } from "@sentry/profiling-node";
+import { SentryModule } from "@sentry/nestjs/setup";
 import { JobsModule } from "./jobs/jobs.module";
 import { TagsModule } from "./tags/tags.module";
 import { GithubModule } from "./auth/github/github.module";
@@ -14,7 +15,7 @@ import { ProjectsModule } from "./projects/projects.module";
 import { CacheModule } from "@nestjs/cache-manager";
 import { PublicModule } from "./public/public.module";
 import { ModelModule } from "./model/model.module";
-import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
+import { NeogmaModule, NeogmaModuleOptions } from "nestjs-neogma";
 import { ProfileModule } from "./auth/profile/profile.module";
 import { MailModule } from "./mail/mail.module";
 import { HacksModule } from "./hacks/hacks.module";
@@ -32,6 +33,7 @@ import { Auth0Module } from "./auth0/auth0.module";
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
       validationSchema: envSchema,
@@ -42,15 +44,16 @@ import { Auth0Module } from "./auth0/auth0.module";
     NeogmaModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) =>
-        ({
+      useFactory: (configService: ConfigService) => {
+        return {
           host: configService.get<string>("NEO4J_HOST"),
           password: configService.get<string>("NEO4J_PASSWORD"),
           port: configService.get<string>("NEO4J_PORT"),
           scheme: configService.get<string>("NEO4J_SCHEME"),
           username: configService.get<string>("NEO4J_USERNAME"),
           database: configService.get<string>("NEO4J_DATABASE"),
-        } as NeogmaModuleOptions),
+        } as NeogmaModuleOptions;
+      },
     }),
     CacheModule.register({ isGlobal: true }),
     AuthModule,
@@ -88,15 +91,7 @@ export class AppModule implements OnModuleInit {
       ),
       environment: process.env.NODE_ENV,
       release: "middleware@" + process.env.npm_package_version,
-      integrations: [
-        new Sentry.Integrations.Console(),
-        new Sentry.Integrations.Modules(),
-        new Sentry.Integrations.RequestData(),
-        new Sentry.Integrations.Http({ tracing: true }),
-        new Sentry.Integrations.ContextLines(),
-        new Sentry.Integrations.LocalVariables(),
-        new Tracing.Integrations.Apollo(),
-      ],
+      integrations: [nodeProfilingIntegration()],
     });
   }
 }

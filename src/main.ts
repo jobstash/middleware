@@ -1,6 +1,5 @@
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
-import * as Sentry from "@sentry/node";
 import "@sentry/tracing";
 import helmet from "helmet";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
@@ -12,8 +11,6 @@ import * as fs from "fs";
 import * as express from "express";
 import * as basicAuth from "express-basic-auth";
 import * as compression from "compression";
-// import { OrganizationsModule } from "./organizations/organizations.module";
-// import { ProjectsModule } from "./projects/projects.module";
 import { PublicModule } from "./public/public.module";
 import { generatePublicApiSpec } from "./shared/helpers";
 import { OrganizationsModule } from "./organizations/organizations.module";
@@ -44,9 +41,6 @@ async function bootstrap(): Promise<void> {
       enableDebugMessages: process.env.NODE_ENV === "production" ? false : true,
     }),
   );
-  app.use(Sentry.Handlers.requestHandler());
-  app.use(Sentry.Handlers.tracingHandler());
-  app.use(Sentry.Handlers.errorHandler());
   app.use(ironSession(ironOptions));
   app.use(helmet());
   app.use(compression());

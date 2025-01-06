@@ -6,7 +6,7 @@ import { randomUUID } from "crypto";
 import { uniqBy } from "lodash";
 import { Integer } from "neo4j-driver";
 import { Neogma } from "neogma";
-import { InjectConnection } from "nest-neogma";
+import { InjectConnection } from "nestjs-neogma";
 import { ModelService } from "src/model/model.service";
 import { ScorerService } from "src/scorer/scorer.service";
 import {

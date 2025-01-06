@@ -13,7 +13,7 @@ import {
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { Neogma } from "neogma";
-import { InjectConnection } from "nest-neogma";
+import { InjectConnection } from "nestjs-neogma";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { ModelService } from "src/model/model.service";
 import { instanceToNode, nonZeroOrNull } from "src/shared/helpers";

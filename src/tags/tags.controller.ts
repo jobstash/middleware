@@ -242,9 +242,8 @@ export class TagsController {
 
       const normalizedName = this.tagsService.normalizeTagName(name);
 
-      const existingTagNode = await this.tagsService.findByNormalizedName(
-        normalizedName,
-      );
+      const existingTagNode =
+        await this.tagsService.findByNormalizedName(normalizedName);
 
       if (existingTagNode) {
         return {
@@ -319,9 +318,8 @@ export class TagsController {
       const normalizedSynonymName =
         this.tagsService.normalizeTagName(synonymName);
 
-      const firstTagNode = await this.tagsService.findByNormalizedName(
-        normalizedTagName,
-      );
+      const firstTagNode =
+        await this.tagsService.findByNormalizedName(normalizedTagName);
       const secondTagNode = await this.tagsService.findByNormalizedName(
         normalizedSynonymName,
       );
@@ -643,9 +641,8 @@ export class TagsController {
 
       for (const tagName of synonyms) {
         const normalizedTagName = this.tagsService.normalizeTagName(tagName);
-        const storedTagNode = await this.tagsService.findByNormalizedName(
-          normalizedTagName,
-        );
+        const storedTagNode =
+          await this.tagsService.findByNormalizedName(normalizedTagName);
 
         if (!storedTagNode) {
           return {

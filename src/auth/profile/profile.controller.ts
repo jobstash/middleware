@@ -541,9 +541,8 @@ export class ProfileController {
               };
             }
           } else {
-            const orgId = await this.userService.findOrgIdByJobShortUUID(
-              shortUUID,
-            );
+            const orgId =
+              await this.userService.findOrgIdByJobShortUUID(shortUUID);
 
             const orgProfile = await this.userService.findProfileByOrgId(orgId);
 

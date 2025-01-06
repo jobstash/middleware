@@ -38,6 +38,7 @@ import { responseSchemaWrapper } from "src/shared/helpers";
 import {
   AllJobsFilterConfigs,
   AllJobsListResult,
+  AllOrgJobsListResult,
   JobApplicant,
   JobDetailsResult,
   JobFilterConfigs,
@@ -306,7 +307,7 @@ export class JobsController {
     @Param("id") id: string,
     @Query("page") page: number,
     @Query("limit") limit: number,
-  ): Promise<PaginatedData<AllJobsListResult>> {
+  ): Promise<PaginatedData<AllOrgJobsListResult>> {
     const authorized = await this.userService.userAuthorizedForOrg(address, id);
     if (
       authorized ||
@@ -754,9 +755,8 @@ export class JobsController {
       const tagsToAdd = [];
       for (const tag of tags) {
         const tagNormalizedName = this.tagsService.normalizeTagName(tag);
-        const tagNode = await this.tagsService.findByNormalizedName(
-          tagNormalizedName,
-        );
+        const tagNode =
+          await this.tagsService.findByNormalizedName(tagNormalizedName);
         if (tagNode === null) {
           return {
             success: false,

@@ -21,7 +21,7 @@ import {
 import { isRight } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
 import { ModelService } from "src/model/model.service";
-import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
+import { NeogmaModule, NeogmaModuleOptions } from "nestjs-neogma";
 import { OrganizationsService } from "src/organizations/organizations.service";
 import { ProjectCategoryService } from "./project-category.service";
 import { ADMIN_SESSION_OBJECT, REALLY_LONG_TIME } from "src/shared/constants";
@@ -106,7 +106,7 @@ describe("ProjectsController", () => {
               database: configService.get<string>("NEO4J_DATABASE_TEST"),
               retryAttempts: 5,
               retryDelay: 5000,
-            } as NeogmaModuleOptions),
+            }) as NeogmaModuleOptions,
         }),
         JwtModule.registerAsync({
           imports: [ConfigModule],

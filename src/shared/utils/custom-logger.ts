@@ -7,7 +7,7 @@ export class CustomLogger extends Logger implements LoggerService {
       process.env.ENV == "test"
         ? []
         : process.env.ENV == "development"
-        ? ["debug", "error", "log", "verbose", "warn"]
-        : ["error", "warn", "log"];
+          ? ["debug", "error", "log", "verbose", "warn"]
+          : ["error", "warn", "log"];
   }
 }

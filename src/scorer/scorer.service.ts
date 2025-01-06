@@ -202,9 +202,9 @@ export class ScorerService {
       const params = Buffer.from(wallets.join(",")).toString("base64");
       const res = await firstValueFrom(
         this.httpService
-          .get<{ wallet: string; ecosystemActivations: string[] }[]>(
-            `/scorer/users/ecosystem-activations?wallets=${params}&orgId=${orgId}`,
-          )
+          .get<
+            { wallet: string; ecosystemActivations: string[] }[]
+          >(`/scorer/users/ecosystem-activations?wallets=${params}&orgId=${orgId}`)
           .pipe(
             map(res => res.data),
             catchError((err: AxiosError) => {

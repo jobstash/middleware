@@ -35,7 +35,7 @@ export class PrivyService {
               address: x,
               chainType: "ethereum",
               connectorType: "wallet_connect",
-            } as X),
+            }) as X,
         ),
       );
     }

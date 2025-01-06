@@ -2,7 +2,7 @@ import { HttpModule, HttpService } from "@nestjs/axios";
 import { forwardRef } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TestingModule, Test } from "@nestjs/testing";
-import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
+import { NeogmaModule, NeogmaModuleOptions } from "nestjs-neogma";
 import envSchema from "src/env-schema";
 import { ModelService } from "src/model/model.service";
 import { EPHEMERAL_TEST_WALLET, REALLY_LONG_TIME } from "src/shared/constants";
@@ -49,7 +49,7 @@ describe("HacksService", () => {
               database: configService.get<string>("NEO4J_DATABASE_TEST"),
               retryAttempts: 5,
               retryDelay: 5000,
-            } as NeogmaModuleOptions),
+            }) as NeogmaModuleOptions,
         }),
         HttpModule.registerAsync({
           imports: [ConfigModule],

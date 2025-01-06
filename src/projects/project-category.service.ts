@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { Neogma } from "neogma";
-import { InjectConnection } from "nest-neogma";
+import { InjectConnection } from "nestjs-neogma";
 import { ProjectCategoryEntity } from "src/shared/entities";
 import { CreateProjectCategoryDto } from "./dto/create-project-category.dto";
 import { UpdateProjectCategoryDto } from "./dto/update-project-category.dto";

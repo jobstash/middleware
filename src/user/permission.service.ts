@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { Neogma } from "neogma";
-import { InjectConnection } from "nest-neogma";
+import { InjectConnection } from "nestjs-neogma";
 import { ResponseWithNoData, UserPermission } from "src/shared/interfaces";
 import { CreateUserPermissionDto } from "./dto/create-user-permission.dto";
 import { CustomLogger } from "src/shared/utils/custom-logger";

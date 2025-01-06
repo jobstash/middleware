@@ -3,7 +3,7 @@ import { TagsController } from "./tags.controller";
 import { forwardRef } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import envSchema from "src/env-schema";
-import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
+import { NeogmaModule, NeogmaModuleOptions } from "nestjs-neogma";
 import { ModelModule } from "src/model/model.module";
 import { JwtService } from "@nestjs/jwt";
 import { ModelService } from "src/model/model.service";
@@ -68,7 +68,7 @@ describe("TagsController", () => {
               database: configService.get<string>("NEO4J_DATABASE_TEST"),
               retryAttempts: 5,
               retryDelay: 5000,
-            } as NeogmaModuleOptions),
+            }) as NeogmaModuleOptions,
         }),
         forwardRef(() => ModelModule),
         HttpModule.registerAsync({

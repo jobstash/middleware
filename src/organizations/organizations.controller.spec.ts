@@ -17,7 +17,7 @@ import { isRight } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
 import { Response } from "express";
 import { ModelService } from "src/model/model.service";
-import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
+import { NeogmaModule, NeogmaModuleOptions } from "nestjs-neogma";
 import { Auth0Module } from "src/auth0/auth0.module";
 import { AuthModule } from "src/auth/auth.module";
 import { forwardRef } from "@nestjs/common";
@@ -124,7 +124,7 @@ describe("OrganizationsController", () => {
               scheme: configService.get<string>("NEO4J_SCHEME_TEST"),
               username: configService.get<string>("NEO4J_USERNAME_TEST"),
               database: configService.get<string>("NEO4J_DATABASE_TEST"),
-            } as NeogmaModuleOptions),
+            }) as NeogmaModuleOptions,
         }),
       ],
       controllers: [OrganizationsController],

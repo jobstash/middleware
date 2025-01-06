@@ -575,6 +575,7 @@ export const isValidUrl = (urlString: string): boolean => {
     }
     const url = new URL(urlString);
     return ["http:", "https:"].includes(url.protocol);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (_) {
     throw new Error("Not a valid URL: " + urlString);
   }

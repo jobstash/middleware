@@ -2,9 +2,8 @@ import { Injectable } from "@nestjs/common";
 import * as Sentry from "@sentry/node";
 import { go } from "fuzzysort";
 import { uniqBy } from "lodash";
-import { QueryResult, RecordShape } from "neo4j-driver";
 import { Neogma } from "neogma";
-import { InjectConnection } from "nest-neogma";
+import { InjectConnection } from "nestjs-neogma";
 import { paginate, slugify } from "src/shared/helpers";
 import {
   PaginatedData,
@@ -18,6 +17,7 @@ import {
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
 import { SearchPillarParams } from "./dto/search.input";
+import { QueryResult } from "neo4j-driver";
 
 const NAV_PILLAR_QUERY_MAPPINGS: Record<
   SearchNav,
@@ -203,7 +203,7 @@ export class SearchService {
     query: string,
     group: "projects" | "organizations",
   ): Promise<SearchResultItem[]> {
-    let result: QueryResult<RecordShape>;
+    let result;
 
     if (group === "projects") {
       if (query) {
@@ -283,7 +283,7 @@ export class SearchService {
       result.records.map(record => ({
         value: record.get("name"),
         link: `/${group}/tags/${slugify(record.get("name"))}`,
-      })),
+      })) as SearchResultItem[],
       "value",
     );
   }

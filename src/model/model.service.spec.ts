@@ -6,7 +6,7 @@ import {
   NeogmaModule,
   NeogmaModuleOptions,
   getConnectionToken,
-} from "nest-neogma";
+} from "nestjs-neogma";
 import { ModelModule } from "./model.module";
 import { Neogma } from "neogma";
 
@@ -36,7 +36,7 @@ describe("ModelsService", () => {
               scheme: configService.get<string>("NEO4J_SCHEME"),
               username: configService.get<string>("NEO4J_USERNAME"),
               database: configService.get<string>("NEO4J_DATABASE"),
-            } as NeogmaModuleOptions),
+            }) as NeogmaModuleOptions,
         }),
         ModelModule,
       ],

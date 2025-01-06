@@ -149,11 +149,9 @@ export class ScorerController {
       if (clientId && platform) {
         const res = await firstValueFrom(
           this.httpService
-            .get<ResponseWithOptionalData<CandidateReport>>(
-              `${this.configService.get<string>(
-                "SCORER_DOMAIN",
-              )}/scorer/users/report?user=${user}&wallet=${wallet}&client_id=${clientId}&platform=${platform}&key=${key}`,
-            )
+            .get<
+              ResponseWithOptionalData<CandidateReport>
+            >(`${this.configService.get<string>("SCORER_DOMAIN")}/scorer/users/report?user=${user}&wallet=${wallet}&client_id=${clientId}&platform=${platform}&key=${key}`)
             .pipe(
               catchError((err: AxiosError) => {
                 Sentry.withScope(scope => {
@@ -175,11 +173,9 @@ export class ScorerController {
       } else {
         const res = await firstValueFrom(
           this.httpService
-            .get<ResponseWithOptionalData<CandidateReport>>(
-              `${this.configService.get<string>(
-                "SCORER_DOMAIN",
-              )}/scorer/users/report?user=${user}&wallet=${wallet}&key=${key}`,
-            )
+            .get<
+              ResponseWithOptionalData<CandidateReport>
+            >(`${this.configService.get<string>("SCORER_DOMAIN")}/scorer/users/report?user=${user}&wallet=${wallet}&key=${key}`)
             .pipe(
               catchError((err: AxiosError) => {
                 Sentry.withScope(scope => {

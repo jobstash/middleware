@@ -2,7 +2,7 @@ import { forwardRef } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule, JwtService } from "@nestjs/jwt";
 import { Test, TestingModule } from "@nestjs/testing";
-import { NeogmaModule, NeogmaModuleOptions } from "nest-neogma";
+import { NeogmaModule, NeogmaModuleOptions } from "nestjs-neogma";
 import envSchema from "src/env-schema";
 import { ModelModule } from "src/model/model.module";
 import { ModelService } from "src/model/model.service";
@@ -74,7 +74,7 @@ describe("GithubUserService", () => {
               database: configService.get<string>("NEO4J_DATABASE_TEST"),
               retryAttempts: 5,
               retryDelay: 5000,
-            } as NeogmaModuleOptions),
+            }) as NeogmaModuleOptions,
         }),
         JwtModule.registerAsync({
           imports: [ConfigModule],

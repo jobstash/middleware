@@ -35,7 +35,7 @@ import {
 import { createNewSortInstance, sort } from "fast-sort";
 import { ModelService } from "src/model/model.service";
 import { Neogma } from "neogma";
-import { InjectConnection } from "nest-neogma";
+import { InjectConnection } from "nestjs-neogma";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
 import { UpdateOrgAliasesInput } from "./dto/update-organization-aliases.input";

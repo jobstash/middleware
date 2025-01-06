@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import * as Sentry from "@sentry/node";
 import { sort } from "fast-sort";
 import { Neogma } from "neogma";
-import { InjectConnection } from "nest-neogma";
+import { InjectConnection } from "nestjs-neogma";
 import { ModelService } from "src/model/model.service";
 import {
   AllJobsFilterConfigsEntity,

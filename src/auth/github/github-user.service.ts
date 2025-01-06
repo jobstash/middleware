@@ -12,7 +12,7 @@ import {
 import { CreateGithubUserDto } from "./dto/user/create-github-user.dto";
 import { UpdateGithubUserDto } from "./dto/user/update-github-user.dto";
 import { Neogma } from "neogma";
-import { InjectConnection } from "nest-neogma";
+import { InjectConnection } from "nestjs-neogma";
 import { instanceToNode, propertiesMatch } from "src/shared/helpers";
 import * as Sentry from "@sentry/node";
 import { GithubInfo } from "./dto/github-info.input";

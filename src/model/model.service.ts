@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
 import { Neogma, NeogmaModel } from "neogma";
-import { InjectConnection } from "nest-neogma";
+import { InjectConnection } from "nestjs-neogma";
 import {
   AuditProps,
   AuditorProps,

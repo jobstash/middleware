@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { Neogma } from "neogma";
-import { InjectConnection } from "nest-neogma";
+import { InjectConnection } from "nestjs-neogma";
 import { Investor, PaginatedData } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";

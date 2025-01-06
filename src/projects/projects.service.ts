@@ -5,7 +5,7 @@ import axios from "axios";
 import { createNewSortInstance } from "fast-sort";
 import { omit } from "lodash";
 import { Neogma, Op } from "neogma";
-import { InjectConnection } from "nest-neogma";
+import { InjectConnection } from "nestjs-neogma";
 import { Auth0Service } from "src/auth0/auth0.service";
 import { ModelService } from "src/model/model.service";
 import {
