@@ -70,9 +70,10 @@ export class ProfileService {
   async getUserProfile(
     wallet: string,
   ): Promise<ResponseWithOptionalData<UserProfile>> {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
+    if (wallet) {
+      try {
+        const result = await this.neogma.queryRunner.run(
+          `
         MATCH (user:User {wallet: $wallet})
         RETURN {
           wallet: $wallet,
@@ -83,46 +84,52 @@ export class ProfileService {
           location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
         } as profile
         `,
-        { wallet },
-      );
+          { wallet },
+        );
 
-      const privyId = await this.getPrivyId(wallet);
-      const user = await this.privyService.getUser(privyId);
-      const wallets = await this.privyService.getUserLinkedWallets(privyId);
+        const privyId = await this.getPrivyId(wallet);
+        const user = await this.privyService.getUser(privyId);
+        const wallets = await this.privyService.getUserLinkedWallets(privyId);
 
-      return {
-        success: true,
-        message: "User Profile retrieved successfully",
-        data: result.records[0]?.get("profile")
-          ? new UserProfileEntity({
-              ...result.records[0]?.get("profile"),
-              linkedAccounts: {
-                discord: user?.discord?.username ?? null,
-                telegram: user?.telegram?.username ?? null,
-                twitter: user?.twitter?.username ?? null,
-                email: user?.email?.address ?? null,
-                farcaster: user?.farcaster?.username ?? null,
-                github: user?.github?.username ?? null,
-                google: user?.google?.email ?? null,
-                apple: user?.apple?.email ?? null,
-                wallets,
-              },
-            }).getProperties()
-          : undefined,
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "profile.service",
+        return {
+          success: true,
+          message: "User Profile retrieved successfully",
+          data: result.records[0]?.get("profile")
+            ? new UserProfileEntity({
+                ...result.records[0]?.get("profile"),
+                linkedAccounts: {
+                  discord: user?.discord?.username ?? null,
+                  telegram: user?.telegram?.username ?? null,
+                  twitter: user?.twitter?.username ?? null,
+                  email: user?.email?.address ?? null,
+                  farcaster: user?.farcaster?.username ?? null,
+                  github: user?.github?.username ?? null,
+                  google: user?.google?.email ?? null,
+                  apple: user?.apple?.email ?? null,
+                  wallets,
+                },
+              }).getProperties()
+            : undefined,
+        };
+      } catch (err) {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "profile.service",
+          });
+          scope.setExtra("input", wallet);
+          Sentry.captureException(err);
         });
-        scope.setExtra("input", wallet);
-        Sentry.captureException(err);
-      });
-      this.logger.error(`ProfileService::getUserProfile ${err.message}`);
+        this.logger.error(`ProfileService::getUserProfile ${err.message}`);
+        return {
+          success: false,
+          message: "Error retrieving user profile",
+        };
+      }
+    } else {
       return {
         success: false,
-        message: "Error retrieving user profile",
+        message: "Invalid wallet",
       };
     }
   }
