@@ -30,13 +30,13 @@ export class PrivyController {
   async checkWallet(
     @PrivySession() user: User,
   ): Promise<SessionObject & { token: string }> {
-    this.logger.log("/privy/check-wallet " + JSON.stringify(user));
     const embeddedWallet = (
       user.linkedAccounts.find(
         x => x.type === "wallet" && x.walletClientType === "privy",
       ) as WalletWithMetadata
     )?.address;
     if (embeddedWallet) {
+      this.logger.log("/privy/check-wallet " + embeddedWallet);
       const result = await this.userService.createPrivyUser(
         user,
         embeddedWallet,
