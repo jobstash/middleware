@@ -309,16 +309,18 @@ export class OrganizationsService {
     if (!order || order === "desc") {
       final = naturalSort<OrgDetailsResult>(filtered).by([
         {
-          desc: x => (params.orderBy ? getSortParam(x) : x.lastFundingDate()),
+          desc: (x): number =>
+            params.orderBy ? getSortParam(x) : x.lastFundingDate(),
         },
-        { asc: x => x.name },
+        { asc: (x): string => x.name },
       ]);
     } else {
       final = naturalSort<OrgDetailsResult>(filtered).by([
         {
-          asc: x => (params.orderBy ? getSortParam(x) : x.lastFundingDate()),
+          asc: (x): number =>
+            params.orderBy ? getSortParam(x) : x.lastFundingDate(),
         },
-        { asc: x => x.name },
+        { asc: (x): string => x.name },
       ]);
     }
 
@@ -872,9 +874,9 @@ export class OrganizationsService {
 
       const sorted = naturalSort<ShortOrg>(filtered).by([
         {
-          desc: x => x.lastFundingDate,
+          desc: (x): number => x.lastFundingDate,
         },
-        { asc: x => x.name },
+        { asc: (x): string => x.name },
       ]);
 
       return paginate<ShortOrg>(page, limit, sorted);
@@ -1047,6 +1049,9 @@ export class OrganizationsService {
         try {
           ensureProtocol(domain).map(x => new URL(toAbsoluteURL(x)));
         } catch (err) {
+          this.logger.error(
+            `OrganizationsService::findOrgIdByWebsite ${err.message}`,
+          );
           return {
             success: false,
             message: "Invalid url",

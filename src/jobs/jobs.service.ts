@@ -725,23 +725,23 @@ export class JobsService {
     let final = [];
     if (!order || order === "desc") {
       final = sort<JobListResult>(filtered).by([
-        { desc: job => job.featured },
-        { asc: job => job.featureStartDate },
+        { desc: (job): boolean => job.featured },
+        { asc: (job): number => job.featureStartDate },
         {
-          desc: job =>
+          desc: (job): number =>
             differenceInHours(job.featureEndDate, job.featureStartDate),
         },
-        { desc: job => getSortParam(job) },
+        { desc: (job): number => getSortParam(job) },
       ]);
     } else {
       final = sort<JobListResult>(filtered).by([
-        { desc: job => job.featured },
-        { asc: job => job.featureStartDate },
+        { desc: (job): boolean => job.featured },
+        { asc: (job): number => job.featureStartDate },
         {
-          desc: job =>
+          desc: (job): number =>
             differenceInHours(job.featureEndDate, job.featureStartDate),
         },
-        { asc: job => getSortParam(job) },
+        { asc: (job): number => getSortParam(job) },
       ]);
     }
 
@@ -939,12 +939,12 @@ export class JobsService {
                 now <= job.featureEndDate,
             );
       const result = sort<JobListResult>(featured).by([
-        { desc: job => job.featured },
+        { desc: (job): boolean => job.featured },
         {
-          desc: job =>
+          desc: (job): number =>
             differenceInHours(job.featureEndDate, job.featureStartDate),
         },
-        { asc: job => job.featureStartDate },
+        { asc: (job): number => job.featureStartDate },
       ]);
       return {
         success: true,
