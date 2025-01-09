@@ -86,8 +86,7 @@ import { AddProjectByUrlInput } from "./dto/add-project-by-url.input";
 import { ActivateProjectJobsiteInput } from "./dto/activate-project-jobsites.input";
 import { CreateProjectJobsiteInput } from "./dto/create-project-jobsites.input";
 import { SearchProjectsInput } from "./dto/search-projects.input";
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const mime = require("mime");
+import mime from "mime";
 
 @Controller("projects")
 @ApiExtraModels(Project)
@@ -102,12 +101,12 @@ export class ProjectsController {
     private readonly organizationsService: OrganizationsService,
     private readonly configService: ConfigService,
   ) {
-    (this.NFT_STORAGE_API_KEY = this.configService.get<string>(
+    this.NFT_STORAGE_API_KEY = this.configService.get<string>(
       "NFT_STORAGE_API_KEY",
-    )),
-      (this.nftStorageClient = new NFTStorage({
-        token: this.NFT_STORAGE_API_KEY,
-      }));
+    );
+    this.nftStorageClient = new NFTStorage({
+      token: this.NFT_STORAGE_API_KEY,
+    });
   }
 
   @Get("/")

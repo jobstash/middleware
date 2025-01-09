@@ -80,8 +80,7 @@ import { Session } from "src/shared/decorators";
 import { UserService } from "src/user/user.service";
 import { ImportOrgJobsiteInput } from "./dto/import-organization-jobsites.input";
 import { SearchOrganizationsInput } from "./dto/search-organizations.input";
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const mime = require("mime");
+import mime from "mime";
 
 @Controller("organizations")
 @ApiExtraModels(ShortOrg, TinyOrg, Organization)
@@ -95,12 +94,12 @@ export class OrganizationsController {
     private readonly configService: ConfigService,
     private readonly organizationsService: OrganizationsService,
   ) {
-    (this.NFT_STORAGE_API_KEY = this.configService.get<string>(
+    this.NFT_STORAGE_API_KEY = this.configService.get<string>(
       "NFT_STORAGE_API_KEY",
-    )),
-      (this.nftStorageClient = new NFTStorage({
-        token: this.NFT_STORAGE_API_KEY,
-      }));
+    );
+    this.nftStorageClient = new NFTStorage({
+      token: this.NFT_STORAGE_API_KEY,
+    });
   }
 
   @Get("/")

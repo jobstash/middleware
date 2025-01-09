@@ -3697,7 +3697,7 @@ export class JobsService {
         scope.setExtra("input", { shortUUID, ...job });
         Sentry.captureException(err);
       });
-      this.logger.error(`JobsService::updateJobMetadata ${err.message}`);
+      this.logger.error(`JobsService::update ${err.message}`);
       return false;
     }
   }

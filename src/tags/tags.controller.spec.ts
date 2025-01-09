@@ -12,8 +12,8 @@ import { SessionObject, Tag, data } from "src/shared/interfaces";
 import {
   createTestUser,
   slugify,
-  printDuplicateItems,
   resetTestDB,
+  hasDuplicates,
 } from "src/shared/helpers";
 import { ADMIN_SESSION_OBJECT, REALLY_LONG_TIME } from "src/shared/constants";
 import { HttpModule, HttpService } from "@nestjs/axios";
@@ -145,18 +145,21 @@ describe("TagsController", () => {
     async () => {
       const result = await controller.getTags();
 
-      const uuids = data(result).map(tag => tag.name);
-      const setOfUuids = new Set([...uuids]);
-
       expect(result).toEqual({
         success: true,
         message: expect.any(String),
         data: expect.any(Array<Tag>),
       });
 
-      printDuplicateItems(setOfUuids, uuids, "Tag with name");
-
-      expect(uuids.length).toBe(setOfUuids.size);
+      expect(
+        hasDuplicates(
+          data(result),
+          "Tag with name",
+          x => x.normalizedName,
+          x =>
+            `${x.name} with id ${x.id} and normalized name ${x.normalizedName}`,
+        ),
+      ).toBe(false);
     },
     REALLY_LONG_TIME,
   );
@@ -168,18 +171,21 @@ describe("TagsController", () => {
         Integer.MAX_SAFE_VALUE.toNumber(),
       );
 
-      const uuids = data(result).map(tag => tag.name);
-      const setOfUuids = new Set([...uuids]);
-
       expect(result).toEqual({
         success: true,
         message: expect.any(String),
         data: expect.any(Array<Tag>),
       });
 
-      printDuplicateItems(setOfUuids, uuids, "Tag with name");
-
-      expect(uuids.length).toBe(setOfUuids.size);
+      expect(
+        hasDuplicates(
+          data(result),
+          "Tag with name",
+          x => x.normalizedName,
+          x =>
+            `${x.name} with id ${x.id} and normalized name ${x.normalizedName}`,
+        ),
+      ).toBe(false);
     },
     REALLY_LONG_TIME,
   );
@@ -189,18 +195,21 @@ describe("TagsController", () => {
     async () => {
       const result = await controller.getBlockedTags();
 
-      const uuids = data(result).map(tag => tag.name);
-      const setOfUuids = new Set([...uuids]);
-
       expect(result).toEqual({
         success: true,
         message: expect.any(String),
         data: expect.any(Array<Tag>),
       });
 
-      printDuplicateItems(setOfUuids, uuids, "Blocked tag with name");
-
-      expect(uuids.length).toBe(setOfUuids.size);
+      expect(
+        hasDuplicates(
+          data(result),
+          "Blocked tag with name",
+          x => x.normalizedName,
+          x =>
+            `${x.name} with id ${x.id} and normalized name ${x.normalizedName}`,
+        ),
+      ).toBe(false);
     },
     REALLY_LONG_TIME,
   );
@@ -210,8 +219,7 @@ describe("TagsController", () => {
     async () => {
       const result = await controller.getPreferredTags();
 
-      const uuids = data(result).map(preferredTag => preferredTag.tag.name);
-      const setOfUuids = new Set([...uuids]);
+      const tags = data(result).map(preferredTag => preferredTag.tag);
 
       expect(result).toEqual({
         success: true,
@@ -219,9 +227,15 @@ describe("TagsController", () => {
         data: expect.any(Array<Tag>),
       });
 
-      printDuplicateItems(setOfUuids, uuids, "Preferred tag with name");
-
-      expect(uuids.length).toBe(setOfUuids.size);
+      expect(
+        hasDuplicates(
+          tags,
+          "Preferred tag with name",
+          x => x.normalizedName,
+          x =>
+            `${x.name} with id ${x.id} and normalized name ${x.normalizedName}`,
+        ),
+      ).toBe(false);
     },
     REALLY_LONG_TIME,
   );
@@ -231,8 +245,7 @@ describe("TagsController", () => {
     async () => {
       const result = await controller.getPairedTags();
 
-      const uuids = data(result).map(pairedTag => pairedTag.tag);
-      const setOfUuids = new Set([...uuids]);
+      const tags = data(result).map(pairedTag => pairedTag);
 
       expect(result).toEqual({
         success: true,
@@ -240,9 +253,14 @@ describe("TagsController", () => {
         data: expect.any(Array<Tag>),
       });
 
-      printDuplicateItems(setOfUuids, uuids, "Paired tag with name");
-
-      expect(uuids.length).toBe(setOfUuids.size);
+      expect(
+        hasDuplicates(
+          tags,
+          "Paired tag with name",
+          x => x.tag,
+          x => `${x.tag} with pairings ${x.pairings.join(", ")}`,
+        ),
+      ).toBe(false);
     },
     REALLY_LONG_TIME,
   );

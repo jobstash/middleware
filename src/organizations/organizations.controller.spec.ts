@@ -12,7 +12,7 @@ import {
   ShortOrg,
   OrgProject,
 } from "src/shared/types";
-import { hasDuplicates, printDuplicateItems } from "src/shared/helpers";
+import { hasDuplicates } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
 import { Response } from "express";
@@ -33,18 +33,21 @@ describe("OrganizationsController", () => {
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
       project.audits,
-      a => a.id?.toLowerCase(),
       `Audit for Project ${project.id} for Org ${orgId}`,
+      a => a.id?.toLowerCase(),
+      a => JSON.stringify(a),
     );
     const hasDuplicateHacks = hasDuplicates(
       project.hacks,
-      h => h.id,
       `Hack for Project ${project.id} for Org ${orgId}`,
+      h => h.id,
+      a => JSON.stringify(a),
     );
     const hasDuplicateChains = hasDuplicates(
       project.chains,
-      c => c.id,
       `Chain for Project ${project.id} for Org ${orgId}`,
+      c => c.id,
+      a => JSON.stringify(a),
     );
     expect(hasDuplicateAudits).toBe(false);
     expect(hasDuplicateHacks).toBe(false);
@@ -57,28 +60,33 @@ describe("OrganizationsController", () => {
   ): boolean => {
     const hasDuplicateProjects = hasDuplicates(
       orgListResult.projects,
-      p => p.id,
       `Projects for Org ${orgListResult.orgId}`,
+      p => p.id,
+      a => JSON.stringify(a),
     );
     const hasDuplicateJobs = hasDuplicates(
       orgListResult.jobs,
-      j => j.shortUUID,
       `Jobs for Org ${orgListResult.orgId}`,
+      j => j.shortUUID,
+      a => JSON.stringify(a),
     );
     const hasDuplicateTechs = hasDuplicates(
       orgListResult.tags,
-      x => x.id,
       `Technologies for Org ${orgListResult.orgId}`,
+      x => x.id,
+      a => JSON.stringify(a),
     );
     const hasDuplicateInvestors = hasDuplicates(
       orgListResult.investors,
-      i => i.id,
       `Investor for Org ${orgListResult.orgId}`,
+      i => i.id,
+      a => JSON.stringify(a),
     );
     const hasDuplicateFundingRounds = hasDuplicates(
       orgListResult.fundingRounds,
-      x => x.id,
       `Funding Rounds for Org ${orgListResult.orgId}`,
+      x => x.id,
+      a => JSON.stringify(a),
     );
     const hasProjectsWithUniqueProps =
       orgListResult.projects.every(
@@ -156,9 +164,6 @@ describe("OrganizationsController", () => {
     };
     const res = await controller.getOrgsListWithSearch(params, undefined);
 
-    const uuids = res.data.map(org => org.orgId);
-    const setOfUuids = new Set([...uuids]);
-
     expect(res).toEqual({
       page: 1,
       count: expect.any(Number),
@@ -166,9 +171,12 @@ describe("OrganizationsController", () => {
       data: expect.any(Array<Organization>),
     });
 
-    printDuplicateItems(setOfUuids, uuids, "Organization with orgId");
-
-    expect(setOfUuids.size).toBe(uuids.length);
+    hasDuplicates(
+      res.data,
+      "Organization with orgId",
+      x => x.orgId,
+      x => JSON.stringify(x),
+    );
   }, 300000);
 
   it("should get org details with no array property duplication", async () => {

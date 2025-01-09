@@ -34,6 +34,7 @@ import { RpcService } from "src/user/rpc.service";
 import { ProfileService } from "../profile/profile.service";
 import { PaymentsService } from "src/payments/payments.service";
 import { PrivyService } from "../privy/privy.service";
+import { TagsService } from "src/tags/tags.service";
 
 describe("GithubUserService", () => {
   let models: ModelService;
@@ -113,6 +114,7 @@ describe("GithubUserService", () => {
         UserService,
         PermissionService,
         PaymentsService,
+        TagsService,
       ],
     }).compile();
 

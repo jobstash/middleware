@@ -3,7 +3,7 @@ import { PublicController } from "./public.controller";
 import { PublicService } from "./public.service";
 import { Integer } from "neo4j-driver";
 import { JobListResult, ProjectWithBaseRelations } from "src/shared/interfaces";
-import { hasDuplicates, printDuplicateItems } from "src/shared/helpers";
+import { hasDuplicates } from "src/shared/helpers";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { CacheModule } from "@nestjs/cache-manager";
 import envSchema from "src/env-schema";
@@ -21,18 +21,21 @@ describe("PublicController", () => {
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
       project.audits,
-      a => a.id,
       `Audit for Project ${project.id} for Jobpost ${jobPostUUID}`,
+      a => a.id,
+      a => JSON.stringify(a),
     );
     const hasDuplicateHacks = hasDuplicates(
       project.hacks,
-      h => h.id,
       `Hack for Project ${project.id} for Jobpost ${jobPostUUID}`,
+      h => h.id,
+      a => JSON.stringify(a),
     );
     const hasDuplicateChains = hasDuplicates(
       project.chains,
-      c => c.id,
       `Chain for Project ${project.id} for Jobpost ${jobPostUUID}`,
+      c => c.id,
+      a => JSON.stringify(a),
     );
 
     expect(hasDuplicateAudits).toBe(false);
@@ -46,23 +49,27 @@ describe("PublicController", () => {
   ): boolean => {
     const hasDuplicateProjects = hasDuplicates(
       jobListResult.organization.projects,
-      p => p.id,
       `Org Projects for Jobpost ${jobListResult.shortUUID}`,
+      p => p.id,
+      a => JSON.stringify(a),
     );
     const hasDuplicateTechs = hasDuplicates(
       jobListResult.tags,
-      x => x.normalizedName,
       `Technologies for Jobpost ${jobListResult.shortUUID}`,
+      x => x.normalizedName,
+      a => JSON.stringify(a),
     );
     const hasDuplicateInvestors = hasDuplicates(
       jobListResult.organization.investors,
-      i => i.id,
       `Investor for Jobpost ${jobListResult.shortUUID}`,
+      i => i.id,
+      a => JSON.stringify(a),
     );
     const hasDuplicateFundingRounds = hasDuplicates(
       jobListResult.organization.fundingRounds,
-      x => x.id,
       `Org Funding Rounds for Jobpost ${jobListResult.shortUUID}`,
+      x => x.id,
+      a => JSON.stringify(a),
     );
     const hasProjectsWithUniqueProps =
       jobListResult.organization.projects.every(
@@ -147,7 +154,12 @@ describe("PublicController", () => {
       data: expect.any(Array<JobListResult>),
     });
 
-    printDuplicateItems(setOfUuids, uuids, "StructuredJobpost with UUID");
+    hasDuplicates(
+      res.data,
+      "StructuredJobpost with UUID",
+      x => x.shortUUID,
+      x => `${x.shortUUID} with ${x.title}`,
+    );
 
     expect(uuids.length).toBe(setOfUuids.size);
 

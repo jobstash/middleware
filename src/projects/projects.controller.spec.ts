@@ -12,12 +12,7 @@ import {
   data,
   SessionObject,
 } from "src/shared/interfaces";
-import {
-  createTestUser,
-  hasDuplicates,
-  printDuplicateItems,
-  resetTestDB,
-} from "src/shared/helpers";
+import { createTestUser, hasDuplicates, resetTestDB } from "src/shared/helpers";
 import { isRight } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
 import { ModelService } from "src/model/model.service";
@@ -57,18 +52,21 @@ describe("ProjectsController", () => {
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
       project?.audits,
-      a => a.id.toLowerCase(),
       `Audit for Project ${project.id}`,
+      a => a.id.toLowerCase(),
+      a => JSON.stringify(a),
     );
     const hasDuplicateHacks = hasDuplicates(
       project?.hacks,
-      h => h.id,
       `Hack for Project ${project.id}`,
+      h => h.id,
+      a => JSON.stringify(a),
     );
     const hasDuplicateChains = hasDuplicates(
       project?.chains,
-      c => c.id,
       `Chain for Project ${project.id}`,
+      c => c.id,
+      a => JSON.stringify(a),
     );
 
     expect(hasDuplicateAudits).toBe(false);
@@ -332,9 +330,6 @@ describe("ProjectsController", () => {
       };
       const res = await controller.getProjectsListWithSearch(params, undefined);
 
-      const uuids = res.data.map(project => project.id);
-      const setOfUuids = new Set([...uuids]);
-
       expect(res).toEqual({
         page: 1,
         count: expect.any(Number),
@@ -342,9 +337,12 @@ describe("ProjectsController", () => {
         data: expect.any(Array<Project>),
       });
 
-      printDuplicateItems(setOfUuids, uuids, "Project with ID");
-
-      expect(setOfUuids.size).toBe(uuids.length);
+      hasDuplicates(
+        res.data,
+        "Project with ID",
+        x => x.id,
+        x => JSON.stringify(x),
+      );
     },
     REALLY_LONG_TIME,
   );
@@ -459,7 +457,14 @@ describe("ProjectsController", () => {
     "should search for projects",
     async () => {
       const competitors = await controller.searchProjects(
-        USER_SESSION_OBJECT,
+        {
+          categories: null,
+          chains: null,
+          investors: null,
+          limit: 10,
+          page: 1,
+          tags: null,
+        },
         "AAVE",
       );
 

@@ -22,7 +22,6 @@ import {
   hasDuplicates,
   slugify,
   notStringOrNull,
-  printDuplicateItems,
   publicationDateRangeGenerator,
   resetTestDB,
 } from "src/shared/helpers";
@@ -79,18 +78,21 @@ describe("JobsController", () => {
   ): boolean => {
     const hasDuplicateAudits = hasDuplicates(
       project.audits,
-      a => a.id,
       `Audit for Project ${project.id} for Jobpost ${jobPostUUID}`,
+      a => a.id,
+      a => JSON.stringify(a),
     );
     const hasDuplicateHacks = hasDuplicates(
       project.hacks,
-      h => h.id,
       `Hack for Project ${project.id} for Jobpost ${jobPostUUID}`,
+      h => h.id,
+      a => JSON.stringify(a),
     );
     const hasDuplicateChains = hasDuplicates(
       project.chains,
-      c => c.id,
       `Chain for Project ${project.id} for Jobpost ${jobPostUUID}`,
+      c => c.id,
+      a => JSON.stringify(a),
     );
     expect(hasDuplicateAudits).toBe(false);
     expect(hasDuplicateHacks).toBe(false);
@@ -103,23 +105,27 @@ describe("JobsController", () => {
   ): boolean => {
     const hasDuplicateProjects = hasDuplicates(
       jobListResult.organization.projects,
-      p => p.id,
       `Org Projects for Jobpost ${jobListResult.shortUUID}`,
+      p => p.id,
+      a => JSON.stringify(a),
     );
     const hasDuplicateTechs = hasDuplicates(
       jobListResult.tags,
-      x => x.name,
       `Technologies for Jobpost ${jobListResult.shortUUID}`,
+      x => x.name,
+      a => JSON.stringify(a),
     );
     const hasDuplicateInvestors = hasDuplicates(
       jobListResult.organization.investors,
-      i => i.id,
       `Investor for Jobpost ${jobListResult.shortUUID}`,
+      i => i.id,
+      a => JSON.stringify(a),
     );
     const hasDuplicateFundingRounds = hasDuplicates(
       jobListResult.organization.fundingRounds,
-      x => x.id,
       `Org Funding Rounds for Jobpost ${jobListResult.shortUUID}`,
+      x => x.id,
+      a => JSON.stringify(a),
     );
     const hasProjectsWithUniqueProps =
       jobListResult.organization.projects.every(
@@ -145,8 +151,9 @@ describe("JobsController", () => {
   ): boolean => {
     const hasDuplicateTechs = hasDuplicates(
       jobListResult.tags,
-      x => x.normalizedName,
       `Technologies for Jobpost ${jobListResult.shortUUID}`,
+      x => x.normalizedName,
+      a => JSON.stringify(a),
     );
     expect(hasDuplicateTechs).toBe(false);
     return hasDuplicateTechs;
@@ -655,9 +662,6 @@ describe("JobsController", () => {
         undefined,
       );
 
-      const uuids = result.data.map(job => job.shortUUID);
-      const setOfUuids = new Set([...uuids]);
-
       expect(result).toEqual({
         page: 1,
         count: expect.any(Number),
@@ -665,9 +669,15 @@ describe("JobsController", () => {
         data: expect.any(Array<JobListResult>),
       });
 
-      printDuplicateItems(setOfUuids, uuids, "StructuredJobpost with UUID");
-
-      expect(uuids.length).toBe(setOfUuids.size);
+      expect(
+        hasDuplicates(
+          result.data,
+          "StructuredJobpost with UUID",
+          x => x.shortUUID,
+          x =>
+            `${x.shortUUID} with title ${x.title} from ${x.organization.name} (${x.organization.orgId})`,
+        ),
+      ).toBe(false);
 
       expect(
         result.data.every(x => jlrHasArrayPropsDuplication(x) === false),
@@ -688,14 +698,22 @@ describe("JobsController", () => {
       if (isRight(validationResult)) {
         const validatedResult = validationResult.right;
         expect(validatedResult).toEqual(configs);
-        const investors = configs.investors.options.map(x => x.value);
-        const tags = configs.tags.options.map(x => x.value);
-        printDuplicateItems(
-          new Set(investors),
+        const investors = configs.investors.options.map(x =>
+          x.value.toString(),
+        );
+        const tags = configs.tags.options.map(x => x.value.toString());
+        hasDuplicates(
           investors,
           "Investor with name",
+          x => x,
+          x => x,
         );
-        printDuplicateItems(new Set(tags), tags, "Tag with name");
+        hasDuplicates(
+          tags,
+          "Tag with name",
+          x => x,
+          x => x,
+        );
       } else {
         report(validationResult).forEach(x => {
           throw new Error(x);
@@ -977,18 +995,21 @@ describe("JobsController", () => {
 
       const res = await controller.getAllJobsWithSearch(params);
 
-      const uuids = res.data.map(job => job.shortUUID);
-      const setOfUuids = new Set([...uuids]);
-
       expect(res).toEqual({
         success: true,
         message: expect.any(String),
         data: expect.any(Array<JobListResult>),
       });
 
-      printDuplicateItems(setOfUuids, uuids, "StructuredJobpost with UUID");
-
-      expect(uuids.length).toBe(setOfUuids.size);
+      expect(
+        hasDuplicates(
+          res.data,
+          "StructuredJobpost with UUID",
+          x => x.shortUUID,
+          x =>
+            `${x.shortUUID} with title ${x.title} from ${x.organization.name} (${x.organization.orgId})`,
+        ),
+      ).toBe(false);
 
       expect(
         res.data.every(x => ajlrHasArrayPropsDuplication(x) === false),
@@ -1029,8 +1050,6 @@ describe("JobsController", () => {
     "should get featured jobs",
     async () => {
       const result = await controller.getFeaturedJobsList(undefined);
-      const uuids = data(result).map(job => job.shortUUID);
-      const setOfUuids = new Set([...uuids]);
 
       expect(result).toEqual({
         success: true,
@@ -1038,9 +1057,15 @@ describe("JobsController", () => {
         data: expect.any(Array<JobListResult>),
       });
 
-      printDuplicateItems(setOfUuids, uuids, "Featured Job with UUID");
-
-      expect(uuids.length).toBe(setOfUuids.size);
+      expect(
+        hasDuplicates(
+          data(result),
+          "Featured job with shortUUID",
+          x => x.shortUUID,
+          x =>
+            `${x.shortUUID} with title ${x.title} from ${x.organization.name} (${x.organization.orgId})`,
+        ),
+      ).toBe(false);
 
       expect(
         data(result).every(x => jlrHasArrayPropsDuplication(x) === false),
@@ -1054,13 +1079,15 @@ describe("JobsController", () => {
     async () => {
       const details = await controller.getOrgJobsList("105", undefined);
 
-      const uuids = details?.map(job => job.shortUUID) ?? [];
-      const setOfUuids = new Set([...uuids]);
-
-      printDuplicateItems(setOfUuids, uuids, "StructuredJobpost with UUID");
-
-      expect(uuids.length).toBe(setOfUuids.size);
-
+      expect(
+        hasDuplicates(
+          details,
+          "StructuredJobpost with UUID",
+          x => x.shortUUID,
+          x =>
+            `${x.shortUUID} with title ${x.title} from ${x.organization.name} (${x.organization.orgId})`,
+        ),
+      ).toBe(false);
       expect(
         (details ?? []).every(x => jlrHasArrayPropsDuplication(x) === false),
       ).toBe(true);
@@ -1072,10 +1099,15 @@ describe("JobsController", () => {
     "should get jobsites with no url duplication",
     async () => {
       const jobsites = await models.Jobsites.getAllJobsitesData();
-      const urls = jobsites.map(x => x.url);
-      const setOfUrls = new Set(urls);
-      printDuplicateItems(setOfUrls, urls, "Jobsite with url");
-      expect(urls.length).toBe(setOfUrls.size);
+      expect(
+        hasDuplicates(
+          jobsites,
+          "Jobsite with url",
+          x => x.url,
+          x =>
+            `Jobsite with id ${x.id} of type ${x.type} and owner ${x.orgId ?? x.projectId}`,
+        ),
+      ).toBe(false);
     },
     REALLY_LONG_TIME,
   );

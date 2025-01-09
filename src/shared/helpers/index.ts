@@ -300,58 +300,51 @@ export const inferObjectType = (obj: unknown): string => {
   return objectString;
 };
 
-export const printDuplicateItems = <T>(
-  uniqueItems: Set<T>,
-  itemsArray: T[],
-  itemName: string,
-): boolean => {
-  let hasDuplicates = false;
-  const countMap: Map<T, number> = new Map();
-  const indexesMap: Map<T, number[]> = new Map();
-
-  for (let i = 0; i < itemsArray.length; i++) {
-    const item = itemsArray[i];
-    if (uniqueItems.has(item)) {
-      // Increment the count for duplicated items
-      countMap.set(item, (countMap.get(item) || 0) + 1);
-      // Store the index of the duplicated item
-      const indexes = indexesMap.get(item) || [];
-      indexes.push(i);
-      indexesMap.set(item, indexes);
-    }
-  }
-
-  for (const [item, count] of countMap.entries()) {
-    if (count > 1) {
-      const indexes = indexesMap.get(item);
-      const firstX = indexes.slice(undefined, indexes.length - 1);
-      console.log(
-        `${itemName} '${item}' is found ${count} times at indexes: ${firstX.join(
-          ", ",
-        )} and ${indexes[indexes.length - 1]}`,
-      );
-      hasDuplicates = true;
-    }
-  }
-  return hasDuplicates;
-};
-
 export const hasDuplicates = <A, B>(
-  array: A[],
-  getUniqueProperty: (x: A) => B,
-  arrayName: string,
+  data: A[],
+  itemName: string,
+  uniquePropertyExtractor: (item: A) => B,
+  actionableDataExtractor: (item: A) => string,
 ): boolean => {
-  if (array) {
-    const props = array.map(getUniqueProperty);
-    const propsSet = new Set([...props]);
-
-    if (props.length === propsSet.size) {
-      return false;
-    } else {
-      return printDuplicateItems(propsSet, props, arrayName);
-    }
-  } else {
+  const props = data.map(uniquePropertyExtractor);
+  const propsSet = new Set([...props]);
+  if (props.length === propsSet.size) {
     return false;
+  } else {
+    let hasDuplicates = false;
+    const countMap: Map<B, number> = new Map();
+    const indexesMap: Map<B, number[]> = new Map();
+
+    for (let i = 0; i < props.length; i++) {
+      const item = props[i];
+      if (propsSet.has(item)) {
+        // Increment the count for duplicated items
+        countMap.set(item, (countMap.get(item) || 0) + 1);
+        // Store the index of the duplicated item
+        const indexes = indexesMap.get(item) || [];
+        indexes.push(i);
+        indexesMap.set(item, indexes);
+      }
+    }
+
+    for (const [item, count] of countMap.entries()) {
+      if (count > 1) {
+        const indexes = indexesMap.get(item);
+        const firstX = indexes.slice(undefined, indexes.length - 1);
+        console.log(
+          `${itemName} '${item}' is found ${count} times at indexes: ${firstX.join(
+            ", ",
+          )} and ${indexes[indexes.length - 1]}.
+        Relevant data:
+          ${indexesMap
+            .get(item)
+            .map(x => `idx ${x}: ${actionableDataExtractor(data[x])}`).join(`
+            `)}`,
+        );
+        hasDuplicates = true;
+      }
+    }
+    return hasDuplicates;
   }
 };
 

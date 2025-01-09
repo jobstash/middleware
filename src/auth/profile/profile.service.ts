@@ -461,20 +461,21 @@ export class ProfileService {
         });
       }
 
-      if (workHistory.wallets.length > 0) {
+      if ((workHistory?.wallets?.length ?? 0) > 0) {
         this.logger.log(
           `Fetching orgs for ${wallet} based on ecosystem activations`,
         );
-        const mapped: UserVerifiedOrg[] = workHistory.wallets.flatMap(x =>
-          x.ecosystemActivations.map(y => ({
-            id: y.id,
-            name: y.name,
-            slug: slugify(y.name),
-            url: "http://ethglobal.com/packs",
-            logo: "http://ethglobal.com",
-            account: x.address,
-          })),
-        );
+        const mapped: UserVerifiedOrg[] =
+          workHistory?.wallets?.flatMap(x =>
+            x.ecosystemActivations.map(y => ({
+              id: y.id,
+              name: y.name,
+              slug: slugify(y.name),
+              url: "http://ethglobal.com/packs",
+              logo: "http://ethglobal.com",
+              account: x.address,
+            })),
+          ) ?? [];
         mapped.forEach(x => {
           const exists = orgs.some(y => y.id === x.id);
           if (!exists) {
@@ -1283,7 +1284,7 @@ export class ProfileService {
 
       await this.refreshUserRepoCache(
         wallet,
-        workHistory.workHistory.map(x => {
+        (workHistory?.workHistory ?? []).map(x => {
           const repos = x.repositories.map(repo => ({
             name: repo.name,
             description: repo.description,
