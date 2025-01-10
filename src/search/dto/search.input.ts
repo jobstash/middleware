@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsIn } from "class-validator";
+import { IsString, IsIn, IsOptional } from "class-validator";
 
 export class SearchPillarParams {
   @IsString()
@@ -6,10 +6,10 @@ export class SearchPillarParams {
   nav: "projects" | "organizations" | "grants" | "grantsImpact" | "vcs";
 
   @IsString()
-  @IsNotEmpty()
-  pillar: string;
+  @IsOptional()
+  pillar?: string | null = null;
 
   @IsString()
-  @IsNotEmpty()
-  item: string;
+  @IsOptional()
+  item?: string | null = null;
 }

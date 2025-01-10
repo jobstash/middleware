@@ -17,7 +17,6 @@ import {
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
 import { SearchPillarParams } from "./dto/search.input";
-import { QueryResult } from "neo4j-driver";
 
 const NAV_PILLAR_QUERY_MAPPINGS: Record<
   SearchNav,
@@ -69,6 +68,14 @@ const NAV_PILLAR_QUERY_MAPPINGS: Record<
       "MATCH (:Project)<-[:HAS_PROJECT]-(:Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor:Investor) RETURN DISTINCT investor.name as item",
   },
   vcs: null,
+};
+
+const NAV_PILLAR_DEFAULTS: Record<SearchNav, string> = {
+  grants: "names",
+  grantsImpact: "names",
+  organizations: "locations",
+  projects: "categories",
+  vcs: "vcs",
 };
 
 @Injectable()
@@ -690,8 +697,9 @@ export class SearchService {
   async searchPillar(
     params: SearchPillarParams,
   ): Promise<ResponseWithOptionalData<PillarInfo>> {
+    const pillar = params.pillar ?? NAV_PILLAR_DEFAULTS[params.nav];
     const query: string | undefined | null =
-      NAV_PILLAR_QUERY_MAPPINGS[params.nav][params.pillar];
+      NAV_PILLAR_QUERY_MAPPINGS[params.nav][pillar];
     const headerText = (
       await this.neogma.queryRunner.run(
         `
@@ -701,18 +709,16 @@ export class SearchService {
           description: pillar.description
         } as text
       `,
-        { nav: params.nav, pillar: params.pillar },
+        { nav: params.nav, pillar },
       )
     ).records[0]?.get("text") as { title: string; description: string };
-
-    console.log(query);
 
     if (query && headerText) {
       const result = await this.neogma.queryRunner.run(query);
       const items = result.records.map(record => record.get("item"));
       const wanted = items.find(x => slugify(x) === params.item);
       const alts = Object.keys(NAV_PILLAR_QUERY_MAPPINGS[params.nav])
-        .filter(x => x !== params.pillar)
+        .filter(x => x !== pillar)
         .map(x => {
           const query = NAV_PILLAR_QUERY_MAPPINGS[params.nav][x];
           return query ? [x, query] : null;
@@ -730,7 +736,7 @@ export class SearchService {
         }),
       );
       if (
-        !wanted ||
+        (params.item ? !wanted : false) ||
         items.length === 0 ||
         altPillars.every(x => x.items.length === 0)
       ) {
@@ -745,7 +751,7 @@ export class SearchService {
           data: {
             ...headerText,
             activePillar: {
-              slug: params.pillar,
+              slug: pillar,
               items: [
                 wanted,
                 ...items.filter(x => slugify(x) !== params.item).slice(0, 20),
