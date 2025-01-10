@@ -236,6 +236,7 @@ export class ProjectsService {
       return await this.neogma.queryRunner
         .run(
           `
+            CYPHER runtime = pipelined
             RETURN {
                 maxTvl: apoc.coll.max([
                   (org)-[:HAS_PROJECT]->(project:Project)
@@ -903,6 +904,7 @@ export class ProjectsService {
         try {
           ensureProtocol(domain).map(x => new URL(toAbsoluteURL(x)));
         } catch (err) {
+          this.logger.error(`ProjectsService::findIdByWebsite ${err.message}`);
           return {
             success: false,
             message: "Invalid url",

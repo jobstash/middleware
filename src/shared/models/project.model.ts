@@ -372,6 +372,7 @@ export const Projects = (
       statics: {
         getAllProjectsData: async function () {
           const query = new QueryBuilder()
+            .raw("CYPHER runtime = parallel")
             .match({
               label: "Project",
               identifier: "project",
@@ -453,6 +454,7 @@ export const Projects = (
         },
         getProjectsData: async function () {
           const query = new QueryBuilder()
+            .raw("CYPHER runtime = parallel")
             .match({
               related: [
                 {
@@ -570,6 +572,7 @@ export const Projects = (
         },
         getProjectsMoreInfoData: async function () {
           const query = new QueryBuilder()
+            .raw("CYPHER runtime = parallel")
             .match({
               related: [
                 {
@@ -659,6 +662,7 @@ export const Projects = (
         },
         getProjectDetailsById: async function (id: string) {
           const query = new QueryBuilder()
+            .raw("CYPHER runtime = pipelined")
             .match({
               related: [
                 {
@@ -807,6 +811,7 @@ export const Projects = (
         },
         getProjectDetailsBySlug: async function (slug: string) {
           const query = new QueryBuilder()
+            .raw("CYPHER runtime = pipelined")
             .match({
               related: [
                 {
@@ -955,21 +960,23 @@ export const Projects = (
           return project;
         },
         getProjectsByCategory: async function (category: string) {
-          const query = new QueryBuilder().match({
-            related: [
-              {
-                label: "Project",
-                identifier: "project",
-              },
-              { name: "HAS_CATEGORY", direction: "out" },
-              {
-                label: "ProjectCategory",
-                where: {
-                  name: category,
+          const query = new QueryBuilder()
+            .raw("CYPHER runtime = parallel")
+            .match({
+              related: [
+                {
+                  label: "Project",
+                  identifier: "project",
                 },
-              },
-            ],
-          }).return(`
+                { name: "HAS_CATEGORY", direction: "out" },
+                {
+                  label: "ProjectCategory",
+                  where: {
+                    name: category,
+                  },
+                },
+              ],
+            }).return(`
             project {
                 .*,
                 orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId]
@@ -986,6 +993,7 @@ export const Projects = (
         ) {
           const params = new BindParam({ id, community: community ?? null });
           const query = new QueryBuilder(params)
+            .raw("CYPHER runtime = parallel")
             .match({
               related: [
                 {
@@ -1097,15 +1105,17 @@ export const Projects = (
           return projects;
         },
         getProjectById: async function (id: string) {
-          const query = new QueryBuilder().match({
-            related: [
-              {
-                label: "Project",
-                identifier: "project",
-                where: { id: id },
-              },
-            ],
-          }).return(`
+          const query = new QueryBuilder()
+            .raw("CYPHER runtime = pipelined")
+            .match({
+              related: [
+                {
+                  label: "Project",
+                  identifier: "project",
+                  where: { id: id },
+                },
+              ],
+            }).return(`
               project {
                   .*,
                   orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],

@@ -22,6 +22,7 @@ export class ChainsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = pipelined
         MATCH (chain:Chain)
         RETURN chain { .* } as chain
         `,
@@ -57,6 +58,7 @@ export class ChainsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
+          CYPHER runtime = pipelined
           MATCH (chain:Chain)
           WHERE chain.normalizedName = $slug
           RETURN chain { .* } as chain

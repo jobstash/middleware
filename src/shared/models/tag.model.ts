@@ -67,14 +67,16 @@ export const Tags = (
       },
       statics: {
         getPreferredTags: async function (): Promise<TagPreference[]> {
-          const query = new QueryBuilder().match({
-            optional: true,
-            related: [
-              { label: "Tag", identifier: "pt" },
-              { name: "HAS_TAG_DESIGNATION", direction: "out" },
-              { label: "PreferredDesignation" },
-            ],
-          }).return(`
+          const query = new QueryBuilder()
+            .raw("CYPHER runtime = parallel")
+            .match({
+              optional: true,
+              related: [
+                { label: "Tag", identifier: "pt" },
+                { name: "HAS_TAG_DESIGNATION", direction: "out" },
+                { label: "PreferredDesignation" },
+              ],
+            }).return(`
               pt {
                 tag: pt { .* },
                 synonyms: apoc.coll.toSet([(pt)-[:IS_SYNONYM_OF]-(t2) | t2 { .* }])
@@ -86,13 +88,15 @@ export const Tags = (
             : [];
         },
         getPairedTags: async function (): Promise<TagPair[]> {
-          const query = new QueryBuilder().match({
-            related: [
-              { label: "Tag", identifier: "t1" },
-              { name: "HAS_TAG_DESIGNATION", direction: "out" },
-              { label: "PairedDesignation" },
-            ],
-          }).return(`
+          const query = new QueryBuilder()
+            .raw("CYPHER runtime = parallel")
+            .match({
+              related: [
+                { label: "Tag", identifier: "t1" },
+                { name: "HAS_TAG_DESIGNATION", direction: "out" },
+                { label: "PairedDesignation" },
+              ],
+            }).return(`
               t1 {
                 tag: t1 { .* },
                 pairings: apoc.coll.toSet([(t1)-[:IS_PAIR_OF]->(t2) | t2 { .* }])
@@ -103,6 +107,7 @@ export const Tags = (
         },
         getUnblockedTags: async function (): Promise<Tag[]> {
           const query = new QueryBuilder()
+            .raw("CYPHER runtime = parallel")
             .match({
               related: [
                 { label: "Organization", identifier: "org" },
@@ -148,6 +153,7 @@ export const Tags = (
           const query = new QueryBuilder(
             new BindParam({ upperBound: threshold }),
           )
+            .raw("CYPHER runtime = parallel")
             .match({
               related: [
                 { label: "Organization", identifier: "org" },
@@ -207,6 +213,7 @@ export const Tags = (
         },
         getBlockedTags: async function (): Promise<Tag[]> {
           const query = new QueryBuilder()
+            .raw("CYPHER runtime = parallel")
             .match({
               related: [
                 {

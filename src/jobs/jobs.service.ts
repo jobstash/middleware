@@ -80,6 +80,7 @@ export class JobsService {
   getJobsListResults = async (): Promise<JobListResult[]> => {
     const results: JobListResult[] = [];
     const generatedQuery = `
+      CYPHER runtime = parallel
       MATCH (structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
       WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
       MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
@@ -251,6 +252,7 @@ export class JobsService {
   ): Promise<AllOrgJobsListResult[]> => {
     const results: AllOrgJobsListResult[] = [];
     const generatedQuery = `
+      CYPHER runtime = parallels
       MATCH (:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)
       MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
       WITH DISTINCT tag, structured_jobpost
@@ -397,6 +399,7 @@ export class JobsService {
   getAllJobsListResults = async (): Promise<AllJobsListResult[]> => {
     const results: AllJobsListResult[] = [];
     const generatedQuery = `
+          CYPHER runtime = parallel
           MATCH (structured_jobpost:StructuredJobpost)
           MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
           WITH DISTINCT tag, structured_jobpost
@@ -759,9 +762,11 @@ export class JobsService {
       const tags = (await this.tagsService.getPopularTags(100)).map(
         x => x.name,
       );
-      return await this.neogma.queryRunner
+      console.time("getFilterConfigs");
+      const result = await this.neogma.queryRunner
         .run(
           `
+            CYPHER runtime = parallel
             RETURN {
               maxTvl: apoc.coll.max([
                 (org)-[:HAS_PROJECT]->(project:Project)
@@ -901,6 +906,8 @@ export class JobsService {
               }).getProperties()
             : undefined,
         );
+      console.timeEnd("getFilterConfigs");
+      return result;
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -971,6 +978,7 @@ export class JobsService {
   ): Promise<JobDetailsResult | undefined> {
     try {
       const generatedQuery = `
+      CYPHER runtime = pipelined
       MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID})-[:HAS_STATUS]->(:JobpostOnlineStatus)
       WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
       MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
@@ -1212,6 +1220,7 @@ export class JobsService {
   ): Promise<ResponseWithOptionalData<JobApplicant[]>> {
     try {
       const generatedQuery = `
+        CYPHER runtime = pipelined
         MATCH (org:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
         MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
@@ -1476,6 +1485,7 @@ export class JobsService {
   ): Promise<ResponseWithOptionalData<JobApplicant[]>> {
     try {
       const generatedQuery = `
+        CYPHER runtime = parallel
         MATCH (:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
         MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
@@ -1847,6 +1857,7 @@ export class JobsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = parallel
         MATCH (:User {wallet: $wallet})-[:BOOKMARKED]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
         MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
@@ -2030,6 +2041,7 @@ export class JobsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = pipelined
         MATCH (:User {wallet: $wallet})-[:APPLIED_TO]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
         MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
@@ -2212,6 +2224,7 @@ export class JobsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = parallel
         MATCH (:User {wallet: $wallet})-[:CREATED_FOLDER]->(folder: JobpostFolder)
         OPTIONAL MATCH (folder)-[:CONTAINS_JOBPOST]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
@@ -2399,6 +2412,7 @@ export class JobsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = parallel
         MATCH (folder: JobpostFolder {id: $id})
         OPTIONAL MATCH (folder)-[:CONTAINS_JOBPOST]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
@@ -2592,6 +2606,7 @@ export class JobsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = parallel
         MATCH (folder: JobpostFolder {slug: $slug, isPublic: true})
         OPTIONAL MATCH (folder)-[:CONTAINS_JOBPOST]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
@@ -2785,6 +2800,7 @@ export class JobsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = parallel
         MATCH (folder: JobpostFolder {slug: $slug})
         OPTIONAL MATCH (folder)-[:CONTAINS_JOBPOST]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
@@ -2979,6 +2995,7 @@ export class JobsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = parallel
         MATCH (user: User {wallet: $wallet})-[:CREATED_FOLDER]->(folder: JobpostFolder {slug: $slug})
         OPTIONAL MATCH (folder)-[:CONTAINS_JOBPOST]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)

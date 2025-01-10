@@ -56,6 +56,7 @@ export class TagsService {
   ): Promise<TagPreference | null> {
     const res = await this.neogma.queryRunner.run(
       `
+        CYPHER runtime = parallel
         MATCH (pt:Tag {normalizedName: $normalizedPreferredName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
         RETURN {
           tag: pt { .* },
@@ -75,6 +76,7 @@ export class TagsService {
   ): Promise<TagEntity | null> {
     const res = await this.neogma.queryRunner.run(
       `
+        CYPHER runtime = parallel
         MATCH (bt:Tag {normalizedName: $normalizedName})-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
         RETURN bt
       `,
@@ -170,6 +172,7 @@ export class TagsService {
     return this.neogma.queryRunner
       .run(
         `
+          CYPHER runtime = pipelined
           MERGE (dd:DefaultDesignation {name: "DefaultDesignation"})
           CREATE (t:Tag { id: randomUUID() })-[r:HAS_TAG_DESIGNATION]->(dd)
           SET t += $properties
@@ -194,6 +197,7 @@ export class TagsService {
     return this.neogma.queryRunner
       .run(
         `
+          CYPHER runtime = pipelined
           MERGE (bd:BlockedDesignation {name: "BlockedDesignation"})
           WITH bd
           MATCH (bt:Tag {normalizedName: $normalizedName})-[r1:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
@@ -224,6 +228,7 @@ export class TagsService {
     return this.neogma.queryRunner
       .run(
         `
+          CYPHER runtime = pipelined
           MERGE (pd:PreferredDesignation {name: "PreferredDesignation"})
           WITH pd
           MATCH (pt:Tag {normalizedName: $normalizedName})
@@ -244,6 +249,7 @@ export class TagsService {
   async unpreferTag(normalizedName: string): Promise<boolean> {
     await this.neogma.queryRunner.run(
       `
+          CYPHER runtime = pipelined
           MATCH (pt:Tag {normalizedName: $normalizedName})-[r:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
           DELETE r
           `,
@@ -282,6 +288,7 @@ export class TagsService {
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
+        CYPHER runtime = parallel
         MATCH (pt:Tag {normalizedName: $preferredNormalizedName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation), (st:Tag {normalizedName: $synonymNormalizedName})
         RETURN EXISTS( (pt)-[:IS_SYNONYM_OF*]-(st) ) AS result
         `,
@@ -297,6 +304,7 @@ export class TagsService {
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
+        CYPHER runtime = parallel
         MATCH (:Tag {normalizedName: $preferredNormalizedName})-[r:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
         RETURN r.creator = $wallet AS result
         `,
@@ -312,6 +320,7 @@ export class TagsService {
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
+        CYPHER runtime = parallel
         MATCH (:Tag {normalizedName: $blockedNormalizedName})-[r:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
         RETURN r.creator = $wallet AS result
         `,
@@ -327,6 +336,7 @@ export class TagsService {
   ): Promise<boolean> {
     const res = await this.neogma.queryRunner.run(
       `
+        CYPHER runtime = pipelined
         MATCH (pt:Tag {normalizedName: $preferredNormalizedName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation), (t:Tag {normalizedName: $synonymNormalizedName})
         MERGE (pt)<-[r1:IS_SYNONYM_OF]-(t)
         SET r1.timestamp = timestamp()
@@ -361,6 +371,7 @@ export class TagsService {
     try {
       const res = await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = parallel
         MATCH (:Tag {normalizedName: $synonymNormalizedName})-[:IS_SYNONYM_OF]->(pt:Tag)-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
         RETURN {
           tag: pt { .* },
@@ -394,6 +405,7 @@ export class TagsService {
     try {
       await this.neogma.queryRunner.run(
         `
+          CYPHER runtime = pipelined
           MERGE (pd:PairedDesignation {name: "PairedDesignation"})
           WITH pd
           MATCH (t1:Tag {normalizedName: $normalizedOriginTagName})
@@ -459,6 +471,7 @@ export class TagsService {
     }
     const res = await this.neogma.queryRunner.run(
       `
+          CYPHER runtime = pipelined
           MATCH (t:Tag { id: $tagId })
           MATCH (sj:StructuredJobpost { id: $structuredJobpostId })
           
@@ -491,6 +504,7 @@ export class TagsService {
   ): Promise<void> {
     await this.neogma.queryRunner.run(
       `
+      CYPHER runtime = pipelined
       MATCH (pt:Tag {normalizedName: $preferredNormalizedName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation), (t:Tag {normalizedName: $synonymNormalizedName})
       MATCH (pt)<-[r1:IS_SYNONYM_OF]-(t)
       DELETE r1
@@ -521,6 +535,7 @@ export class TagsService {
   async unblockTag(normalizedName: string, wallet: string): Promise<boolean> {
     await this.neogma.queryRunner.run(
       `
+        CYPHER runtime = pipelined
         MATCH (tag:Tag {normalizedName: $normalizedName})-[r1:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
         OPTIONAL MATCH (st:Tag)<-[:IS_SYNONYM_OF]-(tag)
         OPTIONAL MATCH (st)-[r2:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
@@ -551,6 +566,7 @@ export class TagsService {
   ): Promise<Tag[]> {
     const res = await this.neogma.queryRunner.run(
       `
+      CYPHER runtime = pipelined
       MERGE (t1:Tag {normalizedName: $originTagNormalizedName})<-[ts:IS_SYNONYM_OF]-(t2:Tag {normalizedName: $synonymNormalizedName})
 
       SET ts.timestamp = timestamp()
@@ -592,6 +608,7 @@ export class TagsService {
   ): Promise<Tag[]> {
     await this.neogma.queryRunner.run(
       `
+        CYPHER runtime = pipelined
         MATCH (t1:Tag {normalizedName: $originTagNormalizedName})-[syn:IS_SYNONYM_OF]-(t2:Tag {normalizedName: $synonymNormalizedName})
         DETACH DELETE syn
       `,

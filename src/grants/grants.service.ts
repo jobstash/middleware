@@ -247,6 +247,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
   ): Promise<KarmaGapGrantProgram[]> => {
     const result = await this.neogma.queryRunner.run(
       `
+        CYPHER runtime = parallel
         MATCH (program:KarmaGapProgram)
         RETURN program {
           .*,
@@ -311,6 +312,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
     try {
       const result = await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = parallel
         MATCH (program:KarmaGapProgram {slug: $slug})
         RETURN program {
           .*,
@@ -417,6 +419,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
     try {
       const result = await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = pipelined
         MATCH (program:KarmaGapProgram {slug: $slug})
         RETURN {
           programId: program.programId,
@@ -557,6 +560,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
     try {
       const result = await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = pipelined
         MATCH (program:KarmaGapProgram {slug: $programSlug})
         RETURN {
           programId: program.programId,

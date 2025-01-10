@@ -24,48 +24,49 @@ const NAV_PILLAR_QUERY_MAPPINGS: Record<
 > = {
   grants: {
     names:
-      'MATCH (item:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Active"}) RETURN DISTINCT item.name as item',
+      'CYPHER runtime = parallel; MATCH (item:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Active"}) RETURN DISTINCT item.name as item',
     ecosystems:
-      'MATCH (item:KarmaGapEcosystem)<-[:HAS_METADATA|HAS_ECOSYSTEM*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Active"}) RETURN DISTINCT item.name as item',
+      'CYPHER runtime = parallel; MATCH (item:KarmaGapEcosystem)<-[:HAS_METADATA|HAS_ECOSYSTEM*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Active"}) RETURN DISTINCT item.name as item',
     chains:
-      'MATCH (item:KarmaGapNetwork)<-[:HAS_METADATA|HAS_NETWORK*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Active"}) RETURN DISTINCT item.name as item',
+      'CYPHER runtime = parallel; MATCH (item:KarmaGapNetwork)<-[:HAS_METADATA|HAS_NETWORK*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Active"}) RETURN DISTINCT item.name as item',
     categories:
-      'MATCH (item:KarmaGapCategory)<-[:HAS_METADATA|HAS_CATEGORY*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Active"}) RETURN DISTINCT item.name as item',
+      'CYPHER runtime = parallel; MATCH (item:KarmaGapCategory)<-[:HAS_METADATA|HAS_CATEGORY*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Active"}) RETURN DISTINCT item.name as item',
     organizations:
-      'MATCH (item:KarmaGapOrganization)<-[:HAS_METADATA|HAS_ORGANIZATION*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Active"}) RETURN DISTINCT item.name as item',
+      'CYPHER runtime = parallel; MATCH (item:KarmaGapOrganization)<-[:HAS_METADATA|HAS_ORGANIZATION*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Active"}) RETURN DISTINCT item.name as item',
   },
   grantsImpact: {
     names:
-      'MATCH (item:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Inactive"}) RETURN DISTINCT item.name as item',
+      'CYPHER runtime = parallel; MATCH (item:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Inactive"}) RETURN DISTINCT item.name as item',
     ecosystems:
-      'MATCH (item:KarmaGapEcosystem)<-[:HAS_METADATA|HAS_ECOSYSTEM*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Inactive"}) RETURN DISTINCT item.name as item',
+      'CYPHER runtime = parallel; MATCH (item:KarmaGapEcosystem)<-[:HAS_METADATA|HAS_ECOSYSTEM*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Inactive"}) RETURN DISTINCT item.name as item',
     chains:
-      'MATCH (item:KarmaGapNetwork)<-[:HAS_METADATA|HAS_NETWORK*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Inactive"}) RETURN DISTINCT item.name as item',
+      'CYPHER runtime = parallel; MATCH (item:KarmaGapNetwork)<-[:HAS_METADATA|HAS_NETWORK*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Inactive"}) RETURN DISTINCT item.name as item',
     categories:
-      'MATCH (item:KarmaGapCategory)<-[:HAS_METADATA|HAS_CATEGORY*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Inactive"}) RETURN DISTINCT item.name as item',
+      'CYPHER runtime = parallel; MATCH (item:KarmaGapCategory)<-[:HAS_METADATA|HAS_CATEGORY*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Inactive"}) RETURN DISTINCT item.name as item',
     organizations:
-      'MATCH (item:KarmaGapOrganization)<-[:HAS_METADATA|HAS_ORGANIZATION*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Inactive"}) RETURN DISTINCT item.name as item',
+      'CYPHER runtime = parallel; MATCH (item:KarmaGapOrganization)<-[:HAS_METADATA|HAS_ORGANIZATION*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Inactive"}) RETURN DISTINCT item.name as item',
   },
   organizations: {
     names:
-      "MATCH (organization:Organization) RETURN DISTINCT organization.name as item",
+      "CYPHER runtime = parallel; MATCH (organization:Organization) RETURN DISTINCT organization.name as item",
     locations:
-      "MATCH (organization:Organization) RETURN DISTINCT organization.location as item",
+      "CYPHER runtime = parallel; MATCH (organization:Organization) RETURN DISTINCT organization.location as item",
     investors:
-      "MATCH (:Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor:Investor) RETURN DISTINCT investor.name as item",
+      "CYPHER runtime = parallel; MATCH (:Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor:Investor) RETURN DISTINCT investor.name as item",
     fundingRounds:
-      "MATCH (:Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) RETURN DISTINCT funding_round.roundName as item",
-    tags: "MATCH (:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
+      "CYPHER runtime = parallel; MATCH (:Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) RETURN DISTINCT funding_round.roundName as item",
+    tags: "CYPHER runtime = parallel; MATCH (:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
   },
   projects: {
-    names: "MATCH (project:Project) RETURN DISTINCT project.name as item",
+    names:
+      "CYPHER runtime = parallel; MATCH (project:Project) RETURN DISTINCT project.name as item",
     categories:
-      "MATCH (:Project)-[:HAS_CATEGORY]->(category:ProjectCategory) RETURN DISTINCT category.name as item",
-    tags: "MATCH (:Project)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
+      "CYPHER runtime = parallel; MATCH (:Project)-[:HAS_CATEGORY]->(category:ProjectCategory) RETURN DISTINCT category.name as item",
+    tags: "CYPHER runtime = parallel; MATCH (:Project)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
     chains:
-      "MATCH (:Project)-[:IS_DEPLOYED_ON]->(chain:Chain) RETURN DISTINCT chain.name as item",
+      "CYPHER runtime = parallel; MATCH (:Project)-[:IS_DEPLOYED_ON]->(chain:Chain) RETURN DISTINCT chain.name as item",
     investors:
-      "MATCH (:Project)<-[:HAS_PROJECT]-(:Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor:Investor) RETURN DISTINCT investor.name as item",
+      "CYPHER runtime = parallel; MATCH (:Project)<-[:HAS_PROJECT]-(:Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor:Investor) RETURN DISTINCT investor.name as item",
   },
   vcs: null,
 };
@@ -168,6 +169,7 @@ export class SearchService {
       const [names, categories, tags] = await Promise.all([
         this.neogma.queryRunner.run(
           `
+          CYPHER runtime = parallel
           MATCH (p:Project)
           RETURN DISTINCT p.name as name, p
           ORDER BY p.createdTimestamp DESC
@@ -176,6 +178,7 @@ export class SearchService {
         ),
         this.neogma.queryRunner.run(
           `
+          CYPHER runtime = parallel
           MATCH (c:ProjectCategory)
           MATCH (c)<-[:HAS_CATEGORY]-(p:Project)
           WITH DISTINCT c.name as name, COUNT(DISTINCT p) as popularity, c
@@ -233,6 +236,7 @@ export class SearchService {
       } else {
         result = await this.neogma.queryRunner.run(
           `
+          CYPHER runtime = parallel
           MATCH (p:Project)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(t:Tag)
           WHERE NOT (t)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
           AND NOT (t)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
@@ -269,6 +273,7 @@ export class SearchService {
       } else {
         result = await this.neogma.queryRunner.run(
           `
+          CYPHER runtime = parallel
           MATCH (o:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(t:Tag)
           WHERE NOT (t)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
           AND NOT (t)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
@@ -344,6 +349,7 @@ export class SearchService {
         await Promise.all([
           this.neogma.queryRunner.run(
             `
+          CYPHER runtime = parallel
           MATCH (o:Organization)
           RETURN DISTINCT o.name as name, o
           ORDER BY o.createdTimestamp DESC
@@ -352,6 +358,7 @@ export class SearchService {
           ),
           this.neogma.queryRunner.run(
             `
+          CYPHER runtime = parallel
           MATCH (o:Organization)
           RETURN DISTINCT o.location as location, o
           ORDER BY o.createdTimestamp DESC
@@ -480,6 +487,7 @@ export class SearchService {
         await Promise.all([
           await this.neogma.queryRunner.run(
             `
+          CYPHER runtime = parallel
           MATCH (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)
           WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
           RETURN DISTINCT grant.name as name, metadata
@@ -490,6 +498,7 @@ export class SearchService {
           ),
           await this.neogma.queryRunner.run(
             `
+          CYPHER runtime = parallel
           MATCH (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)-[:HAS_ECOSYSTEM]->(ecosystem:KarmaGapEcosystem)
           WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
           RETURN DISTINCT ecosystem.name as ecosystem, metadata
@@ -500,6 +509,7 @@ export class SearchService {
           ),
           this.neogma.queryRunner.run(
             `
+          CYPHER runtime = parallel
           MATCH (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)-[:HAS_NETWORK]->(chain:KarmaGapNetwork)
           WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
           RETURN DISTINCT chain.name as chain, metadata
@@ -510,6 +520,7 @@ export class SearchService {
           ),
           this.neogma.queryRunner.run(
             `
+          CYPHER runtime = parallel
           MATCH (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)-[:HAS_CATEGORY]->(category:KarmaGapCategory)
           WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
           RETURN DISTINCT category.name as category, metadata
@@ -520,6 +531,7 @@ export class SearchService {
           ),
           this.neogma.queryRunner.run(
             `
+          CYPHER runtime = parallel
           MATCH (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)-[:HAS_ORGANIZATION]->(organization:KarmaGapOrganization)
           WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
           RETURN DISTINCT organization.name as organization, metadata
@@ -591,6 +603,7 @@ export class SearchService {
     } else {
       const result = await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = parallel
         MATCH (i:Investor)<-[:HAS_INVESTOR]-(f:FundingRound)
         WITH DISTINCT i.name as name, COUNT(DISTINCT f) as popularity
         RETURN name
@@ -630,6 +643,7 @@ export class SearchService {
     } else {
       const result = await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = parallel
         MATCH (f:FundingRound)<-[:HAS_FUNDING_ROUND]-(o:Organization)
         WITH DISTINCT f.roundName as name, COUNT(DISTINCT o) as popularity
         RETURN name
@@ -703,6 +717,7 @@ export class SearchService {
     const headerText = (
       await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = pipelined
         MATCH (pillar:Pillar {nav: $nav, pillar: $pillar})
         RETURN {
           title: pillar.title,

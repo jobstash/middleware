@@ -71,6 +71,7 @@ export class OrganizationsService {
   getOrgListResults = async (): Promise<OrgDetailsResult[]> => {
     const results: OrgDetailsResult[] = [];
     const generatedQuery = `
+        CYPHER runtime = parallel
         MATCH (organization:Organization)
         RETURN organization {
           .*,
@@ -399,6 +400,7 @@ export class OrganizationsService {
       return await this.neogma.queryRunner
         .run(
           `
+          CYPHER runtime = pipelined
           RETURN {
               minHeadCount: apoc.coll.min([
                 (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) 
@@ -470,6 +472,7 @@ export class OrganizationsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = pipelined
         MATCH (organization:Organization {orgId: $orgId})
         WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $community})) END
         RETURN organization {
@@ -600,6 +603,7 @@ export class OrganizationsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = pipelined
         MATCH (organization:Organization {normalizedName: $slug})
         WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $community})) END
         RETURN organization {
@@ -727,6 +731,7 @@ export class OrganizationsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = parallel
         MATCH (organization:Organization)
         RETURN organization {
           .*,
@@ -900,6 +905,7 @@ export class OrganizationsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = pipelined
         MATCH (organization:Organization {orgId: $id})
         RETURN organization {
           .*,
@@ -1059,6 +1065,7 @@ export class OrganizationsService {
         }
         const orgs = await this.neogma.queryRunner.run(
           `
+          CYPHER runtime = parallel
         MATCH (organization:Organization)-[:HAS_WEBSITE]->(website:Website)
         UNWIND $domains as domain
         WITH organization, domain, website

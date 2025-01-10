@@ -29,6 +29,7 @@ export class PublicService {
   getAllJobsListResults = async (): Promise<JobListResult[]> => {
     const results: JobListResult[] = [];
     const generatedQuery = `
+      CYPHER runtime = parallel
       MATCH (structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
       WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
       AND structured_jobpost.access = "public"
@@ -235,6 +236,7 @@ export class PublicService {
       return await this.neogma.queryRunner
         .run(
           `
+            CYPHER runtime = pipelined
             RETURN {
                 category: apoc.coll.toSet([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification) WHERE (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | classification.name]),
                 organizations: apoc.coll.toSet([(org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | org.name])
