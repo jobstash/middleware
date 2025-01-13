@@ -50,6 +50,8 @@ const NAV_PILLAR_QUERY_MAPPINGS: Record<
   organizations: {
     names:
       "CYPHER runtime = pipelined MATCH (organization:Organization) RETURN DISTINCT organization.name as item",
+    chains:
+      "CYPHER runtime = pipelined MATCH (organization:Organization)-[:HAS_PROJECT|IS_DEPLOYED_ON*2]->(chain:Chain) RETURN DISTINCT chain.name as item",
     locations:
       "CYPHER runtime = pipelined MATCH (organization:Organization) RETURN DISTINCT organization.location as item",
     investors:
@@ -132,7 +134,7 @@ export class SearchService {
 
   private async searchProjects(query: string): Promise<SearchResultPillar> {
     if (query) {
-      const [names, categories, tags] = await Promise.all([
+      const [names, categories, chains, tags] = await Promise.all([
         this.neogma.queryRunner.run(
           `
           CALL db.index.fulltext.queryNodes("projects", $query) YIELD node as project
@@ -147,6 +149,7 @@ export class SearchService {
         `,
           { query },
         ),
+        this.searchChains(query, "projects"),
         this.searchTags(query, "projects"),
       ]);
       return {
@@ -164,10 +167,11 @@ export class SearchService {
           })),
           "value",
         ),
+        chains,
         tags,
       };
     } else {
-      const [names, categories, tags] = await Promise.all([
+      const [names, categories, chains, tags] = await Promise.all([
         this.neogma.queryRunner.run(
           `
           CYPHER runtime = parallel
@@ -188,6 +192,7 @@ export class SearchService {
           LIMIT 10
         `,
         ),
+        this.searchChains(query, "projects"),
         this.searchTags(query, "projects"),
       ]);
       return {
@@ -205,6 +210,7 @@ export class SearchService {
           })),
           "value",
         ),
+        chains,
         tags,
       };
     }
@@ -305,7 +311,7 @@ export class SearchService {
     query: string,
   ): Promise<SearchResultPillar> {
     if (query) {
-      const [names, locations, investors, fundingRounds, tags] =
+      const [names, locations, investors, fundingRounds, chains, tags] =
         await Promise.all([
           this.neogma.queryRunner.run(
             `
@@ -323,6 +329,7 @@ export class SearchService {
           ),
           this.searchInvestors(query),
           this.searchFundingRounds(query),
+          this.searchChains(query, "organizations"),
           this.searchTags(query, "organizations"),
         ]);
 
@@ -343,10 +350,11 @@ export class SearchService {
         ),
         investors,
         fundingRounds,
+        chains,
         tags,
       };
     } else {
-      const [names, locations, investors, fundingRounds, tags] =
+      const [names, locations, investors, fundingRounds, chains, tags] =
         await Promise.all([
           this.neogma.queryRunner.run(
             `
@@ -368,6 +376,7 @@ export class SearchService {
           ),
           this.searchInvestors(query),
           this.searchFundingRounds(query),
+          this.searchChains(query, "organizations"),
           this.searchTags(query, "organizations"),
         ]);
 
@@ -388,6 +397,7 @@ export class SearchService {
         ),
         investors,
         fundingRounds,
+        chains,
         tags,
       };
     }
@@ -660,6 +670,67 @@ export class SearchService {
         "value",
       );
     }
+  }
+
+  async searchChains(
+    query: string,
+    group: "projects" | "organizations",
+  ): Promise<SearchResultItem[]> {
+    let result;
+
+    if (group === "projects") {
+      if (query) {
+        result = this.neogma.queryRunner.run(
+          `
+          CALL db.index.fulltext.queryNodes("chains", $query) YIELD node as chain
+          RETURN DISTINCT chain.name as name
+        `,
+          { query },
+        );
+      } else {
+        result = this.neogma.queryRunner.run(
+          `
+          CYPHER runtime = parallel
+          MATCH (c:Chain)
+          MATCH (c)<-[:IS_DEPLOYED_ON]-(p:Project)
+          WITH DISTINCT c.name as name, COUNT(DISTINCT p) as popularity, c
+          RETURN name
+          ORDER BY popularity DESC
+          LIMIT 10
+          `,
+        );
+      }
+    } else {
+      if (query) {
+        result = this.neogma.queryRunner.run(
+          `
+          CALL db.index.fulltext.queryNodes("chains", $query) YIELD node as chain
+          RETURN DISTINCT chain.name as name
+        `,
+          { query },
+        );
+      } else {
+        result = this.neogma.queryRunner.run(
+          `
+          CYPHER runtime = parallel
+          MATCH (c:Chain)
+          MATCH (c)<-[:IS_DEPLOYED_ON|HAS_PROJECT*2]-(o:Organization)
+          WITH DISTINCT c.name as name, COUNT(DISTINCT o) as popularity, c
+          RETURN name
+          ORDER BY popularity DESC
+          LIMIT 10
+          `,
+        );
+      }
+    }
+
+    return uniqBy(
+      result.records.map(record => ({
+        value: record.get("name"),
+        link: `/${group}/chains/${slugify(record.get("name"))}`,
+      })) as SearchResultItem[],
+      "value",
+    );
   }
 
   async search(raw: string): Promise<SearchResult> {
