@@ -3275,6 +3275,7 @@ export class JobsService {
       } else {
         const result = await this.neogma.queryRunner.run(
           `
+          CYPHER runtime = pipelined
         MATCH (user:User {wallet: $wallet})
         CREATE (folder:JobpostFolder {id: randomUUID()})
         SET folder.slug = $slug
@@ -3341,6 +3342,7 @@ export class JobsService {
       } else {
         const result = await this.neogma.queryRunner.run(
           `
+          CYPHER runtime = pipelined
         MATCH (folder:JobpostFolder {id: $id})
         SET folder.slug = $slug
         SET folder.name = $name
@@ -3395,6 +3397,7 @@ export class JobsService {
     try {
       await this.neogma.queryRunner.run(
         `
+        CYPHER runtime = pipelined
         MATCH (folder:JobpostFolder {id: $id})
         DETACH DELETE folder
         `,
