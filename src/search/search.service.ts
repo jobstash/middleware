@@ -17,6 +17,7 @@ import {
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
 import { SearchPillarParams } from "./dto/search.input";
+import { FetchPillarItemLabelsInput } from "./dto/fetch-pillar-item-labels.input";
 
 const NAV_PILLAR_QUERY_MAPPINGS: Record<
   SearchNav,
@@ -816,6 +817,47 @@ export class SearchService {
         count: 0,
         total: 0,
         data: [],
+      };
+    }
+  }
+
+  async fetchPillarItemLabels(
+    params: FetchPillarItemLabelsInput,
+  ): Promise<ResponseWithOptionalData<{ slug: string; label: string }[]>> {
+    const query = NAV_PILLAR_QUERY_MAPPINGS[params.nav][params.pillar];
+    if (query) {
+      const result = await this.neogma.queryRunner.run(query);
+      const items = result.records.map(record => record.get("item") as string);
+      let results: string[];
+      if (params.query) {
+        results = go(params.query, items, {
+          threshold: 0.3,
+        }).map(x => x.target);
+      } else {
+        results = items;
+      }
+
+      if (results.length === 0) {
+        return {
+          success: false,
+          message: "No result found",
+        };
+      } else {
+        return {
+          success: true,
+          message: "Retrieved pillar item labels successfully",
+          data: results
+            .filter(x => params.inputs.includes(slugify(x)))
+            .map(x => ({
+              slug: slugify(x),
+              label: x,
+            })),
+        };
+      }
+    } else {
+      return {
+        success: false,
+        message: "Pillar not found",
       };
     }
   }

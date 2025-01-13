@@ -26,6 +26,7 @@ import {
 import { Session } from "src/shared/decorators";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { ProfileService } from "src/auth/profile/profile.service";
+import { FetchPillarItemLabelsInput } from "./dto/fetch-pillar-item-labels.input";
 
 @Controller("search")
 export class SearchController {
@@ -93,5 +94,29 @@ export class SearchController {
     } else {
       throw new NotFoundException(result);
     }
+  }
+
+  @Get("pillar/labels")
+  @UseGuards(PBACGuard)
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  async fetchPillarLabels(
+    @Session() { address }: SessionObject,
+    @Query(new ValidationPipe({ transform: true }))
+    params: FetchPillarItemLabelsInput,
+  ): Promise<
+    ResponseWithOptionalData<
+      {
+        slug: string;
+        label: string;
+      }[]
+    >
+  > {
+    const query = JSON.stringify(params);
+    this.logger.log(`/search/pillar/lablels ${query}`);
+    if (address) {
+      await this.profileService.logSearchInteraction(address, query);
+    }
+    return this.searchService.fetchPillarItemLabels(params);
   }
 }
