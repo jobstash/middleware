@@ -4,7 +4,6 @@ import {
   Get,
   Header,
   NotFoundException,
-  Post,
   Query,
   UseGuards,
   ValidationPipe,
@@ -98,13 +97,14 @@ export class SearchController {
     }
   }
 
-  @Post("pillar/labels")
+  @Get("pillar/labels")
   @UseGuards(PBACGuard)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   async fetchPillarLabels(
     @Session() { address }: SessionObject,
-    @Body() params: FetchPillarItemLabelsInput,
+    @Query(new ValidationPipe({ transform: true }))
+    params: FetchPillarItemLabelsInput,
   ): Promise<
     ResponseWithOptionalData<
       {
