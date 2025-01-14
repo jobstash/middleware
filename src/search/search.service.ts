@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import * as Sentry from "@sentry/node";
 import { go } from "fuzzysort";
-import { uniqBy } from "lodash";
+import { capitalize, lowerCase, uniqBy } from "lodash";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nestjs-neogma";
 import { paginate, slugify } from "src/shared/helpers";
@@ -80,6 +80,14 @@ const NAV_PILLAR_DEFAULTS: Record<SearchNav, string> = {
   organizations: "locations",
   projects: "categories",
   vcs: "vcs",
+};
+
+const NAV_PILLAR_TITLES: Record<SearchNav, string> = {
+  grants: "Grant Program",
+  grantsImpact: "Concluded Grant Program",
+  organizations: "Organization",
+  projects: "Project",
+  vcs: "VC",
 };
 
 @Injectable()
@@ -780,26 +788,57 @@ export class SearchService {
     }
   }
 
+  async fetchHeaderText(
+    nav: SearchNav,
+    basePillar: string,
+    item?: string,
+  ): Promise<{
+    title: string;
+    description: string;
+  }> {
+    const pillar = basePillar ?? NAV_PILLAR_DEFAULTS[nav];
+    if (pillar === "names") {
+      const title = NAV_PILLAR_TITLES[nav];
+      return {
+        title: `${title} ${capitalize(pillar)}`,
+        description: `A list of ${lowerCase(title)} ${pillar}${item ? ` called ${item}` : ""}`,
+      };
+    } else {
+      return (
+        item
+          ? await this.neogma.queryRunner.run(
+              `
+            CYPHER runtime = pipelined
+            MATCH (pillar:Pillar {nav: $nav, pillar: $pillar, item: $item})
+            RETURN {
+              title: pillar.title,
+              description: pillar.description
+            } as text
+      `,
+              { nav, pillar, item },
+            )
+          : await this.neogma.queryRunner.run(
+              `
+            CYPHER runtime = pipelined
+            MATCH (pillar:Pillar {nav: $nav, pillar: $pillar})
+            RETURN {
+              title: pillar.title,
+              description: pillar.description
+            } as text
+      `,
+              { nav, pillar, item },
+            )
+      ).records[0]?.get("text") as { title: string; description: string };
+    }
+  }
+
   async searchPillar(
     params: SearchPillarParams,
   ): Promise<ResponseWithOptionalData<PillarInfo>> {
     const pillar = params.pillar ?? NAV_PILLAR_DEFAULTS[params.nav];
     const query: string | undefined | null =
       NAV_PILLAR_QUERY_MAPPINGS[params.nav][pillar];
-    const headerText = (
-      await this.neogma.queryRunner.run(
-        `
-        CYPHER runtime = pipelined
-        MATCH (pillar:Pillar {nav: $nav, pillar: $pillar})
-        RETURN {
-          title: pillar.title,
-          description: pillar.description
-        } as text
-      `,
-        { nav: params.nav, pillar },
-      )
-    ).records[0]?.get("text") as { title: string; description: string };
-
+    const headerText = await this.fetchHeaderText(params.nav, pillar);
     if (query && headerText) {
       const result = await this.neogma.queryRunner.run(query);
       const items = result.records.map(record => record.get("item"));
