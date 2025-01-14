@@ -895,20 +895,18 @@ export class SearchService {
   async fetchPillarItemLabels(
     params: FetchPillarItemLabelsInput,
   ): Promise<ResponseWithOptionalData<{ slug: string; label: string }[]>> {
-    const query = NAV_PILLAR_QUERY_MAPPINGS[params.nav][params.pillar];
-    if (query) {
-      const result = await this.neogma.queryRunner.run(query);
-      const items = result.records.map(record => record.get("item") as string);
-      let results: string[];
-      if (params.query) {
-        results = go(params.query, items, {
-          threshold: 0.3,
-        }).map(x => x.target);
-      } else {
-        results = items;
-      }
+    const queries = params.pillars.map(
+      x => NAV_PILLAR_QUERY_MAPPINGS[params.nav][x],
+    );
+    if (queries.length > 0) {
+      const results = await Promise.all(
+        queries.map(query => this.neogma.queryRunner.run(query)),
+      );
+      const items = results.flatMap(x =>
+        x.records.map(record => record.get("item") as string),
+      );
 
-      if (results.length === 0) {
+      if (items.length === 0) {
         return {
           success: false,
           message: "No result found",
@@ -917,8 +915,8 @@ export class SearchService {
         return {
           success: true,
           message: "Retrieved pillar item labels successfully",
-          data: results
-            .filter(x => params.inputs.includes(slugify(x)))
+          data: items
+            .filter(x => params.slugs.includes(slugify(x)))
             .map(x => ({
               slug: slugify(x),
               label: x,
