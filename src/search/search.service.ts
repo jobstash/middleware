@@ -915,12 +915,15 @@ export class SearchService {
         return {
           success: true,
           message: "Retrieved pillar item labels successfully",
-          data: items
-            .filter(x => params.slugs.includes(slugify(x)))
-            .map(x => ({
-              slug: slugify(x),
-              label: x,
-            })),
+          data: uniqBy(
+            items
+              .filter(x => params.slugs.includes(slugify(x)))
+              .map(x => ({
+                slug: slugify(x),
+                label: x,
+              })),
+            "label",
+          ),
         };
       }
     } else {
