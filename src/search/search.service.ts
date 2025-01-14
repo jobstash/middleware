@@ -895,9 +895,8 @@ export class SearchService {
   async fetchPillarItemLabels(
     params: FetchPillarItemLabelsInput,
   ): Promise<ResponseWithOptionalData<{ slug: string; label: string }[]>> {
-    const queries = params.pillars.map(
-      x => NAV_PILLAR_QUERY_MAPPINGS[params.nav][x],
-    );
+    const queries =
+      params.pillars?.map(x => NAV_PILLAR_QUERY_MAPPINGS[params.nav][x]) ?? [];
     if (queries.length > 0) {
       const results = await Promise.all(
         queries.map(query => this.neogma.queryRunner.run(query)),
@@ -917,7 +916,7 @@ export class SearchService {
           message: "Retrieved pillar item labels successfully",
           data: uniqBy(
             items
-              .filter(x => params.slugs.includes(slugify(x)))
+              .filter(x => params.slugs?.includes(slugify(x)))
               .map(x => ({
                 slug: slugify(x),
                 label: x,
