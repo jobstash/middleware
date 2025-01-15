@@ -252,7 +252,7 @@ export class JobsService {
   ): Promise<AllOrgJobsListResult[]> => {
     const results: AllOrgJobsListResult[] = [];
     const generatedQuery = `
-      CYPHER runtime = parallels
+      CYPHER runtime = parallel
       MATCH (:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)
       MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
       WITH DISTINCT tag, structured_jobpost
