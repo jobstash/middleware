@@ -1,14 +1,14 @@
 export interface SearchResult {
-  grants: SearchResultPillar;
-  grantsImpact: SearchResultPillar;
-  organizations: SearchResultPillar;
-  projects: SearchResultPillar;
-  vcs: SearchResultPillar;
+  grants: SearchResultNav;
+  grantsImpact: SearchResultNav;
+  organizations: SearchResultNav;
+  projects: SearchResultNav;
+  vcs: SearchResultNav;
 }
 
 export type SearchNav = keyof SearchResult;
 
-export interface SearchResultPillar {
+export interface SearchResultNav {
   names: SearchResultItem[];
   [x: string]: SearchResultItem[];
 }

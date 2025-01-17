@@ -14,7 +14,7 @@ import {
   PillarInfo,
   ResponseWithOptionalData,
   SearchResult,
-  SearchResultPillar,
+  SearchResultNav,
   SessionObject,
 } from "src/shared/interfaces";
 import { SearchPillarParams } from "./dto/search-pillar.input";
@@ -46,7 +46,7 @@ export class SearchController {
   async search(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true })) params: SearchParams,
-  ): Promise<SearchResult | SearchResultPillar> {
+  ): Promise<SearchResult | SearchResultNav> {
     if (params) {
       this.logger.log(`/search ${JSON.stringify(params)}`);
       if (address) {

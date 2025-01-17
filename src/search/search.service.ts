@@ -12,7 +12,7 @@ import {
   SearchNav,
   SearchResult,
   SearchResultItem,
-  SearchResultPillar,
+  SearchResultNav,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
@@ -99,7 +99,7 @@ export class SearchService {
     private neogma: Neogma,
   ) {}
 
-  private async searchVCs(query: string): Promise<SearchResultPillar> {
+  private async searchVCs(query: string): Promise<SearchResultNav> {
     if (query) {
       const names = await this.neogma.queryRunner.run(
         `
@@ -141,7 +141,7 @@ export class SearchService {
     }
   }
 
-  private async searchProjects(query: string): Promise<SearchResultPillar> {
+  private async searchProjects(query: string): Promise<SearchResultNav> {
     if (query) {
       const [names, categories, chains, tags] = await Promise.all([
         this.neogma.queryRunner.run(
@@ -316,9 +316,7 @@ export class SearchService {
     );
   }
 
-  private async searchOrganizations(
-    query: string,
-  ): Promise<SearchResultPillar> {
+  private async searchOrganizations(query: string): Promise<SearchResultNav> {
     if (query) {
       const [names, locations, investors, fundingRounds, chains, tags] =
         await Promise.all([
@@ -415,7 +413,7 @@ export class SearchService {
   private async searchGrants(
     query: string,
     status: "active" | "inactive",
-  ): Promise<SearchResultPillar> {
+  ): Promise<SearchResultNav> {
     const statusFilter = status === "active" ? "Active" : "Inactive";
 
     if (query) {
@@ -742,15 +740,13 @@ export class SearchService {
     );
   }
 
-  async search(
-    params: SearchParams,
-  ): Promise<SearchResult | SearchResultPillar> {
+  async search(params: SearchParams): Promise<SearchResult | SearchResultNav> {
     try {
       const { query: raw, excluded, nav } = params;
       const query = raw ? `*${raw}*` : null;
 
       if (nav) {
-        let initial: SearchResultPillar;
+        let initial: SearchResultNav;
         switch (nav) {
           case "projects":
             initial = await this.searchProjects(query);
@@ -772,7 +768,7 @@ export class SearchService {
             break;
         }
 
-        let result: SearchResultPillar;
+        let result: SearchResultNav;
 
         if (excluded) {
           const keys = Object.keys(NAV_PILLAR_QUERY_MAPPINGS[nav]);
@@ -783,7 +779,7 @@ export class SearchService {
             names: filtered.find(x => !!x["names"])["names"] ?? [],
             ...filtered.reduce(
               (acc, curr) => ({ ...acc, ...curr }),
-              {} as SearchResultPillar,
+              {} as SearchResultNav,
             ),
           };
         } else {
