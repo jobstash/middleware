@@ -1,15 +1,25 @@
+import { Transform, Type } from "class-transformer";
 import { IsString, IsIn, IsOptional } from "class-validator";
+import { toList } from "src/shared/helpers";
 
-export class SearchPillarParams {
+export class SearchParams {
   @IsString()
+  @IsOptional()
   @IsIn(["projects", "organizations", "grants", "grantsImpact", "vcs"])
-  nav: "projects" | "organizations" | "grants" | "grantsImpact" | "vcs";
+  nav?:
+    | "projects"
+    | "organizations"
+    | "grants"
+    | "grantsImpact"
+    | "vcs"
+    | null = null;
+
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  excluded?: string[] | null = null;
 
   @IsString()
   @IsOptional()
-  pillar?: string | null = null;
-
-  @IsString()
-  @IsOptional()
-  item?: string | null = null;
+  query?: string | null = null;
 }

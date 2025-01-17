@@ -14,9 +14,10 @@ import {
   PillarInfo,
   ResponseWithOptionalData,
   SearchResult,
+  SearchResultPillar,
   SessionObject,
 } from "src/shared/interfaces";
-import { SearchPillarParams } from "./dto/search.input";
+import { SearchPillarParams } from "./dto/search-pillar.input";
 import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
 import { PBACGuard } from "src/auth/pbac.guard";
 import {
@@ -28,6 +29,7 @@ import { Session } from "src/shared/decorators";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { FetchPillarItemLabelsInput } from "./dto/fetch-pillar-item-labels.input";
+import { SearchParams } from "./dto/search.input";
 
 @Controller("search")
 export class SearchController {
@@ -43,15 +45,18 @@ export class SearchController {
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   async search(
     @Session() { address }: SessionObject,
-    @Query("query") query: string = null,
-  ): Promise<SearchResult> {
-    if (query) {
-      this.logger.log(`/search ${query}`);
+    @Query(new ValidationPipe({ transform: true })) params: SearchParams,
+  ): Promise<SearchResult | SearchResultPillar> {
+    if (params) {
+      this.logger.log(`/search ${JSON.stringify(params)}`);
       if (address) {
-        await this.profileService.logSearchInteraction(address, query);
+        await this.profileService.logSearchInteraction(
+          address,
+          JSON.stringify(params),
+        );
       }
     }
-    return this.searchService.search(query);
+    return this.searchService.search(params);
   }
 
   @Get("pillar")

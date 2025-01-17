@@ -16,8 +16,9 @@ import {
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
-import { SearchPillarParams } from "./dto/search.input";
+import { SearchPillarParams } from "./dto/search-pillar.input";
 import { FetchPillarItemLabelsInput } from "./dto/fetch-pillar-item-labels.input";
+import { SearchParams } from "./dto/search.input";
 
 const NAV_PILLAR_QUERY_MAPPINGS: Record<
   SearchNav,
@@ -741,24 +742,72 @@ export class SearchService {
     );
   }
 
-  async search(raw: string): Promise<SearchResult> {
+  async search(
+    params: SearchParams,
+  ): Promise<SearchResult | SearchResultPillar> {
     try {
+      const { query: raw, excluded, nav } = params;
       const query = raw ? `*${raw}*` : null;
-      const [projects, organizations, grants, grantsImpact, vcs] =
-        await Promise.all([
-          this.searchProjects(query),
-          this.searchOrganizations(query),
-          this.searchGrants(query, "active"),
-          this.searchGrants(query, "inactive"),
-          this.searchVCs(query),
-        ]);
-      return {
-        projects,
-        organizations,
-        grants,
-        grantsImpact,
-        vcs,
-      };
+
+      if (nav) {
+        let initial: SearchResultPillar;
+        switch (nav) {
+          case "projects":
+            initial = await this.searchProjects(query);
+            break;
+          case "organizations":
+            initial = await this.searchOrganizations(query);
+            break;
+          case "grants":
+            initial = await this.searchGrants(query, "active");
+            break;
+          case "grantsImpact":
+            initial = await this.searchGrants(query, "inactive");
+            break;
+          case "vcs":
+            initial = await this.searchVCs(query);
+            break;
+          default:
+            initial = await this.searchProjects(query);
+            break;
+        }
+
+        let result: SearchResultPillar;
+
+        if (excluded) {
+          const keys = Object.keys(NAV_PILLAR_QUERY_MAPPINGS[nav]);
+          const filtered = keys.map(x => ({
+            [x]: initial[x]?.filter(y => !excluded.includes(y.value)) ?? [],
+          }));
+          result = {
+            names: filtered.find(x => !!x["names"])["names"] ?? [],
+            ...filtered.reduce(
+              (acc, curr) => ({ ...acc, ...curr }),
+              {} as SearchResultPillar,
+            ),
+          };
+        } else {
+          result = initial;
+        }
+
+        return result;
+      } else {
+        const [projects, organizations, grants, grantsImpact, vcs] =
+          await Promise.all([
+            this.searchProjects(query),
+            this.searchOrganizations(query),
+            this.searchGrants(query, "active"),
+            this.searchGrants(query, "inactive"),
+            this.searchVCs(query),
+          ]);
+        return {
+          projects,
+          organizations,
+          grants,
+          grantsImpact,
+          vcs,
+        };
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
