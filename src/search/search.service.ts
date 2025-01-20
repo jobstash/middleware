@@ -740,7 +740,7 @@ export class SearchService {
     );
   }
 
-  async search(params: SearchParams): Promise<SearchResult | SearchResultNav> {
+  async search(params: SearchParams): Promise<SearchResult> {
     try {
       const { query: raw, excluded, nav } = params;
       const query = raw ? `*${raw}*` : null;
@@ -773,7 +773,9 @@ export class SearchService {
         if (excluded) {
           const keys = Object.keys(NAV_PILLAR_QUERY_MAPPINGS[nav]);
           const filtered = keys.map(x => ({
-            [x]: initial[x]?.filter(y => !excluded.includes(y.value)) ?? [],
+            [x]:
+              initial[x]?.filter(y => !excluded.includes(slugify(y.value))) ??
+              [],
           }));
           result = {
             names: filtered.find(x => !!x["names"])["names"] ?? [],
@@ -786,7 +788,9 @@ export class SearchService {
           result = initial;
         }
 
-        return result;
+        return {
+          [nav]: result,
+        };
       } else {
         const [projects, organizations, grants, grantsImpact, vcs] =
           await Promise.all([

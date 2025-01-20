@@ -1,9 +1,9 @@
 export interface SearchResult {
-  grants: SearchResultNav;
-  grantsImpact: SearchResultNav;
-  organizations: SearchResultNav;
-  projects: SearchResultNav;
-  vcs: SearchResultNav;
+  grants?: SearchResultNav;
+  grantsImpact?: SearchResultNav;
+  organizations?: SearchResultNav;
+  projects?: SearchResultNav;
+  vcs?: SearchResultNav;
 }
 
 export type SearchNav = keyof SearchResult;
