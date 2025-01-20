@@ -583,7 +583,7 @@ export class ProjectsController {
     params: SearchProjectsInput,
     @Headers(COMMUNITY_HEADER) community: string | undefined,
   ): Promise<PaginatedData<ProjectListResult>> {
-    this.logger.log(`/organizations/search ${JSON.stringify({ params })}`);
+    this.logger.log(`/projects/search ${JSON.stringify({ params })}`);
     return this.projectsService.searchProjects(params, community);
   }
 

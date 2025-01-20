@@ -637,6 +637,7 @@ export class ProjectsService {
         chains: chainFilterList,
         investors: investorFilterList,
         tags: tagFilterList,
+        names: nameFilterList,
         page: page = 1,
         limit: limit = 20,
       } = params;
@@ -673,7 +674,10 @@ export class ProjectsService {
           (!investorFilterList ||
             project.investors.filter(investor =>
               investorFilterList.includes(slugify(investor.name)),
-            ).length > 0)
+            ).length > 0) &&
+          (!nameFilterList ||
+            nameFilterList.includes(slugify(project.name)) ||
+            nameFilterList.includes(slugify(project.normalizedName)))
         );
       };
       const filtered = all

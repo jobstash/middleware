@@ -30,6 +30,12 @@ export class SearchProjectsInput {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  names?: string[] | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsNumber()
   @Type(() => Number)
   page?: number | null = null;

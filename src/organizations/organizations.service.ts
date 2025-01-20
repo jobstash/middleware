@@ -833,6 +833,7 @@ export class OrganizationsService {
         investors: investorFilterList,
         fundingRounds: fundingRoundFilterList,
         tags: tagFilterList,
+        names: nameFilterList,
         page: page = 1,
         limit: limit = 20,
       } = params;
@@ -842,7 +843,14 @@ export class OrganizationsService {
       const all = await this.getOrgListResults();
 
       const orgFilters = (org: OrgDetailsResult): boolean => {
-        const { fundingRounds, investors, community, location } = org;
+        const {
+          fundingRounds,
+          investors,
+          community,
+          location,
+          name,
+          normalizedName,
+        } = org;
         const tags = org.jobs.flatMap(x => x.tags);
         return (
           (!locationFilterList ||
@@ -863,7 +871,11 @@ export class OrganizationsService {
               ),
             )) &&
           (!tagFilterList ||
-            tags.filter(tag => tagFilterList.includes(slugify(tag))).length > 0)
+            tags.filter(tag => tagFilterList.includes(slugify(tag))).length >
+              0) &&
+          (!nameFilterList ||
+            nameFilterList.includes(slugify(name)) ||
+            nameFilterList.includes(slugify(normalizedName)))
         );
       };
 
