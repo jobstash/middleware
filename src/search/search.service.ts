@@ -103,8 +103,9 @@ export class SearchService {
     if (query) {
       const names = await this.neogma.queryRunner.run(
         `
-          CALL db.index.fulltext.queryNodes("investors", $query) YIELD node as vc
-          RETURN DISTINCT vc.name as name
+          CALL db.index.fulltext.queryNodes("investors", $query) YIELD node as vc, score
+          RETURN DISTINCT vc.name as name, score
+          ORDER BY score DESC
         `,
         { query },
       );
@@ -116,7 +117,7 @@ export class SearchService {
             link: `/projects/names/${slugify(record.get("name"))}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
       };
     } else {
       const names = await this.neogma.queryRunner.run(
@@ -136,7 +137,7 @@ export class SearchService {
             link: `/projects/names/${slugify(record.get("name"))}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
       };
     }
   }
@@ -146,15 +147,17 @@ export class SearchService {
       const [names, categories, chains, tags] = await Promise.all([
         this.neogma.queryRunner.run(
           `
-          CALL db.index.fulltext.queryNodes("projects", $query) YIELD node as project
-          RETURN DISTINCT project.name as name
+          CALL db.index.fulltext.queryNodes("projects", $query) YIELD node as project, score
+          RETURN DISTINCT project.name as name, score
+          ORDER BY score DESC
         `,
           { query },
         ),
         this.neogma.queryRunner.run(
           `
-          CALL db.index.fulltext.queryNodes("projectCategories", $query) YIELD node as projectCategory
-          RETURN DISTINCT projectCategory.name as name
+          CALL db.index.fulltext.queryNodes("projectCategories", $query) YIELD node as projectCategory, score
+          RETURN DISTINCT projectCategory.name as name, score
+          ORDER BY score DESC
         `,
           { query },
         ),
@@ -168,14 +171,14 @@ export class SearchService {
             link: `/projects/names/${slugify(record.get("name"))}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
         categories: uniqBy(
           categories.records?.map(record => ({
             value: record.get("name"),
             link: `/projects/categories/${slugify(record.get("name"))}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
         chains,
         tags,
       };
@@ -211,14 +214,14 @@ export class SearchService {
             link: `/projects/names/${slugify(record.get("name"))}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
         categories: uniqBy(
           categories.records?.map(record => ({
             value: record.get("name"),
             link: `/projects/categories/${slugify(record.get("name"))}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
         chains,
         tags,
       };
@@ -313,7 +316,7 @@ export class SearchService {
         link: `/${group}/tags/${slugify(record.get("name"))}`,
       })) as SearchResultItem[]) ?? [],
       "value",
-    );
+    ).slice(0, 10);
   }
 
   private async searchOrganizations(query: string): Promise<SearchResultNav> {
@@ -322,15 +325,17 @@ export class SearchService {
         await Promise.all([
           this.neogma.queryRunner.run(
             `
-          CALL db.index.fulltext.queryNodes("organizations", $query) YIELD node as organization
-          RETURN DISTINCT organization.name as name
+          CALL db.index.fulltext.queryNodes("organizations", $query) YIELD node as organization, score
+          RETURN DISTINCT organization.name as name, score
+          ORDER BY score DESC
         `,
             { query },
           ),
           this.neogma.queryRunner.run(
             `
-          CALL db.index.fulltext.queryNodes("organizationLocations", $query) YIELD node as organization
-          RETURN DISTINCT organization.location as location
+          CALL db.index.fulltext.queryNodes("organizationLocations", $query) YIELD node as organization, score
+          RETURN DISTINCT organization.location as location, score
+          ORDER BY score DESC
         `,
             { query },
           ),
@@ -347,14 +352,14 @@ export class SearchService {
             link: `/organizations/names/${slugify(record.get("name"))}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
         locations: uniqBy(
           locations.records?.map(record => ({
             value: record.get("location"),
             link: `/organizations/locations/${slugify(record.get("location"))}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
         investors,
         fundingRounds,
         chains,
@@ -394,14 +399,14 @@ export class SearchService {
             link: `/organizations/names/${slugify(record.get("name"))}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
         locations: uniqBy(
           locations.records?.map(record => ({
             value: record.get("location"),
             link: `/organizations/locations/${slugify(record.get("location"))}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
         investors,
         fundingRounds,
         chains,
@@ -421,41 +426,46 @@ export class SearchService {
         await Promise.all([
           await this.neogma.queryRunner.run(
             `
-          CALL db.index.fulltext.queryNodes("grants", $query) YIELD node as grant
+          CALL db.index.fulltext.queryNodes("grants", $query) YIELD node as grant, score
           WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN DISTINCT grant.name as name
+          RETURN DISTINCT grant.name as name, score
+          ORDER BY score DESC
         `,
             { query, statusFilter },
           ),
           await this.neogma.queryRunner.run(
             `
-          CALL db.index.fulltext.queryNodes("grantEcosystems", $query) YIELD node as ecosystem
+          CALL db.index.fulltext.queryNodes("grantEcosystems", $query) YIELD node as ecosystem, score
           WHERE (ecosystem)<-[:HAS_METADATA|HAS_ECOSYSTEM*2]-(:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN DISTINCT ecosystem.name as ecosystem
+          RETURN DISTINCT ecosystem.name as ecosystem, score
+          ORDER BY score DESC
         `,
             { query, statusFilter },
           ),
           this.neogma.queryRunner.run(
             `
-          CALL db.index.fulltext.queryNodes("grantChains", $query) YIELD node as chain
+          CALL db.index.fulltext.queryNodes("grantChains", $query) YIELD node as chain, score
           WHERE (chain)<-[:HAS_METADATA|HAS_NETWORK*2]-(:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN DISTINCT chain.name as chain
+          RETURN DISTINCT chain.name as chain, score
+          ORDER BY score DESC
         `,
             { query, statusFilter },
           ),
           this.neogma.queryRunner.run(
             `
-          CALL db.index.fulltext.queryNodes("grantCategories", $query) YIELD node as category
+          CALL db.index.fulltext.queryNodes("grantCategories", $query) YIELD node as category, score
           WHERE (category)<-[:HAS_METADATA|HAS_CATEGORY*2]-(:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN DISTINCT category.name as category
+          RETURN DISTINCT category.name as category, score
+          ORDER BY score DESC
         `,
             { query, statusFilter },
           ),
           this.neogma.queryRunner.run(
             `
-          CALL db.index.fulltext.queryNodes("grantOrganizations", $query) YIELD node as organization
+          CALL db.index.fulltext.queryNodes("grantOrganizations", $query) YIELD node as organization, score
           WHERE (organization)<-[:HAS_METADATA|HAS_ORGANIZATION*2]-(:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN DISTINCT organization.name as organization
+          RETURN DISTINCT organization.name as organization, score
+          ORDER BY score DESC
         `,
             { query, statusFilter },
           ),
@@ -468,28 +478,28 @@ export class SearchService {
             link: `/grants/names/${slugify(record.get("name"))}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
         ecosystems: uniqBy(
           ecosystems.records?.map(record => ({
             value: record.get("ecosystem"),
             link: `/grants/ecosystems/${slugify(record.get("ecosystem"))}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
         chains: uniqBy(
           chains.records?.map(record => ({
             value: record.get("chain"),
             link: `/grants/chains/${slugify(record.get("chain"))}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
         categories: uniqBy(
           categories.records?.map(record => ({
             value: record.get("category"),
             link: `/grants/categories/${slugify(record.get("category"))}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
         organizations: uniqBy(
           organizations.records?.map(record => ({
             value: record.get("organization"),
@@ -498,7 +508,7 @@ export class SearchService {
             )}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
       };
     } else {
       const [names, ecosystems, chains, categories, organizations] =
@@ -567,28 +577,28 @@ export class SearchService {
             link: `/grants/names/${slugify(record.get("name"))}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
         ecosystems: uniqBy(
           ecosystems.records?.map(record => ({
             value: record.get("ecosystem"),
             link: `/grants/ecosystems/${slugify(record.get("ecosystem"))}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
         chains: uniqBy(
           chains.records?.map(record => ({
             value: record.get("chain"),
             link: `/grants/chains/${slugify(record.get("chain"))}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
         categories: uniqBy(
           categories.records?.map(record => ({
             value: record.get("category"),
             link: `/grants/categories/${slugify(record.get("category"))}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
         organizations: uniqBy(
           organizations.records?.map(record => ({
             value: record.get("organization"),
@@ -597,7 +607,7 @@ export class SearchService {
             )}`,
           })) ?? [],
           "value",
-        ),
+        ).slice(0, 10),
       };
     }
   }
@@ -606,8 +616,9 @@ export class SearchService {
     if (query) {
       const result = await this.neogma.queryRunner.run(
         `
-        CALL db.index.fulltext.queryNodes("investors", $query) YIELD node as investor
-        RETURN DISTINCT investor.name as name
+        CALL db.index.fulltext.queryNodes("investors", $query) YIELD node as investor, score
+        RETURN DISTINCT investor.name as name, score
+        ORDER BY score DESC
       `,
         { query },
       );
@@ -617,7 +628,7 @@ export class SearchService {
           link: `/organizations/investors/${slugify(record.get("name"))}`,
         })) ?? [],
         "value",
-      );
+      ).slice(0, 10);
     } else {
       const result = await this.neogma.queryRunner.run(
         `
@@ -636,7 +647,7 @@ export class SearchService {
           link: `/organizations/investors/${slugify(record.get("name"))}`,
         })) ?? [],
         "value",
-      );
+      ).slice(0, 10);
     }
   }
 
@@ -646,8 +657,9 @@ export class SearchService {
     if (query) {
       const result = await this.neogma.queryRunner.run(
         `
-        CALL db.index.fulltext.queryNodes("rounds", $query) YIELD node as fundingRound
-        RETURN DISTINCT fundingRound.roundName as name
+        CALL db.index.fulltext.queryNodes("rounds", $query) YIELD node as fundingRound, score
+        RETURN DISTINCT fundingRound.roundName as name, score
+        ORDER BY score DESC
       `,
         { query },
       );
@@ -657,7 +669,7 @@ export class SearchService {
           link: `/organizations/funding-rounds/${slugify(record.get("name"))}`,
         })) ?? [],
         "value",
-      );
+      ).slice(0, 10);
     } else {
       const result = await this.neogma.queryRunner.run(
         `
@@ -675,7 +687,7 @@ export class SearchService {
           link: `/organizations/funding-rounds/${slugify(record.get("name"))}`,
         })) ?? [],
         "value",
-      );
+      ).slice(0, 10);
     }
   }
 
@@ -689,8 +701,9 @@ export class SearchService {
       if (query) {
         result = this.neogma.queryRunner.run(
           `
-          CALL db.index.fulltext.queryNodes("chains", $query) YIELD node as chain
-          RETURN DISTINCT chain.name as name
+          CALL db.index.fulltext.queryNodes("chains", $query) YIELD node as chain, score
+          RETURN DISTINCT chain.name as name, score
+          ORDER BY score DESC
         `,
           { query },
         );
@@ -711,8 +724,9 @@ export class SearchService {
       if (query) {
         result = this.neogma.queryRunner.run(
           `
-          CALL db.index.fulltext.queryNodes("chains", $query) YIELD node as chain
-          RETURN DISTINCT chain.name as name
+          CALL db.index.fulltext.queryNodes("chains", $query) YIELD node as chain, score
+          RETURN DISTINCT chain.name as name, score
+          ORDER BY score DESC
         `,
           { query },
         );
@@ -737,7 +751,7 @@ export class SearchService {
         link: `/${group}/chains/${slugify(record.get("name"))}`,
       })) as SearchResultItem[]) ?? [],
       "value",
-    );
+    ).slice(0, 10);
   }
 
   async search(params: SearchParams): Promise<SearchResult> {
