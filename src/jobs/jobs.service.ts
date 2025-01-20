@@ -2996,7 +2996,7 @@ export class JobsService {
       const result = await this.neogma.queryRunner.run(
         `
         CYPHER runtime = parallel
-        MATCH (user: User {wallet: $wallet})-[:CREATED_FOLDER]->(folder: JobpostFolder {slug: $slug})
+        MATCH (:User {wallet: $wallet})-[:CREATED_FOLDER]->(folder: JobpostFolder {slug: $slug})
         OPTIONAL MATCH (folder)-[:CONTAINS_JOBPOST]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
         
@@ -3163,7 +3163,7 @@ export class JobsService {
       } else {
         return {
           success: false,
-          message: "Public user job folder not found for that slug",
+          message: "User job folder not found for that slug",
         };
       }
     } catch (err) {
@@ -3354,7 +3354,7 @@ export class JobsService {
 
         WITH folder
         OPTIONAL MATCH (job:StructuredJobpost WHERE job.shortUUID IN $jobs)
-        CREATE (folder)-[:CONTAINS_JOBPOST]->(job)
+        MERGE (folder)-[:CONTAINS_JOBPOST]->(job)
 
         RETURN folder { .* } as folder
         `,
