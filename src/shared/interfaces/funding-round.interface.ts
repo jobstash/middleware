@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { isLeft } from "fp-ts/lib/Either";
 import * as t from "io-ts";
 import { report } from "io-ts-human-reporter";
+import { FundingEvent } from "./funding-event.interface";
 
 export class FundingRound {
   public static readonly FundingRoundType = t.strict({
@@ -64,3 +65,16 @@ export class FundingRound {
     }
   }
 }
+
+export const fundingRoundToFundingEvent = (x: FundingRound): FundingEvent => {
+  return {
+    id: x.id,
+    timestamp: new Date(x.date).getTime(),
+    amountInUsd: x.raisedAmount,
+    tokenAmount: x.roundName,
+    tokenUnit: x.sourceLink,
+    roundName: x.roundName,
+    sourceLink: x.sourceLink,
+    eventType: "round",
+  };
+};

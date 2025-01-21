@@ -3,118 +3,7 @@ import { ApplicationStatus } from "src/grants/generated";
 import { isLeft } from "fp-ts/lib/Either";
 import * as t from "io-ts";
 import { report } from "io-ts-human-reporter";
-
-export interface GranteeApplicationMetadata {
-  signature: string;
-  application: Application;
-}
-
-export interface Application {
-  round: string;
-  answers: Answer[];
-  project: Project2;
-  recipient: string;
-}
-
-export interface Answer {
-  type: string;
-  hidden: boolean;
-  question: string;
-  questionId: number;
-  encryptedAnswer?: EncryptedAnswer;
-  answer: string;
-}
-
-export interface EncryptedAnswer {
-  ciphertext: string;
-  encryptedSymmetricKey: string;
-}
-
-export interface Project2 {
-  id: string;
-  title: string;
-  logoImg: string;
-  metaPtr: MetaPtr;
-  website: string;
-  bannerImg: string;
-  createdAt: number;
-  userGithub: string;
-  credentials: Credentials;
-  description: string;
-  lastUpdated: number;
-  projectGithub: string;
-  projectTwitter: string;
-}
-
-export interface MetaPtr {
-  pointer: string;
-  protocol: string;
-}
-
-export interface Credentials {
-  github: GithubCredentials;
-  twitter: TwitterCredentials;
-}
-
-export interface GithubCredentials {
-  type: string[];
-  proof: Proof;
-  issuer: string;
-  "@context": string[];
-  issuanceDate: string;
-  expirationDate: string;
-  credentialSubject: CredentialSubject;
-}
-
-export interface Proof {
-  jws: string;
-  type: string;
-  created: string;
-  proofPurpose: string;
-  verificationMethod: string;
-}
-
-export interface CredentialSubject {
-  id: string;
-  hash: string;
-  "@context": Context[];
-  provider: string;
-}
-
-export interface Context {
-  hash: string;
-  provider: string;
-}
-
-export interface TwitterCredentials {
-  type: string[];
-  proof: Proof2;
-  issuer: string;
-  "@context": string[];
-  issuanceDate: string;
-  expirationDate: string;
-  credentialSubject: CredentialSubject2;
-}
-
-export interface Proof2 {
-  jws: string;
-  type: string;
-  created: string;
-  proofPurpose: string;
-  verificationMethod: string;
-}
-
-export interface CredentialSubject2 {
-  id: string;
-  hash: string;
-  "@context": Context2[];
-  provider: string;
-}
-
-export interface Context2 {
-  hash: string;
-  provider: string;
-}
+import { FundingEvent } from "./funding-event.interface";
 
 export class RawGrantProjectCodeMetrics {
   @ApiProperty()
@@ -346,9 +235,7 @@ export class Grantee {
     name: t.string,
     slug: t.string,
     logoUrl: t.union([t.string, t.null]),
-    lastFundingDate: t.union([t.number, t.null]),
-    lastFundingAmount: t.number,
-    lastFundingUnit: t.union([t.string, t.null]),
+    fundingEvents: t.array(FundingEvent.FundingEventType),
   });
 
   @ApiProperty()
@@ -364,33 +251,17 @@ export class Grantee {
   logoUrl: string | null;
 
   @ApiProperty()
-  lastFundingDate: number | null;
-
-  @ApiProperty()
-  lastFundingAmount: number;
-
-  @ApiProperty()
-  lastFundingUnit: string | null;
+  fundingEvents: FundingEvent[];
 
   constructor(raw: Grantee) {
-    const {
-      id,
-      name,
-      slug,
-      logoUrl,
-      lastFundingDate,
-      lastFundingAmount,
-      lastFundingUnit,
-    } = raw;
+    const { id, name, slug, logoUrl, fundingEvents } = raw;
     const result = Grantee.GranteeType.decode(raw);
 
     this.id = id;
     this.name = name;
     this.slug = slug;
     this.logoUrl = logoUrl;
-    this.lastFundingDate = lastFundingDate;
-    this.lastFundingAmount = lastFundingAmount;
-    this.lastFundingUnit = lastFundingUnit;
+    this.fundingEvents = fundingEvents;
 
     if (isLeft(result)) {
       report(result).forEach(x => {
@@ -416,15 +287,11 @@ export class GranteeDetails extends Grantee {
       }),
       description: t.string,
       website: t.union([t.string, t.null]),
-      tags: t.array(t.string),
     }),
   ]);
 
   @ApiProperty()
   projects: GrantProject[];
-
-  @ApiProperty()
-  tags: string[];
 
   @ApiProperty()
   website: string | null;
@@ -436,7 +303,7 @@ export class GranteeDetails extends Grantee {
   description: string;
 
   constructor(raw: GranteeDetails) {
-    const { tags, status, description, website, projects } = raw;
+    const { status, description, website, projects } = raw;
     super(raw);
     const result = GranteeDetails.GranteeDetailsType.decode(raw);
 
@@ -444,7 +311,6 @@ export class GranteeDetails extends Grantee {
     this.status = status;
     this.description = description;
     this.website = website;
-    this.tags = tags;
 
     if (isLeft(result)) {
       report(result).forEach(x => {
@@ -454,17 +320,6 @@ export class GranteeDetails extends Grantee {
       });
     }
   }
-}
-
-export interface GrantMetadata {
-  name: string;
-  support: Support;
-  roundType: string;
-  eligibility: Eligibility;
-  feesAddress: string;
-  feesPercentage: number;
-  programContractAddress: string;
-  quadraticFundingConfig: QuadraticFundingConfig;
 }
 
 export interface Support {
@@ -666,51 +521,65 @@ export class GrantListResult {
   }
 }
 
-export interface DaoipFundingData {
-  to_project_name: string;
-  amount: number;
-  funding_date: string;
-  from_funder_name: string;
-  grant_pool_name: string;
-  metadata: DaoipFundingDataMetadata;
-  file_path: string;
-}
+export class GrantFunding {
+  public static readonly GrantFundingType = t.strict({
+    id: t.string,
+    tokenAmount: t.string,
+    tokenUnit: t.string,
+    fundingDate: t.string,
+    amount: t.number,
+    programName: t.string,
+  });
 
-export interface DaoipFundingDataMetadata {
-  application_name: string;
-  application_url: string;
-  token_amount: number;
-  token_unit: string;
-}
-
-export interface DaoipUrl {
-  url: string;
-}
-
-export interface DaoipSocial {
-  twitter: DaoipUrl[] | null;
-  farcaster: DaoipUrl[] | null;
-  telegram: DaoipUrl[] | null;
-  medium: DaoipUrl[] | null;
-  mirror: DaoipUrl[] | null;
-}
-
-export interface RawDaoipProject {
-  version: string;
-  name: string;
-  display_name: string;
-  description: string | null;
-  websites: DaoipUrl[] | null;
-  social: DaoipSocial | null;
-  github: DaoipUrl[] | null;
-}
-
-export interface DaoipProject {
+  @ApiProperty()
   id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  website: string | null;
-  twitter: string | null;
-  github: string | null;
+
+  @ApiProperty()
+  tokenAmount: string;
+
+  @ApiProperty()
+  tokenUnit: string;
+
+  @ApiProperty()
+  fundingDate: string;
+
+  @ApiProperty()
+  amount: number;
+
+  @ApiProperty()
+  programName: string;
+
+  constructor(raw: GrantFunding) {
+    const { id, tokenAmount, tokenUnit, fundingDate, programName, amount } =
+      raw;
+    const result = GrantFunding.GrantFundingType.decode(raw);
+
+    this.id = id;
+    this.tokenAmount = tokenAmount;
+    this.tokenUnit = tokenUnit;
+    this.fundingDate = fundingDate;
+    this.amount = amount;
+    this.programName = programName;
+
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(
+          `grant funding instance with id ${this.id} failed validation with error '${x}'`,
+        );
+      });
+    }
+  }
 }
+
+export const grantFundingToFundingEvent = (x: GrantFunding): FundingEvent => {
+  return {
+    id: x.id,
+    timestamp: new Date(x.fundingDate).getTime(),
+    amountInUsd: x.amount,
+    tokenAmount: x.tokenAmount,
+    tokenUnit: x.tokenUnit,
+    roundName: x.programName,
+    sourceLink: null,
+    eventType: "grant",
+  };
+};
