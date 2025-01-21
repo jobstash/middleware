@@ -40,6 +40,7 @@ import {
   JobListResultEntity,
   JobpostFolder,
   PaginatedData,
+  ProjectWithBaseRelations,
   Response,
   ResponseWithNoData,
   ResponseWithOptionalData,
@@ -60,6 +61,7 @@ import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
 import { ChangeJobProjectInput } from "./dto/update-job-project.input";
 import { TagsService } from "src/tags/tags.service";
+import { uniq } from "lodash";
 
 @Injectable()
 export class JobsService {
@@ -505,6 +507,7 @@ export class JobsService {
       hacks: hackFilter,
       chains: chainFilterList,
       projects: projectFilterList,
+      organizations: organizationFilterList,
       investors: investorFilterList,
       fundingRounds: fundingRoundFilterList,
       classifications: classificationFilterList,
@@ -541,147 +544,169 @@ export class JobsService {
       };
     }
 
+    const projectBasedFilters = (
+      projects: ProjectWithBaseRelations[],
+    ): boolean => {
+      return (
+        (!projectFilterList ||
+          projects.filter(x => projectFilterList.includes(slugify(x.name)))
+            .length > 0) &&
+        (token === null ||
+          projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
+            .length > 0) &&
+        (!minTvl || projects.filter(x => (x?.tvl ?? 0) >= minTvl).length > 0) &&
+        (!maxTvl || projects.filter(x => (x?.tvl ?? 0) < maxTvl).length > 0) &&
+        (!minMonthlyVolume ||
+          projects.filter(x => (x?.monthlyVolume ?? 0) >= minMonthlyVolume)
+            .length > 0) &&
+        (!maxMonthlyVolume ||
+          projects.filter(x => (x?.monthlyVolume ?? 0) < maxMonthlyVolume)
+            .length > 0) &&
+        (!minMonthlyFees ||
+          projects.filter(x => (x?.monthlyFees ?? 0) >= minMonthlyFees).length >
+            0) &&
+        (!maxMonthlyFees ||
+          projects.filter(x => (x?.monthlyFees ?? 0) < maxMonthlyFees).length >
+            0) &&
+        (!minMonthlyRevenue ||
+          projects.filter(x => (x?.monthlyRevenue ?? 0) >= minMonthlyRevenue)
+            .length > 0) &&
+        (!maxMonthlyRevenue ||
+          projects.filter(x => (x?.monthlyRevenue ?? 0) < maxMonthlyRevenue)
+            .length > 0) &&
+        (auditFilter === null ||
+          projects.filter(x => x.audits.length > 0).length > 0 ===
+            auditFilter) &&
+        (hackFilter === null ||
+          projects.filter(x => x.hacks.length > 0).length > 0 === hackFilter) &&
+        (!chainFilterList ||
+          uniq(projects.flatMap(x => x.chains)).filter(x =>
+            chainFilterList.includes(slugify(x.name)),
+          ).length > 0)
+      );
+    };
+
+    const orgBasedFilters = (jlr: JobListResult): boolean => {
+      const filters = [
+        minHeadCount,
+        maxHeadCount,
+        organizationFilterList,
+        investorFilterList,
+        fundingRoundFilterList,
+        communityFilterList,
+      ].filter(Boolean);
+      const jobFromOrg = !!jlr.organization;
+      const filtersApplied = filters.length > 0;
+
+      if (filtersApplied && !jobFromOrg) return false;
+
+      const {
+        projects,
+        investors,
+        fundingRounds,
+        name: orgName,
+        headcountEstimate,
+        community,
+      } = jlr.organization;
+      const {
+        title,
+        tags,
+        seniority,
+        locationType,
+        classification,
+        commitment,
+        salary,
+        salaryCurrency,
+        timestamp,
+      } = jlr;
+      const matchesQuery =
+        orgName.match(query) ||
+        title.match(query) ||
+        tags.filter(tag => tag.name.match(query)).length > 0 ||
+        projects.filter(project => project.name.match(query)).length > 0;
+      return (
+        (!organizationFilterList ||
+          organizationFilterList.includes(slugify(orgName))) &&
+        (!seniorityFilterList ||
+          seniorityFilterList.includes(slugify(seniority))) &&
+        (!locationFilterList ||
+          locationFilterList.includes(slugify(locationType))) &&
+        (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
+        (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
+        (!minSalaryRange ||
+          ((salary ?? 0) >= minSalaryRange && salaryCurrency === "USD")) &&
+        (!maxSalaryRange ||
+          ((salary ?? 0) < maxSalaryRange && salaryCurrency === "USD")) &&
+        (!startDate || timestamp >= startDate) &&
+        (!endDate || timestamp < endDate) &&
+        (!commitmentFilterList ||
+          commitmentFilterList.includes(slugify(commitment))) &&
+        (!communityFilterList ||
+          community.filter(community =>
+            communityFilterList.includes(slugify(community)),
+          ).length > 0) &&
+        (!classificationFilterList ||
+          classificationFilterList.includes(slugify(classification))) &&
+        (!investorFilterList ||
+          investors.filter(investor =>
+            investorFilterList.includes(slugify(investor.name)),
+          ).length > 0) &&
+        (!fundingRoundFilterList ||
+          fundingRoundFilterList.includes(
+            slugify(
+              sort<FundingRound>(fundingRounds).desc(x => x.date)[0]?.roundName,
+            ),
+          )) &&
+        (!query || matchesQuery) &&
+        (!tagFilterList ||
+          tags.filter(tag => tagFilterList.includes(slugify(tag.name))).length >
+            0)
+      );
+    };
+
     const jobFilters = (jlr: JobListResult): boolean => {
-      if (jlr.organization) {
-        const {
-          projects,
-          investors,
-          fundingRounds,
-          name: orgName,
-          headcountEstimate,
-          community,
-        } = jlr.organization;
-        const {
-          title,
-          tags,
-          seniority,
-          locationType,
-          classification,
-          commitment,
-          salary,
-          salaryCurrency,
-          timestamp,
-        } = jlr;
-        const matchesQuery =
-          orgName.match(query) ||
-          title.match(query) ||
-          tags.filter(tag => tag.name.match(query)).length > 0 ||
-          projects.filter(project => project.name.match(query)).length > 0;
-        return (
-          (!seniorityFilterList ||
-            seniorityFilterList.includes(slugify(seniority))) &&
-          (!locationFilterList ||
-            locationFilterList.includes(slugify(locationType))) &&
-          (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
-          (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
-          (!minSalaryRange ||
-            ((salary ?? 0) >= minSalaryRange && salaryCurrency === "USD")) &&
-          (!maxSalaryRange ||
-            ((salary ?? 0) < maxSalaryRange && salaryCurrency === "USD")) &&
-          (!startDate || timestamp >= startDate) &&
-          (!endDate || timestamp < endDate) &&
-          (!projectFilterList ||
-            projects.filter(x => projectFilterList.includes(slugify(x.name)))
-              .length > 0) &&
-          (!classificationFilterList ||
-            classificationFilterList.includes(slugify(classification))) &&
-          (!commitmentFilterList ||
-            commitmentFilterList.includes(slugify(commitment))) &&
-          (!communityFilterList ||
-            community.filter(community =>
-              communityFilterList.includes(slugify(community)),
-            ).length > 0) &&
-          (token === null ||
-            projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
-              .length > 0) &&
-          (!minTvl ||
-            projects.filter(x => (x?.tvl ?? 0) >= minTvl).length > 0) &&
-          (!maxTvl ||
-            projects.filter(x => (x?.tvl ?? 0) < maxTvl).length > 0) &&
-          (!minMonthlyVolume ||
-            projects.filter(x => (x?.monthlyVolume ?? 0) >= minMonthlyVolume)
-              .length > 0) &&
-          (!maxMonthlyVolume ||
-            projects.filter(x => (x?.monthlyVolume ?? 0) < maxMonthlyVolume)
-              .length > 0) &&
-          (!minMonthlyFees ||
-            projects.filter(x => (x?.monthlyFees ?? 0) >= minMonthlyFees)
-              .length > 0) &&
-          (!maxMonthlyFees ||
-            projects.filter(x => (x?.monthlyFees ?? 0) < maxMonthlyFees)
-              .length > 0) &&
-          (!minMonthlyRevenue ||
-            projects.filter(x => (x?.monthlyRevenue ?? 0) >= minMonthlyRevenue)
-              .length > 0) &&
-          (!maxMonthlyRevenue ||
-            projects.filter(x => (x?.monthlyRevenue ?? 0) < maxMonthlyRevenue)
-              .length > 0) &&
-          (auditFilter === null ||
-            projects.filter(x => x.audits.length > 0).length > 0 ===
-              auditFilter) &&
-          (hackFilter === null ||
-            projects.filter(x => x.hacks.length > 0).length > 0 ===
-              hackFilter) &&
-          (!chainFilterList ||
-            projects.filter(
-              x =>
-                x.chains.filter(y => chainFilterList.includes(slugify(y.name)))
-                  .length > 0,
-            ).length > 0) &&
-          (!investorFilterList ||
-            investors.filter(investor =>
-              investorFilterList.includes(slugify(investor.name)),
-            ).length > 0) &&
-          (!fundingRoundFilterList ||
-            fundingRoundFilterList.includes(
-              slugify(
-                sort<FundingRound>(fundingRounds).desc(x => x.date)[0]
-                  ?.roundName,
-              ),
-            )) &&
-          (!query || matchesQuery) &&
-          (!tagFilterList ||
-            tags.filter(tag => tagFilterList.includes(slugify(tag.name)))
-              .length > 0)
-        );
-      } else {
-        const {
-          title,
-          tags,
-          seniority,
-          locationType,
-          classification,
-          commitment,
-          salary,
-          salaryCurrency,
-          timestamp,
-        } = jlr;
+      const {
+        title,
+        tags,
+        seniority,
+        locationType,
+        classification,
+        commitment,
+        salary,
+        salaryCurrency,
+        timestamp,
+      } = jlr;
 
-        const matchesQuery =
-          title.match(query) ||
-          tags.filter(tag => tag.name.match(query)).length > 0;
+      const matchesQuery =
+        title.match(query) ||
+        tags.filter(tag => tag.name.match(query)).length > 0;
 
-        return (
-          (!locationFilterList ||
-            locationFilterList.includes(slugify(locationType))) &&
-          (!seniorityFilterList ||
-            seniorityFilterList.includes(slugify(seniority))) &&
-          (!minSalaryRange ||
-            ((salary ?? 0) >= minSalaryRange && salaryCurrency === "USD")) &&
-          (!maxSalaryRange ||
-            ((salary ?? 0) < maxSalaryRange && salaryCurrency === "USD")) &&
-          (!startDate || timestamp >= startDate) &&
-          (!endDate || timestamp < endDate) &&
-          (!classificationFilterList ||
-            classificationFilterList.includes(slugify(classification))) &&
-          (!commitmentFilterList ||
-            commitmentFilterList.includes(slugify(commitment))) &&
-          (!query || matchesQuery) &&
-          (!tagFilterList ||
-            tags.filter(tag => tagFilterList.includes(slugify(tag.name)))
-              .length > 0)
-        );
-      }
+      const projects = jlr.organization
+        ? jlr.organization.projects
+        : [jlr.project];
+
+      return (
+        orgBasedFilters(jlr) &&
+        projectBasedFilters(projects) &&
+        (!locationFilterList ||
+          locationFilterList.includes(slugify(locationType))) &&
+        (!seniorityFilterList ||
+          seniorityFilterList.includes(slugify(seniority))) &&
+        (!minSalaryRange ||
+          ((salary ?? 0) >= minSalaryRange && salaryCurrency === "USD")) &&
+        (!maxSalaryRange ||
+          ((salary ?? 0) < maxSalaryRange && salaryCurrency === "USD")) &&
+        (!startDate || timestamp >= startDate) &&
+        (!endDate || timestamp < endDate) &&
+        (!classificationFilterList ||
+          classificationFilterList.includes(slugify(classification))) &&
+        (!commitmentFilterList ||
+          commitmentFilterList.includes(slugify(commitment))) &&
+        (!query || matchesQuery) &&
+        (!tagFilterList ||
+          tags.filter(tag => tagFilterList.includes(slugify(tag.name))).length >
+            0)
+      );
     };
 
     const filtered = results
