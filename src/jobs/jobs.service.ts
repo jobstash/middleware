@@ -62,6 +62,7 @@ import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
 import { ChangeJobProjectInput } from "./dto/update-job-project.input";
 import { TagsService } from "src/tags/tags.service";
 import { uniq } from "lodash";
+import { go } from "fuzzysort";
 
 @Injectable()
 export class JobsService {
@@ -481,7 +482,6 @@ export class JobsService {
     const paramsPassed = {
       ...publicationDateRangeGenerator(params.publicationDate as DateRange),
       ...params,
-      query: params.query ? new RegExp(params.query, "gi") : null,
       limit: params.limit ?? 10,
       page: params.page ?? 1,
     };
@@ -594,10 +594,24 @@ export class JobsService {
         investorFilterList,
         fundingRoundFilterList,
         communityFilterList,
+        projectFilterList,
+        token,
+        minTvl,
+        maxTvl,
+        minMonthlyVolume,
+        maxMonthlyVolume,
+        minMonthlyFees,
+        maxMonthlyFees,
+        minMonthlyRevenue,
+        maxMonthlyRevenue,
+        auditFilter,
+        hackFilter,
+        chainFilterList,
       ].filter(Boolean);
       const jobFromOrg = !!jlr.organization;
       const filtersApplied = filters.length > 0;
 
+      if (!filtersApplied) return true;
       if (filtersApplied && !jobFromOrg) return false;
 
       const {
@@ -609,7 +623,6 @@ export class JobsService {
         community,
       } = jlr.organization;
       const {
-        title,
         tags,
         seniority,
         locationType,
@@ -619,12 +632,9 @@ export class JobsService {
         salaryCurrency,
         timestamp,
       } = jlr;
-      const matchesQuery =
-        orgName.match(query) ||
-        title.match(query) ||
-        tags.filter(tag => tag.name.match(query)).length > 0 ||
-        projects.filter(project => project.name.match(query)).length > 0;
+
       return (
+        projectBasedFilters(projects) &&
         (!organizationFilterList ||
           organizationFilterList.includes(slugify(orgName))) &&
         (!seniorityFilterList ||
@@ -657,7 +667,6 @@ export class JobsService {
               sort<FundingRound>(fundingRounds).desc(x => x.date)[0]?.roundName,
             ),
           )) &&
-        (!query || matchesQuery) &&
         (!tagFilterList ||
           tags.filter(tag => tagFilterList.includes(slugify(tag.name))).length >
             0)
@@ -675,19 +684,30 @@ export class JobsService {
         salary,
         salaryCurrency,
         timestamp,
+        project,
+        organization,
       } = jlr;
 
-      const matchesQuery =
-        title.match(query) ||
-        tags.filter(tag => tag.name.match(query)).length > 0;
+      const searchSpace = [
+        title,
+        jlr?.project?.name,
+        organization?.name,
+        ...tags.map(x => x.name),
+        ...(organization?.aliases ?? []),
+        ...(organization?.projects?.map(x => x.name) ?? []),
+      ].filter(Boolean);
 
-      const projects = jlr.organization
-        ? jlr.organization.projects
-        : [jlr.project];
+      const matching = query
+        ? go(query, searchSpace, {
+            threshold: 0.3,
+          }).map(s => s.target)
+        : [];
+
+      const matchesQuery = matching.length > 0;
 
       return (
-        orgBasedFilters(jlr) &&
-        projectBasedFilters(projects) &&
+        (!organization || orgBasedFilters(jlr)) &&
+        (!project || projectBasedFilters([project].filter(Boolean))) &&
         (!locationFilterList ||
           locationFilterList.includes(slugify(locationType))) &&
         (!seniorityFilterList ||
