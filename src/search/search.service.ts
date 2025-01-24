@@ -886,13 +886,13 @@ export class SearchService {
           ? await this.neogma.queryRunner.run(
               `
             CYPHER runtime = pipelined
-            MATCH (pillar:Pillar {nav: $nav, pillar: $pillar, item: $item})
+            MATCH (pillar:PillarItem {nav: $nav, pillar: $pillar, item: $item})
             RETURN {
               title: pillar.title,
               description: pillar.description
             } as text
       `,
-              { nav, pillar, item },
+              { nav, pillar, item: slugify(item) },
             )
           : await this.neogma.queryRunner.run(
               `
@@ -915,7 +915,11 @@ export class SearchService {
     const pillar = params.pillar ?? NAV_PILLAR_DEFAULTS[params.nav];
     const query: string | undefined | null =
       NAV_PILLAR_QUERY_MAPPINGS[params.nav][pillar];
-    const headerText = await this.fetchHeaderText(params.nav, pillar);
+    const headerText = await this.fetchHeaderText(
+      params.nav,
+      pillar,
+      params.item,
+    );
     if (query && headerText) {
       const result = await this.neogma.queryRunner.run(query);
       const items = result.records?.map(record => record.get("item"));
