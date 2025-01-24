@@ -94,11 +94,7 @@ export class SearchController {
       await this.profileService.logSearchInteraction(address, query);
     }
     const result = await this.searchService.searchPillarItems(params);
-    if (result.count > 0) {
-      return result;
-    } else {
-      throw new NotFoundException(result);
-    }
+    return result;
   }
 
   @Get("pillar/labels")
