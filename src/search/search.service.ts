@@ -201,8 +201,8 @@ export class SearchService {
           CYPHER runtime = parallel
           MATCH (c:ProjectCategory)
           MATCH (c)<-[:HAS_CATEGORY]-(p:Project)
-          WITH DISTINCT c.name as name, COUNT(DISTINCT p) as popularity, c
-          RETURN name
+          WITH c.name as name
+          RETURN DISTINCT name, COUNT(name) as popularity
           ORDER BY popularity DESC
           LIMIT 10
         `,
@@ -262,13 +262,13 @@ export class SearchService {
           MATCH (p:Project)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(t:Tag)
           WHERE NOT (t)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
           AND NOT (t)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-          WITH DISTINCT t, COUNT(DISTINCT p) AS popularity
+          WITH DISTINCT t
           OPTIONAL MATCH (t)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
           OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(t)-[:IS_PAIR_OF]->(pair:Tag)
-          WITH t, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, popularity
-          WITH CASE WHEN size(others) > 0 THEN head(others) ELSE t END AS canonicalTag, popularity
-          WITH DISTINCT canonicalTag as t, popularity
-          RETURN t.name as name
+          WITH t, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
+          WITH CASE WHEN size(others) > 0 THEN head(others) ELSE t END AS canonicalTag
+          WITH DISTINCT canonicalTag.name as name
+          RETURN name, COUNT(name) as popularity
           ORDER BY popularity DESC
           LIMIT 10
         `,
@@ -299,13 +299,13 @@ export class SearchService {
           MATCH (o:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(t:Tag)
           WHERE NOT (t)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
           AND NOT (t)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-          WITH DISTINCT t, COUNT(DISTINCT o) AS popularity
+          WITH DISTINCT t
           OPTIONAL MATCH (t)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
           OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(t)-[:IS_PAIR_OF]->(pair:Tag)
-          WITH t, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, popularity
-          WITH CASE WHEN size(others) > 0 THEN head(others) ELSE t END AS canonicalTag, popularity
-          WITH DISTINCT canonicalTag as t, popularity
-          RETURN t.name as name
+          WITH t, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
+          WITH CASE WHEN size(others) > 0 THEN head(others) ELSE t END AS canonicalTag
+          WITH DISTINCT canonicalTag.name as name
+          RETURN name, COUNT(name) as popularity
           ORDER BY popularity DESC
           LIMIT 10
         `,
@@ -386,8 +386,9 @@ export class SearchService {
             `
           CYPHER runtime = parallel
           MATCH (o:Organization)
-          RETURN DISTINCT o.location as location, o
-          ORDER BY o.createdTimestamp DESC
+          WITH o.location as location
+          RETURN DISTINCT location, COUNT(location) AS popularity
+          ORDER BY popularity  DESC
           LIMIT 10
         `,
           ),
@@ -429,7 +430,7 @@ export class SearchService {
     if (query) {
       const [names, ecosystems, chains, categories, organizations] =
         await Promise.all([
-          await this.neogma.queryRunner.run(
+          this.neogma.queryRunner.run(
             `
           CALL db.index.fulltext.queryNodes("grants", $query) YIELD node as grant, score
           WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
@@ -439,7 +440,7 @@ export class SearchService {
         `,
             { query, statusFilter },
           ),
-          await this.neogma.queryRunner.run(
+          this.neogma.queryRunner.run(
             `
           CALL db.index.fulltext.queryNodes("grantEcosystems", $query) YIELD node as ecosystem, score
           WHERE (ecosystem)<-[:HAS_METADATA|HAS_ECOSYSTEM*2]-(:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
@@ -523,24 +524,26 @@ export class SearchService {
     } else {
       const [names, ecosystems, chains, categories, organizations] =
         await Promise.all([
-          await this.neogma.queryRunner.run(
+          this.neogma.queryRunner.run(
             `
           CYPHER runtime = parallel
           MATCH (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)
           WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN DISTINCT grant.name as name, metadata
-          ORDER BY metadata.createdAt DESC
+          WITH grant.name as name
+          RETURN DISTINCT name, COUNT(name) as popularity
+          ORDER BY popularity DESC
           LIMIT 10
         `,
             { statusFilter },
           ),
-          await this.neogma.queryRunner.run(
+          this.neogma.queryRunner.run(
             `
           CYPHER runtime = parallel
           MATCH (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)-[:HAS_ECOSYSTEM]->(ecosystem:KarmaGapEcosystem)
           WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN DISTINCT ecosystem.name as ecosystem, metadata
-          ORDER BY metadata.createdAt DESC
+          WITH ecosystem.name as ecosystem
+          RETURN DISTINCT ecosystem, COUNT(ecosystem) as popularity
+          ORDER BY popularity DESC
           LIMIT 10
         `,
             { statusFilter },
@@ -550,8 +553,9 @@ export class SearchService {
           CYPHER runtime = parallel
           MATCH (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)-[:HAS_NETWORK]->(chain:KarmaGapNetwork)
           WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN DISTINCT chain.name as chain, metadata
-          ORDER BY metadata.createdAt DESC
+          WITH chain.name as chain
+          RETURN DISTINCT chain, COUNT(chain) as popularity
+          ORDER BY popularity DESC
           LIMIT 10
         `,
             { statusFilter },
@@ -561,8 +565,9 @@ export class SearchService {
           CYPHER runtime = parallel
           MATCH (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)-[:HAS_CATEGORY]->(category:KarmaGapCategory)
           WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN DISTINCT category.name as category, metadata
-          ORDER BY metadata.createdAt DESC
+          WITH category.name as category
+          RETURN DISTINCT category, COUNT(category) as popularity
+          ORDER BY popularity DESC
           LIMIT 10
         `,
             { statusFilter },
@@ -572,8 +577,9 @@ export class SearchService {
           CYPHER runtime = parallel
           MATCH (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)-[:HAS_ORGANIZATION]->(organization:KarmaGapOrganization)
           WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: $statusFilter})
-          RETURN DISTINCT organization.name as organization, metadata
-          ORDER BY metadata.createdAt DESC
+          WITH organization.name as organization
+          RETURN DISTINCT organization, COUNT(organization) as popularity
+          ORDER BY popularity DESC
           LIMIT 10
         `,
             { statusFilter },
@@ -645,8 +651,8 @@ export class SearchService {
         `
         CYPHER runtime = parallel
         MATCH (i:Investor)<-[:HAS_INVESTOR]-(f:FundingRound)
-        WITH DISTINCT i.name as name, COUNT(DISTINCT f) as popularity
-        RETURN name
+        WITH i.name as name, f
+        RETURN DISTINCT name, COUNT(f) as popularity
         ORDER BY popularity DESC
         LIMIT 10
       `,
@@ -687,8 +693,8 @@ export class SearchService {
         `
         CYPHER runtime = parallel
         MATCH (f:FundingRound)<-[:HAS_FUNDING_ROUND]-(o:Organization)
-        WITH DISTINCT f.roundName as name, COUNT(DISTINCT o) as popularity
-        RETURN name
+        WITH f.roundName as name, o
+        RETURN DISTINCT name, COUNT(o) as popularity
         ORDER BY popularity DESC
         LIMIT 10
       `,
@@ -711,7 +717,7 @@ export class SearchService {
 
     if (group === "projects") {
       if (query) {
-        result = this.neogma.queryRunner.run(
+        result = await this.neogma.queryRunner.run(
           `
           CALL db.index.fulltext.queryNodes("chains", $query) YIELD node as chain, score
           RETURN DISTINCT chain.name as name, score
@@ -721,13 +727,13 @@ export class SearchService {
           { query },
         );
       } else {
-        result = this.neogma.queryRunner.run(
+        result = await this.neogma.queryRunner.run(
           `
           CYPHER runtime = parallel
           MATCH (c:Chain)
           MATCH (c)<-[:IS_DEPLOYED_ON]-(p:Project)
-          WITH DISTINCT c.name as name, COUNT(DISTINCT p) as popularity, c
-          RETURN name
+          WITH c.name as name
+          RETURN DISTINCT name, COUNT(name) as popularity
           ORDER BY popularity DESC
           LIMIT 10
           `,
@@ -735,7 +741,7 @@ export class SearchService {
       }
     } else {
       if (query) {
-        result = this.neogma.queryRunner.run(
+        result = await this.neogma.queryRunner.run(
           `
           CALL db.index.fulltext.queryNodes("chains", $query) YIELD node as chain, score
           RETURN DISTINCT chain.name as name, score
@@ -745,13 +751,13 @@ export class SearchService {
           { query },
         );
       } else {
-        result = this.neogma.queryRunner.run(
+        result = await this.neogma.queryRunner.run(
           `
           CYPHER runtime = parallel
           MATCH (c:Chain)
           MATCH (c)<-[:IS_DEPLOYED_ON|HAS_PROJECT*2]-(o:Organization)
-          WITH DISTINCT c.name as name, COUNT(DISTINCT o) as popularity, c
-          RETURN name
+          WITH c.name as name
+          RETURN DISTINCT name, COUNT(name) as popularity
           ORDER BY popularity DESC
           LIMIT 10
           `,
