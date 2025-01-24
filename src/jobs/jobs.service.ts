@@ -24,6 +24,7 @@ import {
   paginate,
   publicationDateRangeGenerator,
   slugify,
+  sprinkleProtectedJobs,
 } from "src/shared/helpers";
 import {
   AllJobsFilterConfigs,
@@ -795,7 +796,7 @@ export class JobsService {
 
     this.logger.log(`Sorted ${final.length} jobs`);
 
-    return paginate<JobListResult>(page, limit, final);
+    return paginate<JobListResult>(page, limit, sprinkleProtectedJobs(final));
   }
 
   async getFilterConfigs(
@@ -807,7 +808,6 @@ export class JobsService {
       const tags = (await this.tagsService.getPopularTags(100)).map(
         x => x.name,
       );
-      console.time("getFilterConfigs");
       const result = await this.neogma.queryRunner
         .run(
           `
@@ -951,7 +951,6 @@ export class JobsService {
               }).getProperties()
             : undefined,
         );
-      console.timeEnd("getFilterConfigs");
       return result;
     } catch (err) {
       Sentry.withScope(scope => {
