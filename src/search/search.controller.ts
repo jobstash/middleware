@@ -10,9 +10,11 @@ import {
 } from "@nestjs/common";
 import { SearchService } from "./search.service";
 import {
+  FilterConfigResponse,
   PaginatedData,
   PillarInfo,
   ResponseWithOptionalData,
+  SearchNav,
   SearchResult,
   SessionObject,
 } from "src/shared/interfaces";
@@ -95,6 +97,16 @@ export class SearchController {
     }
     const result = await this.searchService.searchPillarItems(params);
     return result;
+  }
+
+  @Get("pillar/filters")
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  async searchPillarFilters(
+    @Query("nav") nav: SearchNav,
+  ): Promise<FilterConfigResponse> {
+    this.logger.log(`/search/pillar/filters ${nav}`);
+    return this.searchService.searchPillarFilters(nav);
   }
 
   @Get("pillar/labels")
