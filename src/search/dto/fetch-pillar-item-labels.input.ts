@@ -4,8 +4,8 @@ import { toList } from "src/shared/helpers";
 
 export class FetchPillarItemLabelsInput {
   @IsString()
-  @IsIn(["projects", "organizations", "grants", "grantsImpact", "vcs"])
-  nav: "projects" | "organizations" | "grants" | "grantsImpact" | "vcs";
+  @IsIn(["projects", "organizations", "grants", "impact", "vcs"])
+  nav: "projects" | "organizations" | "grants" | "impact" | "vcs";
 
   @Type(() => String)
   @Transform(toList)
