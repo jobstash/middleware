@@ -643,23 +643,27 @@ export function sprinkleProtectedJobs(jobs: JobListResult[]): JobListResult[] {
   const protectedJobs = jobs.filter(job => job.access === "protected");
   const publicJobs = jobs.filter(job => job.access === "public");
 
-  const result = [];
-  for (let x = 0; x < jobs.length; x++) {
-    if (x === 0) {
-      result.push(protectedJobs[x]);
-    } else if (x % 2 === 0) {
-      result.push(publicJobs[x]);
-    } else if (x % 3 === 0) {
-      result.push(protectedJobs[x]);
-    } else if (x % 5 === 0) {
-      const randomization = Math.random() > 0.5;
-      const set = randomization
-        ? [protectedJobs[x], protectedJobs[x + 1]]
-        : [protectedJobs[x]];
-      result.push(...set);
-    } else {
-      result.push(publicJobs[x]);
+  if (protectedJobs.length === 0 || publicJobs.length === 0) {
+    return jobs;
+  } else {
+    const result = [];
+    for (let x = 0; x < jobs.length; x++) {
+      if (x === 0) {
+        result.push(protectedJobs[x]);
+      } else if (x % 2 === 0) {
+        result.push(publicJobs[x]);
+      } else if (x % 3 === 0) {
+        result.push(protectedJobs[x]);
+      } else if (x % 5 === 0) {
+        const randomization = Math.random() > 0.5;
+        const set = randomization
+          ? [protectedJobs[x], protectedJobs[x + 1]]
+          : [protectedJobs[x]];
+        result.push(...set);
+      } else {
+        result.push(publicJobs[x]);
+      }
     }
+    return result;
   }
-  return result;
 }
