@@ -9,8 +9,8 @@ import {
 
 export class SearchPillarItemParams {
   @IsString()
-  @IsIn(["projects", "organizations", "grants", "grantsImpact", "vcs"])
-  nav: "projects" | "organizations" | "grants" | "grantsImpact" | "vcs";
+  @IsIn(["projects", "organizations", "grants", "impact", "vcs"])
+  nav: "projects" | "organizations" | "grants" | "impact" | "vcs";
 
   @IsString()
   @IsNotEmpty()

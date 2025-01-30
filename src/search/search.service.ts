@@ -36,7 +36,7 @@ const NAV_PILLAR_QUERY_MAPPINGS: Record<
     organizations:
       'CYPHER runtime = pipelined MATCH (item:KarmaGapOrganization)<-[:HAS_METADATA|HAS_ORGANIZATION*2]-(grant:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Active"}) RETURN DISTINCT item.name as item',
   },
-  grantsImpact: {
+  impact: {
     names:
       'CYPHER runtime = pipelined MATCH (item:KarmaGapProgram)-[:HAS_STATUS]->(:KarmaGapStatus {name: "Inactive"}) RETURN DISTINCT item.name as item',
     ecosystems:
@@ -77,7 +77,7 @@ const NAV_PILLAR_QUERY_MAPPINGS: Record<
 
 const NAV_PILLAR_DEFAULTS: Record<SearchNav, string> = {
   grants: "names",
-  grantsImpact: "names",
+  impact: "names",
   organizations: "locations",
   projects: "categories",
   vcs: "vcs",
@@ -85,7 +85,7 @@ const NAV_PILLAR_DEFAULTS: Record<SearchNav, string> = {
 
 const NAV_PILLAR_TITLES: Record<SearchNav, string> = {
   grants: "Grant Program",
-  grantsImpact: "Concluded Grant Program",
+  impact: "Concluded Grant Program",
   organizations: "Organization",
   projects: "Project",
   vcs: "VC",
@@ -791,7 +791,7 @@ export class SearchService {
           case "grants":
             initial = await this.searchGrants(query, "active");
             break;
-          case "grantsImpact":
+          case "impact":
             initial = await this.searchGrants(query, "inactive");
             break;
           case "vcs":
@@ -826,7 +826,7 @@ export class SearchService {
           [nav]: result,
         };
       } else {
-        const [projects, organizations, grants, grantsImpact, vcs] =
+        const [projects, organizations, grants, impact, vcs] =
           await Promise.all([
             this.searchProjects(query),
             this.searchOrganizations(query),
@@ -838,7 +838,7 @@ export class SearchService {
           projects,
           organizations,
           grants,
-          grantsImpact,
+          impact,
           vcs,
         };
       }
@@ -861,7 +861,7 @@ export class SearchService {
         grants: {
           names: [],
         },
-        grantsImpact: {
+        impact: {
           names: [],
         },
         vcs: {
