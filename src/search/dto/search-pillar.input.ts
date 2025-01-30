@@ -2,8 +2,8 @@ import { IsString, IsIn, IsOptional } from "class-validator";
 
 export class SearchPillarParams {
   @IsString()
-  @IsIn(["projects", "organizations", "grants", "grantsImpact", "vcs"])
-  nav: "projects" | "organizations" | "grants" | "grantsImpact" | "vcs";
+  @IsIn(["projects", "organizations", "grants", "impact", "vcs"])
+  nav: "projects" | "organizations" | "grants" | "impact" | "vcs";
 
   @IsString()
   @IsOptional()

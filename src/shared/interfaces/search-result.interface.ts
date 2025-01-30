@@ -1,6 +1,6 @@
 export interface SearchResult {
   grants?: SearchResultNav;
-  grantsImpact?: SearchResultNav;
+  impact?: SearchResultNav;
   organizations?: SearchResultNav;
   projects?: SearchResultNav;
   vcs?: SearchResultNav;
