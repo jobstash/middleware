@@ -216,6 +216,10 @@ export class JobListResultEntity {
                     ...grant,
                     //TODO: remove this once we have a better way to handle this
                     programName: notStringOrNull(grant?.programName) ?? "N/A",
+                    createdTimestamp: nonZeroOrNull(grant?.createdTimestamp),
+                    updatedTimestamp: nonZeroOrNull(grant?.updatedTimestamp),
+                    fundingDate: nonZeroOrNull(grant?.fundingDate),
+                    amount: nonZeroOrNull(grant?.amount),
                   })) ?? [],
                 repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
               })) ?? [],
@@ -235,6 +239,10 @@ export class JobListResultEntity {
                 ...grant,
                 //TODO: remove this once we have a better way to handle this
                 programName: notStringOrNull(grant?.programName) ?? "N/A",
+                createdTimestamp: nonZeroOrNull(grant?.createdTimestamp),
+                updatedTimestamp: nonZeroOrNull(grant?.updatedTimestamp),
+                fundingDate: nonZeroOrNull(grant?.fundingDate),
+                amount: nonZeroOrNull(grant?.amount),
               })) ?? [],
             investors: Array.from(
               uniqBy(

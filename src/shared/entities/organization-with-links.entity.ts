@@ -135,7 +135,16 @@ export class OrganizationWithLinksEntity {
           url: jobsite.url,
           type: jobsite.type,
         })) ?? [],
-      grants: grants ?? [],
+      grants:
+        grants?.map(grant => ({
+          ...grant,
+          //TODO: remove this once we have a better way to handle this
+          programName: notStringOrNull(grant?.programName) ?? "N/A",
+          createdTimestamp: nonZeroOrNull(grant?.createdTimestamp),
+          updatedTimestamp: nonZeroOrNull(grant?.updatedTimestamp),
+          fundingDate: nonZeroOrNull(grant?.fundingDate),
+          amount: nonZeroOrNull(grant?.amount),
+        })) ?? [],
     });
   }
 }

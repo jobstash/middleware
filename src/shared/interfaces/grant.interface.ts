@@ -526,9 +526,11 @@ export class GrantFunding {
     id: t.string,
     tokenAmount: t.number,
     tokenUnit: t.string,
-    fundingDate: t.string,
+    fundingDate: t.number,
     amount: t.number,
     programName: t.string,
+    createdTimestamp: t.number,
+    updatedTimestamp: t.union([t.number, t.null]),
   });
 
   @ApiProperty()
@@ -541,7 +543,7 @@ export class GrantFunding {
   tokenUnit: string;
 
   @ApiProperty()
-  fundingDate: string;
+  fundingDate: number;
 
   @ApiProperty()
   amount: number;
@@ -549,9 +551,23 @@ export class GrantFunding {
   @ApiProperty()
   programName: string;
 
+  @ApiProperty()
+  createdTimestamp: number;
+
+  @ApiProperty()
+  updatedTimestamp: number | null;
+
   constructor(raw: GrantFunding) {
-    const { id, tokenAmount, tokenUnit, fundingDate, programName, amount } =
-      raw;
+    const {
+      id,
+      tokenAmount,
+      tokenUnit,
+      fundingDate,
+      programName,
+      amount,
+      createdTimestamp,
+      updatedTimestamp,
+    } = raw;
     const result = GrantFunding.GrantFundingType.decode(raw);
 
     this.id = id;
@@ -560,6 +576,8 @@ export class GrantFunding {
     this.fundingDate = fundingDate;
     this.amount = amount;
     this.programName = programName;
+    this.createdTimestamp = createdTimestamp;
+    this.updatedTimestamp = updatedTimestamp;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

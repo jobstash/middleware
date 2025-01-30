@@ -42,6 +42,10 @@ export class OrganizationWithRelationsEntity {
           ...grant,
           //TODO: remove this once we have a better way to handle this
           programName: notStringOrNull(grant?.programName) ?? "N/A",
+          createdTimestamp: nonZeroOrNull(grant?.createdTimestamp),
+          updatedTimestamp: nonZeroOrNull(grant?.updatedTimestamp),
+          fundingDate: nonZeroOrNull(grant?.fundingDate),
+          amount: nonZeroOrNull(grant?.amount),
         })) ?? [],
       fundingRounds:
         organization?.fundingRounds?.map(fr => ({

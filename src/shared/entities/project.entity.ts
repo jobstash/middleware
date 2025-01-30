@@ -61,6 +61,10 @@ export class ProjectWithBaseRelationsEntity {
           ...grant,
           //TODO: remove this once we have a better way to handle this
           programName: notStringOrNull(grant?.programName) ?? "N/A",
+          createdTimestamp: nonZeroOrNull(grant?.createdTimestamp),
+          updatedTimestamp: nonZeroOrNull(grant?.updatedTimestamp),
+          fundingDate: nonZeroOrNull(grant?.fundingDate),
+          amount: nonZeroOrNull(grant?.amount),
         })) ?? [],
       fundingRounds:
         project?.fundingRounds?.map(fr => ({
@@ -136,6 +140,10 @@ export class ProjectWithRelationsEntity {
           ...grant,
           //TODO: remove this once we have a better way to handle this
           programName: notStringOrNull(grant?.programName) ?? "N/A",
+          createdTimestamp: nonZeroOrNull(grant?.createdTimestamp),
+          updatedTimestamp: nonZeroOrNull(grant?.updatedTimestamp),
+          fundingDate: nonZeroOrNull(grant?.fundingDate),
+          amount: nonZeroOrNull(grant?.amount),
         })) ?? [],
       fundingRounds:
         project?.fundingRounds?.map(fr => ({

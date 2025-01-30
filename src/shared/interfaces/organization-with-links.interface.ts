@@ -13,6 +13,7 @@ import { Hack } from "./hack.interface";
 import { Repository } from "./repository.interface";
 import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relations.interface";
 import { Chain } from "./chain.interface";
+import { GrantFunding } from "./grant.interface";
 
 @ApiExtraModels(OrganizationWithRelations, OrganizationWithLinks, OrgJob)
 export class OrganizationWithLinks extends Organization {
@@ -24,7 +25,7 @@ export class OrganizationWithLinks extends Organization {
       telegrams: t.array(t.string),
       githubs: t.array(t.string),
       aliases: t.array(t.string),
-      grants: t.array(t.string),
+      grants: t.array(GrantFunding.GrantFundingType),
       twitters: t.array(t.string),
       docs: t.array(t.string),
       projects: t.array(
@@ -72,7 +73,7 @@ export class OrganizationWithLinks extends Organization {
   aliases: string[];
 
   @ApiProperty()
-  grants: string[];
+  grants: GrantFunding[];
 
   @ApiProperty()
   twitters: string[];
