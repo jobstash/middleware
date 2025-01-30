@@ -5,6 +5,7 @@ import {
   nonZeroOrNull,
   notStringOrNull,
 } from "../helpers";
+import { ProjectWithBaseRelationsEntity } from "./project.entity";
 
 export class OrganizationWithRelationsEntity {
   constructor(private readonly raw: OrganizationWithRelations) {}
@@ -36,6 +37,25 @@ export class OrganizationWithRelationsEntity {
       website: notStringOrNull(organization?.website),
       aliases: organization?.aliases ?? [],
       community: organization?.community ?? [],
+      grants:
+        organization?.grants?.map(grant => ({
+          ...grant,
+          //TODO: remove this once we have a better way to handle this
+          programName: notStringOrNull(grant?.programName) ?? "N/A",
+        })) ?? [],
+      fundingRounds:
+        organization?.fundingRounds?.map(fr => ({
+          ...fr,
+          raisedAmount: nonZeroOrNull(fr?.raisedAmount),
+          createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
+          updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
+          roundName: notStringOrNull(fr?.roundName),
+          sourceLink: notStringOrNull(fr?.sourceLink),
+        })) ?? [],
+      projects:
+        organization?.projects?.map(project =>
+          new ProjectWithBaseRelationsEntity(project).getProperties(),
+        ) ?? [],
       createdTimestamp: nonZeroOrNull(organization?.createdTimestamp),
       updatedTimestamp: nonZeroOrNull(organization?.updatedTimestamp),
     });

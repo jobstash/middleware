@@ -46,7 +46,7 @@ export class OrgDetailsResultEntity {
 
   getProperties(): OrgDetailsResult {
     const organization = this.raw;
-    const { jobs, investors, fundingRounds, projects, tags, reviews } =
+    const { jobs, investors, fundingRounds, projects, tags, reviews, grants } =
       organization;
     const aggregateRatings =
       reviews?.map(review => generateOrgAggregateRating(review.rating)) ?? [];
@@ -111,6 +111,21 @@ export class OrgDetailsResultEntity {
               techIssues: nonZeroOrNull(audit?.techIssues),
               link: notStringOrNull(audit?.link),
             })) ?? [],
+          grants:
+            project?.grants?.map(grant => ({
+              ...grant,
+              //TODO: remove this once we have a better way to handle this
+              programName: notStringOrNull(grant?.programName) ?? "N/A",
+            })) ?? [],
+          fundingRounds:
+            project?.fundingRounds?.map(fr => ({
+              ...fr,
+              raisedAmount: nonZeroOrNull(fr?.raisedAmount),
+              createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
+              updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
+              roundName: notStringOrNull(fr?.roundName),
+              sourceLink: notStringOrNull(fr?.sourceLink),
+            })) ?? [],
           chains:
             project.chains.map(chain => ({
               ...chain,
@@ -157,6 +172,12 @@ export class OrgDetailsResultEntity {
             }) ?? [],
           repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
         })) ?? [],
+      grants:
+        grants?.map(grant => ({
+          ...grant,
+          //TODO: remove this once we have a better way to handle this
+          programName: notStringOrNull(grant?.programName) ?? "N/A",
+        })) ?? [],
       fundingRounds:
         fundingRounds?.map(fr => ({
           ...fr,
@@ -177,7 +198,6 @@ export class OrgDetailsResultEntity {
         ),
       ),
       community: organization?.community ?? [],
-      grants: organization?.grants ?? [],
       ecosystems: organization?.ecosystems ?? [],
       jobs:
         jobs?.map(jobpost => {

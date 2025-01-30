@@ -524,7 +524,7 @@ export class GrantListResult {
 export class GrantFunding {
   public static readonly GrantFundingType = t.strict({
     id: t.string,
-    tokenAmount: t.string,
+    tokenAmount: t.number,
     tokenUnit: t.string,
     fundingDate: t.string,
     amount: t.number,
@@ -535,7 +535,7 @@ export class GrantFunding {
   id: string;
 
   @ApiProperty()
-  tokenAmount: string;
+  tokenAmount: number;
 
   @ApiProperty()
   tokenUnit: string;

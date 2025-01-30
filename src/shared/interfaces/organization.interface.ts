@@ -12,6 +12,7 @@ import { report } from "io-ts-human-reporter";
 import { ProjectWithBaseRelations } from "./project-with-relations.interface";
 import { OrgReview } from "./org-review.interface";
 import { OrgRating } from "./org-ratings.interface";
+import { GrantFunding } from "./grant.interface";
 
 export class Organization {
   public static readonly OrganizationType = t.strict({
@@ -120,7 +121,7 @@ export class OrganizationWithRelations extends Organization {
       investors: t.array(Investor.InvestorType),
       community: t.array(t.string),
       ecosystems: t.array(t.string),
-      grants: t.array(t.string),
+      grants: t.array(GrantFunding.GrantFundingType),
       reviews: t.array(OrgReview.OrgReviewType),
     }),
   ]);
@@ -161,8 +162,11 @@ export class OrganizationWithRelations extends Organization {
   @ApiProperty()
   ecosystems: string[];
 
-  @ApiProperty()
-  grants: string[];
+  @ApiProperty({
+    type: "array",
+    items: { $ref: getSchemaPath(GrantFunding) },
+  })
+  grants: GrantFunding[];
 
   @ApiProperty({
     type: "array",
@@ -306,15 +310,11 @@ export class ShortOrg {
   @ApiProperty()
   ecosystems: string[];
 
-  @ApiProperty()
-  grants: string[];
-
   constructor(raw: ShortOrg) {
     const {
       orgId,
       url,
       name,
-      grants,
       logoUrl,
       location,
       jobCount,
@@ -334,7 +334,6 @@ export class ShortOrg {
     this.orgId = orgId;
     this.url = url;
     this.name = name;
-    this.grants = grants;
     this.logoUrl = logoUrl;
     this.location = location;
     this.jobCount = jobCount;

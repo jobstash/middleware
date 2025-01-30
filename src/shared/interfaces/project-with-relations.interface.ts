@@ -12,6 +12,8 @@ import { Hack } from "./hack.interface";
 import { ProjectMoreInfo } from "./project-more-info.interface";
 import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relations.interface";
 import { Repository } from "./repository.interface";
+import { GrantFunding } from "./grant.interface";
+import { FundingRound } from "./funding-round.interface";
 
 export class ProjectWithBaseRelations extends ProjectMoreInfo {
   public static readonly ProjectWithBaseRelationsType = t.intersection([
@@ -31,6 +33,8 @@ export class ProjectWithBaseRelations extends ProjectMoreInfo {
       jobs: t.array(
         StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
       ),
+      grants: t.array(GrantFunding.GrantFundingType),
+      fundingRounds: t.array(FundingRound.FundingRoundType),
       repos: t.array(Repository.RepositoryType),
     }),
   ]);
@@ -89,6 +93,18 @@ export class ProjectWithBaseRelations extends ProjectMoreInfo {
   })
   repos: Repository[];
 
+  @ApiProperty({
+    type: "array",
+    items: { $ref: getSchemaPath(GrantFunding) },
+  })
+  grants: GrantFunding[];
+
+  @ApiProperty({
+    type: "array",
+    items: { $ref: getSchemaPath(FundingRound) },
+  })
+  fundingRounds: FundingRound[];
+
   constructor(raw: ProjectWithBaseRelations) {
     const {
       github,
@@ -104,6 +120,8 @@ export class ProjectWithBaseRelations extends ProjectMoreInfo {
       ecosystems,
       jobs,
       repos,
+      grants,
+      fundingRounds,
       ...projectProperties
     } = raw;
     super(projectProperties);
@@ -123,6 +141,8 @@ export class ProjectWithBaseRelations extends ProjectMoreInfo {
     this.ecosystems = ecosystems;
     this.jobs = jobs;
     this.repos = repos;
+    this.grants = grants;
+    this.fundingRounds = fundingRounds;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

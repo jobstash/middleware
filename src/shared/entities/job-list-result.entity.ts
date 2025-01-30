@@ -202,6 +202,21 @@ export class JobListResultEntity {
                       timestamp: nonZeroOrNull(jobpost?.timestamp),
                     };
                   }) ?? [],
+                fundingRounds:
+                  project?.fundingRounds?.map(fr => ({
+                    ...fr,
+                    raisedAmount: nonZeroOrNull(fr?.raisedAmount),
+                    createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
+                    updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
+                    roundName: notStringOrNull(fr?.roundName),
+                    sourceLink: notStringOrNull(fr?.sourceLink),
+                  })) ?? [],
+                grants:
+                  project?.grants?.map(grant => ({
+                    ...grant,
+                    //TODO: remove this once we have a better way to handle this
+                    programName: notStringOrNull(grant?.programName) ?? "N/A",
+                  })) ?? [],
                 repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
               })) ?? [],
             fundingRounds:
@@ -215,6 +230,12 @@ export class JobListResultEntity {
                   sourceLink: notStringOrNull(fr?.sourceLink),
                 }))
                 .sort((a, b) => b.date - a.date) ?? [],
+            grants:
+              organization?.grants?.map(grant => ({
+                ...grant,
+                //TODO: remove this once we have a better way to handle this
+                programName: notStringOrNull(grant?.programName) ?? "N/A",
+              })) ?? [],
             investors: Array.from(
               uniqBy(
                 organization?.investors?.map(investor => ({

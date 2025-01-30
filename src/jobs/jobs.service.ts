@@ -156,12 +156,23 @@ export class JobsService {
                   ],
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                  ]
+                  ],
+                  fundingRounds: [
+                    (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                  ],
+                  grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                    .*,
+                    programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                  }]
                 }
               ],
               fundingRounds: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
               ]),
+              grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }],
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
@@ -169,7 +180,6 @@ export class JobsService {
               ecosystems: [
                 (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
               ],
-              grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
               reviews: [
                 (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
                   compensation: {
@@ -222,7 +232,14 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ]
+              ],
+              fundingRounds: [
+                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+              ],
+              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }]
             }
           ][0],
           tags: apoc.coll.toSet(tags)
@@ -332,12 +349,23 @@ export class JobsService {
                   ],
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                  ]
+                  ],
+                  fundingRounds: [
+                    (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                  ],
+                  grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                    .*,
+                    programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                  }]
                 }
               ],
               fundingRounds: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
               ]),
+              grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }],
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
@@ -1094,12 +1122,23 @@ export class JobsService {
                   ],
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                  ]
+                  ],
+                  fundingRounds: [
+                    (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                  ],
+                  grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                    .*,
+                    programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                  }]
                 }
               ],
               fundingRounds: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
               ]),
+              grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }],
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
@@ -1160,7 +1199,14 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ]
+              ],
+              fundingRounds: [
+                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+              ],
+              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }]
             }
           ][0],
           tags: apoc.coll.toSet(tags)
@@ -1400,12 +1446,23 @@ export class JobsService {
                   ],
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                  ]
+                  ],
+                  fundingRounds: [
+                    (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                  ],
+                  grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                    .*,
+                    programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                  }]
                 }
               ],
               fundingRounds: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
               ]),
+              grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }],
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
@@ -1466,7 +1523,14 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ]
+              ],
+              fundingRounds: [
+                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+              ],
+              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }]
             }
           ][0],
             tags: apoc.coll.toSet(tags)
@@ -1660,12 +1724,23 @@ export class JobsService {
                   ],
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                  ]
+                  ],
+                  fundingRounds: [
+                    (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                  ],
+                  grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                    .*,
+                    programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                  }]
                 }
               ],
               fundingRounds: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
               ]),
+              grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }],
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
@@ -1726,7 +1801,14 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ]
+              ],
+              fundingRounds: [
+                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+              ],
+              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }]
             }
           ][0],
             tags: apoc.coll.toSet(tags)
@@ -1972,12 +2054,23 @@ export class JobsService {
                   ],
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                  ]
+                  ],
+                  fundingRounds: [
+                    (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                  ],
+                  grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                    .*,
+                    programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                  }]
                 }
               ],
               fundingRounds: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
               ]),
+              grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }],
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
@@ -2038,7 +2131,14 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ]
+              ],
+              fundingRounds: [
+                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+              ],
+              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }]
             }
           ][0],
             tags: apoc.coll.toSet(tags)
@@ -2156,12 +2256,23 @@ export class JobsService {
                   ],
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                  ]
+                  ],
+                  fundingRounds: [
+                    (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                  ],
+                  grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                    .*,
+                    programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                  }]
                 }
               ],
               fundingRounds: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
               ]),
+              grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }],
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
@@ -2222,7 +2333,14 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ]
+              ],
+              fundingRounds: [
+                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+              ],
+              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }]
             }
           ][0],
             tags: apoc.coll.toSet(tags)
@@ -2345,12 +2463,23 @@ export class JobsService {
                   ],
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                  ]
+                  ],
+                  fundingRounds: [
+                    (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                  ],
+                  grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                    .*,
+                    programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                  }]
                 }
               ],
               fundingRounds: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
               ]),
+              grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }],
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
@@ -2411,7 +2540,14 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ]
+              ],
+              fundingRounds: [
+                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+              ],
+              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }]
             }
           ][0],
             tags: apoc.coll.toSet(tags)
@@ -2533,12 +2669,23 @@ export class JobsService {
                   ],
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                  ]
+                  ],
+                  fundingRounds: [
+                    (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                  ],
+                  grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                    .*,
+                    programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                  }]
                 }
               ],
               fundingRounds: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
               ]),
+              grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }],
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
@@ -2599,7 +2746,14 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ]
+              ],
+              fundingRounds: [
+                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+              ],
+              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }]
             }
           ][0],
             tags: apoc.coll.toSet(tags)
@@ -2727,12 +2881,23 @@ export class JobsService {
                   ],
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                  ]
+                  ],
+                  fundingRounds: [
+                    (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                  ],
+                  grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                    .*,
+                    programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                  }]
                 }
               ],
               fundingRounds: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
               ]),
+              grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }],
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
@@ -2793,7 +2958,14 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ]
+              ],
+              fundingRounds: [
+                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+              ],
+              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }]
             }
           ][0],
             tags: apoc.coll.toSet(tags)
@@ -2921,12 +3093,23 @@ export class JobsService {
                   ],
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                  ]
+                  ],
+                  fundingRounds: [
+                    (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                  ],
+                  grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                    .*,
+                    programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                  }]
                 }
               ],
               fundingRounds: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
               ]),
+              grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }],
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
@@ -2987,7 +3170,14 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ]
+              ],
+              fundingRounds: [
+                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+              ],
+              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }]
             }
           ][0],
             tags: apoc.coll.toSet(tags)
@@ -3116,12 +3306,23 @@ export class JobsService {
                   ],
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                  ]
+                  ],
+                  fundingRounds: [
+                    (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                  ],
+                  grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                    .*,
+                    programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                  }]
                 }
               ],
               fundingRounds: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
               ]),
+              grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }],
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
@@ -3182,7 +3383,14 @@ export class JobsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ]
+              ],
+              fundingRounds: [
+                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+              ],
+              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }]
             }
           ][0],
             tags: apoc.coll.toSet(tags)

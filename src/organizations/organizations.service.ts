@@ -82,13 +82,18 @@ export class OrganizationsService {
           github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
           twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-          fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
+          fundingRounds: apoc.coll.toSet([
+            (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+          ]),
+          grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+            .*,
+            programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+          }],
           investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
           community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
           ecosystems: [
             (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
           ],
-          grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
           jobs: [
             (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | structured_jobpost {
               id: structured_jobpost.id,
@@ -136,7 +141,14 @@ export class OrganizationsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ]
+              ],
+              fundingRounds: [
+                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+              ],
+              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }]
             }
           ],
           tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }],
@@ -785,7 +797,14 @@ export class OrganizationsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ]
+              ],
+              fundingRounds: [
+                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+              ],
+              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }]
             }
           ]
         } as org
@@ -971,7 +990,14 @@ export class OrganizationsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ]
+              ],
+              fundingRounds: [
+                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+              ],
+              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }]
             }
           ]
         } as org

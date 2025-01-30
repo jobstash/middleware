@@ -20,6 +20,7 @@ import { Investor } from "./investor.interface";
 import { LeanOrgReview } from "./org-review.interface";
 import { OrgProject } from "./project-details-result.interface";
 import { sort } from "fast-sort";
+import { GrantFunding } from "./grant.interface";
 
 @ApiExtraModels(OrganizationWithRelations, OrgDetailsResult, OrgJob)
 export class OrgDetailsResult extends Organization {
@@ -41,7 +42,7 @@ export class OrgDetailsResult extends Organization {
       investors: t.array(Investor.InvestorType),
       community: t.array(t.string),
       ecosystems: t.array(t.string),
-      grants: t.array(t.string),
+      grants: t.array(GrantFunding.GrantFundingType),
       jobs: t.array(OrgJob.OrgJobType),
       tags: t.array(Tag.TagType),
       reviews: t.array(LeanOrgReview.LeanOrgReviewType),
@@ -85,7 +86,7 @@ export class OrgDetailsResult extends Organization {
   ecosystems: string[];
 
   @ApiProperty()
-  grants: string[];
+  grants: GrantFunding[];
 
   @ApiProperty({
     type: "array",
