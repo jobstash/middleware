@@ -214,7 +214,7 @@ const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<SearchNav, string | null> = {
       ])
     }
   `,
-  grantsImpact: `
+  impact: `
     //matchAmount
     //donatedAmount
     //payoutTime
@@ -1191,22 +1191,19 @@ export class SearchService {
     }
   }
 
-  async getFilterConfigs(
-    nav: SearchNav,
-  ): Promise<FilterConfigResponse["data"]> {}
+  // async getFilterConfigs(
+  //   nav: SearchNav,
+  // ): Promise<FilterConfigResponse["data"]> {}
 
-  async searchPillarFilters(nav: SearchNav): Promise<FilterConfigResponse> {
-    const query = NAV_FILTER_CONFIG_QUERY_MAPPINGS[nav];
+  // async searchPillarFilters(nav: SearchNav): Promise<FilterConfigResponse> {
+  //   const query = NAV_FILTER_CONFIG_QUERY_MAPPINGS[nav];
 
-    const result = await this.neogma.queryRunner.run(query);
+  //   const result = await this.neogma.queryRunner.run(query);
 
-    const data = result.records.map(
-      record => record.get("res") as FilterConfig,
-    );
-    return {
-      success: true,
-      message: "Retrieved filter configs successfully",
-      data,
-    };
-  }
+  //   return {
+  //     success: true,
+  //     message: "Retrieved filter configs successfully",
+  //     data: [],
+  //   };
+  // }
 }

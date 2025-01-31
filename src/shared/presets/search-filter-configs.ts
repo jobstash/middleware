@@ -234,7 +234,7 @@ export const FILTER_CONFIG_PRESETS = {
       prefix: null,
     },
   },
-  grantsImpact: {
+  impact: {
     matchAmount: {
       position: 1,
       label: "Head Count",
