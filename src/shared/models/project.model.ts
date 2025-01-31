@@ -547,7 +547,7 @@ export const Projects = (
                   grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
                     .*,
                     programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
-                  }]
+                  }],
                   jobs: jobs,
                   jobsites: [
                     (project)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
@@ -664,7 +664,7 @@ export const Projects = (
                   grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
                     .*,
                     programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
-                  }]
+                  }],
                   jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
@@ -821,7 +821,7 @@ export const Projects = (
                   grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
                     .*,
                     programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
-                  }]
+                  }],
                   jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
@@ -1131,7 +1131,7 @@ export const Projects = (
                   grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
                     .*,
                     programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
-                  }]
+                  }],
                   jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
