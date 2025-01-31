@@ -24,7 +24,6 @@ import {
   paginate,
   publicationDateRangeGenerator,
   slugify,
-  sprinkleProtectedJobs,
 } from "src/shared/helpers";
 import {
   AllJobsFilterConfigs,
@@ -824,7 +823,7 @@ export class JobsService {
 
     this.logger.log(`Sorted ${final.length} jobs`);
 
-    return paginate<JobListResult>(page, limit, sprinkleProtectedJobs(final));
+    return paginate<JobListResult>(page, limit, final);
   }
 
   async getFilterConfigs(
