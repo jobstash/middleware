@@ -19,6 +19,7 @@ import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
 import { SearchPillarParams } from "./dto/search-pillar.input";
 import { FetchPillarItemLabelsInput } from "./dto/fetch-pillar-item-labels.input";
 import { SearchParams } from "./dto/search.input";
+import { QueryResult } from "neo4j-driver-core";
 
 const NAV_PILLAR_QUERY_MAPPINGS: Record<
   SearchNav,
@@ -75,12 +76,19 @@ const NAV_PILLAR_QUERY_MAPPINGS: Record<
   vcs: null,
 };
 
-const NAV_PILLAR_DEFAULTS: Record<SearchNav, string> = {
-  grants: "names",
-  impact: "names",
-  organizations: "locations",
-  projects: "categories",
-  vcs: "vcs",
+const NAV_PILLAR_ORDERING: Record<SearchNav, string[]> = {
+  grants: ["categories", "chains", "ecosystems", "organizations", "names"],
+  impact: ["categories", "chains", "ecosystems", "organizations", "names"],
+  organizations: [
+    "investors",
+    "locations",
+    "chains",
+    "fundingRounds",
+    "names",
+    "tags",
+  ],
+  projects: ["categories", "chains", "investors", "names", "tags"],
+  vcs: ["names"],
 };
 
 const NAV_PILLAR_TITLES: Record<SearchNav, string> = {
@@ -145,7 +153,7 @@ export class SearchService {
 
   private async searchProjects(query: string): Promise<SearchResultNav> {
     if (query) {
-      const [names, categories, chains, tags] = await Promise.all([
+      const [names, categories, chains, investors, tags] = await Promise.all([
         this.neogma.queryRunner.run(
           `
           CALL db.index.fulltext.queryNodes("projects", $query) YIELD node as project, score
@@ -165,16 +173,10 @@ export class SearchService {
           { query },
         ),
         this.searchChains(query, "projects"),
+        this.searchInvestors(query, "projects"),
         this.searchTags(query, "projects"),
       ]);
       return {
-        names: uniqBy(
-          names.records?.map(record => ({
-            value: record.get("name"),
-            link: `/projects/names/${slugify(record.get("name"))}`,
-          })) ?? [],
-          "value",
-        ),
         categories: uniqBy(
           categories.records?.map(record => ({
             value: record.get("name"),
@@ -183,10 +185,18 @@ export class SearchService {
           "value",
         ),
         chains,
+        investors,
+        names: uniqBy(
+          names.records?.map(record => ({
+            value: record.get("name"),
+            link: `/projects/names/${slugify(record.get("name"))}`,
+          })) ?? [],
+          "value",
+        ),
         tags,
       };
     } else {
-      const [names, categories, chains, tags] = await Promise.all([
+      const [names, categories, chains, investors, tags] = await Promise.all([
         this.neogma.queryRunner.run(
           `
           CYPHER runtime = parallel
@@ -208,16 +218,10 @@ export class SearchService {
         `,
         ),
         this.searchChains(query, "projects"),
+        this.searchInvestors(query, "projects"),
         this.searchTags(query, "projects"),
       ]);
       return {
-        names: uniqBy(
-          names.records?.map(record => ({
-            value: record.get("name"),
-            link: `/projects/names/${slugify(record.get("name"))}`,
-          })) ?? [],
-          "value",
-        ),
         categories: uniqBy(
           categories.records?.map(record => ({
             value: record.get("name"),
@@ -226,6 +230,14 @@ export class SearchService {
           "value",
         ),
         chains,
+        investors,
+        names: uniqBy(
+          names.records?.map(record => ({
+            value: record.get("name"),
+            link: `/projects/names/${slugify(record.get("name"))}`,
+          })) ?? [],
+          "value",
+        ),
         tags,
       };
     }
@@ -344,20 +356,14 @@ export class SearchService {
         `,
             { query },
           ),
-          this.searchInvestors(query),
+          this.searchInvestors(query, "organizations"),
           this.searchFundingRounds(query),
           this.searchChains(query, "organizations"),
           this.searchTags(query, "organizations"),
         ]);
 
       return {
-        names: uniqBy(
-          names.records?.map(record => ({
-            value: record.get("name"),
-            link: `/organizations/names/${slugify(record.get("name"))}`,
-          })) ?? [],
-          "value",
-        ),
+        investors,
         locations: uniqBy(
           locations.records?.map(record => ({
             value: record.get("location"),
@@ -365,9 +371,15 @@ export class SearchService {
           })) ?? [],
           "value",
         ),
-        investors,
-        fundingRounds,
         chains,
+        fundingRounds,
+        names: uniqBy(
+          names.records?.map(record => ({
+            value: record.get("name"),
+            link: `/organizations/names/${slugify(record.get("name"))}`,
+          })) ?? [],
+          "value",
+        ),
         tags,
       };
     } else {
@@ -392,20 +404,14 @@ export class SearchService {
           LIMIT 10
         `,
           ),
-          this.searchInvestors(query),
+          this.searchInvestors(query, "organizations"),
           this.searchFundingRounds(query),
           this.searchChains(query, "organizations"),
           this.searchTags(query, "organizations"),
         ]);
 
       return {
-        names: uniqBy(
-          names.records?.map(record => ({
-            value: record.get("name"),
-            link: `/organizations/names/${slugify(record.get("name"))}`,
-          })) ?? [],
-          "value",
-        ),
+        investors,
         locations: uniqBy(
           locations.records?.map(record => ({
             value: record.get("location"),
@@ -413,9 +419,15 @@ export class SearchService {
           })) ?? [],
           "value",
         ),
-        investors,
-        fundingRounds,
         chains,
+        fundingRounds,
+        names: uniqBy(
+          names.records?.map(record => ({
+            value: record.get("name"),
+            link: `/organizations/names/${slugify(record.get("name"))}`,
+          })) ?? [],
+          "value",
+        ),
         tags,
       };
     }
@@ -426,6 +438,7 @@ export class SearchService {
     status: "active" | "inactive",
   ): Promise<SearchResultNav> {
     const statusFilter = status === "active" ? "Active" : "Inactive";
+    const name = status === "active" ? "grants" : "impact";
 
     if (query) {
       const [names, ecosystems, chains, categories, organizations] =
@@ -483,40 +496,40 @@ export class SearchService {
         ]);
 
       return {
-        names: uniqBy(
-          names.records?.map(record => ({
-            value: record.get("name"),
-            link: `/grants/names/${slugify(record.get("name"))}`,
-          })) ?? [],
-          "value",
-        ),
-        ecosystems: uniqBy(
-          ecosystems.records?.map(record => ({
-            value: record.get("ecosystem"),
-            link: `/grants/ecosystems/${slugify(record.get("ecosystem"))}`,
+        categories: uniqBy(
+          categories.records?.map(record => ({
+            value: record.get("category"),
+            link: `/${name}/categories/${slugify(record.get("category"))}`,
           })) ?? [],
           "value",
         ),
         chains: uniqBy(
           chains.records?.map(record => ({
             value: record.get("chain"),
-            link: `/grants/chains/${slugify(record.get("chain"))}`,
+            link: `/${name}/chains/${slugify(record.get("chain"))}`,
           })) ?? [],
           "value",
         ),
-        categories: uniqBy(
-          categories.records?.map(record => ({
-            value: record.get("category"),
-            link: `/grants/categories/${slugify(record.get("category"))}`,
+        ecosystems: uniqBy(
+          ecosystems.records?.map(record => ({
+            value: record.get("ecosystem"),
+            link: `/${name}/ecosystems/${slugify(record.get("ecosystem"))}`,
           })) ?? [],
           "value",
         ),
         organizations: uniqBy(
           organizations.records?.map(record => ({
             value: record.get("organization"),
-            link: `/grants/organizations/${slugify(
+            link: `/${name}/organizations/${slugify(
               record.get("organization"),
             )}`,
+          })) ?? [],
+          "value",
+        ),
+        names: uniqBy(
+          names.records?.map(record => ({
+            value: record.get("name"),
+            link: `/${name}/names/${slugify(record.get("name"))}`,
           })) ?? [],
           "value",
         ),
@@ -587,40 +600,40 @@ export class SearchService {
         ]);
 
       return {
-        names: uniqBy(
-          names.records?.map(record => ({
-            value: record.get("name"),
-            link: `/grants/names/${slugify(record.get("name"))}`,
-          })) ?? [],
-          "value",
-        ),
-        ecosystems: uniqBy(
-          ecosystems.records?.map(record => ({
-            value: record.get("ecosystem"),
-            link: `/grants/ecosystems/${slugify(record.get("ecosystem"))}`,
+        categories: uniqBy(
+          categories.records?.map(record => ({
+            value: record.get("category"),
+            link: `/${name}/categories/${slugify(record.get("category"))}`,
           })) ?? [],
           "value",
         ),
         chains: uniqBy(
           chains.records?.map(record => ({
             value: record.get("chain"),
-            link: `/grants/chains/${slugify(record.get("chain"))}`,
+            link: `/${name}/chains/${slugify(record.get("chain"))}`,
           })) ?? [],
           "value",
         ),
-        categories: uniqBy(
-          categories.records?.map(record => ({
-            value: record.get("category"),
-            link: `/grants/categories/${slugify(record.get("category"))}`,
+        ecosystems: uniqBy(
+          ecosystems.records?.map(record => ({
+            value: record.get("ecosystem"),
+            link: `/${name}/ecosystems/${slugify(record.get("ecosystem"))}`,
           })) ?? [],
           "value",
         ),
         organizations: uniqBy(
           organizations.records?.map(record => ({
             value: record.get("organization"),
-            link: `/grants/organizations/${slugify(
+            link: `/${name}/organizations/${slugify(
               record.get("organization"),
             )}`,
+          })) ?? [],
+          "value",
+        ),
+        names: uniqBy(
+          names.records?.map(record => ({
+            value: record.get("name"),
+            link: `/${name}/names/${slugify(record.get("name"))}`,
           })) ?? [],
           "value",
         ),
@@ -628,40 +641,74 @@ export class SearchService {
     }
   }
 
-  private async searchInvestors(query: string): Promise<SearchResultItem[]> {
+  private async searchInvestors(
+    query: string,
+    name: "organizations" | "projects",
+  ): Promise<SearchResultItem[]> {
     if (query) {
-      const result = await this.neogma.queryRunner.run(
-        `
-        CALL db.index.fulltext.queryNodes("investors", $query) YIELD node as investor, score
-        RETURN DISTINCT investor.name as name, score
-        ORDER BY score DESC
-        LIMIT 10
-      `,
-        { query },
-      );
+      let result: QueryResult;
+      if (name === "organizations") {
+        result = await this.neogma.queryRunner.run(
+          `
+            CALL db.index.fulltext.queryNodes("investors", $query) YIELD node as investor, score
+            WHERE (:Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor)
+            RETURN DISTINCT investor.name as name, score
+            ORDER BY score DESC
+            LIMIT 10
+          `,
+          { query },
+        );
+      } else {
+        result = await this.neogma.queryRunner.run(
+          `
+            CALL db.index.fulltext.queryNodes("investors", $query) YIELD node as investor, score
+            WHERE (:Project)<-[:HAS_PROJECT]-(:Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor)
+            RETURN DISTINCT investor.name as name, score
+            ORDER BY score DESC
+            LIMIT 10
+          `,
+          { query },
+        );
+      }
+
       return uniqBy(
         result.records?.map(record => ({
           value: record.get("name"),
-          link: `/organizations/investors/${slugify(record.get("name"))}`,
+          link: `/${name}/investors/${slugify(record.get("name"))}`,
         })) ?? [],
         "value",
       );
     } else {
-      const result = await this.neogma.queryRunner.run(
-        `
+      let result: QueryResult;
+      if (name === "organizations") {
+        result = await this.neogma.queryRunner.run(
+          `
         CYPHER runtime = parallel
-        MATCH (i:Investor)<-[:HAS_INVESTOR]-(f:FundingRound)
+        MATCH (:Organization)-[:HAS_FUNDING_ROUND]->(f:FundingRound)-[:HAS_INVESTOR]->(i:Investor)
         WITH i.name as name, f
         RETURN DISTINCT name, COUNT(f) as popularity
         ORDER BY popularity DESC
         LIMIT 10
       `,
-        { query },
-      );
+          { query },
+        );
+      } else {
+        result = await this.neogma.queryRunner.run(
+          `
+        CYPHER runtime = parallel
+        MATCH (:Project)<-[:HAS_PROJECT]-(:Organization)-[:HAS_FUNDING_ROUND]->(f:FundingRound)-[:HAS_INVESTOR]->(i:Investor)
+        WITH i.name as name, f
+        RETURN DISTINCT name, COUNT(f) as popularity
+        ORDER BY popularity DESC
+        LIMIT 10
+      `,
+          { query },
+        );
+      }
       return uniqBy(
         result.records?.map(record => ({
           value: record.get("name"),
-          link: `/organizations/investors/${slugify(record.get("name"))}`,
+          link: `/${name}/investors/${slugify(record.get("name"))}`,
         })) ?? [],
         "value",
       );
@@ -879,7 +926,7 @@ export class SearchService {
     title: string;
     description: string;
   }> {
-    const pillar = basePillar ?? NAV_PILLAR_DEFAULTS[nav];
+    const pillar = basePillar ?? NAV_PILLAR_ORDERING[nav];
     if (pillar === "names") {
       const title = NAV_PILLAR_TITLES[nav];
       return {
@@ -918,7 +965,7 @@ export class SearchService {
   async searchPillar(
     params: SearchPillarParams,
   ): Promise<ResponseWithOptionalData<PillarInfo>> {
-    const pillar = params.pillar ?? NAV_PILLAR_DEFAULTS[params.nav];
+    const pillar = params.pillar ?? NAV_PILLAR_ORDERING[params.nav][0];
     const query: string | undefined | null =
       NAV_PILLAR_QUERY_MAPPINGS[params.nav][pillar];
     const headerText = await this.fetchHeaderText(
@@ -930,7 +977,7 @@ export class SearchService {
       const result = await this.neogma.queryRunner.run(query);
       const items = result.records?.map(record => record.get("item"));
       const wanted = items.find(x => slugify(x) === params.item);
-      const alts = Object.keys(NAV_PILLAR_QUERY_MAPPINGS[params.nav])
+      const alts = NAV_PILLAR_ORDERING[params.nav]
         .filter(x => x !== pillar)
         .map(x => {
           const query = NAV_PILLAR_QUERY_MAPPINGS[params.nav][x];
