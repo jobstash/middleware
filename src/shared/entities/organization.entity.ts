@@ -1,6 +1,6 @@
 import { Node } from "neo4j-driver";
 import { intConverter, nonZeroOrNull, notStringOrNull } from "../helpers";
-import { ShortOrg, Organization } from "../interfaces";
+import { ShortOrg, Organization, ShortOrgWithSummary } from "../interfaces";
 
 export class ShortOrgEntity {
   constructor(private readonly raw: ShortOrg) {}
@@ -8,6 +8,23 @@ export class ShortOrgEntity {
   getProperties(): ShortOrg {
     return {
       ...this.raw,
+      logoUrl: notStringOrNull(this.raw.logoUrl),
+      jobCount: intConverter(this.raw.jobCount),
+      projectCount: intConverter(this.raw.projectCount),
+      headcountEstimate: intConverter(this.raw.headcountEstimate),
+      lastFundingAmount: intConverter(this.raw.lastFundingAmount),
+      lastFundingDate: intConverter(this.raw.lastFundingDate),
+    };
+  }
+}
+
+export class ShortOrgWithSummaryEntity {
+  constructor(private readonly raw: ShortOrgWithSummary) {}
+
+  getProperties(): ShortOrgWithSummary {
+    return {
+      ...this.raw,
+      summary: notStringOrNull(this.raw.summary),
       logoUrl: notStringOrNull(this.raw.logoUrl),
       jobCount: intConverter(this.raw.jobCount),
       projectCount: intConverter(this.raw.projectCount),

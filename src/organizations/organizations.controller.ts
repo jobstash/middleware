@@ -49,6 +49,7 @@ import {
   TinyOrg,
   data,
   SessionObject,
+  ShortOrgWithSummary,
 } from "src/shared/types";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
@@ -278,7 +279,7 @@ export class OrganizationsController {
     @Query(new ValidationPipe({ transform: true }))
     params: SearchOrganizationsInput,
     @Headers(COMMUNITY_HEADER) community: string | undefined,
-  ): Promise<PaginatedData<ShortOrg>> {
+  ): Promise<PaginatedData<ShortOrgWithSummary>> {
     this.logger.log(`/organizations/search ${JSON.stringify({ params })}`);
     return this.organizationsService.searchOrganizations(params, community);
   }

@@ -715,6 +715,7 @@ export class ProjectsController {
                 monthlyRevenue: revenueOverview?.total30d ?? 0,
                 tokenAddress: thisProjectsData?.address,
                 description: project.description,
+                summary: project.summary,
               }).getProperties(),
               url: project.url,
             },

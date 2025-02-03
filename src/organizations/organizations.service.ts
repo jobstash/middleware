@@ -14,6 +14,7 @@ import {
   TinyOrg,
   Organization,
   FundingRound,
+  ShortOrgWithSummary,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -26,6 +27,7 @@ import {
   paginate,
   toAbsoluteURL,
   toShortOrg,
+  toShortOrgWithSummary,
 } from "src/shared/helpers";
 import {
   OrganizationEntity,
@@ -525,7 +527,7 @@ export class OrganizationsService {
                 commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
                 locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
                 timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
-                tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag.name ]
+                tags: [(structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag.name ]
               }
             ],
             projects: [
@@ -553,7 +555,6 @@ export class OrganizationsService {
                 ]
               }
             ],
-            tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }],
             reviews: [
               (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
                 compensation: {
@@ -656,7 +657,7 @@ export class OrganizationsService {
                 commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
                 locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
                 timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
-                tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag.name ]
+                tags: [(structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag.name ]
               }
             ],
             projects: [
@@ -684,7 +685,6 @@ export class OrganizationsService {
                 ]
               }
             ],
-            tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }],
             reviews: [
               (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
                 compensation: {
@@ -845,7 +845,7 @@ export class OrganizationsService {
   async searchOrganizations(
     params: SearchOrganizationsInput,
     community: string | undefined,
-  ): Promise<PaginatedData<ShortOrg>> {
+  ): Promise<PaginatedData<ShortOrgWithSummary>> {
     try {
       const {
         locations: locationFilterList,
@@ -898,7 +898,7 @@ export class OrganizationsService {
         );
       };
 
-      const filtered = all.filter(orgFilters).map(toShortOrg);
+      const filtered = all.filter(orgFilters).map(toShortOrgWithSummary);
 
       const naturalSort = createNewSortInstance({
         comparer: new Intl.Collator(undefined, {
@@ -908,14 +908,14 @@ export class OrganizationsService {
         inPlaceSorting: true,
       });
 
-      const sorted = naturalSort<ShortOrg>(filtered).by([
+      const sorted = naturalSort<ShortOrgWithSummary>(filtered).by([
         {
           desc: (x): number => x.lastFundingDate,
         },
         { asc: (x): string => x.name },
       ]);
 
-      return paginate<ShortOrg>(page, limit, sorted);
+      return paginate<ShortOrgWithSummary>(page, limit, sorted);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({

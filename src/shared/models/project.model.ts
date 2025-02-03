@@ -142,6 +142,11 @@ export const Projects = (
           allowEmpty: false,
           required: true,
         },
+        summary: {
+          type: "string",
+          allowEmpty: false,
+          required: true,
+        },
         name: {
           type: "string",
           allowEmpty: false,

@@ -357,6 +357,35 @@ export class ShortOrg {
   }
 }
 
+export class ShortOrgWithSummary extends ShortOrg {
+  public static readonly ShortOrgWithSummaryType = t.intersection([
+    ShortOrg.ShortOrgType,
+    t.strict({
+      name: t.string,
+    }),
+  ]);
+
+  @ApiProperty()
+  summary: string;
+
+  constructor(raw: ShortOrgWithSummary) {
+    super(raw);
+    const { summary } = raw;
+
+    const result = ShortOrgWithSummary.ShortOrgWithSummaryType.decode(raw);
+
+    this.summary = summary;
+
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(
+          `short org with summary instance with id ${this.orgId} failed validation with error '${x}'`,
+        );
+      });
+    }
+  }
+}
+
 export class TinyOrg {
   public static readonly TinyOrgType = t.strict({
     orgId: t.string,

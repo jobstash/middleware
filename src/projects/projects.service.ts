@@ -24,6 +24,7 @@ import {
   Jobsite,
   PaginatedData,
   Project,
+  ProjectCompetitorListResult,
   ProjectCompetitorListResultEntity,
   ProjectDetailsEntity,
   ProjectDetailsResult,
@@ -604,7 +605,7 @@ export class ProjectsService {
   async getProjectCompetitors(
     id: string,
     community: string | undefined,
-  ): Promise<ProjectListResult[]> {
+  ): Promise<ProjectCompetitorListResult[]> {
     try {
       return (
         await this.models.Projects.getProjectCompetitors(id, community)

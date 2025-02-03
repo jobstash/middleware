@@ -35,6 +35,7 @@ import {
   OrgRating,
   PaginatedData,
   ShortOrg,
+  ShortOrgWithSummary,
 } from "../interfaces";
 import { Response } from "../interfaces/response.interface";
 import { PUBLIC_API_SCHEMAS } from "../presets/public-api-schemas";
@@ -44,7 +45,7 @@ import { PrivyService } from "src/auth/privy/privy.service";
 import { UserService } from "src/user/user.service";
 import { WalletWithMetadata } from "@privy-io/server-auth";
 import baseSlugify from "slugify";
-import { ShortOrgEntity } from "../entities";
+import { ShortOrgEntity, ShortOrgWithSummaryEntity } from "../entities";
 import { transliterate } from "transliteration";
 
 /* 
@@ -418,6 +419,44 @@ export const toShortOrg = (org: OrgDetailsResult): ShortOrg => {
     orgId,
     url: website,
     name,
+    logoUrl,
+    location,
+    normalizedName,
+    headcountEstimate,
+    aggregateRating,
+    reviewCount,
+    community,
+    ecosystems,
+    jobCount: org.jobs.length,
+    projectCount: org.projects.length,
+    lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
+    lastFundingDate: lastFundingRound?.date ?? 0,
+  }).getProperties();
+};
+
+export const toShortOrgWithSummary = (
+  org: OrgDetailsResult,
+): ShortOrgWithSummary => {
+  const {
+    orgId,
+    website,
+    name,
+    logoUrl,
+    location,
+    normalizedName,
+    headcountEstimate,
+    aggregateRating,
+    reviewCount,
+    community,
+    ecosystems,
+    summary,
+  } = org;
+  const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
+  return new ShortOrgWithSummaryEntity({
+    orgId,
+    url: website,
+    name,
+    summary,
     logoUrl,
     location,
     normalizedName,
