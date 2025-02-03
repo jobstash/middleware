@@ -16,6 +16,8 @@ import { Investor } from "./investor.interface";
 import { Repository } from "./repository.interface";
 import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relations.interface";
 import { ProjectMoreInfo } from "./project-more-info.interface";
+import { FundingRound } from "./funding-round.interface";
+import { GrantFunding } from "./grant.interface";
 
 @ApiExtraModels(ProjectDetailsResult)
 export class ProjectDetailsResult extends ProjectMoreInfo {
@@ -46,6 +48,8 @@ export class ProjectDetailsResult extends ProjectMoreInfo {
           t.null,
         ]),
       ),
+      grants: t.array(GrantFunding.GrantFundingType),
+      fundingRounds: t.array(FundingRound.FundingRoundType),
     }),
   ]);
 
@@ -112,6 +116,18 @@ export class ProjectDetailsResult extends ProjectMoreInfo {
   @ApiPropertyOptional()
   organizations: (OrganizationWithRelations & { tags: Tag[] })[];
 
+  @ApiProperty({
+    type: "array",
+    items: { $ref: getSchemaPath(GrantFunding) },
+  })
+  grants: GrantFunding[];
+
+  @ApiProperty({
+    type: "array",
+    items: { $ref: getSchemaPath(FundingRound) },
+  })
+  fundingRounds: FundingRound[];
+
   constructor(raw: ProjectDetailsResult) {
     const {
       github,
@@ -129,6 +145,8 @@ export class ProjectDetailsResult extends ProjectMoreInfo {
       investors,
       repos,
       organizations,
+      grants,
+      fundingRounds,
       ...projectProperties
     } = raw;
 
@@ -151,6 +169,8 @@ export class ProjectDetailsResult extends ProjectMoreInfo {
     this.investors = investors;
     this.repos = repos;
     this.organizations = organizations;
+    this.grants = grants;
+    this.fundingRounds = fundingRounds;
 
     if (isLeft(result)) {
       report(result).forEach(x => {
@@ -182,6 +202,8 @@ export class OrgProject extends ProjectMoreInfo {
         StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
       ),
       repos: t.array(Repository.RepositoryType),
+      grants: t.array(GrantFunding.GrantFundingType),
+      fundingRounds: t.array(FundingRound.FundingRoundType),
     }),
   ]);
 
@@ -239,6 +261,18 @@ export class OrgProject extends ProjectMoreInfo {
   })
   repos: Repository[];
 
+  @ApiProperty({
+    type: "array",
+    items: { $ref: getSchemaPath(GrantFunding) },
+  })
+  grants: GrantFunding[];
+
+  @ApiProperty({
+    type: "array",
+    items: { $ref: getSchemaPath(FundingRound) },
+  })
+  fundingRounds: FundingRound[];
+
   constructor(raw: ProjectDetailsResult) {
     const {
       github,
@@ -254,6 +288,8 @@ export class OrgProject extends ProjectMoreInfo {
       ecosystems,
       jobs,
       repos,
+      grants,
+      fundingRounds,
       ...projectProperties
     } = raw;
 
@@ -274,6 +310,8 @@ export class OrgProject extends ProjectMoreInfo {
     this.ecosystems = ecosystems;
     this.jobs = jobs;
     this.repos = repos;
+    this.grants = grants;
+    this.fundingRounds = fundingRounds;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

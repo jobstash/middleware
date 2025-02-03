@@ -8,6 +8,7 @@ export class ProjectMoreInfo extends Project {
   public static readonly ProjectMoreInfoType = t.intersection([
     Project.ProjectType,
     t.strict({
+      summary: t.string,
       description: t.union([t.string, t.null]),
       defiLlamaId: t.union([t.string, t.null]),
       tokenAddress: t.union([t.string, t.null]),
@@ -18,6 +19,8 @@ export class ProjectMoreInfo extends Project {
     }),
   ]);
 
+  @ApiProperty()
+  summary: string;
   @ApiPropertyOptional()
   description: string | null;
   @ApiPropertyOptional()
@@ -35,6 +38,7 @@ export class ProjectMoreInfo extends Project {
 
   constructor(raw: ProjectMoreInfo) {
     const {
+      summary,
       defiLlamaId,
       description,
       tokenAddress,
@@ -48,6 +52,7 @@ export class ProjectMoreInfo extends Project {
 
     const result = ProjectMoreInfo.ProjectMoreInfoType.decode(raw);
 
+    this.summary = summary;
     this.defiLlamaId = defiLlamaId;
     this.description = description;
     this.tokenAddress = tokenAddress;

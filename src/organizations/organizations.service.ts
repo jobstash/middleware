@@ -14,6 +14,7 @@ import {
   TinyOrg,
   Organization,
   FundingRound,
+  ShortOrgWithSummary,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -26,6 +27,7 @@ import {
   paginate,
   toAbsoluteURL,
   toShortOrg,
+  toShortOrgWithSummary,
 } from "src/shared/helpers";
 import {
   OrganizationEntity,
@@ -82,13 +84,18 @@ export class OrganizationsService {
           github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
           twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-          fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
+          fundingRounds: apoc.coll.toSet([
+            (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+          ]),
+          grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+            .*,
+            programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+          }],
           investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
           community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
           ecosystems: [
             (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
           ],
-          grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
           jobs: [
             (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | structured_jobpost {
               id: structured_jobpost.id,
@@ -136,7 +143,14 @@ export class OrganizationsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ]
+              ],
+              fundingRounds: [
+                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+              ],
+              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }]
             }
           ],
           tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }],
@@ -513,7 +527,7 @@ export class OrganizationsService {
                 commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
                 locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
                 timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
-                tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag.name ]
+                tags: [(structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag.name ]
               }
             ],
             projects: [
@@ -541,7 +555,6 @@ export class OrganizationsService {
                 ]
               }
             ],
-            tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }],
             reviews: [
               (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
                 compensation: {
@@ -644,7 +657,7 @@ export class OrganizationsService {
                 commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
                 locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
                 timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
-                tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag.name ]
+                tags: [(structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag.name ]
               }
             ],
             projects: [
@@ -672,7 +685,6 @@ export class OrganizationsService {
                 ]
               }
             ],
-            tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }],
             reviews: [
               (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
                 compensation: {
@@ -785,7 +797,14 @@ export class OrganizationsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ]
+              ],
+              fundingRounds: [
+                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+              ],
+              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }]
             }
           ]
         } as org
@@ -826,7 +845,7 @@ export class OrganizationsService {
   async searchOrganizations(
     params: SearchOrganizationsInput,
     community: string | undefined,
-  ): Promise<PaginatedData<ShortOrg>> {
+  ): Promise<PaginatedData<ShortOrgWithSummary>> {
     try {
       const {
         locations: locationFilterList,
@@ -879,7 +898,7 @@ export class OrganizationsService {
         );
       };
 
-      const filtered = all.filter(orgFilters).map(toShortOrg);
+      const filtered = all.filter(orgFilters).map(toShortOrgWithSummary);
 
       const naturalSort = createNewSortInstance({
         comparer: new Intl.Collator(undefined, {
@@ -889,14 +908,14 @@ export class OrganizationsService {
         inPlaceSorting: true,
       });
 
-      const sorted = naturalSort<ShortOrg>(filtered).by([
+      const sorted = naturalSort<ShortOrgWithSummary>(filtered).by([
         {
           desc: (x): number => x.lastFundingDate,
         },
         { asc: (x): string => x.name },
       ]);
 
-      return paginate<ShortOrg>(page, limit, sorted);
+      return paginate<ShortOrgWithSummary>(page, limit, sorted);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -971,7 +990,14 @@ export class OrganizationsService {
               ],
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ]
+              ],
+              fundingRounds: [
+                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+              ],
+              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }]
             }
           ]
         } as org

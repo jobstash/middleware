@@ -18,6 +18,7 @@ export class ProjectListResult {
     name: t.string,
     orgIds: t.array(t.string),
     normalizedName: t.string,
+    summary: t.string,
     website: t.union([t.string, t.null]),
     logo: t.union([t.string, t.null]),
     category: t.union([t.string, t.null]),
@@ -43,6 +44,9 @@ export class ProjectListResult {
 
   @ApiProperty()
   name: string;
+
+  @ApiProperty()
+  summary: string;
 
   @ApiProperty()
   orgIds: string[];
@@ -121,6 +125,7 @@ export class ProjectListResult {
       website,
       logo,
       category,
+      summary,
       isMainnet,
       tokenSymbol,
       tvl,
@@ -145,6 +150,7 @@ export class ProjectListResult {
     this.orgIds = orgIds;
     this.logo = logo;
     this.hacks = hacks;
+    this.summary = summary;
     this.audits = audits;
     this.jobs = jobs;
     this.repos = repos;

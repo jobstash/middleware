@@ -97,8 +97,17 @@ export class ProjectDetailsEntity {
             createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
             updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
           })) ?? [],
+        grants:
+          organization?.grants?.map(grant => ({
+            ...grant,
+            //TODO: remove this once we have a better way to handle this
+            programName: notStringOrNull(grant?.programName) ?? "N/A",
+            createdTimestamp: nonZeroOrNull(grant?.createdTimestamp),
+            updatedTimestamp: nonZeroOrNull(grant?.updatedTimestamp),
+            fundingDate: nonZeroOrNull(grant?.fundingDate),
+            amount: nonZeroOrNull(grant?.amount),
+          })) ?? [],
         community: organization?.community ?? [],
-        grants: organization?.grants ?? [],
         ecosystems: organization?.ecosystems ?? [],
         investors: Array.from(
           uniqBy(
@@ -123,6 +132,25 @@ export class ProjectDetailsEntity {
           pushedAt: nonZeroOrNull(repo.pushedAt),
           updatedAt: nonZeroOrNull(repo.updatedAt),
           createdAt: nonZeroOrNull(repo.createdAt),
+        })) ?? [],
+      grants:
+        project?.grants?.map(grant => ({
+          ...grant,
+          //TODO: remove this once we have a better way to handle this
+          programName: notStringOrNull(grant?.programName) ?? "N/A",
+          createdTimestamp: nonZeroOrNull(grant?.createdTimestamp),
+          updatedTimestamp: nonZeroOrNull(grant?.updatedTimestamp),
+          fundingDate: nonZeroOrNull(grant?.fundingDate),
+          amount: nonZeroOrNull(grant?.amount),
+        })) ?? [],
+      fundingRounds:
+        project?.fundingRounds?.map(fr => ({
+          ...fr,
+          raisedAmount: nonZeroOrNull(fr?.raisedAmount),
+          createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
+          updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
+          roundName: notStringOrNull(fr?.roundName),
+          sourceLink: notStringOrNull(fr?.sourceLink),
         })) ?? [],
     });
   }

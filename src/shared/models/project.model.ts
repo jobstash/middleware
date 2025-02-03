@@ -142,6 +142,11 @@ export const Projects = (
           allowEmpty: false,
           required: true,
         },
+        summary: {
+          type: "string",
+          allowEmpty: false,
+          required: true,
+        },
         name: {
           type: "string",
           allowEmpty: false,
@@ -404,7 +409,13 @@ export const Projects = (
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ],
-                  investors: [(org)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
+                  fundingRounds: [
+                    (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                  ],
+                  grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                    .*,
+                    programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                  }]
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                   ],
@@ -535,7 +546,13 @@ export const Projects = (
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ],
-                  investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
+                  fundingRounds: [
+                    (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                  ],
+                  grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                    .*,
+                    programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                  }],
                   jobs: jobs,
                   jobsites: [
                     (project)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
@@ -646,7 +663,13 @@ export const Projects = (
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ],
-                  investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
+                  fundingRounds: [
+                    (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                  ],
+                  grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                    .*,
+                    programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                  }],
                   jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
@@ -736,13 +759,18 @@ export const Projects = (
                     github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
                     aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
                     twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-                    fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
+                    fundingRounds: apoc.coll.toSet([
+                      (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+                    ]),
+                    grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+                      .*,
+                      programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                    }],
                     investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                     community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
                     ecosystems: [
                       (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
                     ],
-                    grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
                     jobs: [
                       (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost) | structured_jobpost {
                         .*,
@@ -792,6 +820,13 @@ export const Projects = (
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ],
+                  fundingRounds: [
+                    (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                  ],
+                  grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                    .*,
+                    programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                  }],
                   jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
@@ -885,13 +920,18 @@ export const Projects = (
                     github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
                     aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
                     twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-                    fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
+                    fundingRounds: apoc.coll.toSet([
+                      (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+                    ]),
+                    grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+                      .*,
+                      programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                    }],
                     investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                     community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
                     ecosystems: [
                       (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
                     ],
-                    grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
                     jobs: [
                       (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost) | structured_jobpost {
                         .*,
@@ -1090,7 +1130,13 @@ export const Projects = (
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ],
-                  investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
+                  fundingRounds: [
+                    (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                  ],
+                  grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                    .*,
+                    programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                  }],
                   jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
@@ -1145,7 +1191,13 @@ export const Projects = (
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ],
-                  investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
+                  fundingRounds: [
+                    (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                  ],
+                  grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                    .*,
+                    programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                  }]
                   jobsites: [
                     (project)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
                       id: jobsite.id,

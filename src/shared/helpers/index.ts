@@ -35,6 +35,7 @@ import {
   OrgRating,
   PaginatedData,
   ShortOrg,
+  ShortOrgWithSummary,
 } from "../interfaces";
 import { Response } from "../interfaces/response.interface";
 import { PUBLIC_API_SCHEMAS } from "../presets/public-api-schemas";
@@ -44,7 +45,7 @@ import { PrivyService } from "src/auth/privy/privy.service";
 import { UserService } from "src/user/user.service";
 import { WalletWithMetadata } from "@privy-io/server-auth";
 import baseSlugify from "slugify";
-import { ShortOrgEntity } from "../entities";
+import { ShortOrgEntity, ShortOrgWithSummaryEntity } from "../entities";
 import { transliterate } from "transliteration";
 
 /* 
@@ -412,7 +413,6 @@ export const toShortOrg = (org: OrgDetailsResult): ShortOrg => {
     reviewCount,
     community,
     ecosystems,
-    grants,
   } = org;
   const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
   return new ShortOrgEntity({
@@ -427,7 +427,44 @@ export const toShortOrg = (org: OrgDetailsResult): ShortOrg => {
     reviewCount,
     community,
     ecosystems,
-    grants,
+    jobCount: org.jobs.length,
+    projectCount: org.projects.length,
+    lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
+    lastFundingDate: lastFundingRound?.date ?? 0,
+  }).getProperties();
+};
+
+export const toShortOrgWithSummary = (
+  org: OrgDetailsResult,
+): ShortOrgWithSummary => {
+  const {
+    orgId,
+    website,
+    name,
+    logoUrl,
+    location,
+    normalizedName,
+    headcountEstimate,
+    aggregateRating,
+    reviewCount,
+    community,
+    ecosystems,
+    summary,
+  } = org;
+  const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
+  return new ShortOrgWithSummaryEntity({
+    orgId,
+    url: website,
+    name,
+    summary,
+    logoUrl,
+    location,
+    normalizedName,
+    headcountEstimate,
+    aggregateRating,
+    reviewCount,
+    community,
+    ecosystems,
     jobCount: org.jobs.length,
     projectCount: org.projects.length,
     lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
@@ -650,20 +687,31 @@ export function sprinkleProtectedJobs(jobs: JobListResult[]): JobListResult[] {
   } else {
     const result = [];
     for (let x = 0; x < jobs.length; x++) {
-      if (x === 0) {
-        result.push(protectedJobs[x]);
-      } else if (x % 2 === 0) {
-        result.push(publicJobs[x]);
-      } else if (x % 3 === 0) {
-        result.push(protectedJobs[x]);
-      } else if (x % 5 === 0) {
-        const randomization = Math.random() > 0.5;
-        const set = randomization
-          ? [protectedJobs[x], protectedJobs[x + 1]]
-          : [protectedJobs[x]];
-        result.push(...set);
+      if (protectedJobs.length > 0 && publicJobs.length > 0) {
+        if (x === 0) {
+          result.push(protectedJobs.shift() ?? publicJobs.shift());
+        } else if (x % 2 === 0) {
+          result.push(publicJobs.shift() ?? protectedJobs.shift());
+        } else if (x % 3 === 0) {
+          result.push(protectedJobs.shift() ?? publicJobs.shift());
+        } else if (x % 5 === 0) {
+          const randomization = Math.random() > 0.5;
+          const set = randomization
+            ? [
+                protectedJobs.shift() ?? publicJobs.shift(),
+                protectedJobs.shift() ?? publicJobs.shift(),
+              ]
+            : [protectedJobs.shift() ?? publicJobs.shift()];
+          result.push(...set);
+        } else {
+          result.push(publicJobs.shift() ?? protectedJobs.shift());
+        }
       } else {
-        result.push(publicJobs[x]);
+        if (protectedJobs.length === 0) {
+          result.push(...publicJobs);
+        } else {
+          result.push(...protectedJobs);
+        }
       }
     }
     return result;

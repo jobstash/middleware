@@ -7,7 +7,7 @@ export class FundingEvent {
     id: t.string,
     timestamp: t.number,
     amountInUsd: t.number,
-    tokenAmount: t.string,
+    tokenAmount: t.number,
     tokenUnit: t.string,
     roundName: t.string,
     sourceLink: t.union([t.string, t.null]),
@@ -17,7 +17,7 @@ export class FundingEvent {
   id: string;
   timestamp: number;
   amountInUsd: number;
-  tokenAmount: string;
+  tokenAmount: number;
   tokenUnit: string;
   roundName: string;
   sourceLink: string | null;

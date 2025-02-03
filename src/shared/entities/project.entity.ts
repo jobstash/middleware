@@ -56,6 +56,25 @@ export class ProjectWithBaseRelationsEntity {
         })) ?? [],
       jobs: project?.jobs ?? [],
       repos: project?.repos ?? [],
+      grants:
+        project?.grants?.map(grant => ({
+          ...grant,
+          //TODO: remove this once we have a better way to handle this
+          programName: notStringOrNull(grant?.programName) ?? "N/A",
+          createdTimestamp: nonZeroOrNull(grant?.createdTimestamp),
+          updatedTimestamp: nonZeroOrNull(grant?.updatedTimestamp),
+          fundingDate: nonZeroOrNull(grant?.fundingDate),
+          amount: nonZeroOrNull(grant?.amount),
+        })) ?? [],
+      fundingRounds:
+        project?.fundingRounds?.map(fr => ({
+          ...fr,
+          raisedAmount: nonZeroOrNull(fr?.raisedAmount),
+          createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
+          updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
+          roundName: notStringOrNull(fr?.roundName),
+          sourceLink: notStringOrNull(fr?.sourceLink),
+        })) ?? [],
       description: notStringOrNull(project?.description),
       normalizedName: notStringOrNull(project?.normalizedName),
     });
@@ -116,6 +135,25 @@ export class ProjectWithRelationsEntity {
         })) ?? [],
       jobs: project?.jobs ?? [],
       repos: project?.repos ?? [],
+      grants:
+        project?.grants?.map(grant => ({
+          ...grant,
+          //TODO: remove this once we have a better way to handle this
+          programName: notStringOrNull(grant?.programName) ?? "N/A",
+          createdTimestamp: nonZeroOrNull(grant?.createdTimestamp),
+          updatedTimestamp: nonZeroOrNull(grant?.updatedTimestamp),
+          fundingDate: nonZeroOrNull(grant?.fundingDate),
+          amount: nonZeroOrNull(grant?.amount),
+        })) ?? [],
+      fundingRounds:
+        project?.fundingRounds?.map(fr => ({
+          ...fr,
+          raisedAmount: nonZeroOrNull(fr?.raisedAmount),
+          createdTimestamp: nonZeroOrNull(fr?.createdTimestamp),
+          updatedTimestamp: nonZeroOrNull(fr?.updatedTimestamp),
+          roundName: notStringOrNull(fr?.roundName),
+          sourceLink: notStringOrNull(fr?.sourceLink),
+        })) ?? [],
       description: notStringOrNull(project?.description),
       normalizedName: notStringOrNull(project?.normalizedName),
     });
