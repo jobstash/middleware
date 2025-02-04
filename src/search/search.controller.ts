@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Header,
+  Headers,
   NotFoundException,
   Query,
   UseGuards,
@@ -10,12 +11,12 @@ import {
 } from "@nestjs/common";
 import { SearchService } from "./search.service";
 import {
-  FilterConfigResponse,
   PaginatedData,
   PillarInfo,
+  RangeFilter,
   ResponseWithOptionalData,
-  SearchNav,
   SearchResult,
+  SelectFilter,
   SessionObject,
 } from "src/shared/interfaces";
 import { SearchPillarParams } from "./dto/search-pillar.input";
@@ -25,12 +26,15 @@ import {
   CACHE_CONTROL_HEADER,
   CACHE_DURATION,
   CACHE_EXPIRY,
+  COMMUNITY_HEADER,
 } from "src/shared/constants";
 import { Session } from "src/shared/decorators";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { FetchPillarItemLabelsInput } from "./dto/fetch-pillar-item-labels.input";
 import { SearchParams } from "./dto/search.input";
+import { SearchPillarFiltersParams } from "./dto/search-pillar-filters-params.input";
+import { ApiHeader } from "@nestjs/swagger";
 
 @Controller("search")
 export class SearchController {
@@ -100,13 +104,22 @@ export class SearchController {
   }
 
   @Get("pillar/filters")
+  @ApiHeader({
+    name: COMMUNITY_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific community",
+  })
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   async searchPillarFilters(
-    @Query("nav") nav: SearchNav,
-  ): Promise<FilterConfigResponse> {
-    this.logger.log(`/search/pillar/filters ${nav}`);
-    return this.searchService.searchPillarFilters(nav);
+    @Query(new ValidationPipe({ transform: true }))
+    params: SearchPillarFiltersParams,
+    @Headers(COMMUNITY_HEADER)
+    community: string | undefined,
+  ): Promise<ResponseWithOptionalData<(RangeFilter | SelectFilter)[]>> {
+    this.logger.log(`/search/pillar/filters ${JSON.stringify(params)}`);
+    return this.searchService.searchPillarFilters(params, community);
   }
 
   @Get("pillar/labels")

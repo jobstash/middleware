@@ -1,19 +1,20 @@
 import { Injectable } from "@nestjs/common";
 import * as Sentry from "@sentry/node";
 import { go } from "fuzzysort";
-import { capitalize, lowerCase, uniqBy } from "lodash";
+import { capitalize, lowerCase, uniq, uniqBy } from "lodash";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nestjs-neogma";
 import { paginate, slugify } from "src/shared/helpers";
 import {
-  FilterConfigResponse,
   PaginatedData,
   PillarInfo,
+  RangeFilter,
   ResponseWithOptionalData,
   SearchNav,
   SearchResult,
   SearchResultItem,
   SearchResultNav,
+  SelectFilter,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
@@ -21,6 +22,8 @@ import { SearchPillarParams } from "./dto/search-pillar.input";
 import { FetchPillarItemLabelsInput } from "./dto/fetch-pillar-item-labels.input";
 import { SearchParams } from "./dto/search.input";
 import { QueryResult } from "neo4j-driver-core";
+import { SearchPillarFiltersParams } from "./dto/search-pillar-filters-params.input";
+import { FILTER_CONFIG_PRESETS } from "src/shared/presets/search-filter-configs";
 
 const NAV_PILLAR_QUERY_MAPPINGS: Record<
   SearchNav,
@@ -106,50 +109,31 @@ const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<SearchNav, string | null> = {
     MATCH (project:Project)
     WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((project)<-[:HAS_PROJECT|IS_MEMBER_OF_COMMUNITY*2]->(:OrganizationCommunity {normalizedName: $community})) END
     RETURN {
-      id: project.id,
-      tvl: project.tvl,
-      monthlyFees: project.monthlyFees,
-      monthlyVolume: project.monthlyVolume,
-      monthlyRevenue: project.monthlyRevenue,
-      hacks: apoc.coll.size([
-        (project)-[:HAS_HACK]->(hack:Hack) | hack
-      ]),
-      audits: apoc.coll.size([
-        (project)-[:HAS_AUDIT]->(audit:Audit) | audit
-      ]),
-      chains: apoc.coll.size([
-        (project)-[:IS_DEPLOYED_ON]->(chain:Chain) | chain
-      ]),
-      mainNet: project.isMainnet,
-      token: project.tokenAddress,
-      createdTimestamp: project.createdTimestamp,
-      updatedTimestamp: project.updatedTimestamp,
-      fundingRounds: [
-        (project)<-[:HAS_PROJECT|HAS_FUNDING_ROUND*2]->(funding_round:FundingRound) | funding_round.date
-      ],
-      grants: [
-        (project)-[:HAS_GRANT_FUNDING]->(grant:GrantFunding) | grant.fundingDate
-      ],
-      communities: [
-        (project)<-[:HAS_PROJECT|IS_MEMBER_OF_COMMUNITY*2]-(community:OrganizationCommunity) | community.name
-      ],
-      ecosystems: [
-        (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem) | ecosystem.name
+      categories: [(project)-[:HAS_CATEGORY]->(category) | category.name],
+      chains: [(project)-[:IS_DEPLOYED_ON]->(chain) | chain.name],
+      investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor.name],
+      names: [project.name],
+      tags: [
+        (project)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag.name
       ]
-    }
+    } as config
   `,
   organizations: `
     CYPHER runtime = pipelined
     MATCH (org:Organization)
     WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)<-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
     RETURN {
-      id: org.orgId,
-      headcountEstimate: org.headcountEstimate,
-      community: org.community,
-      ecosystems: apoc.coll.toSet([
-        (org)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem) | ecosystem.name
-      ])
-    }
+      investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor.name],
+      locations: [organization.location],
+      chains: [(organization)-[:HAS_PROJECT|IS_DEPLOYED_ON*2]->(chain) | chain.name],
+      fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round.roundName],
+      names: [organization.name],
+      tags: [
+        (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag.name
+      ]
+    } as config
   `,
   grants: `
     CYPHER runtime = pipelined
@@ -157,11 +141,12 @@ const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<SearchNav, string | null> = {
     WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: 'Active'})
     
     RETURN {
-      id: grant.programId,
-      matchAmount: metadata.programBudget,
-      donatedAmount: metadata.amountDistributedToDate,
-      payoutTime: metadata.payoutTime
-    }
+      categories: apoc.coll.toSet([(metadata)-[:HAS_CATEGORY]->(category) | category.name]),
+      chains: apoc.coll.toSet([(metadata)-[:HAS_NETWORKS]->(network) | network.name]),
+      ecosystems: apoc.coll.toSet([(metadata)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
+      organizations: apoc.coll.toSet([(metadata)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
+      names: [grant.name]
+    } as config
   `,
   impact: `
     CYPHER runtime = pipelined
@@ -169,11 +154,12 @@ const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<SearchNav, string | null> = {
     WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: 'Inactive'})
     
     RETURN {
-      id: grant.programId,
-      matchAmount: metadata.programBudget,
-      donatedAmount: metadata.amountDistributedToDate,
-      payoutTime: metadata.payoutTime
-    }
+      categories: apoc.coll.toSet([(metadata)-[:HAS_CATEGORY]->(category) | category.name]),
+      chains: apoc.coll.toSet([(metadata)-[:HAS_NETWORKS]->(network) | network.name]),
+      ecosystems: apoc.coll.toSet([(metadata)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
+      organizations: apoc.coll.toSet([(metadata)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
+      names: [grant.name]
+    } as config
   `,
   vcs: null,
 };
@@ -972,7 +958,7 @@ export class SearchService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "tags.service",
+          source: "search.service",
         });
         Sentry.captureException(err);
       });
@@ -1186,23 +1172,83 @@ export class SearchService {
     }
   }
 
-  async getFilterConfigs(
-    nav: SearchNav,
-  ): Promise<FilterConfigResponse["data"]> {
-    const query = NAV_FILTER_CONFIG_QUERY_MAPPINGS[nav];
+  async searchPillarFilters(
+    params: SearchPillarFiltersParams,
+    community: string | undefined,
+  ): Promise<ResponseWithOptionalData<(RangeFilter | SelectFilter)[]>> {
+    try {
+      const query = NAV_FILTER_CONFIG_QUERY_MAPPINGS[params.nav];
 
-    const result = await this.neogma.queryRunner.run(query);
-  }
+      if (query) {
+        const result = await this.neogma.queryRunner.run(query, {
+          community: community ?? null,
+        });
 
-  async searchPillarFilters(nav: SearchNav): Promise<FilterConfigResponse> {
-    const query = NAV_FILTER_CONFIG_QUERY_MAPPINGS[nav];
+        const passedPillars = Object.keys(params).filter(
+          x => x !== "nav" && params[x] !== null,
+        );
 
-    const result = await this.neogma.queryRunner.run(query);
+        const pillars = NAV_PILLAR_ORDERING[params.nav];
 
-    return {
-      success: true,
-      message: "Retrieved filter configs successfully",
-      data: [],
-    };
+        const validPillars = passedPillars.filter(x => pillars.includes(x));
+
+        const configData = result.records?.map(record => record.get("config"));
+
+        let data: (RangeFilter | SelectFilter)[];
+
+        const order = FILTER_CONFIG_PRESETS[params.nav].order;
+
+        const orderBy = FILTER_CONFIG_PRESETS[params.nav].orderBy;
+
+        if (validPillars.length > 0) {
+          const filtered = configData.filter(x =>
+            validPillars.reduce(
+              (acc, curr) =>
+                acc &&
+                x[curr].some((y: string) => params[curr].includes(slugify(y))),
+              true,
+            ),
+          );
+
+          data = [
+            ...pillars.map(x => ({
+              options: uniq(filtered.flatMap(y => y[x])),
+              ...FILTER_CONFIG_PRESETS[params.nav][x],
+            })),
+            order,
+            orderBy,
+          ];
+        } else {
+          data = [
+            ...pillars.map(x => ({
+              options: uniq(configData.flatMap(y => y[x])),
+              ...FILTER_CONFIG_PRESETS[params.nav][x],
+            })),
+            order,
+            orderBy,
+          ];
+        }
+
+        return {
+          success: true,
+          message: "Retrieved filter configs successfully",
+          data,
+        };
+      } else {
+        return {
+          success: false,
+          message: "Filter config not found",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "search.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`SearchService::searchPillarFilters ${err.message}`);
+    }
   }
 }

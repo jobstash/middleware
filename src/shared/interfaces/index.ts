@@ -65,4 +65,3 @@ export * from "./project-with-relations.interface";
 export * from "./ats-preferences.interface";
 export * from "./ecosystem-activation.interface";
 export * from "./defillama-project-prefill.interface";
-export * from "./search-filter-configs.interface";

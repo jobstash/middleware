@@ -283,3 +283,8 @@ export class RangeFilter extends FilterConfigField {
     }
   }
 }
+
+export type SelectFilter =
+  | MultiSelectSearchFilter
+  | MultiSelectFilter
+  | SingleSelectFilter;
