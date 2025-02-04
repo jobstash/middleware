@@ -779,7 +779,10 @@ export const Projects = (
                         locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0]
                       }
                     ],
-                    tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:HAS_TAG_DESIGNATION]-() | tag { .* }],
+                    tags: apoc.coll.toSet([
+                      (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+                      WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag { .* }
+                    ]),
                     reviews: [
                       (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
                         compensation: {
@@ -940,7 +943,10 @@ export const Projects = (
                         locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0]
                       }
                     ],
-                    tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:HAS_TAG_DESIGNATION]-() | tag { .* }],
+                    tags: apoc.coll.toSet([
+                      (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+                      WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag { .* }
+                    ]),
                     reviews: [
                       (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
                         compensation: {
@@ -981,7 +987,6 @@ export const Projects = (
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ],
-                  investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                   jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }

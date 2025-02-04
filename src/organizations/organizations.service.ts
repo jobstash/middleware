@@ -156,7 +156,7 @@ export class OrganizationsService {
           tags: apoc.coll.toSet([
             (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
             WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag { .* }
-          ])
+          ]),
           reviews: [
             (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
               compensation: {
