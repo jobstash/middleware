@@ -103,129 +103,77 @@ const NAV_PILLAR_TITLES: Record<SearchNav, string> = {
 const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<SearchNav, string | null> = {
   projects: `
     CYPHER runtime = pipelined
+    MATCH (project:Project)
+    WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((project)<-[:HAS_PROJECT|IS_MEMBER_OF_COMMUNITY*2]->(:OrganizationCommunity {normalizedName: $community})) END
     RETURN {
-      maxTvl: apoc.coll.max([
-        (org)-[:HAS_PROJECT]->(project:Project)
-        WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
-        AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-        AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.tvl
+      id: project.id,
+      tvl: project.tvl,
+      monthlyFees: project.monthlyFees,
+      monthlyVolume: project.monthlyVolume,
+      monthlyRevenue: project.monthlyRevenue,
+      hacks: apoc.coll.size([
+        (project)-[:HAS_HACK]->(hack:Hack) | hack
       ]),
-      minTvl: apoc.coll.min([
-        (org)-[:HAS_PROJECT]->(project:Project)
-        WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
-        AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-        AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.tvl
+      audits: apoc.coll.size([
+        (project)-[:HAS_AUDIT]->(audit:Audit) | audit
       ]),
-      minMonthlyVolume: apoc.coll.min([
-        (org)-[:HAS_PROJECT]->(project:Project)
-        WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
-        AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-        AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyVolume
+      chains: apoc.coll.size([
+        (project)-[:IS_DEPLOYED_ON]->(chain:Chain) | chain
       ]),
-      maxMonthlyVolume: apoc.coll.max([
-        (org)-[:HAS_PROJECT]->(project:Project)
-        WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
-        AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-        AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyVolume
-      ]),
-      minMonthlyFees: apoc.coll.max([
-        (org)-[:HAS_PROJECT]->(project:Project)
-        WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
-        AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-        AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyFees
-      ]),
-      maxMonthlyFees: apoc.coll.max([
-        (org)-[:HAS_PROJECT]->(project:Project)
-        WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
-        AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-        AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyFees
-      ]),
-      minMonthlyRevenue: apoc.coll.max([
-        (org)-[:HAS_PROJECT]->(project:Project)
-        WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
-        AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-        AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyRevenue
-      ]),
-      maxMonthlyRevenue: apoc.coll.max([
-        (org)-[:HAS_PROJECT]->(project:Project)
-        WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
-        AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-        AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyRevenue
-      ]),
-      communities: apoc.coll.toSet([
-        (org: Organization)-[:IS_MEMBER_OF_COMMUNITY]->(community: OrganizationCommunity)
-        WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
-        AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
-        AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | community.name
-      ]),
-      ecosystems: apoc.coll.toSet([
-        (org: Organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem)
-        WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
-        AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
-        AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | ecosystem.name
-      ])
+      mainNet: project.isMainnet,
+      token: project.tokenAddress,
+      createdTimestamp: project.createdTimestamp,
+      updatedTimestamp: project.updatedTimestamp,
+      fundingRounds: [
+        (project)<-[:HAS_PROJECT|HAS_FUNDING_ROUND*2]->(funding_round:FundingRound) | funding_round.date
+      ],
+      grants: [
+        (project)-[:HAS_GRANT_FUNDING]->(grant:GrantFunding) | grant.fundingDate
+      ],
+      communities: [
+        (project)<-[:HAS_PROJECT|IS_MEMBER_OF_COMMUNITY*2]-(community:OrganizationCommunity) | community.name
+      ],
+      ecosystems: [
+        (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem) | ecosystem.name
+      ]
     }
   `,
   organizations: `
     CYPHER runtime = pipelined
+    MATCH (org:Organization)
+    WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)<-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
     RETURN {
-      minHeadCount: apoc.coll.min([
-        (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) 
-        WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END | org.headcountEstimate
-      ]),
-      maxHeadCount: apoc.coll.max([
-        (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) 
-        WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END | org.headcountEstimate
-      ]),
-      communities: apoc.coll.toSet([
-        (org: Organization)-[:IS_MEMBER_OF_COMMUNITY]->(community: OrganizationCommunity)
-        WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
-        AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
-        AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | community.name
-      ]),
+      id: org.orgId,
+      headcountEstimate: org.headcountEstimate,
+      community: org.community,
       ecosystems: apoc.coll.toSet([
-        (org: Organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem)
-        WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
-        AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
-        AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | ecosystem.name
+        (org)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem) | ecosystem.name
       ])
     }
   `,
   grants: `
     CYPHER runtime = pipelined
+    MATCH (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)
+    WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: 'Active'})
+    
     RETURN {
-      minMatchAmount: apoc.coll.min([
-        (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)
-        WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: 'Active'}) | metadata.programBudget
-      ]),
-      maxMatchAmount: apoc.coll.max([
-        (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)
-        WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: 'Active'}) | metadata.programBudget
-      ]),
-      minDonatedAmount: apoc.coll.min([
-        (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)
-        WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: 'Active'}) | metadata.amountDistributedToDate
-      ]),
-      maxDonatedAmount: apoc.coll.max([
-        (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)
-        WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: 'Active'}) | metadata.amountDistributedToDate
-      ]),
-      minPayoutTime: apoc.coll.min([
-        (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)
-        WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: 'Active'})
-        AND metadata.amountDistributedToDate IS NOT NULL | metadata.payoutTime
-      ]),
-      maxPayoutTime: apoc.coll.max([
-        (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)
-        WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: 'Active'})
-        AND metadata.amountDistributedToDate IS NOT NULL | metadata.payoutTime
-      ])
+      id: grant.programId,
+      matchAmount: metadata.programBudget,
+      donatedAmount: metadata.amountDistributedToDate,
+      payoutTime: metadata.payoutTime
     }
   `,
   impact: `
-    //matchAmount
-    //donatedAmount
-    //payoutTime
+    CYPHER runtime = pipelined
+    MATCH (grant:KarmaGapProgram)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata)
+    WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: 'Inactive'})
+    
+    RETURN {
+      id: grant.programId,
+      matchAmount: metadata.programBudget,
+      donatedAmount: metadata.amountDistributedToDate,
+      payoutTime: metadata.payoutTime
+    }
   `,
   vcs: null,
 };
@@ -1238,19 +1186,23 @@ export class SearchService {
     }
   }
 
-  // async getFilterConfigs(
-  //   nav: SearchNav,
-  // ): Promise<FilterConfigResponse["data"]> {}
+  async getFilterConfigs(
+    nav: SearchNav,
+  ): Promise<FilterConfigResponse["data"]> {
+    const query = NAV_FILTER_CONFIG_QUERY_MAPPINGS[nav];
 
-  // async searchPillarFilters(nav: SearchNav): Promise<FilterConfigResponse> {
-  //   const query = NAV_FILTER_CONFIG_QUERY_MAPPINGS[nav];
+    const result = await this.neogma.queryRunner.run(query);
+  }
 
-  //   const result = await this.neogma.queryRunner.run(query);
+  async searchPillarFilters(nav: SearchNav): Promise<FilterConfigResponse> {
+    const query = NAV_FILTER_CONFIG_QUERY_MAPPINGS[nav];
 
-  //   return {
-  //     success: true,
-  //     message: "Retrieved filter configs successfully",
-  //     data: [],
-  //   };
-  // }
+    const result = await this.neogma.queryRunner.run(query);
+
+    return {
+      success: true,
+      message: "Retrieved filter configs successfully",
+      data: [],
+    };
+  }
 }
