@@ -153,7 +153,10 @@ export class OrganizationsService {
               }]
             }
           ],
-          tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag { .* }],
+          tags: apoc.coll.toSet([
+            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+            WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag { .* }
+          ])
           reviews: [
             (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
               compensation: {
@@ -581,7 +584,11 @@ export class OrganizationsService {
                 },
                 reviewedTimestamp: review.reviewedTimestamp
               }
-            ]
+            ],
+            tags: apoc.coll.toSet([
+              (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+              WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag { .* }
+            ])
           } as res
         `,
         { orgId, community: community ?? null },
@@ -711,7 +718,11 @@ export class OrganizationsService {
                 },
                 reviewedTimestamp: review.reviewedTimestamp
               }
-            ]
+            ],
+            tags: apoc.coll.toSet([
+              (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+              WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag { .* }
+            ])
           } as res
         `,
         { slug, community: community ?? null },
@@ -1103,13 +1114,13 @@ export class OrganizationsService {
         }
         const orgs = await this.neogma.queryRunner.run(
           `
-          CYPHER runtime = parallel
-        MATCH (organization:Organization)-[:HAS_WEBSITE]->(website:Website)
-        UNWIND $domains as domain
-        WITH organization, domain, website
-        WHERE apoc.data.url(website.url).host CONTAINS domain OR website.url CONTAINS domain OR domain CONTAINS website.url
-        RETURN organization.orgId as orgId
-      `,
+            CYPHER runtime = parallel
+            MATCH (organization:Organization)-[:HAS_WEBSITE]->(website:Website)
+            UNWIND $domains as domain
+            WITH organization, domain, website
+            WHERE apoc.data.url(website.url).host CONTAINS domain OR website.url CONTAINS domain OR domain CONTAINS website.url
+            RETURN organization.orgId as orgId
+          `,
           {
             domains: ensureProtocol(domain).map(x => toAbsoluteURL(x)),
           },
