@@ -104,7 +104,6 @@ export class JobListResultEntity {
             projects:
               organization?.projects?.map(project => ({
                 ...project,
-                isMainnet: project.isMainnet ?? null,
                 defiLlamaId: notStringOrNull(project?.defiLlamaId),
                 defiLlamaSlug: notStringOrNull(project?.defiLlamaSlug),
                 defiLlamaParent: notStringOrNull(project?.defiLlamaParent),

@@ -22,7 +22,6 @@ export class ProjectMoreInfoEntity {
       monthlyActiveUsers: nonZeroOrNull(project?.monthlyActiveUsers),
       createdTimestamp: nonZeroOrNull(project?.createdTimestamp),
       updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
-      isMainnet: project?.isMainnet ?? null,
       logo: notStringOrNull(project?.logo),
     });
   }

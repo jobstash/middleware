@@ -92,7 +92,6 @@ export class ProjectsService {
       categories: categoryFilterList,
       communities: communityFilterList,
       token,
-      mainNet,
       query,
       order,
       orderBy,
@@ -149,7 +148,6 @@ export class ProjectsService {
           organizationFilterList.some(x =>
             project.orgNames.map(x => slugify(x)).includes(x),
           )) &&
-        (mainNet === null || project.isMainnet === mainNet) &&
         (!minTvl || (project?.tvl ?? 0) >= minTvl) &&
         (!maxTvl || (project?.tvl ?? 0) < maxTvl) &&
         (!minMonthlyVolume ||
@@ -507,7 +505,6 @@ export class ProjectsService {
           id: project.id,
           name: project.name,
           orgIds: project.orgIds,
-          isMainnet: project.isMainnet,
           tvl: project.tvl,
           logo: project.logo,
           category: project.category,
@@ -809,7 +806,6 @@ export class ProjectsService {
             monthlyActiveUsers: $monthlyActiveUsers,
             description: $description,
             logo: $logo,
-            isMainnet: $isMainnet,
             tokenAddress: $tokenAddress,
             tokenSymbol: $tokenSymbol,
             defiLlamaId: $defiLlamaId,
@@ -978,7 +974,6 @@ export class ProjectsService {
           SET project.monthlyActiveUsers = $monthlyActiveUsers
           SET project.description = $description
           SET project.logo = $logo
-          SET project.isMainnet = $isMainnet
           SET project.tokenAddress = $tokenAddress
           SET project.tokenSymbol = $tokenSymbol
           SET project.defiLlamaId = $defiLlamaId

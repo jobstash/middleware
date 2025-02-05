@@ -91,11 +91,6 @@ export class CreateProjectInput {
 
   @ApiProperty()
   @IsOptional()
-  @IsBoolean()
-  isMainnet?: boolean;
-
-  @ApiProperty()
-  @IsOptional()
   @IsString()
   tokenAddress?: string;
 

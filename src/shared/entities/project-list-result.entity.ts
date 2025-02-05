@@ -18,7 +18,6 @@ export class ProjectListResultEntity {
       monthlyRevenue: nonZeroOrNull(project?.monthlyRevenue),
       monthlyActiveUsers: nonZeroOrNull(project?.monthlyActiveUsers),
       logo: notStringOrNull(project?.logo) ?? notStringOrNull(project?.website),
-      isMainnet: project?.isMainnet ?? null,
       website: notStringOrNull(project?.website),
       category: notStringOrNull(project?.category),
       hacks:
@@ -108,7 +107,6 @@ export class ProjectCompetitorListResultEntity {
       monthlyRevenue: nonZeroOrNull(project?.monthlyRevenue),
       monthlyActiveUsers: nonZeroOrNull(project?.monthlyActiveUsers),
       logo: notStringOrNull(project?.logo) ?? notStringOrNull(project?.website),
-      isMainnet: project?.isMainnet ?? null,
       website: notStringOrNull(project?.website),
       description: notStringOrNull(project?.description),
       category: notStringOrNull(project?.category),

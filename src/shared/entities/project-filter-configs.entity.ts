@@ -110,7 +110,6 @@ export class ProjectFilterConfigsEntity {
       categories: this.getMultiValuePresets("categories"),
       investors: this.getMultiValuePresets("investors"),
       communities: this.getMultiValuePresets("communities"),
-      mainNet: this.getSingleSelectPresets("mainNet"),
       token: this.getSingleSelectPresets("token"),
       order: this.getSingleSelectPresets("order"),
       orderBy: this.getSingleSelectPresets("orderBy"),

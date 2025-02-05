@@ -22,7 +22,6 @@ export class ProjectFilterConfigs {
     audits: SingleSelectFilter.SingleSelectFilterType,
     token: SingleSelectFilter.SingleSelectFilterType,
     order: SingleSelectFilter.SingleSelectFilterType,
-    mainNet: SingleSelectFilter.SingleSelectFilterType,
     orderBy: SingleSelectFilter.SingleSelectFilterType,
     chains: MultiSelectSearchFilter.MultiSelectSearchFilterType,
     investors: MultiSelectSearchFilter.MultiSelectSearchFilterType,
@@ -57,8 +56,6 @@ export class ProjectFilterConfigs {
   @ApiProperty()
   hacks: SingleSelectFilter;
   @ApiProperty()
-  mainNet: SingleSelectFilter;
-  @ApiProperty()
   token: SingleSelectFilter;
   @ApiProperty()
   order: SingleSelectFilter;
@@ -73,7 +70,6 @@ export class ProjectFilterConfigs {
       order,
       chains,
       audits,
-      mainNet,
       orderBy,
       investors,
       categories,
@@ -93,7 +89,6 @@ export class ProjectFilterConfigs {
     this.order = order;
     this.chains = chains;
     this.audits = audits;
-    this.mainNet = mainNet;
     this.orderBy = orderBy;
     this.investors = investors;
     this.categories = categories;

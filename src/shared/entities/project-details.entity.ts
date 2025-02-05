@@ -42,7 +42,6 @@ export class ProjectDetailsEntity {
       discord: notStringOrNull(project?.discord),
       docs: notStringOrNull(project?.docs),
       github: notStringOrNull(project?.github),
-      isMainnet: project?.isMainnet ?? null,
       createdTimestamp: nonZeroOrNull(project?.createdTimestamp),
       updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
       hacks:

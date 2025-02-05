@@ -14,10 +14,6 @@ export const SINGLE_SELECT_OPTIONS = {
     { label: "Has Audits", value: true },
     { label: "Has No Audits", value: false },
   ],
-  mainNet: [
-    { label: "Deployed on Mainnet", value: true },
-    { label: "Not Deployed on Mainnet", value: false },
-  ],
   token: [
     { label: "Has Token", value: true },
     { label: "Has No Token", value: false },
@@ -128,16 +124,8 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "filter_joblist_communities",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
-  mainNet: {
-    position: 13,
-    label: "Mainnet",
-    show: true,
-    googleAnalyticsEventName: "filter_projectlist_is_mainnet",
-    kind: FilterKind.SINGLE_SELECT,
-    options: SINGLE_SELECT_OPTIONS.mainNet,
-  },
   token: {
-    position: 14,
+    position: 13,
     label: "Has Token",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_has_token",
@@ -145,7 +133,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.token,
   },
   order: {
-    position: 15,
+    position: 14,
     label: "Order",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_order",
@@ -153,7 +141,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.order,
   },
   orderBy: {
-    position: 16,
+    position: 15,
     label: "Order By",
     show: true,
     googleAnalyticsEventName: "filter_projectlist_order_by",
@@ -187,7 +175,6 @@ export const FILTER_PARAM_KEY_PRESETS = {
   },
   audits: "audits",
   hacks: "hacks",
-  mainNet: "mainNet",
   token: "token",
   order: "order",
   orderBy: "orderBy",

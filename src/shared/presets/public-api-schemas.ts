@@ -784,11 +784,6 @@ export const PUBLIC_API_SCHEMAS = {
         type: "number",
         example: 10000,
       },
-      isMainnet: {
-        description: "Whether the project is on the mainnet",
-        type: "boolean",
-        example: true,
-      },
       orgId: {
         description:
           "The unique internal id of the organization that owns the project",
@@ -1196,11 +1191,6 @@ export const PUBLIC_API_SCHEMAS = {
         type: "string",
         example: "Dexes",
       },
-      isMainnet: {
-        description: "Whether the project is on the mainnet",
-        type: "boolean",
-        example: true,
-      },
       tokenSymbol: {
         description: "The token symbol of the project",
         type: "string",
@@ -1289,9 +1279,6 @@ export const PUBLIC_API_SCHEMAS = {
         $ref: getSchemaPath(MultiSelectFilter),
       },
       order: {
-        $ref: getSchemaPath(SingleSelectFilter),
-      },
-      mainNet: {
         $ref: getSchemaPath(SingleSelectFilter),
       },
       orderBy: {

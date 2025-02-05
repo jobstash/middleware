@@ -22,7 +22,6 @@ export class ProjectWithBaseRelationsEntity {
       monthlyActiveUsers: nonZeroOrNull(project?.monthlyActiveUsers),
       createdTimestamp: nonZeroOrNull(project?.createdTimestamp),
       updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
-      isMainnet: project?.isMainnet ?? null,
       logo: notStringOrNull(project?.logo) ?? notStringOrNull(project?.website),
       website: notStringOrNull(project?.website),
       github: notStringOrNull(project?.github),
@@ -101,7 +100,6 @@ export class ProjectWithRelationsEntity {
       monthlyActiveUsers: nonZeroOrNull(project?.monthlyActiveUsers),
       createdTimestamp: nonZeroOrNull(project?.createdTimestamp),
       updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
-      isMainnet: project?.isMainnet ?? null,
       logo: notStringOrNull(project?.logo) ?? notStringOrNull(project?.website),
       website: notStringOrNull(project?.website),
       github: notStringOrNull(project?.github),
@@ -189,10 +187,6 @@ export class ProjectEntity {
 
   getAltName(): string | undefined {
     return (<Record<string, string>>this.node.properties).altName;
-  }
-
-  getIsMainnet(): boolean {
-    return (<Record<string, boolean>>this.node.properties).isMainnet;
   }
 
   getTokenAddress(): string | undefined {

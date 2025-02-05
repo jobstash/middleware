@@ -88,7 +88,6 @@ export class OrgDetailsResultEntity {
           logo: notStringOrNull(project?.logo),
           twitter: notStringOrNull(project?.twitter),
           discord: notStringOrNull(project?.discord),
-          isMainnet: project?.isMainnet ?? null,
           docs: notStringOrNull(project?.docs),
           github: notStringOrNull(project?.github),
           createdTimestamp: nonZeroOrNull(project?.createdTimestamp),

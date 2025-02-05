@@ -22,10 +22,6 @@ export const SINGLE_SELECT_OPTIONS = {
     { label: "Has Audits", value: true },
     { label: "Has No Audits", value: false },
   ],
-  mainNet: [
-    { label: "Deployed on Mainnet", value: true },
-    { label: "Not Deployed on Mainnet", value: false },
-  ],
   token: [
     { label: "Has Token", value: true },
     { label: "Has No Token", value: false },

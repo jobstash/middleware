@@ -162,11 +162,6 @@ export const Projects = (
           allowEmpty: false,
           required: true,
         },
-        isMainnet: {
-          type: "boolean",
-          allowEmpty: false,
-          required: true,
-        },
         tvl: {
           type: "number",
           allowEmpty: true,
@@ -302,7 +297,6 @@ export const Projects = (
             id: this.id,
             name: this.name,
             orgIds: this.orgIds,
-            isMainnet: this.isMainnet,
             tvl: this.tvl,
             logo: this.logo,
             tokenSymbol: this.tokenSymbol,
