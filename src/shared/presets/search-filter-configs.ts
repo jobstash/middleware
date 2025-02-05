@@ -59,9 +59,8 @@ export const SINGLE_SELECT_OPTIONS = {
       { label: "Descending", value: "desc" },
     ],
     orderBy: [
-      { label: "Match Amount", value: "matchAmount" },
-      { label: "Payout Time", value: "payoutTime" },
-      { label: "Donated Amount", value: "donatedAmount" },
+      { label: "Date", value: "date" },
+      { label: "Program Budget", value: "programBudget" },
     ],
   },
   impact: {
@@ -236,48 +235,24 @@ export const FILTER_CONFIG_PRESETS = {
     },
   },
   grants: {
-    categories: {
+    date: {
       position: 1,
-      label: "Categories",
+      label: "Date",
       show: true,
-      googleAnalyticsEventName: "filter_search_categories",
-      kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
+      googleAnalyticsEventName: "filter_search_grant_date",
+      kind: FilterKind.RANGE,
       prefix: null,
     },
-    chains: {
+    programBudget: {
       position: 2,
-      label: "Chains",
+      label: "Program Budget",
       show: true,
-      googleAnalyticsEventName: "filter_search_chains",
-      kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
-      prefix: null,
-    },
-    ecosystems: {
-      position: 3,
-      label: "Ecosystems",
-      show: true,
-      googleAnalyticsEventName: "filter_search_ecosystems",
-      kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
-      prefix: null,
-    },
-    organizations: {
-      position: 4,
-      label: "Organizations",
-      show: true,
-      googleAnalyticsEventName: "filter_search_organizations",
-      kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
-      prefix: null,
-    },
-    names: {
-      position: 5,
-      label: "Names",
-      show: true,
-      googleAnalyticsEventName: "filter_search_names",
-      kind: FilterKind.SINGLE_SELECT,
-      prefix: null,
+      googleAnalyticsEventName: "filter_search_program_budget",
+      kind: FilterKind.RANGE,
+      prefix: "$",
     },
     order: {
-      position: 6,
+      position: 3,
       label: "Order",
       show: true,
       googleAnalyticsEventName: "filter_search_order",
@@ -285,7 +260,7 @@ export const FILTER_CONFIG_PRESETS = {
       options: SINGLE_SELECT_OPTIONS.grants.order,
     },
     orderBy: {
-      position: 11,
+      position: 4,
       label: "Order By",
       show: true,
       googleAnalyticsEventName: "filter_search_order_by",
@@ -294,46 +269,7 @@ export const FILTER_CONFIG_PRESETS = {
     },
   },
   impact: {
-    categories: {
-      position: 1,
-      label: "Categories",
-      show: true,
-      googleAnalyticsEventName: "filter_search_categories",
-      kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
-      prefix: null,
-    },
-    chains: {
-      position: 2,
-      label: "Chains",
-      show: true,
-      googleAnalyticsEventName: "filter_search_chains",
-      kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
-      prefix: null,
-    },
-    ecosystems: {
-      position: 3,
-      label: "Ecosystems",
-      show: true,
-      googleAnalyticsEventName: "filter_search_ecosystems",
-      kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
-      prefix: null,
-    },
-    organizations: {
-      position: 4,
-      label: "Organizations",
-      show: true,
-      googleAnalyticsEventName: "filter_search_organizations",
-      kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
-      prefix: null,
-    },
-    names: {
-      position: 5,
-      label: "Names",
-      show: true,
-      googleAnalyticsEventName: "filter_search_names",
-      kind: FilterKind.SINGLE_SELECT,
-      prefix: null,
-    },
+    // TODO: add impact filters
     order: {
       position: 6,
       label: "Order",
@@ -393,6 +329,14 @@ export const FILTER_PARAM_KEY_PRESETS = {
     orderBy: "orderBy",
   },
   grants: {
+    date: {
+      lowest: "minDate",
+      highest: "maxDate",
+    },
+    programBudget: {
+      lowest: "minProgramBudget",
+      highest: "maxProgramBudget",
+    },
     order: "order",
     orderBy: "orderBy",
   },
@@ -433,6 +377,14 @@ export const FILTER_PARAM_KEY_REVERSE_PRESETS = {
     orderBy: "orderBy",
   },
   grants: {
+    date: {
+      lowest: "minDate",
+      highest: "maxDate",
+    },
+    programBudget: {
+      lowest: "minProgramBudget",
+      highest: "maxProgramBudget",
+    },
     order: "order",
     orderBy: "orderBy",
   },

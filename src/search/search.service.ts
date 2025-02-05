@@ -126,7 +126,7 @@ const NAV_FILTER_CONFIGS: Record<SearchNav, string[] | null> = {
     "order",
     "orderBy",
   ],
-  grants: ["order", "orderBy"],
+  grants: ["date", "programBudget", "order", "orderBy"],
   impact: ["order", "orderBy"],
   vcs: null,
 };
@@ -175,11 +175,8 @@ const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<SearchNav, string | null> = {
     WHERE (grant)-[:HAS_STATUS]->(:KarmaGapStatus {name: 'Active'})
     
     RETURN {
-      categories: apoc.coll.toSet([(metadata)-[:HAS_CATEGORY]->(category) | category.name]),
-      chains: apoc.coll.toSet([(metadata)-[:HAS_NETWORKS]->(network) | network.name]),
-      ecosystems: apoc.coll.toSet([(metadata)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
-      organizations: apoc.coll.toSet([(metadata)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
-      names: [grant.name]
+      date: metadata.startsAt,
+      programBudget: metadata.programBudget
     } as config
   `,
   impact: `

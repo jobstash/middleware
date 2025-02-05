@@ -99,6 +99,32 @@ export class SearchPillarFiltersParams {
   maxHeadCount?: number | null = null;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  minDate?: number | null = null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Compare("minDate", ">=")
+  @Type(() => Number)
+  maxDate?: number | null = null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  minProgramBudget?: number | null = null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Compare("minProgramBudget", ">=")
+  @Type(() => Number)
+  maxProgramBudget?: number | null = null;
+
+  @IsOptional()
   @IsBoolean()
   @Type(() => Boolean)
   hasProjects?: boolean | null = null;
