@@ -1,7 +1,6 @@
 import {
   JobFilterConfigs,
   MultiSelectFilter,
-  MultiSelectSearchFilter,
   RangeFilter,
   SingleSelectFilter,
 } from "../interfaces";
@@ -67,9 +66,7 @@ export class JobFilterConfigsEntity {
     };
   }
 
-  getMultiValuePresets(
-    key: string,
-  ): MultiSelectFilter | MultiSelectSearchFilter {
+  getMultiValuePresets(key: string): MultiSelectFilter | MultiSelectFilter {
     const sort = createNewSortInstance({
       comparer: new Intl.Collator(undefined, {
         numeric: true,
@@ -99,7 +96,7 @@ export class JobFilterConfigsEntity {
   getMultiValuePresetsWithTransform(
     key: string,
     labelTransform?: (x: string) => string,
-  ): MultiSelectFilter | MultiSelectSearchFilter {
+  ): MultiSelectFilter | MultiSelectFilter {
     const sort = createNewSortInstance({
       comparer: new Intl.Collator(undefined, {
         numeric: true,

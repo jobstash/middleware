@@ -1,7 +1,6 @@
 import {
   AllJobsFilterConfigs,
   MultiSelectFilter,
-  MultiSelectSearchFilter,
   RangeFilter,
   SingleSelectFilter,
 } from "../interfaces";
@@ -49,7 +48,7 @@ export class AllJobsFilterConfigsEntity {
     key: string,
     transformLabel: (x: string) => string = (x: string): string => x,
     transformValue: (x: string) => string = (x: string): string => slugify(x),
-  ): MultiSelectFilter | MultiSelectSearchFilter {
+  ): MultiSelectFilter | MultiSelectFilter {
     const sort = createNewSortInstance({
       comparer: new Intl.Collator(undefined, {
         numeric: true,

@@ -1,6 +1,5 @@
 import {
   MultiSelectFilter,
-  MultiSelectSearchFilter,
   ProjectFilterConfigs,
   RangeFilter,
   SingleSelectFilter,
@@ -61,7 +60,7 @@ export class ProjectFilterConfigsEntity {
     key: string,
     transformLabel: (x: string) => string = (x: string): string => x,
     transformValue: (x: string) => string = (x: string): string => slugify(x),
-  ): MultiSelectFilter | MultiSelectSearchFilter {
+  ): MultiSelectFilter | MultiSelectFilter {
     const sort = createNewSortInstance({
       comparer: new Intl.Collator(undefined, {
         numeric: true,

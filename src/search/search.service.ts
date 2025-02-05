@@ -1,11 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import * as Sentry from "@sentry/node";
 import { go } from "fuzzysort";
-import { capitalize, lowerCase, uniq, uniqBy } from "lodash";
+import { capitalize, lowerCase, max, min, uniq, uniqBy } from "lodash";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nestjs-neogma";
-import { paginate, slugify } from "src/shared/helpers";
+import { intConverter, paginate, slugify } from "src/shared/helpers";
 import {
+  MultiSelectFilter,
   PaginatedData,
   PillarInfo,
   RangeFilter,
@@ -15,6 +16,7 @@ import {
   SearchResultItem,
   SearchResultNav,
   SelectFilter,
+  SingleSelectFilter,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
@@ -23,7 +25,12 @@ import { FetchPillarItemLabelsInput } from "./dto/fetch-pillar-item-labels.input
 import { SearchParams } from "./dto/search.input";
 import { QueryResult } from "neo4j-driver-core";
 import { SearchPillarFiltersParams } from "./dto/search-pillar-filters-params.input";
-import { FILTER_CONFIG_PRESETS } from "src/shared/presets/search-filter-configs";
+import {
+  FILTER_CONFIG_PRESETS,
+  FILTER_PARAM_KEY_PRESETS,
+  FILTER_PARAM_KEY_REVERSE_PRESETS,
+} from "src/shared/presets/search-filter-configs";
+import { createNewSortInstance } from "fast-sort";
 
 const NAV_PILLAR_QUERY_MAPPINGS: Record<
   SearchNav,
@@ -95,6 +102,35 @@ const NAV_PILLAR_ORDERING: Record<SearchNav, string[]> = {
   vcs: ["names"],
 };
 
+const NAV_FILTER_CONFIGS: Record<SearchNav, string[] | null> = {
+  projects: [
+    "organizations",
+    "ecosystems",
+    "communities",
+    "tvl",
+    "monthlyVolume",
+    "monthlyFees",
+    "monthlyRevenue",
+    "audits",
+    "hacks",
+    "token",
+    "order",
+    "orderBy",
+  ],
+  organizations: [
+    "headCount",
+    "communities",
+    "ecosystems",
+    "hasJobs",
+    "hasProjects",
+    "order",
+    "orderBy",
+  ],
+  grants: ["order", "orderBy"],
+  impact: ["order", "orderBy"],
+  vcs: null,
+};
+
 const NAV_PILLAR_TITLES: Record<SearchNav, string> = {
   grants: "Grant Program",
   impact: "Concluded Grant Program",
@@ -109,14 +145,16 @@ const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<SearchNav, string | null> = {
     MATCH (project:Project)
     WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((project)<-[:HAS_PROJECT|IS_MEMBER_OF_COMMUNITY*2]->(:OrganizationCommunity {normalizedName: $community})) END
     RETURN {
-      categories: [(project)-[:HAS_CATEGORY]->(category) | category.name],
-      chains: [(project)-[:IS_DEPLOYED_ON]->(chain) | chain.name],
-      investors: [(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor.name],
-      names: [project.name],
-      tags: [
-        (project)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-        WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag.name
-      ]
+      organizations: apoc.coll.toSet([(project)<-[:HAS_PROJECT]-(organization:Organization) | organization.name]),
+      ecosystems: apoc.coll.toSet([(project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem: Ecosystem) | ecosystem.name]),
+      communities: apoc.coll.toSet([(project)<-[:HAS_PROJECT|IS_MEMBER_OF_COMMUNITY*2]->(community: OrganizationCommunity) | community.name]),
+      tvl: project.tvl,
+      monthlyFees: project.monthlyFees,
+      monthlyVolume: project.monthlyVolume,
+      monthlyRevenue: project.monthlyRevenue,
+      audits: CASE WHEN EXISTS((project)-[:HAS_AUDIT]->(:Audit)) THEN true ELSE false END,
+      hacks: CASE WHEN EXISTS((project)-[:HAS_HACK]->(:Hack)) THEN true ELSE false END,
+      token: CASE WHEN project.tokenAddress IS NOT NULL THEN true ELSE false END
     } as config
   `,
   organizations: `
@@ -124,15 +162,11 @@ const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<SearchNav, string | null> = {
     MATCH (org:Organization)
     WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)<-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
     RETURN {
-      investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor.name],
-      locations: [organization.location],
-      chains: [(organization)-[:HAS_PROJECT|IS_DEPLOYED_ON*2]->(chain) | chain.name],
-      fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round.roundName],
-      names: [organization.name],
-      tags: [
-        (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-        WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag.name
-      ]
+      communities: apoc.coll.toSet([(org)-[:IS_MEMBER_OF_COMMUNITY]->(community:OrganizationCommunity) | community.name]),
+      ecosystems: apoc.coll.toSet([(org)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem) | ecosystem.name]),
+      headCount: org.headcountEstimate,
+      hasProjects: CASE WHEN EXISTS((org)-[:HAS_PROJECT]->(:Project)) THEN true ELSE false END,
+      hasJobs: CASE WHEN EXISTS((org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)) THEN true ELSE false END
     } as config
   `,
   grants: `
@@ -1184,49 +1218,267 @@ export class SearchService {
           community: community ?? null,
         });
 
-        const passedPillars = Object.keys(params).filter(
+        const passedFilters = Object.keys(params).filter(
           x => x !== "nav" && params[x] !== null,
         );
 
-        const pillars = NAV_PILLAR_ORDERING[params.nav];
+        const navFilters = NAV_FILTER_CONFIGS[params.nav];
 
-        const validPillars = passedPillars.filter(x => pillars.includes(x));
+        const validNavFilters = Object.keys(
+          FILTER_CONFIG_PRESETS[params.nav],
+        ).flatMap(x => {
+          const presets = FILTER_PARAM_KEY_PRESETS[params.nav][x];
+          if (!presets) {
+            return [];
+          } else if (typeof presets === "string") {
+            return [
+              {
+                paramKey: presets,
+                kind: presets.includes("has")
+                  ? "SINGLE_SELECT"
+                  : "MULTI_SELECT",
+                op: presets.includes("has") ? "eq" : "in",
+              },
+            ];
+          } else {
+            return [
+              {
+                paramKey: presets.lowest,
+                kind: "RANGE",
+                op: "gte",
+              },
+              {
+                paramKey: presets.highest,
+                kind: "RANGE",
+                op: "lte",
+              },
+            ];
+          }
+        });
+
+        const validPassedFilters = passedFilters.filter(x =>
+          validNavFilters.map(y => y.paramKey).includes(x),
+        );
 
         const configData = result.records?.map(record => record.get("config"));
 
         let data: (RangeFilter | SelectFilter)[];
 
-        const order = FILTER_CONFIG_PRESETS[params.nav].order;
+        const sort = createNewSortInstance({
+          comparer: new Intl.Collator(undefined, {
+            numeric: true,
+            caseFirst: "lower",
+            sensitivity: "case",
+          }).compare,
+          inPlaceSorting: true,
+        });
 
-        const orderBy = FILTER_CONFIG_PRESETS[params.nav].orderBy;
+        const isValidFilterConfig = (value: string): boolean =>
+          value !== "unspecified" &&
+          value !== "undefined" &&
+          value !== "" &&
+          value !== "null" &&
+          value !== null &&
+          value !== undefined;
 
-        if (validPillars.length > 0) {
-          const filtered = configData.filter(x =>
-            validPillars.reduce(
-              (acc, curr) =>
-                acc &&
-                x[curr].some((y: string) => params[curr].includes(slugify(y))),
-              true,
-            ),
+        if (validPassedFilters.length > 0) {
+          const map = new Map<
+            string,
+            {
+              kind: "RANGE" | "SINGLE_SELECT" | "MULTI_SELECT";
+              op: "gte" | "lte" | "eq" | "in";
+            }
+          >(
+            validNavFilters.map(x => [
+              x.paramKey,
+              {
+                kind: x.kind as "RANGE" | "SINGLE_SELECT" | "MULTI_SELECT",
+                op: x.op as "gte" | "lte" | "eq" | "in",
+              },
+            ]),
           );
+          const filtered = configData.filter(x => {
+            // console.log(
+            //   validPassedFilters.map(curr => {
+            //     let current: boolean;
+            //     const value =
+            //       x[FILTER_PARAM_KEY_REVERSE_PRESETS[params.nav][curr]];
+            //     const mapped = map.get(curr);
+            //     if (mapped.kind === "MULTI_SELECT") {
+            //       current = value
+            //         .filter(Boolean)
+            //         .some((y: string) => params[curr].includes(slugify(y)));
+            //     } else if (mapped.kind === "SINGLE_SELECT") {
+            //       current = params[curr] === value;
+            //     } else {
+            //       const op = mapped.op;
+            //       const filterValue = params[curr];
+            //       if (op === "gte") {
+            //         current = filterValue <= (intConverter(value) ?? 0);
+            //       } else {
+            //         current = filterValue >= (intConverter(value) ?? 0);
+            //       }
+            //     }
+            //     return {
+            //       filter: curr,
+            //       expected: params[curr],
+            //       actual: value,
+            //       matches: current,
+            //       meta: map.get(curr),
+            //     };
+            //   }),
+            // );
+            return validPassedFilters.reduce((acc, curr) => {
+              let current: boolean;
+              const value =
+                x[FILTER_PARAM_KEY_REVERSE_PRESETS[params.nav][curr]];
+              const mapped = map.get(curr);
+              if (mapped.kind === "MULTI_SELECT") {
+                current = value
+                  .filter(Boolean)
+                  .some((y: string) => params[curr].includes(slugify(y)));
+              } else if (mapped.kind === "SINGLE_SELECT") {
+                current = params[curr] === value;
+              } else {
+                const op = mapped.op;
+                const filterValue = params[curr];
+                if (op === "gte") {
+                  current = filterValue <= (intConverter(value) ?? 0);
+                } else {
+                  current = filterValue >= (intConverter(value) ?? 0);
+                }
+              }
+              return acc && current;
+            }, true);
+          });
 
           data = [
-            ...pillars.map(x => ({
-              options: uniq(filtered.flatMap(y => y[x])),
-              ...FILTER_CONFIG_PRESETS[params.nav][x],
-            })),
-            order,
-            orderBy,
-          ];
+            ...navFilters.map(x => {
+              const presets = FILTER_CONFIG_PRESETS[params.nav][x];
+              if (!presets) {
+                return null;
+              }
+              if (presets.kind === "RANGE") {
+                return new RangeFilter({
+                  value: {
+                    lowest: {
+                      value:
+                        intConverter(
+                          min(filtered.flatMap(y => y[x]).filter(Boolean)),
+                        ) ?? 0,
+                      paramKey: FILTER_PARAM_KEY_PRESETS[params.nav][x].lowest,
+                    },
+                    highest: {
+                      value:
+                        intConverter(
+                          max(filtered.flatMap(y => y[x]).filter(Boolean)),
+                        ) ?? 0,
+                      paramKey: FILTER_PARAM_KEY_PRESETS[params.nav][x].highest,
+                    },
+                  },
+                  ...presets,
+                });
+              } else {
+                if (presets.kind === "SINGLE_SELECT") {
+                  return new SingleSelectFilter({
+                    options: sort(
+                      uniq(
+                        filtered.flatMap(y => y[x]).filter(isValidFilterConfig),
+                      ),
+                    )
+                      .asc()
+                      .map(x => ({
+                        label: x,
+                        value: slugify(x),
+                      })),
+                    ...presets,
+                    paramKey: FILTER_PARAM_KEY_PRESETS[params.nav][x],
+                  });
+                } else {
+                  return new MultiSelectFilter({
+                    options: sort(
+                      uniq(
+                        filtered.flatMap(y => y[x]).filter(isValidFilterConfig),
+                      ),
+                    )
+                      .asc()
+                      .map(x => ({
+                        label: x,
+                        value: slugify(x),
+                      })),
+                    ...presets,
+                    paramKey: FILTER_PARAM_KEY_PRESETS[params.nav][x],
+                  });
+                }
+              }
+            }),
+          ].filter(Boolean);
         } else {
           data = [
-            ...pillars.map(x => ({
-              options: uniq(configData.flatMap(y => y[x])),
-              ...FILTER_CONFIG_PRESETS[params.nav][x],
-            })),
-            order,
-            orderBy,
-          ];
+            ...navFilters.map(x => {
+              const presets = FILTER_CONFIG_PRESETS[params.nav][x];
+              if (!presets) {
+                return null;
+              }
+              if (presets.kind === "RANGE") {
+                return new RangeFilter({
+                  value: {
+                    lowest: {
+                      value:
+                        intConverter(
+                          min(configData.flatMap(y => y[x]).filter(Boolean)),
+                        ) ?? 0,
+                      paramKey: FILTER_PARAM_KEY_PRESETS[params.nav][x].lowest,
+                    },
+                    highest: {
+                      value:
+                        intConverter(
+                          max(configData.flatMap(y => y[x]).filter(Boolean)),
+                        ) ?? 0,
+                      paramKey: FILTER_PARAM_KEY_PRESETS[params.nav][x].highest,
+                    },
+                  },
+                  ...presets,
+                });
+              } else {
+                if (presets.kind === "SINGLE_SELECT") {
+                  return new SingleSelectFilter({
+                    options: sort(
+                      uniq(
+                        configData
+                          .flatMap(y => y[x])
+                          .filter(isValidFilterConfig),
+                      ),
+                    )
+                      .asc()
+                      .map(x => ({
+                        label: x,
+                        value: slugify(x),
+                      })),
+                    ...presets,
+                    paramKey: FILTER_PARAM_KEY_PRESETS[params.nav][x],
+                  });
+                } else {
+                  return new MultiSelectFilter({
+                    options: sort(
+                      uniq(
+                        configData
+                          .flatMap(y => y[x])
+                          .filter(isValidFilterConfig),
+                      ),
+                    )
+                      .asc()
+                      .map(x => ({
+                        label: x,
+                        value: slugify(x),
+                      })),
+                    ...presets,
+                    paramKey: FILTER_PARAM_KEY_PRESETS[params.nav][x],
+                  });
+                }
+              }
+            }),
+          ].filter(Boolean);
         }
 
         return {

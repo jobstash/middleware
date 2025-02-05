@@ -5,21 +5,21 @@ import {
   FilterConfigField,
   FilterConfigLabel,
   FilterConfigLabeledValues,
-  MultiSelectSearchFilter,
+  MultiSelectFilter,
 } from "./filters.interface";
 import { report } from "io-ts-human-reporter";
 
 @ApiExtraModels(FilterConfigLabel, FilterConfigField, FilterConfigLabeledValues)
 export class AllJobsFilterConfigs {
   public static readonly AllJobsFilterConfigsType = t.strict({
-    category: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    organizations: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+    category: MultiSelectFilter.MultiSelectFilterType,
+    organizations: MultiSelectFilter.MultiSelectFilterType,
   });
 
   @ApiProperty()
-  organizations: MultiSelectSearchFilter;
+  organizations: MultiSelectFilter;
   @ApiProperty()
-  category: MultiSelectSearchFilter;
+  category: MultiSelectFilter;
 
   constructor(raw: AllJobsFilterConfigs) {
     const { category, organizations } = raw;

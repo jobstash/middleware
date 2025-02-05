@@ -1,30 +1,23 @@
 export enum FilterKind {
   SINGLE_SELECT = "SINGLE_SELECT",
   RANGE = "RANGE",
-  MULTI_SELECT = "MULTI_SELECT",
   MULTI_SELECT_WITH_SEARCH = "MULTI_SELECT_WITH_SEARCH",
-  ORDER = "ORDER",
-  ORDER_BY = "ORDER_BY",
 }
 
 export const SINGLE_SELECT_OPTIONS = {
   projects: {
-    // hacks: [
-    //   { label: "Has been hacked", value: true },
-    //   { label: "Has not been hacked", value: false },
-    // ],
-    // audits: [
-    //   { label: "Has Audits", value: true },
-    //   { label: "Has No Audits", value: false },
-    // ],
-    // mainNet: [
-    //   { label: "Deployed on Mainnet", value: true },
-    //   { label: "Not Deployed on Mainnet", value: false },
-    // ],
-    // token: [
-    //   { label: "Has Token", value: true },
-    //   { label: "Has No Token", value: false },
-    // ],
+    hasHacks: [
+      { label: "Has been hacked", value: true },
+      { label: "Has not been hacked", value: true },
+    ],
+    hasAudits: [
+      { label: "Has Audits", value: true },
+      { label: "Has No Audits", value: true },
+    ],
+    hasToken: [
+      { label: "Has Token", value: true },
+      { label: "Has No Token", value: true },
+    ],
     order: [
       { label: "Ascending", value: "asc" },
       { label: "Descending", value: "desc" },
@@ -41,14 +34,14 @@ export const SINGLE_SELECT_OPTIONS = {
     ],
   },
   organizations: {
-    // hasProjects: [
-    //   { label: "Has projects", value: true },
-    //   { label: "Has no projects", value: false },
-    // ],
-    // hasJobs: [
-    //   { label: "Has jobs", value: true },
-    //   { label: "Has no jobs", value: false },
-    // ],
+    hasProjects: [
+      { label: "Has projects", value: true },
+      { label: "Has no projects", value: true },
+    ],
+    hasJobs: [
+      { label: "Has jobs", value: true },
+      { label: "Has no jobs", value: true },
+    ],
     order: [
       { label: "Ascending", value: "asc" },
       { label: "Descending", value: "desc" },
@@ -82,130 +75,163 @@ export const SINGLE_SELECT_OPTIONS = {
       { label: "Donated Amount", value: "donatedAmount" },
     ],
   },
+  vcs: null,
 };
 
 export const FILTER_CONFIG_PRESETS = {
   projects: {
-    categories: {
+    organizations: {
       position: 1,
-      label: "Categories",
+      label: "Organizations",
       show: true,
-      googleAnalyticsEventName: "filter_search_categories",
+      googleAnalyticsEventName: "filter_search_organizations",
       kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
       prefix: null,
     },
-    chains: {
+    ecosystems: {
       position: 2,
-      label: "Chains",
+      label: "Ecosystems",
       show: true,
-      googleAnalyticsEventName: "filter_search_chains",
+      googleAnalyticsEventName: "filter_search_ecosystems",
       kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
       prefix: null,
     },
-    investors: {
+    communities: {
       position: 3,
-      label: "Investors",
+      label: "Communities",
       show: true,
-      googleAnalyticsEventName: "filter_search_investors",
+      googleAnalyticsEventName: "filter_search_communities",
       kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
       prefix: null,
     },
-    names: {
+    tvl: {
       position: 4,
-      label: "Names",
-      show: false,
-      googleAnalyticsEventName: "filter_search_names",
-      kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
-      prefix: null,
-    },
-    tags: {
-      position: 5,
-      label: "Tags",
+      label: "TVL",
       show: true,
-      googleAnalyticsEventName: "filter_search_tags",
-      kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
-      prefix: null,
+      googleAnalyticsEventName: "filter_search_tvl",
+      kind: FilterKind.RANGE,
+      prefix: "$",
+    },
+    monthlyFees: {
+      position: 5,
+      label: "Monthly Fees",
+      show: true,
+      googleAnalyticsEventName: "filter_search_monthly_fees",
+      kind: FilterKind.RANGE,
+      prefix: "$",
+    },
+    monthlyVolume: {
+      position: 6,
+      label: "Monthly Volume",
+      show: true,
+      googleAnalyticsEventName: "filter_search_monthly_volume",
+      kind: FilterKind.RANGE,
+      prefix: "$",
+    },
+    monthlyRevenue: {
+      position: 7,
+      label: "Monthly Revenue",
+      show: true,
+      googleAnalyticsEventName: "filter_search_monthly_revenue",
+      kind: FilterKind.RANGE,
+      prefix: "$",
+    },
+    hasAudits: {
+      position: 8,
+      label: "Audits",
+      show: true,
+      googleAnalyticsEventName: "filter_search_audits",
+      kind: FilterKind.SINGLE_SELECT,
+      options: SINGLE_SELECT_OPTIONS.projects.hasAudits,
+    },
+    hasHacks: {
+      position: 9,
+      label: "Hacks",
+      show: true,
+      googleAnalyticsEventName: "filter_search_hacks",
+      kind: FilterKind.SINGLE_SELECT,
+      options: SINGLE_SELECT_OPTIONS.projects.hasHacks,
+    },
+    hasToken: {
+      position: 10,
+      label: "Token",
+      show: true,
+      googleAnalyticsEventName: "filter_search_token",
+      kind: FilterKind.SINGLE_SELECT,
+      options: SINGLE_SELECT_OPTIONS.projects.hasToken,
     },
     order: {
-      position: 10,
+      position: 11,
       label: "Order",
       show: true,
       googleAnalyticsEventName: "filter_search_order",
-      kind: FilterKind.ORDER,
+      kind: FilterKind.SINGLE_SELECT,
       options: SINGLE_SELECT_OPTIONS.projects.order,
     },
     orderBy: {
-      position: 11,
+      position: 12,
       label: "Order By",
       show: true,
       googleAnalyticsEventName: "filter_search_order_by",
-      kind: FilterKind.ORDER_BY,
+      kind: FilterKind.SINGLE_SELECT,
       options: SINGLE_SELECT_OPTIONS.projects.orderBy,
     },
   },
   organizations: {
-    investors: {
+    headCount: {
       position: 1,
-      label: "Investors",
+      label: "Head Count",
       show: true,
-      googleAnalyticsEventName: "filter_search_investors",
-      kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
+      googleAnalyticsEventName: "filter_search_head_count",
+      kind: FilterKind.RANGE,
       prefix: null,
     },
-    locations: {
+    communities: {
       position: 2,
-      label: "Locations",
+      label: "Communities",
       show: true,
-      googleAnalyticsEventName: "filter_joblist_locations",
+      googleAnalyticsEventName: "filter_search_communities",
       kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
       prefix: null,
     },
-    chains: {
+    ecosystems: {
       position: 3,
-      label: "Chains",
+      label: "Ecosystems",
       show: true,
-      googleAnalyticsEventName: "filter_search_chains",
+      googleAnalyticsEventName: "filter_search_ecosystems",
       kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
       prefix: null,
     },
-    fundingRounds: {
+    hasProjects: {
       position: 4,
-      label: "Funding Rounds",
+      label: "Has Projects",
       show: true,
-      googleAnalyticsEventName: "filter_search_funding_rounds",
-      kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
-      prefix: null,
-    },
-    names: {
-      position: 5,
-      label: "Names",
-      show: true,
-      googleAnalyticsEventName: "filter_search_names",
+      googleAnalyticsEventName: "filter_search_has_projects",
       kind: FilterKind.SINGLE_SELECT,
-      prefix: null,
+      options: SINGLE_SELECT_OPTIONS.organizations.hasProjects,
     },
-    tags: {
-      position: 6,
-      label: "Tags",
+    hasJobs: {
+      position: 5,
+      label: "Has Jobs",
       show: true,
-      googleAnalyticsEventName: "filter_search_tags",
-      kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
-      prefix: null,
+      googleAnalyticsEventName: "filter_search_has_jobs",
+      kind: FilterKind.SINGLE_SELECT,
+      options: SINGLE_SELECT_OPTIONS.organizations.hasJobs,
     },
     order: {
-      position: 7,
+      position: 6,
       label: "Order",
       show: true,
       googleAnalyticsEventName: "filter_search_order",
-      kind: FilterKind.ORDER,
+      kind: FilterKind.SINGLE_SELECT,
       options: SINGLE_SELECT_OPTIONS.organizations.order,
     },
     orderBy: {
-      position: 8,
+      position: 7,
       label: "Order By",
       show: true,
       googleAnalyticsEventName: "filter_search_order_by",
-      kind: FilterKind.ORDER_BY,
+      kind: FilterKind.SINGLE_SELECT,
       options: SINGLE_SELECT_OPTIONS.organizations.orderBy,
     },
   },
@@ -255,7 +281,7 @@ export const FILTER_CONFIG_PRESETS = {
       label: "Order",
       show: true,
       googleAnalyticsEventName: "filter_search_order",
-      kind: FilterKind.ORDER,
+      kind: FilterKind.SINGLE_SELECT,
       options: SINGLE_SELECT_OPTIONS.grants.order,
     },
     orderBy: {
@@ -263,7 +289,7 @@ export const FILTER_CONFIG_PRESETS = {
       label: "Order By",
       show: true,
       googleAnalyticsEventName: "filter_search_order_by",
-      kind: FilterKind.ORDER_BY,
+      kind: FilterKind.SINGLE_SELECT,
       options: SINGLE_SELECT_OPTIONS.grants.orderBy,
     },
   },
@@ -313,7 +339,7 @@ export const FILTER_CONFIG_PRESETS = {
       label: "Order",
       show: true,
       googleAnalyticsEventName: "filter_search_order",
-      kind: FilterKind.ORDER,
+      kind: FilterKind.SINGLE_SELECT,
       options: SINGLE_SELECT_OPTIONS.impact.order,
     },
     orderBy: {
@@ -321,8 +347,98 @@ export const FILTER_CONFIG_PRESETS = {
       label: "Order By",
       show: true,
       googleAnalyticsEventName: "filter_search_order_by",
-      kind: FilterKind.ORDER_BY,
+      kind: FilterKind.SINGLE_SELECT,
       options: SINGLE_SELECT_OPTIONS.impact.orderBy,
     },
   },
+};
+
+export const FILTER_PARAM_KEY_PRESETS = {
+  projects: {
+    tvl: {
+      lowest: "minTvl",
+      highest: "maxTvl",
+    },
+    monthlyFees: {
+      lowest: "minMonthlyFees",
+      highest: "maxMonthlyFees",
+    },
+    monthlyVolume: {
+      lowest: "minMonthlyVolume",
+      highest: "maxMonthlyVolume",
+    },
+    monthlyRevenue: {
+      lowest: "minMonthlyRevenue",
+      highest: "maxMonthlyRevenue",
+    },
+    hasAudits: "hasAudits",
+    hasHacks: "hasHacks",
+    hasToken: "hasToken",
+    order: "order",
+    ecosystems: "ecosystems",
+    communities: "communities",
+    organizations: "organizations",
+    orderBy: "orderBy",
+  },
+  organizations: {
+    headCount: {
+      lowest: "minHeadCount",
+      highest: "maxHeadCount",
+    },
+    communities: "communities",
+    ecosystems: "ecosystems",
+    hasJobs: "hasJobs",
+    hasProjects: "hasProjects",
+    order: "order",
+    orderBy: "orderBy",
+  },
+  grants: {
+    order: "order",
+    orderBy: "orderBy",
+  },
+  impact: {
+    order: "order",
+    orderBy: "orderBy",
+  },
+  vcs: null,
+};
+
+export const FILTER_PARAM_KEY_REVERSE_PRESETS = {
+  projects: {
+    minTvl: "tvl",
+    maxTvl: "tvl",
+    minMonthlyVolume: "monthlyVolume",
+    maxMonthlyVolume: "monthlyVolume",
+    minMonthlyFees: "monthlyFees",
+    maxMonthlyFees: "monthlyFees",
+    minMonthlyRevenue: "monthlyRevenue",
+    maxMonthlyRevenue: "monthlyRevenue",
+    hasAudits: "audits",
+    hasHacks: "hacks",
+    hasToken: "token",
+    order: "order",
+    ecosystems: "ecosystems",
+    communities: "communities",
+    organizations: "organizations",
+    orderBy: "orderBy",
+  },
+  organizations: {
+    minHeadCount: "headCount",
+    maxHeadCount: "headCount",
+    communities: "communities",
+    ecosystems: "ecosystems",
+    hasJobs: "hasJobs",
+    hasProjects: "hasProjects",
+    order: "order",
+    orderBy: "orderBy",
+  },
+  grants: {
+    order: "order",
+    orderBy: "orderBy",
+  },
+  impact: {
+    order: "order",
+    orderBy: "orderBy",
+  },
+  vcs: null,
 };

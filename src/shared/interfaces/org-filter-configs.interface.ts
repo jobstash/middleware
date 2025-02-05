@@ -6,7 +6,6 @@ import {
   FilterConfigLabel,
   FilterConfigLabeledValues,
   MultiSelectFilter,
-  MultiSelectSearchFilter,
   RangeFilter,
   SingleSelectFilter,
 } from "./filters.interface";
@@ -21,10 +20,10 @@ export class OrgFilterConfigs {
     hasJobs: SingleSelectFilter.SingleSelectFilterType,
     orderBy: SingleSelectFilter.SingleSelectFilterType,
     hasProjects: SingleSelectFilter.SingleSelectFilterType,
-    investors: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    communities: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    ecosystems: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    fundingRounds: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+    investors: MultiSelectFilter.MultiSelectFilterType,
+    communities: MultiSelectFilter.MultiSelectFilterType,
+    ecosystems: MultiSelectFilter.MultiSelectFilterType,
+    fundingRounds: MultiSelectFilter.MultiSelectFilterType,
   });
 
   @ApiProperty()
@@ -32,13 +31,13 @@ export class OrgFilterConfigs {
   @ApiProperty()
   headcountEstimate: RangeFilter;
   @ApiProperty()
-  fundingRounds: MultiSelectSearchFilter;
+  fundingRounds: MultiSelectFilter;
   @ApiProperty()
-  investors: MultiSelectSearchFilter;
+  investors: MultiSelectFilter;
   @ApiProperty()
-  communities: MultiSelectSearchFilter;
+  communities: MultiSelectFilter;
   @ApiProperty()
-  ecosystems: MultiSelectSearchFilter;
+  ecosystems: MultiSelectFilter;
   @ApiProperty()
   hasJobs: SingleSelectFilter;
   @ApiProperty()

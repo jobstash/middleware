@@ -1,7 +1,16 @@
 import { Transform, Type } from "class-transformer";
-import { IsIn, IsNotEmpty, IsOptional, IsString } from "class-validator";
+import {
+  IsBoolean,
+  IsIn,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from "class-validator";
 import { toList } from "src/shared/helpers";
 import { SearchNav } from "src/shared/interfaces";
+import { Compare } from "src/shared/validators";
 
 export class SearchPillarFiltersParams {
   @IsString()
@@ -12,37 +21,7 @@ export class SearchPillarFiltersParams {
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
-  categories?: string[] | null = null;
-
-  @IsOptional()
-  @Type(() => String)
-  @Transform(toList)
-  chains?: string[] | null = null;
-
-  @IsOptional()
-  @Type(() => String)
-  @Transform(toList)
-  investors?: string[] | null = null;
-
-  @IsOptional()
-  @Type(() => String)
-  @Transform(toList)
-  names?: string[] | null = null;
-
-  @IsOptional()
-  @Type(() => String)
-  @Transform(toList)
-  tags?: string[] | null = null;
-
-  @IsOptional()
-  @Type(() => String)
-  @Transform(toList)
-  locations?: string[] | null = null;
-
-  @IsOptional()
-  @Type(() => String)
-  @Transform(toList)
-  fundingRounds?: string[] | null = null;
+  organizations?: string[] | null = null;
 
   @IsOptional()
   @Type(() => String)
@@ -52,15 +31,95 @@ export class SearchPillarFiltersParams {
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
-  organizations?: string[] | null = null;
-}
+  communities?: string[] | null = null;
 
-//
-// [{ pillar: "categories", items: ["Dexes"] }, { pillar: "chains", items: ["Ethereum"] }]
-// {
-//   categories: ["Dexes"],
-//   chains: ["Ethereum"]
-//   investors: [{ name: "Investor 1", normalizedName: "investor1" }, { name: "Investor 2", normalizedName: "investor2" }]
-//   name: "Project 1"
-//   tags: ["Tag 1", "Tag 2"]
-// }
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  minTvl?: number | null = null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Compare("minTvl", ">=")
+  @Type(() => Number)
+  maxTvl?: number | null = null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  minMonthlyVolume?: number | null = null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Compare("minMonthlyVolume", ">=")
+  @Type(() => Number)
+  maxMonthlyVolume?: number | null = null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  minMonthlyFees?: number | null = null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Compare("minMonthlyFees", ">=")
+  @Type(() => Number)
+  maxMonthlyFees?: number | null = null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  minMonthlyRevenue?: number | null = null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Compare("minMonthlyRevenue", ">=")
+  @Type(() => Number)
+  maxMonthlyRevenue?: number | null = null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  minHeadCount?: number | null = null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Compare("minHeadCount", ">=")
+  @Type(() => Number)
+  maxHeadCount?: number | null = null;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  hasProjects?: boolean | null = null;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  hasJobs?: boolean | null = null;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  hasAudits?: boolean | null = null;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  hasHacks?: boolean | null = null;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  hasToken?: boolean | null = null;
+}

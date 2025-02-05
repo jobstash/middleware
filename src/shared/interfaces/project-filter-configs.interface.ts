@@ -5,7 +5,7 @@ import {
   FilterConfigField,
   FilterConfigLabel,
   FilterConfigLabeledValues,
-  MultiSelectSearchFilter,
+  MultiSelectFilter,
   RangeFilter,
   SingleSelectFilter,
 } from "./filters.interface";
@@ -23,26 +23,26 @@ export class ProjectFilterConfigs {
     token: SingleSelectFilter.SingleSelectFilterType,
     order: SingleSelectFilter.SingleSelectFilterType,
     orderBy: SingleSelectFilter.SingleSelectFilterType,
-    chains: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    investors: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    communities: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    ecosystems: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    categories: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    organizations: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+    chains: MultiSelectFilter.MultiSelectFilterType,
+    investors: MultiSelectFilter.MultiSelectFilterType,
+    communities: MultiSelectFilter.MultiSelectFilterType,
+    ecosystems: MultiSelectFilter.MultiSelectFilterType,
+    categories: MultiSelectFilter.MultiSelectFilterType,
+    organizations: MultiSelectFilter.MultiSelectFilterType,
   });
 
   @ApiProperty()
-  organizations: MultiSelectSearchFilter;
+  organizations: MultiSelectFilter;
   @ApiProperty()
-  chains: MultiSelectSearchFilter;
+  chains: MultiSelectFilter;
   @ApiProperty()
-  investors: MultiSelectSearchFilter;
+  investors: MultiSelectFilter;
   @ApiProperty()
-  categories: MultiSelectSearchFilter;
+  categories: MultiSelectFilter;
   @ApiProperty()
-  communities: MultiSelectSearchFilter;
+  communities: MultiSelectFilter;
   @ApiProperty()
-  ecosystems: MultiSelectSearchFilter;
+  ecosystems: MultiSelectFilter;
   @ApiProperty()
   tvl: RangeFilter;
   @ApiProperty()

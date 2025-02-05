@@ -1,7 +1,6 @@
 import {
   ApiProperty,
   ApiPropertyOptional,
-  OmitType,
   getSchemaPath,
 } from "@nestjs/swagger";
 import { isLeft } from "fp-ts/lib/Either";
@@ -135,7 +134,7 @@ export class FilterConfigLabeledValues extends FilterConfigField {
       $ref: getSchemaPath(FilterConfigLabel),
     },
   })
-  options: FilterConfigLabel[] | string[];
+  options: FilterConfigLabel[];
   @ApiProperty()
   paramKey: string;
 
@@ -180,21 +179,11 @@ export class SingleSelectFilter extends FilterConfigLabeledValues {
   }
 }
 
-export class MultiSelectFilter extends OmitType(FilterConfigLabeledValues, [
-  "options",
-] as const) {
-  public static readonly MultiSelectFilterType = t.strict({
-    show: t.boolean,
-    position: t.number,
-    paramKey: t.string,
-    label: t.string,
-    googleAnalyticsEventName: t.union([t.string, t.null]),
-    options: t.array(FilterConfigLabel.FilterConfigLabelType),
-    kind: t.string,
-  });
-
-  @ApiProperty()
-  options: FilterConfigLabel[];
+export class MultiSelectFilter extends FilterConfigLabeledValues {
+  public static readonly MultiSelectFilterType = t.intersection([
+    FilterConfigLabeledValues.FilterConfigLabeledValuesType,
+    t.strict({ kind: t.string }),
+  ]);
 
   @ApiProperty()
   kind: string;
@@ -203,42 +192,6 @@ export class MultiSelectFilter extends OmitType(FilterConfigLabeledValues, [
     const { kind, ...parentProps } = raw;
     super(parentProps);
     const result = MultiSelectFilter.MultiSelectFilterType.decode(raw);
-
-    this.kind = kind;
-
-    if (isLeft(result)) {
-      report(result).forEach(x => {
-        throw new Error(x);
-      });
-    }
-  }
-}
-
-export class MultiSelectSearchFilter extends OmitType(
-  FilterConfigLabeledValues,
-  ["options"] as const,
-) {
-  public static readonly MultiSelectSearchFilterType = t.strict({
-    show: t.boolean,
-    position: t.number,
-    paramKey: t.string,
-    label: t.string,
-    googleAnalyticsEventName: t.union([t.string, t.null]),
-    options: t.array(FilterConfigLabel.FilterConfigLabelType),
-    kind: t.string,
-  });
-
-  @ApiProperty()
-  options: FilterConfigLabel[];
-
-  @ApiProperty()
-  kind: string;
-
-  constructor(raw: MultiSelectFilter) {
-    const { kind, ...parentProps } = raw;
-    super(parentProps);
-    const result =
-      MultiSelectSearchFilter.MultiSelectSearchFilterType.decode(raw);
 
     this.kind = kind;
 
@@ -284,7 +237,4 @@ export class RangeFilter extends FilterConfigField {
   }
 }
 
-export type SelectFilter =
-  | MultiSelectSearchFilter
-  | MultiSelectFilter
-  | SingleSelectFilter;
+export type SelectFilter = MultiSelectFilter | SingleSelectFilter;

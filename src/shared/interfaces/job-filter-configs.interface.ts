@@ -6,7 +6,6 @@ import {
   FilterConfigLabel,
   FilterConfigLabeledValues,
   MultiSelectFilter,
-  MultiSelectSearchFilter,
   RangeFilter,
   SingleSelectFilter,
 } from "./filters.interface";
@@ -28,17 +27,17 @@ export class JobFilterConfigs {
     seniority: MultiSelectFilter.MultiSelectFilterType,
     locations: MultiSelectFilter.MultiSelectFilterType,
     orderBy: SingleSelectFilter.SingleSelectFilterType,
-    tags: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+    tags: MultiSelectFilter.MultiSelectFilterType,
     publicationDate: SingleSelectFilter.SingleSelectFilterType,
-    chains: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    projects: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    investors: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    communities: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    ecosystems: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    classifications: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    commitments: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    fundingRounds: MultiSelectSearchFilter.MultiSelectSearchFilterType,
-    organizations: MultiSelectSearchFilter.MultiSelectSearchFilterType,
+    chains: MultiSelectFilter.MultiSelectFilterType,
+    projects: MultiSelectFilter.MultiSelectFilterType,
+    investors: MultiSelectFilter.MultiSelectFilterType,
+    communities: MultiSelectFilter.MultiSelectFilterType,
+    ecosystems: MultiSelectFilter.MultiSelectFilterType,
+    classifications: MultiSelectFilter.MultiSelectFilterType,
+    commitments: MultiSelectFilter.MultiSelectFilterType,
+    fundingRounds: MultiSelectFilter.MultiSelectFilterType,
+    organizations: MultiSelectFilter.MultiSelectFilterType,
   });
 
   @ApiProperty()
@@ -52,25 +51,25 @@ export class JobFilterConfigs {
   @ApiProperty()
   headcountEstimate: RangeFilter;
   @ApiProperty()
-  tags: MultiSelectSearchFilter;
+  tags: MultiSelectFilter;
   @ApiProperty()
-  fundingRounds: MultiSelectSearchFilter;
+  fundingRounds: MultiSelectFilter;
   @ApiProperty()
-  investors: MultiSelectSearchFilter;
+  investors: MultiSelectFilter;
   @ApiProperty()
-  communities: MultiSelectSearchFilter;
+  communities: MultiSelectFilter;
   @ApiProperty()
-  ecosystems: MultiSelectSearchFilter;
+  ecosystems: MultiSelectFilter;
   @ApiProperty()
-  organizations: MultiSelectSearchFilter;
+  organizations: MultiSelectFilter;
   @ApiProperty()
-  chains: MultiSelectSearchFilter;
+  chains: MultiSelectFilter;
   @ApiProperty()
-  projects: MultiSelectSearchFilter;
+  projects: MultiSelectFilter;
   @ApiProperty()
-  classifications: MultiSelectSearchFilter;
+  classifications: MultiSelectFilter;
   @ApiProperty()
-  commitments: MultiSelectSearchFilter;
+  commitments: MultiSelectFilter;
   @ApiProperty()
   tvl: RangeFilter;
   @ApiProperty()
