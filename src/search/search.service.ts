@@ -1177,8 +1177,9 @@ export class SearchService {
 
       if (items.length === 0) {
         return {
-          success: false,
+          success: true,
           message: "No result found",
+          data: [],
         };
       } else {
         return {
