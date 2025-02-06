@@ -145,6 +145,7 @@ const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<SearchNav, string | null> = {
     MATCH (project:Project)
     WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((project)<-[:HAS_PROJECT|IS_MEMBER_OF_COMMUNITY*2]->(:OrganizationCommunity {normalizedName: $community})) END
     RETURN {
+      names: [project.name] + [(project)-[:HAS_PROJECT_ALIAS]->(alias:ProjectAlias) | alias.name],
       organizations: apoc.coll.toSet([(project)<-[:HAS_PROJECT]-(organization:Organization) | organization.name]),
       ecosystems: apoc.coll.toSet([(project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem: Ecosystem) | ecosystem.name]),
       communities: apoc.coll.toSet([(project)<-[:HAS_PROJECT|IS_MEMBER_OF_COMMUNITY*2]->(community: OrganizationCommunity) | community.name]),
@@ -154,7 +155,15 @@ const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<SearchNav, string | null> = {
       monthlyRevenue: project.monthlyRevenue,
       audits: CASE WHEN EXISTS((project)-[:HAS_AUDIT]->(:Audit)) THEN true ELSE false END,
       hacks: CASE WHEN EXISTS((project)-[:HAS_HACK]->(:Hack)) THEN true ELSE false END,
-      token: CASE WHEN project.tokenAddress IS NOT NULL THEN true ELSE false END
+      token: CASE WHEN project.tokenAddress IS NOT NULL THEN true ELSE false END,
+      categories: apoc.coll.toSet([(project)-[:HAS_CATEGORY]->(category:ProjectCategory) | category.name]),
+      chains: apoc.coll.toSet([(project)-[:IS_DEPLOYED_ON]->(chain:Chain) | chain.name]),
+      ecosystems: apoc.coll.toSet([(project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem: Ecosystem) | ecosystem.name]),
+      investors: apoc.coll.toSet([(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) | investor.name]),
+      tags: apoc.coll.toSet([
+        (project)<-[:HAS_PROJECT]-(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag.name
+      ])
     } as config
   `,
   organizations: `
@@ -162,6 +171,15 @@ const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<SearchNav, string | null> = {
     MATCH (org:Organization)
     WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)<-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
     RETURN {
+      names: [org.name] + [(org)-[:HAS_ORGANIZATION_ALIAS]->(alias:OrganizationAlias) | alias.name],
+      chains: apoc.coll.toSet([(org)-[:HAS_PROJECT|IS_DEPLOYED_ON*2]->(chain:Chain) | chain.name]),
+      locations: [org.location],
+      investors: apoc.coll.toSet([(org)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor:Investor) | investor.name]),
+      fundingRounds: apoc.coll.toSet([(org)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round.roundName]),
+      tags: apoc.coll.toSet([
+        (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE (tag)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag.name
+      ]),
       communities: apoc.coll.toSet([(org)-[:IS_MEMBER_OF_COMMUNITY]->(community:OrganizationCommunity) | community.name]),
       ecosystems: apoc.coll.toSet([(org)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem) | ecosystem.name]),
       headCount: org.headcountEstimate,
@@ -176,7 +194,12 @@ const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<SearchNav, string | null> = {
     
     RETURN {
       date: metadata.startsAt,
-      programBudget: metadata.programBudget
+      programBudget: metadata.programBudget,
+      names: [grant.name]
+      categories: apoc.coll.toSet([(metadata)-[:HAS_CATEGORY]->(category) | category.name]),
+      chains: apoc.coll.toSet([(metadata)-[:HAS_NETWORKS]->(network) | network.name]),
+      ecosystems: apoc.coll.toSet([(metadata)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
+      organizations: apoc.coll.toSet([(metadata)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
     } as config
   `,
   impact: `
@@ -1222,9 +1245,10 @@ export class SearchService {
 
         const navFilters = NAV_FILTER_CONFIGS[params.nav];
 
-        const validNavFilters = Object.keys(
-          FILTER_CONFIG_PRESETS[params.nav],
-        ).flatMap(x => {
+        const validNavFilters = [
+          ...Object.keys(FILTER_CONFIG_PRESETS[params.nav]),
+          ...NAV_PILLAR_ORDERING[params.nav],
+        ].flatMap(x => {
           const presets = FILTER_PARAM_KEY_PRESETS[params.nav][x];
           if (!presets) {
             return [];
@@ -1296,36 +1320,6 @@ export class SearchService {
             ]),
           );
           const filtered = configData.filter(x => {
-            // console.log(
-            //   validPassedFilters.map(curr => {
-            //     let current: boolean;
-            //     const value =
-            //       x[FILTER_PARAM_KEY_REVERSE_PRESETS[params.nav][curr]];
-            //     const mapped = map.get(curr);
-            //     if (mapped.kind === "MULTI_SELECT") {
-            //       current = value
-            //         .filter(Boolean)
-            //         .some((y: string) => params[curr].includes(slugify(y)));
-            //     } else if (mapped.kind === "SINGLE_SELECT") {
-            //       current = params[curr] === value;
-            //     } else {
-            //       const op = mapped.op;
-            //       const filterValue = params[curr];
-            //       if (op === "gte") {
-            //         current = filterValue <= (intConverter(value) ?? 0);
-            //       } else {
-            //         current = filterValue >= (intConverter(value) ?? 0);
-            //       }
-            //     }
-            //     return {
-            //       filter: curr,
-            //       expected: params[curr],
-            //       actual: value,
-            //       matches: current,
-            //       meta: map.get(curr),
-            //     };
-            //   }),
-            // );
             return validPassedFilters.reduce((acc, curr) => {
               let current: boolean;
               const value =

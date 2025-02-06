@@ -21,6 +21,41 @@ export class SearchPillarFiltersParams {
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
+  names: string[] | null = null;
+
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  chains: string[] | null = null;
+
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  categories: string[] | null = null;
+
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  locations: string[] | null = null;
+
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  investors: string[] | null = null;
+
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  fundingRounds: string[] | null = null;
+
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  tags: string[] | null = null;
+
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
   organizations?: string[] | null = null;
 
   @IsOptional()
