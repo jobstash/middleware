@@ -48,6 +48,7 @@ export class ProjectDetailsResult extends ProjectMoreInfo {
           t.null,
         ]),
       ),
+      tags: t.array(Tag.TagType),
       grants: t.array(GrantFunding.GrantFundingType),
       fundingRounds: t.array(FundingRound.FundingRoundType),
     }),
@@ -128,6 +129,12 @@ export class ProjectDetailsResult extends ProjectMoreInfo {
   })
   fundingRounds: FundingRound[];
 
+  @ApiProperty({
+    type: "array",
+    items: { $ref: getSchemaPath(Tag) },
+  })
+  tags: Tag[];
+
   constructor(raw: ProjectDetailsResult) {
     const {
       github,
@@ -147,6 +154,7 @@ export class ProjectDetailsResult extends ProjectMoreInfo {
       organizations,
       grants,
       fundingRounds,
+      tags,
       ...projectProperties
     } = raw;
 
@@ -171,6 +179,7 @@ export class ProjectDetailsResult extends ProjectMoreInfo {
     this.organizations = organizations;
     this.grants = grants;
     this.fundingRounds = fundingRounds;
+    this.tags = tags;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

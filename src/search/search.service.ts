@@ -82,7 +82,7 @@ const NAV_PILLAR_QUERY_MAPPINGS: Record<
       "CYPHER runtime = pipelined MATCH (:Project)-[:HAS_CATEGORY]->(category:ProjectCategory) RETURN DISTINCT category.name as item",
     organizations:
       "CYPHER runtime = pipelined MATCH (:Project)<-[:HAS_PROJECT]-(organization:Organization) RETURN DISTINCT organization.name as item",
-    tags: "CYPHER runtime = pipelined MATCH (:Project)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
+    tags: "CYPHER runtime = pipelined MATCH (:Project)<-[:HAS_PROJECT|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*5]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
     chains:
       "CYPHER runtime = pipelined MATCH (:Project)-[:IS_DEPLOYED_ON]->(chain:Chain) RETURN DISTINCT chain.name as item",
     investors:
@@ -420,7 +420,7 @@ export class SearchService {
         result = await this.neogma.queryRunner.run(
           `
           CALL db.index.fulltext.queryNodes("tagNames", $query) YIELD node as tag
-          WHERE (:Project)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag)
+          WHERE (:Project)<-[:HAS_PROJECT|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*5]->(tag)
           AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
           AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
           WITH DISTINCT tag
@@ -437,7 +437,7 @@ export class SearchService {
         result = await this.neogma.queryRunner.run(
           `
           CYPHER runtime = parallel
-          MATCH (p:Project)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(t:Tag)
+          MATCH (:Project)<-[:HAS_PROJECT|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*5]->(t:Tag)
           WHERE NOT (t)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
           AND NOT (t)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
           WITH DISTINCT t
