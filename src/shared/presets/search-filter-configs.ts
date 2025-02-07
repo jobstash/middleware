@@ -79,16 +79,8 @@ export const SINGLE_SELECT_OPTIONS = {
 
 export const FILTER_CONFIG_PRESETS = {
   projects: {
-    organizations: {
-      position: 1,
-      label: "Organizations",
-      show: true,
-      googleAnalyticsEventName: "filter_search_organizations",
-      kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
-      prefix: null,
-    },
     ecosystems: {
-      position: 2,
+      position: 1,
       label: "Ecosystems",
       show: true,
       googleAnalyticsEventName: "filter_search_ecosystems",
@@ -96,7 +88,7 @@ export const FILTER_CONFIG_PRESETS = {
       prefix: null,
     },
     communities: {
-      position: 3,
+      position: 2,
       label: "Communities",
       show: true,
       googleAnalyticsEventName: "filter_search_communities",
@@ -104,7 +96,7 @@ export const FILTER_CONFIG_PRESETS = {
       prefix: null,
     },
     tvl: {
-      position: 4,
+      position: 3,
       label: "TVL",
       show: true,
       googleAnalyticsEventName: "filter_search_tvl",
@@ -112,7 +104,7 @@ export const FILTER_CONFIG_PRESETS = {
       prefix: "$",
     },
     monthlyFees: {
-      position: 5,
+      position: 4,
       label: "Monthly Fees",
       show: true,
       googleAnalyticsEventName: "filter_search_monthly_fees",
@@ -120,7 +112,7 @@ export const FILTER_CONFIG_PRESETS = {
       prefix: "$",
     },
     monthlyVolume: {
-      position: 6,
+      position: 5,
       label: "Monthly Volume",
       show: true,
       googleAnalyticsEventName: "filter_search_monthly_volume",
@@ -128,7 +120,7 @@ export const FILTER_CONFIG_PRESETS = {
       prefix: "$",
     },
     monthlyRevenue: {
-      position: 7,
+      position: 6,
       label: "Monthly Revenue",
       show: true,
       googleAnalyticsEventName: "filter_search_monthly_revenue",
@@ -136,7 +128,7 @@ export const FILTER_CONFIG_PRESETS = {
       prefix: "$",
     },
     hasAudits: {
-      position: 8,
+      position: 7,
       label: "Audits",
       show: true,
       googleAnalyticsEventName: "filter_search_audits",
@@ -144,7 +136,7 @@ export const FILTER_CONFIG_PRESETS = {
       options: SINGLE_SELECT_OPTIONS.projects.hasAudits,
     },
     hasHacks: {
-      position: 9,
+      position: 8,
       label: "Hacks",
       show: true,
       googleAnalyticsEventName: "filter_search_hacks",
@@ -152,7 +144,7 @@ export const FILTER_CONFIG_PRESETS = {
       options: SINGLE_SELECT_OPTIONS.projects.hasHacks,
     },
     hasToken: {
-      position: 10,
+      position: 9,
       label: "Token",
       show: true,
       googleAnalyticsEventName: "filter_search_token",
@@ -160,7 +152,7 @@ export const FILTER_CONFIG_PRESETS = {
       options: SINGLE_SELECT_OPTIONS.projects.hasToken,
     },
     order: {
-      position: 11,
+      position: 10,
       label: "Order",
       show: true,
       googleAnalyticsEventName: "filter_search_order",
@@ -168,7 +160,7 @@ export const FILTER_CONFIG_PRESETS = {
       options: SINGLE_SELECT_OPTIONS.projects.order,
     },
     orderBy: {
-      position: 12,
+      position: 11,
       label: "Order By",
       show: true,
       googleAnalyticsEventName: "filter_search_order_by",
@@ -310,11 +302,11 @@ export const FILTER_PARAM_KEY_PRESETS = {
     hasAudits: "hasAudits",
     hasHacks: "hasHacks",
     hasToken: "hasToken",
-    order: "order",
     ecosystems: "ecosystems",
     communities: "communities",
-    organizations: "organizations",
+    order: "order",
     orderBy: "orderBy",
+    organizations: "organizations",
     categories: "categories",
     chains: "chains",
     investors: "investors",
@@ -332,6 +324,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
     hasProjects: "hasProjects",
     order: "order",
     orderBy: "orderBy",
+    projects: "projects",
     investors: "investors",
     fundingRounds: "fundingRounds",
     chains: "chains",
@@ -381,11 +374,11 @@ export const FILTER_PARAM_KEY_REVERSE_PRESETS = {
     hasAudits: "audits",
     hasHacks: "hacks",
     hasToken: "token",
-    order: "order",
     ecosystems: "ecosystems",
     communities: "communities",
-    organizations: "organizations",
+    order: "order",
     orderBy: "orderBy",
+    organizations: "organizations",
     categories: "categories",
     chains: "chains",
     investors: "investors",
@@ -401,6 +394,7 @@ export const FILTER_PARAM_KEY_REVERSE_PRESETS = {
     hasProjects: "hasProjects",
     order: "order",
     orderBy: "orderBy",
+    projects: "projects",
     investors: "investors",
     fundingRounds: "fundingRounds",
     chains: "chains",

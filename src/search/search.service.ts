@@ -69,6 +69,8 @@ const NAV_PILLAR_QUERY_MAPPINGS: Record<
       "CYPHER runtime = pipelined MATCH (organization:Organization) RETURN DISTINCT organization.location as item",
     investors:
       "CYPHER runtime = pipelined MATCH (:Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor:Investor) RETURN DISTINCT investor.name as item",
+    projects:
+      "CYPHER runtime = pipelined MATCH (:Organization)-[:HAS_PROJECT]->(project:Project) RETURN DISTINCT project.name as item",
     fundingRounds:
       "CYPHER runtime = pipelined MATCH (:Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) RETURN DISTINCT funding_round.roundName as item",
     tags: "CYPHER runtime = pipelined MATCH (:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
@@ -78,6 +80,8 @@ const NAV_PILLAR_QUERY_MAPPINGS: Record<
       "CYPHER runtime = pipelined MATCH (project:Project) RETURN DISTINCT project.name as item",
     categories:
       "CYPHER runtime = pipelined MATCH (:Project)-[:HAS_CATEGORY]->(category:ProjectCategory) RETURN DISTINCT category.name as item",
+    organizations:
+      "CYPHER runtime = pipelined MATCH (:Project)<-[:HAS_PROJECT]-(organization:Organization) RETURN DISTINCT organization.name as item",
     tags: "CYPHER runtime = pipelined MATCH (:Project)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
     chains:
       "CYPHER runtime = pipelined MATCH (:Project)-[:IS_DEPLOYED_ON]->(chain:Chain) RETURN DISTINCT chain.name as item",
@@ -93,18 +97,25 @@ const NAV_PILLAR_ORDERING: Record<SearchNav, string[]> = {
   organizations: [
     "investors",
     "locations",
+    "projects",
     "chains",
     "fundingRounds",
     "names",
     "tags",
   ],
-  projects: ["categories", "chains", "investors", "names", "tags"],
+  projects: [
+    "categories",
+    "chains",
+    "organizations",
+    "investors",
+    "names",
+    "tags",
+  ],
   vcs: ["names"],
 };
 
 const NAV_FILTER_CONFIGS: Record<SearchNav, string[] | null> = {
   projects: [
-    "organizations",
     "ecosystems",
     "communities",
     "tvl",
@@ -180,6 +191,7 @@ const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<SearchNav, string | null> = {
         (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
         WHERE (tag)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag.name
       ]),
+      projects: apoc.coll.toSet([(org)-[:HAS_PROJECT]->(project:Project) | project.name]),
       communities: apoc.coll.toSet([(org)-[:IS_MEMBER_OF_COMMUNITY]->(community:OrganizationCommunity) | community.name]),
       ecosystems: apoc.coll.toSet([(org)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem) | ecosystem.name]),
       headCount: org.headcountEstimate,
@@ -272,29 +284,40 @@ export class SearchService {
 
   private async searchProjects(query: string): Promise<SearchResultNav> {
     if (query) {
-      const [names, categories, chains, investors, tags] = await Promise.all([
-        this.neogma.queryRunner.run(
-          `
+      const [names, categories, organizations, chains, investors, tags] =
+        await Promise.all([
+          this.neogma.queryRunner.run(
+            `
           CALL db.index.fulltext.queryNodes("projects", $query) YIELD node as project, score
           RETURN DISTINCT project.name as name, score
           ORDER BY score DESC
           LIMIT 10
         `,
-          { query },
-        ),
-        this.neogma.queryRunner.run(
-          `
+            { query },
+          ),
+          this.neogma.queryRunner.run(
+            `
           CALL db.index.fulltext.queryNodes("projectCategories", $query) YIELD node as projectCategory, score
           RETURN DISTINCT projectCategory.name as name, score
           ORDER BY score DESC
           LIMIT 10
         `,
-          { query },
-        ),
-        this.searchChains(query, "projects"),
-        this.searchInvestors(query, "projects"),
-        this.searchTags(query, "projects"),
-      ]);
+            { query },
+          ),
+          this.neogma.queryRunner.run(
+            `
+          CALL db.index.fulltext.queryNodes("organizations", $query) YIELD node as organization, score
+          WHERE (organization)-[:HAS_PROJECT]->(:Project)
+          RETURN DISTINCT organization.name as name, score
+          ORDER BY score DESC
+          LIMIT 10
+        `,
+            { query },
+          ),
+          this.searchChains(query, "projects"),
+          this.searchInvestors(query, "projects"),
+          this.searchTags(query, "projects"),
+        ]);
       return {
         categories: uniqBy(
           categories.records?.map(record => ({
@@ -304,6 +327,13 @@ export class SearchService {
           "value",
         ),
         chains,
+        organizations: uniqBy(
+          organizations.records?.map(record => ({
+            value: record.get("name"),
+            link: `/projects/organizations/${slugify(record.get("name"))}`,
+          })) ?? [],
+          "value",
+        ),
         investors,
         names: uniqBy(
           names.records?.map(record => ({
@@ -315,18 +345,19 @@ export class SearchService {
         tags,
       };
     } else {
-      const [names, categories, chains, investors, tags] = await Promise.all([
-        this.neogma.queryRunner.run(
-          `
+      const [names, categories, organizations, chains, investors, tags] =
+        await Promise.all([
+          this.neogma.queryRunner.run(
+            `
           CYPHER runtime = parallel
           MATCH (p:Project)
           RETURN DISTINCT p.name as name, p
           ORDER BY p.createdTimestamp DESC
           LIMIT 10
         `,
-        ),
-        this.neogma.queryRunner.run(
-          `
+          ),
+          this.neogma.queryRunner.run(
+            `
           CYPHER runtime = parallel
           MATCH (c:ProjectCategory)
           MATCH (c)<-[:HAS_CATEGORY]-(p:Project)
@@ -335,11 +366,20 @@ export class SearchService {
           ORDER BY popularity DESC
           LIMIT 10
         `,
-        ),
-        this.searchChains(query, "projects"),
-        this.searchInvestors(query, "projects"),
-        this.searchTags(query, "projects"),
-      ]);
+          ),
+          this.neogma.queryRunner.run(
+            `
+          CYPHER runtime = parallel
+          MATCH (o:Organization)-[:HAS_PROJECT]->(:Project)
+          RETURN DISTINCT o.name as name, o
+          ORDER BY o.createdTimestamp DESC
+          LIMIT 10
+        `,
+          ),
+          this.searchChains(query, "projects"),
+          this.searchInvestors(query, "projects"),
+          this.searchTags(query, "projects"),
+        ]);
       return {
         categories: uniqBy(
           categories.records?.map(record => ({
@@ -349,6 +389,13 @@ export class SearchService {
           "value",
         ),
         chains,
+        organizations: uniqBy(
+          organizations.records?.map(record => ({
+            value: record.get("name"),
+            link: `/projects/organizations/${slugify(record.get("name"))}`,
+          })) ?? [],
+          "value",
+        ),
         investors,
         names: uniqBy(
           names.records?.map(record => ({
@@ -455,31 +502,48 @@ export class SearchService {
 
   private async searchOrganizations(query: string): Promise<SearchResultNav> {
     if (query) {
-      const [names, locations, investors, fundingRounds, chains, tags] =
-        await Promise.all([
-          this.neogma.queryRunner.run(
-            `
+      const [
+        names,
+        locations,
+        projects,
+        investors,
+        fundingRounds,
+        chains,
+        tags,
+      ] = await Promise.all([
+        this.neogma.queryRunner.run(
+          `
           CALL db.index.fulltext.queryNodes("organizations", $query) YIELD node as organization, score
           RETURN DISTINCT organization.name as name, score
           ORDER BY score DESC
           LIMIT 10
         `,
-            { query },
-          ),
-          this.neogma.queryRunner.run(
-            `
+          { query },
+        ),
+        this.neogma.queryRunner.run(
+          `
           CALL db.index.fulltext.queryNodes("organizationLocations", $query) YIELD node as organization, score
           RETURN DISTINCT organization.location as location, score
           ORDER BY score DESC
           LIMIT 10
         `,
-            { query },
-          ),
-          this.searchInvestors(query, "organizations"),
-          this.searchFundingRounds(query),
-          this.searchChains(query, "organizations"),
-          this.searchTags(query, "organizations"),
-        ]);
+          { query },
+        ),
+        this.neogma.queryRunner.run(
+          `
+          CALL db.index.fulltext.queryNodes("projects", $query) YIELD node as project, score
+          WHERE (:Organization)-[:HAS_PROJECT]->(project)
+          RETURN DISTINCT project.name as name, score
+          ORDER BY score DESC
+          LIMIT 10
+        `,
+          { query },
+        ),
+        this.searchInvestors(query, "organizations"),
+        this.searchFundingRounds(query),
+        this.searchChains(query, "organizations"),
+        this.searchTags(query, "organizations"),
+      ]);
 
       return {
         investors,
@@ -487,6 +551,13 @@ export class SearchService {
           locations.records?.map(record => ({
             value: record.get("location"),
             link: `/organizations/locations/${slugify(record.get("location"))}`,
+          })) ?? [],
+          "value",
+        ),
+        projects: uniqBy(
+          projects.records?.map(record => ({
+            value: record.get("name"),
+            link: `/organizations/projects/${slugify(record.get("name"))}`,
           })) ?? [],
           "value",
         ),
@@ -502,19 +573,26 @@ export class SearchService {
         tags,
       };
     } else {
-      const [names, locations, investors, fundingRounds, chains, tags] =
-        await Promise.all([
-          this.neogma.queryRunner.run(
-            `
+      const [
+        names,
+        locations,
+        projects,
+        investors,
+        fundingRounds,
+        chains,
+        tags,
+      ] = await Promise.all([
+        this.neogma.queryRunner.run(
+          `
           CYPHER runtime = parallel
           MATCH (o:Organization)
           RETURN DISTINCT o.name as name, o
           ORDER BY o.createdTimestamp DESC
           LIMIT 10
         `,
-          ),
-          this.neogma.queryRunner.run(
-            `
+        ),
+        this.neogma.queryRunner.run(
+          `
           CYPHER runtime = parallel
           MATCH (o:Organization)
           WITH o.location as location
@@ -522,12 +600,21 @@ export class SearchService {
           ORDER BY popularity  DESC
           LIMIT 10
         `,
-          ),
-          this.searchInvestors(query, "organizations"),
-          this.searchFundingRounds(query),
-          this.searchChains(query, "organizations"),
-          this.searchTags(query, "organizations"),
-        ]);
+        ),
+        this.neogma.queryRunner.run(
+          `
+          CYPHER runtime = parallel
+          MATCH (:Organization)-[:HAS_PROJECT]->(p:Project)
+          RETURN DISTINCT p.name as name, p
+          ORDER BY p.createdTimestamp DESC
+          LIMIT 10
+        `,
+        ),
+        this.searchInvestors(query, "organizations"),
+        this.searchFundingRounds(query),
+        this.searchChains(query, "organizations"),
+        this.searchTags(query, "organizations"),
+      ]);
 
       return {
         investors,
@@ -535,6 +622,13 @@ export class SearchService {
           locations.records?.map(record => ({
             value: record.get("location"),
             link: `/organizations/locations/${slugify(record.get("location"))}`,
+          })) ?? [],
+          "value",
+        ),
+        projects: uniqBy(
+          projects.records?.map(record => ({
+            value: record.get("name"),
+            link: `/organizations/projects/${slugify(record.get("name"))}`,
           })) ?? [],
           "value",
         ),
@@ -879,7 +973,7 @@ export class SearchService {
     query: string,
     group: "projects" | "organizations",
   ): Promise<SearchResultItem[]> {
-    let result;
+    let result: QueryResult;
 
     if (group === "projects") {
       if (query) {

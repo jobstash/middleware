@@ -61,6 +61,11 @@ export class SearchPillarFiltersParams {
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
+  projects?: string[] | null = null;
+
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
   ecosystems?: string[] | null = null;
 
   @IsOptional()
