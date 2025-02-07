@@ -969,6 +969,13 @@ export const Projects = (
                   ecosystems: [
                     (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                   ],
+                  fundingRounds: [
+                    (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                  ],
+                  grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                    .*,
+                    programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                  }],
                   jobs: jobs,
                   repos: [
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }

@@ -507,7 +507,10 @@ export class OrganizationsService {
             ecosystems: [
               (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
             ],
-            grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
+            grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+              .*,
+              programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+            }],
             jobs: [
               (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | structured_jobpost {
                 id: structured_jobpost.id,
@@ -555,7 +558,14 @@ export class OrganizationsService {
                 ],
                 ecosystems: [
                   (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                ]
+                ],
+                fundingRounds: [
+                  (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                ],
+                grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                  .*,
+                  programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                }]
               }
             ],
             reviews: [
@@ -641,7 +651,10 @@ export class OrganizationsService {
             ecosystems: [
               (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
             ],
-            grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
+            grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+              .*,
+              programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+            }],
             jobs: [
               (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | structured_jobpost {
                 id: structured_jobpost.id,
@@ -689,7 +702,14 @@ export class OrganizationsService {
                 ],
                 ecosystems: [
                   (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                ]
+                ],
+                fundingRounds: [
+                  (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                ],
+                grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                  .*,
+                  programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                }]
               }
             ],
             reviews: [
@@ -771,7 +791,10 @@ export class OrganizationsService {
           ecosystems: [
             (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
           ],
-          grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
+          grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+            .*,
+            programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+          }],
           jobsites: [
             (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
               id: jobsite.id,
@@ -964,7 +987,10 @@ export class OrganizationsService {
           ecosystems: [
             (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
           ],
-          grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
+          grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+            .*,
+            programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+          }],
           jobsites: [
             (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
               id: jobsite.id,
