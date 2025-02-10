@@ -8,6 +8,7 @@ import { intConverter, paginate, slugify } from "src/shared/helpers";
 import {
   MultiSelectFilter,
   PaginatedData,
+  Pillar,
   PillarInfo,
   ResponseWithOptionalData,
   SearchNav,
@@ -1064,7 +1065,7 @@ export class SearchService {
         let result: SearchResultNav;
 
         if (excluded) {
-          const keys = Object.keys(NAV_PILLAR_QUERY_MAPPINGS[nav]);
+          const keys = NAV_PILLAR_ORDERING[nav];
           const filtered = keys.map(x => ({
             [x]:
               initial[x]?.filter(y => !excluded.includes(slugify(y.value))) ??
@@ -1174,44 +1175,152 @@ export class SearchService {
     }
   }
 
+  async getPillar(
+    params: SearchPillarParams,
+    community: string | undefined,
+  ): Promise<Pillar | undefined> {
+    const query = NAV_FILTER_CONFIG_QUERY_MAPPINGS[params.nav];
+    if (query && NAV_PILLAR_ORDERING[params.nav].includes(params.pillar)) {
+      const result = await this.neogma.queryRunner.run(query, {
+        community: community ?? null,
+      });
+      const configData =
+        result.records?.map(record => record.get("config")) ?? [];
+
+      const passedFilters = Object.keys(params).filter(
+        x => x !== "nav" && params[x] !== null,
+      );
+
+      const validNavFilters = [
+        ...Object.keys(FILTER_CONFIG_PRESETS[params.nav]),
+        ...NAV_PILLAR_ORDERING[params.nav],
+      ].flatMap(x => {
+        const presets = FILTER_PARAM_KEY_PRESETS[params.nav][x];
+        if (!presets) {
+          return [];
+        } else if (typeof presets === "string") {
+          return [
+            {
+              paramKey: presets,
+              kind: presets.includes("has") ? "SINGLE_SELECT" : "MULTI_SELECT",
+              op: presets.includes("has") ? "eq" : "in",
+            },
+          ];
+        } else {
+          return [
+            {
+              paramKey: presets.lowest,
+              kind: "RANGE",
+              op: "gte",
+            },
+            {
+              paramKey: presets.highest,
+              kind: "RANGE",
+              op: "lte",
+            },
+          ];
+        }
+      });
+
+      const validPassedFilters = passedFilters.filter(x =>
+        validNavFilters.map(y => y.paramKey).includes(x),
+      );
+
+      const isValidFilterConfig = (value: string): boolean =>
+        value !== "unspecified" &&
+        value !== "undefined" &&
+        value !== "" &&
+        value !== "null" &&
+        value !== null &&
+        value !== undefined;
+
+      let data: string[];
+
+      if (validPassedFilters.length > 0) {
+        const map = new Map<
+          string,
+          {
+            kind: "RANGE" | "SINGLE_SELECT" | "MULTI_SELECT";
+            op: "gte" | "lte" | "eq" | "in";
+          }
+        >(
+          validNavFilters.map(x => [
+            x.paramKey,
+            {
+              kind: x.kind as "RANGE" | "SINGLE_SELECT" | "MULTI_SELECT",
+              op: x.op as "gte" | "lte" | "eq" | "in",
+            },
+          ]),
+        );
+        const filtered = configData.filter(x => {
+          return validPassedFilters.reduce((acc, curr) => {
+            let current: boolean;
+            const value = x[FILTER_PARAM_KEY_REVERSE_PRESETS[params.nav][curr]];
+            const mapped = map.get(curr);
+            if (mapped.kind === "MULTI_SELECT") {
+              current = value
+                .filter(Boolean)
+                .some((y: string) => params[curr].includes(slugify(y)));
+            } else if (mapped.kind === "SINGLE_SELECT") {
+              current = params[curr] === value;
+            } else {
+              const op = mapped.op;
+              const filterValue = params[curr];
+              if (op === "gte") {
+                current = filterValue <= (intConverter(value) ?? 0);
+              } else {
+                current = filterValue >= (intConverter(value) ?? 0);
+              }
+            }
+            return acc && current;
+          }, true);
+        });
+
+        data = filtered.flatMap(x => x[params.pillar]).filter(Boolean);
+      } else {
+        data = configData.flatMap(y => y[params.pillar]).filter(Boolean);
+      }
+      return {
+        slug: params.pillar,
+        items: uniq(data.filter(isValidFilterConfig)),
+      };
+    } else {
+      return undefined;
+    }
+  }
+
   async searchPillar(
     params: SearchPillarParams,
+    community: string | undefined,
   ): Promise<ResponseWithOptionalData<PillarInfo>> {
     try {
       const pillar = params.pillar ?? NAV_PILLAR_ORDERING[params.nav][0];
-      const query: string | undefined | null =
-        NAV_PILLAR_QUERY_MAPPINGS[params.nav][pillar];
+      const pillarData = await this.getPillar(params, community);
       const headerText = await this.fetchHeaderText(
         params.nav,
         pillar,
         params.item,
       );
-      if (query && headerText) {
-        const result = await this.neogma.queryRunner.run(query);
-        const items = result.records?.map(record => record.get("item"));
+      if (pillarData && headerText) {
+        const items = pillarData.items;
         const wanted = items.find(x => slugify(x) === params.item);
-        const alts = NAV_PILLAR_ORDERING[params.nav]
-          .filter(x => x !== pillar)
-          .map(x => {
-            const query = NAV_PILLAR_QUERY_MAPPINGS[params.nav][x];
-            return query ? [x, query] : null;
-          })
-          .filter(Boolean);
-        const altPillars = await Promise.all(
-          alts.map(async item => {
-            const [altPillar, altQuery] = item;
-            const result = await this.neogma.queryRunner.run(altQuery);
-            const items = result.records?.map(record => record.get("item"));
-            return {
-              slug: altPillar,
-              items: items.filter(Boolean).slice(0, 20),
-            };
-          }),
+        const alts = await Promise.all(
+          NAV_PILLAR_ORDERING[params.nav]
+            .filter(x => x !== pillar)
+            .map(x =>
+              this.getPillar(
+                {
+                  ...params,
+                  pillar: x,
+                },
+                community,
+              ),
+            ),
         );
         if (
           (params.item ? !wanted : false) ||
           items.length === 0 ||
-          altPillars.every(x => x.items.length === 0)
+          alts.every(x => x.items.length === 0)
         ) {
           return {
             success: false,
@@ -1230,7 +1339,10 @@ export class SearchService {
                   ...items.filter(x => slugify(x) !== params.item).slice(0, 20),
                 ].filter(Boolean),
               },
-              altPillars,
+              altPillars: alts.map(x => ({
+                ...x,
+                items: x.items.slice(0, 20),
+              })),
             },
           };
         }

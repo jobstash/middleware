@@ -1,10 +1,7 @@
-import { IsString, IsIn, IsOptional } from "class-validator";
+import { IsString, IsOptional } from "class-validator";
+import { SearchPillarFiltersParams } from "./search-pillar-filters-params.input";
 
-export class SearchPillarParams {
-  @IsString()
-  @IsIn(["projects", "organizations", "grants", "impact", "vcs"])
-  nav: "projects" | "organizations" | "grants" | "impact" | "vcs";
-
+export class SearchPillarParams extends SearchPillarFiltersParams {
   @IsString()
   @IsOptional()
   pillar?: string | null = null;

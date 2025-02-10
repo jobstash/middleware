@@ -65,19 +65,30 @@ export class SearchController {
   }
 
   @Get("pillar")
+  @ApiHeader({
+    name: COMMUNITY_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific community",
+  })
   @UseGuards(PBACGuard)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   async searchPillar(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true })) params: SearchPillarParams,
+    @Headers(COMMUNITY_HEADER)
+    community: string | undefined,
   ): Promise<ResponseWithOptionalData<PillarInfo>> {
-    const query = JSON.stringify(params);
+    const query = JSON.stringify({
+      ...params,
+      community: community ?? null,
+    });
     this.logger.log(`/search/pillar ${query}`);
     if (address) {
       await this.profileService.logSearchInteraction(address, query);
     }
-    const result = await this.searchService.searchPillar(params);
+    const result = await this.searchService.searchPillar(params, community);
     if (result.success) {
       return result;
     } else {
