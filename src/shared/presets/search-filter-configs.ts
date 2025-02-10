@@ -1,7 +1,9 @@
 export enum FilterKind {
   SINGLE_SELECT = "SINGLE_SELECT",
   RANGE = "RANGE",
-  MULTI_SELECT_WITH_SEARCH = "MULTI_SELECT_WITH_SEARCH",
+  MULTI_SELECT = "MULTI_SELECT",
+  ORDER = "ORDER",
+  ORDER_BY = "ORDER_BY",
 }
 
 export const SINGLE_SELECT_OPTIONS = {
@@ -84,7 +86,7 @@ export const FILTER_CONFIG_PRESETS = {
       label: "Ecosystems",
       show: true,
       googleAnalyticsEventName: "filter_search_ecosystems",
-      kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
+      kind: FilterKind.MULTI_SELECT,
       prefix: null,
     },
     communities: {
@@ -92,7 +94,7 @@ export const FILTER_CONFIG_PRESETS = {
       label: "Communities",
       show: true,
       googleAnalyticsEventName: "filter_search_communities",
-      kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
+      kind: FilterKind.MULTI_SELECT,
       prefix: null,
     },
     tvl: {
@@ -156,7 +158,7 @@ export const FILTER_CONFIG_PRESETS = {
       label: "Order",
       show: true,
       googleAnalyticsEventName: "filter_search_order",
-      kind: FilterKind.SINGLE_SELECT,
+      kind: FilterKind.ORDER,
       options: SINGLE_SELECT_OPTIONS.projects.order,
     },
     orderBy: {
@@ -164,7 +166,7 @@ export const FILTER_CONFIG_PRESETS = {
       label: "Order By",
       show: true,
       googleAnalyticsEventName: "filter_search_order_by",
-      kind: FilterKind.SINGLE_SELECT,
+      kind: FilterKind.ORDER_BY,
       options: SINGLE_SELECT_OPTIONS.projects.orderBy,
     },
   },
@@ -182,7 +184,7 @@ export const FILTER_CONFIG_PRESETS = {
       label: "Communities",
       show: true,
       googleAnalyticsEventName: "filter_search_communities",
-      kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
+      kind: FilterKind.MULTI_SELECT,
       prefix: null,
     },
     ecosystems: {
@@ -190,7 +192,7 @@ export const FILTER_CONFIG_PRESETS = {
       label: "Ecosystems",
       show: true,
       googleAnalyticsEventName: "filter_search_ecosystems",
-      kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
+      kind: FilterKind.MULTI_SELECT,
       prefix: null,
     },
     hasProjects: {
@@ -214,7 +216,7 @@ export const FILTER_CONFIG_PRESETS = {
       label: "Order",
       show: true,
       googleAnalyticsEventName: "filter_search_order",
-      kind: FilterKind.SINGLE_SELECT,
+      kind: FilterKind.ORDER,
       options: SINGLE_SELECT_OPTIONS.organizations.order,
     },
     orderBy: {
@@ -222,7 +224,7 @@ export const FILTER_CONFIG_PRESETS = {
       label: "Order By",
       show: true,
       googleAnalyticsEventName: "filter_search_order_by",
-      kind: FilterKind.SINGLE_SELECT,
+      kind: FilterKind.ORDER_BY,
       options: SINGLE_SELECT_OPTIONS.organizations.orderBy,
     },
   },
@@ -248,7 +250,7 @@ export const FILTER_CONFIG_PRESETS = {
       label: "Order",
       show: true,
       googleAnalyticsEventName: "filter_search_order",
-      kind: FilterKind.SINGLE_SELECT,
+      kind: FilterKind.ORDER,
       options: SINGLE_SELECT_OPTIONS.grants.order,
     },
     orderBy: {
@@ -256,7 +258,7 @@ export const FILTER_CONFIG_PRESETS = {
       label: "Order By",
       show: true,
       googleAnalyticsEventName: "filter_search_order_by",
-      kind: FilterKind.SINGLE_SELECT,
+      kind: FilterKind.ORDER_BY,
       options: SINGLE_SELECT_OPTIONS.grants.orderBy,
     },
   },
@@ -267,7 +269,7 @@ export const FILTER_CONFIG_PRESETS = {
       label: "Order",
       show: true,
       googleAnalyticsEventName: "filter_search_order",
-      kind: FilterKind.SINGLE_SELECT,
+      kind: FilterKind.ORDER,
       options: SINGLE_SELECT_OPTIONS.impact.order,
     },
     orderBy: {
@@ -275,7 +277,7 @@ export const FILTER_CONFIG_PRESETS = {
       label: "Order By",
       show: true,
       googleAnalyticsEventName: "filter_search_order_by",
-      kind: FilterKind.SINGLE_SELECT,
+      kind: FilterKind.ORDER_BY,
       options: SINGLE_SELECT_OPTIONS.impact.orderBy,
     },
   },

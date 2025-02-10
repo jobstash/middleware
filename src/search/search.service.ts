@@ -9,13 +9,12 @@ import {
   MultiSelectFilter,
   PaginatedData,
   PillarInfo,
-  RangeFilter,
   ResponseWithOptionalData,
   SearchNav,
+  SearchRangeFilter,
   SearchResult,
   SearchResultItem,
   SearchResultNav,
-  SelectFilter,
   SingleSelectFilter,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -1367,7 +1366,9 @@ export class SearchService {
   async searchPillarFilters(
     params: SearchPillarFiltersParams,
     community: string | undefined,
-  ): Promise<ResponseWithOptionalData<(RangeFilter | SelectFilter)[]>> {
+  ): Promise<
+    ResponseWithOptionalData<(SearchRangeFilter | SingleSelectFilter)[]>
+  > {
     try {
       const query = NAV_FILTER_CONFIG_QUERY_MAPPINGS[params.nav];
 
@@ -1421,7 +1422,7 @@ export class SearchService {
 
         const configData = result.records?.map(record => record.get("config"));
 
-        let data: (RangeFilter | SelectFilter)[];
+        let data: (SearchRangeFilter | SingleSelectFilter)[];
 
         const sort = createNewSortInstance({
           comparer: new Intl.Collator(undefined, {
@@ -1488,22 +1489,20 @@ export class SearchService {
                 return null;
               }
               if (presets.kind === "RANGE") {
-                return new RangeFilter({
-                  value: {
-                    lowest: {
-                      value:
-                        intConverter(
-                          min(filtered.flatMap(y => y[x]).filter(Boolean)),
-                        ) ?? 0,
-                      paramKey: FILTER_PARAM_KEY_PRESETS[params.nav][x].lowest,
-                    },
-                    highest: {
-                      value:
-                        intConverter(
-                          max(filtered.flatMap(y => y[x]).filter(Boolean)),
-                        ) ?? 0,
-                      paramKey: FILTER_PARAM_KEY_PRESETS[params.nav][x].highest,
-                    },
+                return new SearchRangeFilter({
+                  min: {
+                    value:
+                      intConverter(
+                        min(filtered.flatMap(y => y[x]).filter(Boolean)),
+                      ) ?? 0,
+                    paramKey: FILTER_PARAM_KEY_PRESETS[params.nav][x].lowest,
+                  },
+                  max: {
+                    value:
+                      intConverter(
+                        max(filtered.flatMap(y => y[x]).filter(Boolean)),
+                      ) ?? 0,
+                    paramKey: FILTER_PARAM_KEY_PRESETS[params.nav][x].highest,
                   },
                   ...presets,
                 });
@@ -1534,7 +1533,8 @@ export class SearchService {
                       .map(x => ({
                         label: x,
                         value: slugify(x),
-                      })),
+                      }))
+                      .slice(0, 20),
                     ...presets,
                     paramKey: FILTER_PARAM_KEY_PRESETS[params.nav][x],
                   });
@@ -1550,22 +1550,20 @@ export class SearchService {
                 return null;
               }
               if (presets.kind === "RANGE") {
-                return new RangeFilter({
-                  value: {
-                    lowest: {
-                      value:
-                        intConverter(
-                          min(configData.flatMap(y => y[x]).filter(Boolean)),
-                        ) ?? 0,
-                      paramKey: FILTER_PARAM_KEY_PRESETS[params.nav][x].lowest,
-                    },
-                    highest: {
-                      value:
-                        intConverter(
-                          max(configData.flatMap(y => y[x]).filter(Boolean)),
-                        ) ?? 0,
-                      paramKey: FILTER_PARAM_KEY_PRESETS[params.nav][x].highest,
-                    },
+                return new SearchRangeFilter({
+                  min: {
+                    value:
+                      intConverter(
+                        min(configData.flatMap(y => y[x]).filter(Boolean)),
+                      ) ?? 0,
+                    paramKey: FILTER_PARAM_KEY_PRESETS[params.nav][x].lowest,
+                  },
+                  max: {
+                    value:
+                      intConverter(
+                        max(configData.flatMap(y => y[x]).filter(Boolean)),
+                      ) ?? 0,
+                    paramKey: FILTER_PARAM_KEY_PRESETS[params.nav][x].highest,
                   },
                   ...presets,
                 });
@@ -1600,7 +1598,8 @@ export class SearchService {
                       .map(x => ({
                         label: x,
                         value: slugify(x),
-                      })),
+                      }))
+                      .slice(0, 20),
                     ...presets,
                     paramKey: FILTER_PARAM_KEY_PRESETS[params.nav][x],
                   });
