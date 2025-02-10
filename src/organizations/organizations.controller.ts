@@ -1111,7 +1111,11 @@ export class OrganizationsController {
   ): Promise<ResponseWithOptionalData<OrganizationWithLinks>> {
     this.logger.log(`GET /organizations/${id} from ${address}`);
 
-    if (permissions.includes(CheckWalletPermissions.ORG_AFFILIATE)) {
+    if (
+      !permissions.includes(CheckWalletPermissions.SUPER_ADMIN) ||
+      (!permissions.includes(CheckWalletPermissions.ADMIN) &&
+        !permissions.includes(CheckWalletPermissions.ORG_MANAGER))
+    ) {
       const authorized = await this.userService.userAuthorizedForOrg(
         address,
         id,
