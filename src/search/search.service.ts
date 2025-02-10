@@ -1178,66 +1178,81 @@ export class SearchService {
   async searchPillar(
     params: SearchPillarParams,
   ): Promise<ResponseWithOptionalData<PillarInfo>> {
-    const pillar = params.pillar ?? NAV_PILLAR_ORDERING[params.nav][0];
-    const query: string | undefined | null =
-      NAV_PILLAR_QUERY_MAPPINGS[params.nav][pillar];
-    const headerText = await this.fetchHeaderText(
-      params.nav,
-      pillar,
-      params.item,
-    );
-    if (query && headerText) {
-      const result = await this.neogma.queryRunner.run(query);
-      const items = result.records?.map(record => record.get("item"));
-      const wanted = items.find(x => slugify(x) === params.item);
-      const alts = NAV_PILLAR_ORDERING[params.nav]
-        .filter(x => x !== pillar)
-        .map(x => {
-          const query = NAV_PILLAR_QUERY_MAPPINGS[params.nav][x];
-          return query ? [x, query] : null;
-        })
-        .filter(Boolean);
-      const altPillars = await Promise.all(
-        alts.map(async item => {
-          const [altPillar, altQuery] = item;
-          const result = await this.neogma.queryRunner.run(altQuery);
-          const items = result.records?.map(record => record.get("item"));
-          return {
-            slug: altPillar,
-            items: items.filter(Boolean).slice(0, 20),
-          };
-        }),
+    try {
+      const pillar = params.pillar ?? NAV_PILLAR_ORDERING[params.nav][0];
+      const query: string | undefined | null =
+        NAV_PILLAR_QUERY_MAPPINGS[params.nav][pillar];
+      const headerText = await this.fetchHeaderText(
+        params.nav,
+        pillar,
+        params.item,
       );
-      if (
-        (params.item ? !wanted : false) ||
-        items.length === 0 ||
-        altPillars.every(x => x.items.length === 0)
-      ) {
-        return {
-          success: false,
-          message: "No result found",
-        };
+      if (query && headerText) {
+        const result = await this.neogma.queryRunner.run(query);
+        const items = result.records?.map(record => record.get("item"));
+        const wanted = items.find(x => slugify(x) === params.item);
+        const alts = NAV_PILLAR_ORDERING[params.nav]
+          .filter(x => x !== pillar)
+          .map(x => {
+            const query = NAV_PILLAR_QUERY_MAPPINGS[params.nav][x];
+            return query ? [x, query] : null;
+          })
+          .filter(Boolean);
+        const altPillars = await Promise.all(
+          alts.map(async item => {
+            const [altPillar, altQuery] = item;
+            const result = await this.neogma.queryRunner.run(altQuery);
+            const items = result.records?.map(record => record.get("item"));
+            return {
+              slug: altPillar,
+              items: items.filter(Boolean).slice(0, 20),
+            };
+          }),
+        );
+        if (
+          (params.item ? !wanted : false) ||
+          items.length === 0 ||
+          altPillars.every(x => x.items.length === 0)
+        ) {
+          return {
+            success: false,
+            message: "No result found",
+          };
+        } else {
+          return {
+            success: true,
+            message: "Retrieved pillar info successfully",
+            data: {
+              ...headerText,
+              activePillar: {
+                slug: pillar,
+                items: [
+                  wanted,
+                  ...items.filter(x => slugify(x) !== params.item).slice(0, 20),
+                ].filter(Boolean),
+              },
+              altPillars,
+            },
+          };
+        }
       } else {
         return {
-          success: true,
-          message: "Retrieved pillar info successfully",
-          data: {
-            ...headerText,
-            activePillar: {
-              slug: pillar,
-              items: [
-                wanted,
-                ...items.filter(x => slugify(x) !== params.item).slice(0, 20),
-              ].filter(Boolean),
-            },
-            altPillars,
-          },
+          success: false,
+          message: "Pillar not found",
         };
       }
-    } else {
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "search.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`SearchService::searchPillar ${err.message}`);
       return {
         success: false,
-        message: "Pillar not found",
+        message: "Error searching pillar",
       };
     }
   }
@@ -1245,78 +1260,106 @@ export class SearchService {
   async searchPillarItems(
     params: SearchPillarItemParams,
   ): Promise<PaginatedData<string>> {
-    const query = NAV_PILLAR_QUERY_MAPPINGS[params.nav][params.pillar];
-    if (query) {
-      const result = await this.neogma.queryRunner.run(query);
-      const items = result.records?.map(record => record.get("item") as string);
-      let results: string[];
-      if (params.query) {
-        results = go(params.query, items, {
-          threshold: 0.3,
-        }).map(x => x.target);
-      } else {
-        results = items;
-      }
+    try {
+      const query = NAV_PILLAR_QUERY_MAPPINGS[params.nav][params.pillar];
+      if (query) {
+        const result = await this.neogma.queryRunner.run(query);
+        const items = result.records?.map(
+          record => record.get("item") as string,
+        );
+        let results: string[];
+        if (params.query) {
+          results = go(params.query, items, {
+            threshold: 0.3,
+          }).map(x => x.target);
+        } else {
+          results = items;
+        }
 
-      if (results.length === 0) {
+        if (results.length === 0) {
+          return {
+            page: -1,
+            count: 0,
+            total: 0,
+            data: [],
+          };
+        } else {
+          return paginate<string>(params.page, params.limit, results);
+        }
+      } else {
         return {
           page: -1,
           count: 0,
           total: 0,
           data: [],
         };
-      } else {
-        return paginate<string>(params.page, params.limit, results);
       }
-    } else {
-      return {
-        page: -1,
-        count: 0,
-        total: 0,
-        data: [],
-      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "search.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`SearchService::searchPillarItems ${err.message}`);
     }
   }
 
   async fetchPillarItemLabels(
     params: FetchPillarItemLabelsInput,
   ): Promise<ResponseWithOptionalData<{ slug: string; label: string }[]>> {
-    const queries = (
-      params.pillars?.map(x => NAV_PILLAR_QUERY_MAPPINGS[params.nav][x]) ?? []
-    ).filter(Boolean);
-    if (queries.length > 0) {
-      const results = await Promise.all(
-        queries.map(query => this.neogma.queryRunner.run(query)),
-      );
-      const items = results.flatMap(x =>
-        x.records?.map(record => record.get("item") as string),
-      );
+    try {
+      const queries = (
+        params.pillars?.map(x => NAV_PILLAR_QUERY_MAPPINGS[params.nav][x]) ?? []
+      ).filter(Boolean);
+      if (queries.length > 0) {
+        const results = await Promise.all(
+          queries.map(query => this.neogma.queryRunner.run(query)),
+        );
+        const items = results.flatMap(x =>
+          x.records?.map(record => record.get("item") as string),
+        );
 
-      if (items.length === 0) {
-        return {
-          success: true,
-          message: "No result found",
-          data: [],
-        };
+        if (items.length === 0) {
+          return {
+            success: true,
+            message: "No result found",
+            data: [],
+          };
+        } else {
+          return {
+            success: true,
+            message: "Retrieved pillar item labels successfully",
+            data: uniqBy(
+              items
+                .filter(x => params.slugs?.includes(slugify(x)))
+                .map(x => ({
+                  slug: slugify(x),
+                  label: x,
+                })) ?? [],
+              "label",
+            ),
+          };
+        }
       } else {
         return {
-          success: true,
-          message: "Retrieved pillar item labels successfully",
-          data: uniqBy(
-            items
-              .filter(x => params.slugs?.includes(slugify(x)))
-              .map(x => ({
-                slug: slugify(x),
-                label: x,
-              })) ?? [],
-            "label",
-          ),
+          success: false,
+          message: "Pillar not found",
         };
       }
-    } else {
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "search.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`SearchService::fetchPillarItemLabels ${err.message}`);
       return {
         success: false,
-        message: "Pillar not found",
+        message: "Error fetching pillar item labels",
       };
     }
   }
