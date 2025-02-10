@@ -28,13 +28,14 @@ import {
   toAbsoluteURL,
   toShortOrg,
   toShortOrgWithSummary,
+  naturalSort,
+  defaultSort,
 } from "src/shared/helpers";
 import {
   OrganizationEntity,
   OrganizationWithLinksEntity,
   RepositoryEntity,
 } from "src/shared/entities";
-import { createNewSortInstance, sort } from "fast-sort";
 import { ModelService } from "src/model/model.service";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nestjs-neogma";
@@ -292,7 +293,8 @@ export class OrganizationsService {
         (!fundingRoundFilterList ||
           fundingRoundFilterList.includes(
             slugify(
-              sort<FundingRound>(fundingRounds).desc(x => x.date)[0]?.roundName,
+              defaultSort<FundingRound>(fundingRounds).desc(x => x.date)[0]
+                ?.roundName,
             ),
           ))
       );
@@ -301,7 +303,7 @@ export class OrganizationsService {
     const filtered = results.filter(orgFilters);
 
     const getSortParam = (org: OrgDetailsResult): number | null => {
-      const lastJob = sort(org.jobs).desc(x => x.timestamp)[0];
+      const lastJob = defaultSort(org.jobs).desc(x => x.timestamp)[0];
       switch (orderBy) {
         case "recentFundingDate":
           return org.lastFundingDate() ?? 0;
@@ -317,13 +319,7 @@ export class OrganizationsService {
     };
 
     let final: OrgDetailsResult[] = [];
-    const naturalSort = createNewSortInstance({
-      comparer: new Intl.Collator(undefined, {
-        numeric: true,
-        sensitivity: "base",
-      }).compare,
-      inPlaceSorting: true,
-    });
+
     if (!order || order === "desc") {
       final = naturalSort<OrgDetailsResult>(filtered).by([
         {
@@ -919,7 +915,7 @@ export class OrganizationsService {
           (!fundingRoundFilterList ||
             fundingRoundFilterList.includes(
               slugify(
-                sort<FundingRound>(fundingRounds).desc(x => x.date)[0]
+                defaultSort<FundingRound>(fundingRounds).desc(x => x.date)[0]
                   ?.roundName,
               ),
             )) &&
@@ -934,22 +930,14 @@ export class OrganizationsService {
 
       const filtered = all.filter(orgFilters).map(toShortOrgWithSummary);
 
-      const naturalSort = createNewSortInstance({
-        comparer: new Intl.Collator(undefined, {
-          numeric: true,
-          sensitivity: "base",
-        }).compare,
-        inPlaceSorting: true,
-      });
-
-      const sorted = naturalSort<ShortOrgWithSummary>(filtered).by([
+      const defaultSorted = naturalSort<ShortOrgWithSummary>(filtered).by([
         {
           desc: (x): number => x.lastFundingDate,
         },
         { asc: (x): string => x.name },
       ]);
 
-      return paginate<ShortOrgWithSummary>(page, limit, sorted);
+      return paginate<ShortOrgWithSummary>(page, limit, defaultSorted);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({

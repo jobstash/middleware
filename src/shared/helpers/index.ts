@@ -17,7 +17,7 @@ import {
   subMonths,
   subWeeks,
 } from "date-fns";
-import { sort } from "fast-sort";
+import { createNewSortInstance, sort } from "fast-sort";
 import { Integer, Node } from "neo4j-driver";
 import { Neo4jSupportedProperties, NeogmaInstance } from "neogma";
 import { catchError, firstValueFrom } from "rxjs";
@@ -717,3 +717,28 @@ export function sprinkleProtectedJobs(jobs: JobListResult[]): JobListResult[] {
     return result;
   }
 }
+
+export const isValidFilterConfig = (value: string): boolean =>
+  value !== "unspecified" &&
+  value !== "undefined" &&
+  value !== "" &&
+  value !== "null" &&
+  value !== null &&
+  value !== undefined;
+
+export const defaultSort = createNewSortInstance({
+  comparer: new Intl.Collator(undefined, {
+    numeric: true,
+    caseFirst: "lower",
+    sensitivity: "case",
+  }).compare,
+  inPlaceSorting: true,
+});
+
+export const naturalSort = createNewSortInstance({
+  comparer: new Intl.Collator(undefined, {
+    numeric: true,
+    sensitivity: "base",
+  }).compare,
+  inPlaceSorting: true,
+});

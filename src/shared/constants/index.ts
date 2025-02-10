@@ -5,6 +5,7 @@ export * from "./cache-control";
 export * from "./headers";
 export * from "./testing";
 export * from "./cache-keys";
+export * from "./search";
 
 export const NON_PUBLIC_API_ROUTES = [
   "/organizations",

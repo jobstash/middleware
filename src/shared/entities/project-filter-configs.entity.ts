@@ -8,8 +8,12 @@ import {
   FILTER_PARAM_KEY_PRESETS,
   FILTER_CONFIG_PRESETS,
 } from "../presets/project-filter-configs";
-import { intConverter, slugify } from "../helpers";
-import { createNewSortInstance } from "fast-sort";
+import {
+  defaultSort,
+  intConverter,
+  isValidFilterConfig,
+  slugify,
+} from "../helpers";
 
 type RawProjectFilters = {
   minTvl?: number | null;
@@ -61,24 +65,9 @@ export class ProjectFilterConfigsEntity {
     transformLabel: (x: string) => string = (x: string): string => x,
     transformValue: (x: string) => string = (x: string): string => slugify(x),
   ): MultiSelectFilter | MultiSelectFilter {
-    const sort = createNewSortInstance({
-      comparer: new Intl.Collator(undefined, {
-        numeric: true,
-        caseFirst: "lower",
-        sensitivity: "case",
-      }).compare,
-      inPlaceSorting: true,
-    });
-
-    const isValidFilterConfig = (value: string): boolean =>
-      value !== "unspecified" &&
-      value !== "undefined" &&
-      value !== "" &&
-      value !== "null";
-
     return {
       ...this.configPresets[key],
-      options: sort(this.raw[key]?.filter(isValidFilterConfig) ?? [])
+      options: defaultSort(this.raw[key]?.filter(isValidFilterConfig) ?? [])
         .asc()
         .map((x: string) => ({
           label: transformLabel(x),

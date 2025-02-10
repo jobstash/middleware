@@ -8,8 +8,12 @@ import {
   FILTER_PARAM_KEY_PRESETS,
   FILTER_CONFIG_PRESETS,
 } from "../presets/job-filter-configs";
-import { intConverter, slugify } from "../helpers";
-import { createNewSortInstance } from "fast-sort";
+import {
+  defaultSort,
+  intConverter,
+  isValidFilterConfig,
+  slugify,
+} from "../helpers";
 import { toHeaderCase } from "js-convert-case";
 
 type RawJobFilters = {
@@ -67,26 +71,9 @@ export class JobFilterConfigsEntity {
   }
 
   getMultiValuePresets(key: string): MultiSelectFilter | MultiSelectFilter {
-    const sort = createNewSortInstance({
-      comparer: new Intl.Collator(undefined, {
-        numeric: true,
-        caseFirst: "lower",
-        sensitivity: "case",
-      }).compare,
-      inPlaceSorting: true,
-    });
-
-    const isValidFilterConfig = (value: string): boolean =>
-      value !== "unspecified" &&
-      value !== "undefined" &&
-      value !== "" &&
-      value !== "null" &&
-      value !== undefined &&
-      value !== null;
-
     return {
       ...this.configPresets[key],
-      options: sort(this.raw[key]?.filter(isValidFilterConfig) ?? [])
+      options: defaultSort(this.raw[key]?.filter(isValidFilterConfig) ?? [])
         .asc()
         .map((x: string) => ({ label: x, value: x })),
       paramKey: this.paramKeyPresets[key],
@@ -97,26 +84,9 @@ export class JobFilterConfigsEntity {
     key: string,
     labelTransform?: (x: string) => string,
   ): MultiSelectFilter | MultiSelectFilter {
-    const sort = createNewSortInstance({
-      comparer: new Intl.Collator(undefined, {
-        numeric: true,
-        caseFirst: "lower",
-        sensitivity: "case",
-      }).compare,
-      inPlaceSorting: true,
-    });
-
-    const isValidFilterConfig = (value: string): boolean =>
-      value !== "unspecified" &&
-      value !== "undefined" &&
-      value !== "" &&
-      value !== "null" &&
-      value !== undefined &&
-      value !== null;
-
     return {
       ...this.configPresets[key],
-      options: sort(
+      options: defaultSort(
         this.raw[key]?.filter(isValidFilterConfig).map((x: string) => ({
           label: labelTransform ? labelTransform(x) : x,
           value: slugify(x),

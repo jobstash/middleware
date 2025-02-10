@@ -2,7 +2,6 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as Sentry from "@sentry/node";
 import axios from "axios";
-import { createNewSortInstance } from "fast-sort";
 import { omit } from "lodash";
 import { Neogma, Op } from "neogma";
 import { InjectConnection } from "nestjs-neogma";
@@ -12,6 +11,7 @@ import {
   ensureProtocol,
   instanceToNode,
   isValidUrl,
+  naturalSort,
   nonZeroOrNull,
   notStringOrNull,
   paginate,
@@ -208,13 +208,6 @@ export class ProjectsService {
     };
 
     let final: ProjectListResult[] = [];
-    const naturalSort = createNewSortInstance({
-      comparer: new Intl.Collator(undefined, {
-        numeric: true,
-        sensitivity: "base",
-      }).compare,
-      inPlaceSorting: true,
-    });
     if (!order || order === "asc") {
       final = naturalSort<ProjectListResult>(filtered).asc(x =>
         orderBy ? getSortParam(x) : x.name,
@@ -681,14 +674,6 @@ export class ProjectsService {
       const filtered = all
         .filter(projectFilters)
         .map(x => new ProjectListResultEntity(x).getProperties());
-
-      const naturalSort = createNewSortInstance({
-        comparer: new Intl.Collator(undefined, {
-          numeric: true,
-          sensitivity: "base",
-        }).compare,
-        inPlaceSorting: true,
-      });
 
       return paginate<ProjectListResult>(
         page,
