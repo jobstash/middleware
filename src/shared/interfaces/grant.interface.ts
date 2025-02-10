@@ -526,7 +526,7 @@ export class GrantFunding {
     id: t.string,
     tokenAmount: t.number,
     tokenUnit: t.string,
-    fundingDate: t.number,
+    fundingDate: t.union([t.number, t.null]),
     amount: t.number,
     programName: t.string,
     createdTimestamp: t.number,
@@ -543,7 +543,7 @@ export class GrantFunding {
   tokenUnit: string;
 
   @ApiProperty()
-  fundingDate: number;
+  fundingDate: number | null;
 
   @ApiProperty()
   amount: number;
