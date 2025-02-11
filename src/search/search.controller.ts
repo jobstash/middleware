@@ -97,6 +97,12 @@ export class SearchController {
   }
 
   @Get("pillar/items")
+  @ApiHeader({
+    name: COMMUNITY_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific community",
+  })
   @UseGuards(PBACGuard)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
@@ -104,13 +110,21 @@ export class SearchController {
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
     params: SearchPillarItemParams,
+    @Headers(COMMUNITY_HEADER)
+    community: string | undefined,
   ): Promise<PaginatedData<string>> {
-    const query = JSON.stringify(params);
+    const query = JSON.stringify({
+      ...params,
+      community: community ?? null,
+    });
     this.logger.log(`/search/pillar/items ${query}`);
     if (address) {
       await this.profileService.logSearchInteraction(address, query);
     }
-    const result = await this.searchService.searchPillarItems(params);
+    const result = await this.searchService.searchPillarItems(
+      params,
+      community,
+    );
     return result;
   }
 

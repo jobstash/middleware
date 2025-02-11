@@ -990,7 +990,7 @@ export class SearchService {
   }
 
   async getPillar(
-    params: SearchPillarParams,
+    params: SearchPillarFiltersParams & { pillar: string },
     community: string | undefined,
   ): Promise<Pillar | undefined> {
     const query = NAV_FILTER_CONFIG_QUERY_MAPPINGS[params.nav];
@@ -1182,21 +1182,18 @@ export class SearchService {
 
   async searchPillarItems(
     params: SearchPillarItemParams,
+    community: string | undefined,
   ): Promise<PaginatedData<string>> {
     try {
-      const query = NAV_PILLAR_QUERY_MAPPINGS[params.nav][params.pillar];
-      if (query) {
-        const result = await this.neogma.queryRunner.run(query);
-        const items = result.records?.map(
-          record => record.get("item") as string,
-        );
+      const data = await this.getPillar(params, community);
+      if (data) {
         let results: string[];
         if (params.query) {
-          results = go(params.query, items, {
+          results = go(params.query, data.items, {
             threshold: 0.3,
           }).map(x => x.target);
         } else {
-          results = items;
+          results = data.items;
         }
 
         if (results.length === 0) {

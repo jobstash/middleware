@@ -1,17 +1,8 @@
 import { Type } from "class-transformer";
-import {
-  IsString,
-  IsNotEmpty,
-  IsIn,
-  IsOptional,
-  IsNumber,
-} from "class-validator";
+import { IsString, IsNotEmpty, IsOptional, IsNumber } from "class-validator";
+import { SearchPillarFiltersParams } from "./search-pillar-filters-params.input";
 
-export class SearchPillarItemParams {
-  @IsString()
-  @IsIn(["projects", "organizations", "grants", "impact", "vcs"])
-  nav: "projects" | "organizations" | "grants" | "impact" | "vcs";
-
+export class SearchPillarItemParams extends SearchPillarFiltersParams {
   @IsString()
   @IsNotEmpty()
   pillar: string;
