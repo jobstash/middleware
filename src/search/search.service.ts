@@ -1149,8 +1149,9 @@ export class SearchService {
         };
       } else {
         return {
-          success: false,
+          success: true,
           message: "Pillar not found",
+          data: null,
         };
       }
     } catch (err) {
@@ -1253,8 +1254,9 @@ export class SearchService {
         }
       } else {
         return {
-          success: false,
+          success: true,
           message: "Pillar not found",
+          data: null,
         };
       }
     } catch (err) {
@@ -1509,8 +1511,9 @@ export class SearchService {
         };
       } else {
         return {
-          success: false,
+          success: true,
           message: "Filter config not found",
+          data: null,
         };
       }
     } catch (err) {

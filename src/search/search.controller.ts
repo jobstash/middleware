@@ -4,7 +4,6 @@ import {
   Get,
   Header,
   Headers,
-  NotFoundException,
   Query,
   UseGuards,
   ValidationPipe,
@@ -88,12 +87,7 @@ export class SearchController {
     if (address) {
       await this.profileService.logSearchInteraction(address, query);
     }
-    const result = await this.searchService.searchPillar(params, community);
-    if (result.success) {
-      return result;
-    } else {
-      throw new NotFoundException(result);
-    }
+    return this.searchService.searchPillar(params, community);
   }
 
   @Get("pillar/items")
