@@ -1129,35 +1129,24 @@ export class SearchService {
               ),
             ),
         );
-        if (
-          (params.item ? !wanted : false) ||
-          items.length === 0 ||
-          alts.every(x => x.items.length === 0)
-        ) {
-          return {
-            success: false,
-            message: "No result found",
-          };
-        } else {
-          return {
-            success: true,
-            message: "Retrieved pillar info successfully",
-            data: {
-              ...headerText,
-              activePillar: {
-                slug: pillar,
-                items: [
-                  wanted,
-                  ...items.filter(x => slugify(x) !== params.item).slice(0, 20),
-                ].filter(Boolean),
-              },
-              altPillars: alts.map(x => ({
-                ...x,
-                items: x.items.slice(0, 20),
-              })),
+        return {
+          success: true,
+          message: "Retrieved pillar info successfully",
+          data: {
+            ...headerText,
+            activePillar: {
+              slug: pillar,
+              items: [
+                wanted,
+                ...items.filter(x => slugify(x) !== params.item).slice(0, 20),
+              ].filter(Boolean),
             },
-          };
-        }
+            altPillars: alts.map(x => ({
+              ...x,
+              items: x.items.slice(0, 20),
+            })),
+          },
+        };
       } else {
         return {
           success: false,
