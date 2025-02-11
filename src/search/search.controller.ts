@@ -46,8 +46,8 @@ export class SearchController {
 
   @Get("")
   @UseGuards(PBACGuard)
-  // @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  // @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   async search(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true })) params: SearchParams,
@@ -72,8 +72,8 @@ export class SearchController {
       "Optional header to tailor the response for a specific community",
   })
   @UseGuards(PBACGuard)
-  // @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  // @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   async searchPillar(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true })) params: SearchPillarParams,
@@ -98,8 +98,8 @@ export class SearchController {
 
   @Get("pillar/items")
   @UseGuards(PBACGuard)
-  // @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  // @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   async searchPillarItems(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
@@ -121,8 +121,8 @@ export class SearchController {
     description:
       "Optional header to tailor the response for a specific community",
   })
-  // @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  // @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   async searchPillarFilters(
     @Query(new ValidationPipe({ transform: true }))
     params: SearchPillarFiltersParams,
@@ -135,8 +135,8 @@ export class SearchController {
 
   @Get("pillar/labels")
   @UseGuards(PBACGuard)
-  // @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  // @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   async fetchPillarLabels(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))

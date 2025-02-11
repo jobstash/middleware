@@ -1101,7 +1101,13 @@ export class SearchService {
   ): Promise<ResponseWithOptionalData<PillarInfo>> {
     try {
       const pillar = params.pillar ?? NAV_PILLAR_ORDERING[params.nav][0];
-      const pillarData = await this.getPillar(params, community);
+      const pillarData = await this.getPillar(
+        {
+          ...params,
+          pillar,
+        },
+        community,
+      );
       const headerText = await this.fetchHeaderText(
         params.nav,
         pillar,
