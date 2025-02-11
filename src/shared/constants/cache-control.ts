@@ -4,7 +4,7 @@ export const CACHE_EXPIRY = (duration: number): string => {
   return new Date(new Date().getTime() + 1000 * duration).toUTCString();
 };
 
-export const CACHE_DURATION = 3600;
+export const CACHE_DURATION = 1;
 
 export const NO_CACHE = "no-cache, private, no-store, must-revalidate";
 
