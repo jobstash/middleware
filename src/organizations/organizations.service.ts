@@ -145,6 +145,7 @@ export class OrganizationsService {
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
               ],
+              investors: [(project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) | investor.name],
               fundingRounds: [
                 (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
               ],
@@ -555,6 +556,7 @@ export class OrganizationsService {
                 ecosystems: [
                   (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                 ],
+                investors: [(project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) | investor.name],
                 fundingRounds: [
                   (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
                 ],
@@ -699,6 +701,7 @@ export class OrganizationsService {
                 ecosystems: [
                   (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
                 ],
+                investors: [(project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) | investor.name],
                 fundingRounds: [
                   (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
                 ],
@@ -828,6 +831,7 @@ export class OrganizationsService {
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
               ],
+              investors: [(project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) | investor.name],
               fundingRounds: [
                 (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
               ],
@@ -1016,6 +1020,7 @@ export class OrganizationsService {
               ecosystems: [
                 (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
               ],
+              investors: [(project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) | investor.name],
               fundingRounds: [
                 (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
               ],

@@ -14,6 +14,7 @@ import { StructuredJobpostWithRelations } from "./structured-jobpost-with-relati
 import { Repository } from "./repository.interface";
 import { GrantFunding } from "./grant.interface";
 import { FundingRound } from "./funding-round.interface";
+import { Investor } from "./investor.interface";
 
 export class ProjectWithBaseRelations extends ProjectMoreInfo {
   public static readonly ProjectWithBaseRelationsType = t.intersection([
@@ -33,6 +34,7 @@ export class ProjectWithBaseRelations extends ProjectMoreInfo {
       jobs: t.array(
         StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
       ),
+      investors: t.array(Investor.InvestorType),
       grants: t.array(GrantFunding.GrantFundingType),
       fundingRounds: t.array(FundingRound.FundingRoundType),
       repos: t.array(Repository.RepositoryType),
@@ -105,6 +107,12 @@ export class ProjectWithBaseRelations extends ProjectMoreInfo {
   })
   fundingRounds: FundingRound[];
 
+  @ApiProperty({
+    type: "array",
+    items: { $ref: getSchemaPath(Investor) },
+  })
+  investors: Investor[];
+
   constructor(raw: ProjectWithBaseRelations) {
     const {
       github,
@@ -121,6 +129,7 @@ export class ProjectWithBaseRelations extends ProjectMoreInfo {
       jobs,
       repos,
       grants,
+      investors,
       fundingRounds,
       ...projectProperties
     } = raw;
@@ -142,6 +151,7 @@ export class ProjectWithBaseRelations extends ProjectMoreInfo {
     this.jobs = jobs;
     this.repos = repos;
     this.grants = grants;
+    this.investors = investors;
     this.fundingRounds = fundingRounds;
 
     if (isLeft(result)) {

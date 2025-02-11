@@ -210,6 +210,7 @@ export class OrgProject extends ProjectMoreInfo {
       jobs: t.array(
         StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
       ),
+      investors: t.array(Investor.InvestorType),
       repos: t.array(Repository.RepositoryType),
       grants: t.array(GrantFunding.GrantFundingType),
       fundingRounds: t.array(FundingRound.FundingRoundType),
@@ -282,6 +283,12 @@ export class OrgProject extends ProjectMoreInfo {
   })
   fundingRounds: FundingRound[];
 
+  @ApiProperty({
+    type: "array",
+    items: { $ref: getSchemaPath(Investor) },
+  })
+  investors: Investor[];
+
   constructor(raw: ProjectDetailsResult) {
     const {
       github,
@@ -298,6 +305,7 @@ export class OrgProject extends ProjectMoreInfo {
       jobs,
       repos,
       grants,
+      investors,
       fundingRounds,
       ...projectProperties
     } = raw;
@@ -320,6 +328,7 @@ export class OrgProject extends ProjectMoreInfo {
     this.jobs = jobs;
     this.repos = repos;
     this.grants = grants;
+    this.investors = investors;
     this.fundingRounds = fundingRounds;
 
     if (isLeft(result)) {

@@ -690,7 +690,12 @@ export class ProjectsService {
         Sentry.captureException(err);
       });
       this.logger.error(`ProjectsService::searchProjects ${err.message}`);
-      return undefined;
+      return {
+        page: -1,
+        count: 0,
+        total: 0,
+        data: [],
+      };
     }
   }
 

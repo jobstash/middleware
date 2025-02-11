@@ -250,28 +250,6 @@ export class ProjectsController {
     return this.projectsService.getFilterConfigs(community);
   }
 
-  @Get("/search")
-  @UseGuards(PBACGuard)
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
-  @ApiOkResponse({
-    description: "Returns a list of orgs that match the search criteria",
-    type: Response<PaginatedData<ProjectListResult>>,
-  })
-  @ApiBadRequestResponse({
-    description:
-      "Returns an error message with a list of values that failed validation",
-    type: ValidationError,
-  })
-  async searchOrganizations(
-    @Query(new ValidationPipe({ transform: true }))
-    params: SearchProjectsInput,
-    @Headers(COMMUNITY_HEADER) community: string | undefined,
-  ): Promise<PaginatedData<ProjectListResult>> {
-    this.logger.log(`/projects/search ${JSON.stringify({ params })}`);
-    return this.projectsService.searchProjects(params, community);
-  }
-
   @Get("id/:domain")
   @ApiBadRequestResponse({
     description:
