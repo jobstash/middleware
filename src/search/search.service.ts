@@ -1058,12 +1058,12 @@ export class SearchService {
             },
           ]),
         );
-        let filtered = configData;
+        const filtered = [];
 
-        for (let x = 0; x < validPassedFilters.length; x++) {
-          filtered = filtered.filter(data => {
+        filtered.push(
+          ...configData.filter(data => {
             return validPassedFilters
-              .slice(x, validPassedFilters.length - 1)
+              .filter(x => x !== params.pillar)
               .reduce((acc, curr) => {
                 let current: boolean;
                 const value =
@@ -1086,8 +1086,8 @@ export class SearchService {
                 }
                 return acc && current;
               }, true);
-          });
-        }
+          }),
+        );
 
         data = filtered.flatMap(x => x[params.pillar]).filter(Boolean);
       } else {
@@ -1359,36 +1359,34 @@ export class SearchService {
               },
             ]),
           );
-          let filtered = configData;
+          const filtered = [];
 
-          for (let x = 0; x < validPassedFilters.length; x++) {
-            filtered = filtered.filter(data => {
-              return validPassedFilters
-                .slice(x, validPassedFilters.length - 1)
-                .reduce((acc, curr) => {
-                  let current: boolean;
-                  const value =
-                    data[FILTER_PARAM_KEY_REVERSE_PRESETS[params.nav][curr]];
-                  const mapped = map.get(curr);
-                  if (mapped.kind === "MULTI_SELECT") {
-                    current = value
-                      .filter(Boolean)
-                      .some((y: string) => params[curr].includes(slugify(y)));
-                  } else if (mapped.kind === "SINGLE_SELECT") {
-                    current = params[curr] === value;
+          filtered.push(
+            ...configData.filter(data => {
+              return validPassedFilters.reduce((acc, curr) => {
+                let current: boolean;
+                const value =
+                  data[FILTER_PARAM_KEY_REVERSE_PRESETS[params.nav][curr]];
+                const mapped = map.get(curr);
+                if (mapped.kind === "MULTI_SELECT") {
+                  current = value
+                    .filter(Boolean)
+                    .some((y: string) => params[curr].includes(slugify(y)));
+                } else if (mapped.kind === "SINGLE_SELECT") {
+                  current = params[curr] === value;
+                } else {
+                  const op = mapped.op;
+                  const filterValue = params[curr];
+                  if (op === "gte") {
+                    current = filterValue <= (intConverter(value) ?? 0);
                   } else {
-                    const op = mapped.op;
-                    const filterValue = params[curr];
-                    if (op === "gte") {
-                      current = filterValue <= (intConverter(value) ?? 0);
-                    } else {
-                      current = filterValue >= (intConverter(value) ?? 0);
-                    }
+                    current = filterValue >= (intConverter(value) ?? 0);
                   }
-                  return acc && current;
-                }, true);
-            });
-          }
+                }
+                return acc && current;
+              }, true);
+            }),
+          );
 
           data = [
             ...navFilters.map(x => {
