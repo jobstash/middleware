@@ -159,8 +159,8 @@ export const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<
       investors: apoc.coll.toSet([(org)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor:Investor) | investor.name]),
       fundingRounds: apoc.coll.toSet([(org)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round.roundName]),
       tags: apoc.coll.toSet([
-        (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-        WHERE (tag)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag.name
+        (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag.name
       ]),
       projects: apoc.coll.toSet([(org)-[:HAS_PROJECT]->(project:Project) | project.name]),
       communities: apoc.coll.toSet([(org)-[:IS_MEMBER_OF_COMMUNITY]->(community:OrganizationCommunity) | community.name]),
