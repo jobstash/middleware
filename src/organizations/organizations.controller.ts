@@ -1112,9 +1112,9 @@ export class OrganizationsController {
     this.logger.log(`GET /organizations/${id} from ${address}`);
 
     if (
-      !permissions.includes(CheckWalletPermissions.SUPER_ADMIN) ||
-      (!permissions.includes(CheckWalletPermissions.ADMIN) &&
-        !permissions.includes(CheckWalletPermissions.ORG_MANAGER))
+      !permissions.includes(CheckWalletPermissions.SUPER_ADMIN) &&
+      !permissions.includes(CheckWalletPermissions.ADMIN) &&
+      !permissions.includes(CheckWalletPermissions.ORG_MANAGER)
     ) {
       const authorized = await this.userService.userAuthorizedForOrg(
         address,
