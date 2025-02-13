@@ -629,6 +629,18 @@ export class ProjectsService {
         investors: investorFilterList,
         tags: tagFilterList,
         names: nameFilterList,
+        ecosystems: ecosystemFilterList,
+        minTvl,
+        maxTvl,
+        minMonthlyVolume,
+        maxMonthlyVolume,
+        minMonthlyFees,
+        maxMonthlyFees,
+        minMonthlyRevenue,
+        maxMonthlyRevenue,
+        hasAudits,
+        hasHacks,
+        hasToken,
         page: page = 1,
         limit: limit = 20,
       } = params;
@@ -668,7 +680,27 @@ export class ProjectsService {
             ).length > 0) &&
           (!nameFilterList ||
             nameFilterList.includes(slugify(project.name)) ||
-            nameFilterList.includes(slugify(project.normalizedName)))
+            nameFilterList.includes(slugify(project.normalizedName)) ||
+            nameFilterList.some(x => project.aliases.includes(slugify(x)))) &&
+          (!ecosystemFilterList ||
+            ecosystemFilterList.some(x =>
+              project.ecosystems.includes(slugify(x)),
+            )) &&
+          (!minTvl || (project.tvl ?? 0) >= minTvl) &&
+          (!maxTvl || (project.tvl ?? 0) < maxTvl) &&
+          (!minMonthlyVolume ||
+            (project.monthlyVolume ?? 0) >= minMonthlyVolume) &&
+          (!maxMonthlyVolume ||
+            (project.monthlyVolume ?? 0) < maxMonthlyVolume) &&
+          (!minMonthlyFees || (project.monthlyFees ?? 0) >= minMonthlyFees) &&
+          (!maxMonthlyFees || (project.monthlyFees ?? 0) < maxMonthlyFees) &&
+          (!minMonthlyRevenue ||
+            (project.monthlyRevenue ?? 0) >= minMonthlyRevenue) &&
+          (!maxMonthlyRevenue ||
+            (project.monthlyRevenue ?? 0) < maxMonthlyRevenue) &&
+          (!hasAudits || project.audits.length > 0) &&
+          (!hasHacks || project.hacks.length > 0) &&
+          (!hasToken || project.tokenAddress !== null)
         );
       };
       const filtered = all

@@ -887,11 +887,20 @@ export class OrganizationsService {
         fundingRounds: fundingRoundFilterList,
         tags: tagFilterList,
         names: nameFilterList,
+        chains: chainFilterList,
+        ecosystems: ecosystemFilterList,
+        communities: communityFilterList,
+        minHeadCount,
+        maxHeadCount,
+        hasJobs,
+        hasProjects,
         page: page = 1,
         limit: limit = 20,
       } = params;
 
-      const communityFilterList = community ? [community] : null;
+      const fullCommunityFilterList = community
+        ? [community, ...communityFilterList]
+        : communityFilterList;
 
       const all = await this.getOrgListResults();
 
@@ -903,8 +912,18 @@ export class OrganizationsService {
           location,
           name,
           normalizedName,
+          projects,
+          ecosystems,
+          headcountEstimate,
+          jobs,
+          aliases,
         } = org;
-        const tags = org.jobs.flatMap(x => x.tags);
+        const tags = jobs.flatMap(x => x.tags);
+        const allEcosystems = [
+          ...org.projects.flatMap(x => x.ecosystems),
+          ...ecosystems,
+        ];
+        const chains = projects.flatMap(x => x.chains);
         return (
           (!locationFilterList ||
             locationFilterList.includes(slugify(location))) &&
@@ -928,7 +947,24 @@ export class OrganizationsService {
               0) &&
           (!nameFilterList ||
             nameFilterList.includes(slugify(name)) ||
-            nameFilterList.includes(slugify(normalizedName)))
+            nameFilterList.includes(slugify(normalizedName)) ||
+            nameFilterList.some(x => aliases.includes(slugify(x)))) &&
+          (!chainFilterList ||
+            chainFilterList.some(x =>
+              chains.map(x => x.normalizedName).includes(slugify(x)),
+            )) &&
+          (!ecosystemFilterList ||
+            ecosystemFilterList.some(x =>
+              allEcosystems.includes(slugify(x)),
+            )) &&
+          (!communityFilterList ||
+            fullCommunityFilterList.some(x =>
+              community.map(slugify).includes(x),
+            )) &&
+          (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
+          (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
+          (!hasJobs === null || jobs.length > 0) &&
+          (!hasProjects === null || projects.length > 0)
         );
       };
 
