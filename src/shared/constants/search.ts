@@ -59,6 +59,44 @@ export const NAV_PILLAR_QUERY_MAPPINGS: Record<
   vcs: null,
 };
 
+export const NAV_FILTER_LABEL_MAPPINGS: Record<
+  SearchNav,
+  Record<string, string> | null
+> = {
+  projects: {
+    categories: "Categories",
+    chains: "Chains",
+    organizations: "Organizations",
+    investors: "Investors",
+    names: "Projects",
+    tags: "Tags",
+  },
+  organizations: {
+    locations: "Locations",
+    investors: "Investors",
+    fundingRounds: "Funding Rounds",
+    chains: "Chains",
+    names: "Organizations",
+    tags: "Tags",
+    projects: "Projects",
+  },
+  grants: {
+    names: "Grants",
+    categories: "Categories",
+    chains: "Chains",
+    ecosystems: "Ecosystems",
+    organizations: "Organizations",
+  },
+  impact: {
+    names: "Impact",
+    categories: "Categories",
+    chains: "Chains",
+    ecosystems: "Ecosystems",
+    organizations: "Organizations",
+  },
+  vcs: null,
+};
+
 export const NAV_PILLAR_ORDERING: Record<SearchNav, string[]> = {
   grants: ["categories", "chains", "ecosystems", "organizations", "names"],
   impact: ["categories", "chains", "ecosystems", "organizations", "names"],

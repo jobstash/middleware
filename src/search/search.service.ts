@@ -42,6 +42,7 @@ import {
   NAV_FILTER_CONFIG_QUERY_MAPPINGS,
   NAV_PILLAR_QUERY_MAPPINGS,
   NAV_FILTER_CONFIGS,
+  NAV_FILTER_LABEL_MAPPINGS,
 } from "src/shared/constants";
 
 @Injectable()
@@ -1095,6 +1096,7 @@ export class SearchService {
       }
       return {
         slug: params.pillar,
+        label: NAV_FILTER_LABEL_MAPPINGS[params.nav][params.pillar],
         items: uniq(data.filter(isValidFilterConfig)),
       };
     } else {
@@ -1143,6 +1145,7 @@ export class SearchService {
             ...headerText,
             activePillar: {
               slug: pillar,
+              label: NAV_FILTER_LABEL_MAPPINGS[params.nav][params.pillar],
               items: [
                 wanted,
                 ...items.filter(x => slugify(x) !== params.item).slice(0, 20),

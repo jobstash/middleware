@@ -20,6 +20,7 @@ export interface SearchResultItem {
 
 export interface Pillar {
   slug: string;
+  label: string;
   items: string[];
 }
 
