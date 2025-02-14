@@ -1266,7 +1266,7 @@ export class SearchService {
         return {
           success: true,
           message: "Pillar not found",
-          data: null,
+          data: [],
         };
       }
     } catch (err) {
