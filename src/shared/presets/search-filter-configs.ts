@@ -10,15 +10,15 @@ export const SINGLE_SELECT_OPTIONS = {
   projects: {
     hasHacks: [
       { label: "Has been hacked", value: true },
-      { label: "Has not been hacked", value: true },
+      { label: "Has not been hacked", value: false },
     ],
     hasAudits: [
       { label: "Has Audits", value: true },
-      { label: "Has No Audits", value: true },
+      { label: "Has No Audits", value: false },
     ],
     hasToken: [
       { label: "Has Token", value: true },
-      { label: "Has No Token", value: true },
+      { label: "Has No Token", value: false },
     ],
     order: [
       { label: "Ascending", value: "asc" },
@@ -38,11 +38,11 @@ export const SINGLE_SELECT_OPTIONS = {
   organizations: {
     hasProjects: [
       { label: "Has projects", value: true },
-      { label: "Has no projects", value: true },
+      { label: "Has no projects", value: false },
     ],
     hasJobs: [
       { label: "Has jobs", value: true },
-      { label: "Has no jobs", value: true },
+      { label: "Has no jobs", value: false },
     ],
     order: [
       { label: "Ascending", value: "asc" },
