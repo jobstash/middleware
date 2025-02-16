@@ -206,11 +206,6 @@ export const PUBLIC_API_SCHEMAS = {
         type: "string",
         example: "San Francisco, CA",
       },
-      jobCount: {
-        description: "The number of open positions in the organization",
-        type: "number",
-        example: 100,
-      },
       projectCount: {
         description: "The number of projects in the organization",
         type: "number",

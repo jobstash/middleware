@@ -97,7 +97,6 @@ export class OrganizationsService {
           ecosystems: [
             (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
           ],
-          jobCount: apoc.coll.sum([(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | 1]),
           projects: [
             (organization)-[:HAS_PROJECT]->(project) | project {
               .*,
@@ -204,7 +203,6 @@ export class OrganizationsService {
       investors: investorFilterList,
       fundingRounds: fundingRoundFilterList,
       communities: communityFilterList,
-      hasJobs,
       hasProjects,
       query,
       order,
@@ -239,7 +237,7 @@ export class OrganizationsService {
     }
 
     const orgFilters = (org: OrgDetailsResult): boolean => {
-      const [jobCount, projectCount] = [org.jobCount, org.projects.length];
+      const projectCount = org.projects.length;
       const {
         fundingRounds,
         investors,
@@ -253,7 +251,6 @@ export class OrganizationsService {
         name.match(query) || aliases.some(alias => alias.match(query));
       return (
         (!query || isValidSearchResult) &&
-        (hasJobs === null || jobCount > 0 === hasJobs) &&
         (hasProjects === null || projectCount > 0 === hasProjects) &&
         (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
         (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
@@ -543,7 +540,6 @@ export class OrganizationsService {
         ? new OrgDetailsResultEntity({
             ...result.records[0]?.get("res"),
             jobs: result.records[0]?.get("res")?.jobs ?? [],
-            jobCount: result.records[0]?.get("res")?.jobCount ?? 0,
             tags: result.records[0]?.get("res")?.tags ?? [],
           }).getProperties()
         : undefined;
@@ -689,7 +685,6 @@ export class OrganizationsService {
         ? new OrgDetailsResultEntity({
             ...result.records[0]?.get("res"),
             jobs: result.records[0]?.get("res")?.jobs ?? [],
-            jobCount: result.records[0]?.get("res")?.jobCount ?? 0,
             tags: result.records[0]?.get("res")?.tags ?? [],
           }).getProperties()
         : undefined;
@@ -831,7 +826,6 @@ export class OrganizationsService {
         communities: communityFilterList,
         minHeadCount,
         maxHeadCount,
-        hasJobs,
         hasProjects,
         page: page = 1,
         limit: limit = 20,
@@ -900,7 +894,6 @@ export class OrganizationsService {
             )) &&
           (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
           (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
-          (!hasJobs === null || org.jobCount > 0) &&
           (!hasProjects === null || projects.length > 0)
         );
       };

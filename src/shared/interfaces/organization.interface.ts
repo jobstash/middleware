@@ -121,7 +121,6 @@ export class OrganizationWithRelations extends Organization {
       investors: t.array(Investor.InvestorType),
       community: t.array(t.string),
       ecosystems: t.array(t.string),
-      jobCount: t.number,
       grants: t.array(t.string),
       reviews: t.array(OrgReview.OrgReviewType),
     }),
@@ -169,9 +168,6 @@ export class OrganizationWithRelations extends Organization {
   })
   grants: GrantFunding[];
 
-  @ApiProperty()
-  jobCount: number;
-
   @ApiProperty({
     type: "array",
     items: { $ref: getSchemaPath(ProjectWithBaseRelations) },
@@ -213,7 +209,6 @@ export class OrganizationWithRelations extends Organization {
       investors,
       community,
       grants,
-      jobCount,
       ecosystems,
       reviews,
       ...orgProperties
@@ -233,7 +228,6 @@ export class OrganizationWithRelations extends Organization {
     this.twitter = twitter;
     this.docs = docs;
     this.projects = projects;
-    this.jobCount = jobCount;
     this.fundingRounds = fundingRounds;
     this.investors = investors;
     this.community = community;
@@ -258,7 +252,6 @@ export class ShortOrg {
     name: t.string,
     normalizedName: t.string,
     location: t.string,
-    jobCount: t.number,
     headcountEstimate: t.number,
     projectCount: t.number,
     aggregateRating: t.number,
@@ -285,9 +278,6 @@ export class ShortOrg {
 
   @ApiProperty()
   location: string;
-
-  @ApiProperty()
-  jobCount: number;
 
   @ApiProperty()
   projectCount: number;
@@ -326,7 +316,6 @@ export class ShortOrg {
       name,
       logoUrl,
       location,
-      jobCount,
       community,
       ecosystems,
       normalizedName,
@@ -345,7 +334,6 @@ export class ShortOrg {
     this.name = name;
     this.logoUrl = logoUrl;
     this.location = location;
-    this.jobCount = jobCount;
     this.community = community;
     this.ecosystems = ecosystems;
     this.normalizedName = normalizedName;

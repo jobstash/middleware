@@ -9,7 +9,6 @@ export class ShortOrgEntity {
     return {
       ...this.raw,
       logoUrl: notStringOrNull(this.raw.logoUrl),
-      jobCount: intConverter(this.raw.jobCount),
       projectCount: intConverter(this.raw.projectCount),
       headcountEstimate: intConverter(this.raw.headcountEstimate),
       lastFundingAmount: intConverter(this.raw.lastFundingAmount),
@@ -26,7 +25,6 @@ export class ShortOrgWithSummaryEntity {
       ...this.raw,
       summary: notStringOrNull(this.raw.summary),
       logoUrl: notStringOrNull(this.raw.logoUrl),
-      jobCount: intConverter(this.raw.jobCount),
       projectCount: intConverter(this.raw.projectCount),
       headcountEstimate: intConverter(this.raw.headcountEstimate),
       lastFundingAmount: intConverter(this.raw.lastFundingAmount),

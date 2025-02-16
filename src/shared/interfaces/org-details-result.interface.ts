@@ -43,7 +43,6 @@ export class OrgDetailsResult extends Organization {
       community: t.array(t.string),
       ecosystems: t.array(t.string),
       grants: t.array(GrantFunding.GrantFundingType),
-      jobCount: t.number,
       tags: t.array(Tag.TagType),
       reviews: t.array(LeanOrgReview.LeanOrgReviewType),
     }),
@@ -87,9 +86,6 @@ export class OrgDetailsResult extends Organization {
 
   @ApiProperty()
   grants: GrantFunding[];
-
-  @ApiProperty()
-  jobCount: number;
 
   @ApiProperty({
     type: "array",
@@ -142,7 +138,6 @@ export class OrgDetailsResult extends Organization {
       ecosystems,
       community,
       reviews,
-      jobCount,
       tags,
       ...orgProperties
     } = raw;
@@ -166,7 +161,6 @@ export class OrgDetailsResult extends Organization {
     this.community = community;
     this.ecosystems = ecosystems;
     this.reviews = reviews;
-    this.jobCount = jobCount;
     this.tags = tags;
 
     if (isLeft(result)) {

@@ -50,7 +50,6 @@ export class OrgDetailsResultEntity {
 
     return new OrgDetailsResult({
       ...organization,
-      jobCount: organization?.jobCount ?? 0,
       aggregateRating:
         aggregateRatings.length > 0
           ? aggregateRatings.reduce((a, b) => a + b) / aggregateRatings.length
