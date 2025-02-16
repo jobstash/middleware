@@ -98,7 +98,6 @@ export class OrganizationsService {
             (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
           ],
           jobCount: apoc.coll.sum([(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | 1]),
-          grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
           projects: [
             (organization)-[:HAS_PROJECT]->(project) | project {
               .*,
@@ -725,7 +724,6 @@ export class OrganizationsService {
           telegrams: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username],
           githubs: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-          grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url],
           twitters: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
           communities: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
           ecosystems: [
@@ -948,7 +946,6 @@ export class OrganizationsService {
           telegrams: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username],
           githubs: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-          grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url],
           twitters: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
           communities: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
           ecosystems: [
