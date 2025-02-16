@@ -3,9 +3,12 @@ import { ResponseWithNoData } from "src/shared/types";
 import { Integer } from "neo4j-driver";
 import { ConfigService } from "@nestjs/config";
 import { JobsService } from "./jobs/jobs.service";
+import * as Sentry from "@sentry/node";
+import { CustomLogger } from "./shared/utils/custom-logger";
 
 @Injectable()
 export class AppService {
+  private readonly logger = new CustomLogger(AppService.name);
   constructor(
     private readonly jobsService: JobsService,
     private readonly configService: ConfigService,
@@ -17,42 +20,43 @@ export class AppService {
   async sitemap(): Promise<string> {
     const FE_DOMAIN = this.configService.get<string>("FE_DOMAIN");
     const recentTimestamp = new Date().getTime();
-    const jobs = (
-      await this.jobsService.getJobsListWithSearch({
-        page: 1,
-        tags: null,
-        query: null,
-        hacks: null,
-        order: null,
-        token: null,
-        audits: null,
-        chains: null,
-        maxTvl: null,
-        minTvl: null,
-        orderBy: null,
-        projects: null,
-        locations: null,
-        seniority: null,
-        investors: null,
-        commitments: null,
-        communities: null,
-        maxHeadCount: null,
-        minHeadCount: null,
-        fundingRounds: null,
-        maxMonthlyFees: null,
-        minMonthlyFees: null,
-        maxSalaryRange: null,
-        minSalaryRange: null,
-        publicationDate: null,
-        classifications: null,
-        maxMonthlyVolume: null,
-        minMonthlyVolume: null,
-        maxMonthlyRevenue: null,
-        minMonthlyRevenue: null,
-        limit: Integer.MAX_SAFE_VALUE.toNumber(),
-      })
-    ).data;
-    return `<?xml version="1.0" encoding="UTF-8"?>
+    try {
+      const jobs = (
+        await this.jobsService.getJobsListWithSearch({
+          page: 1,
+          tags: null,
+          query: null,
+          hacks: null,
+          order: null,
+          token: null,
+          audits: null,
+          chains: null,
+          maxTvl: null,
+          minTvl: null,
+          orderBy: null,
+          projects: null,
+          locations: null,
+          seniority: null,
+          investors: null,
+          commitments: null,
+          communities: null,
+          maxHeadCount: null,
+          minHeadCount: null,
+          fundingRounds: null,
+          maxMonthlyFees: null,
+          minMonthlyFees: null,
+          maxSalaryRange: null,
+          minSalaryRange: null,
+          publicationDate: null,
+          classifications: null,
+          maxMonthlyVolume: null,
+          minMonthlyVolume: null,
+          maxMonthlyRevenue: null,
+          minMonthlyRevenue: null,
+          limit: Integer.MAX_SAFE_VALUE.toNumber(),
+        })
+      ).data;
+      return `<?xml version="1.0" encoding="UTF-8"?>
         <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
           <url>
             <loc>${FE_DOMAIN}/jobs</loc>
@@ -73,8 +77,7 @@ export class AppService {
                   x.organization.orgId === job.organization.orgId &&
                   x.shortUUID !== job.shortUUID,
               );
-              const path =
-                job.access === "protected" ? "elite-fast-track" : "jobs";
+              const path = "jobs";
               return `<url>
               <loc>${FE_DOMAIN}/${path}/${job.shortUUID}/details</loc>
               <lastmod>${recentTimestamp}</lastmod>
@@ -117,5 +120,10 @@ export class AppService {
             .join("")}
         </urlset>
     `;
+    } catch (err) {
+      Sentry.captureException(err);
+      this.logger.error(`AppService::sitemap ${err.message}`);
+      return undefined;
+    }
   }
 }
