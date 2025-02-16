@@ -1,6 +1,5 @@
 import {
   LeanOrgReview,
-  OrgJob,
   OrgReview,
   OrganizationWithRelations,
   Tag,
@@ -21,14 +20,12 @@ import { uniqBy } from "lodash";
 
 class RawOrg extends OmitType(OrganizationWithRelations, ["reviews"] as const) {
   reviews: LeanOrgReview[] | OrgReview[] | null;
-  jobs: OrgJob[] | null;
   tags: Tag[] | null;
   constructor(raw: RawOrg) {
-    const { jobs, tags, ...orgProperties } = raw;
+    const { tags, ...orgProperties } = raw;
     super(orgProperties);
     const result = OrgDetailsResult.OrgListResultType.decode(raw);
 
-    this.jobs = jobs;
     this.tags = tags;
 
     if (isLeft(result)) {
@@ -46,13 +43,14 @@ export class OrgDetailsResultEntity {
 
   getProperties(): OrgDetailsResult {
     const organization = this.raw;
-    const { jobs, investors, fundingRounds, projects, tags, reviews, grants } =
+    const { investors, fundingRounds, projects, tags, reviews, grants } =
       organization;
     const aggregateRatings =
       reviews?.map(review => generateOrgAggregateRating(review.rating)) ?? [];
 
     return new OrgDetailsResult({
       ...organization,
+      jobCount: organization?.jobCount ?? 0,
       aggregateRating:
         aggregateRatings.length > 0
           ? aggregateRatings.reduce((a, b) => a + b) / aggregateRatings.length
@@ -206,35 +204,6 @@ export class OrgDetailsResultEntity {
       ),
       community: organization?.community ?? [],
       ecosystems: organization?.ecosystems ?? [],
-      jobs:
-        jobs?.map(jobpost => {
-          const now = new Date().getTime();
-          const isStillFeatured =
-            jobpost?.featured === true &&
-            isAfter(now, nonZeroOrNull(jobpost?.featureStartDate) ?? now) &&
-            isBefore(now, nonZeroOrNull(jobpost?.featureEndDate) ?? now);
-          return {
-            ...jobpost,
-            salary: nonZeroOrNull(jobpost?.salary),
-            minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
-            maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
-            seniority: notStringOrNull(jobpost?.seniority, ["", "undefined"]),
-            salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
-            paysInCrypto: jobpost?.paysInCrypto ?? null,
-            offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
-            title: notStringOrNull(jobpost?.title),
-            summary: notStringOrNull(jobpost?.summary),
-            commitment: notStringOrNull(jobpost?.commitment),
-            timestamp: nonZeroOrNull(jobpost?.timestamp),
-            featureStartDate: isStillFeatured
-              ? nonZeroOrNull(jobpost?.featureStartDate)
-              : null,
-            featureEndDate: isStillFeatured
-              ? nonZeroOrNull(jobpost?.featureEndDate)
-              : null,
-            featured: isStillFeatured,
-          };
-        }) ?? [],
       tags: tags ?? [],
       reviews:
         reviews?.map(r => new LeanOrgReviewEntity(r).getProperties()) ?? [],

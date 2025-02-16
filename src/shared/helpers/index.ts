@@ -413,6 +413,7 @@ export const toShortOrg = (org: OrgDetailsResult): ShortOrg => {
     reviewCount,
     community,
     ecosystems,
+    grants,
   } = org;
   const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
   return new ShortOrgEntity({
@@ -427,7 +428,8 @@ export const toShortOrg = (org: OrgDetailsResult): ShortOrg => {
     reviewCount,
     community,
     ecosystems,
-    jobCount: org.jobs.length,
+    grants,
+    jobCount: org.jobCount,
     projectCount: org.projects.length,
     lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
     lastFundingDate: lastFundingRound?.date ?? 0,
@@ -449,6 +451,7 @@ export const toShortOrgWithSummary = (
     reviewCount,
     community,
     ecosystems,
+    grants,
     summary,
   } = org;
   const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
@@ -465,7 +468,8 @@ export const toShortOrgWithSummary = (
     reviewCount,
     community,
     ecosystems,
-    jobCount: org.jobs.length,
+    grants,
+    jobCount: org.jobCount,
     projectCount: org.projects.length,
     lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
     lastFundingDate: lastFundingRound?.date ?? 0,

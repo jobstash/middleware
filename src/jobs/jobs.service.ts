@@ -133,6 +133,7 @@ export class JobsService {
               github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
               aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
               twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              jobCount: apoc.coll.sum([(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | 1]),
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
@@ -328,6 +329,7 @@ export class JobsService {
               github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
               aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
               twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+          jobCount: apoc.coll.sum([(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | 1]),
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
@@ -1102,6 +1104,7 @@ export class JobsService {
               github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
               aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
               twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              jobCount: apoc.coll.sum([(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | 1]), 
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
@@ -1426,6 +1429,7 @@ export class JobsService {
               github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
               aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
               twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              jobCount: apoc.coll.sum([(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | 1]),
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
@@ -1704,6 +1708,7 @@ export class JobsService {
               github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
               aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
               twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              jobCount: apoc.coll.sum([(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | 1]),
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
@@ -2035,6 +2040,7 @@ export class JobsService {
               github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
               aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
               twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              jobCount: apoc.coll.sum([(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | 1]),
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
@@ -2237,6 +2243,7 @@ export class JobsService {
               github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
               aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
               twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              jobCount: apoc.coll.sum([(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | 1]),
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
@@ -2443,6 +2450,7 @@ export class JobsService {
               github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
               aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
               twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              jobCount: apoc.coll.sum([(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | 1]),
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
@@ -2649,6 +2657,7 @@ export class JobsService {
               github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
               aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
               twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              jobCount: apoc.coll.sum([(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | 1]),
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
@@ -2861,6 +2870,7 @@ export class JobsService {
               github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
               aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
               twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              jobCount: apoc.coll.sum([(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | 1]),
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
@@ -3073,6 +3083,7 @@ export class JobsService {
               github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
               aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
               twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              jobCount: apoc.coll.sum([(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | 1]),
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
@@ -3286,6 +3297,7 @@ export class JobsService {
               github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
               aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
               twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              jobCount: apoc.coll.sum([(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | 1]),
               projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,

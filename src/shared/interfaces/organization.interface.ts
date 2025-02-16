@@ -121,7 +121,8 @@ export class OrganizationWithRelations extends Organization {
       investors: t.array(Investor.InvestorType),
       community: t.array(t.string),
       ecosystems: t.array(t.string),
-      grants: t.array(GrantFunding.GrantFundingType),
+      jobCount: t.number,
+      grants: t.array(t.string),
       reviews: t.array(OrgReview.OrgReviewType),
     }),
   ]);
@@ -168,6 +169,9 @@ export class OrganizationWithRelations extends Organization {
   })
   grants: GrantFunding[];
 
+  @ApiProperty()
+  jobCount: number;
+
   @ApiProperty({
     type: "array",
     items: { $ref: getSchemaPath(ProjectWithBaseRelations) },
@@ -209,6 +213,7 @@ export class OrganizationWithRelations extends Organization {
       investors,
       community,
       grants,
+      jobCount,
       ecosystems,
       reviews,
       ...orgProperties
@@ -228,6 +233,7 @@ export class OrganizationWithRelations extends Organization {
     this.twitter = twitter;
     this.docs = docs;
     this.projects = projects;
+    this.jobCount = jobCount;
     this.fundingRounds = fundingRounds;
     this.investors = investors;
     this.community = community;
@@ -260,7 +266,7 @@ export class ShortOrg {
     lastFundingDate: t.number,
     lastFundingAmount: t.number,
     community: t.array(t.string),
-    grants: t.array(t.string),
+    grants: t.array(GrantFunding.GrantFundingType),
     ecosystems: t.array(t.string),
     logoUrl: t.union([t.string, t.null]),
   });
@@ -309,6 +315,9 @@ export class ShortOrg {
 
   @ApiProperty()
   ecosystems: string[];
+
+  @ApiProperty()
+  grants: GrantFunding[];
 
   constructor(raw: ShortOrg) {
     const {
@@ -361,7 +370,7 @@ export class ShortOrgWithSummary extends ShortOrg {
   public static readonly ShortOrgWithSummaryType = t.intersection([
     ShortOrg.ShortOrgType,
     t.strict({
-      name: t.string,
+      summary: t.string,
     }),
   ]);
 

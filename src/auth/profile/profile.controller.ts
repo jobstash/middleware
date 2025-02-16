@@ -546,12 +546,14 @@ export class ProfileController {
 
             const orgProfile = await this.userService.findProfileByOrgId(orgId);
 
-            const org = await this.organizationsService.getOrgDetailsById(
+            const org = await this.organizationsService.getOrgById(orgId);
+
+            const jobs = await this.jobsService.getJobsByOrgId(
               orgId,
               undefined,
             );
 
-            const job = org.jobs.find(x => x.shortUUID === shortUUID);
+            const job = jobs.find(x => x.shortUUID === shortUUID);
 
             if (orgProfile && orgProfile.linkedAccounts?.email) {
               const communities = await this.rpcService.getCommunitiesForWallet(

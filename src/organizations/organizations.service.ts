@@ -97,31 +97,8 @@ export class OrganizationsService {
           ecosystems: [
             (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
           ],
-          jobs: [
-            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | structured_jobpost {
-              id: structured_jobpost.id,
-              title: structured_jobpost.title,
-              access: structured_jobpost.access,
-              salary: structured_jobpost.salary,
-              location: structured_jobpost.location,
-              summary: structured_jobpost.summary,
-              shortUUID: structured_jobpost.shortUUID,
-              seniority: structured_jobpost.seniority,
-              paysInCrypto: structured_jobpost.paysInCrypto,
-              minimumSalary: structured_jobpost.minimumSalary,
-              maximumSalary: structured_jobpost.maximumSalary,
-              salaryCurrency: structured_jobpost.salaryCurrency,
-              featured: structured_jobpost.featured,
-              featureStartDate: structured_jobpost.featureStartDate,
-              featureEndDate: structured_jobpost.featureEndDate,
-              offersTokenAllocation: structured_jobpost.offersTokenAllocation,
-              classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
-              commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
-              locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
-              timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
-              tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag.name ]
-            }
-          ],
+          jobCount: apoc.coll.sum([(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | 1]),
+          grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
           projects: [
             (organization)-[:HAS_PROJECT]->(project) | project {
               .*,
@@ -263,7 +240,7 @@ export class OrganizationsService {
     }
 
     const orgFilters = (org: OrgDetailsResult): boolean => {
-      const [jobCount, projectCount] = [org.jobs.length, org.projects.length];
+      const [jobCount, projectCount] = [org.jobCount, org.projects.length];
       const {
         fundingRounds,
         investors,
@@ -304,12 +281,9 @@ export class OrganizationsService {
     const filtered = results.filter(orgFilters);
 
     const getSortParam = (org: OrgDetailsResult): number | null => {
-      const lastJob = defaultSort(org.jobs).desc(x => x.timestamp)[0];
       switch (orderBy) {
         case "recentFundingDate":
           return org.lastFundingDate() ?? 0;
-        case "recentJobDate":
-          return lastJob?.timestamp ?? 0;
         case "headcountEstimate":
           return org?.headcountEstimate ?? 0;
         case "rating":
@@ -369,41 +343,6 @@ export class OrganizationsService {
       });
       this.logger.error(`OrganizationsService::getAllOrgsList ${err.message}`);
       return [];
-    }
-  }
-
-  async getFeaturedOrgs(
-    community: string | undefined,
-  ): Promise<ResponseWithOptionalData<ShortOrg[]>> {
-    try {
-      const orgs = await this.getOrgListResults();
-      const now = new Date().getTime();
-      return {
-        success: true,
-        message: "Featured orgs retrieved successfully",
-        data: orgs
-          .filter(
-            org =>
-              (community ? org.community.includes(community) : true) &&
-              org.jobs.some(
-                job =>
-                  job.featured === true &&
-                  job.featureStartDate <= now &&
-                  now <= job.featureEndDate,
-              ),
-          )
-          .map(x => toShortOrg(x)),
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "jobs.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`JobsService::getFeaturedJobs ${err.message}`);
-      return { success: false, message: "Failed to retrieve featured jobs" };
     }
   }
 
@@ -605,6 +544,7 @@ export class OrganizationsService {
         ? new OrgDetailsResultEntity({
             ...result.records[0]?.get("res"),
             jobs: result.records[0]?.get("res")?.jobs ?? [],
+            jobCount: result.records[0]?.get("res")?.jobCount ?? 0,
             tags: result.records[0]?.get("res")?.tags ?? [],
           }).getProperties()
         : undefined;
@@ -750,6 +690,7 @@ export class OrganizationsService {
         ? new OrgDetailsResultEntity({
             ...result.records[0]?.get("res"),
             jobs: result.records[0]?.get("res")?.jobs ?? [],
+            jobCount: result.records[0]?.get("res")?.jobCount ?? 0,
             tags: result.records[0]?.get("res")?.tags ?? [],
           }).getProperties()
         : undefined;
@@ -915,15 +856,14 @@ export class OrganizationsService {
           projects,
           ecosystems,
           headcountEstimate,
-          jobs,
           aliases,
         } = org;
-        const tags = jobs.flatMap(x => x.tags);
         const allEcosystems = [
           ...org.projects.flatMap(x => x.ecosystems),
           ...ecosystems,
         ];
         const chains = projects.flatMap(x => x.chains);
+        const tags = org.tags.map(x => x.normalizedName);
         return (
           (!locationFilterList ||
             locationFilterList.includes(slugify(location))) &&
@@ -943,8 +883,7 @@ export class OrganizationsService {
               ),
             )) &&
           (!tagFilterList ||
-            tags.filter(tag => tagFilterList.includes(slugify(tag))).length >
-              0) &&
+            tags.filter(tag => tagFilterList.includes(tag)).length > 0) &&
           (!nameFilterList ||
             nameFilterList.includes(slugify(name)) ||
             nameFilterList.includes(slugify(normalizedName)) ||
@@ -963,7 +902,7 @@ export class OrganizationsService {
             )) &&
           (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
           (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
-          (!hasJobs === null || jobs.length > 0) &&
+          (!hasJobs === null || org.jobCount > 0) &&
           (!hasProjects === null || projects.length > 0)
         );
       };
