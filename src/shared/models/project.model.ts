@@ -743,14 +743,7 @@ export const Projects = (
                       (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
                     ],
                     grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
-                    jobs: [
-                      (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost) | structured_jobpost {
-                        .*,
-                        classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
-                        commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
-                        locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0]
-                      }
-                    ],
+                    jobCount: apoc.coll.sum([(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | 1]),
                     tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:HAS_TAG_DESIGNATION]-() | tag { .* }],
                     reviews: [
                       (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
@@ -892,14 +885,7 @@ export const Projects = (
                       (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
                     ],
                     grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
-                    jobs: [
-                      (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost) | structured_jobpost {
-                        .*,
-                        classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
-                        commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
-                        locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0]
-                      }
-                    ],
+                    jobCount: apoc.coll.sum([(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | 1]),
                     tags: [(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:HAS_TAG_DESIGNATION]-() | tag { .* }],
                     reviews: [
                       (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {

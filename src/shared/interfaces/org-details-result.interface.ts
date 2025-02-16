@@ -42,7 +42,7 @@ export class OrgDetailsResult extends Organization {
       community: t.array(t.string),
       ecosystems: t.array(t.string),
       grants: t.array(t.string),
-      jobs: t.array(OrgJob.OrgJobType),
+      jobCount: t.number,
       tags: t.array(Tag.TagType),
       reviews: t.array(LeanOrgReview.LeanOrgReviewType),
     }),
@@ -87,6 +87,9 @@ export class OrgDetailsResult extends Organization {
   @ApiProperty()
   grants: string[];
 
+  @ApiProperty()
+  jobCount: number;
+
   @ApiProperty({
     type: "array",
     items: { $ref: getSchemaPath(ProjectWithRelations) },
@@ -110,12 +113,6 @@ export class OrgDetailsResult extends Organization {
     items: { $ref: getSchemaPath(LeanOrgReview) },
   })
   reviews: LeanOrgReview[];
-
-  @ApiProperty({
-    type: "array",
-    items: { $ref: getSchemaPath(OrgJob) },
-  })
-  jobs: OrgJob[];
 
   @ApiProperty({
     type: "array",
@@ -144,7 +141,7 @@ export class OrgDetailsResult extends Organization {
       ecosystems,
       community,
       reviews,
-      jobs,
+      jobCount,
       tags,
       ...orgProperties
     } = raw;
@@ -168,7 +165,7 @@ export class OrgDetailsResult extends Organization {
     this.community = community;
     this.ecosystems = ecosystems;
     this.reviews = reviews;
-    this.jobs = jobs;
+    this.jobCount = jobCount;
     this.tags = tags;
 
     if (isLeft(result)) {

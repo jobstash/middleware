@@ -428,7 +428,7 @@ export const toShortOrg = (org: OrgDetailsResult): ShortOrg => {
     community,
     ecosystems,
     grants,
-    jobCount: org.jobs.length,
+    jobCount: org.jobCount,
     projectCount: org.projects.length,
     lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
     lastFundingDate: lastFundingRound?.date ?? 0,

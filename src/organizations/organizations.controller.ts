@@ -283,33 +283,6 @@ export class OrganizationsController {
     return this.organizationsService.searchOrganizations(params, community);
   }
 
-  @Get("/featured")
-  @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
-  @ApiOkResponse({
-    description: "Returns a list of orgs with featured jobs",
-    type: Response<ShortOrg[]>,
-  })
-  @ApiBadRequestResponse({
-    description:
-      "Returns an error message with a list of query params that failed validation",
-    schema: {
-      allOf: [
-        {
-          $ref: getSchemaPath(ValidationError),
-        },
-      ],
-    },
-  })
-  async getFeaturedOrgsList(
-    @Headers(COMMUNITY_HEADER) community: string | undefined,
-  ): Promise<ResponseWithOptionalData<ShortOrg[]>> {
-    this.logger.log(`/organizations/featured`);
-    return this.organizationsService.getFeaturedOrgs(community);
-  }
-
   @Get("id/:domain")
   @ApiBadRequestResponse({
     description:
