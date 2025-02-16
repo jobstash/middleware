@@ -121,7 +121,7 @@ export class OrganizationWithRelations extends Organization {
       investors: t.array(Investor.InvestorType),
       community: t.array(t.string),
       ecosystems: t.array(t.string),
-      grants: t.array(t.string),
+      grants: t.array(GrantFunding.GrantFundingType),
       reviews: t.array(OrgReview.OrgReviewType),
     }),
   ]);

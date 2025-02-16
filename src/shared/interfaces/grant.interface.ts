@@ -524,12 +524,12 @@ export class GrantListResult {
 export class GrantFunding {
   public static readonly GrantFundingType = t.strict({
     id: t.string,
-    tokenAmount: t.number,
-    tokenUnit: t.string,
+    tokenAmount: t.union([t.number, t.null]),
+    tokenUnit: t.union([t.string, t.null]),
     fundingDate: t.union([t.number, t.null]),
     amount: t.union([t.number, t.null]),
-    programName: t.string,
-    createdTimestamp: t.number,
+    programName: t.union([t.string, t.null]),
+    createdTimestamp: t.union([t.number, t.null]),
     updatedTimestamp: t.union([t.number, t.null]),
   });
 
@@ -537,10 +537,10 @@ export class GrantFunding {
   id: string;
 
   @ApiProperty()
-  tokenAmount: number;
+  tokenAmount: number | null;
 
   @ApiProperty()
-  tokenUnit: string;
+  tokenUnit: string | null;
 
   @ApiProperty()
   fundingDate: number | null;
@@ -549,10 +549,10 @@ export class GrantFunding {
   amount: number | null;
 
   @ApiProperty()
-  programName: string;
+  programName: string | null;
 
   @ApiProperty()
-  createdTimestamp: number;
+  createdTimestamp: number | null;
 
   @ApiProperty()
   updatedTimestamp: number | null;
