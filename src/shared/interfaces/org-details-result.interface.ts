@@ -22,8 +22,8 @@ import { OrgProject } from "./project-details-result.interface";
 import { sort } from "fast-sort";
 import { GrantFunding } from "./grant.interface";
 
-@ApiExtraModels(OrganizationWithRelations, OrgDetailsResult, OrgJob)
-export class OrgDetailsResult extends Organization {
+@ApiExtraModels(OrganizationWithRelations, OrgListResult, OrgJob)
+export class OrgListResult extends Organization {
   public static readonly OrgListResultType = t.intersection([
     Organization.OrganizationType,
     t.strict({
@@ -118,7 +118,7 @@ export class OrgDetailsResult extends Organization {
   tags: Tag[];
 
   constructor(
-    raw: Omit<OrgDetailsResult, "lastFundingAmount" | "lastFundingDate">,
+    raw: Omit<OrgListResult, "lastFundingAmount" | "lastFundingDate">,
   ) {
     const {
       aggregateRating,
@@ -142,7 +142,7 @@ export class OrgDetailsResult extends Organization {
       ...orgProperties
     } = raw;
     super(orgProperties);
-    const result = OrgDetailsResult.OrgListResultType.decode(raw);
+    const result = OrgListResult.OrgListResultType.decode(raw);
 
     this.aggregateRating = aggregateRating;
     this.aggregateRatings = aggregateRatings;
@@ -180,5 +180,38 @@ export class OrgDetailsResult extends Organization {
   lastFundingAmount(): number | null {
     const lastFundingRound = sort(this.fundingRounds).desc(x => x.date)[0];
     return lastFundingRound?.raisedAmount ?? null;
+  }
+}
+
+export class OrgDetailsResult extends OrgListResult {
+  public static readonly OrgDetailsResultType = t.intersection([
+    OrgListResult.OrgListResultType,
+    t.strict({
+      jobs: t.array(OrgJob.OrgJobType),
+    }),
+  ]);
+
+  @ApiProperty({
+    type: "array",
+    items: { $ref: getSchemaPath(OrgJob) },
+  })
+  jobs: OrgJob[];
+
+  constructor(
+    raw: Omit<OrgDetailsResult, "lastFundingAmount" | "lastFundingDate">,
+  ) {
+    const { jobs, ...orgProperties } = raw;
+    super(orgProperties);
+    const result = OrgDetailsResult.OrgDetailsResultType.decode(raw);
+
+    this.jobs = jobs;
+
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(
+          `org details result instance with id ${this.orgId} failed validation with error '${x}'`,
+        );
+      });
+    }
   }
 }

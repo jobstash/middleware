@@ -31,7 +31,7 @@ import {
 import { DateRange, JobListOrderBy } from "../enums";
 import {
   JobListResult,
-  OrgDetailsResult,
+  OrgListResult,
   OrgRating,
   PaginatedData,
   ShortOrg,
@@ -400,7 +400,7 @@ export const generateOrgAggregateRatings = (
   };
 };
 
-export const toShortOrg = (org: OrgDetailsResult): ShortOrg => {
+export const toShortOrg = (org: OrgListResult): ShortOrg => {
   const {
     orgId,
     website,
@@ -436,7 +436,7 @@ export const toShortOrg = (org: OrgDetailsResult): ShortOrg => {
 };
 
 export const toShortOrgWithSummary = (
-  org: OrgDetailsResult,
+  org: OrgListResult,
 ): ShortOrgWithSummary => {
   const {
     orgId,

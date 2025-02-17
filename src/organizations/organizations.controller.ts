@@ -42,7 +42,7 @@ import {
   ShortOrg,
   PaginatedData,
   OrgFilterConfigs,
-  OrgDetailsResult,
+  OrgListResult,
   ResponseWithOptionalData,
   OrganizationWithLinks,
   Jobsite,
@@ -315,7 +315,7 @@ export class OrganizationsController {
     schema: {
       allOf: [
         {
-          $ref: getSchemaPath(OrgDetailsResult),
+          $ref: getSchemaPath(OrgListResult),
         },
       ],
     },
@@ -334,7 +334,7 @@ export class OrganizationsController {
     @Param("id") id: string,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Headers(COMMUNITY_HEADER) community: string | undefined,
-  ): Promise<OrgDetailsResult | undefined> {
+  ): Promise<OrgListResult | undefined> {
     this.logger.log(`/organizations/details/${id}`);
     const result = await this.organizationsService.getOrgDetailsById(
       id,
@@ -358,7 +358,7 @@ export class OrganizationsController {
     schema: {
       allOf: [
         {
-          $ref: getSchemaPath(OrgDetailsResult),
+          $ref: getSchemaPath(OrgListResult),
         },
       ],
     },
@@ -377,7 +377,7 @@ export class OrganizationsController {
     @Param("slug") slug: string,
     @Res({ passthrough: true }) res: ExpressResponse,
     @Headers(COMMUNITY_HEADER) community: string | undefined,
-  ): Promise<OrgDetailsResult | undefined> {
+  ): Promise<OrgListResult | undefined> {
     this.logger.log(`/organizations/details/slug/${slug}`);
     const result = await this.organizationsService.getOrgDetailsBySlug(
       slug,

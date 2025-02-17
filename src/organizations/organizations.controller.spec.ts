@@ -7,7 +7,7 @@ import { OrgListParams } from "./dto/org-list.input";
 import { Integer } from "neo4j-driver";
 import {
   OrgFilterConfigs,
-  OrgDetailsResult,
+  OrgListResult,
   Organization,
   ShortOrg,
   OrgProject,
@@ -56,18 +56,12 @@ describe("OrganizationsController", () => {
   };
 
   const olrHasArrayPropsDuplication = (
-    orgListResult: OrgDetailsResult,
+    orgListResult: OrgListResult,
   ): boolean => {
     const hasDuplicateProjects = hasDuplicates(
       orgListResult.projects,
       `Projects for Org ${orgListResult.orgId}`,
       p => p.id,
-      a => JSON.stringify(a),
-    );
-    const hasDuplicateJobs = hasDuplicates(
-      orgListResult.jobs,
-      `Jobs for Org ${orgListResult.orgId}`,
-      j => j.shortUUID,
       a => JSON.stringify(a),
     );
     const hasDuplicateTechs = hasDuplicates(
@@ -93,7 +87,6 @@ describe("OrganizationsController", () => {
         x => projectHasArrayPropsDuplication(x, orgListResult.orgId) === false,
       ) === true;
     expect(hasDuplicateProjects).toBe(false);
-    expect(hasDuplicateJobs).toBe(false);
     expect(hasDuplicateTechs).toBe(false);
     expect(hasDuplicateInvestors).toBe(false);
     expect(hasDuplicateFundingRounds).toBe(false);
@@ -101,7 +94,6 @@ describe("OrganizationsController", () => {
     return (
       hasDuplicateProjects &&
       hasDuplicateTechs &&
-      hasDuplicateJobs &&
       hasDuplicateInvestors &&
       hasDuplicateFundingRounds &&
       hasProjectsWithUniqueProps
