@@ -308,6 +308,16 @@ export class OrgDetailsResultEntity {
               techIssues: nonZeroOrNull(audit?.techIssues),
               link: notStringOrNull(audit?.link),
             })) ?? [],
+          investors: Array.from(
+            uniqBy(
+              project?.investors?.map(investor => ({
+                id: investor.id,
+                name: investor.name,
+                normalizedName: investor.normalizedName,
+              })) ?? [],
+              "id",
+            ),
+          ),
           grants:
             project?.grants?.map(grant => ({
               ...grant,
