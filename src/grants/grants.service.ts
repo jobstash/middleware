@@ -327,6 +327,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
         RETURN {
           id: project.id,
           name: project.name,
+          website: [(project)-[:HAS_WEBSITE]->(website:Website) | website.url][0],
           slug: project.normalizedName,
           logoUrl: project.logoUrl,
           grantFundingData: [
@@ -361,8 +362,8 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
           id: x.id,
           name: x.name,
           slug: x.slug,
-          logoUrl: x.logoUrl ?? null,
-          website: x.website,
+          logoUrl: notStringOrNull(x.logoUrl) ?? notStringOrNull(x.website),
+          website: notStringOrNull(x.website),
           fundingEvents: [
             ...x.grantFundingData.map(x => grantFundingToFundingEvent(x)),
             ...x.vcFundingData.map(x => fundingRoundToFundingEvent(x)),
@@ -764,10 +765,12 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
           id: grantee?.id,
           name: grantee?.name,
           slug: grantee?.slug,
-          logoUrl: notStringOrNull(grantee?.logoUrl),
+          logoUrl:
+            notStringOrNull(grantee.logoUrl) ??
+            notStringOrNull(grantee.website),
+          website: notStringOrNull(grantee.website),
           status: enumApplicationStatus.APPROVED,
           description: grantee.description,
-          website: grantee.website,
           projects: [
             {
               id: uuidfy(granteeSlug),
