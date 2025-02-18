@@ -403,6 +403,7 @@ export interface KarmaGapGrantProgramMetadata {
   logoImg: string | null;
   bannerImg: string | null;
   createdAt: number | null;
+  startsAt: number | null;
   type: string | null;
   tags: string[];
   amount: string | null;
