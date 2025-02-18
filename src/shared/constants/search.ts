@@ -216,11 +216,11 @@ export const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<
     RETURN {
       date: metadata.startsAt,
       programBudget: metadata.programBudget,
-      names: [grant.name]
+      names: [grant.name],
       categories: apoc.coll.toSet([(metadata)-[:HAS_CATEGORY]->(category) | category.name]),
-      chains: apoc.coll.toSet([(metadata)-[:HAS_NETWORKS]->(network) | network.name]),
+      chains: apoc.coll.toSet([(metadata)-[:HAS_NETWORK]->(network) | network.name]),
       ecosystems: apoc.coll.toSet([(metadata)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
-      organizations: apoc.coll.toSet([(metadata)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
+      organizations: apoc.coll.toSet([(metadata)-[:HAS_ORGANIZATION]->(organization) | organization.name])
     } as config
   `,
   impact: `
@@ -230,7 +230,7 @@ export const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<
     
     RETURN {
       categories: apoc.coll.toSet([(metadata)-[:HAS_CATEGORY]->(category) | category.name]),
-      chains: apoc.coll.toSet([(metadata)-[:HAS_NETWORKS]->(network) | network.name]),
+      chains: apoc.coll.toSet([(metadata)-[:HAS_NETWORK]->(network) | network.name]),
       ecosystems: apoc.coll.toSet([(metadata)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
       organizations: apoc.coll.toSet([(metadata)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
       names: [grant.name]

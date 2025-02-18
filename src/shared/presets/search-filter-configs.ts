@@ -265,7 +265,7 @@ export const FILTER_CONFIG_PRESETS = {
   impact: {
     // TODO: add impact filters
     order: {
-      position: 6,
+      position: 1,
       label: "Order",
       show: true,
       googleAnalyticsEventName: "filter_search_order",
@@ -273,7 +273,7 @@ export const FILTER_CONFIG_PRESETS = {
       options: SINGLE_SELECT_OPTIONS.impact.order,
     },
     orderBy: {
-      position: 11,
+      position: 2,
       label: "Order By",
       show: true,
       googleAnalyticsEventName: "filter_search_order_by",
