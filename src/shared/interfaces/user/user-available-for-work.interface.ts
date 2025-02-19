@@ -22,6 +22,7 @@ export class UserAvailableForWork extends UserProfile {
       skills: t.array(UserSkill.UserSkillType),
       showcases: t.array(UserShowCase.UserShowCaseType),
       workHistory: t.array(UserWorkHistory.UserWorkHistoryType),
+      jobCategoryInterests: t.array(t.string),
     }),
   ]);
 
@@ -52,6 +53,9 @@ export class UserAvailableForWork extends UserProfile {
   @ApiProperty()
   note: string | null;
 
+  @ApiProperty()
+  jobCategoryInterests: string[];
+
   constructor(raw: UserAvailableForWork) {
     const {
       skills,
@@ -62,6 +66,7 @@ export class UserAvailableForWork extends UserProfile {
       attestations,
       note,
       ecosystemActivations,
+      jobCategoryInterests,
       ...profile
     } = raw;
     super(profile);
@@ -74,6 +79,7 @@ export class UserAvailableForWork extends UserProfile {
     this.attestations = attestations;
     this.note = note;
     this.ecosystemActivations = ecosystemActivations;
+    this.jobCategoryInterests = jobCategoryInterests;
 
     const result = UserAvailableForWork.UserAvailableForWorkType.decode(raw);
 

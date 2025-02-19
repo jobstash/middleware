@@ -66,6 +66,7 @@ export class UserAvailableForWorkEntity {
           })) ?? [],
       })),
       ecosystemActivations: this.raw?.ecosystemActivations ?? [],
+      jobCategoryInterests: this.raw?.jobCategoryInterests ?? [],
     });
   }
 }
