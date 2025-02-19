@@ -1144,6 +1144,16 @@ export class UserService {
           MATCH (user:User), (organization: Organization {orgId: $orgId})
           WHERE user.available = true
 
+          CALL {
+            WITH user, organization
+            MATCH (user)-[act:VIEWED_DETAILS|APPLIED_TO]->(job:StructuredJobpost)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]-(organization)
+            MATCH (job)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification)
+            RETURN classification.name AS classification, count(*) AS frequency
+            ORDER BY frequency DESC
+          }
+
+          WITH user, organization, collect(classification) AS classifications
+
           RETURN {
             wallet: user.wallet,
             cryptoNative: user.cryptoNative,
@@ -1186,7 +1196,8 @@ export class UserService {
                   }
                 ])
               }
-            ])
+            ]),
+            jobCategoryInterests: classifications
           } as user
         `,
         { orgId: orgId ?? null },
