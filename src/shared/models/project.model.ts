@@ -1202,7 +1202,7 @@ export const Projects = (
                   grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
                     .*,
                     programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
-                  }]
+                  }],
                   jobsites: [
                     (project)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
                       id: jobsite.id,
