@@ -36,12 +36,12 @@ export class GoogleBigQueryService {
     const query = `
       WITH projects AS (
         SELECT DISTINCT project_id
-        FROM beaming-figure-430316-k1.oso_production.projects_v1
+        FROM beaming-figure-430316-k1.oso_production.projects
         WHERE LOWER(project_name) IN UNNEST(@projects)
       )
 
       SELECT *
-      FROM beaming-figure-430316-k1.oso_production.code_metrics_by_project_v1
+      FROM beaming-figure-430316-k1.oso_production.code_metrics_by_project
       WHERE project_id IN (
         SELECT project_id FROM projects
       )
@@ -65,12 +65,12 @@ export class GoogleBigQueryService {
     const query = `
       WITH projects AS (
         SELECT DISTINCT project_id
-        FROM beaming-figure-430316-k1.oso_production.projects_v1
+        FROM beaming-figure-430316-k1.oso_production.projects
         WHERE LOWER(project_name) IN UNNEST(@projects)
       )
 
       SELECT *
-      FROM beaming-figure-430316-k1.oso_production.onchain_metrics_by_project_v1
+      FROM beaming-figure-430316-k1.oso_production.onchain_metrics_by_project
       WHERE project_id IN (
         SELECT project_id FROM projects
       )
@@ -94,7 +94,7 @@ export class GoogleBigQueryService {
     const query = `
       WITH projects AS (
         SELECT DISTINCT project_id
-        FROM beaming-figure-430316-k1.oso_production.projects_v1
+        FROM beaming-figure-430316-k1.oso_production.projects
         WHERE LOWER(project_name) IN UNNEST(@projects)
       )
 
