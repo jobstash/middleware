@@ -474,34 +474,34 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
                   stats: [],
                 }
               : null,
-            codeMetrics?.contributor_count
+            codeMetrics?.contributors
               ? {
                   label: "Contributor Count",
-                  value: codeMetrics.contributor_count
-                    ? codeMetrics.contributor_count.toString()
+                  value: codeMetrics.contributors
+                    ? codeMetrics.contributors.toString()
                     : "N/A",
                   stats: [
                     {
-                      label: "Last 6 Months",
-                      value: codeMetrics.contributor_count_6_months
-                        ? codeMetrics.contributor_count_6_months.toString()
+                      label: "Contributors Last 6 Months",
+                      value: codeMetrics.contributors_6_months
+                        ? codeMetrics.contributors_6_months.toString()
                         : "N/A",
                       stats: [],
                     },
                     {
-                      label: "New Contributors",
-                      value: codeMetrics.new_contributor_count_6_months
-                        ? codeMetrics.new_contributor_count_6_months.toString()
+                      label: "New Contributors 6 Months",
+                      value: codeMetrics.new_contributors_6_months
+                        ? codeMetrics.new_contributors_6_months.toString()
                         : "N/A",
                       stats: [],
                     },
                   ],
                 }
               : null,
-            codeMetrics?.star_count
+            codeMetrics?.stars
               ? {
                   label: "GitHub Stars",
-                  value: codeMetrics.star_count.toString(),
+                  value: codeMetrics.stars.toString(),
                   stats: [],
                 }
               : null,
@@ -515,6 +515,7 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
                 }
               : null,
           ].filter(Boolean);
+
           return [
             overviewStats.length > 0
               ? {
@@ -654,56 +655,56 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
                     },
                     {
                       label: "Repositories",
-                      value: codeMetrics.repository_count
-                        ? codeMetrics.repository_count.toString()
+                      value: codeMetrics.repositories
+                        ? codeMetrics.repositories.toString()
                         : "N/A",
                       stats: [],
                     },
                     {
                       label: "Stars",
-                      value: codeMetrics.repository_count
-                        ? codeMetrics.repository_count.toString()
+                      value: codeMetrics.stars
+                        ? codeMetrics.stars.toString()
                         : "N/A",
                       stats: [],
                     },
                     {
                       label: "Forks",
-                      value: codeMetrics.fork_count
-                        ? codeMetrics.fork_count.toString()
+                      value: codeMetrics.forks
+                        ? codeMetrics.forks.toString()
                         : "N/A",
                       stats: [],
                     },
                     {
                       label: "Contributor Count",
-                      value: codeMetrics.contributor_count
-                        ? codeMetrics.contributor_count.toString()
+                      value: codeMetrics.contributors
+                        ? codeMetrics.contributors.toString()
                         : "N/A",
                       stats: [
                         {
                           label: "Last 6 Months",
-                          value: codeMetrics.contributor_count_6_months
-                            ? codeMetrics.contributor_count_6_months.toString()
+                          value: codeMetrics.contributors_6_months
+                            ? codeMetrics.contributors_6_months.toString()
                             : "N/A",
                           stats: [],
                         },
                         {
                           label: "New Contributors",
-                          value: codeMetrics.new_contributor_count_6_months
-                            ? codeMetrics.new_contributor_count_6_months.toString()
+                          value: codeMetrics.new_contributors_6_months
+                            ? codeMetrics.new_contributors_6_months.toString()
                             : "N/A",
                           stats: [],
                         },
                         {
                           label: "Fulltime Developer Average",
-                          value: codeMetrics.fulltime_developer_average_6_months
-                            ? codeMetrics.fulltime_developer_average_6_months.toString()
+                          value: codeMetrics.avg_fulltime_devs_6_months
+                            ? codeMetrics.avg_fulltime_devs_6_months.toString()
                             : "N/A",
                           stats: [],
                         },
                         {
                           label: "Active Developers",
-                          value: codeMetrics.active_developer_count_6_months
-                            ? codeMetrics.active_developer_count_6_months.toString()
+                          value: codeMetrics.avg_active_devs_6_months
+                            ? codeMetrics.avg_active_devs_6_months.toString()
                             : "N/A",
                           stats: [],
                         },
@@ -711,36 +712,36 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
                     },
                     {
                       label: "Commit Count (6 Months)",
-                      value: codeMetrics.commit_count_6_months
-                        ? codeMetrics.commit_count_6_months.toString()
+                      value: codeMetrics.commits_6_months
+                        ? codeMetrics.commits_6_months.toString()
                         : "N/A",
                       stats: [],
                     },
                     {
                       label: "Opened Pull Request Count (6 Months)",
-                      value: codeMetrics.opened_issue_count_6_months
-                        ? codeMetrics.opened_issue_count_6_months.toString()
+                      value: codeMetrics.pull_requests_opened_6_months
+                        ? codeMetrics.pull_requests_opened_6_months.toString()
                         : "N/A",
                       stats: [],
                     },
                     {
                       label: "Merged Pull Request Count (6 Months)",
-                      value: codeMetrics.merged_pull_request_count_6_months
-                        ? codeMetrics.merged_pull_request_count_6_months.toString()
+                      value: codeMetrics.pull_requests_merged_6_months
+                        ? codeMetrics.pull_requests_merged_6_months.toString()
                         : "N/A",
                       stats: [],
                     },
                     {
                       label: "Opened Issue Count (6 Months)",
-                      value: codeMetrics.opened_issue_count_6_months
-                        ? codeMetrics.opened_issue_count_6_months.toString()
+                      value: codeMetrics.issues_opened_6_months
+                        ? codeMetrics.issues_opened_6_months.toString()
                         : "N/A",
                       stats: [],
                     },
                     {
                       label: "Closed Issue Count (6 Months)",
-                      value: codeMetrics.closed_issue_count_6_months
-                        ? codeMetrics.closed_issue_count_6_months.toString()
+                      value: codeMetrics.issues_closed_6_months
+                        ? codeMetrics.issues_closed_6_months.toString()
                         : "N/A",
                       stats: [],
                     },

@@ -24,8 +24,9 @@ export class RawGrantProjectCodeMetrics {
   @ApiProperty()
   event_source: string;
 
+  // New field name aligning with BigQuery: repositories (was repository_count)
   @ApiProperty()
-  repository_count: number;
+  repositories: number;
 
   @ApiProperty()
   first_commit_date: {
@@ -38,40 +39,40 @@ export class RawGrantProjectCodeMetrics {
   };
 
   @ApiProperty()
-  star_count: number;
+  stars: number;
 
   @ApiProperty()
-  fork_count: number;
+  forks: number;
 
   @ApiProperty()
-  contributor_count: number;
+  contributors: number;
 
   @ApiProperty()
-  contributor_count_6_months: number;
+  contributors_6_months: number;
 
   @ApiProperty()
-  new_contributor_count_6_months: number;
+  new_contributors_6_months: number;
 
   @ApiProperty()
-  fulltime_developer_average_6_months: number;
+  avg_fulltime_devs_6_months: number;
 
   @ApiProperty()
-  active_developer_count_6_months: number;
+  avg_active_devs_6_months: number;
 
   @ApiProperty()
-  commit_count_6_months: number;
+  commits_6_months: number;
 
   @ApiProperty()
-  opened_pull_request_count_6_months: number;
+  issues_opened_6_months: number;
 
   @ApiProperty()
-  merged_pull_request_count_6_months: number;
+  issues_closed_6_months: number;
 
   @ApiProperty()
-  opened_issue_count_6_months: number;
+  pull_requests_opened_6_months: number;
 
   @ApiProperty()
-  closed_issue_count_6_months: number;
+  pull_requests_merged_6_months: number;
 }
 
 export class RawGrantProjectOnchainMetrics {
