@@ -49,7 +49,7 @@ export class GoogleBigQueryService {
 
     const [rows] = await this.bigquery.query({
       query,
-      location: "europe-west4",
+      location: "US",
       params: { projects },
       types: {
         logins: ["STRING"],
@@ -78,7 +78,7 @@ export class GoogleBigQueryService {
 
     const [rows] = await this.bigquery.query({
       query,
-      location: "europe-west4",
+      location: "US",
       params: { projects },
       types: {
         logins: ["STRING"],
@@ -107,7 +107,7 @@ export class GoogleBigQueryService {
 
     const [rows] = await this.bigquery.query({
       query,
-      location: "europe-west4",
+      location: "US",
       params: { projects },
       types: {
         logins: ["STRING"],
