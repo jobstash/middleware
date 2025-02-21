@@ -1068,7 +1068,8 @@ export class SearchService {
               .reduce((acc, curr) => {
                 let current: boolean;
                 const value =
-                  data[FILTER_PARAM_KEY_REVERSE_PRESETS[params.nav][curr]];
+                  data[FILTER_PARAM_KEY_REVERSE_PRESETS[params.nav][curr]] ??
+                  [];
                 const mapped = map.get(curr);
                 if (mapped.kind === "MULTI_SELECT") {
                   current = value
