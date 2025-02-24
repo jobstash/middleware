@@ -25,7 +25,7 @@ export class MagicAuthStrategy extends PassportStrategy(Strategy, "magic") {
       callbackUrl: "/callback/magic-login",
       sendMagicLink: async (destination: string, href: string) =>
         this.sendToken(destination, href),
-      // eslint-disable-next-line @typescript-eslint/ban-types
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
       verify: async (payload: { destination: string }, callback: Function) => {
         const user = await this.verifyUser(payload.destination);
         if (user === null) {
