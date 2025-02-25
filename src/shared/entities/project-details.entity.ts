@@ -99,7 +99,6 @@ export class ProjectDetailsEntity {
         grants:
           organization?.grants?.map(grant => ({
             ...grant,
-            //TODO: remove this once we have a better way to handle this
             tokenAmount: nonZeroOrNull(grant?.tokenAmount),
             tokenUnit: notStringOrNull(grant?.tokenUnit),
             programName: notStringOrNull(grant?.programName) ?? "N/A",
@@ -137,7 +136,6 @@ export class ProjectDetailsEntity {
       grants:
         project?.grants?.map(grant => ({
           ...grant,
-          //TODO: remove this once we have a better way to handle this
           tokenAmount: nonZeroOrNull(grant?.tokenAmount),
           tokenUnit: notStringOrNull(grant?.tokenUnit),
           programName: notStringOrNull(grant?.programName) ?? "N/A",
