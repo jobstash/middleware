@@ -1,10 +1,15 @@
 import { Body, Controller, Headers, Post, Res } from "@nestjs/common";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { PaymentsService } from "./payments.service";
-import { PaymentEvent, PaymentEventData } from "./dto/webhook-data.dto";
-import { JobsService } from "src/jobs/jobs.service";
-import { addDays } from "date-fns";
+import {
+  JobPromotionMetadata,
+  PaymentEvent,
+  PaymentEventData,
+  SubscriptionMetadata,
+} from "./dto/webhook-data.dto";
 import { Response } from "express";
+import { JobsService } from "src/jobs/jobs.service";
+import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
 
 @Controller("payments")
 export class PaymentsController {
@@ -12,6 +17,7 @@ export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
     private readonly jobsService: JobsService,
+    private readonly subscriptionsService: SubscriptionsService,
   ) {}
 
   @Post("webhook")
@@ -31,36 +37,33 @@ export class PaymentsController {
           ? (JSON.parse(body.event) as PaymentEventData)
           : body.event;
       if (event.type === "charge:confirmed") {
-        const job = await this.jobsService.getJobDetailsByUuid(
-          event.data.metadata.jobId,
-          undefined,
-        );
-        if (job) {
-          const isAlreadyPromoted = job.featured;
-          if (isAlreadyPromoted) {
-            this.logger.log(
-              `Job ${job.shortUUID} is already promoted, extending feature duration...`,
+        switch (event.data.metadata.action) {
+          case "job-promotion":
+            this.logger.log(`Handling job promotion webhook event`);
+            const shortUUID = (
+              JSON.parse(event.data.metadata.calldata) as JobPromotionMetadata
+            ).shortUUID;
+            await this.paymentsService.handleJobPromotion(
+              shortUUID,
+              this.jobsService,
             );
-            await this.jobsService.makeJobFeatured({
-              shortUUID: job.shortUUID,
-              startDate: new Date(job.featureStartDate).toISOString(),
-              endDate: addDays(job.featureEndDate, 7).toISOString(),
-            });
-          } else {
-            this.logger.log(
-              `Promoting job ${job.shortUUID} to featured status for a week...`,
+            break;
+          case "new-subscription":
+            this.logger.log(`Handling new subscription webhook event`);
+            const subscriptionMetadata = JSON.parse(
+              event.data.metadata.calldata,
+            ) as SubscriptionMetadata;
+            await this.paymentsService.handleNewSubscription(
+              subscriptionMetadata,
+              event.data.metadata.action,
+              this.subscriptionsService,
             );
-            await this.jobsService.makeJobFeatured({
-              shortUUID: job.shortUUID,
-              startDate: new Date().toISOString(),
-              endDate: addDays(new Date(), 7).toISOString(),
-            });
-          }
-          this.logger.log(`Job ${job.shortUUID} promoted successfully`);
-        } else {
-          this.logger.error(
-            `Job ${event.data.metadata.jobId} could not be promoted because it does not exist`,
-          );
+            break;
+          default:
+            this.logger.warn(
+              `Unsupported or unimplemented webhook event metadata action: ${event.data.metadata.action}`,
+            );
+            break;
         }
       } else {
         this.logger.log(body);

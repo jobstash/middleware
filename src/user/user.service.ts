@@ -9,6 +9,7 @@ import {
   UserProfile,
   UserProfileEntity,
   UserOrgAffiliationRequest,
+  data,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -16,7 +17,7 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nestjs-neogma";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { ModelService } from "src/model/model.service";
-import { instanceToNode, nonZeroOrNull } from "src/shared/helpers";
+import { instanceToNode, nonZeroOrNull, randomToken } from "src/shared/helpers";
 import { randomUUID } from "crypto";
 import { GetAvailableUsersInput } from "./dto/get-available-users.input";
 import { ScorerService } from "src/scorer/scorer.service";
@@ -26,6 +27,7 @@ import { User as PrivyUser, WalletWithMetadata } from "@privy-io/server-auth";
 import { PrivyService } from "src/auth/privy/privy.service";
 import { PermissionService } from "./permission.service";
 import { CheckWalletPermissions } from "src/shared/constants";
+import { Subscription } from "src/shared/interfaces/org";
 
 @Injectable()
 export class UserService {
@@ -71,10 +73,12 @@ export class UserService {
     });
   }
 
-  async findProfileByOrgId(orgId: string): Promise<UserProfile | undefined> {
+  async findOrgOwnerProfileByOrgId(
+    orgId: string,
+  ): Promise<UserProfile | undefined> {
     const result = await this.neogma.queryRunner.run(
       `
-          MATCH (user:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(:Organization {orgId: $orgId})
+          MATCH (user:User)-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(:Organization {orgId: $orgId})
           RETURN user.wallet as wallet
         `,
       { orgId },
@@ -117,10 +121,10 @@ export class UserService {
       });
   }
 
-  async findOrgIdByWallet(wallet: string): Promise<string | null> {
+  async findOrgIdByMemberUserWallet(wallet: string): Promise<string | null> {
     const result = await this.neogma.queryRunner.run(
       `
-        MATCH (:User {wallet: $wallet})-[:HAS_ORGANIZATION_AUTHORIZATION]->(org:Organization)
+        MATCH (:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat)<-[:HAS_USER_SEAT]-(org:Organization)
         RETURN org.orgId as orgId
       `,
       { wallet },
@@ -183,11 +187,11 @@ export class UserService {
     return result.records[0]?.get("hasEmail") as boolean;
   }
 
-  async userAuthorizedForOrg(wallet: string, orgId: string): Promise<boolean> {
+  async isOrgMember(wallet: string, orgId: string): Promise<boolean> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-        RETURN EXISTS((:User {wallet: $wallet})-[:HAS_ORGANIZATION_AUTHORIZATION]->(:Organization {orgId: $orgId})) AS hasOrgAuthorization
+        RETURN EXISTS((:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat)<-[:HAS_USER_SEAT]-(:Organization {orgId: $orgId})) AS hasOrgAuthorization
       `,
         { wallet, orgId },
       );
@@ -206,10 +210,10 @@ export class UserService {
     }
   }
 
-  async orgHasUser(orgId: string): Promise<boolean> {
+  async orgHasOwner(orgId: string): Promise<boolean> {
     const result = await this.neogma.queryRunner.run(
       `
-        RETURN EXISTS((:User)-[:HAS_ORGANIZATION_AUTHORIZATION]->(:Organization {orgId: $orgId})) AS hasOrgAuthorization
+        RETURN EXISTS((:User)-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(:Organization {orgId: $orgId})) AS hasOrgAuthorization
       `,
       { orgId },
     );
@@ -806,6 +810,128 @@ export class UserService {
     }
   }
 
+  async getOrgUserCount(orgId: string): Promise<number> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          MATCH (u:User)-[:OCCUPIES|HAS_USER_SEAT]->(:Organization {orgId: $orgId})
+          RETURN COUNT(u) AS count
+        `,
+      );
+      return Number(result.records[0]?.get("count") ?? 0);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
+        });
+        scope.setExtra("input", orgId);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`UserService::getOrgUserCount ${err.message}`);
+      return 0;
+    }
+  }
+
+  async addOrgUser(
+    orgId: string,
+    wallet: string,
+    subscription: Subscription,
+  ): Promise<ResponseWithNoData> {
+    try {
+      if (subscription.status === "active") {
+        const userCount = await this.getOrgUserCount(orgId);
+        if (userCount < subscription.quota.seats) {
+          const isOwner = !(await this.orgHasOwner(orgId));
+          const seatId = randomToken(8);
+          const verifications = data(
+            await this.profileService.getUserAuthorizedOrgs(wallet),
+          );
+          const org = verifications.find(x => x.id === orgId);
+
+          if (org) {
+            if (org.credential === "email") {
+              await this.neogma.queryRunner.run(
+                `
+                  CREATE (seat: OrgUserSeat {id: randomUUID(), seatType: $seatType, seatId: $seatId})
+
+                  WITH seat
+                  MATCH (org:Organization {orgId: $orgId}), (user:User {wallet: $wallet})
+                  MERGE (user)-[:OCCUPIES]->(seat)<-[:HAS_USER_SEAT]-(org)
+                `,
+                {
+                  seatType: isOwner ? "owner" : "member",
+                  seatId,
+                  orgId,
+                  wallet,
+                },
+              );
+              const userPermissions =
+                await this.permissionService.getPermissionsForWallet(wallet);
+
+              await this.syncUserPermissions(
+                wallet,
+                [
+                  ...userPermissions.map(x => x.name),
+                  CheckWalletPermissions.ORG_MEMBER,
+                  isOwner ? CheckWalletPermissions.ORG_OWNER : null,
+                ].filter(Boolean),
+              );
+              return {
+                success: true,
+                message: `User signed up to org ${isOwner ? "owner" : "member"} seat successfully`,
+              };
+            } else {
+              await this.neogma.queryRunner.run(
+                `
+                  MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
+                  MERGE (user)-[:REQUESTED_TO_JOIN]->(org)
+                `,
+                {
+                  wallet,
+                  orgId,
+                },
+              );
+              return {
+                success: true,
+                message: `User requested to join org successfully`,
+              };
+            }
+          } else {
+            return {
+              success: false,
+              message: "User not authorized to join this org",
+            };
+          }
+        } else {
+          return {
+            success: false,
+            message: `Organization has reached its maximum number of members`,
+          };
+        }
+      } else {
+        return {
+          success: false,
+          message:
+            "Organization cannot have users without an active subscription",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`UserService::addOrgUser ${err.message}`);
+      return {
+        success: false,
+        message: "Error adding org user",
+      };
+    }
+  }
+
   async getCryptoNativeStatus(wallet: string): Promise<boolean | undefined> {
     const initial = await this.neogma.queryRunner
       .run(
@@ -845,93 +971,6 @@ export class UserService {
     permissions: string[],
   ): Promise<void> {
     return this.permissionService.syncUserPermissions(wallet, permissions);
-  }
-
-  async requestOrgAffiliation(
-    wallet: string,
-    orgId: string,
-  ): Promise<ResponseWithNoData> {
-    const user = await this.findByWallet(wallet);
-    if (user) {
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
-        MERGE (user)-[r:REQUESTED_TO_BECOME_AFFILIATED_TO]->(org)
-        SET r.status = "pending"
-        SET r.timestamp = timestamp()
-        `,
-        { wallet, orgId },
-      );
-      return {
-        success: true,
-        message: "Organization affiliation request sent successfully",
-      };
-    } else {
-      this.logger.error(
-        `UserService::requestOrgAffiliation ${wallet}, ${orgId}`,
-      );
-      return {
-        success: false,
-        message: "User not found",
-      };
-    }
-  }
-
-  async authorizeUserForOrg(
-    wallet: string,
-    orgId: string,
-    verdict: "approve" | "reject",
-  ): Promise<ResponseWithNoData> {
-    try {
-      const userPermissions =
-        await this.permissionService.getPermissionsForWallet(wallet);
-
-      await this.neogma.queryRunner.run(
-        `
-          MATCH (u:User {wallet: $wallet})-[r:REQUESTED_TO_BECOME_AFFILIATED_TO]->(org:Organization {orgId: $orgId})
-          SET r.status = $verdict
-          SET r.timestamp = timestamp()
-        `,
-        {
-          wallet,
-          orgId,
-          verdict: verdict === "approve" ? "approved" : "rejected",
-        },
-      );
-
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (u:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
-        MERGE (u)-[:HAS_ORGANIZATION_AUTHORIZATION]->(org)
-      `,
-        { wallet, orgId },
-      );
-
-      if (verdict === "approve") {
-        await this.permissionService.syncUserPermissions(wallet, [
-          ...userPermissions.map(x => x.name),
-          CheckWalletPermissions.ORG_AFFILIATE,
-        ]);
-      }
-
-      return {
-        success: true,
-        message: "Organization affiliation request updated successfully",
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "user.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`UserService::authorizeUserForOrg ${err.message}`);
-      return {
-        success: false,
-        message: "Setting user authorization for org failed",
-      };
-    }
   }
 
   async findAll(): Promise<UserProfile[]> {

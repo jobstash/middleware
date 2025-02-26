@@ -30,6 +30,7 @@ import { SearchModule } from "./search/search.module";
 import { PaymentsModule } from "./payments/payments.module";
 import { UserModule } from "./user/user.module";
 import { Auth0Module } from "./auth0/auth0.module";
+import { SubscriptionsModule } from "./subscriptions/subscriptions.module";
 
 @Module({
   imports: [
@@ -78,6 +79,7 @@ import { Auth0Module } from "./auth0/auth0.module";
     SearchModule,
     PaymentsModule,
     Auth0Module,
+    SubscriptionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

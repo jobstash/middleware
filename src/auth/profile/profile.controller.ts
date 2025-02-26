@@ -133,10 +133,7 @@ export class ProfileController {
 
   @Get("organizations/authorized")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.USER,
-    CheckWalletPermissions.ORG_AFFILIATE,
-  )
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
   @ApiOkResponse({
     description:
       "Returns the authorized organizations of the currently logged in user",
@@ -544,7 +541,8 @@ export class ProfileController {
             const orgId =
               await this.userService.findOrgIdByJobShortUUID(shortUUID);
 
-            const orgProfile = await this.userService.findProfileByOrgId(orgId);
+            const orgProfile =
+              await this.userService.findOrgOwnerProfileByOrgId(orgId);
 
             const org = await this.organizationsService.getOrgById(orgId);
 

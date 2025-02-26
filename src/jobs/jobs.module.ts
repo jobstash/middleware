@@ -44,7 +44,6 @@ import { TagsModule } from "src/tags/tags.module";
   controllers: [JobsController],
   providers: [
     JobsService,
-    // TagsService,
     AuthService,
     JwtService,
     ModelService,

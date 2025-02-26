@@ -12,6 +12,7 @@ import { Type } from "class-transformer";
 export enum PricingType {
   FIXED_PRICE = "fixed_price",
   NO_PRICE = "no_price",
+  SUBSCRIPTION = "subscription",
 }
 
 class LocalPrice {

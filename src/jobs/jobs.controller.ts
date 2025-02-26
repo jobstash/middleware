@@ -276,10 +276,7 @@ export class JobsController {
 
   @Get("/org/:id/all")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.USER,
-    CheckWalletPermissions.ORG_AFFILIATE,
-  )
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
   @ApiOkResponse({
     description: "Returns a list of all jobs posted by an org",
     schema: {
@@ -308,7 +305,7 @@ export class JobsController {
     @Query("page") page: number,
     @Query("limit") limit: number,
   ): Promise<PaginatedData<AllOrgJobsListResult>> {
-    const authorized = await this.userService.userAuthorizedForOrg(address, id);
+    const authorized = await this.userService.isOrgMember(address, id);
     if (
       authorized ||
       permissions.includes(CheckWalletPermissions.SUPER_ADMIN)
@@ -325,10 +322,7 @@ export class JobsController {
 
   @Get("/org/:id/applicants")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.USER,
-    CheckWalletPermissions.ORG_AFFILIATE,
-  )
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
@@ -367,7 +361,7 @@ export class JobsController {
     @Session() { address }: SessionObject,
   ): Promise<ResponseWithOptionalData<JobApplicant[]>> {
     this.logger.log(`/jobs/org/${id}/applicants`);
-    if (!(await this.userService.userAuthorizedForOrg(address, id))) {
+    if (!(await this.userService.isOrgMember(address, id))) {
       throw new ForbiddenException({
         success: false,
         message: "You are not authorized to access this resource",
@@ -557,10 +551,7 @@ export class JobsController {
 
   @Post("/org/:id/applicants")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.USER,
-    CheckWalletPermissions.ORG_AFFILIATE,
-  )
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
   @ApiOkResponse({
     description: "Updates an orgs applicant list",
     schema: {
@@ -577,7 +568,7 @@ export class JobsController {
     @Body() body: UpdateJobApplicantListInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/jobs/org/:id/applicants`);
-    if (!(await this.userService.userAuthorizedForOrg(address, orgId))) {
+    if (!(await this.userService.isOrgMember(address, orgId))) {
       throw new ForbiddenException({
         success: false,
         message: "You are not authorized to access this resource",
@@ -790,10 +781,7 @@ export class JobsController {
 
   @Post("/update/:id")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.USER,
-    CheckWalletPermissions.ORG_AFFILIATE,
-  )
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
   @ApiOkResponse({
     description: "Updates an existing job's metadata",
     schema: responseSchemaWrapper({
@@ -811,7 +799,7 @@ export class JobsController {
     @Body(new ValidationPipe({ transform: true })) body: UpdateJobMetadataInput,
   ): Promise<Response<JobListResult> | ResponseWithNoData> {
     const orgId = await this.userService.findOrgIdByJobShortUUID(shortUUID);
-    const authorized = await this.userService.userAuthorizedForOrg(
+    const authorized = await this.userService.isOrgMember(
       session.address,
       orgId,
     );

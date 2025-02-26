@@ -46,14 +46,11 @@ export class ScorerController {
 
   @Get("client")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.USER,
-    CheckWalletPermissions.ORG_AFFILIATE,
-  )
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
   async getClient(
     @Session() { address }: SessionObject,
   ): Promise<ResponseWithOptionalData<BaseClient>> {
-    const orgId = await this.userService.findOrgIdByWallet(address);
+    const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
     if (orgId) {
       const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
       const platform = client?.platform;
@@ -98,16 +95,13 @@ export class ScorerController {
   @Get("oauth/lever")
   @Redirect()
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.USER,
-    CheckWalletPermissions.ORG_AFFILIATE,
-  )
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
   async triggerLeverOauth(@Session() { address }: SessionObject): Promise<{
     url: string;
   }> {
     this.logger.log(`/scorer/oauth/lever`);
     try {
-      const orgId = await this.userService.findOrgIdByWallet(address);
+      const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
       const key = await this.scorerService.generateEphemeralTokenForOrg(orgId);
       return {
         url: `${this.configService.get<string>(
@@ -139,7 +133,7 @@ export class ScorerController {
   ): Promise<ResponseWithOptionalData<CandidateReport>> {
     this.logger.log(`/scorer/user/report`);
     try {
-      const orgId = await this.userService.findOrgIdByWallet(address);
+      const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
       const key = await this.scorerService.generateEphemeralTokenForOrg(orgId);
       const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
 
@@ -214,10 +208,7 @@ export class ScorerController {
 
   @Post("link/org/:platform")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.USER,
-    CheckWalletPermissions.ORG_AFFILIATE,
-  )
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
   async setupOrgLink(
     @Session() { address }: SessionObject,
     @Param("platform")
@@ -225,7 +216,7 @@ export class ScorerController {
     @Body() body: SetupOrgLinkInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/scorer/link/org/${platform}`);
-    const orgId = await this.userService.findOrgIdByWallet(address);
+    const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
     try {
       const result = await this.httpService.axiosRef.post<ResponseWithNoData>(
         `/${platform}/link`,
@@ -257,10 +248,7 @@ export class ScorerController {
 
   @Post("update/preferences")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.USER,
-    CheckWalletPermissions.ORG_AFFILIATE,
-  )
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
   async setupClientPreferences(
     @Body() body: UpdateClientPreferencesInput,
   ): Promise<ResponseWithOptionalData<string[]>> {
@@ -311,10 +299,7 @@ export class ScorerController {
 
   @Post("register/:platform")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.USER,
-    CheckWalletPermissions.ORG_AFFILIATE,
-  )
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
   async registerAccount(
     @Param("platform") platform: "workable" | "greenhouse" | "jobstash",
     @Body() body: CreateClientInput,
@@ -428,10 +413,7 @@ export class ScorerController {
 
   @Post("webhooks/:platform")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.USER,
-    CheckWalletPermissions.ORG_AFFILIATE,
-  )
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
   async retryWebhooks(
     @Param("platform") platform: "lever" | "workable" | "greenhouse",
     @Body() body: RetryCreateClientWebhooksInput,
@@ -505,16 +487,13 @@ export class ScorerController {
 
   @Post("tags/greenhouse")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.USER,
-    CheckWalletPermissions.ORG_AFFILIATE,
-  )
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
   async retryTagsForGreenhouseClient(
     @Session() { address }: SessionObject,
     @Body() body: RetryCreateClientTagsInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/scorer/tags/greenhouse`);
-    const orgId = await this.userService.findOrgIdByWallet(address);
+    const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
     if (orgId) {
       const result = await firstValueFrom(
         this.httpService
@@ -561,14 +540,11 @@ export class ScorerController {
 
   @Delete("client")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.USER,
-    CheckWalletPermissions.ORG_AFFILIATE,
-  )
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
   async deleteClient(
     @Session() { address }: SessionObject,
   ): Promise<ResponseWithNoData> {
-    const orgId = await this.userService.findOrgIdByWallet(address);
+    const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
     if (orgId) {
       const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
       const platform = client?.platform;

@@ -200,7 +200,7 @@ export class OrganizationsController {
 
   @Get("/all")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ORG_AFFILIATE)
+  @Permissions(CheckWalletPermissions.ORG_MEMBER)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   @ApiOkResponse({
@@ -538,7 +538,7 @@ export class OrganizationsController {
   @Post("/update/:id")
   @UseGuards(PBACGuard)
   @Permissions(
-    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_AFFILIATE],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
     [CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER],
   )
   @ApiOkResponse({
@@ -563,11 +563,8 @@ export class OrganizationsController {
       )} from ${address}`,
     );
 
-    if (permissions.includes(CheckWalletPermissions.ORG_AFFILIATE)) {
-      const authorized = await this.userService.userAuthorizedForOrg(
-        address,
-        id,
-      );
+    if (permissions.includes(CheckWalletPermissions.ORG_MEMBER)) {
+      const authorized = await this.userService.isOrgMember(address, id);
       if (!authorized) {
         throw new ForbiddenException({
           success: false,
@@ -892,7 +889,7 @@ export class OrganizationsController {
   @Post("/jobsites/import")
   @UseGuards(PBACGuard)
   @Permissions(
-    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_AFFILIATE],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
     [CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER],
   )
   @ApiOkResponse({
@@ -916,8 +913,8 @@ export class OrganizationsController {
       )} from ${address}`,
     );
 
-    if (permissions.includes(CheckWalletPermissions.ORG_AFFILIATE)) {
-      const authorized = await this.userService.userAuthorizedForOrg(
+    if (permissions.includes(CheckWalletPermissions.ORG_MEMBER)) {
+      const authorized = await this.userService.isOrgMember(
         address,
         body.orgId,
       );
@@ -934,7 +931,7 @@ export class OrganizationsController {
   @Post("/jobsites/activate")
   @UseGuards(PBACGuard)
   @Permissions(
-    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_AFFILIATE],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
     [CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER],
   )
   @ApiOkResponse({
@@ -958,8 +955,8 @@ export class OrganizationsController {
       )} from ${address}`,
     );
 
-    if (permissions.includes(CheckWalletPermissions.ORG_AFFILIATE)) {
-      const authorized = await this.userService.userAuthorizedForOrg(
+    if (permissions.includes(CheckWalletPermissions.ORG_MEMBER)) {
+      const authorized = await this.userService.isOrgMember(
         address,
         body.orgId,
       );
@@ -1072,7 +1069,7 @@ export class OrganizationsController {
   @Get("/:id")
   @UseGuards(PBACGuard)
   @Permissions(
-    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_AFFILIATE],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
     [CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER],
   )
   @ApiOkResponse({
@@ -1089,10 +1086,7 @@ export class OrganizationsController {
       !permissions.includes(CheckWalletPermissions.ADMIN) &&
       !permissions.includes(CheckWalletPermissions.ORG_MANAGER)
     ) {
-      const authorized = await this.userService.userAuthorizedForOrg(
-        address,
-        id,
-      );
+      const authorized = await this.userService.isOrgMember(address, id);
       if (!authorized) {
         throw new ForbiddenException({
           success: false,

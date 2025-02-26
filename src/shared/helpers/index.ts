@@ -561,9 +561,9 @@ export const createTestUser = async (
   return embeddedWallet;
 };
 
-export const randomToken = (): string => {
+export const randomToken = (length = 64): string => {
   const uid = new ShortUniqueId();
-  const generate = uid.randomUUID(64);
+  const generate = uid.randomUUID(length);
   return generate;
 };
 

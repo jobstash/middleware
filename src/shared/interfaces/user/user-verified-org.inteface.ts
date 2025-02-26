@@ -11,6 +11,11 @@ export class UserVerifiedOrg {
     url: t.string,
     logo: t.union([t.string, t.null]),
     account: t.union([t.string, t.null]),
+    credential: t.intersection([
+      t.literal("email"),
+      t.literal("github"),
+      t.literal("ecosystemActivation"),
+    ]),
   });
 
   @ApiProperty()
@@ -31,8 +36,11 @@ export class UserVerifiedOrg {
   @ApiProperty()
   account: string; // Email or GH Username affiliated with the org
 
+  @ApiProperty()
+  credential: "email" | "github" | "ecosystemActivation";
+
   constructor(raw: UserVerifiedOrg) {
-    const { id, name, slug, url, logo, account } = raw;
+    const { id, name, slug, url, logo, account, credential } = raw;
 
     const result = UserVerifiedOrg.UserVerifiedOrgType.decode(raw);
 
@@ -42,6 +50,7 @@ export class UserVerifiedOrg {
     this.url = url;
     this.logo = logo;
     this.account = account;
+    this.credential = credential;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

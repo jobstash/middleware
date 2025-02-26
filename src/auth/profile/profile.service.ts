@@ -405,14 +405,15 @@ export class ProfileService {
         const orgsByRepo =
           result?.records[0]
             ?.get("orgsByRepo")
-            ?.map(record => record as UserVerifiedOrg) ?? [];
-        const processed = orgsByRepo.map(x => ({
+            ?.map((record: unknown) => record as UserVerifiedOrg) ?? [];
+        const processed = orgsByRepo.map((x: UserVerifiedOrg) => ({
           id: x.id,
           name: x.name,
           slug: slugify(x.name),
           url: x.url,
           logo: x.logo ?? null,
           account: profile.linkedAccounts.github,
+          credential: "github",
         }));
         orgs.push(...processed);
       }
@@ -456,6 +457,7 @@ export class ProfileService {
               url: x.url,
               logo: x.logo ?? null,
               account: x.account,
+              credential: "email",
             });
           }
         });
@@ -474,6 +476,7 @@ export class ProfileService {
               url: "http://ethglobal.com/packs",
               logo: "http://ethglobal.com",
               account: x.address,
+              credential: "ecosystemActivation",
             })),
           ) ?? [];
         mapped.forEach(x => {
@@ -512,7 +515,7 @@ export class ProfileService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-            MATCH (user:User {wallet: $wallet})-[:HAS_ORGANIZATION_AUTHORIZATION]->(organization: Organization)
+            MATCH (user:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat)<-[:HAS_USER_SEAT]-(organization:Organization)
             RETURN apoc.coll.toSet(COLLECT(organization {
               id: organization.orgId,
               name: organization.name,

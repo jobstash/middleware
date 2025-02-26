@@ -23,6 +23,7 @@ import { PermissionService } from "./permission.service";
 import { UserController } from "./user.controller";
 import { Auth0Module } from "src/auth0/auth0.module";
 import { TagsService } from "src/tags/tags.service";
+import { SubscriptionsModule } from "src/subscriptions/subscriptions.module";
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { TagsService } from "src/tags/tags.service";
     forwardRef(() => GithubModule),
     forwardRef(() => PrivyModule),
     forwardRef(() => ProfileModule),
+    forwardRef(() => SubscriptionsModule),
     HttpModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
