@@ -96,10 +96,20 @@ export class UserController {
         };
       }
     } else {
-      const subscription = data(
-        await this.subscriptionService.getSubscriptionInfo(body.orgId),
+      const memberships = data(
+        await this.profileService.getUserAuthorizedOrgs(address),
       );
-      return this.userService.addOrgUser(body.orgId, address, subscription);
+      if (memberships.find(x => x.id === body.orgId)) {
+        return {
+          success: false,
+          message: "User is already a member of this organization",
+        };
+      } else {
+        const subscription = data(
+          await this.subscriptionService.getSubscriptionInfo(body.orgId),
+        );
+        return this.userService.addOrgUser(body.orgId, address, subscription);
+      }
     }
   }
 

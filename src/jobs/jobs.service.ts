@@ -4242,7 +4242,10 @@ export class JobsService {
           amount: this.configService.get<string>("JOB_PROMOTION_PRICE"),
           currency: "USD",
         },
-        pricing_type: PricingType.FIXED_PRICE,
+        pricing_type:
+          this.configService.get("ENVIRONMENT") === "production"
+            ? PricingType.FIXED_PRICE
+            : PricingType.NO_PRICE,
         metadata: {
           calldata: JSON.stringify({
             shortUUID: uuid,

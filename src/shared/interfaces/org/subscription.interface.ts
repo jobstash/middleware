@@ -10,12 +10,12 @@ export class Subscription {
     veri: t.string,
     stashAlert: t.boolean,
     extraSeats: t.number,
-    status: t.intersection([
+    status: t.union([
       t.literal("active"),
       t.literal("inactive"),
       t.literal("expired"),
     ]),
-    duration: t.intersection([t.literal("monthly"), t.literal("yearly")]),
+    duration: t.union([t.literal("monthly"), t.literal("yearly")]),
     createdTimestamp: t.number,
     expiryTimestamp: t.number,
     quota: t.strict({

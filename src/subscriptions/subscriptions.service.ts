@@ -85,7 +85,10 @@ export class SubscriptionsService {
           amount: amount.toString(),
           currency: "USD",
         },
-        pricing_type: PricingType.FIXED_PRICE,
+        pricing_type:
+          this.configService.get("ENVIRONMENT") === "production"
+            ? PricingType.FIXED_PRICE
+            : PricingType.NO_PRICE,
         metadata: {
           calldata: JSON.stringify({
             ...dto,
