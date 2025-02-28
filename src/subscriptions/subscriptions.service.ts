@@ -193,11 +193,11 @@ export class SubscriptionsService {
         Sentry.captureException(err);
       });
       this.logger.error(
-        `SubscriptionsService::initiateSubscriptionPayment ${err.message}`,
+        `SubscriptionsService::initiateSubscription ${err.message}`,
       );
       return {
         success: false,
-        message: `Error initiating subscription payment`,
+        message: `Error initiating subscription`,
       };
     }
   }
