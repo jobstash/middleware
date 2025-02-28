@@ -529,14 +529,18 @@ export class ProfileService {
         result?.records[0]
           ?.get("orgs")
           ?.map(record => record as UserVerifiedOrg) ?? [];
-      const processed = orgs.map(x => ({
-        id: x.id,
-        name: x.name,
-        slug: slugify(x.name),
-        url: x.url,
-        logo: x.logo ?? null,
-        account: "N/A",
-      }));
+      const processed = orgs.map(
+        x =>
+          new UserVerifiedOrg({
+            id: x.id,
+            name: x.name,
+            slug: slugify(x.name),
+            url: x.url,
+            logo: x.logo ?? null,
+            account: wallet,
+            credential: "membership",
+          }),
+      );
 
       return {
         success: true,
@@ -552,7 +556,7 @@ export class ProfileService {
         scope.setExtra("input", { wallet });
         Sentry.captureException(err);
       });
-      this.logger.error(`ProfileService::getUserOrgs ${err.message}`);
+      this.logger.error(`ProfileService::getUserAuthorizedOrgs ${err.message}`);
       return {
         success: false,
         message: "Error retrieving user orgs",

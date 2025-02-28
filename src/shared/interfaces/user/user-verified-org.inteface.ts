@@ -11,10 +11,11 @@ export class UserVerifiedOrg {
     url: t.string,
     logo: t.union([t.string, t.null]),
     account: t.union([t.string, t.null]),
-    credential: t.intersection([
+    credential: t.union([
       t.literal("email"),
       t.literal("github"),
       t.literal("ecosystemActivation"),
+      t.literal("membership"),
     ]),
   });
 
@@ -34,10 +35,10 @@ export class UserVerifiedOrg {
   logo: string | null;
 
   @ApiProperty()
-  account: string; // Email or GH Username affiliated with the org
+  account: string;
 
   @ApiProperty()
-  credential: "email" | "github" | "ecosystemActivation";
+  credential: "email" | "github" | "ecosystemActivation" | "membership";
 
   constructor(raw: UserVerifiedOrg) {
     const { id, name, slug, url, logo, account, credential } = raw;
