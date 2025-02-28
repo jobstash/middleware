@@ -817,6 +817,7 @@ export class UserService {
           MATCH (u:User)-[:OCCUPIES|HAS_USER_SEAT]->(:Organization {orgId: $orgId})
           RETURN COUNT(u) AS count
         `,
+        { orgId },
       );
       return Number(result.records[0]?.get("count") ?? 0);
     } catch (err) {
