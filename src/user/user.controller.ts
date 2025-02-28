@@ -77,19 +77,17 @@ export class UserController {
     if (!hasOwner) {
       const validOrgs =
         data(await this.profileService.getUserVerifiedOrgs(address)) ?? [];
-      const current = validOrgs.find(
+      const verified = validOrgs.find(
         x => x.id === body.orgId && x.credential === "email",
       );
-      if (current) {
+      if (verified) {
         if (body.jobstash) {
-          const paymentLink =
-            await this.subscriptionService.initiateSubscription({
-              wallet: address,
-              email: current.account,
-              dto: body,
-              action: "new",
-            });
-          return paymentLink;
+          return this.subscriptionService.initiateSubscription({
+            wallet: address,
+            email: verified.account,
+            dto: body,
+            action: "new",
+          });
         } else {
           return {
             success: false,
