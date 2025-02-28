@@ -81,7 +81,7 @@ export class UserController {
         x => x.id === body.orgId && x.credential === "email",
       );
       if (current) {
-        if (body.jobstash || body.veri || body.stashAlert || body.extraSeats) {
+        if (body.jobstash) {
           const paymentLink =
             await this.subscriptionService.initiateSubscription({
               wallet: address,
