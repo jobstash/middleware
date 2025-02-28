@@ -374,7 +374,7 @@ export class SubscriptionsService {
             .*,
             quota: [
               (subscription)-[:HAS_QUOTA]->(quota:Quota) | quota { .* }
-            ]
+            ][0]
           } as subscription
         `,
         { orgId },
