@@ -28,7 +28,7 @@ import * as Sentry from "@sentry/node";
 import { JOBSTASH_QUOTA, VERI_ADDONS } from "src/shared/constants/quota";
 import { Subscription } from "src/shared/interfaces/org";
 import { SubscriptionEntity } from "src/shared/entities/subscription.entity";
-import { addDays } from "date-fns";
+import { addMonths } from "date-fns";
 import { capitalize } from "lodash";
 
 @Injectable()
@@ -43,7 +43,7 @@ export class SubscriptionsService {
     private readonly paymentsService: PaymentsService,
   ) {}
 
-  async initiateSubscriptionPayment(input: {
+  async initiateSubscription(input: {
     wallet: string;
     email: string;
     dto: NewSubscriptionInput;
@@ -69,7 +69,7 @@ export class SubscriptionsService {
           ? `Veri ${capitalize(dto.veri)} Addon: $${VERI_BUNDLE_PRICING[dto.veri]}`
           : null,
         dto.stashAlert ? `StashAlert: $${STASH_ALERT_PRICE}` : null,
-        dto.extraSeats
+        dto.extraSeats && dto.jobstash !== "starter"
           ? `${dto.extraSeats} Extra Seats @ ${EXTRA_SEATS_PRICING[dto.jobstash]}/seat: $${EXTRA_SEATS_PRICING[dto.jobstash] * dto.extraSeats}`
           : null,
       ]
@@ -78,39 +78,41 @@ export class SubscriptionsService {
 
       const amount = total + extraSeatCost;
 
-      const paymentLink = await this.paymentsService.createCharge({
-        name: `JobStash.xyz`,
-        description,
-        local_price: {
-          amount: amount.toString(),
-          currency: "USD",
-        },
-        pricing_type:
-          this.configService.get("ENVIRONMENT") === "production"
-            ? PricingType.FIXED_PRICE
-            : PricingType.NO_PRICE,
-        metadata: {
-          calldata: JSON.stringify({
-            ...dto,
-            wallet,
-            amount,
-          }),
-          action:
-            action === "new"
-              ? "new-subscription"
-              : action === "renew"
-                ? "subscription-renewal"
-                : action === "upgrade"
-                  ? "subscription-upgrade"
-                  : "subscription-downgrade",
-        },
-        redirect_url: "https://jobstash.xyz/subscriptions/new?success=true",
-        cancel_url: "https://jobstash.xyz/subscriptions/new?cancelled=true",
-      });
+      if (amount > 0) {
+        const paymentLink = await this.paymentsService.createCharge({
+          name: `JobStash.xyz`,
+          description,
+          local_price: {
+            amount: amount.toString(),
+            currency: "USD",
+          },
+          pricing_type:
+            this.configService.get("ENVIRONMENT") === "production"
+              ? PricingType.FIXED_PRICE
+              : PricingType.NO_PRICE,
+          metadata: {
+            calldata: JSON.stringify({
+              ...dto,
+              extraSeats: dto.jobstash === "starter" ? 0 : dto.extraSeats,
+              wallet,
+              amount,
+            }),
+            action:
+              action === "new"
+                ? "new-subscription"
+                : action === "renew"
+                  ? "subscription-renewal"
+                  : action === "upgrade"
+                    ? "subscription-upgrade"
+                    : "subscription-downgrade",
+          },
+          redirect_url: "https://jobstash.xyz/subscriptions/new?success=true",
+          cancel_url: "https://jobstash.xyz/subscriptions/new?cancelled=true",
+        });
 
-      if (paymentLink) {
-        await this.neogma.queryRunner.run(
-          `
+        if (paymentLink) {
+          await this.neogma.queryRunner.run(
+            `
           MERGE (payment: PendingPayment {link: $link})
           ON CREATE SET
             payment.id = randomUUID(),
@@ -126,50 +128,61 @@ export class SubscriptionsService {
           MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
           MERGE (user)-[:HAS_PENDING_PAYMENT]->(payment)<-[:HAS_PENDING_PAYMENT]-(org)
         `,
-          {
-            wallet,
-            reference: paymentLink.id,
-            link: paymentLink.url,
-            amount,
-            action,
-            orgId: dto.orgId,
-          },
-        );
+            {
+              wallet,
+              reference: paymentLink.id,
+              link: paymentLink.url,
+              amount,
+              action,
+              orgId: dto.orgId,
+            },
+          );
 
-        try {
-          await this.mailService.sendEmail({
-            from: this.configService.getOrThrow<string>("EMAIL"),
-            to: email,
-            subject: `Payment Initiated`,
-            html: `
+          try {
+            await this.mailService.sendEmail({
+              from: this.configService.getOrThrow<string>("EMAIL"),
+              to: email,
+              subject: `Payment Initiated`,
+              html: `
           <h2>Payment Initiated</h2>
           <p>Your payment has been initiated. Click the link below to make your payment.</p>
           <p><a href="${paymentLink.url}">Make Payment</a></p>
         `,
-          });
-        } catch (err) {
-          Sentry.withScope(scope => {
-            scope.setTags({
-              action: "email-send",
-              source: "subscriptions.service",
             });
-            Sentry.captureException(err);
-          });
-          this.logger.error(
-            `SubscriptionsService::initiateSubscriptionPayment ${err.message}`,
-          );
-        }
+          } catch (err) {
+            Sentry.withScope(scope => {
+              scope.setTags({
+                action: "email-send",
+                source: "subscriptions.service",
+              });
+              Sentry.captureException(err);
+            });
+            this.logger.error(
+              `SubscriptionsService::initiateSubscriptionPayment ${err.message}`,
+            );
+          }
 
-        return {
-          success: true,
-          message: "Subscription initiated successfully",
-          data: paymentLink.url,
-        };
+          return {
+            success: true,
+            message: "Subscription initiated successfully",
+            data: paymentLink.url,
+          };
+        } else {
+          return {
+            success: false,
+            message: "Subscription initiation failed",
+          };
+        }
       } else {
-        return {
-          success: false,
-          message: "Subscription initiation failed",
-        };
+        return this.createNewSubscription(
+          {
+            ...dto,
+            extraSeats: dto.jobstash === "starter" ? 0 : dto.extraSeats,
+            amount,
+            wallet,
+          },
+          "new-subscription",
+        );
       }
     } catch (err) {
       Sentry.withScope(scope => {
@@ -196,19 +209,136 @@ export class SubscriptionsService {
     try {
       const result = await this.neogma
         .getTransaction(null, async tx => {
-          const pendingPayment = (
-            await tx.run(
-              `
+          if (dto.amount > 0 && action === "new-subscription") {
+            const pendingPayment = (
+              await tx.run(
+                `
               MATCH (user:User {wallet: $wallet})-[:HAS_PENDING_PAYMENT]->(payment:PendingPayment)<-[:HAS_PENDING_PAYMENT]-(org:Organization {orgId: $orgId})
               RETURN payment { .* } as payment
             `,
-              { wallet: dto.wallet, orgId: dto.orgId },
-            )
-          ).records[0]?.get("payment");
+                { wallet: dto.wallet, orgId: dto.orgId },
+              )
+            ).records[0]?.get("payment");
 
-          if (pendingPayment) {
-            const internalRefCode = randomToken(16);
-            const externalRefCode = pendingPayment.reference;
+            if (pendingPayment) {
+              const internalRefCode = randomToken(16);
+              const externalRefCode = pendingPayment.reference;
+              const quotaInfo = JOBSTASH_QUOTA[dto.jobstash];
+              const veriAddons = VERI_ADDONS[dto.veri];
+
+              const timestamp = new Date();
+              const payload = {
+                ...dto,
+                quota: {
+                  seats: dto.extraSeats + 1,
+                  veri: dto.veri ? quotaInfo.veri + veriAddons : quotaInfo.veri,
+                  stashPool: quotaInfo.stashPool,
+                  atsIntegration: quotaInfo.atsIntegration,
+                  boostedVacancyMultiplier: quotaInfo.boostedVacancyMultiplier,
+                  stashAlert: dto.stashAlert,
+                },
+                action,
+                duration: "monthly",
+                internalRefCode,
+                externalRefCode,
+                timestamp: timestamp.getTime(),
+                expiryTimestamp: addMonths(timestamp, 1).getTime(),
+              };
+
+              const subscription = (
+                await tx.run(
+                  `
+              CREATE (subscription:OrgSubscription {id: randomUUID()})
+              SET subscription.tier = $jobstash
+              SET subscription.veri = $veri
+              SET subscription.stashAlert = $stashAlert
+              SET subscription.extraSeats = $extraSeats
+              SET subscription.status = "active"
+              SET subscription.duration = $duration
+              SET subscription.createdTimestamp = $timestamp
+              SET subscription.expiryTimestamp = $expiryTimestamp
+              RETURN subscription
+            `,
+                  payload,
+                )
+              ).records[0].get("subscription");
+
+              const payment = (
+                await tx.run(
+                  `
+              CREATE (payment:Payment {id: randomUUID()})
+              SET payment.amount = $amount
+              SET payment.currency = "USD"
+              SET payment.status = "confirmed"
+              SET payment.type = "subscription"
+              SET payment.action = $action
+              SET payment.internalRefCode = $internalRefCode
+              SET payment.externalRefCode = $externalRefCode
+              SET payment.timestamp = $timestamp
+              SET payment.expiryTimestamp = $expiryTimestamp
+              RETURN payment
+            `,
+                  payload,
+                )
+              ).records[0].get("payment");
+
+              const quota = (
+                await tx.run(
+                  `
+              CREATE (quota:Quota {id: randomUUID()})
+              SET quota += $quota
+              SET quota.createdTimestamp = $timestamp
+              RETURN quota
+            `,
+                  payload,
+                )
+              ).records[0].get("quota");
+
+              await tx.run(
+                `
+              MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId}), (subscription:OrgSubscription {id: $subscriptionId}), (payment:Payment {id: $paymentId}), (quota:Quota {id: $quotaId})
+              MERGE (org)-[:HAS_SUBSCRIPTION]->(subscription)-[:HAS_PAYMENT]->(payment)<-[:MADE_SUBSCRIPTION_PAYMENT]-(user)
+              
+              WITH subscription, quota
+              MERGE (subscription)-[:HAS_QUOTA]->(quota)
+            `,
+                {
+                  ...payload,
+                  subscriptionId: subscription.properties.id,
+                  paymentId: payment.properties.id,
+                  quotaId: quota.properties.id,
+                },
+              );
+
+              await tx.run(
+                `
+                MATCH (user:User {wallet: $wallet})-[:HAS_PENDING_PAYMENT]->(payment:PendingPayment)<-[:HAS_PENDING_PAYMENT]-(org:Organization {orgId: $orgId})
+                DETACH DELETE payment
+              `,
+                { wallet: dto.wallet, orgId: dto.orgId },
+              );
+
+              return true;
+            } else {
+              this.logger.warn("No pending payment found");
+              Sentry.withScope(scope => {
+                scope.setTags({
+                  action: "business-logic",
+                  source: "subscriptions.service",
+                });
+                scope.setExtra("input", {
+                  wallet: dto.wallet,
+                  orgId: dto.orgId,
+                  action: action,
+                  ...dto,
+                });
+                Sentry.captureMessage(
+                  "Attempted confirmation of missing pending payment",
+                );
+              });
+              return false;
+            }
+          } else {
             const quotaInfo = JOBSTASH_QUOTA[dto.jobstash];
             const veriAddons = VERI_ADDONS[dto.veri];
 
@@ -225,10 +355,8 @@ export class SubscriptionsService {
               },
               action,
               duration: "monthly",
-              internalRefCode,
-              externalRefCode,
               timestamp: timestamp.getTime(),
-              expiryTimestamp: addDays(timestamp, 30).getTime(),
+              expiryTimestamp: addMonths(timestamp, 1).getTime(),
             };
 
             const subscription = (
@@ -249,25 +377,6 @@ export class SubscriptionsService {
               )
             ).records[0].get("subscription");
 
-            const payment = (
-              await tx.run(
-                `
-              CREATE (payment:Payment {id: randomUUID()})
-              SET payment.amount = $amount
-              SET payment.currency = "USD"
-              SET payment.status = "confirmed"
-              SET payment.type = "subscription"
-              SET payment.action = $action
-              SET payment.internalRefCode = $internalRefCode
-              SET payment.externalRefCode = $externalRefCode
-              SET payment.timestamp = $timestamp
-              SET payment.expiryTimestamp = $expiryTimestamp
-              RETURN payment
-            `,
-                payload,
-              )
-            ).records[0].get("payment");
-
             const quota = (
               await tx.run(
                 `
@@ -282,8 +391,8 @@ export class SubscriptionsService {
 
             await tx.run(
               `
-              MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId}), (subscription:OrgSubscription {id: $subscriptionId}), (payment:Payment {id: $paymentId}), (quota:Quota {id: $quotaId})
-              MERGE (org)-[:HAS_SUBSCRIPTION]->(subscription)-[:HAS_PAYMENT]->(payment)<-[:MADE_SUBSCRIPTION_PAYMENT]-(user)
+              MATCH (org:Organization {orgId: $orgId}), (subscription:OrgSubscription {id: $subscriptionId}), (quota:Quota {id: $quotaId})
+              MERGE (org)-[:HAS_SUBSCRIPTION]->(subscription)
               
               WITH subscription, quota
               MERGE (subscription)-[:HAS_QUOTA]->(quota)
@@ -291,38 +400,9 @@ export class SubscriptionsService {
               {
                 ...payload,
                 subscriptionId: subscription.properties.id,
-                paymentId: payment.properties.id,
                 quotaId: quota.properties.id,
               },
             );
-
-            await tx.run(
-              `
-                MATCH (user:User {wallet: $wallet})-[:HAS_PENDING_PAYMENT]->(payment:PendingPayment)<-[:HAS_PENDING_PAYMENT]-(org:Organization {orgId: $orgId})
-                DETACH DELETE payment
-              `,
-              { wallet: dto.wallet, orgId: dto.orgId },
-            );
-
-            return true;
-          } else {
-            this.logger.warn("No pending payment found");
-            Sentry.withScope(scope => {
-              scope.setTags({
-                action: "business-logic",
-                source: "subscriptions.service",
-              });
-              scope.setExtra("input", {
-                wallet: dto.wallet,
-                orgId: dto.orgId,
-                action: action,
-                ...dto,
-              });
-              Sentry.captureMessage(
-                "Attempted confirmation of missing pending payment",
-              );
-            });
-            return false;
           }
         })
         .catch(x => {

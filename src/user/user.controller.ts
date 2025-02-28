@@ -81,14 +81,21 @@ export class UserController {
         x => x.id === body.orgId && x.credential === "email",
       );
       if (current) {
-        const paymentLink =
-          await this.subscriptionService.initiateSubscriptionPayment({
-            wallet: address,
-            email: current.account,
-            dto: body,
-            action: "new",
-          });
-        return paymentLink;
+        if (body.jobstash || body.veri || body.stashAlert || body.extraSeats) {
+          const paymentLink =
+            await this.subscriptionService.initiateSubscription({
+              wallet: address,
+              email: current.account,
+              dto: body,
+              action: "new",
+            });
+          return paymentLink;
+        } else {
+          return {
+            success: false,
+            message: "You must specify a subscription plan",
+          };
+        }
       } else {
         return {
           success: false,

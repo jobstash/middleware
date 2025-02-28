@@ -1,7 +1,7 @@
 export const JOBSTASH_QUOTA = {
   starter: {
     veri: 10,
-    stashPool: true,
+    stashPool: false,
     atsIntegration: true,
     boostedVacancyMultiplier: 0,
   },
