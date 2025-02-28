@@ -17,6 +17,8 @@ export class UserVerifiedOrg {
       t.literal("ecosystemActivation"),
       t.literal("membership"),
     ]),
+    hasOwner: t.boolean,
+    isOwner: t.boolean,
   });
 
   @ApiProperty()
@@ -40,8 +42,24 @@ export class UserVerifiedOrg {
   @ApiProperty()
   credential: "email" | "github" | "ecosystemActivation" | "membership";
 
+  @ApiProperty()
+  hasOwner: boolean;
+
+  @ApiProperty()
+  isOwner: boolean;
+
   constructor(raw: UserVerifiedOrg) {
-    const { id, name, slug, url, logo, account, credential } = raw;
+    const {
+      id,
+      name,
+      slug,
+      url,
+      logo,
+      account,
+      credential,
+      hasOwner,
+      isOwner,
+    } = raw;
 
     const result = UserVerifiedOrg.UserVerifiedOrgType.decode(raw);
 
@@ -52,6 +70,8 @@ export class UserVerifiedOrg {
     this.logo = logo;
     this.account = account;
     this.credential = credential;
+    this.hasOwner = hasOwner;
+    this.isOwner = isOwner;
 
     if (isLeft(result)) {
       report(result).forEach(x => {
