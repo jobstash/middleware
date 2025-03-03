@@ -6,8 +6,19 @@ import { report } from "io-ts-human-reporter";
 export class Subscription {
   public static readonly SubscriptionType = t.strict({
     id: t.string,
-    tier: t.string,
-    veri: t.string,
+    tier: t.union([
+      t.literal("starter"),
+      t.literal("growth"),
+      t.literal("pro"),
+      t.literal("max"),
+    ]),
+    veri: t.union([
+      t.literal("lite"),
+      t.literal("plus"),
+      t.literal("elite"),
+      t.literal("ultra"),
+      t.null,
+    ]),
     stashAlert: t.boolean,
     extraSeats: t.number,
     status: t.union([

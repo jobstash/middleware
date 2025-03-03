@@ -403,6 +403,7 @@ export class SubscriptionsService {
                 quotaId: quota.properties.id,
               },
             );
+            return true;
           }
         })
         .catch(x => {
