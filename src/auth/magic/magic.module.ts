@@ -13,6 +13,7 @@ import { PrivyModule } from "../privy/privy.module";
 import { GithubModule } from "../github/github.module";
 import { ProfileModule } from "../profile/profile.module";
 import { ScorerModule } from "src/scorer/scorer.module";
+import { BullModule } from "@nestjs/bull";
 
 @Module({
   imports: [
@@ -23,6 +24,17 @@ import { ScorerModule } from "src/scorer/scorer.module";
     forwardRef(() => GithubModule),
     forwardRef(() => ProfileModule),
     forwardRef(() => ScorerModule),
+    BullModule.registerQueue({
+      name: "mail",
+      defaultJobOptions: {
+        attempts: 5,
+        backoff: {
+          type: "exponential",
+        },
+        removeOnComplete: true,
+        timeout: 60000,
+      },
+    }),
     ConfigModule,
     MailModule,
   ],

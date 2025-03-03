@@ -21,6 +21,7 @@ import { UserModule } from "src/user/user.module";
 import { PaymentsModule } from "src/payments/payments.module";
 import { Auth0Module } from "src/auth0/auth0.module";
 import { TagsService } from "src/tags/tags.service";
+import { BullModule } from "@nestjs/bull";
 
 @Module({
   imports: [
@@ -29,6 +30,17 @@ import { TagsService } from "src/tags/tags.service";
     forwardRef(() => UserModule),
     forwardRef(() => PrivyModule),
     forwardRef(() => GithubModule),
+    BullModule.registerQueue({
+      name: "mail",
+      defaultJobOptions: {
+        attempts: 5,
+        backoff: {
+          type: "exponential",
+        },
+        removeOnComplete: true,
+        timeout: 60000,
+      },
+    }),
     HttpModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

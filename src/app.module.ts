@@ -31,6 +31,7 @@ import { PaymentsModule } from "./payments/payments.module";
 import { UserModule } from "./user/user.module";
 import { Auth0Module } from "./auth0/auth0.module";
 import { SubscriptionsModule } from "./subscriptions/subscriptions.module";
+import { BullModule } from "@nestjs/bull";
 
 @Module({
   imports: [
@@ -55,6 +56,16 @@ import { SubscriptionsModule } from "./subscriptions/subscriptions.module";
           database: configService.get<string>("NEO4J_DATABASE"),
         } as NeogmaModuleOptions;
       },
+    }),
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        redis: {
+          host: configService.get<string>("REDIS_HOST"),
+          port: configService.get<number>("REDIS_PORT"),
+        },
+      }),
     }),
     CacheModule.register({ isGlobal: true }),
     AuthModule,
