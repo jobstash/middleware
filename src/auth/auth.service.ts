@@ -3,9 +3,12 @@ import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { Request, Response } from "express";
 import { SessionObject } from "src/shared/interfaces";
+import * as Sentry from "@sentry/node";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new CustomLogger(AuthService.name);
   private readonly jwtConfig: object;
   constructor(
     private readonly configService: ConfigService,
@@ -58,6 +61,14 @@ export class AuthService {
       this.jwtService.verify(token, this.jwtConfig);
       return true;
     } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "token-validation",
+          source: "auth.service",
+        });
+        Sentry.captureException(error);
+      });
+      this.logger.error(`AuthService::validateToken ${error.message}`);
       return false;
     }
   }
@@ -66,6 +77,14 @@ export class AuthService {
     try {
       return this.jwtService.decode(token, this.jwtConfig);
     } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "token-decoding",
+          source: "auth.service",
+        });
+        Sentry.captureException(error);
+      });
+      this.logger.error(`AuthService::decodeToken ${error.message}`);
       return null;
     }
   }
