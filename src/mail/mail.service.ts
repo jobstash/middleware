@@ -10,7 +10,8 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 export class MailService {
   private logger = new CustomLogger(MailService.name);
   constructor(
-    @InjectQueue("mail") private mailQueue: Queue<SendGrid.MailDataRequired>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    @InjectQueue("mail") private mailQueue: Queue<any>,
     private readonly configService: ConfigService,
   ) {
     SendGrid.setApiKey(this.configService.get<string>("SENDGRID_API_KEY"));
@@ -30,11 +31,30 @@ export class MailService {
   ): Promise<Job<SendGrid.MailDataRequired>> {
     const now = new Date();
     const delay = differenceInMilliseconds(now, new Date(time));
-    return this.mailQueue.add(mail, { delay });
+    return this.mailQueue.add("send", mail, { delay });
   }
 
-  // async sendPaymentReminderEmail(
-  //   paymentId: string,
-  //   mail: SendGrid.MailDataRequired,
-  // ) {}
+  async scheduleEmailWithPredicate<T>(data: {
+    mail: SendGrid.MailDataRequired;
+    predicateName: string;
+    predicateData: T;
+    time: number;
+  }): Promise<
+    Job<{
+      mail: SendGrid.MailDataRequired;
+      predicateName: string;
+      predicateData: object;
+    }>
+  > {
+    const { mail, predicateName, predicateData, time } = data;
+    const now = new Date();
+    const delay = differenceInMilliseconds(now, new Date(time));
+    return this.mailQueue.add(
+      "predicated-send",
+      { mail, predicateName, predicateData },
+      {
+        delay,
+      },
+    );
+  }
 }

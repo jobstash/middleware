@@ -48,6 +48,8 @@ import baseSlugify from "slugify";
 import { ShortOrgEntity, ShortOrgWithSummaryEntity } from "../entities";
 import { transliterate } from "transliteration";
 
+export * from "./email";
+
 /* 
     optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
     It accepts args for the values to filter with and the cypher filter to apply based on the various combinations of value existence possible

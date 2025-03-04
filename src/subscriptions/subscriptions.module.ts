@@ -5,6 +5,7 @@ import { MailModule } from "src/mail/mail.module";
 import { PaymentsModule } from "src/payments/payments.module";
 import { AuthModule } from "src/auth/auth.module";
 import { UserModule } from "src/user/user.module";
+import { ProfileModule } from "src/auth/profile/profile.module";
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { UserModule } from "src/user/user.module";
     forwardRef(() => PaymentsModule),
     forwardRef(() => AuthModule),
     forwardRef(() => UserModule),
+    forwardRef(() => ProfileModule),
   ],
   controllers: [SubscriptionsController],
   providers: [SubscriptionsService],

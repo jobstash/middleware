@@ -22,26 +22,48 @@ import {
   SubscriptionMetadata,
 } from "src/payments/dto/webhook-data.dto";
 import { UserService } from "src/user/user.service";
-import { randomToken } from "src/shared/helpers";
+import { button, emailBuilder, randomToken, text } from "src/shared/helpers";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { JOBSTASH_QUOTA, VERI_ADDONS } from "src/shared/constants/quota";
 import { Subscription } from "src/shared/interfaces/org";
 import { SubscriptionEntity } from "src/shared/entities/subscription.entity";
-import { addMonths } from "date-fns";
+import { addDays, addHours, addMonths, subDays } from "date-fns";
 import { capitalize } from "lodash";
+import { ProfileService } from "src/auth/profile/profile.service";
 
 @Injectable()
 export class SubscriptionsService {
   private readonly logger = new CustomLogger(SubscriptionsService.name);
+  private readonly from: string;
   constructor(
     @InjectConnection()
     private neogma: Neogma,
     private readonly userService: UserService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
+    private readonly profileService: ProfileService,
     private readonly paymentsService: PaymentsService,
-  ) {}
+  ) {
+    this.from = this.configService.getOrThrow<string>("EMAIL");
+  }
+
+  async isPaymentReminderNeeded(
+    paymentReference: string,
+    orgId: string,
+  ): Promise<boolean> {
+    const payment = (
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (payment:PendingPayment {reference: $paymentReference})<-[:HAS_PENDING_PAYMENT]-(:Organization {orgId: $orgId})
+        RETURN payment { .* } as payment
+      `,
+        { paymentReference, orgId },
+      )
+    ).records[0]?.get("payment");
+
+    return !!payment;
+  }
 
   async initiateSubscription(input: {
     wallet: string;
@@ -113,21 +135,21 @@ export class SubscriptionsService {
         if (paymentLink) {
           await this.neogma.queryRunner.run(
             `
-          MERGE (payment: PendingPayment {link: $link})
-          ON CREATE SET
-            payment.id = randomUUID(),
-            payment.reference = $reference,
-            payment.type = "subscription",
-            payment.amount = $amount,
-            payment.currency = "USD",
-            payment.action = $action,
-            payment.link = $link,
-            payment.createdTimestamp = timestamp()
+              MERGE (payment: PendingPayment {link: $link})
+              ON CREATE SET
+                payment.id = randomUUID(),
+                payment.reference = $reference,
+                payment.type = "subscription",
+                payment.amount = $amount,
+                payment.currency = "USD",
+                payment.action = $action,
+                payment.link = $link,
+                payment.createdTimestamp = timestamp()
 
-          WITH payment
-          MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
-          MERGE (user)-[:HAS_PENDING_PAYMENT]->(payment)<-[:HAS_PENDING_PAYMENT]-(org)
-        `,
+              WITH payment
+              MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
+              MERGE (user)-[:HAS_PENDING_PAYMENT]->(payment)<-[:HAS_PENDING_PAYMENT]-(org)
+            `,
             {
               wallet,
               reference: paymentLink.id,
@@ -139,15 +161,109 @@ export class SubscriptionsService {
           );
 
           try {
-            await this.mailService.sendEmail({
-              from: this.configService.getOrThrow<string>("EMAIL"),
-              to: email,
-              subject: `Payment Initiated`,
-              html: `
-          <h2>Payment Initiated</h2>
-          <p>Your payment has been initiated. Click the link below to make your payment.</p>
-          <p><a href="${paymentLink.url}">Make Payment</a></p>
-        `,
+            await this.mailService.sendEmail(
+              emailBuilder({
+                from: this.from,
+                to: email,
+                subject: "Your hiring tools are waiting for you!",
+                previewText:
+                  "Complete your purchase and unlock JobStash features to help streamline your hiring process.",
+                title: "Hey there,",
+                bodySections: [
+                  text(
+                    "We noticed you left some powerful hiring add-ons in your cart. These features can help you find the right talent faster and more efficiently - perfect for taking your recruitment process to the next level.",
+                  ),
+                  text(
+                    "Don’t leave these tools behind! Just click below to finish your purchase.",
+                  ),
+                  button("Complete Your Purchase", paymentLink.url),
+                  text(
+                    "If you have any questions or need more info, we’re here to help!",
+                  ),
+                ],
+              }),
+            );
+            const now = new Date();
+            await this.mailService.scheduleEmailWithPredicate({
+              mail: emailBuilder({
+                from: this.from,
+                to: email,
+                subject: "Your hiring tools are still waiting for you!",
+                previewText:
+                  "Let’s finish what you started! These add-ons are designed to make your hiring easier.",
+                title: "Hi there,",
+                bodySections: [
+                  text(
+                    "It’s been 24 hours since you added those hiring add-ons to your cart. These features are designed to help you streamline your hiring process, access a broader talent pool, and make smarter recruitment decisions.",
+                  ),
+                  text("Take the next step and complete your purchase now."),
+                  button("Complete Your Purchase", paymentLink.url),
+                  text(
+                    "We’re here to help if you have any questions or need assistance.",
+                  ),
+                ],
+              }),
+              predicateName: "isPaymentReminderNeeded",
+              predicateData: {
+                paymentReference: paymentLink.id,
+                orgId: dto.orgId,
+              },
+              time: addHours(now, 24).getTime(),
+            });
+            await this.mailService.scheduleEmailWithPredicate({
+              mail: emailBuilder({
+                from: this.from,
+                to: email,
+                subject: "Still interested in optimizing your hiring process?",
+                previewText:
+                  "The add-ons you need to improve your hiring are still in your cart!",
+                title: "Hello again,",
+                bodySections: [
+                  text(
+                    "It’s been a few days, and we just wanted to remind you that your cart is still open.",
+                  ),
+                  text(
+                    "These hiring add-ons are designed to make your recruitment process more efficient and give you the edge you need in today’s competitive job market.",
+                  ),
+                  text("Ready to take the next step?"),
+                  button("Complete Your Purchase", paymentLink.url),
+                  text(
+                    "If you’d like more details or have any questions, we’re always here to chat!",
+                  ),
+                ],
+              }),
+              predicateName: "isPaymentReminderNeeded",
+              predicateData: {
+                paymentReference: paymentLink.id,
+                orgId: dto.orgId,
+              },
+              time: addDays(now, 3).getTime(),
+            });
+            await this.mailService.scheduleEmailWithPredicate({
+              mail: emailBuilder({
+                from: this.from,
+                to: email,
+                subject: "Last chance to complete your purchase!",
+                previewText:
+                  "Don’t let your hiring tools slip away. Your cart expires soon.",
+                title: "Hey there,",
+                bodySections: [
+                  text("Your cart is about to expire!"),
+                  text(
+                    "These hiring add-ons are a great way to enhance your recruitment process, this is your final chance to grab them and improve your hiring process.",
+                  ),
+                  button("Complete Your Purchase", paymentLink.url),
+                  text(
+                    "Let us know if you have any questions - we’d be happy to help!",
+                  ),
+                ],
+              }),
+              predicateName: "isPaymentReminderNeeded",
+              predicateData: {
+                paymentReference: paymentLink.id,
+                orgId: dto.orgId,
+              },
+              time: addDays(now, 7).getTime(),
             });
           } catch (err) {
             Sentry.withScope(scope => {
@@ -161,7 +277,6 @@ export class SubscriptionsService {
               `SubscriptionsService::initiateSubscriptionPayment ${err.message}`,
             );
           }
-
           return {
             success: true,
             message: "Subscription initiated successfully",
@@ -207,6 +322,9 @@ export class SubscriptionsService {
     action: Metadata["action"],
   ): Promise<ResponseWithNoData> {
     try {
+      const ownerEmail = data(
+        await this.profileService.getUserAuthorizedOrgs(dto.wallet),
+      ).find(org => org.id === dto.orgId)?.account;
       const result = await this.neogma
         .getTransaction(null, async tx => {
           if (dto.amount > 0 && action === "new-subscription") {
@@ -318,6 +436,63 @@ export class SubscriptionsService {
                 { wallet: dto.wallet, orgId: dto.orgId },
               );
 
+              try {
+                //TODO: change these to official copy from @Laura
+                await this.mailService.sendEmail(
+                  emailBuilder({
+                    from: this.from,
+                    to: ownerEmail,
+                    subject: "JobStash.xyz Subscription",
+                    previewText:
+                      "Your subscription is active. You can now start using JobStash.xyz.",
+                    title: "Your JobStash.xyz subscription has been activated",
+                    bodySections: [
+                      text(
+                        "Your subscription is active. You can now start using JobStash.xyz.",
+                      ),
+                      text(
+                        `Head to your <a href="${this.configService.getOrThrow("ORG_ADMIN_DOMAIN")}">profile</a> to start using your shiny new subscription.`,
+                      ),
+                      text(
+                        "If you have any questions, feel free to reach out to us at support@jobstash.xyz.",
+                      ),
+                      text("Thanks for using JobStash.xyz!"),
+                    ],
+                  }),
+                );
+                await this.mailService.scheduleEmail(
+                  emailBuilder({
+                    from: this.from,
+                    to: ownerEmail,
+                    subject: "JobStash.xyz Subscription Renewal",
+                    previewText:
+                      "Your subscription is about to expire. Upgrade to a premium plan to keep using JobStash.xyz.",
+                    title:
+                      "Your JobStash.xyz subscription is going to expire soon",
+                    bodySections: [
+                      text(
+                        'Your current subscription expires in 5 days. Head to your <a href="${this.configService.getOrThrow("ORG_ADMIN_DOMAIN")}">profile</a> to make a payment to renew your subscription before it expires to keep using JobStash.xyz.',
+                      ),
+                      text(
+                        "If you have any questions, feel free to reach out to us at support@jobstash.xyz.",
+                      ),
+                      text("Thanks for using JobStash.xyz!"),
+                    ],
+                  }),
+                  subDays(addMonths(timestamp, 1), 5).getTime(),
+                );
+              } catch (err) {
+                Sentry.withScope(scope => {
+                  scope.setTags({
+                    action: "email-send",
+                    source: "subscriptions.service",
+                  });
+                  Sentry.captureException(err);
+                });
+                this.logger.error(
+                  `SubscriptionsService::initiateSubscriptionPayment ${err.message}`,
+                );
+              }
               return true;
             } else {
               this.logger.warn("No pending payment found");
@@ -403,6 +578,61 @@ export class SubscriptionsService {
                 quotaId: quota.properties.id,
               },
             );
+            try {
+              //TODO: change these to official copy from @Laura
+              await this.mailService.sendEmail(
+                emailBuilder({
+                  from: this.from,
+                  to: ownerEmail,
+                  subject: "JobStash.xyz Free Trial",
+                  previewText: "Your free trial has been activated.",
+                  title: "Your JobStash.xyz free trial is now active",
+                  bodySections: [
+                    text(
+                      "Your free trial has been activated. You can now try out JobStash.xyz for free for the next 30 days.",
+                    ),
+                    text(
+                      `Head to your <a href="${this.configService.getOrThrow("ORG_ADMIN_DOMAIN")}">profile</a> to start using your shiny new subscription.`,
+                    ),
+                    text(
+                      "If you have any questions, feel free to reach out to us at support@jobstash.xyz.",
+                    ),
+                    text("Thanks for using JobStash.xyz!"),
+                  ],
+                }),
+              );
+              await this.mailService.scheduleEmail(
+                emailBuilder({
+                  from: this.from,
+                  to: ownerEmail,
+                  subject: "JobStash.xyz Free Trial Expiration",
+                  previewText:
+                    "Your free trial is about to expire. Upgrade to a premium plan to keep using JobStash.xyz.",
+                  title: "Your JobStash.xyz free trial is going to expire soon",
+                  bodySections: [
+                    text(
+                      'Your free trial expires in 5 days. Head to your <a href="${this.configService.getOrThrow("ORG_ADMIN_DOMAIN")}">profile</a> to make a payment to upgrade to one of our premium plans before it expires to keep using JobStash.xyz.',
+                    ),
+                    text(
+                      "If you have any questions, feel free to reach out to us at support@jobstash.xyz.",
+                    ),
+                    text("Thanks for using JobStash.xyz!"),
+                  ],
+                }),
+                subDays(addMonths(timestamp, 1), 5).getTime(),
+              );
+            } catch (err) {
+              Sentry.withScope(scope => {
+                scope.setTags({
+                  action: "email-send",
+                  source: "subscriptions.service",
+                });
+                Sentry.captureException(err);
+              });
+              this.logger.error(
+                `SubscriptionsService::initiateSubscriptionPayment ${err.message}`,
+              );
+            }
             return true;
           }
         })
