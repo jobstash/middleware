@@ -105,13 +105,10 @@ export class SubscriptionsService {
   }
 
   async scheduleSubscriptionRenewalEmail(
-    dto: SubscriptionMetadata,
+    dto: SubscriptionMetadata & { ownerEmail: string },
     timestamp: Date,
   ): Promise<void> {
-    const ownerEmail = await this.getSubscriptionOwnerEmail(
-      dto.wallet,
-      dto.orgId,
-    );
+    const { ownerEmail } = dto;
     const { description, amount } = this.generatePaymentDetails(dto);
     const paymentLink = await this.paymentsService.createCharge({
       name: `JobStash.xyz`,
@@ -639,7 +636,13 @@ export class SubscriptionsService {
                     ],
                   }),
                 );
-                await this.scheduleSubscriptionRenewalEmail(dto, timestamp);
+                await this.scheduleSubscriptionRenewalEmail(
+                  {
+                    ...dto,
+                    ownerEmail,
+                  },
+                  timestamp,
+                );
               } catch (err) {
                 Sentry.withScope(scope => {
                   scope.setTags({
@@ -1193,7 +1196,13 @@ export class SubscriptionsService {
                   ],
                 }),
               );
-              await this.scheduleSubscriptionRenewalEmail(dto, timestamp);
+              await this.scheduleSubscriptionRenewalEmail(
+                {
+                  ...dto,
+                  ownerEmail,
+                },
+                timestamp,
+              );
             } catch (err) {
               Sentry.withScope(scope => {
                 scope.setTags({
