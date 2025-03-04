@@ -208,18 +208,22 @@ export class Subscription {
       | "boostedVacancyMultiplier"
       | "atsIntegration",
   ): boolean {
-    if (service === "veri") {
-      const epochUsage =
-        this.getCurrentEpochAggregateUsage()?.find(x => x.service === service)
-          ?.totalUsage ?? 0;
-      const availableQuota = this.rollover?.veri
-        ? this.rollover.veri + this.quota.veri
-        : this.quota.veri;
-      return availableQuota - epochUsage > 0;
-    } else if (service === "boostedVacancyMultiplier") {
-      return this.boostedVacancyMultiplier > 0;
+    if (this.status === "active" && !this.expired) {
+      if (service === "veri") {
+        const epochUsage =
+          this.getCurrentEpochAggregateUsage()?.find(x => x.service === service)
+            ?.totalUsage ?? 0;
+        const availableQuota = this.rollover?.veri
+          ? this.rollover.veri + this.quota.veri
+          : this.quota.veri;
+        return availableQuota - epochUsage > 0;
+      } else if (service === "boostedVacancyMultiplier") {
+        return this.boostedVacancyMultiplier > 0;
+      } else {
+        return this[service];
+      }
     } else {
-      return this[service];
+      return false;
     }
   }
 }
