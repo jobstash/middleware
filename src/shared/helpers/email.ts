@@ -7,9 +7,13 @@ export const emailBuilder = (data: {
   from: string;
   to: string;
   subject: string;
-  previewText: string;
+  previewText?: string;
   title: string;
-  bodySections: { t: "text" | "button"; link?: string; text: string }[];
+  bodySections: {
+    t: "text" | "button" | "link" | "raw";
+    link?: string;
+    text: string;
+  }[];
 }): SendGrid.MailDataRequired => {
   const { from, to, subject, previewText, title, bodySections } = data;
   return {
@@ -141,7 +145,7 @@ export const emailBuilder = (data: {
                                   style="margin: 0; color: #ffffff; direction: ltr; font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif; font-size: 24px; font-weight: 700; letter-spacing: normal; line-height: 120%; text-align: left; margin-top: 0; margin-bottom: 0; mso-line-height-alt: 28.799999999999997px;">
                                   <span class="tinyMce-placeholder" style="word-break: break-word;">${title}</span>
                                 </h3>
-                                ${emailPreviewText(previewText)}
+                                ${previewText ? emailPreviewText(previewText) : ""}
                               </td>
                             </tr>
                           </table>
@@ -159,6 +163,10 @@ export const emailBuilder = (data: {
                                       } else {
                                         return `<p style="margin: 0;">${section.text}</p>`;
                                       }
+                                    } else if (section.t === "link") {
+                                      return `<a href="${section.link}">${section.text}</a>`;
+                                    } else if (section.t === "raw") {
+                                      return section.text;
                                     } else {
                                       return `
                                         <div align="center" class="alignment"><!--[if mso]>
@@ -252,4 +260,18 @@ export const button = (
   t: "button",
   text,
   link,
+});
+
+export const link = (
+  text: string,
+  link: string,
+): { t: "link"; text: string; link: string } => ({
+  t: "link",
+  text,
+  link,
+});
+
+export const raw = (text: string): { t: "raw"; text: string } => ({
+  t: "raw",
+  text,
 });

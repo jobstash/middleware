@@ -1,4 +1,11 @@
-export const JOBSTASH_QUOTA = {
+export const JOBSTASH_QUOTA: {
+  [key: string]: {
+    veri: number;
+    stashPool: boolean;
+    atsIntegration: boolean;
+    boostedVacancyMultiplier: number;
+  };
+} = {
   starter: {
     veri: 10,
     stashPool: false,
@@ -25,7 +32,7 @@ export const JOBSTASH_QUOTA = {
   },
 };
 
-export const VERI_ADDONS = {
+export const VERI_ADDONS: { [key: string]: number } = {
   lite: 100,
   plus: 250,
   elite: 500,

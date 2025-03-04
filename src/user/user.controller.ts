@@ -82,11 +82,10 @@ export class UserController {
       );
       if (verified) {
         if (body.jobstash) {
-          return this.subscriptionService.initiateSubscription({
+          return this.subscriptionService.initiateNewSubscription({
             wallet: address,
             email: verified.account,
             dto: body,
-            action: "new",
           });
         } else {
           return {

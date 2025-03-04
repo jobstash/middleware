@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as Sentry from "@sentry/node";
-import { differenceInHours } from "date-fns";
+import { addDays, differenceInHours } from "date-fns";
 import { sort } from "fast-sort";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nestjs-neogma";
@@ -4283,6 +4283,37 @@ export class JobsService {
         success: false,
         message: "Error generating job promotion payment url",
       };
+    }
+  }
+
+  async handleJobPromotion(shortUUID: string): Promise<void> {
+    const job = await this.getJobDetailsByUuid(shortUUID, undefined);
+    if (job) {
+      const isAlreadyPromoted = job.featured;
+      if (isAlreadyPromoted) {
+        this.logger.log(
+          `Job ${job.shortUUID} is already promoted, extending feature duration...`,
+        );
+        await this.makeJobFeatured({
+          shortUUID: job.shortUUID,
+          startDate: new Date(job.featureStartDate).toISOString(),
+          endDate: addDays(job.featureEndDate, 7).toISOString(),
+        });
+      } else {
+        this.logger.log(
+          `Promoting job ${job.shortUUID} to featured status for a week...`,
+        );
+        await this.makeJobFeatured({
+          shortUUID: job.shortUUID,
+          startDate: new Date().toISOString(),
+          endDate: addDays(new Date(), 7).toISOString(),
+        });
+      }
+      this.logger.log(`Job ${job.shortUUID} promoted successfully`);
+    } else {
+      this.logger.error(
+        `Job ${shortUUID} could not be promoted because it does not exist`,
+      );
     }
   }
 }

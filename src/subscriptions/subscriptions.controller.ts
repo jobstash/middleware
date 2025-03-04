@@ -40,4 +40,26 @@ export class SubscriptionsController {
       });
     }
   }
+
+  @Get(":orgId/renew")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
+  async renewOrgSubscription(
+    @Param("orgId") orgId: string,
+    @Session() { address }: SessionObject,
+  ): Promise<ResponseWithOptionalData<string>> {
+    this.logger.log(`/subscriptions/${orgId}/renew ${address}`);
+    const owner = await this.userService.findOrgOwnerProfileByOrgId(orgId);
+    if (owner.wallet === address) {
+      return this.subscriptionsService.initiateSubscriptionRenewal(
+        address,
+        orgId,
+      );
+    } else {
+      throw new UnauthorizedException({
+        success: false,
+        message: "You are not the owner of this organization",
+      });
+    }
+  }
 }

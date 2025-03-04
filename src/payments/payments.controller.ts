@@ -43,20 +43,24 @@ export class PaymentsController {
             const shortUUID = (
               JSON.parse(event.data.metadata.calldata) as JobPromotionMetadata
             ).shortUUID;
-            await this.paymentsService.handleJobPromotion(
-              shortUUID,
-              this.jobsService,
-            );
+            await this.jobsService.handleJobPromotion(shortUUID);
             break;
           case "new-subscription":
             this.logger.log(`Handling new subscription webhook event`);
-            const subscriptionMetadata = JSON.parse(
+            const newSubscriptionMetadata = JSON.parse(
               event.data.metadata.calldata,
             ) as SubscriptionMetadata;
-            await this.paymentsService.handleNewSubscription(
-              subscriptionMetadata,
-              event.data.metadata.action,
-              this.subscriptionsService,
+            await this.subscriptionsService.createNewSubscription(
+              newSubscriptionMetadata,
+            );
+            break;
+          case "subscription-renewal":
+            this.logger.log(`Handling subscription renewal webhook event`);
+            const subscriptionRenewalMetadata = JSON.parse(
+              event.data.metadata.calldata,
+            ) as SubscriptionMetadata;
+            await this.subscriptionsService.renewSubscription(
+              subscriptionRenewalMetadata,
             );
             break;
           default:
