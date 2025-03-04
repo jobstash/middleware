@@ -222,6 +222,9 @@ export class SubscriptionsService {
     service = "veri",
   ): Promise<ResponseWithNoData> {
     try {
+      this.logger.log(
+        `Attempting to record ${amount} quota usage for ${wallet} for ${orgId} on ${service}`,
+      );
       const subscription = data(await this.getSubscriptionInfo(orgId));
       const isOrgMember = await this.userService.isOrgMember(wallet, orgId);
       if (isOrgMember) {
@@ -241,17 +244,22 @@ export class SubscriptionsService {
               service,
             },
           );
+          this.logger.log(`Successfully recorded quota usage`);
           return {
             success: true,
             message: `Successfully recorded quota usage`,
           };
         } else {
+          this.logger.log(
+            `Cannot record quota usage for expired or inactive subscription`,
+          );
           return {
             success: false,
             message: `Cannot record quota usage for expired or inactive subscription`,
           };
         }
       } else {
+        this.logger.log(`Non org member cannot record quota usage`);
         return {
           success: false,
           message: `Non org member cannot record quota usage`,
@@ -451,7 +459,7 @@ export class SubscriptionsService {
               Sentry.captureException(err);
             });
             this.logger.error(
-              `SubscriptionsService::initiateSubscriptionPayment ${err.message}`,
+              `SubscriptionsService::initiateNewSubscription ${err.message}`,
             );
           }
           return {
@@ -495,9 +503,13 @@ export class SubscriptionsService {
     dto: SubscriptionMetadata,
   ): Promise<ResponseWithNoData> {
     try {
+      this.logger.log("Fetching org owner email");
       const ownerEmail = data(
-        await this.profileService.getUserAuthorizedOrgs(dto.wallet),
+        await this.profileService.getUserVerifiedOrgs(dto.wallet),
       ).find(org => org.id === dto.orgId)?.account;
+      this.logger.log(`Owner email: ${ownerEmail}`);
+      const timestamp = new Date();
+      this.logger.log("Creating new subscription");
       const result = await this.neogma
         .getTransaction(null, async tx => {
           if (dto.amount > 0) {
@@ -517,7 +529,6 @@ export class SubscriptionsService {
               const quotaInfo = JOBSTASH_QUOTA[dto.jobstash];
               const veriAddons = VERI_ADDONS[dto.veri];
 
-              const timestamp = new Date();
               const payload = {
                 ...dto,
                 quota: {
@@ -611,50 +622,6 @@ export class SubscriptionsService {
                 `,
                 { wallet: dto.wallet, orgId: dto.orgId },
               );
-
-              try {
-                await this.mailService.sendEmail(
-                  emailBuilder({
-                    from: this.from,
-                    to: ownerEmail,
-                    subject:
-                      "JobStash Payment Confirmed – Your Add-Ons Are Undergoing Activation!",
-                    title: "Hey,",
-                    bodySections: [
-                      text(
-                        "You did it! Your payment has been successfully processed, and your add-ons are now under review and getting ready to be activated. The process is underway, and your upgraded experience with JobStash is just around the corner! 💡",
-                      ),
-                      text(
-                        `Our small, dedicated team is working hard to get your add-ons reviewed and activated within the next <span style="font-weight:bold;">24-48 hours</span>. Once everything is live, we’ll send you a confirmation so you can start exploring your new features.`,
-                      ),
-                      text(
-                        `Got questions or need support? We’ve got your back! Just reach out to us via <a href="https://t.me/+24r67MsBXT00ODE8">Telegram</a>. We’re always here to help.`,
-                      ),
-                      text(
-                        "Thanks for being part of the JobStash community – we’re excited to have you on board!",
-                      ),
-                    ],
-                  }),
-                );
-                await this.scheduleSubscriptionRenewalEmail(
-                  {
-                    ...dto,
-                    ownerEmail,
-                  },
-                  timestamp,
-                );
-              } catch (err) {
-                Sentry.withScope(scope => {
-                  scope.setTags({
-                    action: "email-send",
-                    source: "subscriptions.service",
-                  });
-                  Sentry.captureException(err);
-                });
-                this.logger.error(
-                  `SubscriptionsService::initiateSubscriptionPayment ${err.message}`,
-                );
-              }
               return true;
             } else {
               this.logger.warn("No pending payment found");
@@ -744,61 +711,6 @@ export class SubscriptionsService {
                 quotaId: quota.properties.id,
               },
             );
-            try {
-              //TODO: change these to official copy from @Laura
-              await this.mailService.sendEmail(
-                emailBuilder({
-                  from: this.from,
-                  to: ownerEmail,
-                  subject: "JobStash.xyz Free Trial",
-                  previewText: "Your free trial has been activated.",
-                  title: "Your JobStash.xyz free trial is now active",
-                  bodySections: [
-                    text(
-                      "Your free trial has been activated. You can now try out JobStash.xyz for free for the next 30 days.",
-                    ),
-                    text(
-                      `Head to your <a href="${this.configService.getOrThrow("ORG_ADMIN_DOMAIN")}">profile</a> to start using your shiny new subscription.`,
-                    ),
-                    text(
-                      "If you have any questions, feel free to reach out to us at support@jobstash.xyz.",
-                    ),
-                    text("Thanks for using JobStash.xyz!"),
-                  ],
-                }),
-              );
-              await this.mailService.scheduleEmail(
-                emailBuilder({
-                  from: this.from,
-                  to: ownerEmail,
-                  subject: "JobStash.xyz Free Trial Expiration",
-                  previewText:
-                    "Your free trial is about to expire. Upgrade to a premium plan to keep using JobStash.xyz.",
-                  title: "Your JobStash.xyz free trial is going to expire soon",
-                  bodySections: [
-                    text(
-                      'Your free trial expires in 5 days. Head to your <a href="${this.configService.getOrThrow("ORG_ADMIN_DOMAIN")}">profile</a> to make a payment to upgrade to one of our premium plans before it expires to keep using JobStash.xyz.',
-                    ),
-                    text(
-                      "If you have any questions, feel free to reach out to us at support@jobstash.xyz.",
-                    ),
-                    text("Thanks for using JobStash.xyz!"),
-                  ],
-                }),
-                subDays(addMonths(timestamp, 1), 5).getTime(),
-              );
-            } catch (err) {
-              Sentry.withScope(scope => {
-                scope.setTags({
-                  action: "email-send",
-                  source: "subscriptions.service",
-                });
-                Sentry.captureException(err);
-              });
-              this.logger.error(
-                `SubscriptionsService::initiateSubscriptionPayment ${err.message}`,
-              );
-            }
             return true;
           }
         })
@@ -814,9 +726,116 @@ export class SubscriptionsService {
           return false;
         });
       if (result) {
+        this.logger.log("Created new subscription successfully");
+        this.logger.log("Sending confirmation email to owner");
         const subscription = data(await this.getSubscriptionInfo(dto.orgId));
+        if (dto.jobstash === "starter") {
+          try {
+            //TODO: change these to official copy from @Laura
+            await this.mailService.sendEmail(
+              emailBuilder({
+                from: this.from,
+                to: ownerEmail,
+                subject: "JobStash.xyz Free Trial",
+                previewText: "Your free trial has been activated.",
+                title: "Your JobStash.xyz free trial is now active",
+                bodySections: [
+                  text(
+                    "Your free trial has been activated. You can now try out JobStash.xyz for free for the next 30 days.",
+                  ),
+                  text(
+                    `Head to your <a href="${this.configService.getOrThrow("ORG_ADMIN_DOMAIN")}">profile</a> to start using your shiny new subscription.`,
+                  ),
+                  text(
+                    "If you have any questions, feel free to reach out to us at support@jobstash.xyz.",
+                  ),
+                  text("Thanks for using JobStash.xyz!"),
+                ],
+              }),
+            );
+            this.logger.log("Scheduled renewal email to owner");
+            await this.mailService.scheduleEmail(
+              emailBuilder({
+                from: this.from,
+                to: ownerEmail,
+                subject: "JobStash.xyz Free Trial Expiration",
+                previewText:
+                  "Your free trial is about to expire. Upgrade to a premium plan to keep using JobStash.xyz.",
+                title: "Your JobStash.xyz free trial is going to expire soon",
+                bodySections: [
+                  text(
+                    'Your free trial expires in 5 days. Head to your <a href="${this.configService.getOrThrow("ORG_ADMIN_DOMAIN")}">profile</a> to make a payment to upgrade to one of our premium plans before it expires to keep using JobStash.xyz.',
+                  ),
+                  text(
+                    "If you have any questions, feel free to reach out to us at support@jobstash.xyz.",
+                  ),
+                  text("Thanks for using JobStash.xyz!"),
+                ],
+              }),
+              subDays(addMonths(timestamp, 1), 5).getTime(),
+            );
+          } catch (err) {
+            Sentry.withScope(scope => {
+              scope.setTags({
+                action: "email-send",
+                source: "subscriptions.service",
+              });
+              Sentry.captureException(err);
+            });
+            this.logger.error(
+              `SubscriptionsService::createNewSubscription ${err.message}`,
+            );
+          }
+        } else {
+          try {
+            await this.mailService.sendEmail(
+              emailBuilder({
+                from: this.from,
+                to: ownerEmail,
+                subject:
+                  "JobStash Payment Confirmed – Your Add-Ons Are Undergoing Activation!",
+                title: "Hey,",
+                bodySections: [
+                  text(
+                    "You did it! Your payment has been successfully processed, and your add-ons are now under review and getting ready to be activated. The process is underway, and your upgraded experience with JobStash is just around the corner! 💡",
+                  ),
+                  text(
+                    `Our small, dedicated team is working hard to get your add-ons reviewed and activated within the next <span style="font-weight:bold;">24-48 hours</span>. Once everything is live, we’ll send you a confirmation so you can start exploring your new features.`,
+                  ),
+                  text(
+                    `Got questions or need support? We’ve got your back! Just reach out to us via <a href="https://t.me/+24r67MsBXT00ODE8">Telegram</a>. We’re always here to help.`,
+                  ),
+                  text(
+                    "Thanks for being part of the JobStash community – we’re excited to have you on board!",
+                  ),
+                ],
+              }),
+            );
+            this.logger.log("Scheduled renewal email to owner");
+            await this.scheduleSubscriptionRenewalEmail(
+              {
+                ...dto,
+                ownerEmail,
+              },
+              timestamp,
+            );
+          } catch (err) {
+            Sentry.withScope(scope => {
+              scope.setTags({
+                action: "email-send",
+                source: "subscriptions.service",
+              });
+              Sentry.captureException(err);
+            });
+            this.logger.error(
+              `SubscriptionsService::createNewSubscription ${err.message}`,
+            );
+          }
+        }
+        this.logger.log("Adding owner to org");
         return this.userService.addOrgUser(dto.orgId, dto.wallet, subscription);
       } else {
+        this.logger.log("Error creating new subscription");
         return {
           success: false,
           message: "Error creating new subscription",
@@ -1009,7 +1028,7 @@ export class SubscriptionsService {
               Sentry.captureException(err);
             });
             this.logger.error(
-              `SubscriptionsService::initiateSubscriptionPayment ${err.message}`,
+              `SubscriptionsService::initiateSubscriptionRenewal ${err.message}`,
             );
           }
           return {
@@ -1047,13 +1066,19 @@ export class SubscriptionsService {
   ): Promise<ResponseWithNoData> {
     try {
       const { wallet, orgId } = dto;
+      this.logger.log("Fetching org owner email");
       const ownerEmail = await this.getSubscriptionOwnerEmail(wallet, orgId);
       if (!ownerEmail) {
+        this.logger.log(
+          `User not authorized to renew subscription to ${orgId}`,
+        );
         return {
           success: false,
           message: `You are not the owner of this subscription`,
         };
       } else {
+        const timestamp = new Date();
+        this.logger.log("Renewing subscription");
         const result = await this.neogma.getTransaction(null, async tx => {
           const pendingPayment = (
             await tx.run(
@@ -1111,7 +1136,7 @@ export class SubscriptionsService {
 
             await tx.run(
               `
-                MERGE (subscription:OrgSubscription {id: subscriptionId})
+                MERGE (subscription:OrgSubscription {id: $subscriptionId})
                 ON MATCH SET
                   subscription.status = "active",
                   subscription.expiryTimestamp = $expiryTimestamp
@@ -1139,8 +1164,9 @@ export class SubscriptionsService {
               )
             ).records[0].get("payment");
 
-            await tx.run(
-              `
+            if (existingSubscription.rollover) {
+              await tx.run(
+                `
                 MATCH (:OrgSubscription {id: $subscriptionId})-[:HAS_QUOTA]->(quota:Quota)-[:HAS_ROLLOVER]->(rollover:QuotaRollover)
                 MERGE (quota)-[:HAS_EXPIRED_ROLLOVER]->(exp:ExpiredQuotaRollover)
                 SET exp += rollover
@@ -1149,8 +1175,19 @@ export class SubscriptionsService {
                 WITH rollover
                 SET rollover += $rollover
               `,
-              payload,
-            );
+                payload,
+              );
+            } else {
+              await tx.run(
+                `
+                  MATCH (:OrgSubscription {id: $subscriptionId})-[:HAS_QUOTA]->(quota:Quota)
+                  MERGE (quota)-[:HAS_ROLLOVER]->(rollover:QuotaRollover)
+                  SET rollover += $rollover
+                  SET rollover.createdTimestamp = $timestamp
+                `,
+                payload,
+              );
+            }
 
             await tx.run(
               `
@@ -1172,49 +1209,6 @@ export class SubscriptionsService {
               { wallet: dto.wallet, orgId: dto.orgId },
             );
 
-            try {
-              //TODO: change these to official copy from @Laura
-              await this.mailService.sendEmail(
-                emailBuilder({
-                  from: this.from,
-                  to: ownerEmail,
-                  subject: "JobStash.xyz Subscription",
-                  previewText:
-                    "Your subscription has been renewed. You can now continue using JobStash.xyz.",
-                  title: "Your JobStash.xyz subscription has been renewed",
-                  bodySections: [
-                    text(
-                      "Your subscription is active. You can now start using JobStash.xyz.",
-                    ),
-                    text(
-                      `Head to your <a href="${this.configService.getOrThrow("ORG_ADMIN_DOMAIN")}">profile</a> to start using your shiny new subscription.`,
-                    ),
-                    text(
-                      "If you have any questions, feel free to reach out to us at support@jobstash.xyz.",
-                    ),
-                    text("Thanks for using JobStash.xyz!"),
-                  ],
-                }),
-              );
-              await this.scheduleSubscriptionRenewalEmail(
-                {
-                  ...dto,
-                  ownerEmail,
-                },
-                timestamp,
-              );
-            } catch (err) {
-              Sentry.withScope(scope => {
-                scope.setTags({
-                  action: "email-send",
-                  source: "subscriptions.service",
-                });
-                Sentry.captureException(err);
-              });
-              this.logger.error(
-                `SubscriptionsService::initiateSubscriptionPayment ${err.message}`,
-              );
-            }
             return true;
           } else {
             this.logger.warn("No pending payment found");
@@ -1227,6 +1221,7 @@ export class SubscriptionsService {
                 wallet: dto.wallet,
                 orgId: dto.orgId,
                 action: "subscription-renewal",
+                ownerEmail,
                 ...dto,
               });
               Sentry.captureMessage(
@@ -1236,6 +1231,71 @@ export class SubscriptionsService {
             return false;
           }
         });
+        if (result) {
+          this.logger.log("Renewed subscription successfully");
+          this.logger.log("Sending confirmation email to owner");
+          try {
+            //TODO: change these to official copy from @Laura
+            await this.mailService.sendEmail(
+              emailBuilder({
+                from: this.from,
+                to: ownerEmail,
+                subject: "JobStash.xyz Subscription",
+                previewText:
+                  "Your subscription has been renewed. You can now continue using JobStash.xyz.",
+                title: "Your JobStash.xyz subscription has been renewed",
+                bodySections: [
+                  text(
+                    "Your subscription is active. You can now start using JobStash.xyz.",
+                  ),
+                  text(
+                    `Head to your <a href="${this.configService.getOrThrow("ORG_ADMIN_DOMAIN")}">profile</a> to start using your shiny new subscription.`,
+                  ),
+                  text(
+                    "If you have any questions, feel free to reach out to us at support@jobstash.xyz.",
+                  ),
+                  text("Thanks for using JobStash.xyz!"),
+                ],
+              }),
+            );
+            this.logger.log("Scheduled next renewal email to owner");
+            await this.scheduleSubscriptionRenewalEmail(
+              {
+                ...dto,
+                ownerEmail,
+              },
+              timestamp,
+            );
+          } catch (err) {
+            Sentry.withScope(scope => {
+              scope.setTags({
+                action: "email-send",
+                source: "subscriptions.service",
+              });
+              Sentry.captureException(err);
+            });
+            this.logger.error(
+              `SubscriptionsService::renewSubscription ${err.message}`,
+            );
+          }
+        } else {
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "business-logic",
+              source: "subscriptions.service",
+            });
+            scope.setExtra("input", {
+              wallet: dto.wallet,
+              orgId: dto.orgId,
+              action: "subscription-renewal",
+              ownerEmail,
+              ...dto,
+            });
+            Sentry.captureMessage(
+              "Attempted confirmation of missing pending payment",
+            );
+          });
+        }
         return {
           success: result,
           message: result

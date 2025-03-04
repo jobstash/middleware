@@ -69,9 +69,12 @@ export class PaymentsController {
             );
             break;
         }
-      } else {
-        this.logger.log(body);
+      } else if (event.type === "charge:pending") {
         this.logger.warn(`Unsupported webhook event type: ${event.type}`);
+      } else {
+        this.logger.warn(
+          `Unsupported webhook event type: ${event.type} ${JSON.stringify(body)}`,
+        );
       }
       res.status(200).send("OK");
     } else {

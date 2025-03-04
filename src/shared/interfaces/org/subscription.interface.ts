@@ -109,6 +109,7 @@ export class Subscription {
       | "getEpochAggregateUsage"
       | "getCurrentEpochUsage"
       | "getCurrentEpochAggregateUsage"
+      | "canAccessService"
     >,
   ) {
     const {
@@ -198,5 +199,27 @@ export class Subscription {
   getCurrentEpochAggregateUsage(): { service: string; totalUsage: number }[] {
     const epochStart = subMonths(this.expiryTimestamp, 1).getTime();
     return this.getEpochAggregateUsage(epochStart, now());
+  }
+
+  canAccessService(
+    service:
+      | "veri"
+      | "stashAlert"
+      | "boostedVacancyMultiplier"
+      | "atsIntegration",
+  ): boolean {
+    if (service === "veri") {
+      const epochUsage =
+        this.getCurrentEpochAggregateUsage()?.find(x => x.service === service)
+          ?.totalUsage ?? 0;
+      const availableQuota = this.rollover?.veri
+        ? this.rollover.veri + this.quota.veri
+        : this.quota.veri;
+      return availableQuota - epochUsage > 0;
+    } else if (service === "boostedVacancyMultiplier") {
+      return this.boostedVacancyMultiplier > 0;
+    } else {
+      return this[service];
+    }
   }
 }

@@ -75,7 +75,7 @@ export class UserService {
 
   async findOrgOwnerProfileByOrgId(
     orgId: string,
-  ): Promise<UserProfile | undefined> {
+  ): Promise<ResponseWithOptionalData<UserProfile>> {
     const result = await this.neogma.queryRunner.run(
       `
           MATCH (user:User)-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(:Organization {orgId: $orgId})
@@ -840,18 +840,24 @@ export class UserService {
     subscription: Subscription,
   ): Promise<ResponseWithNoData> {
     try {
+      this.logger.log(`Adding org user ${wallet} to org ${orgId}`);
       if (subscription.status === "active") {
+        this.logger.log("Org subscription is active");
+        this.logger.log("Checking org user count");
         const userCount = await this.getOrgUserCount(orgId);
         if (userCount < subscription.quota.seats) {
+          this.logger.log("Org user count is less than max seats");
+          this.logger.log("Checking if org owner");
           const isOwner = !(await this.orgHasOwner(orgId));
           const seatId = randomToken(8);
           const verifications = data(
-            await this.profileService.getUserAuthorizedOrgs(wallet),
+            await this.profileService.getUserVerifiedOrgs(wallet),
           );
           const org = verifications.find(x => x.id === orgId);
 
           if (org) {
             if (org.credential === "email") {
+              this.logger.log("User is verified for org by email");
               await this.neogma.queryRunner.run(
                 `
                   CREATE (seat: OrgUserSeat {id: randomUUID(), seatType: $seatType, seatId: $seatId})
@@ -870,6 +876,8 @@ export class UserService {
               const userPermissions =
                 await this.permissionService.getPermissionsForWallet(wallet);
 
+              this.logger.log("Syncing user permissions");
+
               await this.syncUserPermissions(
                 wallet,
                 [
@@ -878,11 +886,15 @@ export class UserService {
                   isOwner ? CheckWalletPermissions.ORG_OWNER : null,
                 ].filter(Boolean),
               );
+              this.logger.log("Synced user permissions");
               return {
                 success: true,
                 message: `User signed up to org ${isOwner ? "owner" : "member"} seat successfully`,
               };
             } else {
+              this.logger.log(
+                "User is not verified for org by email. Requesting to join org",
+              );
               await this.neogma.queryRunner.run(
                 `
                   MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
@@ -899,18 +911,21 @@ export class UserService {
               };
             }
           } else {
+            this.logger.log("User is cannot own or join org");
             return {
               success: false,
               message: "User not authorized to join this org",
             };
           }
         } else {
+          this.logger.log("Org user count is greater than max seats");
           return {
             success: false,
             message: `Organization has reached its maximum number of members`,
           };
         }
       } else {
+        this.logger.log("Org subscription is not active");
         return {
           success: false,
           message:

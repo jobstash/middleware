@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Param,
+  Post,
   UnauthorizedException,
   UseGuards,
 } from "@nestjs/common";
@@ -11,7 +12,11 @@ import { PBACGuard } from "src/auth/pbac.guard";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { Permissions, Session } from "src/shared/decorators";
 import { Subscription } from "src/shared/interfaces/org";
-import { ResponseWithOptionalData, SessionObject } from "src/shared/interfaces";
+import {
+  data,
+  ResponseWithOptionalData,
+  SessionObject,
+} from "src/shared/interfaces";
 import { UserService } from "src/user/user.service";
 
 @Controller("subscriptions")
@@ -30,8 +35,10 @@ export class SubscriptionsController {
     @Session() { address }: SessionObject,
   ): Promise<ResponseWithOptionalData<Subscription>> {
     this.logger.log(`/subscriptions/${orgId} ${address}`);
-    const owner = await this.userService.findOrgOwnerProfileByOrgId(orgId);
-    if (owner.wallet === address) {
+    const owner = data(
+      await this.userService.findOrgOwnerProfileByOrgId(orgId),
+    );
+    if (owner?.wallet === address) {
       return this.subscriptionsService.getSubscriptionInfo(orgId);
     } else {
       throw new UnauthorizedException({
@@ -41,7 +48,7 @@ export class SubscriptionsController {
     }
   }
 
-  @Get(":orgId/renew")
+  @Post(":orgId/renew")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
   async renewOrgSubscription(
@@ -49,8 +56,10 @@ export class SubscriptionsController {
     @Session() { address }: SessionObject,
   ): Promise<ResponseWithOptionalData<string>> {
     this.logger.log(`/subscriptions/${orgId}/renew ${address}`);
-    const owner = await this.userService.findOrgOwnerProfileByOrgId(orgId);
-    if (owner.wallet === address) {
+    const owner = data(
+      await this.userService.findOrgOwnerProfileByOrgId(orgId),
+    );
+    if (owner?.wallet === address) {
       return this.subscriptionsService.initiateSubscriptionRenewal(
         address,
         orgId,

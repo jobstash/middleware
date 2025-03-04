@@ -14,12 +14,14 @@ import { RpcService } from "src/user/rpc.service";
 import { PrivyModule } from "src/auth/privy/privy.module";
 import { GithubModule } from "src/auth/github/github.module";
 import { UserModule } from "src/user/user.module";
+import { SubscriptionsModule } from "src/subscriptions/subscriptions.module";
 
 @Module({
   imports: [
     PrivyModule,
     GithubModule,
     forwardRef(() => UserModule),
+    forwardRef(() => SubscriptionsModule),
     HttpModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

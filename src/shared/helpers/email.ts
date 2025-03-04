@@ -160,20 +160,21 @@ export const emailBuilder = (data: {
                             <tr>
                               <td class="pad">
                                 <div
-                                  style="color:#ffffff;direction:ltr;font-family:Arial, 'Helvetica Neue', Helvetica, sans-serif;font-size:16px;font-weight:400;letter-spacing:0px;line-height:150%;text-align:justify;mso-line-height-alt:24px;">
-                                  ${bodySections.map((section, index) => {
-                                    if (section.t === "text") {
-                                      if (index !== bodySections.length - 1) {
-                                        return `<p style="margin: 0; margin-bottom: 7px;">${section.text}</p>`;
+                                  style="color:#ffffff !important;direction:ltr;font-family:Arial, 'Helvetica Neue', Helvetica, sans-serif;font-size:16px;font-weight:400;letter-spacing:0px;line-height:150%;text-align:justify;mso-line-height-alt:24px;">
+                                  ${bodySections
+                                    .map((section, index) => {
+                                      if (section.t === "text") {
+                                        if (index !== bodySections.length - 1) {
+                                          return `<p style="margin: 0; margin-bottom: 7px;">${section.text}</p>`;
+                                        } else {
+                                          return `<p style="margin: 0;">${section.text}</p>`;
+                                        }
+                                      } else if (section.t === "link") {
+                                        return `<a href="${section.link}" style="color: #ffffff !important; underline: none !important; text-decoration: none !important;"><span style="color: #ffffff !important;">${section.text}</span></a>`;
+                                      } else if (section.t === "raw") {
+                                        return section.text;
                                       } else {
-                                        return `<p style="margin: 0;">${section.text}</p>`;
-                                      }
-                                    } else if (section.t === "link") {
-                                      return `<a href="${section.link}">${section.text}</a>`;
-                                    } else if (section.t === "raw") {
-                                      return section.text;
-                                    } else {
-                                      return `
+                                        return `
                                         <div align="center" class="alignment"><!--[if mso]>
                                           <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" style="height:42px;width:217px;v-text-anchor:middle;" arcsize="10%" fillcolor="#7747ff">
                                           <v:stroke dashstyle="Solid" weight="0px" color="#7747ff"/>
@@ -185,38 +186,24 @@ export const emailBuilder = (data: {
                                           style="word-break: break-word; line-height: 32px;">${section.text}</span></a></span><!--[if mso]></center></v:textbox></v:roundrect><![endif]-->
                                         </div>
                                       `;
-                                    }
-                                  })}
+                                      }
+                                    })
+                                    .join("")}
+                                  <p style="margin: 0;">${footer?.split("\n")?.join("<br/>") ?? defaultFooter}</p>
                                 </div>
                               </td>
+                              
                             </tr>
                           </table>
-                          <table border="0" cellpadding="10" cellspacing="0" class="paragraph_block block-4" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;" width="100%">
-                            <tr>
-                              <td class="pad">
-                                <div style="color:#ffffff;direction:ltr;font-family:Arial, 'Helvetica Neue', Helvetica, sans-serif;font-size:16px;font-weight:400;letter-spacing:0px;line-height:150%;text-align:left;mso-line-height-alt:24px;">
-                                  <p style="margin: 0;">${footer.split("\n").join("<br/>") || defaultFooter}</p>
-                                </div>
-                              </td>
-                            </tr>
-                          </table>
-                          <table border="0" cellpadding="10" cellspacing="0" class="divider_block block-5"
-                            role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;" width="100%">
-                            <tr>
-                              <td class="pad">
-                                <div align="center" class="alignment">
-                                  <table border="0" cellpadding="0" cellspacing="0" role="presentation"
-                                    style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;" width="100%">
-                                    <tr>
-                                      <td class="divider_inner"
-                                        style="font-size: 1px; line-height: 1px; border-top: 1px solid #dddddd;"><span
-                                          style="word-break: break-word;"> </span></td>
-                                    </tr>
-                                  </table>
-                                </div>
-                              </td>
-                            </tr>
-                          </table>
+                          <table border="0" cellpadding="10" cellspacing="0" class="divider_block block-5" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;" width="100%">
+<tr>
+<td >
+<div align="center" class="alignment">
+<table border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;" width="100%">
+<tr>
+<td class="divider_inner" style="font-size: 1px; line-height: 1px; border-top: 1px solid #dddddd;"><span style="word-break: break-word;"> </span></td>
+</tr>
+</table>
                           <table border="0" cellpadding="0" cellspacing="0" class="image_block block-6"
                             role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;" width="100%">
                             <tr>

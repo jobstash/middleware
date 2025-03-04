@@ -16,6 +16,7 @@ import { Response as ExpressResponse } from "express";
 import { OrganizationsService } from "src/organizations/organizations.service";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
+  data,
   PaginatedData,
   Response,
   ResponseWithNoData,
@@ -541,8 +542,9 @@ export class ProfileController {
             const orgId =
               await this.userService.findOrgIdByJobShortUUID(shortUUID);
 
-            const orgProfile =
-              await this.userService.findOrgOwnerProfileByOrgId(orgId);
+            const orgProfile = data(
+              await this.userService.findOrgOwnerProfileByOrgId(orgId),
+            );
 
             const org = await this.organizationsService.getOrgById(orgId);
 

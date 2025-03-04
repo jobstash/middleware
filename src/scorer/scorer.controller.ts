@@ -33,15 +33,17 @@ import { CreateClientInput } from "./dto/create-client.input";
 import { UpdateClientPreferencesInput } from "./dto/update-client-preferences.input";
 import { BaseClient } from "src/shared/interfaces/client.interface";
 import { RetryCreateClientTagsInput } from "./dto/retry-create-client-tags.input";
+import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
 
 @Controller("scorer")
 export class ScorerController {
   private readonly logger = new CustomLogger(ScorerController.name);
   constructor(
+    private readonly httpService: HttpService,
+    private readonly userService: UserService,
     private readonly scorerService: ScorerService,
     private readonly configService: ConfigService,
-    private readonly userService: UserService,
-    private readonly httpService: HttpService,
+    private readonly subscriptionsService: SubscriptionsService,
   ) {}
 
   @Get("client")
@@ -134,60 +136,92 @@ export class ScorerController {
     this.logger.log(`/scorer/user/report`);
     try {
       const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
-      const key = await this.scorerService.generateEphemeralTokenForOrg(orgId);
-      const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
+      const subscription = data(
+        await this.subscriptionsService.getSubscriptionInfo(orgId),
+      );
+      if (subscription.canAccessService("veri")) {
+        const key =
+          await this.scorerService.generateEphemeralTokenForOrg(orgId);
+        const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
 
-      const clientId = client?.id;
-      const platform = client?.platform;
+        const clientId = client?.id;
+        const platform = client?.platform;
 
-      if (clientId && platform) {
-        const res = await firstValueFrom(
-          this.httpService
-            .get<
-              ResponseWithOptionalData<CandidateReport>
-            >(`${this.configService.get<string>("SCORER_DOMAIN")}/scorer/users/report?user=${user}&wallet=${wallet}&client_id=${clientId}&platform=${platform}&key=${key}`)
-            .pipe(
-              catchError((err: AxiosError) => {
-                Sentry.withScope(scope => {
-                  scope.setTags({
-                    action: "proxy-call",
-                    source: "scorer.controller",
+        if (clientId && platform) {
+          const res = await firstValueFrom(
+            this.httpService
+              .get<
+                ResponseWithOptionalData<CandidateReport>
+              >(`${this.configService.get<string>("SCORER_DOMAIN")}/scorer/users/report?user=${user}&wallet=${wallet}&client_id=${clientId}&platform=${platform}&key=${key}`)
+              .pipe(
+                catchError((err: AxiosError) => {
+                  Sentry.withScope(scope => {
+                    scope.setTags({
+                      action: "proxy-call",
+                      source: "scorer.controller",
+                    });
+                    scope.setExtra("input", { user, wallet });
+                    Sentry.captureException(err);
                   });
-                  scope.setExtra("input", { user, wallet });
-                  Sentry.captureException(err);
-                });
-                this.logger.error(
-                  `ScorerController::generateUserReport ${err.message}`,
-                );
-                return [];
-              }),
-            ),
-        );
-        return res.data;
+                  this.logger.error(
+                    `ScorerController::generateUserReport ${err.message}`,
+                  );
+                  return [];
+                }),
+              ),
+          );
+          const result = await this.subscriptionsService.recordQuotaUsage(
+            orgId,
+            address,
+            1,
+            "veri",
+          );
+          if (result.success) {
+            return res.data;
+          } else {
+            return result;
+          }
+        } else {
+          const res = await firstValueFrom(
+            this.httpService
+              .get<
+                ResponseWithOptionalData<CandidateReport>
+              >(`${this.configService.get<string>("SCORER_DOMAIN")}/scorer/users/report?user=${user}&wallet=${wallet}&key=${key}`)
+              .pipe(
+                catchError((err: AxiosError) => {
+                  Sentry.withScope(scope => {
+                    scope.setTags({
+                      action: "proxy-call",
+                      source: "scorer.controller",
+                    });
+                    scope.setExtra("input", { user, wallet });
+                    Sentry.captureException(err);
+                  });
+                  this.logger.error(
+                    `ScorerController::generateUserReport ${err.message}`,
+                  );
+                  return [];
+                }),
+              ),
+          );
+          const result = await this.subscriptionsService.recordQuotaUsage(
+            orgId,
+            address,
+            1,
+            "veri",
+          );
+          if (result.success) {
+            return res.data;
+          } else {
+            return result;
+          }
+        }
       } else {
-        const res = await firstValueFrom(
-          this.httpService
-            .get<
-              ResponseWithOptionalData<CandidateReport>
-            >(`${this.configService.get<string>("SCORER_DOMAIN")}/scorer/users/report?user=${user}&wallet=${wallet}&key=${key}`)
-            .pipe(
-              catchError((err: AxiosError) => {
-                Sentry.withScope(scope => {
-                  scope.setTags({
-                    action: "proxy-call",
-                    source: "scorer.controller",
-                  });
-                  scope.setExtra("input", { user, wallet });
-                  Sentry.captureException(err);
-                });
-                this.logger.error(
-                  `ScorerController::generateUserReport ${err.message}`,
-                );
-                return [];
-              }),
-            ),
-        );
-        return res.data;
+        return {
+          success: false,
+          message:
+            "You do not have access to this service. Please contact your admin for more information.",
+        };
       }
     } catch (err) {
       Sentry.withScope(scope => {

@@ -523,6 +523,7 @@ export class ProfileService {
     wallet: string,
   ): Promise<ResponseWithOptionalData<UserVerifiedOrg[]>> {
     try {
+      const verfifiedOrgs = data(await this.getUserVerifiedOrgs(wallet));
       const result = await this.neogma.queryRunner.run(
         `
             MATCH (user:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat)<-[:HAS_USER_SEAT]-(organization:Organization)
@@ -531,7 +532,7 @@ export class ProfileService {
               name: organization.name,
               url: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
               hasOwner: CASE WHEN EXISTS((:User)-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(:Organization {orgId: organization.orgId})) THEN true ELSE false END,
-              isOwner: CASE WHEN EXISTS((:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(:Organization {orgId: organization.orgId})) THEN true ELSE false END,
+              isOwner: CASE WHEN EXISTS((user)-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(:Organization {orgId: organization.orgId})) THEN true ELSE false END,
               logo: organization.logoUrl
             })) as orgs
           `,
@@ -549,7 +550,9 @@ export class ProfileService {
             slug: slugify(x.name),
             url: x.url,
             logo: x.logo ?? null,
-            account: wallet,
+            account: verfifiedOrgs.find(
+              y => y.id === x.id && y.isOwner === x.isOwner,
+            )?.account,
             hasOwner: x.hasOwner,
             isOwner: x.isOwner,
             credential: "membership",

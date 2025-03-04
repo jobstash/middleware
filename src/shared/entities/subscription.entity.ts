@@ -16,14 +16,19 @@ export class SubscriptionEntity {
       boostedVacancyMultiplier: this.raw.boostedVacancyMultiplier ?? 0,
       rollover: this.raw.rollover
         ? {
-            veri: this.raw.rollover.veri ?? 0,
+            veri: nonZeroOrNull(this.raw.rollover.veri) ?? 0,
           }
         : null,
       quota: {
-        veri: this.raw.quota.veri ?? 0,
-        seats: this.raw.quota.seats ?? 0,
+        veri: nonZeroOrNull(this.raw.quota.veri) ?? 0,
+        seats: nonZeroOrNull(this.raw.quota.seats) ?? 0,
       },
-      usage: this.raw.usage ?? [],
+      usage:
+        this.raw.usage.map(x => ({
+          ...x,
+          amount: nonZeroOrNull(x.amount),
+          timestamp: nonZeroOrNull(x.timestamp),
+        })) ?? [],
       expiryTimestamp: nonZeroOrNull(this.raw.expiryTimestamp),
       createdTimestamp: nonZeroOrNull(this.raw.createdTimestamp),
     });
