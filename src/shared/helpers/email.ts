@@ -3,6 +3,10 @@ import * as SendGrid from "@sendgrid/mail";
 export const emailPreviewText = (text: string): string =>
   `<span class="preheader" style="color: transparent; display: none; height: 0; max-height: 0; max-width: 0; opacity: 0; overflow: hidden; mso-hide: all; visibility: hidden; width: 0;">${text}</span>`;
 
+const defaultFooter = `
+Cheers,
+The JobStash.xyz Team
+`;
 export const emailBuilder = (data: {
   from: string;
   to: string;
@@ -14,8 +18,9 @@ export const emailBuilder = (data: {
     link?: string;
     text: string;
   }[];
+  footer?: string;
 }): SendGrid.MailDataRequired => {
-  const { from, to, subject, previewText, title, bodySections } = data;
+  const { from, to, subject, previewText, title, bodySections, footer } = data;
   return {
     from,
     to,
@@ -186,6 +191,15 @@ export const emailBuilder = (data: {
                               </td>
                             </tr>
                           </table>
+                          <table border="0" cellpadding="10" cellspacing="0" class="paragraph_block block-4" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;" width="100%">
+                            <tr>
+                              <td class="pad">
+                                <div style="color:#ffffff;direction:ltr;font-family:Arial, 'Helvetica Neue', Helvetica, sans-serif;font-size:16px;font-weight:400;letter-spacing:0px;line-height:150%;text-align:left;mso-line-height-alt:24px;">
+                                  <p style="margin: 0;">${footer.split("\n").join("<br/>") || defaultFooter}</p>
+                                </div>
+                              </td>
+                            </tr>
+                          </table>
                           <table border="0" cellpadding="10" cellspacing="0" class="divider_block block-5"
                             role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;" width="100%">
                             <tr>
@@ -209,7 +223,7 @@ export const emailBuilder = (data: {
                               <td class="pad" style="width:100%;padding-right:0px;padding-left:0px;">
                                 <div align="center" class="alignment" style="line-height:10px">
                                   <div style="max-width: 272.58px;"><a href="https://jobstash.xyz" style="outline:none"
-                                      tabindex="-1" target="_blank"><img alt="" height="auto" src="images/JobStash.png"
+                                      tabindex="-1" target="_blank"><img alt="" height="auto" src="https://raw.githubusercontent.com/jobstash/app/refs/heads/main/apps/web/public/JobStash-Wordmark-800.png"
                                         style="display: block; height: auto; border: 0; width: 100%;" title=""
                                         width="272.58" /></a></div>
                                 </div>
