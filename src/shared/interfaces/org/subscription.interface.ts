@@ -128,7 +128,10 @@ export class Subscription {
       createdTimestamp,
       boostedVacancyMultiplier,
     } = raw;
-    const result = Subscription.SubscriptionType.decode(raw);
+    const result = Subscription.SubscriptionType.decode({
+      ...raw,
+      expired: now() < expiryTimestamp ? false : true,
+    });
 
     this.id = id;
     this.tier = tier;

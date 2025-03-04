@@ -185,20 +185,6 @@ export const emailBuilder = (data: {
                                 </div>
                               </td>
                             </tr>
-                          </table>]
-                          <table border="0" cellpadding="10" cellspacing="0" class="paragraph_block block-4"
-                            role="presentation"
-                            style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;" width="100%">
-                            <tr>
-                              <td class="pad">
-                                <div
-                                  style="color:#ffffff;direction:ltr;font-family:Arial, 'Helvetica Neue', Helvetica, sans-serif;font-size:16px;font-weight:400;letter-spacing:0px;line-height:150%;text-align:left;mso-line-height-alt:24px;">
-                                  <p style="margin: 0; margin-bottom: 16px;">If you have any questions or need more
-                                    info, we’re here to help!</p>
-                                  <p style="margin: 0;">Cheers,<br />The JobStash.xyz Team</p>
-                                </div>
-                              </td>
-                            </tr>
                           </table>
                           <table border="0" cellpadding="10" cellspacing="0" class="divider_block block-5"
                             role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;" width="100%">
