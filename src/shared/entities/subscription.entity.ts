@@ -1,5 +1,5 @@
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
-import { Subscription } from "../interfaces/org";
+import { Quota, Subscription } from "../interfaces/org";
 
 export class SubscriptionEntity {
   constructor(private readonly raw: Subscription) {}
@@ -14,21 +14,21 @@ export class SubscriptionEntity {
       stashPool: this.raw.stashPool ?? false,
       atsIntegration: this.raw.atsIntegration ?? false,
       boostedVacancyMultiplier: this.raw.boostedVacancyMultiplier ?? 0,
-      rollover: this.raw.rollover
-        ? {
-            veri: nonZeroOrNull(this.raw.rollover.veri) ?? 0,
-          }
-        : null,
-      quota: {
-        veri: nonZeroOrNull(this.raw.quota.veri) ?? 0,
-        seats: nonZeroOrNull(this.raw.quota.seats) ?? 0,
-      },
-      usage:
-        this.raw.usage.map(x => ({
-          ...x,
-          amount: nonZeroOrNull(x.amount),
-          timestamp: nonZeroOrNull(x.timestamp),
-        })) ?? [],
+      quota: this.raw.quota.map(
+        x =>
+          new Quota({
+            ...x,
+            veri: nonZeroOrNull(x.veri) ?? 0,
+            createdTimestamp: nonZeroOrNull(x.createdTimestamp),
+            expiryTimestamp: nonZeroOrNull(x.expiryTimestamp),
+            usage:
+              x.usage.map(y => ({
+                ...y,
+                amount: nonZeroOrNull(y.amount),
+                timestamp: nonZeroOrNull(y.timestamp),
+              })) ?? [],
+          }),
+      ),
       expiryTimestamp: nonZeroOrNull(this.raw.expiryTimestamp),
       createdTimestamp: nonZeroOrNull(this.raw.createdTimestamp),
     });

@@ -29,7 +29,7 @@ import {
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { JOBSTASH_QUOTA, VERI_ADDONS } from "src/shared/constants/quota";
-import { Subscription } from "src/shared/interfaces/org";
+import { MeteredService, Subscription } from "src/shared/interfaces/org";
 import { SubscriptionEntity } from "src/shared/entities/subscription.entity";
 import { addDays, addHours, addMonths, subDays } from "date-fns";
 import { capitalize, now } from "lodash";
@@ -219,7 +219,7 @@ export class SubscriptionsService {
     orgId: string,
     wallet: string,
     amount: number,
-    service = "veri",
+    service: MeteredService,
   ): Promise<ResponseWithNoData> {
     try {
       this.logger.log(
@@ -228,27 +228,36 @@ export class SubscriptionsService {
       const subscription = data(await this.getSubscriptionInfo(orgId));
       const isOrgMember = await this.userService.isOrgMember(wallet, orgId);
       if (isOrgMember) {
-        if (
-          subscription.status === "active" &&
-          subscription.expiryTimestamp > now()
-        ) {
-          await this.neogma.queryRunner.run(
-            `
-            MATCH (user:User {wallet: $wallet}), (subscription:OrgSubscription {id: $subscriptionId, status: "active"})-[:HAS_QUOTA]->(quota:Quota)
-            MERGE (user)-[:USED_QUOTA]->(quotaUsage:QuotaUsage {service: $service, amount: $amount, timestamp: timestamp()})<-[:HAS_USAGE]-(quota)
-          `,
-            {
-              subscriptionId: subscription.id,
-              wallet,
-              amount,
-              service,
-            },
-          );
-          this.logger.log(`Successfully recorded quota usage`);
-          return {
-            success: true,
-            message: `Successfully recorded quota usage`,
-          };
+        if (subscription.isActive() && subscription.canAccessService(service)) {
+          const quotaId = subscription.getOldestActiveUnfilledQuota()?.id;
+          if (quotaId) {
+            await this.neogma.queryRunner.run(
+              `
+                MATCH (user:User {wallet: $wallet}), (subscription:OrgSubscription {id: $subscriptionId, status: "active"})-[:HAS_QUOTA]->(quota:Quota {id: $quotaId})
+                MERGE (user)-[:USED_QUOTA]->(quotaUsage:QuotaUsage {service: $service, amount: $amount, timestamp: timestamp()})<-[:HAS_USAGE]-(quota)
+              `,
+              {
+                subscriptionId: subscription.id,
+                quotaId: quotaId,
+                wallet,
+                amount,
+                service,
+              },
+            );
+            this.logger.log(`Successfully recorded quota usage`);
+            return {
+              success: true,
+              message: `Successfully recorded quota usage`,
+            };
+          } else {
+            this.logger.log(
+              `Account has exhausted all available quota for ${service}`,
+            );
+            return {
+              success: false,
+              message: `Account has exhausted all available quota for ${service}`,
+            };
+          }
         } else {
           this.logger.log(
             `Cannot record quota usage for expired or inactive subscription`,
@@ -532,8 +541,9 @@ export class SubscriptionsService {
               const payload = {
                 ...dto,
                 quota: {
-                  seats: dto.extraSeats + 1,
                   veri: dto.veri ? quotaInfo.veri + veriAddons : quotaInfo.veri,
+                  createdTimestamp: timestamp.getTime(),
+                  expiryTimestamp: addMonths(timestamp, 2).getTime(),
                 },
                 stashPool: quotaInfo.stashPool,
                 atsIntegration: quotaInfo.atsIntegration,
@@ -592,7 +602,6 @@ export class SubscriptionsService {
                   `
                     CREATE (quota:Quota {id: randomUUID()})
                     SET quota += $quota
-                    SET quota.createdTimestamp = $timestamp
                     RETURN quota
                   `,
                   payload,
@@ -650,12 +659,9 @@ export class SubscriptionsService {
             const payload = {
               ...dto,
               quota: {
-                seats: dto.extraSeats + 1,
                 veri: dto.veri ? quotaInfo.veri + veriAddons : quotaInfo.veri,
-                stashPool: quotaInfo.stashPool,
-                atsIntegration: quotaInfo.atsIntegration,
-                boostedVacancyMultiplier: quotaInfo.boostedVacancyMultiplier,
-                stashAlert: dto.stashAlert,
+                createdTimestamp: timestamp.getTime(),
+                expiryTimestamp: addMonths(timestamp, 2).getTime(),
               },
               action: "new-subscription",
               duration: "monthly",
@@ -670,7 +676,6 @@ export class SubscriptionsService {
                   SET subscription.tier = $jobstash
                   SET subscription.veri = $veri
                   SET subscription.stashAlert = $stashAlert
-                  SET subscription.extraSeats = $extraSeats
                   SET subscription.extraSeats = $extraSeats
                   SET subscription.stashPool = $stashPool
                   SET subscription.atsIntegration = $atsIntegration
@@ -690,7 +695,6 @@ export class SubscriptionsService {
                 `
                   CREATE (quota:Quota {id: randomUUID()})
                   SET quota += $quota
-                  SET quota.createdTimestamp = $timestamp
                   RETURN quota
                 `,
                 payload,
@@ -869,13 +873,12 @@ export class SubscriptionsService {
           RETURN subscription {
             .*,
             quota: [
-              (subscription)-[:HAS_QUOTA]->(quota:Quota) | quota { .* }
-            ][0],
-            rollover: [
-              (subscription)-[:HAS_QUOTA|HAS_ROLLOVER*2]->(rollover:QuotaRollover) | rollover { .* }
-            ][0],
-            usage: [
-              (subscription)-[:HAS_QUOTA|HAS_USAGE*2]->(quotaUsage:QuotaUsage) | quotaUsage { .* }
+              (subscription)-[:HAS_QUOTA]->(quota:Quota) | quota {
+                .*,
+                usage: [
+                  (quota)-[:HAS_USAGE]->(usage:QuotaUsage) | usage { .* }
+                ]
+              }
             ]
           } as subscription
         `,
@@ -1079,6 +1082,9 @@ export class SubscriptionsService {
       } else {
         const timestamp = new Date();
         this.logger.log("Renewing subscription");
+        const existingSubscription = data(
+          await this.getSubscriptionInfo(dto.orgId),
+        );
         const result = await this.neogma.getTransaction(null, async tx => {
           const pendingPayment = (
             await tx.run(
@@ -1092,37 +1098,21 @@ export class SubscriptionsService {
 
           if (pendingPayment) {
             const internalRefCode = randomToken(16);
+            const timestamp = new Date();
             const externalRefCode = pendingPayment.reference;
             const quotaInfo = JOBSTASH_QUOTA[dto.jobstash];
             const veriAddons = VERI_ADDONS[dto.veri];
 
-            const existingSubscription = data(
-              await this.getSubscriptionInfo(dto.orgId),
-            );
-
-            const rolloverInfo =
-              existingSubscription.getCurrentEpochAggregateUsage();
-
             const quotaPayload = {
-              seats: dto.extraSeats + 1,
               veri: dto.veri ? quotaInfo.veri + veriAddons : quotaInfo.veri,
-              stashPool: quotaInfo.stashPool,
-              atsIntegration: quotaInfo.atsIntegration,
-              boostedVacancyMultiplier: quotaInfo.boostedVacancyMultiplier,
-              stashAlert: dto.stashAlert,
+              createdTimestamp: timestamp.getTime(),
+              expiryTimestamp: addMonths(timestamp, 2).getTime(),
             };
 
-            const timestamp = new Date();
             const payload = {
               ...dto,
               subscriptionId: existingSubscription.id,
               quota: quotaPayload,
-              rollover: {
-                veri:
-                  quotaPayload.veri -
-                  (rolloverInfo.find(x => x.service === "veri")?.totalUsage ??
-                    0),
-              },
               action: "subscription-renewal",
               duration: "monthly",
               internalRefCode,
@@ -1136,10 +1126,9 @@ export class SubscriptionsService {
 
             await tx.run(
               `
-                MERGE (subscription:OrgSubscription {id: $subscriptionId})
-                ON MATCH SET
-                  subscription.status = "active",
-                  subscription.expiryTimestamp = $expiryTimestamp
+                MATCH (subscription:OrgSubscription {id: $subscriptionId})
+                SET subscription.status = "active"
+                SET subscription.expiryTimestamp = $expiryTimestamp
                 RETURN subscription
               `,
               payload,
@@ -1164,40 +1153,30 @@ export class SubscriptionsService {
               )
             ).records[0].get("payment");
 
-            if (existingSubscription.rollover) {
+            const quota = (
               await tx.run(
                 `
-                MATCH (:OrgSubscription {id: $subscriptionId})-[:HAS_QUOTA]->(quota:Quota)-[:HAS_ROLLOVER]->(rollover:QuotaRollover)
-                MERGE (quota)-[:HAS_EXPIRED_ROLLOVER]->(exp:ExpiredQuotaRollover)
-                SET exp += rollover
-                SET exp.createdTimestamp = $timestamp
-
-                WITH rollover
-                SET rollover += $rollover
-              `,
-                payload,
-              );
-            } else {
-              await tx.run(
-                `
-                  MATCH (:OrgSubscription {id: $subscriptionId})-[:HAS_QUOTA]->(quota:Quota)
-                  MERGE (quota)-[:HAS_ROLLOVER]->(rollover:QuotaRollover)
-                  SET rollover += $rollover
-                  SET rollover.createdTimestamp = $timestamp
+                  CREATE (quota:Quota {id: randomUUID()})
+                  SET quota += $quota
+                  RETURN quota
                 `,
                 payload,
-              );
-            }
+              )
+            ).records[0].get("quota");
 
             await tx.run(
               `
-                MATCH (user:User {wallet: $wallet}), (subscription:OrgSubscription {id: $subscriptionId}), (payment:Payment {id: $paymentId})
-                MERGE (subscription)-[:HAS_PAYMENT]->(payment)<-[:MADE_SUBSCRIPTION_PAYMENT]-(user)
+                MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId}), (subscription:OrgSubscription {id: $subscriptionId}), (payment:Payment {id: $paymentId}), (quota:Quota {id: $quotaId})
+                MERGE (org)-[:HAS_SUBSCRIPTION]->(subscription)-[:HAS_PAYMENT]->(payment)<-[:MADE_SUBSCRIPTION_PAYMENT]-(user)
+                
+                WITH subscription, quota
+                MERGE (subscription)-[:HAS_QUOTA]->(quota)
               `,
               {
                 ...payload,
                 subscriptionId: existingSubscription.id,
                 paymentId: payment.properties.id,
+                quotaId: quota.properties.id,
               },
             );
 
@@ -1323,6 +1302,450 @@ export class SubscriptionsService {
       return {
         success: false,
         message: "Error renewing subscription",
+      };
+    }
+  }
+
+  async initiateSubscriptionUpgrade(
+    wallet: string,
+    orgId: string,
+    dto: NewSubscriptionInput,
+  ): Promise<ResponseWithOptionalData<string>> {
+    try {
+      const {
+        tier: jobstash,
+        veri,
+        stashAlert,
+        extraSeats,
+      } = data(await this.getSubscriptionInfo(orgId));
+
+      const {
+        jobstash: newJobstash,
+        veri: newVeri,
+        stashAlert: newStashAlert,
+        extraSeats: newExtraSeats,
+      } = dto;
+
+      const compare = [
+        {
+          old: JOBSTASH_BUNDLE_PRICING[jobstash],
+          new: JOBSTASH_BUNDLE_PRICING[newJobstash],
+        },
+        { old: VERI_ADDONS[veri], new: VERI_ADDONS[newVeri] },
+        {
+          old: stashAlert ? STASH_ALERT_PRICE : 0,
+          new: newStashAlert ? STASH_ALERT_PRICE : 0,
+        },
+        {
+          old: extraSeats * EXTRA_SEATS_PRICING[jobstash],
+          new: newExtraSeats * EXTRA_SEATS_PRICING[newJobstash],
+        },
+      ];
+
+      if (compare.find(x => x.old < x.new)) {
+        const { description, amount } = this.generatePaymentDetails({
+          jobstash: newJobstash,
+          veri: newVeri,
+          stashAlert: newStashAlert,
+          extraSeats: newExtraSeats,
+        });
+
+        if (newJobstash === "starter") {
+          return {
+            success: false,
+            message:
+              "You can't upgrade your plan to a free trial. Please upgrade to a premium plan to keep using JobStash.xyz.",
+          };
+        } else {
+          const email = await this.getSubscriptionOwnerEmail(wallet, orgId);
+
+          const paymentLink = await this.paymentsService.createCharge({
+            name: `JobStash.xyz`,
+            description,
+            local_price: {
+              amount: amount.toString(),
+              currency: "USD",
+            },
+            pricing_type:
+              this.configService.get("ENVIRONMENT") === "production"
+                ? PricingType.FIXED_PRICE
+                : PricingType.NO_PRICE,
+            metadata: {
+              calldata: JSON.stringify({
+                orgId,
+                jobstash: newJobstash,
+                veri: newVeri,
+                stashAlert: newStashAlert,
+                extraSeats: newExtraSeats,
+                wallet,
+                amount,
+              }),
+              action: "subscription-upgrade",
+            },
+            redirect_url:
+              "https://jobstash.xyz/subscriptions/upgrade?success=true",
+            cancel_url:
+              "https://jobstash.xyz/subscriptions/upgrade?cancelled=true",
+          });
+
+          if (paymentLink) {
+            await this.neogma.queryRunner.run(
+              `
+              MERGE (payment: PendingPayment {link: $link})
+              ON CREATE SET
+                payment.id = randomUUID(),
+                payment.reference = $reference,
+                payment.type = "subscription",
+                payment.amount = $amount,
+                payment.currency = "USD",
+                payment.action = $action,
+                payment.link = $link,
+                payment.createdTimestamp = timestamp()
+
+              WITH payment
+              MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
+              MERGE (user)-[:HAS_PENDING_PAYMENT]->(payment)<-[:HAS_PENDING_PAYMENT]-(org)
+            `,
+              {
+                wallet,
+                reference: paymentLink.id,
+                link: paymentLink.url,
+                amount,
+                action: "subscription-upgrade",
+                orgId,
+              },
+            );
+
+            try {
+              //TODO: change these to official copy from @Laura
+              await this.mailService.sendEmail(
+                emailBuilder({
+                  from: this.from,
+                  to: email,
+                  subject: "Your hiring tools are waiting for you!",
+                  previewText:
+                    "Complete your purchase and unlock JobStash features to help streamline your hiring process.",
+                  title: "Hey there,",
+                  bodySections: [
+                    text(
+                      "We noticed you left some powerful hiring add-ons in your cart. These features can help you find the right talent faster and more efficiently - perfect for taking your recruitment process to the next level.",
+                    ),
+                    text(
+                      "Don’t leave these tools behind! Just click below to finish your purchase.",
+                    ),
+                    button("Complete Your Purchase", paymentLink.url),
+                    text(
+                      "If you have any questions or need more info, we’re here to help!",
+                    ),
+                  ],
+                }),
+              );
+            } catch (err) {
+              Sentry.withScope(scope => {
+                scope.setTags({
+                  action: "email-send",
+                  source: "subscriptions.service",
+                });
+                Sentry.captureException(err);
+              });
+              this.logger.error(
+                `SubscriptionsService::initiateSubscriptionUpgrade ${err.message}`,
+              );
+            }
+            return {
+              success: true,
+              message: "Subscription upgrade initiated successfully",
+              data: paymentLink.url,
+            };
+          } else {
+            return {
+              success: false,
+              message: "Subscription upgrade initiation failed",
+            };
+          }
+        }
+      } else {
+        return {
+          success: false,
+          message: "Must select upgraded plan",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "subscriptions.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `SubscriptionsService::initiateSubscriptionUpgrade ${err.message}`,
+      );
+      return {
+        success: false,
+        message: `Error upgrading subscription`,
+      };
+    }
+  }
+
+  async upgradeSubscription(
+    dto: SubscriptionMetadata,
+  ): Promise<ResponseWithNoData> {
+    try {
+      const { wallet, orgId } = dto;
+      this.logger.log("Fetching org owner email");
+      const ownerEmail = await this.getSubscriptionOwnerEmail(wallet, orgId);
+      if (!ownerEmail) {
+        this.logger.log(
+          `User not authorized to renew subscription to ${orgId}`,
+        );
+        return {
+          success: false,
+          message: `You are not the owner of this subscription`,
+        };
+      } else {
+        const timestamp = new Date();
+        this.logger.log("Upgrading subscription");
+        const existingSubscription = data(
+          await this.getSubscriptionInfo(orgId),
+        );
+        const result = await this.neogma.getTransaction(null, async tx => {
+          const pendingPayment = (
+            await tx.run(
+              `
+                MATCH (user:User {wallet: $wallet})-[:HAS_PENDING_PAYMENT]->(payment:PendingPayment)<-[:HAS_PENDING_PAYMENT]-(org:Organization {orgId: $orgId})
+                RETURN payment { .* } as payment
+              `,
+              { wallet: dto.wallet, orgId: dto.orgId },
+            )
+          ).records[0]?.get("payment");
+
+          if (pendingPayment) {
+            const internalRefCode = randomToken(16);
+            const externalRefCode = pendingPayment.reference;
+            const quotaInfo = JOBSTASH_QUOTA[dto.jobstash];
+            const veriAddons = VERI_ADDONS[dto.veri];
+
+            const newVeri = dto.veri
+              ? quotaInfo.veri + veriAddons
+              : quotaInfo.veri;
+            const oldVeri = existingSubscription
+              .getEpochAggregateAvailableCredits(
+                existingSubscription.createdTimestamp,
+                now(),
+              )
+              .get("veri");
+
+            const payload = {
+              ...dto,
+              quota: {
+                veri: newVeri + oldVeri,
+                createdTimestamp: timestamp.getTime(),
+                expiryTimestamp: addMonths(timestamp, 2).getTime(),
+              },
+              stashPool: quotaInfo.stashPool,
+              atsIntegration: quotaInfo.atsIntegration,
+              boostedVacancyMultiplier: quotaInfo.boostedVacancyMultiplier,
+              stashAlert: dto.stashAlert,
+              action: "subscription-upgrade",
+              duration: "monthly",
+              internalRefCode,
+              externalRefCode,
+              timestamp: timestamp.getTime(),
+              expiryTimestamp: addMonths(timestamp, 1).getTime(),
+            };
+
+            await tx.run(
+              `
+                MATCH (:OrgSubscription {id: $subscriptionId})
+                SET subscription.status = "inactive"
+                SET subscription.expiryTimestamp = timestamp()
+                RETURN subscription
+              `,
+              { subscriptionId: existingSubscription.id },
+            );
+
+            const subscription = (
+              await tx.run(
+                `
+                  CREATE (subscription:OrgSubscription {id: randomUUID()})
+                  SET subscription.tier = $jobstash
+                  SET subscription.veri = $veri
+                  SET subscription.stashAlert = $stashAlert
+                  SET subscription.extraSeats = $extraSeats
+                  SET subscription.stashPool = $stashPool
+                  SET subscription.atsIntegration = $atsIntegration
+                  SET subscription.boostedVacancyMultiplier = $boostedVacancyMultiplier
+                  SET subscription.status = "active"
+                  SET subscription.duration = $duration
+                  SET subscription.createdTimestamp = $timestamp
+                  SET subscription.expiryTimestamp = $expiryTimestamp
+                  RETURN subscription
+                `,
+                payload,
+              )
+            ).records[0].get("subscription");
+
+            const payment = (
+              await tx.run(
+                `
+                  CREATE (payment:Payment {id: randomUUID()})
+                  SET payment.amount = $amount
+                  SET payment.currency = "USD"
+                  SET payment.status = "confirmed"
+                  SET payment.type = "subscription"
+                  SET payment.action = $action
+                  SET payment.internalRefCode = $internalRefCode
+                  SET payment.externalRefCode = $externalRefCode
+                  SET payment.timestamp = $timestamp
+                  SET payment.expiryTimestamp = $expiryTimestamp
+                  RETURN payment
+                `,
+                payload,
+              )
+            ).records[0].get("payment");
+
+            const quota = (
+              await tx.run(
+                `
+                  CREATE (quota:Quota {id: randomUUID()})
+                  SET quota += $quota
+                  RETURN quota
+                `,
+                payload,
+              )
+            ).records[0].get("quota");
+
+            await tx.run(
+              `
+                MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId}), (subscription:OrgSubscription {id: $subscriptionId}), (payment:Payment {id: $paymentId}), (quota:Quota {id: $quotaId})
+                MERGE (org)-[:HAS_SUBSCRIPTION]->(subscription)-[:HAS_PAYMENT]->(payment)<-[:MADE_SUBSCRIPTION_PAYMENT]-(user)
+
+                WITH subscription, quota
+                MERGE (subscription)-[:HAS_QUOTA]->(quota)
+              `,
+              {
+                ...payload,
+                subscriptionId: subscription.properties.id,
+                paymentId: payment.properties.id,
+                quotaId: quota.properties.id,
+              },
+            );
+
+            await tx.run(
+              `
+                MATCH (user:User {wallet: $wallet})-[:HAS_PENDING_PAYMENT]->(payment:PendingPayment)<-[:HAS_PENDING_PAYMENT]-(org:Organization {orgId: $orgId})
+                DETACH DELETE payment
+              `,
+              { wallet: dto.wallet, orgId: dto.orgId },
+            );
+            return true;
+          } else {
+            this.logger.warn("No pending payment found");
+            Sentry.withScope(scope => {
+              scope.setTags({
+                action: "business-logic",
+                source: "subscriptions.service",
+              });
+              scope.setExtra("input", {
+                wallet: dto.wallet,
+                orgId: dto.orgId,
+                action: "new-subscription",
+                ...dto,
+              });
+              Sentry.captureMessage(
+                "Attempted confirmation of missing pending payment",
+              );
+            });
+            return false;
+          }
+        });
+        if (result) {
+          this.logger.log("Upgraded subscription successfully");
+          this.logger.log("Sending confirmation email to owner");
+          try {
+            //TODO: change these to official copy from @Laura
+            await this.mailService.sendEmail(
+              emailBuilder({
+                from: this.from,
+                to: ownerEmail,
+                subject: "JobStash.xyz Subscription",
+                previewText:
+                  "Your subscription has been upgraded. You can now continue using JobStash.xyz.",
+                title: "Your JobStash.xyz subscription has been upgraded",
+                bodySections: [
+                  text(
+                    "Your new subscription is active. You can now start using JobStash.xyz.",
+                  ),
+                  text(
+                    `Head to your <a href="${this.configService.getOrThrow("ORG_ADMIN_DOMAIN")}">profile</a> to start using your shiny new subscription.`,
+                  ),
+                  text(
+                    "If you have any questions, feel free to reach out to us at support@jobstash.xyz.",
+                  ),
+                  text("Thanks for using JobStash.xyz!"),
+                ],
+              }),
+            );
+            this.logger.log("Scheduled next renewal email to owner");
+            await this.scheduleSubscriptionRenewalEmail(
+              {
+                ...dto,
+                ownerEmail,
+              },
+              timestamp,
+            );
+          } catch (err) {
+            Sentry.withScope(scope => {
+              scope.setTags({
+                action: "email-send",
+                source: "subscriptions.service",
+              });
+              Sentry.captureException(err);
+            });
+            this.logger.error(
+              `SubscriptionsService::upgradeSubscription ${err.message}`,
+            );
+          }
+        } else {
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "business-logic",
+              source: "subscriptions.service",
+            });
+            scope.setExtra("input", {
+              wallet: dto.wallet,
+              orgId: dto.orgId,
+              action: "subscription-upgrade",
+              ownerEmail,
+              ...dto,
+            });
+            Sentry.captureMessage(
+              "Attempted confirmation of missing pending payment",
+            );
+          });
+        }
+        return {
+          success: result,
+          message: result
+            ? "Subscription upgraded successfully"
+            : "Error upgrading subscription",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "subscriptions.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `SubscriptionsService::upgradeSubscription ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Error upgrading subscription",
       };
     }
   }

@@ -63,6 +63,15 @@ export class PaymentsController {
               subscriptionRenewalMetadata,
             );
             break;
+          case "subscription-upgrade":
+            this.logger.log(`Handling subscription upgrade webhook event`);
+            const subscriptionUpgradeMetadata = JSON.parse(
+              event.data.metadata.calldata,
+            ) as SubscriptionMetadata;
+            await this.subscriptionsService.upgradeSubscription(
+              subscriptionUpgradeMetadata,
+            );
+            break;
           default:
             this.logger.warn(
               `Unsupported or unimplemented webhook event metadata action: ${event.data.metadata.action}`,

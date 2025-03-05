@@ -845,7 +845,7 @@ export class UserService {
         this.logger.log("Org subscription is active");
         this.logger.log("Checking org user count");
         const userCount = await this.getOrgUserCount(orgId);
-        if (userCount < subscription.quota.seats) {
+        if (userCount < subscription.totalSeats) {
           this.logger.log("Org user count is less than max seats");
           this.logger.log("Checking if org owner");
           const isOwner = !(await this.orgHasOwner(orgId));

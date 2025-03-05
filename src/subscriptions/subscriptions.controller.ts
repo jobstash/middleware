@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   Param,
@@ -18,6 +19,7 @@ import {
   SessionObject,
 } from "src/shared/interfaces";
 import { UserService } from "src/user/user.service";
+import { NewSubscriptionInput } from "./new-subscription.input";
 
 @Controller("subscriptions")
 export class SubscriptionsController {
@@ -56,6 +58,31 @@ export class SubscriptionsController {
     @Session() { address }: SessionObject,
   ): Promise<ResponseWithOptionalData<string>> {
     this.logger.log(`/subscriptions/${orgId}/renew ${address}`);
+    const owner = data(
+      await this.userService.findOrgOwnerProfileByOrgId(orgId),
+    );
+    if (owner?.wallet === address) {
+      return this.subscriptionsService.initiateSubscriptionRenewal(
+        address,
+        orgId,
+      );
+    } else {
+      throw new UnauthorizedException({
+        success: false,
+        message: "You are not the owner of this organization",
+      });
+    }
+  }
+
+  @Post(":orgId/upgrade")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
+  async upgradeOrgSubscription(
+    @Param("orgId") orgId: string,
+    @Body() body: NewSubscriptionInput,
+    @Session() { address }: SessionObject,
+  ): Promise<ResponseWithOptionalData<string>> {
+    this.logger.log(`/subscriptions/${orgId}/upgrade ${address}`);
     const owner = data(
       await this.userService.findOrgOwnerProfileByOrgId(orgId),
     );
