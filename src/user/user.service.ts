@@ -892,26 +892,14 @@ export class UserService {
                 message: `User signed up to org ${isOwner ? "owner" : "member"} seat successfully`,
               };
             } else {
-              this.logger.log(
-                "User is not verified for org by email. Requesting to join org",
-              );
-              await this.neogma.queryRunner.run(
-                `
-                  MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
-                  MERGE (user)-[:REQUESTED_TO_JOIN]->(org)
-                `,
-                {
-                  wallet,
-                  orgId,
-                },
-              );
+              this.logger.log("User is not authorized to join org");
               return {
-                success: true,
-                message: `User requested to join org successfully`,
+                success: false,
+                message: `User not authorized to join org`,
               };
             }
           } else {
-            this.logger.log("User is cannot own or join org");
+            this.logger.log("User cannot own or join org");
             return {
               success: false,
               message: "User not authorized to join this org",
