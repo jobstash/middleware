@@ -21,6 +21,7 @@ import {
 import { SearchPillarParams } from "./dto/search-pillar.input";
 import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
 import { PBACGuard } from "src/auth/pbac.guard";
+import { BlockScrapersGuard } from "./search.guard";
 import {
   CACHE_CONTROL_HEADER,
   CACHE_DURATION,
@@ -44,7 +45,7 @@ export class SearchController {
   ) {}
 
   @Get("")
-  @UseGuards(PBACGuard)
+  @UseGuards(PBACGuard, BlockScrapersGuard)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   async search(
@@ -70,7 +71,7 @@ export class SearchController {
     description:
       "Optional header to tailor the response for a specific community",
   })
-  @UseGuards(PBACGuard)
+  @UseGuards(PBACGuard, BlockScrapersGuard)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   async searchPillar(
@@ -97,7 +98,7 @@ export class SearchController {
     description:
       "Optional header to tailor the response for a specific community",
   })
-  @UseGuards(PBACGuard)
+  @UseGuards(PBACGuard, BlockScrapersGuard)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   async searchPillarItems(
@@ -131,6 +132,7 @@ export class SearchController {
   })
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseGuards(BlockScrapersGuard)
   async searchPillarFilters(
     @Query(new ValidationPipe({ transform: true }))
     params: SearchPillarFiltersParams,
@@ -142,7 +144,7 @@ export class SearchController {
   }
 
   @Get("pillar/labels")
-  @UseGuards(PBACGuard)
+  @UseGuards(PBACGuard, BlockScrapersGuard)
   @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
   @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
   async fetchPillarLabels(
