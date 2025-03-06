@@ -16,7 +16,7 @@ export class BlockScrapersGuard implements CanActivate {
     // Check the user agent.
     const userAgent = request.headers["user-agent"];
     if (userAgent && userAgent.toLowerCase() === "node") {
-      throw new ForbiddenException("Access denied: Disallowed user agent");
+      throw new ForbiddenException("BOFH says no");
     }
 
     // Extract the IP address.
@@ -29,7 +29,7 @@ export class BlockScrapersGuard implements CanActivate {
 
     // Check if the IP is blacklisted.
     if (this.blacklistedIPs.includes(ip)) {
-      throw new ForbiddenException("Access denied: Blacklisted IP address");
+      throw new ForbiddenException("BOFH says no");
     }
 
     return true;
