@@ -240,6 +240,7 @@ export class Subscription {
     } = raw;
     const result = Subscription.SubscriptionType.decode({
       ...raw,
+      totalSeats: extraSeats + 1,
       expired: now() < expiryTimestamp ? false : true,
     });
 
@@ -268,7 +269,7 @@ export class Subscription {
   }
 
   getEpochQuotas(epochEnd: number): Quota[] {
-    return this.quota.filter(x => x.expiryTimestamp <= epochEnd);
+    return this.quota.filter(x => x.expiryTimestamp >= epochEnd);
   }
 
   getEpochAggregateQuota(epochEnd: number): Map<MeteredService, number> {
@@ -288,7 +289,10 @@ export class Subscription {
     const epochTotal = this.getEpochAggregateQuota(epochEnd);
     const epochUsage = this.getEpochAggregateUsage(epochStart, epochEnd);
     return new Map(
-      METERED_SERVICES.map(x => [x, epochTotal.get(x) - epochUsage.get(x)]),
+      METERED_SERVICES.map(x => [
+        x,
+        (epochTotal.get(x) ?? 0) - (epochUsage.get(x) ?? 0),
+      ]),
     );
   }
 

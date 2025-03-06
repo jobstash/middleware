@@ -74,22 +74,23 @@ export class SubscriptionsController {
     }
   }
 
-  @Post(":orgId/upgrade")
+  @Post(":orgId/change")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
-  async upgradeOrgSubscription(
+  async changeOrgSubscription(
     @Param("orgId") orgId: string,
     @Body() body: NewSubscriptionInput,
     @Session() { address }: SessionObject,
   ): Promise<ResponseWithOptionalData<string>> {
-    this.logger.log(`/subscriptions/${orgId}/upgrade ${address}`);
+    this.logger.log(`/subscriptions/${orgId}/change ${address}`);
     const owner = data(
       await this.userService.findOrgOwnerProfileByOrgId(orgId),
     );
     if (owner?.wallet === address) {
-      return this.subscriptionsService.initiateSubscriptionRenewal(
+      return this.subscriptionsService.initiateSubscriptionChange(
         address,
         orgId,
+        body,
       );
     } else {
       throw new UnauthorizedException({

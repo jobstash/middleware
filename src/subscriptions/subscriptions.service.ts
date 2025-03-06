@@ -658,6 +658,9 @@ export class SubscriptionsService {
             const timestamp = new Date();
             const payload = {
               ...dto,
+              stashPool: quotaInfo.stashPool,
+              atsIntegration: quotaInfo.atsIntegration,
+              boostedVacancyMultiplier: quotaInfo.boostedVacancyMultiplier,
               quota: {
                 veri: dto.veri ? quotaInfo.veri + veriAddons : quotaInfo.veri,
                 createdTimestamp: timestamp.getTime(),
@@ -1306,7 +1309,7 @@ export class SubscriptionsService {
     }
   }
 
-  async initiateSubscriptionUpgrade(
+  async initiateSubscriptionChange(
     wallet: string,
     orgId: string,
     dto: NewSubscriptionInput,
@@ -1326,23 +1329,21 @@ export class SubscriptionsService {
         extraSeats: newExtraSeats,
       } = dto;
 
-      const compare = [
-        {
-          old: JOBSTASH_BUNDLE_PRICING[jobstash],
-          new: JOBSTASH_BUNDLE_PRICING[newJobstash],
-        },
-        { old: VERI_ADDONS[veri], new: VERI_ADDONS[newVeri] },
-        {
-          old: stashAlert ? STASH_ALERT_PRICE : 0,
-          new: newStashAlert ? STASH_ALERT_PRICE : 0,
-        },
-        {
-          old: extraSeats * EXTRA_SEATS_PRICING[jobstash],
-          new: newExtraSeats * EXTRA_SEATS_PRICING[newJobstash],
-        },
-      ];
+      const { amount: oldAmount } = this.generatePaymentDetails({
+        jobstash,
+        veri,
+        stashAlert,
+        extraSeats,
+      });
 
-      if (compare.find(x => x.old < x.new)) {
+      const { amount: newAmount } = this.generatePaymentDetails({
+        jobstash: newJobstash,
+        veri: newVeri,
+        stashAlert: newStashAlert,
+        extraSeats: newExtraSeats,
+      });
+
+      if (oldAmount < newAmount) {
         const { description, amount } = this.generatePaymentDetails({
           jobstash: newJobstash,
           veri: newVeri,
@@ -1464,10 +1465,12 @@ export class SubscriptionsService {
             };
           }
         }
+      } else if (oldAmount > newAmount) {
+        //TODO: implement subscription downgrade
       } else {
         return {
           success: false,
-          message: "Must select upgraded plan",
+          message: "Subscription plan change not required",
         };
       }
     } catch (err) {
@@ -1557,7 +1560,7 @@ export class SubscriptionsService {
 
             await tx.run(
               `
-                MATCH (:OrgSubscription {id: $subscriptionId})
+                MATCH (subscription:OrgSubscription {id: $subscriptionId})
                 SET subscription.status = "inactive"
                 SET subscription.expiryTimestamp = timestamp()
                 RETURN subscription
