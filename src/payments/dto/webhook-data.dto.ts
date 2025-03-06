@@ -43,8 +43,7 @@ export interface Metadata {
     | "job-promotion"
     | "new-subscription"
     | "subscription-renewal"
-    | "subscription-upgrade"
-    | "subscription-downgrade";
+    | "subscription-change";
   calldata: string;
 }
 

@@ -63,12 +63,12 @@ export class PaymentsController {
               subscriptionRenewalMetadata,
             );
             break;
-          case "subscription-upgrade":
-            this.logger.log(`Handling subscription upgrade webhook event`);
+          case "subscription-change":
+            this.logger.log(`Handling subscription change webhook event`);
             const subscriptionUpgradeMetadata = JSON.parse(
               event.data.metadata.calldata,
             ) as SubscriptionMetadata;
-            await this.subscriptionsService.upgradeSubscription(
+            await this.subscriptionsService.changeSubscription(
               subscriptionUpgradeMetadata,
             );
             break;

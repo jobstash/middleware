@@ -32,7 +32,7 @@ import { JOBSTASH_QUOTA, VERI_ADDONS } from "src/shared/constants/quota";
 import { MeteredService, Subscription } from "src/shared/interfaces/org";
 import { SubscriptionEntity } from "src/shared/entities/subscription.entity";
 import { addDays, addHours, addMonths, subDays } from "date-fns";
-import { capitalize, now } from "lodash";
+import { capitalize } from "lodash";
 import { ProfileService } from "src/auth/profile/profile.service";
 
 @Injectable()
@@ -873,6 +873,7 @@ export class SubscriptionsService {
       const result = await this.neogma.queryRunner.run(
         `
           MATCH (org:Organization {orgId: $orgId})-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription {status: "active"})
+          WHERE subcription.createdTimestamp < timestamp() && subscription.expiryTimestamp > timestamp()
           RETURN subscription {
             .*,
             quota: [
@@ -1080,7 +1081,7 @@ export class SubscriptionsService {
         );
         return {
           success: false,
-          message: `You are not the owner of this subscription`,
+          message: `You are not the owner of this organization`,
         };
       } else {
         const timestamp = new Date();
@@ -1329,21 +1330,27 @@ export class SubscriptionsService {
         extraSeats: newExtraSeats,
       } = dto;
 
-      const { amount: oldAmount } = this.generatePaymentDetails({
-        jobstash,
-        veri,
-        stashAlert,
-        extraSeats,
-      });
+      if (
+        jobstash === newJobstash &&
+        veri === newVeri &&
+        stashAlert === newStashAlert &&
+        extraSeats === newExtraSeats
+      ) {
+        return {
+          success: false,
+          message: "Subscription plan change not required",
+        };
+      }
 
-      const { amount: newAmount } = this.generatePaymentDetails({
-        jobstash: newJobstash,
-        veri: newVeri,
-        stashAlert: newStashAlert,
-        extraSeats: newExtraSeats,
-      });
+      if (newJobstash === "starter") {
+        return {
+          success: false,
+          message:
+            "You can't change your plan to a free trial. Please select a premium plan to change to.",
+        };
+      } else {
+        const email = await this.getSubscriptionOwnerEmail(wallet, orgId);
 
-      if (oldAmount < newAmount) {
         const { description, amount } = this.generatePaymentDetails({
           jobstash: newJobstash,
           veri: newVeri,
@@ -1351,47 +1358,36 @@ export class SubscriptionsService {
           extraSeats: newExtraSeats,
         });
 
-        if (newJobstash === "starter") {
-          return {
-            success: false,
-            message:
-              "You can't upgrade your plan to a free trial. Please upgrade to a premium plan to keep using JobStash.xyz.",
-          };
-        } else {
-          const email = await this.getSubscriptionOwnerEmail(wallet, orgId);
+        const paymentLink = await this.paymentsService.createCharge({
+          name: `JobStash.xyz`,
+          description,
+          local_price: {
+            amount: amount.toString(),
+            currency: "USD",
+          },
+          pricing_type:
+            this.configService.get("ENVIRONMENT") === "production"
+              ? PricingType.FIXED_PRICE
+              : PricingType.NO_PRICE,
+          metadata: {
+            calldata: JSON.stringify({
+              orgId,
+              jobstash: newJobstash,
+              veri: newVeri,
+              stashAlert: newStashAlert,
+              extraSeats: newExtraSeats,
+              wallet,
+              amount,
+            }),
+            action: `subscription-change`,
+          },
+          redirect_url: `https://jobstash.xyz/subscriptions/change?success=true`,
+          cancel_url: `https://jobstash.xyz/subscriptions/change?cancelled=true`,
+        });
 
-          const paymentLink = await this.paymentsService.createCharge({
-            name: `JobStash.xyz`,
-            description,
-            local_price: {
-              amount: amount.toString(),
-              currency: "USD",
-            },
-            pricing_type:
-              this.configService.get("ENVIRONMENT") === "production"
-                ? PricingType.FIXED_PRICE
-                : PricingType.NO_PRICE,
-            metadata: {
-              calldata: JSON.stringify({
-                orgId,
-                jobstash: newJobstash,
-                veri: newVeri,
-                stashAlert: newStashAlert,
-                extraSeats: newExtraSeats,
-                wallet,
-                amount,
-              }),
-              action: "subscription-upgrade",
-            },
-            redirect_url:
-              "https://jobstash.xyz/subscriptions/upgrade?success=true",
-            cancel_url:
-              "https://jobstash.xyz/subscriptions/upgrade?cancelled=true",
-          });
-
-          if (paymentLink) {
-            await this.neogma.queryRunner.run(
-              `
+        if (paymentLink) {
+          await this.neogma.queryRunner.run(
+            `
               MERGE (payment: PendingPayment {link: $link})
               ON CREATE SET
                 payment.id = randomUUID(),
@@ -1407,71 +1403,63 @@ export class SubscriptionsService {
               MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
               MERGE (user)-[:HAS_PENDING_PAYMENT]->(payment)<-[:HAS_PENDING_PAYMENT]-(org)
             `,
-              {
-                wallet,
-                reference: paymentLink.id,
-                link: paymentLink.url,
-                amount,
-                action: "subscription-upgrade",
-                orgId,
-              },
-            );
+            {
+              wallet,
+              reference: paymentLink.id,
+              link: paymentLink.url,
+              amount,
+              action: `subscription-change`,
+              orgId,
+            },
+          );
 
-            try {
-              //TODO: change these to official copy from @Laura
-              await this.mailService.sendEmail(
-                emailBuilder({
-                  from: this.from,
-                  to: email,
-                  subject: "Your hiring tools are waiting for you!",
-                  previewText:
-                    "Complete your purchase and unlock JobStash features to help streamline your hiring process.",
-                  title: "Hey there,",
-                  bodySections: [
-                    text(
-                      "We noticed you left some powerful hiring add-ons in your cart. These features can help you find the right talent faster and more efficiently - perfect for taking your recruitment process to the next level.",
-                    ),
-                    text(
-                      "Don’t leave these tools behind! Just click below to finish your purchase.",
-                    ),
-                    button("Complete Your Purchase", paymentLink.url),
-                    text(
-                      "If you have any questions or need more info, we’re here to help!",
-                    ),
-                  ],
-                }),
-              );
-            } catch (err) {
-              Sentry.withScope(scope => {
-                scope.setTags({
-                  action: "email-send",
-                  source: "subscriptions.service",
-                });
-                Sentry.captureException(err);
+          try {
+            //TODO: change these to official copy from @Laura
+            await this.mailService.sendEmail(
+              emailBuilder({
+                from: this.from,
+                to: email,
+                subject: "Your hiring tools are waiting for you!",
+                previewText:
+                  "Complete your purchase and unlock JobStash features to help streamline your hiring process.",
+                title: "Hey there,",
+                bodySections: [
+                  text(
+                    "We noticed you left some powerful hiring add-ons in your cart. These features can help you find the right talent faster and more efficiently - perfect for taking your recruitment process to the next level.",
+                  ),
+                  text(
+                    "Don’t leave these tools behind! Just click below to finish your purchase.",
+                  ),
+                  button("Complete Your Purchase", paymentLink.url),
+                  text(
+                    "If you have any questions or need more info, we’re here to help!",
+                  ),
+                ],
+              }),
+            );
+          } catch (err) {
+            Sentry.withScope(scope => {
+              scope.setTags({
+                action: "email-send",
+                source: "subscriptions.service",
               });
-              this.logger.error(
-                `SubscriptionsService::initiateSubscriptionUpgrade ${err.message}`,
-              );
-            }
-            return {
-              success: true,
-              message: "Subscription upgrade initiated successfully",
-              data: paymentLink.url,
-            };
-          } else {
-            return {
-              success: false,
-              message: "Subscription upgrade initiation failed",
-            };
+              Sentry.captureException(err);
+            });
+            this.logger.error(
+              `SubscriptionsService::initiateSubscriptionChange ${err.message}`,
+            );
           }
+          return {
+            success: true,
+            message: "Subscription change initiated successfully",
+            data: paymentLink.url,
+          };
+        } else {
+          return {
+            success: false,
+            message: "Subscription change initiation failed",
+          };
         }
-      } else if (oldAmount > newAmount) {
-        //TODO: implement subscription downgrade
-      } else {
-        return {
-          success: false,
-          message: "Subscription plan change not required",
-        };
       }
     } catch (err) {
       Sentry.withScope(scope => {
@@ -1482,16 +1470,16 @@ export class SubscriptionsService {
         Sentry.captureException(err);
       });
       this.logger.error(
-        `SubscriptionsService::initiateSubscriptionUpgrade ${err.message}`,
+        `SubscriptionsService::initiateSubscriptionChange ${err.message}`,
       );
       return {
         success: false,
-        message: `Error upgrading subscription`,
+        message: `Error changing subscription`,
       };
     }
   }
 
-  async upgradeSubscription(
+  async changeSubscription(
     dto: SubscriptionMetadata,
   ): Promise<ResponseWithNoData> {
     try {
@@ -1500,15 +1488,15 @@ export class SubscriptionsService {
       const ownerEmail = await this.getSubscriptionOwnerEmail(wallet, orgId);
       if (!ownerEmail) {
         this.logger.log(
-          `User not authorized to renew subscription to ${orgId}`,
+          `User not authorized to change subscription for ${orgId}`,
         );
         return {
           success: false,
-          message: `You are not the owner of this subscription`,
+          message: `You are not the owner of this organization`,
         };
       } else {
         const timestamp = new Date();
-        this.logger.log("Upgrading subscription");
+        this.logger.log("Changing subscription");
         const existingSubscription = data(
           await this.getSubscriptionInfo(orgId),
         );
@@ -1529,44 +1517,31 @@ export class SubscriptionsService {
             const quotaInfo = JOBSTASH_QUOTA[dto.jobstash];
             const veriAddons = VERI_ADDONS[dto.veri];
 
-            const newVeri = dto.veri
-              ? quotaInfo.veri + veriAddons
-              : quotaInfo.veri;
-            const oldVeri = existingSubscription
-              .getEpochAggregateAvailableCredits(
-                existingSubscription.createdTimestamp,
-                now(),
-              )
-              .get("veri");
-
             const payload = {
               ...dto,
               quota: {
-                veri: newVeri + oldVeri,
-                createdTimestamp: timestamp.getTime(),
-                expiryTimestamp: addMonths(timestamp, 2).getTime(),
+                veri: dto.veri ? quotaInfo.veri + veriAddons : quotaInfo.veri,
+                createdTimestamp: existingSubscription.expiryTimestamp,
+                expiryTimestamp: addMonths(
+                  existingSubscription.expiryTimestamp,
+                  2,
+                ).getTime(),
               },
               stashPool: quotaInfo.stashPool,
               atsIntegration: quotaInfo.atsIntegration,
               boostedVacancyMultiplier: quotaInfo.boostedVacancyMultiplier,
               stashAlert: dto.stashAlert,
-              action: "subscription-upgrade",
+              action: "subscription-change",
               duration: "monthly",
               internalRefCode,
               externalRefCode,
               timestamp: timestamp.getTime(),
-              expiryTimestamp: addMonths(timestamp, 1).getTime(),
+              createdTimestamp: existingSubscription.expiryTimestamp,
+              expiryTimestamp: addMonths(
+                existingSubscription.expiryTimestamp,
+                1,
+              ).getTime(),
             };
-
-            await tx.run(
-              `
-                MATCH (subscription:OrgSubscription {id: $subscriptionId})
-                SET subscription.status = "inactive"
-                SET subscription.expiryTimestamp = timestamp()
-                RETURN subscription
-              `,
-              { subscriptionId: existingSubscription.id },
-            );
 
             const subscription = (
               await tx.run(
@@ -1581,7 +1556,7 @@ export class SubscriptionsService {
                   SET subscription.boostedVacancyMultiplier = $boostedVacancyMultiplier
                   SET subscription.status = "active"
                   SET subscription.duration = $duration
-                  SET subscription.createdTimestamp = $timestamp
+                  SET subscription.createdTimestamp = $createdTimestamp
                   SET subscription.expiryTimestamp = $expiryTimestamp
                   RETURN subscription
                 `,
@@ -1622,7 +1597,7 @@ export class SubscriptionsService {
             await tx.run(
               `
                 MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId}), (subscription:OrgSubscription {id: $subscriptionId}), (payment:Payment {id: $paymentId}), (quota:Quota {id: $quotaId})
-                MERGE (org)-[:HAS_SUBSCRIPTION]->(subscription)-[:HAS_PAYMENT]->(payment)<-[:MADE_SUBSCRIPTION_PAYMENT]-(user)
+                CREATE (org)-[:HAS_SUBSCRIPTION]->(subscription)-[:HAS_PAYMENT]->(payment)<-[:MADE_SUBSCRIPTION_PAYMENT]-(user)
 
                 WITH subscription, quota
                 MERGE (subscription)-[:HAS_QUOTA]->(quota)
@@ -1653,7 +1628,7 @@ export class SubscriptionsService {
               scope.setExtra("input", {
                 wallet: dto.wallet,
                 orgId: dto.orgId,
-                action: "new-subscription",
+                action: "subscription-change",
                 ...dto,
               });
               Sentry.captureMessage(
@@ -1664,7 +1639,7 @@ export class SubscriptionsService {
           }
         });
         if (result) {
-          this.logger.log("Upgraded subscription successfully");
+          this.logger.log("Changed subscription successfully");
           this.logger.log("Sending confirmation email to owner");
           try {
             //TODO: change these to official copy from @Laura
@@ -1707,7 +1682,7 @@ export class SubscriptionsService {
               Sentry.captureException(err);
             });
             this.logger.error(
-              `SubscriptionsService::upgradeSubscription ${err.message}`,
+              `SubscriptionsService::changeSubscription ${err.message}`,
             );
           }
         } else {
@@ -1719,7 +1694,7 @@ export class SubscriptionsService {
             scope.setExtra("input", {
               wallet: dto.wallet,
               orgId: dto.orgId,
-              action: "subscription-upgrade",
+              action: "subscription-change",
               ownerEmail,
               ...dto,
             });
@@ -1731,8 +1706,8 @@ export class SubscriptionsService {
         return {
           success: result,
           message: result
-            ? "Subscription upgraded successfully"
-            : "Error upgrading subscription",
+            ? "Subscription changed successfully"
+            : "Error changing subscription",
         };
       }
     } catch (err) {
@@ -1744,11 +1719,11 @@ export class SubscriptionsService {
         Sentry.captureException(err);
       });
       this.logger.error(
-        `SubscriptionsService::upgradeSubscription ${err.message}`,
+        `SubscriptionsService::changeSubscription ${err.message}`,
       );
       return {
         success: false,
-        message: "Error upgrading subscription",
+        message: "Error changing subscription",
       };
     }
   }
