@@ -16,7 +16,9 @@ export class BlockScrapersGuard implements CanActivate {
     // Check the user agent.
     const userAgent = request.headers["user-agent"];
     if (userAgent && userAgent.toLowerCase() === "node") {
-      throw new ForbiddenException("BOFH says no");
+      throw new ForbiddenException(
+        "WTF are you doing man? 🤨 Reach out to @duckdegen and lets discuss",
+      );
     }
 
     // Extract the IP address.
@@ -29,7 +31,9 @@ export class BlockScrapersGuard implements CanActivate {
 
     // Check if the IP is blacklisted.
     if (this.blacklistedIPs.includes(ip)) {
-      throw new ForbiddenException("BOFH says no");
+      throw new ForbiddenException(
+        "WTF are you doing man? 🤨 Reach out to @duckdegen and lets discuss",
+      );
     }
 
     return true;
