@@ -397,8 +397,8 @@ export class ProfileService {
               id: organization.orgId,
               name: organization.name,
               url: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-              hasOwner: CASE WHEN EXISTS((:User)-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(:Organization {orgId: organization.orgId})) THEN true ELSE false END,
-              isOwner: CASE WHEN EXISTS((:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(:Organization {orgId: organization.orgId})) THEN true ELSE false END,
+              hasOwner: CASE WHEN EXISTS((:User)-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(organization)) THEN true ELSE false END,
+              isOwner: CASE WHEN EXISTS((:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(organization)) THEN true ELSE false END,
               logo: organization.logoUrl
             })) as orgsByRepo
           `,
@@ -408,17 +408,20 @@ export class ProfileService {
           result?.records[0]
             ?.get("orgsByRepo")
             ?.map((record: unknown) => record as UserVerifiedOrg) ?? [];
-        const processed = orgsByRepo.map((x: UserVerifiedOrg) => ({
-          id: x.id,
-          name: x.name,
-          slug: slugify(x.name),
-          url: x.url,
-          logo: x.logo ?? null,
-          account: profile.linkedAccounts.github,
-          hasOwner: x.hasOwner,
-          isOwner: x.isOwner,
-          credential: "github",
-        }));
+        const processed = orgsByRepo.map(
+          (x: UserVerifiedOrg) =>
+            new UserVerifiedOrg({
+              id: x.id,
+              name: x.name,
+              slug: slugify(x.name),
+              url: x.url,
+              logo: x.logo ?? null,
+              account: profile.linkedAccounts.github,
+              hasOwner: x.hasOwner,
+              isOwner: x.isOwner,
+              credential: "github",
+            }),
+        );
         orgs.push(...processed);
       }
 
@@ -441,8 +444,8 @@ export class ProfileService {
               id: organization.orgId,
               name: organization.name,
               url: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-              hasOwner: CASE WHEN EXISTS((:User)-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(:Organization {orgId: organization.orgId})) THEN true ELSE false END,
-              isOwner: CASE WHEN EXISTS((:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(:Organization {orgId: organization.orgId})) THEN true ELSE false END,
+              hasOwner: CASE WHEN EXISTS((:User)-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(organization)) THEN true ELSE false END,
+              isOwner: CASE WHEN EXISTS((:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(organization)) THEN true ELSE false END,
               logo: organization.logoUrl,
               account: email
             })) as orgsByEmail
@@ -456,17 +459,19 @@ export class ProfileService {
         orgsByEmail.forEach(x => {
           const exists = orgs.some(y => y.id === x.id);
           if (!exists) {
-            orgs.push({
-              id: x.id,
-              name: x.name,
-              slug: slugify(x.name),
-              url: x.url,
-              logo: x.logo ?? null,
-              account: x.account,
-              hasOwner: x.hasOwner,
-              isOwner: x.isOwner,
-              credential: "email",
-            });
+            orgs.push(
+              new UserVerifiedOrg({
+                id: x.id,
+                name: x.name,
+                slug: slugify(x.name),
+                url: x.url,
+                logo: x.logo ?? null,
+                account: x.account,
+                hasOwner: x.hasOwner,
+                isOwner: x.isOwner,
+                credential: "email",
+              }),
+            );
           }
         });
       }
@@ -477,17 +482,20 @@ export class ProfileService {
         );
         const mapped: UserVerifiedOrg[] =
           workHistory?.wallets?.flatMap(x =>
-            x.ecosystemActivations.map(y => ({
-              id: y.id,
-              name: y.name,
-              slug: slugify(y.name),
-              url: "http://ethglobal.com/packs",
-              logo: "http://ethglobal.com",
-              account: x.address,
-              hasOwner: false,
-              isOwner: false,
-              credential: "ecosystemActivation",
-            })),
+            x.ecosystemActivations.map(
+              y =>
+                new UserVerifiedOrg({
+                  id: y.id,
+                  name: y.name,
+                  slug: slugify(y.name),
+                  url: "http://ethglobal.com/packs",
+                  logo: "http://ethglobal.com",
+                  account: x.address,
+                  hasOwner: true,
+                  isOwner: true,
+                  credential: "ecosystemActivation",
+                }),
+            ),
           ) ?? [];
         mapped.forEach(x => {
           const exists = orgs.some(y => y.id === x.id);
@@ -531,8 +539,8 @@ export class ProfileService {
               id: organization.orgId,
               name: organization.name,
               url: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-              hasOwner: CASE WHEN EXISTS((:User)-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(:Organization {orgId: organization.orgId})) THEN true ELSE false END,
-              isOwner: CASE WHEN EXISTS((user)-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(:Organization {orgId: organization.orgId})) THEN true ELSE false END,
+              hasOwner: CASE WHEN EXISTS((:User)-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(organization)) THEN true ELSE false END,
+              isOwner: CASE WHEN EXISTS((:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(organization)) THEN true ELSE false END,
               logo: organization.logoUrl
             })) as orgs
           `,
