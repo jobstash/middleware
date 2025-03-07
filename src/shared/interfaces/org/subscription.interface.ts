@@ -173,7 +173,7 @@ export class Subscription {
   tier: string;
 
   @ApiProperty()
-  veri: string;
+  veri: string | null;
 
   @ApiProperty()
   stashAlert: boolean;

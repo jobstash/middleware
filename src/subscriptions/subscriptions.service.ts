@@ -561,13 +561,6 @@ export class SubscriptionsService {
                 await tx.run(
                   `
                     CREATE (subscription:OrgSubscription {id: randomUUID()})
-                    SET subscription.tier = $jobstash
-                    SET subscription.veri = $veri
-                    SET subscription.stashAlert = $stashAlert
-                    SET subscription.extraSeats = $extraSeats
-                    SET subscription.stashPool = $stashPool
-                    SET subscription.atsIntegration = $atsIntegration
-                    SET subscription.boostedVacancyMultiplier = $boostedVacancyMultiplier
                     SET subscription.status = "active"
                     SET subscription.duration = $duration
                     SET subscription.createdTimestamp = $timestamp
@@ -577,6 +570,77 @@ export class SubscriptionsService {
                   payload,
                 )
               ).records[0].get("subscription");
+
+              await tx.run(
+                `
+                  CREATE (tier:JobstashBundle {id: randomUUID()})
+                  SET tier.name = $jobstash
+                  SET tier.stashPool = $stashPool
+                  SET tier.atsIntegration = $atsIntegration
+                  SET tier.boostedVacancyMultiplier = $boostedVacancyMultiplier
+                  SET tier.createdTimestamp = $createdTimestamp
+                  SET tier.expiryTimestamp = $expiryTimestamp
+
+                  WITH tier
+                  MATCH (subscription:OrgSubscription {id: $subscriptionId})
+                  MERGE (subscription)-[:HAS_SERVICE]->(tier)
+                `,
+                {
+                  ...payload,
+                  subscriptionId: subscription.properties.id,
+                },
+              );
+
+              await tx.run(
+                `
+                  CREATE (veri:VeriAddon {id: randomUUID()})
+                  SET veri.name = $veri
+                  SET veri.createdTimestamp = $timestamp
+                  SET veri.expiryTimestamp = $expiryTimestamp
+
+                  WITH veri
+                  MATCH (subscription:OrgSubscription {id: $subscriptionId})
+                  MERGE (subscription)-[:HAS_SERVICE]->(veri)
+                `,
+                {
+                  ...payload,
+                  subscriptionId: subscription.properties.id,
+                },
+              );
+
+              await tx.run(
+                `
+                  CREATE (stashAlert:StashAlert {id: randomUUID()})
+                  SET stashAlert.active = $stashAlert
+                  SET stashAlert.createdTimestamp = $timestamp
+                  SET stashAlert.expiryTimestamp = $expiryTimestamp
+
+                  WITH stashAlert
+                  MATCH (subscription:OrgSubscription {id: $subscriptionId})
+                  MERGE (subscription)-[:HAS_SERVICE]->(stashAlert)
+                `,
+                {
+                  ...payload,
+                  subscriptionId: subscription.properties.id,
+                },
+              );
+
+              await tx.run(
+                `
+                  CREATE (extraSeats:ExtraSeats {id: randomUUID()})
+                  SET extraSeats.value = $extraSeats
+                  SET extraSeats.createdTimestamp = $timestamp
+                  SET extraSeats.expiryTimestamp = $expiryTimestamp
+
+                  WITH extraSeats
+                  MATCH (subscription:OrgSubscription {id: $subscriptionId})
+                  MERGE (subscription)-[:HAS_SERVICE]->(extraSeats)
+                `,
+                {
+                  ...payload,
+                  subscriptionId: subscription.properties.id,
+                },
+              );
 
               const payment = (
                 await tx.run(
@@ -676,13 +740,6 @@ export class SubscriptionsService {
               await tx.run(
                 `
                   CREATE (subscription:OrgSubscription {id: randomUUID()})
-                  SET subscription.tier = $jobstash
-                  SET subscription.veri = $veri
-                  SET subscription.stashAlert = $stashAlert
-                  SET subscription.extraSeats = $extraSeats
-                  SET subscription.stashPool = $stashPool
-                  SET subscription.atsIntegration = $atsIntegration
-                  SET subscription.boostedVacancyMultiplier = $boostedVacancyMultiplier
                   SET subscription.status = "active"
                   SET subscription.duration = $duration
                   SET subscription.createdTimestamp = $timestamp
@@ -692,6 +749,77 @@ export class SubscriptionsService {
                 payload,
               )
             ).records[0].get("subscription");
+
+            await tx.run(
+              `
+                CREATE (tier:JobstashBundle {id: randomUUID()})
+                SET tier.name = $jobstash
+                SET tier.stashPool = $stashPool
+                SET tier.atsIntegration = $atsIntegration
+                SET tier.boostedVacancyMultiplier = $boostedVacancyMultiplier
+                SET tier.createdTimestamp = $createdTimestamp
+                SET tier.expiryTimestamp = $expiryTimestamp
+
+                WITH tier
+                MATCH (subscription:OrgSubscription {id: $subscriptionId})
+                MERGE (subscription)-[:HAS_SERVICE]->(tier)
+              `,
+              {
+                ...payload,
+                subscriptionId: subscription.properties.id,
+              },
+            );
+
+            await tx.run(
+              `
+                CREATE (veri:VeriAddon {id: randomUUID()})
+                SET veri.name = $veri
+                SET veri.createdTimestamp = $timestamp
+                SET veri.expiryTimestamp = $expiryTimestamp
+
+                WITH veri
+                MATCH (subscription:OrgSubscription {id: $subscriptionId})
+                MERGE (subscription)-[:HAS_SERVICE]->(veri)
+              `,
+              {
+                ...payload,
+                subscriptionId: subscription.properties.id,
+              },
+            );
+
+            await tx.run(
+              `
+                CREATE (stashAlert:StashAlert {id: randomUUID()})
+                SET stashAlert.active = $stashAlert
+                SET stashAlert.createdTimestamp = $timestamp
+                SET stashAlert.expiryTimestamp = $expiryTimestamp
+
+                WITH stashAlert
+                MATCH (subscription:OrgSubscription {id: $subscriptionId})
+                MERGE (subscription)-[:HAS_SERVICE]->(stashAlert)
+              `,
+              {
+                ...payload,
+                subscriptionId: subscription.properties.id,
+              },
+            );
+
+            await tx.run(
+              `
+                CREATE (extraSeats:ExtraSeats {id: randomUUID()})
+                SET extraSeats.value = $extraSeats
+                SET extraSeats.createdTimestamp = $timestamp
+                SET extraSeats.expiryTimestamp = $expiryTimestamp
+
+                WITH extraSeats
+                MATCH (subscription:OrgSubscription {id: $subscriptionId})
+                MERGE (subscription)-[:HAS_SERVICE]->(extraSeats)
+              `,
+              {
+                ...payload,
+                subscriptionId: subscription.properties.id,
+              },
+            );
 
             const quota = (
               await tx.run(
@@ -870,13 +998,46 @@ export class SubscriptionsService {
     orgId: string,
   ): Promise<ResponseWithOptionalData<Subscription>> {
     try {
-      // TODO: add separate time blocked node handling for different subscription components
       const result = await this.neogma.queryRunner.run(
         `
           MATCH (org:Organization {orgId: $orgId})-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription {status: "active"})
-          WHERE subscription.createdTimestamp < timestamp() AND subscription.expiryTimestamp > timestamp()
           RETURN subscription {
             .*,
+            tier: [
+              (subscription)-[:HAS_SERVICE]->(tier:JobstashBundle)
+              WHERE tier.createdTimestamp < timestamp() AND tier.expiryTimestamp > timestamp()
+              | tier.name
+            ][0],
+            stashPool: [
+              (subscription)-[:HAS_SERVICE]->(bundle:JobstashBundle)
+              WHERE bundle.createdTimestamp < timestamp() AND bundle.expiryTimestamp > timestamp()
+              | bundle.stashPool
+            ][0],
+            atsIntegration: [
+              (subscription)-[:HAS_SERVICE]->(bundle:JobstashBundle)
+              WHERE bundle.createdTimestamp < timestamp() AND bundle.expiryTimestamp > timestamp()
+              | bundle.atsIntegration
+            ][0],
+            boostedVacancyMultiplier: [
+              (subscription)-[:HAS_SERVICE]->(bundle:JobstashBundle)
+              WHERE bundle.createdTimestamp < timestamp() AND bundle.expiryTimestamp > timestamp()
+              | bundle.boostedVacancyMultiplier
+            ][0],
+            veri: [
+              (subscription)-[:HAS_SERVICE]->(veri:VeriAddon)
+              WHERE veri.createdTimestamp < timestamp() AND veri.expiryTimestamp > timestamp()
+              | veri.name
+            ][0],
+            stashAlert: [
+              (subscription)-[:HAS_SERVICE]->(stashAlert:StashAlert)
+              WHERE stashAlert.createdTimestamp < timestamp() AND stashAlert.expiryTimestamp > timestamp()
+              | stashAlert.active
+            ][0],
+            extraSeats: [
+              (subscription)-[:HAS_SERVICE]->(extraSeats:ExtraSeats)
+              WHERE extraSeats.createdTimestamp < timestamp() AND extraSeats.expiryTimestamp > timestamp()
+              | extraSeats.value
+            ][0],
             quota: [
               (subscription)-[:HAS_QUOTA]->(quota:Quota) | quota {
                 .*,
@@ -1134,6 +1295,23 @@ export class SubscriptionsService {
                 MATCH (subscription:OrgSubscription {id: $subscriptionId})
                 SET subscription.status = "active"
                 SET subscription.expiryTimestamp = $expiryTimestamp
+
+                WITH subscription
+                MATCH (subscription)-[:HAS_SERVICE]->(tier:JobstashBundle)
+                SET tier.expiryTimestamp = $expiryTimestamp
+
+                WITH subscription
+                MATCH (subscription)-[:HAS_SERVICE]->(veri:VeriAddon)
+                SET veri.expiryTimestamp = $expiryTimestamp
+
+                WITH subscription
+                MATCH (subscription)-[:HAS_SERVICE]->(stashAlert:StashAlert)
+                SET stashAlert.expiryTimestamp = $expiryTimestamp
+
+                WITH subscription
+                MATCH (subscription)-[:HAS_SERVICE]->(extraSeats:ExtraSeats)
+                SET extraSeats.expiryTimestamp = $expiryTimestamp
+
                 RETURN subscription
               `,
               payload,
@@ -1502,17 +1680,6 @@ export class SubscriptionsService {
           await this.getSubscriptionInfo(orgId),
         );
 
-        const isUpgrade =
-          JOBSTASH_BUNDLE_PRICING[existingSubscription.tier] <
-            JOBSTASH_BUNDLE_PRICING[dto.jobstash] ||
-          VERI_BUNDLE_PRICING[existingSubscription.veri] <
-            VERI_BUNDLE_PRICING[dto.veri] ||
-          (existingSubscription.stashAlert ? STASH_ALERT_PRICE : 0) <
-            (dto.stashAlert ? STASH_ALERT_PRICE : 0) ||
-          existingSubscription.extraSeats *
-            EXTRA_SEATS_PRICING[existingSubscription.tier] <
-            dto.extraSeats * EXTRA_SEATS_PRICING[dto.jobstash];
-
         const result = await this.neogma.getTransaction(null, async tx => {
           const pendingPayment = (
             await tx.run(
@@ -1529,16 +1696,13 @@ export class SubscriptionsService {
             const externalRefCode = pendingPayment.reference;
             const quotaInfo = JOBSTASH_QUOTA[dto.jobstash];
             const veriAddons = VERI_ADDONS[dto.veri];
-            const createdTimestamp = isUpgrade
-              ? timestamp.getTime()
-              : existingSubscription.expiryTimestamp;
 
             const payload = {
               ...dto,
               quota: {
                 veri: dto.veri ? quotaInfo.veri + veriAddons : quotaInfo.veri,
-                createdTimestamp,
-                expiryTimestamp: addMonths(createdTimestamp, 2).getTime(),
+                createdTimestamp: timestamp.getTime(),
+                expiryTimestamp: addMonths(timestamp, 2).getTime(),
               },
               stashPool: quotaInfo.stashPool,
               atsIntegration: quotaInfo.atsIntegration,
@@ -1549,42 +1713,256 @@ export class SubscriptionsService {
               internalRefCode,
               externalRefCode,
               timestamp: timestamp.getTime(),
-              createdTimestamp,
-              expiryTimestamp: addMonths(createdTimestamp, 1).getTime(),
+              expiryTimestamp: addMonths(timestamp, 1).getTime(),
             };
 
-            if (isUpgrade) {
+            if (
+              JOBSTASH_BUNDLE_PRICING[existingSubscription.tier] <
+              JOBSTASH_BUNDLE_PRICING[dto.jobstash]
+            ) {
+              await tx.run(
+                `
+                  MATCH (subscription:OrgSubscription {id: $subscriptionId})-[:HAS_SERVICE]->(tier:JobstashBundle)
+                  SET tier.expiryTimestamp = $timestamp
+
+                  WITH subscription
+                  CREATE (tier:JobstashBundle {id: randomUUID()})
+                  SET tier.name = $jobstash
+                  SET tier.stashPool = $stashPool
+                  SET tier.atsIntegration = $atsIntegration
+                  SET tier.boostedVacancyMultiplier = $boostedVacancyMultiplier
+                  SET tier.createdTimestamp = $createdTimestamp
+                  SET tier.expiryTimestamp = $expiryTimestamp
+
+                  WITH subscription, tier
+                  MERGE (subscription)-[:HAS_SERVICE]->(tier)
+                `,
+                {
+                  ...payload,
+                  createdTimestamp: timestamp.getTime(),
+                  subscriptionId: existingSubscription.id,
+                },
+              );
+            } else {
+              const existingTier = (
+                await tx.run(
+                  `
+                  MATCH (subscription:OrgSubscription {id: $subscriptionId})-[:HAS_SERVICE]->(tier:JobstashBundle)
+                  RETURN tier
+                `,
+                  {
+                    subscriptionId: existingSubscription.id,
+                  },
+                )
+              ).records[0].get("tier");
+
               await tx.run(
                 `
                   MATCH (subscription:OrgSubscription {id: $subscriptionId})
-                  SET subscription.status = "inactive"
-                  SET subscription.expiryTimestamp = timestamp()
-                  RETURN subscription
+                  CREATE (tier:JobstashBundle {id: randomUUID()})
+                  SET tier.name = $jobstash
+                  SET tier.stashPool = $stashPool
+                  SET tier.atsIntegration = $atsIntegration
+                  SET tier.boostedVacancyMultiplier = $boostedVacancyMultiplier
+                  SET tier.createdTimestamp = $createdTimestamp
+                  SET tier.expiryTimestamp = $expiryTimestamp
+
+                  WITH subscription, tier
+                  MERGE (subscription)-[:HAS_SERVICE]->(tier)
                 `,
-                { subscriptionId: existingSubscription.id },
+                {
+                  ...payload,
+                  subscriptionId: existingSubscription.id,
+                  createdTimestamp: existingTier.properties.expiryTimestamp,
+                  expiryTimestamp: addMonths(
+                    existingTier.properties.expiryTimestamp,
+                    1,
+                  ).getTime(),
+                },
               );
             }
 
-            const subscription = (
+            if (
+              (existingSubscription.veri
+                ? VERI_BUNDLE_PRICING[existingSubscription.veri]
+                : 0) < VERI_BUNDLE_PRICING[dto.veri]
+            ) {
               await tx.run(
                 `
-                  CREATE (subscription:OrgSubscription {id: randomUUID()})
-                  SET subscription.tier = $jobstash
-                  SET subscription.veri = $veri
-                  SET subscription.stashAlert = $stashAlert
-                  SET subscription.extraSeats = $extraSeats
-                  SET subscription.stashPool = $stashPool
-                  SET subscription.atsIntegration = $atsIntegration
-                  SET subscription.boostedVacancyMultiplier = $boostedVacancyMultiplier
-                  SET subscription.status = "active"
-                  SET subscription.duration = $duration
-                  SET subscription.createdTimestamp = $createdTimestamp
-                  SET subscription.expiryTimestamp = $expiryTimestamp
-                  RETURN subscription
+                  MATCH (subscription:OrgSubscription {id: $subscriptionId})-[:HAS_SERVICE]->(tier:VeriAddon)
+                  SET tier.expiryTimestamp = $timestamp
+
+                  WITH subscription
+                  CREATE (tier:VeriAddon {id: randomUUID()})
+                  SET tier.name = $veri
+                  SET tier.createdTimestamp = $createdTimestamp
+                  SET tier.expiryTimestamp = $expiryTimestamp
+
+                  WITH subscription, tier
+                  MERGE (subscription)-[:HAS_SERVICE]->(tier)
                 `,
-                payload,
-              )
-            ).records[0].get("subscription");
+                {
+                  ...payload,
+                  createdTimestamp: timestamp.getTime(),
+                  subscriptionId: existingSubscription.id,
+                },
+              );
+            } else {
+              const existingTier = (
+                await tx.run(
+                  `
+                  MATCH (subscription:OrgSubscription {id: $subscriptionId})-[:HAS_SERVICE]->(tier:VeriAddon)
+                  RETURN tier
+                `,
+                  {
+                    subscriptionId: existingSubscription.id,
+                  },
+                )
+              ).records[0].get("tier");
+
+              await tx.run(
+                `
+                  MATCH (subscription:OrgSubscription {id: $subscriptionId})
+                  CREATE (tier:VeriAddon {id: randomUUID()})
+                  SET tier.name = $veri
+                  SET tier.createdTimestamp = $createdTimestamp
+                  SET tier.expiryTimestamp = $expiryTimestamp
+
+                  WITH subscription, tier
+                  MERGE (subscription)-[:HAS_SERVICE]->(tier)
+                `,
+                {
+                  ...payload,
+                  subscriptionId: existingSubscription.id,
+                  createdTimestamp: existingTier.properties.expiryTimestamp,
+                  expiryTimestamp: addMonths(
+                    existingTier.properties.expiryTimestamp,
+                    1,
+                  ).getTime(),
+                },
+              );
+            }
+
+            if (
+              (existingSubscription.stashAlert ? STASH_ALERT_PRICE : 0) <
+              (dto.stashAlert ? STASH_ALERT_PRICE : 0)
+            ) {
+              await tx.run(
+                `
+                  MATCH (subscription:OrgSubscription {id: $subscriptionId})-[:HAS_SERVICE]->(tier:StashAlert)
+                  SET tier.expiryTimestamp = $timestamp
+
+                  WITH subscription
+                  CREATE (tier:StashAlert {id: randomUUID()})
+                  SET tier.active = $stashAlert
+                  SET tier.createdTimestamp = $createdTimestamp
+                  SET tier.expiryTimestamp = $expiryTimestamp
+
+                  WITH subscription, tier
+                  MERGE (subscription)-[:HAS_SERVICE]->(tier)
+                `,
+                {
+                  ...payload,
+                  createdTimestamp: timestamp.getTime(),
+                  subscriptionId: existingSubscription.id,
+                },
+              );
+            } else {
+              const existingTier = (
+                await tx.run(
+                  `
+                  MATCH (subscription:OrgSubscription {id: $subscriptionId})-[:HAS_SERVICE]->(tier:StashAlert)
+                  RETURN tier
+                `,
+                  {
+                    subscriptionId: existingSubscription.id,
+                  },
+                )
+              ).records[0].get("tier");
+
+              await tx.run(
+                `
+                  MATCH (subscription:OrgSubscription {id: $subscriptionId})
+                  CREATE (tier:StashAlert {id: randomUUID()})
+                  SET tier.active = $stashAlert
+                  SET tier.createdTimestamp = $createdTimestamp
+                  SET tier.expiryTimestamp = $expiryTimestamp
+
+                  WITH subscription, tier
+                  MERGE (subscription)-[:HAS_SERVICE]->(tier)
+                `,
+                {
+                  ...payload,
+                  subscriptionId: existingSubscription.id,
+                  createdTimestamp: existingTier.properties.expiryTimestamp,
+                  expiryTimestamp: addMonths(
+                    existingTier.properties.expiryTimestamp,
+                    1,
+                  ).getTime(),
+                },
+              );
+            }
+
+            if (
+              existingSubscription.extraSeats *
+                EXTRA_SEATS_PRICING[existingSubscription.tier] <
+              dto.extraSeats * EXTRA_SEATS_PRICING[dto.jobstash]
+            ) {
+              await tx.run(
+                `
+                  MATCH (subscription:OrgSubscription {id: $subscriptionId})-[:HAS_SERVICE]->(tier:ExtraSeats)
+                  SET tier.expiryTimestamp = $timestamp
+
+                  WITH subscription
+                  CREATE (tier:ExtraSeats {id: randomUUID()})
+                  SET tier.value = $extraSeats
+                  SET tier.createdTimestamp = $createdTimestamp
+                  SET tier.expiryTimestamp = $expiryTimestamp
+
+                  WITH subscription, tier
+                  MERGE (subscription)-[:HAS_SERVICE]->(tier)
+                `,
+                {
+                  ...payload,
+                  createdTimestamp: timestamp.getTime(),
+                  subscriptionId: existingSubscription.id,
+                },
+              );
+            } else {
+              const existingTier = (
+                await tx.run(
+                  `
+                  MATCH (subscription:OrgSubscription {id: $subscriptionId})-[:HAS_SERVICE]->(tier:ExtraSeats)
+                  RETURN tier
+                `,
+                  {
+                    subscriptionId: existingSubscription.id,
+                  },
+                )
+              ).records[0].get("tier");
+
+              await tx.run(
+                `
+                  MATCH (subscription:OrgSubscription {id: $subscriptionId})
+                  CREATE (tier:ExtraSeats {id: randomUUID()})
+                  SET tier.value = $extraSeats
+                  SET tier.createdTimestamp = $createdTimestamp
+                  SET tier.expiryTimestamp = $expiryTimestamp
+
+                  WITH subscription, tier
+                  MERGE (subscription)-[:HAS_SERVICE]->(tier)
+                `,
+                {
+                  ...payload,
+                  subscriptionId: existingSubscription.id,
+                  createdTimestamp: existingTier.properties.expiryTimestamp,
+                  expiryTimestamp: addMonths(
+                    existingTier.properties.expiryTimestamp,
+                    1,
+                  ).getTime(),
+                },
+              );
+            }
 
             const payment = (
               await tx.run(
@@ -1618,15 +1996,15 @@ export class SubscriptionsService {
 
             await tx.run(
               `
-                MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId}), (subscription:OrgSubscription {id: $subscriptionId}), (payment:Payment {id: $paymentId}), (quota:Quota {id: $quotaId})
-                CREATE (org)-[:HAS_SUBSCRIPTION]->(subscription)-[:HAS_PAYMENT]->(payment)<-[:MADE_SUBSCRIPTION_PAYMENT]-(user)
+                MATCH (user:User {wallet: $wallet}), (subscription:OrgSubscription {id: $subscriptionId}), (payment:Payment {id: $paymentId}), (quota:Quota {id: $quotaId})
+                MERGE (subscription)-[:HAS_PAYMENT]->(payment)<-[:MADE_SUBSCRIPTION_PAYMENT]-(user)
 
                 WITH subscription, quota
                 MERGE (subscription)-[:HAS_QUOTA]->(quota)
               `,
               {
                 ...payload,
-                subscriptionId: subscription.properties.id,
+                subscriptionId: existingSubscription.id,
                 paymentId: payment.properties.id,
                 quotaId: quota.properties.id,
               },
