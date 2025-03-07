@@ -870,10 +870,11 @@ export class SubscriptionsService {
     orgId: string,
   ): Promise<ResponseWithOptionalData<Subscription>> {
     try {
+      // TODO: add separate time blocked node handling for different subscription components
       const result = await this.neogma.queryRunner.run(
         `
           MATCH (org:Organization {orgId: $orgId})-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription {status: "active"})
-          WHERE subcription.createdTimestamp < timestamp() && subscription.expiryTimestamp > timestamp()
+          WHERE subscription.createdTimestamp < timestamp() AND subscription.expiryTimestamp > timestamp()
           RETURN subscription {
             .*,
             quota: [
@@ -1500,6 +1501,18 @@ export class SubscriptionsService {
         const existingSubscription = data(
           await this.getSubscriptionInfo(orgId),
         );
+
+        const isUpgrade =
+          JOBSTASH_BUNDLE_PRICING[existingSubscription.tier] <
+            JOBSTASH_BUNDLE_PRICING[dto.jobstash] ||
+          VERI_BUNDLE_PRICING[existingSubscription.veri] <
+            VERI_BUNDLE_PRICING[dto.veri] ||
+          (existingSubscription.stashAlert ? STASH_ALERT_PRICE : 0) <
+            (dto.stashAlert ? STASH_ALERT_PRICE : 0) ||
+          existingSubscription.extraSeats *
+            EXTRA_SEATS_PRICING[existingSubscription.tier] <
+            dto.extraSeats * EXTRA_SEATS_PRICING[dto.jobstash];
+
         const result = await this.neogma.getTransaction(null, async tx => {
           const pendingPayment = (
             await tx.run(
@@ -1516,16 +1529,16 @@ export class SubscriptionsService {
             const externalRefCode = pendingPayment.reference;
             const quotaInfo = JOBSTASH_QUOTA[dto.jobstash];
             const veriAddons = VERI_ADDONS[dto.veri];
+            const createdTimestamp = isUpgrade
+              ? timestamp.getTime()
+              : existingSubscription.expiryTimestamp;
 
             const payload = {
               ...dto,
               quota: {
                 veri: dto.veri ? quotaInfo.veri + veriAddons : quotaInfo.veri,
-                createdTimestamp: existingSubscription.expiryTimestamp,
-                expiryTimestamp: addMonths(
-                  existingSubscription.expiryTimestamp,
-                  2,
-                ).getTime(),
+                createdTimestamp,
+                expiryTimestamp: addMonths(createdTimestamp, 2).getTime(),
               },
               stashPool: quotaInfo.stashPool,
               atsIntegration: quotaInfo.atsIntegration,
@@ -1536,12 +1549,21 @@ export class SubscriptionsService {
               internalRefCode,
               externalRefCode,
               timestamp: timestamp.getTime(),
-              createdTimestamp: existingSubscription.expiryTimestamp,
-              expiryTimestamp: addMonths(
-                existingSubscription.expiryTimestamp,
-                1,
-              ).getTime(),
+              createdTimestamp,
+              expiryTimestamp: addMonths(createdTimestamp, 1).getTime(),
             };
+
+            if (isUpgrade) {
+              await tx.run(
+                `
+                  MATCH (subscription:OrgSubscription {id: $subscriptionId})
+                  SET subscription.status = "inactive"
+                  SET subscription.expiryTimestamp = timestamp()
+                  RETURN subscription
+                `,
+                { subscriptionId: existingSubscription.id },
+              );
+            }
 
             const subscription = (
               await tx.run(
