@@ -128,11 +128,14 @@ export class Quota {
     }));
   }
 
-  isUsedUp(): boolean {
-    const usage = this.getQuotaAggregateUsage();
-    return Object.keys(usage).every(
-      (x: MeteredService) => this.getAvailableCredits(x) === 0,
-    );
+  isUsedUp(service?: MeteredService): boolean {
+    if (service) {
+      return this.getAvailableCredits(service) === 0;
+    } else {
+      return METERED_SERVICES.every(
+        (x: MeteredService) => this.getAvailableCredits(x) === 0,
+      );
+    }
   }
 }
 
@@ -296,10 +299,10 @@ export class Subscription {
     );
   }
 
-  getOldestActiveUnfilledQuota(): Quota | undefined {
+  getOldestActiveUnfilledQuota(service: MeteredService): Quota | undefined {
     const epochEnd = now();
     const unfilledQuotas = (this.getEpochQuotas(epochEnd) ?? []).filter(
-      x => !x.isUsedUp(),
+      x => !x.isUsedUp(service),
     );
     return sort(unfilledQuotas).asc(x => x.expiryTimestamp)?.[0] ?? undefined;
   }
@@ -349,7 +352,7 @@ export class Subscription {
   }
 
   isActive(): boolean {
-    return this.status === "active" && this.expiryTimestamp < now();
+    return this.status === "active" && this.expiryTimestamp > now();
   }
 
   canAccessService(service: Service): boolean {

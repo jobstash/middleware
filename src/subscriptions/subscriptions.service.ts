@@ -229,8 +229,8 @@ export class SubscriptionsService {
       const isOrgMember = await this.userService.isOrgMember(wallet, orgId);
       if (isOrgMember) {
         if (subscription.isActive() && subscription.canAccessService(service)) {
-          const quotaId = subscription.getOldestActiveUnfilledQuota()?.id;
-          if (quotaId) {
+          const quota = subscription.getOldestActiveUnfilledQuota(service);
+          if (quota?.id) {
             await this.neogma.queryRunner.run(
               `
                 MATCH (user:User {wallet: $wallet}), (subscription:OrgSubscription {id: $subscriptionId, status: "active"})-[:HAS_QUOTA]->(quota:Quota {id: $quotaId})
@@ -238,7 +238,7 @@ export class SubscriptionsService {
               `,
               {
                 subscriptionId: subscription.id,
-                quotaId: quotaId,
+                quotaId: quota.id,
                 wallet,
                 amount,
                 service,
