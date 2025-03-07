@@ -2073,8 +2073,9 @@ export class SubscriptionsService {
       await this.neogma.queryRunner.run(
         `
           MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
-          MATCH (org)-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)-[:HAS_QUOTA|HAS_PAYMENT|HAS_SERVICE]->(node)
-          DETACH DELETE subscription, node
+          OPTIONAL MATCH (org)-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)-[:HAS_QUOTA|HAS_PAYMENT|HAS_SERVICE]->(node)
+          OPTIONAL MATCH (org)-[:HAS_USER_SEAT]->(userSeat:OrgUserSeat)
+          DETACH DELETE subscription, node, userSeat
         `,
         { wallet, orgId },
       );
