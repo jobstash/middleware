@@ -32,6 +32,7 @@ import { UserModule } from "./user/user.module";
 import { Auth0Module } from "./auth0/auth0.module";
 import { SubscriptionsModule } from "./subscriptions/subscriptions.module";
 import { BullModule } from "@nestjs/bull";
+import { ScheduleModule } from "@nestjs/schedule";
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { BullModule } from "@nestjs/bull";
         },
       }),
     }),
+    ScheduleModule.forRoot(),
     CacheModule.register({ isGlobal: true }),
     AuthModule,
     JobsModule,

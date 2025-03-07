@@ -25,9 +25,10 @@ import * as Sentry from "@sentry/node";
 import { JOBSTASH_QUOTA, VERI_ADDONS } from "src/shared/constants/quota";
 import { MeteredService, Subscription } from "src/shared/interfaces/org";
 import { SubscriptionEntity } from "src/shared/entities/subscription.entity";
-import { addDays, addHours, addMonths, subDays } from "date-fns";
-import { capitalize } from "lodash";
+import { addDays, addHours, addMonths, getDayOfYear } from "date-fns";
+import { capitalize, now } from "lodash";
 import { ProfileService } from "src/auth/profile/profile.service";
+import { Cron, CronExpression } from "@nestjs/schedule";
 
 @Injectable()
 export class SubscriptionsService {
@@ -780,27 +781,6 @@ export class SubscriptionsService {
                   text("Thanks for using JobStash.xyz!"),
                 ],
               }),
-            );
-            this.logger.log("Scheduled renewal email to owner");
-            await this.mailService.scheduleEmail(
-              emailBuilder({
-                from: this.from,
-                to: ownerEmail,
-                subject: "JobStash.xyz Free Trial Expiration",
-                previewText:
-                  "Your free trial is about to expire. Upgrade to a premium plan to keep using JobStash.xyz.",
-                title: "Your JobStash.xyz free trial is going to expire soon",
-                bodySections: [
-                  text(
-                    'Your free trial expires in 5 days. Head to your <a href="${this.configService.getOrThrow("ORG_ADMIN_DOMAIN")}">profile</a> to make a payment to upgrade to one of our premium plans before it expires to keep using JobStash.xyz.',
-                  ),
-                  text(
-                    "If you have any questions, feel free to reach out to us at support@jobstash.xyz.",
-                  ),
-                  text("Thanks for using JobStash.xyz!"),
-                ],
-              }),
-              subDays(addMonths(timestamp, 1), 5).getTime(),
             );
           } catch (err) {
             Sentry.withScope(scope => {
@@ -2098,6 +2078,152 @@ export class SubscriptionsService {
         success: false,
         message: "Error resetting subscription state",
       };
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_9AM, {
+    timeZone: "Europe/Berlin",
+  })
+  async sendSubscriptionRenewalEmails(): Promise<void> {
+    if (this.configService.getOrThrow<string>("ENVIRONMENT") === "production") {
+      const result = await this.neogma.queryRunner.run(
+        `
+          MATCH (org:Organization)-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)
+          MATCH (org)-[:HAS_USER_SEAT]->(userSeat:OrgUserSeat { seatType: "owner" })<-[:OCCUPIES]-(user:User)
+          RETURN subscription {
+            .*,
+            tier: [
+              (subscription)-[:HAS_SERVICE]->(tier:JobstashBundle)
+              WHERE tier.createdTimestamp < timestamp() AND tier.expiryTimestamp > timestamp()
+              | tier.name
+            ][0],
+            stashPool: [
+              (subscription)-[:HAS_SERVICE]->(bundle:JobstashBundle)
+              WHERE bundle.createdTimestamp < timestamp() AND bundle.expiryTimestamp > timestamp()
+              | bundle.stashPool
+            ][0],
+            atsIntegration: [
+              (subscription)-[:HAS_SERVICE]->(bundle:JobstashBundle)
+              WHERE bundle.createdTimestamp < timestamp() AND bundle.expiryTimestamp > timestamp()
+              | bundle.atsIntegration
+            ][0],
+            boostedVacancyMultiplier: [
+              (subscription)-[:HAS_SERVICE]->(bundle:JobstashBundle)
+              WHERE bundle.createdTimestamp < timestamp() AND bundle.expiryTimestamp > timestamp()
+              | bundle.boostedVacancyMultiplier
+            ][0],
+            veri: [
+              (subscription)-[:HAS_SERVICE]->(veri:VeriAddon)
+              WHERE veri.createdTimestamp < timestamp() AND veri.expiryTimestamp > timestamp()
+              | veri.name
+            ][0],
+            stashAlert: [
+              (subscription)-[:HAS_SERVICE]->(stashAlert:StashAlert)
+              WHERE stashAlert.createdTimestamp < timestamp() AND stashAlert.expiryTimestamp > timestamp()
+              | stashAlert.active
+            ][0],
+            extraSeats: [
+              (subscription)-[:HAS_SERVICE]->(extraSeats:ExtraSeats)
+              WHERE extraSeats.createdTimestamp < timestamp() AND extraSeats.expiryTimestamp > timestamp()
+              | extraSeats.value
+            ][0],
+            quota: [
+              (subscription)-[:HAS_QUOTA]->(quota:Quota) | quota {
+                .*,
+                usage: [
+                  (quota)-[:HAS_USAGE]->(usage:QuotaUsage) | usage { .* }
+                ]
+              }
+            ]
+          } as subscription, user.wallet as ownerWallet, org.orgId as orgId
+        `,
+      );
+      const subscriptions = result.records.map(x => ({
+        subscription: x.get("subscription"),
+        ownerWallet: x.get("ownerWallet"),
+        orgId: x.get("orgId"),
+      }));
+      for (const job of subscriptions) {
+        const ownerEmail = await this.getSubscriptionOwnerEmail(
+          job.ownerWallet,
+          job.orgId,
+        );
+
+        if (ownerEmail) {
+          const subscription = new SubscriptionEntity(
+            job.subscription,
+          ).getProperties();
+          const expiresToday =
+            getDayOfYear(now()) === getDayOfYear(subscription.expiryTimestamp);
+          //TODO: change these to official copy from @Laura
+          if (subscription.status === "active" && expiresToday) {
+            if (subscription.tier === "starter") {
+              await this.mailService.sendEmail(
+                emailBuilder({
+                  from: this.from,
+                  to: ownerEmail,
+                  subject: "JobStash.xyz Free Trial Expiration",
+                  previewText:
+                    "Your free trial is about to expire. Upgrade to a premium plan to keep using JobStash.xyz.",
+                  title: "Your JobStash.xyz free trial is going to expire soon",
+                  bodySections: [
+                    text(
+                      'Your free trial expires in 5 days. Head to your <a href="${this.configService.getOrThrow("ORG_ADMIN_DOMAIN")}">profile</a> to make a payment to upgrade to one of our premium plans before it expires to keep using JobStash.xyz.',
+                    ),
+                    text(
+                      "If you have any questions, feel free to reach out to us at support@jobstash.xyz.",
+                    ),
+                    text("Thanks for using JobStash.xyz!"),
+                  ],
+                }),
+              );
+            } else {
+              await this.mailService.sendEmail(
+                emailBuilder({
+                  from: this.from,
+                  to: ownerEmail,
+                  subject: "JobStash.xyz Subscription",
+                  previewText:
+                    "Your subscription has been renewed. You can now continue using JobStash.xyz.",
+                  title: "Your JobStash.xyz subscription has been renewed",
+                  bodySections: [
+                    text(
+                      "Your new subscription is active. You can now start using JobStash.xyz.",
+                    ),
+                    text(
+                      `Head to your <a href="${this.configService.getOrThrow("ORG_ADMIN_DOMAIN")}">profile</a> to start using your shiny new subscription.`,
+                    ),
+                    text(
+                      "If you have any questions, feel free to reach out to us at support@jobstash.xyz.",
+                    ),
+                    text("Thanks for using JobStash.xyz!"),
+                  ],
+                }),
+              );
+            }
+          } else {
+            this.logger.log(
+              `Subscription for ${job.orgId} is due to expire in less than 5 days`,
+            );
+          }
+        } else {
+          this.logger.warn(`Owner email not found for ${job.orgId}`);
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "business-logic",
+              source: "subscriptions.service",
+            });
+            scope.setExtra("input", {
+              ownerEmail,
+              orgId: job.orgId,
+              action: "subscription-renewal-reminder",
+            });
+            Sentry.captureMessage(`Owner email not found for ${job.orgId}`);
+          });
+        }
+      }
+    } else {
+      this.logger.warn("Not in production environment");
     }
   }
 }
