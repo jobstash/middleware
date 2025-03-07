@@ -99,4 +99,67 @@ export class SubscriptionsController {
       });
     }
   }
+
+  @Post(":orgId/reactivate")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
+  async reactivateOrgSubscription(
+    @Param("orgId") orgId: string,
+    @Session() { address }: SessionObject,
+  ): Promise<ResponseWithOptionalData<string>> {
+    this.logger.log(`/subscriptions/${orgId}/reactivate ${address}`);
+    const owner = data(
+      await this.userService.findOrgOwnerProfileByOrgId(orgId),
+    );
+    if (owner?.wallet === address) {
+      return this.subscriptionsService.reactivateSubscription(address, orgId);
+    } else {
+      throw new UnauthorizedException({
+        success: false,
+        message: "You are not the owner of this organization",
+      });
+    }
+  }
+
+  @Post(":orgId/cancel")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
+  async cancelOrgSubscription(
+    @Param("orgId") orgId: string,
+    @Session() { address }: SessionObject,
+  ): Promise<ResponseWithOptionalData<string>> {
+    this.logger.log(`/subscriptions/${orgId}/cancel ${address}`);
+    const owner = data(
+      await this.userService.findOrgOwnerProfileByOrgId(orgId),
+    );
+    if (owner?.wallet === address) {
+      return this.subscriptionsService.cancelSubscription(address, orgId);
+    } else {
+      throw new UnauthorizedException({
+        success: false,
+        message: "You are not the owner of this organization",
+      });
+    }
+  }
+
+  @Post(":orgId/reset")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
+  async resetOrgSubscriptionState(
+    @Param("orgId") orgId: string,
+    @Session() { address }: SessionObject,
+  ): Promise<ResponseWithOptionalData<string>> {
+    this.logger.log(`/subscriptions/${orgId}/reset ${address}`);
+    const owner = data(
+      await this.userService.findOrgOwnerProfileByOrgId(orgId),
+    );
+    if (owner?.wallet === address) {
+      return this.subscriptionsService.resetSubscriptionState(address, orgId);
+    } else {
+      throw new UnauthorizedException({
+        success: false,
+        message: "You are not the owner of this organization",
+      });
+    }
+  }
 }

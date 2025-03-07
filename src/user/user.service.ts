@@ -205,7 +205,30 @@ export class UserService {
         });
         Sentry.captureException(err);
       });
-      this.logger.error(`UserService::userAuthorizedForOrg ${err.message}`);
+      this.logger.error(`UserService::isOrgMember ${err.message}`);
+      return false;
+    }
+  }
+
+  async isOrgOwner(wallet: string, orgId: string): Promise<boolean> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        RETURN EXISTS((:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(:Organization {orgId: $orgId})) AS hasOrgAuthorization
+      `,
+        { wallet, orgId },
+      );
+
+      return result.records[0]?.get("hasOrgAuthorization") as boolean;
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`UserService::isOrgOwner ${err.message}`);
       return false;
     }
   }

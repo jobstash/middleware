@@ -19,13 +19,7 @@ import {
 import { PricingType } from "src/payments/dto/create-charge.dto";
 import { SubscriptionMetadata } from "src/payments/dto/webhook-data.dto";
 import { UserService } from "src/user/user.service";
-import {
-  button,
-  emailBuilder,
-  link,
-  randomToken,
-  text,
-} from "src/shared/helpers";
+import { button, emailBuilder, randomToken, text } from "src/shared/helpers";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { JOBSTASH_QUOTA, VERI_ADDONS } from "src/shared/constants/quota";
@@ -102,108 +96,6 @@ export class SubscriptionsService {
 
     const amount = total + extraSeatCost;
     return { description, amount };
-  }
-
-  async scheduleSubscriptionRenewalEmail(
-    dto: SubscriptionMetadata & { ownerEmail: string },
-    timestamp: Date,
-  ): Promise<void> {
-    const { ownerEmail } = dto;
-    const { description, amount } = this.generatePaymentDetails(dto);
-    const paymentLink = await this.paymentsService.createCharge({
-      name: `JobStash.xyz`,
-      description,
-      local_price: {
-        amount: amount.toString(),
-        currency: "USD",
-      },
-      pricing_type:
-        this.configService.get("ENVIRONMENT") === "production"
-          ? PricingType.FIXED_PRICE
-          : PricingType.NO_PRICE,
-      metadata: {
-        calldata: JSON.stringify({
-          ...dto,
-          extraSeats: dto.jobstash === "starter" ? 0 : dto.extraSeats,
-          wallet: dto.wallet,
-          amount,
-        }),
-        action: "subscription-renewal",
-      },
-      redirect_url: "https://jobstash.xyz/subscriptions/renew?success=true",
-      cancel_url: "https://jobstash.xyz/subscriptions/renew?cancelled=true",
-    });
-
-    if (paymentLink) {
-      await this.neogma.queryRunner.run(
-        `
-          MERGE (payment: PendingPayment {link: $link})
-          ON CREATE SET
-            payment.id = randomUUID(),
-            payment.reference = $reference,
-            payment.type = "subscription",
-            payment.amount = $amount,
-            payment.currency = "USD",
-            payment.action = $action,
-            payment.link = $link,
-            payment.createdTimestamp = timestamp()
-              
-          WITH payment
-          MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
-          MERGE (user)-[:HAS_PENDING_PAYMENT]->(payment)<-[:HAS_PENDING_PAYMENT]-(org)
-        `,
-        {
-          wallet: dto.wallet,
-          reference: paymentLink.id,
-          link: paymentLink.url,
-          amount,
-          action: "subscription-renewal",
-          orgId: dto.orgId,
-        },
-      );
-      await this.mailService.scheduleEmail(
-        emailBuilder({
-          from: this.from,
-          to: ownerEmail,
-          subject:
-            "⏰ Reminder: Keep Your JobStash.xyz Subscription Active! 🚀",
-          previewText:
-            "Just a quick reminder that your JobStash.xyz subscription is about to expire! To continue enjoying all the features and benefits of your add-ons, please complete your payment to keep your subscription active. 💥",
-          title: "Hey there,",
-          bodySections: [
-            text(
-              "Just a quick reminder that your JobStash.xyz subscription is about to expire! To continue enjoying all the features and benefits of your add-ons, please complete your payment to keep your subscription active. 💥",
-            ),
-            text(
-              `
-                Subscription Details:
-                <ul>
-                <li>Subscription Plan: ${description}</li>
-                <li>Next Payment Due: ${addMonths(timestamp, 1).toDateString()}</li>
-                <li>Amount Due: $${amount}</li>
-                </ul>
-              `,
-            ),
-            text(
-              "To make your payment, we've generated a new payment link for you. Simply click the link below and follow the instructions to complete your payment. 💰",
-            ),
-            link("Payment Link", paymentLink.url),
-            text(
-              "Once your payment is completed, you’ll receive a confirmation email from us. 🙌",
-            ),
-            text(
-              `Got questions or need support? We’ve got your back! Just reach out to us via <a href="https://t.me/+24r67MsBXT00ODE8">Telegram</a>. We’re always here to help.`,
-            ),
-            text(
-              "Thanks for being part of the JobStash.xyz community – we’re excited to continue supporting you!",
-            ),
-          ],
-        }),
-        subDays(addMonths(timestamp, 1), 5).getTime(),
-      );
-    } else {
-      this.logger.warn("Error creating subscription renewal payment link");
-    }
   }
 
   async getSubscriptionOwnerEmail(
@@ -355,6 +247,7 @@ export class SubscriptionsService {
           );
 
           try {
+            //TODO: change these to official copy from @Laura
             await this.mailService.sendEmail(
               emailBuilder({
                 from: this.from,
@@ -923,6 +816,7 @@ export class SubscriptionsService {
           }
         } else {
           try {
+            //TODO: change these to official copy from @Laura
             await this.mailService.sendEmail(
               emailBuilder({
                 from: this.from,
@@ -945,14 +839,6 @@ export class SubscriptionsService {
                   ),
                 ],
               }),
-            );
-            this.logger.log("Scheduled renewal email to owner");
-            await this.scheduleSubscriptionRenewalEmail(
-              {
-                ...dto,
-                ownerEmail,
-              },
-              timestamp,
             );
           } catch (err) {
             Sentry.withScope(scope => {
@@ -1000,7 +886,7 @@ export class SubscriptionsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-          MATCH (org:Organization {orgId: $orgId})-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription {status: "active"})
+          MATCH (org:Organization {orgId: $orgId})-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)
           RETURN subscription {
             .*,
             tier: [
@@ -1246,7 +1132,6 @@ export class SubscriptionsService {
           message: `You are not the owner of this organization`,
         };
       } else {
-        const timestamp = new Date();
         this.logger.log("Renewing subscription");
         const existingSubscription = data(
           await this.getSubscriptionInfo(dto.orgId),
@@ -1419,14 +1304,6 @@ export class SubscriptionsService {
                   text("Thanks for using JobStash.xyz!"),
                 ],
               }),
-            );
-            this.logger.log("Scheduled next renewal email to owner");
-            await this.scheduleSubscriptionRenewalEmail(
-              {
-                ...dto,
-                ownerEmail,
-              },
-              timestamp,
             );
           } catch (err) {
             Sentry.withScope(scope => {
@@ -2065,14 +1942,6 @@ export class SubscriptionsService {
                 ],
               }),
             );
-            this.logger.log("Scheduled next renewal email to owner");
-            await this.scheduleSubscriptionRenewalEmail(
-              {
-                ...dto,
-                ownerEmail,
-              },
-              timestamp,
-            );
           } catch (err) {
             Sentry.withScope(scope => {
               scope.setTags({
@@ -2124,6 +1993,109 @@ export class SubscriptionsService {
       return {
         success: false,
         message: "Error changing subscription",
+      };
+    }
+  }
+
+  async cancelSubscription(
+    wallet: string,
+    orgId: string,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+            MATCH (org:Organization {orgId: $orgId})-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)
+            SET subscription.status = "inactive"
+          `,
+        { wallet, orgId },
+      );
+      return {
+        success: true,
+        message: "Subscription cancelled successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "subscriptions.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `SubscriptionsService::cancelSubscription ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Error cancelling subscription",
+      };
+    }
+  }
+
+  async reactivateSubscription(
+    wallet: string,
+    orgId: string,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+            MATCH (org:Organization {orgId: $orgId})-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)
+            SET subscription.status = "active"
+          `,
+        { wallet, orgId },
+      );
+      return {
+        success: true,
+        message: "Subscription reactivated successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "subscriptions.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `SubscriptionsService::reactivateSubscription ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Error reactivating subscription",
+      };
+    }
+  }
+
+  async resetSubscriptionState(
+    wallet: string,
+    orgId: string,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+          MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
+          MATCH (org)-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)-[:HAS_QUOTA|HAS_PAYMENT|HAS_SERVICE]->(node)
+          DETACH DELETE subscription, node
+        `,
+        { wallet, orgId },
+      );
+      return {
+        success: true,
+        message: "Subscription state reset successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "subscriptions.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `SubscriptionsService::resetSubscriptionState ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Error resetting subscription state",
       };
     }
   }
