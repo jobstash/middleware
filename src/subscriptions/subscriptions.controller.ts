@@ -154,7 +154,7 @@ export class SubscriptionsController {
       await this.userService.findOrgOwnerProfileByOrgId(orgId),
     );
     if (owner?.wallet === address) {
-      return this.subscriptionsService.resetSubscriptionState(address, orgId);
+      return this.subscriptionsService.resetSubscriptionState(orgId);
     } else {
       throw new UnauthorizedException({
         success: false,

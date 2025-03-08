@@ -2046,10 +2046,7 @@ export class SubscriptionsService {
     }
   }
 
-  async resetSubscriptionState(
-    wallet: string,
-    orgId: string,
-  ): Promise<ResponseWithNoData> {
+  async resetSubscriptionState(orgId: string): Promise<ResponseWithNoData> {
     try {
       const users = await this.neogma.queryRunner.run(
         `
@@ -2059,7 +2056,7 @@ export class SubscriptionsService {
           DETACH DELETE subscription, node, userSeat
           RETURN user { .* } as user
         `,
-        { wallet, orgId },
+        { orgId },
       );
       for (const userRecord of users.records) {
         const user = userRecord.get("user");
