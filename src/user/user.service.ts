@@ -10,6 +10,7 @@ import {
   UserProfileEntity,
   UserOrgAffiliationRequest,
   data,
+  UserPermission,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -991,6 +992,10 @@ export class UserService {
     } else {
       return initial;
     }
+  }
+
+  async getUserPermissions(wallet: string): Promise<UserPermission[]> {
+    return this.permissionService.getPermissionsForWallet(wallet);
   }
 
   async syncUserPermissions(

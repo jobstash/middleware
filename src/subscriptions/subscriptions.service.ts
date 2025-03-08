@@ -29,6 +29,7 @@ import { addDays, addHours, addMonths, getDayOfYear } from "date-fns";
 import { capitalize, now } from "lodash";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { Cron, CronExpression } from "@nestjs/schedule";
+import { CheckWalletPermissions } from "src/shared/constants";
 
 @Injectable()
 export class SubscriptionsService {
@@ -2050,15 +2051,32 @@ export class SubscriptionsService {
     orgId: string,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
+      const users = await this.neogma.queryRunner.run(
         `
-          MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
+          MATCH (org:Organization {orgId: $orgId})
           OPTIONAL MATCH (org)-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)-[:HAS_QUOTA|HAS_PAYMENT|HAS_SERVICE]->(node)
-          OPTIONAL MATCH (org)-[:HAS_USER_SEAT]->(userSeat:OrgUserSeat)
+          OPTIONAL MATCH (org)-[:HAS_USER_SEAT]->(userSeat:OrgUserSeat)<-[:OCCUPIES]-(user:User)
           DETACH DELETE subscription, node, userSeat
+          RETURN user { .* } as user
         `,
         { wallet, orgId },
       );
+      for (const userRecord of users.records) {
+        const user = userRecord.get("user");
+        const currentPerms = await this.userService.getUserPermissions(
+          user.wallet,
+        );
+        const permsToDrop: string[] = [
+          CheckWalletPermissions.ORG_MEMBER,
+          CheckWalletPermissions.ORG_OWNER,
+        ];
+        await this.userService.syncUserPermissions(
+          user.wallet,
+          currentPerms
+            .filter(x => !permsToDrop.includes(x.name))
+            .map(x => x.name),
+        );
+      }
       return {
         success: true,
         message: "Subscription state reset successfully",
