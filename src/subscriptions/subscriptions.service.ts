@@ -661,6 +661,7 @@ export class SubscriptionsService {
               `,
               {
                 ...payload,
+                createdTimestamp: timestamp.getTime(),
                 subscriptionId: subscription.properties.id,
               },
             );
@@ -678,6 +679,7 @@ export class SubscriptionsService {
               `,
               {
                 ...payload,
+                createdTimestamp: timestamp.getTime(),
                 subscriptionId: subscription.properties.id,
               },
             );
@@ -695,6 +697,7 @@ export class SubscriptionsService {
               `,
               {
                 ...payload,
+                createdTimestamp: timestamp.getTime(),
                 subscriptionId: subscription.properties.id,
               },
             );
@@ -712,6 +715,7 @@ export class SubscriptionsService {
               `,
               {
                 ...payload,
+                createdTimestamp: timestamp.getTime(),
                 subscriptionId: subscription.properties.id,
               },
             );
