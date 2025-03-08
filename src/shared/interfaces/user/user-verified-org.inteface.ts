@@ -19,6 +19,7 @@ export class UserVerifiedOrg {
     ]),
     hasOwner: t.boolean,
     isOwner: t.boolean,
+    isMember: t.boolean,
   });
 
   @ApiProperty()
@@ -48,6 +49,9 @@ export class UserVerifiedOrg {
   @ApiProperty()
   isOwner: boolean;
 
+  @ApiProperty()
+  isMember: boolean;
+
   constructor(raw: UserVerifiedOrg) {
     const {
       id,
@@ -59,6 +63,7 @@ export class UserVerifiedOrg {
       credential,
       hasOwner,
       isOwner,
+      isMember,
     } = raw;
 
     const result = UserVerifiedOrg.UserVerifiedOrgType.decode(raw);
@@ -72,6 +77,7 @@ export class UserVerifiedOrg {
     this.credential = credential;
     this.hasOwner = hasOwner;
     this.isOwner = isOwner;
+    this.isMember = isMember;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

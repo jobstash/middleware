@@ -399,6 +399,7 @@ export class ProfileService {
               url: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
               hasOwner: CASE WHEN EXISTS((:User)-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(organization)) THEN true ELSE false END,
               isOwner: CASE WHEN EXISTS((:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(organization)) THEN true ELSE false END,
+              isMember: CASE WHEN EXISTS((:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat)<-[:HAS_USER_SEAT]-(organization)) THEN true ELSE false END,
               logo: organization.logoUrl
             })) as orgsByRepo
           `,
@@ -419,6 +420,7 @@ export class ProfileService {
               account: profile.linkedAccounts.github,
               hasOwner: x.hasOwner,
               isOwner: x.isOwner,
+              isMember: x.isMember,
               credential: "github",
             }),
         );
@@ -446,6 +448,7 @@ export class ProfileService {
               url: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
               hasOwner: CASE WHEN EXISTS((:User)-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(organization)) THEN true ELSE false END,
               isOwner: CASE WHEN EXISTS((:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(organization)) THEN true ELSE false END,
+              isMember: CASE WHEN EXISTS((:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat)<-[:HAS_USER_SEAT]-(organization)) THEN true ELSE false END,
               logo: organization.logoUrl,
               account: email
             })) as orgsByEmail
@@ -467,6 +470,7 @@ export class ProfileService {
                 url: x.url,
                 logo: x.logo ?? null,
                 account: x.account,
+                isMember: x.isMember,
                 hasOwner: x.hasOwner,
                 isOwner: x.isOwner,
                 credential: "email",
@@ -493,6 +497,7 @@ export class ProfileService {
                   account: x.address,
                   hasOwner: true,
                   isOwner: true,
+                  isMember: true,
                   credential: "ecosystemActivation",
                 }),
             ),
@@ -541,6 +546,7 @@ export class ProfileService {
               url: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
               hasOwner: CASE WHEN EXISTS((:User)-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(organization)) THEN true ELSE false END,
               isOwner: CASE WHEN EXISTS((:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(organization)) THEN true ELSE false END,
+              isMember: CASE WHEN EXISTS((:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat)<-[:HAS_USER_SEAT]-(organization)) THEN true ELSE false END,
               logo: organization.logoUrl
             })) as orgs
           `,
@@ -563,6 +569,7 @@ export class ProfileService {
             )?.account,
             hasOwner: x.hasOwner,
             isOwner: x.isOwner,
+            isMember: x.isMember,
             credential: "membership",
           }),
       );
