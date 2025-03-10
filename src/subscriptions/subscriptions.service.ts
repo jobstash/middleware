@@ -249,7 +249,6 @@ export class SubscriptionsService {
           );
 
           try {
-            //TODO: change these to official copy from @Laura
             await this.mailService.sendEmail(
               emailBuilder({
                 from: this.from,
@@ -482,6 +481,7 @@ export class SubscriptionsService {
                 `,
                 {
                   ...payload,
+                  createdTimestamp: timestamp.getTime(),
                   subscriptionId: subscription.properties.id,
                 },
               );
@@ -499,6 +499,7 @@ export class SubscriptionsService {
                 `,
                 {
                   ...payload,
+                  createdTimestamp: timestamp.getTime(),
                   subscriptionId: subscription.properties.id,
                 },
               );
@@ -516,6 +517,7 @@ export class SubscriptionsService {
                 `,
                 {
                   ...payload,
+                  createdTimestamp: timestamp.getTime(),
                   subscriptionId: subscription.properties.id,
                 },
               );
@@ -533,6 +535,7 @@ export class SubscriptionsService {
                 `,
                 {
                   ...payload,
+                  createdTimestamp: timestamp.getTime(),
                   subscriptionId: subscription.properties.id,
                 },
               );
@@ -765,23 +768,23 @@ export class SubscriptionsService {
         const subscription = data(await this.getSubscriptionInfo(dto.orgId));
         if (dto.jobstash === "starter") {
           try {
-            //TODO: change these to official copy from @Laura
             await this.mailService.sendEmail(
               emailBuilder({
                 from: this.from,
                 to: ownerEmail,
-                subject: "JobStash.xyz Free Trial",
-                previewText: "Your free trial has been activated.",
-                title: "Your JobStash.xyz free trial is now active",
+                subject: "Your JobStash Free Trial Has Started",
+                previewText:
+                  "Activate Your Paid Plan to Continue Premium Access!",
+                title: "Hey there,",
                 bodySections: [
                   text(
-                    "Your free trial has been activated. You can now try out JobStash.xyz for free for the next 30 days.",
+                    "Your free trial of JobStash has officially begun! 🎉 For the next 30 days, you’ll have full access to selected premium features, giving you everything you need to make the most of your experience.",
                   ),
                   text(
-                    `Head to your <a href="${this.configService.getOrThrow("ORG_ADMIN_DOMAIN")}">profile</a> to start using your shiny new subscription.`,
+                    "Take your time to explore all the benefits, and remember, your trial lasts for 30 days. To continue enjoying premium access after your trial ends, simply activate your paid plan before your trial expires.",
                   ),
                   text(
-                    "If you have any questions, feel free to reach out to us at support@jobstash.xyz.",
+                    `Need help or have questions? Join our help channel <a href="https://t.me/+24r67MsBXT00ODE8">here</a> – we're here to assist you!`,
                   ),
                   text("Thanks for using JobStash.xyz!"),
                 ],
@@ -801,7 +804,6 @@ export class SubscriptionsService {
           }
         } else {
           try {
-            //TODO: change these to official copy from @Laura
             await this.mailService.sendEmail(
               emailBuilder({
                 from: this.from,
@@ -1036,25 +1038,26 @@ export class SubscriptionsService {
           );
 
           try {
-            //TODO: change these to official copy from @Laura
             await this.mailService.sendEmail(
               emailBuilder({
                 from: this.from,
                 to: email,
-                subject: "Your hiring tools are waiting for you!",
-                previewText:
-                  "Complete your purchase and unlock JobStash features to help streamline your hiring process.",
+                subject:
+                  "Renewal Request for Your JobStash Subscription – Complete Your Payment",
                 title: "Hey there,",
                 bodySections: [
                   text(
-                    "We noticed you left some powerful hiring add-ons in your cart. These features can help you find the right talent faster and more efficiently - perfect for taking your recruitment process to the next level.",
-                  ),
-                  text(
-                    "Don’t leave these tools behind! Just click below to finish your purchase.",
+                    "We’ve received your subscription renewal request for JobStash! 🎉 To complete your renewal and continue enjoying our premium features, please follow the payment link below:",
                   ),
                   button("Complete Your Purchase", paymentLink.url),
                   text(
-                    "If you have any questions or need more info, we’re here to help!",
+                    "Once we receive your payment, your subscription will be renewed, and you’ll regain full access to all premium features.",
+                  ),
+                  text(
+                    `If you have any questions or need help with the payment process, feel free to reach out to us! Join our help channel <a href="https://t.me/+24r67MsBXT00ODE8">here</a> – we're here to assist you!`,
+                  ),
+                  text(
+                    "Thank you for being a valued member of the JobStash community. We’re excited to continue supporting your journey!",
                   ),
                 ],
               }),
@@ -2181,13 +2184,17 @@ export class SubscriptionsService {
                 emailBuilder({
                   from: this.from,
                   to: ownerEmail,
-                  subject: "JobStash.xyz Free Trial Expiration",
+                  subject:
+                    "Your JobStash Trial is Ending – Upgrade to Keep Access to Premium Features!",
                   previewText:
-                    "Your free trial is about to expire. Upgrade to a premium plan to keep using JobStash.xyz.",
-                  title: "Your JobStash.xyz free trial is going to expire soon",
+                    "Your JobStash trial is coming to an end soon, and we don’t want you to lose access to the premium features you’ve been enjoying! ",
+                  title: "Hey there,",
                   bodySections: [
                     text(
-                      'Your free trial expires in 5 days. Head to your <a href="${this.configService.getOrThrow("ORG_ADMIN_DOMAIN")}">profile</a> to make a payment to upgrade to one of our premium plans before it expires to keep using JobStash.xyz.',
+                      "Your JobStash trial is coming to an end soon, and we don’t want you to lose access to the premium features you’ve been enjoying! ",
+                    ),
+                    text(
+                      "Upgrading to a paid plan will keep you connected to all the exclusive tools that help you get the most out of JobStash.",
                     ),
                     text(
                       "If you have any questions, feel free to reach out to us at support@jobstash.xyz.",
