@@ -36,7 +36,10 @@ export class PaymentsController {
         typeof body.event === "string"
           ? (JSON.parse(body.event) as PaymentEventData)
           : body.event;
-      if (event.type === "charge:confirmed") {
+      if (
+        event.type === "charge:confirmed" ||
+        event.type === "charge:pending"
+      ) {
         switch (event.data.metadata.action) {
           case "job-promotion":
             this.logger.log(`Handling job promotion webhook event`);
@@ -78,8 +81,6 @@ export class PaymentsController {
             );
             break;
         }
-      } else if (event.type === "charge:pending") {
-        this.logger.warn(`Unsupported webhook event type: ${event.type}`);
       } else {
         this.logger.warn(
           `Unsupported webhook event type: ${event.type} ${JSON.stringify(body)}`,
