@@ -23,7 +23,11 @@ import { button, emailBuilder, randomToken, text } from "src/shared/helpers";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { JOBSTASH_QUOTA, VERI_ADDONS } from "src/shared/constants/quota";
-import { MeteredService, Subscription } from "src/shared/interfaces/org";
+import {
+  MeteredService,
+  Payment,
+  Subscription,
+} from "src/shared/interfaces/org";
 import { SubscriptionEntity } from "src/shared/entities/subscription.entity";
 import { addDays, addHours, addMonths, getDayOfYear } from "date-fns";
 import { capitalize, now } from "lodash";
@@ -2107,7 +2111,7 @@ export class SubscriptionsService {
     timeZone: "Europe/Berlin",
   })
   async sendSubscriptionRenewalEmails(): Promise<void> {
-    if (this.configService.getOrThrow<string>("ENVIRONMENT") === "production") {
+    if (this.configService.get<string>("ENVIRONMENT") === "production") {
       const result = await this.neogma.queryRunner.run(
         `
           MATCH (org:Organization)-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)
@@ -2250,6 +2254,43 @@ export class SubscriptionsService {
       }
     } else {
       this.logger.warn("Not in production environment");
+    }
+  }
+
+  async getOrgPayments(
+    orgId: string,
+  ): Promise<ResponseWithOptionalData<Payment[]>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (org:Organization {orgId: $orgId})-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)
+        MATCH (subscription)-[:HAS_PAYMENT]->(payment:Payment)
+        RETURN payment { .* } as payment
+        ORDER BY payment.timestamp DESC
+        `,
+        { orgId },
+      );
+
+      const payments = result.records.map(record => record.get("payment"));
+
+      return {
+        success: true,
+        message: "Payments retrieved successfully",
+        data: payments.map(payment => new Payment(payment)),
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "subscriptions.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`SubscriptionsService::getOrgPayments ${err.message}`);
+      return {
+        success: false,
+        message: "Error retrieving organization payments",
+      };
     }
   }
 }
