@@ -14,7 +14,12 @@ import {
 import { ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import { Response as ExpressResponse } from "express";
 import { OrganizationsService } from "src/organizations/organizations.service";
-import { responseSchemaWrapper } from "src/shared/helpers";
+import {
+  emailBuilder,
+  raw,
+  responseSchemaWrapper,
+  text,
+} from "src/shared/helpers";
 import {
   data,
   PaginatedData,
@@ -546,8 +551,6 @@ export class ProfileController {
               await this.userService.findOrgOwnerProfileByOrgId(orgId),
             );
 
-            const org = await this.organizationsService.getOrgById(orgId);
-
             const jobs = await this.jobsService.getJobsByOrgId(
               orgId,
               undefined,
@@ -559,31 +562,43 @@ export class ProfileController {
               const communities = await this.rpcService.getCommunitiesForWallet(
                 address as string,
               );
-              await this.mailService.sendEmail({
-                from: this.configService.getOrThrow<string>("EMAIL"),
-                to: orgProfile.linkedAccounts?.email,
-                subject: `JobStash ATS: New Applicant for ${job.title}`,
-                html: `
-                    Dear ${org.name},
-                    
-                    You have a new applicant.
-
-                    Please sign in to your <a href="https://jobstash.xyz/profile/org/applicants">JobStash ATS</a> account to see the full details and to manage your workflow.
-
-                    ${
-                      communities.length > 0
-                        ? `This candidate is part of the following communities: ${communities.join(
-                            ", ",
-                          )}`
-                        : ""
-                    }
-
-                    Role: ${job.title}
-
-                    Thank you for using JobStash ATS!
-                    The JobStash Team
+              await this.mailService.sendEmail(
+                emailBuilder({
+                  from: this.configService.getOrThrow<string>("EMAIL"),
+                  to: orgProfile.linkedAccounts?.email,
+                  subject: "New Applicant for Your Job Listing on JobStash",
+                  title: "Hi there,",
+                  bodySections: [
+                    text(
+                      "A new applicant has applied to your job listing on JobStash. Please review the details below and follow up accordingly.",
+                    ),
+                    raw(`
+                      Details:
+                      <ul>
+                        <li>Job Title: ${job.title}</li>
+                        <li>Job URL: ${job.url}</li>
+                      </ul>
+                    `),
+                    raw(`
+                        ${
+                          communities.length > 0
+                            ? `This candidate is part of the following communities: 
+                              <ul>${communities.map(x => `<li>${x}</li>`).join("")}</ul>`
+                            : ""
+                        }
+                    `),
+                    text(
+                      "If you have any questions or need assistance, please don't hesitate to reach out to us.",
+                    ),
+                  ],
+                  footer: `Thank you for using JobStash,
+                  The JobStash Team
                   `,
-              });
+                }),
+              );
+              this.logger.log(
+                `Email sent to ${orgProfile.linkedAccounts?.email}`,
+              );
             }
             return await this.profileService.logApplyInteraction(
               address,
