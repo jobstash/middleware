@@ -5,7 +5,13 @@ import {
   ApiUnprocessableEntityResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
-import { paginate, responseSchemaWrapper } from "src/shared/helpers";
+import {
+  emailBuilder,
+  paginate,
+  raw,
+  responseSchemaWrapper,
+  text,
+} from "src/shared/helpers";
 import {
   Grant,
   Grantee,
@@ -152,20 +158,31 @@ export class GrantsController {
     @Body("role") role: string,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.mailService.sendEmail({
-        from: this.configService.getOrThrow<string>("EMAIL"),
-        to: this.configService.getOrThrow<string>("ADMIN_EMAIL"),
-        subject: `New interested company - ${company}`,
-        text: `
-        Hello Admin,
-
-        A ${role} at a company, ${company} has expressed an interest in Ecosystem.vision.
-        Email: ${email}
-
-        Stay Frosty,
-        Bill Harder
-      `,
-      });
+      await this.mailService.sendEmail(
+        emailBuilder({
+          from: this.configService.getOrThrow<string>("EMAIL"),
+          to: this.configService.getOrThrow<string>("ADMIN_EMAIL"),
+          subject: `New Organization Interested in Ecosystem.Vision - ${company}`,
+          title: "Hi team,",
+          bodySections: [
+            text(
+              "A new organization has expressed interest in the Ecosystem.Vision platform. Below are the details:",
+            ),
+            raw(`
+              <ul>
+                <li>Organization Name: ${company}</li>
+                <li>Role at Organization: ${role}</li>
+                <li>Email: ${email}</li>
+              </ul>
+            `),
+            text(
+              "Please review and follow up accordingly. If a demo or further communication is required, make sure to coordinate with the organization promptly.",
+            ),
+            text("Let me know if you need any additional information."),
+          ],
+          footer: `Stay Frosty,<br/>Bill Harder`,
+        }),
+      );
       return {
         success: true,
         message: "Email sent successfully",
