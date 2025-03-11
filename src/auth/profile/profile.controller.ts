@@ -383,14 +383,14 @@ export class ProfileController {
       .map(origin => new URL(origin).host);
     if (allowedHosts.includes(parsedUrl.host)) {
       await this.mailService.sendEmail({
-        from: this.configService.getOrThrow<string>("EMAIL"),
-        to: this.configService.getOrThrow<string>("REPORT_CONTENT_TO_EMAIL"),
-        subject: subject,
-        html: `
-          <h2>User generated report</h2>
-          <p>${description}</p>
-          <h4>Relevant Information</h4>
-          <ul>
+        ...emailBuilder({
+          from: this.configService.getOrThrow<string>("EMAIL"),
+          to: this.configService.getOrThrow<string>("REPORT_CONTENT_TO_EMAIL"),
+          title: "User generated report",
+          subject: subject,
+          bodySections: [
+            text(`Description: ${description}`),
+            raw(`Relevant Information: <ul>
             <li>UI: ${ctx.ui}</li>
             <li>URL: ${ctx.url}</li>
             <li>User Address: ${session.address ?? "N/A"}</li>
@@ -403,8 +403,9 @@ export class ProfileController {
               2,
             )}</li>
             <li>Time: ${new Date(ctx.ts).toDateString()}</li>
-          </ul>
-        `,
+          </ul>`),
+          ],
+        }),
         attachments: attachments.map((x, index) => {
           const content = x.path.replace(/^data:image\/png;base64,/, "");
           return {
