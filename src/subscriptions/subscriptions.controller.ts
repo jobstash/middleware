@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   UnauthorizedException,
   UseGuards,
 } from "@nestjs/common";
@@ -12,7 +13,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { Permissions, Session } from "src/shared/decorators";
-import { Subscription, Payment } from "src/shared/interfaces/org";
+import { Subscription, Payment, QuotaUsage } from "src/shared/interfaces/org";
 import {
   data,
   ResponseWithOptionalData,
@@ -20,6 +21,7 @@ import {
 } from "src/shared/interfaces";
 import { UserService } from "src/user/user.service";
 import { NewSubscriptionInput } from "./new-subscription.input";
+import { now } from "lodash";
 
 @Controller("subscriptions")
 export class SubscriptionsController {
@@ -65,6 +67,52 @@ export class SubscriptionsController {
 
     if (owner?.wallet === address) {
       return this.subscriptionsService.getOrgPayments(orgId);
+    } else {
+      throw new UnauthorizedException({
+        success: false,
+        message: "You are not the owner of this organization",
+      });
+    }
+  }
+
+  @Get(":orgId/usage")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
+  async getOrgUsage(
+    @Param("orgId") orgId: string,
+    @Session() { address }: SessionObject,
+    @Query("epochStart") epochStart?: number,
+    @Query("epochEnd") epochEnd?: number,
+  ): Promise<ResponseWithOptionalData<QuotaUsage[]>> {
+    this.logger.log(`/subscriptions/${orgId}/usage ${address}`);
+
+    const owner = data(
+      await this.userService.findOrgOwnerProfileByOrgId(orgId),
+    );
+    if (owner?.wallet === address) {
+      const subscription = data(
+        await this.subscriptionsService.getSubscriptionInfo(orgId),
+      );
+      if (subscription) {
+        let usage: QuotaUsage[] = [];
+        if (epochStart && epochEnd) {
+          usage = subscription.getEpochUsage(epochStart, epochEnd);
+        } else if (epochStart && !epochEnd) {
+          usage = subscription.getEpochUsage(epochStart, now());
+        } else if (!epochStart && epochEnd) {
+          return {
+            success: false,
+            message: "Must specify epochStart if epochEnd is specified",
+          };
+        } else {
+          usage = subscription.getCurrentEpochUsage();
+        }
+        return {
+          success: true,
+          message: "Retrieved organization usage",
+          data: usage,
+        };
+      }
     } else {
       throw new UnauthorizedException({
         success: false,

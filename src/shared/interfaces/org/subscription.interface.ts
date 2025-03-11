@@ -1,5 +1,4 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { subMonths } from "date-fns";
 import { sort } from "fast-sort";
 import { isLeft } from "fp-ts/lib/Either";
 import * as t from "io-ts";
@@ -31,19 +30,51 @@ const NonMeteredService = t.keyof({
 
 export type Service = NonMeteredService | MeteredService;
 
+export class QuotaUsage {
+  public static readonly QuotaUsageType = t.strict({
+    id: t.string,
+    service: MeteredService,
+    amount: t.number,
+    timestamp: t.number,
+  });
+
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  service: MeteredService;
+
+  @ApiProperty()
+  amount: number;
+
+  @ApiProperty()
+  timestamp: number;
+
+  constructor(raw: QuotaUsage) {
+    const { service, amount, timestamp } = raw;
+    this.service = service;
+    this.amount = amount;
+    this.timestamp = timestamp;
+
+    const result = QuotaUsage.QuotaUsageType.decode(raw);
+
+    if (isLeft(result)) {
+      report(result).forEach(e => {
+        throw new Error(
+          `quota usage instance with id ${this.id} failed validation with error '${e}'`,
+        );
+      });
+    }
+  }
+}
+
 export class Quota {
   public static readonly QuotaType = t.strict({
     id: t.string,
     veri: t.number,
     createdTimestamp: t.number,
     expiryTimestamp: t.number,
-    usage: t.array(
-      t.strict({
-        service: MeteredService,
-        amount: t.number,
-        timestamp: t.number,
-      }),
-    ),
+    usage: t.array(QuotaUsage.QuotaUsageType),
   });
 
   @ApiProperty()
@@ -59,11 +90,7 @@ export class Quota {
   expiryTimestamp: number;
 
   @ApiProperty()
-  usage: {
-    service: MeteredService;
-    amount: number;
-    timestamp: number;
-  }[];
+  usage: QuotaUsage[];
 
   constructor(
     raw: Omit<
@@ -272,15 +299,22 @@ export class Subscription {
   }
 
   getEpochQuotas(epochEnd: number): Quota[] {
-    return this.quota.filter(x => x.expiryTimestamp >= epochEnd);
+    // A quota is valid in an epoch if:
+    // - It was created before or during the epoch AND
+    // - Its explicit expiry timestamp hasn't passed
+    return this.quota.filter(
+      quota =>
+        quota.createdTimestamp <= epochEnd && quota.expiryTimestamp >= epochEnd,
+    );
   }
 
   getEpochAggregateQuota(epochEnd: number): Map<MeteredService, number> {
+    // Sum up all quotas valid at epochEnd, regardless of billing cycle
     const validQuotas = this.getEpochQuotas(epochEnd);
     return new Map(
-      METERED_SERVICES.map(x => [
-        x,
-        validQuotas.reduce((acc, y) => acc + y[x], 0),
+      METERED_SERVICES.map(service => [
+        service,
+        validQuotas.reduce((acc, quota) => acc + (quota[service] || 0), 0),
       ]),
     );
   }
@@ -289,66 +323,82 @@ export class Subscription {
     epochStart: number,
     epochEnd: number,
   ): Map<MeteredService, number> {
+    // Calculate available credits for any epoch window
     const epochTotal = this.getEpochAggregateQuota(epochEnd);
     const epochUsage = this.getEpochAggregateUsage(epochStart, epochEnd);
+
     return new Map(
-      METERED_SERVICES.map(x => [
-        x,
-        (epochTotal.get(x) ?? 0) - (epochUsage.get(x) ?? 0),
+      METERED_SERVICES.map(service => [
+        service,
+        Math.max(
+          0,
+          (epochTotal.get(service) ?? 0) - (epochUsage.get(service) ?? 0),
+        ),
       ]),
     );
   }
 
   getOldestActiveUnfilledQuota(service: MeteredService): Quota | undefined {
-    const epochEnd = now();
-    const unfilledQuotas = (this.getEpochQuotas(epochEnd) ?? []).filter(
-      x => !x.isUsedUp(service),
-    );
-    return sort(unfilledQuotas).asc(x => x.expiryTimestamp)?.[0] ?? undefined;
+    const currentTime = now();
+    // Filter for quotas that:
+    // 1. Haven't explicitly expired
+    // 2. Still have available credits for the service
+    const activeQuotas = this.quota.filter(quota => {
+      return currentTime <= quota.expiryTimestamp && !quota.isUsedUp(service);
+    });
+
+    // Return the oldest one by creation timestamp
+    return sort(activeQuotas).asc(x => x.createdTimestamp)?.[0];
   }
 
-  getEpochUsage(
-    epochStart: number,
-    epochEnd: number,
-  ): { service: MeteredService; amount: number; timestamp: number }[] {
-    return this.getEpochQuotas(epochEnd).reduce((acc, x) => {
-      const filtered = x.usage.filter(
-        y => epochStart >= y.timestamp && y.timestamp <= epochEnd,
+  getEpochUsage(epochStart: number, epochEnd: number): QuotaUsage[] {
+    // Get all usage that:
+    // 1. Belongs to quotas valid at epochEnd
+    // 2. Was logged within the specified epoch timeframe
+    const quotas = this.getEpochQuotas(now());
+    return quotas.reduce<QuotaUsage[]>((acc, quota) => {
+      const validUsage = quota.usage.filter(
+        usage => usage.timestamp >= epochStart && usage.timestamp <= epochEnd,
       );
-      return [...acc, ...filtered];
+      return [...acc, ...validUsage];
     }, []);
   }
 
-  getCurrentEpochUsage(): {
-    service: MeteredService;
-    amount: number;
-    timestamp: number;
-  }[] {
-    const epochStart = subMonths(this.expiryTimestamp, 1).getTime();
-    return this.getEpochUsage(epochStart, now());
+  getCurrentEpochUsage(): QuotaUsage[] {
+    const validQuotas = sort(this.getEpochQuotas(now())).asc(
+      x => x.createdTimestamp,
+    );
+    const earliestQuota = validQuotas[0];
+    const latestQuota = validQuotas[validQuotas.length - 1];
+    return this.getEpochUsage(
+      earliestQuota.createdTimestamp,
+      latestQuota.expiryTimestamp,
+    );
   }
 
   getEpochAggregateUsage(
     epochStart: number,
     epochEnd: number,
   ): Map<MeteredService, number> {
+    // Sum up all usage per service within any epoch window
     const usage = this.getEpochUsage(epochStart, epochEnd);
-    return usage
-      .filter(x => epochStart >= x.timestamp && x.timestamp <= epochEnd)
-      .reduce<Map<MeteredService, number>>((acc, usage) => {
-        const existing = acc.get(usage.service);
-        if (existing) {
-          acc.set(usage.service, existing + usage.amount);
-        } else {
-          acc.set(usage.service, usage.amount);
-        }
-        return acc;
-      }, new Map<MeteredService, number>());
+    return usage.reduce<Map<MeteredService, number>>((acc, usage) => {
+      const existing = acc.get(usage.service) || 0;
+      acc.set(usage.service, existing + usage.amount);
+      return acc;
+    }, new Map<MeteredService, number>());
   }
 
   getCurrentEpochAggregateUsage(): Map<MeteredService, number> {
-    const epochStart = subMonths(this.expiryTimestamp, 1).getTime();
-    return this.getEpochAggregateUsage(epochStart, now());
+    const validQuotas = sort(this.getEpochQuotas(now())).asc(
+      x => x.createdTimestamp,
+    );
+    const earliestQuota = validQuotas[0];
+    const latestQuota = validQuotas[validQuotas.length - 1];
+    return this.getEpochAggregateUsage(
+      earliestQuota.createdTimestamp,
+      latestQuota.expiryTimestamp,
+    );
   }
 
   isActive(): boolean {
@@ -358,18 +408,18 @@ export class Subscription {
   canAccessService(service: Service): boolean {
     if (this.isActive()) {
       if (service === "veri") {
+        const currentTime = now();
         const epochUsage =
           this.getCurrentEpochAggregateUsage().get(service) ?? 0;
         const availableQuota =
-          this.getEpochAggregateQuota(now()).get(service) ?? 0;
+          this.getEpochAggregateQuota(currentTime).get(service) ?? 0;
         return availableQuota - epochUsage > 0;
       } else if (service === "boostedVacancyMultiplier") {
         return this.boostedVacancyMultiplier > 0;
       } else {
-        return this[service];
+        return !!this[service];
       }
-    } else {
-      return false;
     }
+    return false;
   }
 }
