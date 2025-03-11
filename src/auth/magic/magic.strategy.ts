@@ -8,6 +8,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import * as SendGrid from "@sendgrid/mail";
 import { MailService } from "src/mail/mail.service";
+import { button, emailBuilder, text } from "src/shared/helpers";
 
 @Injectable()
 export class MagicAuthStrategy extends PassportStrategy(Strategy, "magic") {
@@ -42,18 +43,23 @@ export class MagicAuthStrategy extends PassportStrategy(Strategy, "magic") {
     href: string,
   ): Promise<[SendGrid.ClientResponse, object]> {
     const link = `${this.configService.get<string>("FE_DOMAIN")}${href}`;
-    const msg = {
-      to: destination,
+    const msg = emailBuilder({
       from: this.configService.get<string>("EMAIL"),
-      subject: "Confirm your email for JobStash.xyz",
-      text:
-        "Hello! Click the link below to verify your email for JobStash.xyz\r\n\r\n" +
-        link,
-      html:
-        '<h3>Hello!</h3><p>Click the link below to verify your email for JobStash.xyz</p><p><a href="' +
-        link +
-        '">Sign in</a></p>',
-    };
+      to: destination,
+      subject: "Verify Your Email – Let’s Get You Started on JobStash!",
+      title: "Hey there,",
+      bodySections: [
+        text(
+          "Thanks for signing up with JobStash! We just need to make sure it’s really you. Please verify your email address to complete your registration and start accessing all the great features we have for you. 🚀",
+        ),
+        text("Click the button below to verify your email:"),
+        button("Sign in", link),
+        text(
+          "Please note: This verification link will expire in 24 hours. If you don’t verify your email in time, you can request a new link by visiting JobStash.xyz.",
+        ),
+        text("If you didn’t request this email, please ignore it."),
+      ],
+    });
     return this.mailService.sendEmail(msg);
   }
 
