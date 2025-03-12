@@ -217,6 +217,14 @@ export class JobListParams {
   @IsBoolean()
   token?: boolean | null = null;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  onboardIntoWeb3?: boolean | null = null;
+
   @ApiPropertyOptional({
     enum: ["asc", "desc"],
   })

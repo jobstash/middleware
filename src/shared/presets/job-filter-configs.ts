@@ -26,6 +26,10 @@ export const SINGLE_SELECT_OPTIONS = {
     { label: "Has Token", value: true },
     { label: "Has No Token", value: false },
   ],
+  onboardIntoWeb3: [
+    { label: "Web3 Beginner Friendly", value: true },
+    { label: "Not Web3 Beginner Friendly", value: false },
+  ],
   order: [
     { label: "A-Z", value: "asc" },
     { label: "Z-A", value: "desc" },
@@ -211,8 +215,16 @@ export const FILTER_CONFIG_PRESETS = {
     kind: FilterKind.SINGLE_SELECT,
     options: SINGLE_SELECT_OPTIONS.token,
   },
-  orderBy: {
+  onboardIntoWeb3: {
     position: 22,
+    label: "Web3 Beginner Friendly",
+    show: true,
+    googleAnalyticsEventName: "filter_joblist_onboard_into_web3",
+    kind: FilterKind.SINGLE_SELECT,
+    options: SINGLE_SELECT_OPTIONS.onboardIntoWeb3,
+  },
+  orderBy: {
+    position: 23,
     label: "Order By",
     show: true,
     googleAnalyticsEventName: "filter_joblist_order_by",
@@ -220,7 +232,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.orderBy,
   },
   order: {
-    position: 23,
+    position: 24,
     label: "Order",
     show: true,
     googleAnalyticsEventName: "filter_joblist_order",
@@ -270,6 +282,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
   audits: "audits",
   hacks: "hacks",
   token: "token",
+  onboardIntoWeb3: "onboardIntoWeb3",
   order: "order",
   orderBy: "orderBy",
 };
