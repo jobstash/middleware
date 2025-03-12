@@ -14,7 +14,7 @@ export class Payment {
     internalRefCode: t.string,
     externalRefCode: t.string,
     expiryTimestamp: t.number,
-    status: t.string,
+    status: t.union([t.literal("pending"), t.literal("confirmed")]),
   });
 
   @ApiProperty()
