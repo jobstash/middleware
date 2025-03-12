@@ -120,6 +120,7 @@ export class StructuredJobpost {
       paysInCrypto,
       featured,
       featureStartDate,
+      onboardIntoWeb3,
       featureEndDate,
       requirements,
       minimumSalary,
@@ -149,6 +150,7 @@ export class StructuredJobpost {
     this.minimumSalary = minimumSalary;
     this.maximumSalary = maximumSalary;
     this.featured = featured;
+    this.onboardIntoWeb3 = onboardIntoWeb3;
     this.featureStartDate = featureStartDate;
     this.featureEndDate = featureEndDate;
     this.salaryCurrency = salaryCurrency;
