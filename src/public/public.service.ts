@@ -60,6 +60,7 @@ export class PublicService {
           minimumSalary: structured_jobpost.minimumSalary,
           maximumSalary: structured_jobpost.maximumSalary,
           salaryCurrency: structured_jobpost.salaryCurrency,
+          onboardIntoWeb3: structured_jobpost.onboardIntoWeb3,
           responsibilities: structured_jobpost.responsibilities,
           featured: structured_jobpost.featured,
           featureStartDate: structured_jobpost.featureStartDate,

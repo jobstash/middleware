@@ -24,6 +24,7 @@ export class StructuredJobpostWithRelationsEntity {
       culture: notStringOrNull(jobpost?.culture, ["", "undefined"]),
       salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
       paysInCrypto: jobpost?.paysInCrypto ?? null,
+      onboardIntoWeb3: jobpost?.onboardIntoWeb3 ?? false,
       offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
       url:
         jobpost?.access === "protected" ? null : notStringOrNull(jobpost?.url),

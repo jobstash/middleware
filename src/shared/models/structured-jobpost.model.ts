@@ -177,6 +177,11 @@ export const StructuredJobposts = (
           allowEmpty: false,
           required: true,
         },
+        onboardIntoWeb3: {
+          type: "boolean",
+          allowEmpty: false,
+          required: true,
+        },
         responsibilities: {
           type: "array",
           allowEmpty: false,

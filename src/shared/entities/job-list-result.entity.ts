@@ -58,6 +58,7 @@ export class JobListResultEntity {
       culture: notStringOrNull(jobpost?.culture, ["", "undefined"]),
       salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
       paysInCrypto: jobpost?.paysInCrypto ?? null,
+      onboardIntoWeb3: jobpost?.onboardIntoWeb3 ?? false,
       offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
       url:
         jobpost?.access === "protected" ? null : notStringOrNull(jobpost?.url),
@@ -180,6 +181,7 @@ export class JobListResultEntity {
                         "undefined",
                       ]),
                       salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
+                      onboardIntoWeb3: jobpost?.onboardIntoWeb3 ?? false,
                       paysInCrypto: jobpost?.paysInCrypto ?? null,
                       offersTokenAllocation:
                         jobpost?.offersTokenAllocation ?? null,
@@ -221,6 +223,16 @@ export class JobListResultEntity {
                     fundingDate: nonZeroOrNull(grant?.fundingDate),
                     amount: nonZeroOrNull(grant?.amount),
                   })) ?? [],
+                investors: Array.from(
+                  uniqBy(
+                    project?.investors?.map(investor => ({
+                      id: investor.id,
+                      name: investor.name,
+                      normalizedName: investor.normalizedName,
+                    })) ?? [],
+                    "id",
+                  ),
+                ),
                 repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
               })) ?? [],
             fundingRounds:
