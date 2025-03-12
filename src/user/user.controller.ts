@@ -61,8 +61,12 @@ export class UserController {
     const orgId = address
       ? await this.userService.findOrgIdByMemberUserWallet(address)
       : null;
-    this.logger.log(`/users/available ${JSON.stringify(params)}`);
-    return this.userService.getUsersAvailableForWork(params, orgId);
+    if (orgId) {
+      this.logger.log(`/users/available ${JSON.stringify(params)}`);
+      return this.userService.getUsersAvailableForWork(params, orgId);
+    } else {
+      return [];
+    }
   }
 
   @Post("signup")
