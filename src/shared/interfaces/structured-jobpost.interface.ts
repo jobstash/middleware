@@ -11,6 +11,7 @@ export class StructuredJobpost {
     access: t.union([t.literal("public"), t.literal("protected")]),
     benefits: t.array(t.string),
     requirements: t.array(t.string),
+    onboardIntoWeb3: t.boolean,
     responsibilities: t.array(t.string),
     title: t.union([t.string, t.null]),
     salary: t.union([t.number, t.null]),
@@ -50,6 +51,9 @@ export class StructuredJobpost {
 
   @ApiProperty()
   requirements: string[];
+
+  @ApiProperty()
+  onboardIntoWeb3: boolean;
 
   @ApiProperty()
   responsibilities: string[];
