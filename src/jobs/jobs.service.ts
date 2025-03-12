@@ -547,6 +547,7 @@ export class JobsService {
       commitments: commitmentFilterList,
       communities: communityFilterList,
       token,
+      onboardIntoWeb3,
       query,
       order,
       orderBy,
@@ -755,6 +756,7 @@ export class JobsService {
           classificationFilterList.includes(slugify(classification))) &&
         (!commitmentFilterList ||
           commitmentFilterList.includes(slugify(commitment))) &&
+        (onboardIntoWeb3 === null || jlr.onboardIntoWeb3 === onboardIntoWeb3) &&
         (!query || matchesQuery) &&
         (!tagFilterList ||
           tags.filter(tag => tagFilterList.includes(slugify(tag.name))).length >
