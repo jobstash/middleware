@@ -11,6 +11,7 @@ import {
   UserOrgAffiliationRequest,
   data,
   UserPermission,
+  PaginatedData,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -18,7 +19,12 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nestjs-neogma";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { ModelService } from "src/model/model.service";
-import { instanceToNode, nonZeroOrNull, randomToken } from "src/shared/helpers";
+import {
+  instanceToNode,
+  nonZeroOrNull,
+  paginate,
+  randomToken,
+} from "src/shared/helpers";
 import { randomUUID } from "crypto";
 import { GetAvailableUsersInput } from "./dto/get-available-users.input";
 import { ScorerService } from "src/scorer/scorer.service";
@@ -1192,7 +1198,7 @@ export class UserService {
   async getUsersAvailableForWork(
     params: GetAvailableUsersInput,
     orgId: string | null,
-  ): Promise<UserAvailableForWork[]> {
+  ): Promise<PaginatedData<UserAvailableForWork>> {
     const paramsPassed = {
       city: params.city ? new RegExp(params.city, "gi") : null,
       country: params.country ? new RegExp(params.country, "gi") : null,
@@ -1208,21 +1214,22 @@ export class UserService {
       return cityMatch && countryMatch;
     };
 
-    return this.neogma.queryRunner
+    const users = await this.neogma.queryRunner
       .run(
         `
-          MATCH (user:User), (organization: Organization {orgId: $orgId})
+          MATCH (user:User)
           WHERE user.available = true
-
+                
           CALL {
-            WITH user, organization
-            MATCH (user)-[act:VIEWED_DETAILS|APPLIED_TO]->(job:StructuredJobpost)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]-(organization)
-            MATCH (job)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification)
+            WITH user
+            MATCH (organization: Organization {orgId: "9579"})
+            OPTIONAL MATCH (user)-[act:VIEWED_DETAILS|APPLIED_TO]->(job:StructuredJobpost)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]-(organization)
+            OPTIONAL MATCH (job)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification)
             RETURN classification.name AS classification, count(*) AS frequency
             ORDER BY frequency DESC
           }
-
-          WITH user, organization, collect(classification) AS classifications
+                
+          WITH user, collect(classification) AS classifications
 
           RETURN {
             wallet: user.wallet,
@@ -1272,45 +1279,11 @@ export class UserService {
         `,
         { orgId: orgId ?? null },
       )
-      .then(async res => {
-        const results = [];
-        const ecosystemActivations =
-          await this.scorerService.getWalletEcosystemActivations(
-            res.records
-              .map(x => {
-                const user = x.get("user");
-                return (locationFilter(user) ? user.wallet : null) ?? null;
-              })
-              .filter(Boolean),
-            orgId,
-          );
-        const usersVerifiedOrgs = await this.getUsersVerifiedOrgs(
-          res.records
-            .map(x => {
-              const user = x.get("user");
-              return (locationFilter(user) ? user.wallet : null) ?? null;
-            })
-            .filter(Boolean),
-        );
-        for (const record of res.records) {
-          const user = record.get("user");
-          const profile = new UserAvailableForWorkEntity({
-            ...user,
-            ecosystemActivations:
-              ecosystemActivations.find(x => x.wallet === user.wallet)
-                ?.ecosystemActivations ?? [],
-          }).getProperties();
-          if (locationFilter(profile)) {
-            const verifiedOrgs = usersVerifiedOrgs.find(
-              x => x.wallet === profile.wallet,
-            );
-            if (!(verifiedOrgs?.orgs ?? []).includes(orgId)) {
-              results.push(profile);
-            }
-          }
-        }
-        return results;
-      })
+      .then(res =>
+        res.records
+          .map(x => x.get("user") as UserAvailableForWork)
+          .filter(locationFilter),
+      )
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -1322,8 +1295,44 @@ export class UserService {
         this.logger.error(
           `UserService::getDevsAvailableForWork ${err.message}`,
         );
-        return [];
+        return <UserAvailableForWork[]>[];
       });
+
+    const page = params.page ?? 1;
+    const limit = params.limit ?? 10;
+
+    const usersVerifiedOrgs = await this.getUsersVerifiedOrgs(
+      users.map(x => x.wallet),
+    );
+
+    const filtered = users.filter(user => {
+      const verifiedOrgs = usersVerifiedOrgs.find(
+        x => x.wallet === user.wallet,
+      );
+      return !(verifiedOrgs?.orgs ?? []).includes(orgId);
+    });
+
+    const { data, ...result } = paginate<UserAvailableForWork>(
+      page,
+      limit,
+      filtered,
+    );
+
+    const wallets = data.map(x => x.wallet);
+    const ecosystemActivations =
+      await this.scorerService.getWalletEcosystemActivations(wallets, orgId);
+
+    return {
+      ...result,
+      data: data.map(user =>
+        new UserAvailableForWorkEntity({
+          ...user,
+          ecosystemActivations:
+            ecosystemActivations.find(x => x.wallet === user.wallet)
+              ?.ecosystemActivations ?? [],
+        }).getProperties(),
+      ),
+    };
   }
 
   async getMyOrgAffiliationRequests(

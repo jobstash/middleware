@@ -198,9 +198,15 @@ export class ScorerService {
   ): Promise<{ wallet: string; ecosystemActivations: string[] }[]> => {
     if (wallets.length === 0) {
       return [];
-    } else {
-      const params = Buffer.from(wallets.join(",")).toString("base64");
-      const res = await firstValueFrom(
+    }
+
+    const BATCH_SIZE = 100;
+
+    const processBatch = async (
+      batch: string[],
+    ): Promise<{ wallet: string; ecosystemActivations: string[] }[]> => {
+      const params = Buffer.from(batch.join(",")).toString("base64");
+      return firstValueFrom(
         this.httpService
           .get<
             { wallet: string; ecosystemActivations: string[] }[]
@@ -213,17 +219,48 @@ export class ScorerService {
                   action: "proxy-call",
                   source: "scorer.service",
                 });
-                scope.setExtra("input", wallets);
+                scope.setExtra("input", batch);
                 Sentry.captureException(err);
               });
-              this.logger.error(`ScorerService::getLeanStats ${err.message}`);
-              return of(
-                [] as { wallet: string; ecosystemActivations: string[] }[],
+              this.logger.error(
+                `ScorerService::getWalletEcosystemActivations ${err.message}`,
               );
+              return of([]);
             }),
           ),
       );
-      return res;
+    };
+
+    if (wallets.length > BATCH_SIZE) {
+      const CONCURRENT_BATCHES = Math.pow(
+        2,
+        Math.ceil(wallets.length / BATCH_SIZE),
+      ); // Process 5 batches simultaneously
+
+      const results: { wallet: string; ecosystemActivations: string[] }[] = [];
+
+      // Process batches with controlled concurrency
+      for (
+        let i = 0;
+        i < wallets.length;
+        i += BATCH_SIZE * CONCURRENT_BATCHES
+      ) {
+        const batchPromises = Array.from(
+          { length: CONCURRENT_BATCHES },
+          (_, j) => {
+            const start = i + j * BATCH_SIZE;
+            const batch = wallets.slice(start, start + BATCH_SIZE);
+            return batch.length ? processBatch(batch) : Promise.resolve([]);
+          },
+        );
+
+        const batchResults = await Promise.all(batchPromises);
+        results.push(...batchResults.flat());
+      }
+
+      return results;
+    } else {
+      return processBatch(wallets);
     }
   };
 }

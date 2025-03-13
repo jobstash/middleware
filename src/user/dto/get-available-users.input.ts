@@ -14,4 +14,14 @@ export class GetAvailableUsersInput {
   @IsString()
   @Type(() => String)
   country: string | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  page: number | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  limit: number | null = null;
 }

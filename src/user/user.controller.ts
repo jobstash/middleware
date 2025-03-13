@@ -21,6 +21,7 @@ import {
   SessionObject,
   ResponseWithOptionalData,
   data,
+  PaginatedData,
 } from "src/shared/interfaces";
 import { GetAvailableUsersInput } from "./dto/get-available-users.input";
 import { ApiKeyGuard } from "src/auth/api-key.guard";
@@ -57,7 +58,7 @@ export class UserController {
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
     params: GetAvailableUsersInput,
-  ): Promise<UserAvailableForWork[]> {
+  ): Promise<PaginatedData<UserAvailableForWork> | ResponseWithNoData> {
     const orgId = address
       ? await this.userService.findOrgIdByMemberUserWallet(address)
       : null;
@@ -65,7 +66,10 @@ export class UserController {
       this.logger.log(`/users/available ${JSON.stringify(params)}`);
       return this.userService.getUsersAvailableForWork(params, orgId);
     } else {
-      return [];
+      return {
+        success: false,
+        message: "Access denied",
+      };
     }
   }
 
