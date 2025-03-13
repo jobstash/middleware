@@ -1199,24 +1199,27 @@ export class UserService {
     params: GetAvailableUsersInput,
     orgId: string | null,
   ): Promise<PaginatedData<UserAvailableForWork>> {
-    const paramsPassed = {
-      city: params.city ? new RegExp(params.city, "gi") : null,
-      country: params.country ? new RegExp(params.country, "gi") : null,
-    };
+    try {
+      const paramsPassed = {
+        city: params.city ? new RegExp(params.city, "gi") : null,
+        country: params.country ? new RegExp(params.country, "gi") : null,
+        page: params.page ?? 1,
+        limit: params.limit ?? 10,
+      };
 
-    const locationFilter = (dev: UserAvailableForWork): boolean => {
-      const cityMatch = paramsPassed.city
-        ? paramsPassed.city.test(dev.location?.city)
-        : true;
-      const countryMatch = paramsPassed.country
-        ? paramsPassed.country.test(dev.location?.country)
-        : true;
-      return cityMatch && countryMatch;
-    };
+      const { page, limit, city, country } = paramsPassed;
 
-    const users = await this.neogma.queryRunner
-      .run(
-        `
+      const locationFilter = (dev: UserAvailableForWork): boolean => {
+        const cityMatch = city ? city.test(dev.location?.city) : true;
+        const countryMatch = country
+          ? country.test(dev.location?.country)
+          : true;
+        return cityMatch && countryMatch;
+      };
+
+      const users = await this.neogma.queryRunner
+        .run(
+          `
           MATCH (user:User)
           WHERE user.available = true
                 
@@ -1277,62 +1280,76 @@ export class UserService {
             jobCategoryInterests: classifications
           } as user
         `,
-        { orgId: orgId ?? null },
-      )
-      .then(res =>
-        res.records
-          .map(x => x.get("user") as UserAvailableForWork)
-          .filter(locationFilter),
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
+          { orgId: orgId ?? null },
+        )
+        .then(res =>
+          res.records
+            .map(x => x.get("user") as UserAvailableForWork)
+            .filter(locationFilter),
+        )
+        .catch(err => {
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "db-call",
+              source: "user.service",
+            });
+            Sentry.captureException(err);
           });
-          Sentry.captureException(err);
+          this.logger.error(
+            `UserService::getDevsAvailableForWork ${err.message}`,
+          );
+          return <UserAvailableForWork[]>[];
         });
-        this.logger.error(
-          `UserService::getDevsAvailableForWork ${err.message}`,
+
+      const usersVerifiedOrgs = await this.getUsersVerifiedOrgs(
+        users.map(x => x.wallet),
+      );
+
+      const filtered = users.filter(user => {
+        const verifiedOrgs = usersVerifiedOrgs.find(
+          x => x.wallet === user.wallet,
         );
-        return <UserAvailableForWork[]>[];
+        return !(verifiedOrgs?.orgs ?? []).includes(orgId);
       });
 
-    const page = params.page ?? 1;
-    const limit = params.limit ?? 10;
-
-    const usersVerifiedOrgs = await this.getUsersVerifiedOrgs(
-      users.map(x => x.wallet),
-    );
-
-    const filtered = users.filter(user => {
-      const verifiedOrgs = usersVerifiedOrgs.find(
-        x => x.wallet === user.wallet,
+      const { data, ...result } = paginate<UserAvailableForWork>(
+        page,
+        limit,
+        filtered,
       );
-      return !(verifiedOrgs?.orgs ?? []).includes(orgId);
-    });
 
-    const { data, ...result } = paginate<UserAvailableForWork>(
-      page,
-      limit,
-      filtered,
-    );
+      const wallets = data.map(x => x.wallet);
+      const ecosystemActivations =
+        await this.scorerService.getWalletEcosystemActivations(wallets, orgId);
 
-    const wallets = data.map(x => x.wallet);
-    const ecosystemActivations =
-      await this.scorerService.getWalletEcosystemActivations(wallets, orgId);
-
-    return {
-      ...result,
-      data: data.map(user =>
-        new UserAvailableForWorkEntity({
-          ...user,
-          ecosystemActivations:
-            ecosystemActivations.find(x => x.wallet === user.wallet)
-              ?.ecosystemActivations ?? [],
-        }).getProperties(),
-      ),
-    };
+      return {
+        ...result,
+        data: data.map(user =>
+          new UserAvailableForWorkEntity({
+            ...user,
+            ecosystemActivations:
+              ecosystemActivations.find(x => x.wallet === user.wallet)
+                ?.ecosystemActivations ?? [],
+          }).getProperties(),
+        ),
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
+        });
+        scope.setExtra("input", params);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`UserService::getDevsAvailableForWork ${err.message}`);
+      return {
+        page: -1,
+        total: 0,
+        count: 0,
+        data: [],
+      };
+    }
   }
 
   async getMyOrgAffiliationRequests(
