@@ -64,7 +64,21 @@ export class UserController {
       : null;
     if (orgId) {
       this.logger.log(`/users/available ${JSON.stringify(params)}`);
-      return this.userService.getUsersAvailableForWork(params, orgId);
+      const subscription = data(
+        await this.subscriptionService.getSubscriptionInfo(orgId),
+      );
+      if (
+        subscription?.isActive() &&
+        subscription.canAccessService("stashPool")
+      ) {
+        return this.userService.getUsersAvailableForWork(params, orgId);
+      } else {
+        return {
+          success: false,
+          message:
+            "Organization does not have an active or valid subscription to use this service",
+        };
+      }
     } else {
       return {
         success: false,

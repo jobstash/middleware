@@ -11,6 +11,7 @@ const NON_METERED_SERVICES = [
   "stashAlert",
   "boostedVacancyMultiplier",
   "atsIntegration",
+  "stashPool",
 ] as const;
 
 export type MeteredService = (typeof METERED_SERVICES)[number];
