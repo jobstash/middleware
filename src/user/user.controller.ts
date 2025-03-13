@@ -178,7 +178,21 @@ export class UserController {
         ? await this.userService.findOrgIdByMemberUserWallet(address)
         : null;
       this.logger.log(`/users/note ${JSON.stringify(body)}`);
-      return this.userService.addUserNote(body.wallet, body.note, orgId);
+      const subscription = data(
+        await this.subscriptionService.getSubscriptionInfo(orgId),
+      );
+      if (
+        subscription?.isActive() &&
+        subscription.canAccessService("stashPool")
+      ) {
+        return this.userService.addUserNote(body.wallet, body.note, orgId);
+      } else {
+        return {
+          success: false,
+          message:
+            "Organization does not have an active or valid subscription to use this service",
+        };
+      }
     } else {
       return {
         success: false,
