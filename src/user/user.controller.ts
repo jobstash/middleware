@@ -67,10 +67,7 @@ export class UserController {
       const subscription = data(
         await this.subscriptionService.getSubscriptionInfo(orgId),
       );
-      if (
-        subscription?.isActive() &&
-        subscription.canAccessService("stashPool")
-      ) {
+      if (subscription?.canAccessService("stashPool")) {
         return this.userService.getUsersAvailableForWork(params, orgId);
       } else {
         return {
@@ -181,10 +178,7 @@ export class UserController {
       const subscription = data(
         await this.subscriptionService.getSubscriptionInfo(orgId),
       );
-      if (
-        subscription?.isActive() &&
-        subscription.canAccessService("stashPool")
-      ) {
+      if (subscription?.canAccessService("stashPool")) {
         return this.userService.addUserNote(body.wallet, body.note, orgId);
       } else {
         return {

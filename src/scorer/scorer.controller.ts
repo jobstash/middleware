@@ -54,36 +54,47 @@ export class ScorerController {
   ): Promise<ResponseWithOptionalData<BaseClient>> {
     const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
     if (orgId) {
-      const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
-      const platform = client?.platform;
-      if (client?.id && platform) {
-        this.logger.log(`/scorer/client/${platform}/`);
-        const result = await this.scorerService.getClientById(
-          client?.id,
-          platform,
-        );
-        if (platform === "greenhouse") {
-          const res = data(result);
+      const subscription = data(
+        await this.subscriptionsService.getSubscriptionInfo(orgId),
+      );
+      if (subscription?.canAccessService("atsIntegration")) {
+        const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
+        const platform = client?.platform;
+        if (client?.id && platform) {
+          this.logger.log(`/scorer/client/${platform}/`);
+          const result = await this.scorerService.getClientById(
+            client?.id,
+            platform,
+          );
+          if (platform === "greenhouse") {
+            const res = data(result);
+            return {
+              success: true,
+              message: "Client retrieved successfully",
+              data: res,
+            };
+          } else {
+            return result;
+          }
+        } else {
           return {
             success: true,
-            message: "Client retrieved successfully",
-            data: res,
+            message: "No client linked to this account",
+            data: {
+              id: null,
+              name: null,
+              orgId: null,
+              hasTags: false,
+              preferences: null,
+              hasWebhooks: false,
+            },
           };
-        } else {
-          return result;
         }
       } else {
         return {
-          success: true,
-          message: "No client linked to this account",
-          data: {
-            id: null,
-            name: null,
-            orgId: null,
-            hasTags: false,
-            preferences: null,
-            hasWebhooks: false,
-          },
+          success: false,
+          message:
+            "Organization does not have an active or valid subscription to use this service",
         };
       }
     } else {
@@ -104,12 +115,28 @@ export class ScorerController {
     this.logger.log(`/scorer/oauth/lever`);
     try {
       const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
-      const key = await this.scorerService.generateEphemeralTokenForOrg(orgId);
-      return {
-        url: `${this.configService.get<string>(
-          "SCORER_DOMAIN",
-        )}/lever/oauth?key=${key}`,
-      };
+      if (orgId) {
+        const subscription = data(
+          await this.subscriptionsService.getSubscriptionInfo(orgId),
+        );
+        if (subscription?.canAccessService("atsIntegration")) {
+          const key =
+            await this.scorerService.generateEphemeralTokenForOrg(orgId);
+          return {
+            url: `${this.configService.get<string>(
+              "SCORER_DOMAIN",
+            )}/lever/oauth?key=${key}`,
+          };
+        } else {
+          return {
+            url: "",
+          };
+        }
+      } else {
+        return {
+          url: "",
+        };
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -140,7 +167,7 @@ export class ScorerController {
         const subscription = data(
           await this.subscriptionsService.getSubscriptionInfo(orgId),
         );
-        if (subscription.canAccessService("veri")) {
+        if (subscription?.canAccessService("veri")) {
           const key =
             await this.scorerService.generateEphemeralTokenForOrg(orgId);
           const client =
@@ -259,19 +286,27 @@ export class ScorerController {
     @Body() body: SetupOrgLinkInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/scorer/link/org/${platform}`);
-    const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
     try {
-      const result = await this.httpService.axiosRef.post<ResponseWithNoData>(
-        `/${platform}/link`,
-        {
-          clientId: body.clientId,
-          orgId: orgId,
-        },
+      const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
+      const subscription = data(
+        await this.subscriptionsService.getSubscriptionInfo(orgId),
       );
-      return {
-        success: result.data.success,
-        message: result.data.message,
-      };
+      if (subscription?.canAccessService("atsIntegration")) {
+        const result = await this.httpService.axiosRef.post<ResponseWithNoData>(
+          `/${platform}/link`,
+          {
+            clientId: body.clientId,
+            orgId: orgId,
+          },
+        );
+        return result.data;
+      } else {
+        return {
+          success: false,
+          message:
+            "Organization does not have an active or valid subscription to use this service",
+        };
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -293,50 +328,45 @@ export class ScorerController {
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
   async setupClientPreferences(
+    @Session() session: SessionObject,
     @Body() body: UpdateClientPreferencesInput,
   ): Promise<ResponseWithOptionalData<string[]>> {
     this.logger.log(`/scorer/update/preferences`);
-    const result = await firstValueFrom(
-      this.httpService
-        .post<ResponseWithOptionalData<string[]>>(
-          `/${body.preferences.platformName}/update/preferences`,
-          {
-            clientId: body.clientId,
-            preferences: body.preferences,
-          },
-        )
-        .pipe(
-          map(res => res.data),
-          catchError((err: AxiosError) => {
-            Sentry.withScope(scope => {
-              scope.setTags({
-                action: "proxy-call",
-                source: "scorer.controller",
-              });
-              scope.setExtra("input", body);
-              Sentry.captureException(err);
-            });
-            this.logger.error(
-              `ScorerController::updateClientPreferences ${err.message}`,
-            );
-            return of({
-              success: false,
-              message: "Error updating client preferences",
-            });
-          }),
-        ),
-    );
+    const result = await this.getClient(session);
     if (result.success === false) {
-      return {
-        success: result.success,
-        message: result.message,
-        data: data(result),
-      };
+      return result;
     } else {
-      return {
-        success: result.success,
-        message: result.message,
-      };
+      const result = await firstValueFrom(
+        this.httpService
+          .post<ResponseWithOptionalData<string[]>>(
+            `/${body.preferences.platformName}/update/preferences`,
+            {
+              clientId: body.clientId,
+              preferences: body.preferences,
+            },
+          )
+          .pipe(
+            map(res => res.data),
+            catchError((err: AxiosError) => {
+              Sentry.withScope(scope => {
+                scope.setTags({
+                  action: "proxy-call",
+                  source: "scorer.controller",
+                });
+                scope.setExtra("input", body);
+                Sentry.captureException(err);
+              });
+              this.logger.error(
+                `ScorerController::updateClientPreferences ${err.message}`,
+              );
+              return of({
+                success: false,
+                message: "Error updating client preferences",
+              } as ResponseWithOptionalData<string[]>);
+            }),
+          ),
+      );
+      return result;
     }
   }
 
@@ -583,7 +613,7 @@ export class ScorerController {
 
   @Delete("client")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
   async deleteClient(
     @Session() { address }: SessionObject,
   ): Promise<ResponseWithNoData> {
