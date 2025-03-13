@@ -1186,7 +1186,6 @@ export class UserService {
         })
         .filter(x => wallets.includes(x.wallet)),
     ];
-
     return result;
   }
 
