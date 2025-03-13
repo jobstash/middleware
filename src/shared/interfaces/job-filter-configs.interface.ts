@@ -23,6 +23,7 @@ export class JobFilterConfigs {
     hacks: SingleSelectFilter.SingleSelectFilterType,
     audits: SingleSelectFilter.SingleSelectFilterType,
     token: SingleSelectFilter.SingleSelectFilterType,
+    onboardIntoWeb3: SingleSelectFilter.SingleSelectFilterType,
     order: SingleSelectFilter.SingleSelectFilterType,
     seniority: MultiSelectFilter.MultiSelectFilterType,
     locations: MultiSelectFilter.MultiSelectFilterType,
@@ -85,6 +86,8 @@ export class JobFilterConfigs {
   @ApiProperty()
   token: SingleSelectFilter;
   @ApiProperty()
+  onboardIntoWeb3: SingleSelectFilter;
+  @ApiProperty()
   order: SingleSelectFilter;
   @ApiProperty()
   orderBy: SingleSelectFilter;
@@ -108,6 +111,7 @@ export class JobFilterConfigs {
       communities,
       ecosystems,
       classifications,
+      onboardIntoWeb3,
       commitments,
       monthlyFees,
       fundingRounds,
@@ -131,6 +135,7 @@ export class JobFilterConfigs {
     this.projects = projects;
     this.seniority = seniority;
     this.locations = locations;
+    this.onboardIntoWeb3 = onboardIntoWeb3;
     this.headcountEstimate = headcountEstimate;
     this.investors = investors;
     this.communities = communities;

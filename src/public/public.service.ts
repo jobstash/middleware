@@ -60,6 +60,7 @@ export class PublicService {
           minimumSalary: structured_jobpost.minimumSalary,
           maximumSalary: structured_jobpost.maximumSalary,
           salaryCurrency: structured_jobpost.salaryCurrency,
+          onboardIntoWeb3: structured_jobpost.onboardIntoWeb3,
           responsibilities: structured_jobpost.responsibilities,
           featured: structured_jobpost.featured,
           featureStartDate: structured_jobpost.featureStartDate,
@@ -106,6 +107,10 @@ export class PublicService {
               fundingRounds: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
               ]),
+              grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }],
               investors: apoc.coll.toSet([
                 (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
               ]),
@@ -113,7 +118,6 @@ export class PublicService {
               ecosystems: [
                 (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
               ],
-              grants: [(organization)-[:HAS_GRANTSITE]->(grant) | grant.url ],
               reviews: [
                 (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
                   compensation: {

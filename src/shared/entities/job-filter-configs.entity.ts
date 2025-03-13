@@ -37,6 +37,10 @@ type RawJobFilters = {
   chains?: string[] | null;
   audits?: string[] | null;
   locations?: string[] | null;
+  investors?: string[] | null;
+  hacks?: string[] | null;
+  token?: string[] | null;
+  onboardIntoWeb3?: string[] | null;
   communities?: string[] | null;
   ecosystems?: string[] | null;
   organizations?: string[] | null;
@@ -136,6 +140,7 @@ export class JobFilterConfigsEntity {
         toHeaderCase,
       ),
       token: this.getSingleSelectPresets("token"),
+      onboardIntoWeb3: this.getSingleSelectPresets("onboardIntoWeb3"),
       order: this.getSingleSelectPresets("order"),
       orderBy: this.getSingleSelectPresets("orderBy"),
     });

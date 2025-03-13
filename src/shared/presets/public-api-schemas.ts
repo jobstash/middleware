@@ -611,6 +611,11 @@ export const PUBLIC_API_SCHEMAS = {
           example: "Example Job",
         },
       },
+      onboardIntoWeb3: {
+        description: "Whether the job onboards new comers into Web3",
+        type: "boolean",
+        example: true,
+      },
       responsibilities: {
         description: "The responsibilities of the job",
         type: "array",
