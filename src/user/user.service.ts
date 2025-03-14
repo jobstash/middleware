@@ -11,7 +11,6 @@ import {
   UserOrgAffiliationRequest,
   data,
   UserPermission,
-  PaginatedData,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -19,12 +18,7 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nestjs-neogma";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { ModelService } from "src/model/model.service";
-import {
-  instanceToNode,
-  nonZeroOrNull,
-  paginate,
-  randomToken,
-} from "src/shared/helpers";
+import { instanceToNode, nonZeroOrNull, randomToken } from "src/shared/helpers";
 import { randomUUID } from "crypto";
 import { GetAvailableUsersInput } from "./dto/get-available-users.input";
 import { ScorerService } from "src/scorer/scorer.service";
@@ -1198,16 +1192,14 @@ export class UserService {
   async getUsersAvailableForWork(
     params: GetAvailableUsersInput,
     orgId: string | null,
-  ): Promise<PaginatedData<UserAvailableForWork>> {
+  ): Promise<ResponseWithOptionalData<UserAvailableForWork[]>> {
     try {
       const paramsPassed = {
         city: params.city ? new RegExp(params.city, "gi") : null,
         country: params.country ? new RegExp(params.country, "gi") : null,
-        page: params.page ?? 1,
-        limit: params.limit ?? 10,
       };
 
-      const { page, limit, city, country } = paramsPassed;
+      const { city, country } = paramsPassed;
 
       const locationFilter = (dev: UserAvailableForWork): boolean => {
         const cityMatch = city ? city.test(dev.location?.city) : true;
@@ -1225,7 +1217,7 @@ export class UserService {
                 
           CALL {
             WITH user
-            MATCH (organization: Organization {orgId: "9579"})
+            MATCH (organization: Organization {orgId: $orgId})
             OPTIONAL MATCH (user)-[act:VIEWED_DETAILS|APPLIED_TO]->(job:StructuredJobpost)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]-(organization)
             OPTIONAL MATCH (job)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification)
             RETURN classification.name AS classification, count(*) AS frequency
@@ -1312,24 +1304,20 @@ export class UserService {
         return !(verifiedOrgs?.orgs ?? []).includes(orgId);
       });
 
-      const { data, ...result } = paginate<UserAvailableForWork>(
-        page,
-        limit,
-        filtered,
-      );
-
-      const wallets = data.map(x => x.wallet);
       const ecosystemActivations =
-        await this.scorerService.getWalletEcosystemActivations(wallets, orgId);
+        await this.scorerService.getEcosystemActivations(orgId);
 
       return {
-        ...result,
-        data: data.map(user =>
+        success: true,
+        message: "Users available for work retrieved successfully",
+        data: filtered.map(user =>
           new UserAvailableForWorkEntity({
             ...user,
-            ecosystemActivations:
-              ecosystemActivations.find(x => x.wallet === user.wallet)
-                ?.ecosystemActivations ?? [],
+            ecosystemActivations: user.linkedAccounts.wallets.flatMap(
+              z =>
+                ecosystemActivations.find(x => x.wallet === z)
+                  ?.ecosystemActivations ?? [],
+            ),
           }).getProperties(),
         ),
       };
@@ -1344,10 +1332,8 @@ export class UserService {
       });
       this.logger.error(`UserService::getDevsAvailableForWork ${err.message}`);
       return {
-        page: -1,
-        total: 0,
-        count: 0,
-        data: [],
+        success: false,
+        message: "Error retrieving users available for work",
       };
     }
   }

@@ -1547,10 +1547,7 @@ export class JobsService {
         result?.records?.map(record => record.get("result")) ?? [];
 
       const ecosystemActivations =
-        await this.scorerService.getWalletEcosystemActivations(
-          applicants.flatMap(x => x?.linkedAccounts?.wallets).filter(Boolean),
-          orgId,
-        );
+        await this.scorerService.getEcosystemActivations(orgId);
 
       return {
         success: true,
@@ -1558,9 +1555,11 @@ export class JobsService {
         data: applicants?.map((applicant: JobApplicant) => {
           return new JobApplicantEntity({
             ...applicant,
-            ecosystemActivations:
-              ecosystemActivations.find(x => x.wallet === applicant.user.wallet)
-                ?.ecosystemActivations ?? [],
+            ecosystemActivations: applicant.user.linkedAccounts.wallets.flatMap(
+              z =>
+                ecosystemActivations.find(x => x.wallet === z)
+                  ?.ecosystemActivations ?? [],
+            ),
           }).getProperties();
         }),
       };
