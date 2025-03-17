@@ -31,14 +31,19 @@ const envSchema = Joi.object({
     .required(),
   NEO4J_USERNAME: Joi.string().required(),
   NEO4J_DATABASE: Joi.string().required(),
-  NEO4J_HOST_TEST: Joi.string().required(),
-  NEO4J_PASSWORD_TEST: Joi.string().required(),
-  NEO4J_PORT_TEST: Joi.number().required(),
-  NEO4J_SCHEME_TEST: Joi.string()
-    .valid("bolt", "bolt+s", "bolt+scc", "neo4j", "neo4j+s", "neo4j+scc")
-    .required(),
-  NEO4J_USERNAME_TEST: Joi.string().required(),
-  NEO4J_DATABASE_TEST: Joi.string().required(),
+  NEO4J_HOST_TEST: Joi.string(),
+  NEO4J_PASSWORD_TEST: Joi.string(),
+  NEO4J_PORT_TEST: Joi.number(),
+  NEO4J_SCHEME_TEST: Joi.string().valid(
+    "bolt",
+    "bolt+s",
+    "bolt+scc",
+    "neo4j",
+    "neo4j+s",
+    "neo4j+scc",
+  ),
+  NEO4J_USERNAME_TEST: Joi.string(),
+  NEO4J_DATABASE_TEST: Joi.string(),
   NFT_STORAGE_API_KEY: Joi.string().required(),
   NODE_ENV: Joi.string()
     .valid("development", "production", "test", "staging")
@@ -60,8 +65,8 @@ const envSchema = Joi.object({
   SKILL_THRESHOLD: Joi.number().required(),
   SWAGGER_USER: Joi.string().required(),
   SWAGGER_PASSWORD: Joi.string().required(),
-  TEST_DB_MANAGER_URL: Joi.string().required(),
-  TEST_DB_MANAGER_API_KEY: Joi.string().required(),
+  TEST_DB_MANAGER_URL: Joi.string(),
+  TEST_DB_MANAGER_API_KEY: Joi.string(),
   VCDATA_API_KEY: Joi.string().required(),
 });
 
