@@ -24,6 +24,8 @@ export class UserProfile {
       email: t.union([t.string, t.null]),
       wallets: t.array(t.string),
     }),
+    cryptoNative: t.boolean,
+    cryptoAdjacent: t.boolean,
   });
 
   wallet: string;
@@ -46,6 +48,8 @@ export class UserProfile {
     email: string | null;
     wallets: string[];
   };
+  cryptoNative: boolean;
+  cryptoAdjacent: boolean;
 
   constructor(raw: UserProfile) {
     const {
@@ -56,6 +60,8 @@ export class UserProfile {
       location,
       availableForWork,
       linkedAccounts,
+      cryptoNative,
+      cryptoAdjacent,
     } = raw;
 
     const result = UserProfile.UserProfileType.decode(raw);
@@ -67,6 +73,8 @@ export class UserProfile {
     this.location = location;
     this.linkedAccounts = linkedAccounts;
     this.availableForWork = availableForWork;
+    this.cryptoNative = cryptoNative;
+    this.cryptoAdjacent = cryptoAdjacent;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

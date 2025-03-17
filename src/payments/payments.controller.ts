@@ -1,4 +1,10 @@
-import { Body, Controller, Headers, Post, Res } from "@nestjs/common";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Headers,
+  Post,
+} from "@nestjs/common";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { PaymentsService } from "./payments.service";
 import {
@@ -22,7 +28,6 @@ export class PaymentsController {
 
   @Post("webhook")
   async handleWebhook(
-    @Res({ passthrough: true }) res: Response,
     @Body() body: PaymentEvent,
     @Headers("X-CC-WEBHOOK-SIGNATURE") signature: string,
   ): Promise<void> {
@@ -86,10 +91,11 @@ export class PaymentsController {
           `Unsupported webhook event type: ${event.type} ${JSON.stringify(body)}`,
         );
       }
-      res.status(200).send("OK");
     } else {
-      this.logger.warn("Invalid webhook call");
-      res.status(401).send("Unauthorized");
+      throw new BadRequestException({
+        success: false,
+        message: "Invalid webhook call",
+      });
     }
   }
 }

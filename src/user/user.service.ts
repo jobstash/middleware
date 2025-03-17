@@ -29,6 +29,11 @@ import { PrivyService } from "src/auth/privy/privy.service";
 import { PermissionService } from "./permission.service";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { Subscription } from "src/shared/interfaces/org";
+import { uniq } from "lodash";
+import {
+  PrivyTransferEventPayload,
+  PrivyUpdateEventPayload,
+} from "src/auth/privy/dto/webhook.payload";
 
 @Injectable()
 export class UserService {
@@ -499,7 +504,7 @@ export class UserService {
     return result;
   }
 
-  async getUserWalletByLinkedWallet(
+  async getEmbeddedWalletByLinkedWallet(
     linkedWallet: string,
   ): Promise<string | undefined> {
     const result = await this.neogma.queryRunner
@@ -530,7 +535,7 @@ export class UserService {
   }
 
   async getPrivyId(wallet: string): Promise<string | undefined> {
-    const result = await this.neogma.queryRunner
+    return this.neogma.queryRunner
       .run(
         `
           MATCH (u:User {wallet:$wallet})
@@ -552,7 +557,31 @@ export class UserService {
         this.logger.error(`UserService::getPrivyId ${err.message}`);
         return undefined;
       });
-    return result;
+  }
+
+  async getEmbeddedWallet(privyId: string): Promise<string | undefined> {
+    return this.neogma.queryRunner
+      .run(
+        `
+          MATCH (u:User {privyId:$privyId})
+          RETURN u.wallet as wallet
+        `,
+        { privyId },
+      )
+      .then(res =>
+        res.records.length ? res.records[0].get("wallet") : undefined,
+      )
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`UserService::getEmbeddedWallet ${err.message}`);
+        return undefined;
+      });
   }
 
   async verifyUserEmail(email: string): Promise<UserEntity | undefined> {
@@ -960,6 +989,75 @@ export class UserService {
     }
   }
 
+  async removeOrgUser(orgId: string, wallet: string): Promise<void> {
+    await this.neogma.queryRunner.run(
+      `
+        MATCH (user:User {wallet: $wallet})-[r:OCCUPIES]->(:OrgUserSeat)-[:HAS_USER_SEAT]->(:Organization {orgId: $orgId})
+        DELETE r
+      `,
+      { orgId, wallet },
+    );
+  }
+
+  async transferOrgSeat(
+    orgId: string,
+    fromWallet: string,
+    toWallet: string,
+  ): Promise<void> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $fromWallet})-[r:OCCUPIES]->(seat:OrgUserSeat)-[:HAS_USER_SEAT]->(:Organization {orgId: $orgId})
+        DELETE r
+
+        WITH seat
+        MATCH (user2:User {wallet: $toWallet})
+        MERGE (user2)-[:OCCUPIES]->(seat)
+        RETURN seat
+      `,
+        { orgId, fromWallet, toWallet },
+      );
+      const seat = result.records[0]?.get("seat");
+      if (seat) {
+        const fromPermissions = (await this.getUserPermissions(fromWallet))
+          .map(x => x.name)
+          .filter(x => !["ORG_MEMBER", "ORG_OWNER"].includes(x));
+        const toPermissions = (await this.getUserPermissions(toWallet))
+          .map(x => x.name)
+          .filter(x => !["ORG_MEMBER", "ORG_OWNER"].includes(x));
+        await this.syncUserPermissions(fromWallet, fromPermissions);
+        await this.syncUserPermissions(
+          toWallet,
+          [
+            ...toPermissions,
+            CheckWalletPermissions.ORG_MEMBER,
+            seat.seatType === "owner" ? CheckWalletPermissions.ORG_OWNER : null,
+          ].filter(Boolean),
+        );
+      } else {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "domain",
+            source: "user.service",
+          });
+          scope.setExtra("input", { orgId, fromWallet, toWallet });
+          Sentry.captureMessage("Failled seat transfer");
+        });
+        this.logger.warn(`UserService::transferOrgSeat Failed seat transfer`);
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
+        });
+        scope.setExtra("input", { orgId, fromWallet, toWallet });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`UserService::transferOrgSeat ${err.message}`);
+    }
+  }
+
   async getCryptoNativeStatus(wallet: string): Promise<boolean | undefined> {
     const initial = await this.neogma.queryRunner
       .run(
@@ -1006,61 +1104,27 @@ export class UserService {
   }
 
   async findAll(): Promise<UserProfile[]> {
-    const users = await this.privyService.getUsers();
-    const userMap: Map<string, PrivyUser> = new Map(
-      users.map(x => [
-        (
-          x.linkedAccounts.find(
-            x => x.type === "wallet" && x.walletClientType === "privy",
-          ) as WalletWithMetadata
-        )?.address,
-        x,
-      ]),
-    );
     return this.neogma.queryRunner
       .run(
         `
           MATCH (user:User)
-          RETURN {
-            wallet: user.wallet,
-            availableForWork: user.available,
-            name: user.name,
+          RETURN user {
+            .*,
             githubAvatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
             alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
-            location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0]
+            location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
+            linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account {
+              .*,
+              wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
+            }][0]
           } as user
         `,
       )
-      .then(async res => {
-        return res.records.length
-          ? await Promise.all(
-              res.records.map(async record => {
-                const raw = record.get("user");
-                const embeddedWallet = raw.wallet;
-                const user = userMap.get(embeddedWallet);
-                return new UserProfileEntity({
-                  ...raw,
-                  linkedAccounts: {
-                    discord: user?.discord?.username ?? null,
-                    telegram: user?.telegram?.username ?? null,
-                    twitter: user?.twitter?.username ?? null,
-                    email: user?.email?.address ?? null,
-                    farcaster: user?.farcaster?.username ?? null,
-                    github: user?.github?.username ?? null,
-                    google: user?.google?.email ?? null,
-                    apple: user?.apple?.email ?? null,
-                    wallets: user?.linkedAccounts
-                      ?.filter(
-                        x =>
-                          x.type === "wallet" && x.walletClientType !== "privy",
-                      )
-                      ?.map(x => (x as WalletWithMetadata).address),
-                  },
-                }).getProperties();
-              }),
-            )
-          : <UserProfile[]>[];
-      })
+      .then(res =>
+        res.records.map(record =>
+          new UserProfileEntity(record.get("user")).getProperties(),
+        ),
+      )
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -1077,116 +1141,17 @@ export class UserService {
   async getUsersVerifiedOrgs(
     wallets: string[],
   ): Promise<{ wallet: string; orgs: string[] }[]> {
-    const users = (await this.privyService.getUsers())
-      .map(user => ({
-        discord: user?.discord?.username ?? null,
-        telegram: user?.telegram?.username ?? null,
-        twitter: user?.twitter?.username ?? null,
-        email: user?.email?.address ?? null,
-        farcaster: user?.farcaster?.username ?? null,
-        github: user?.github?.username ?? null,
-        google: user?.google?.email ?? null,
-        apple: user?.apple?.email ?? null,
-        wallets: user.linkedAccounts
-          .filter(x => x.type === "wallet" && x.walletClientType !== "privy")
-          .map(x => (x as WalletWithMetadata).address),
-        embeddedWallet: (
-          user.linkedAccounts.find(
-            x => x.type === "wallet" && x.walletClientType === "privy",
-          ) as WalletWithMetadata
-        )?.address,
-      }))
-      .filter(x => wallets.includes(x.embeddedWallet));
-
-    const workHistories = await this.scorerService.getUserWorkHistories(
-      users
-        .filter(x => x.github)
-        .map(x => ({
-          github: x.github,
-          wallets: [],
-        })),
+    return Promise.all(
+      wallets.map(async wallet => {
+        const orgs = data(
+          await this.profileService.getUserVerifiedOrgs(wallet),
+        );
+        return {
+          wallet,
+          orgs: orgs.map(x => x.id),
+        };
+      }),
     );
-
-    const emails = users.flatMap(
-      x => [x.email, x.google, x.apple].filter(Boolean) as string[],
-    );
-
-    const orgsByGithub = (
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (organization: Organization WHERE organization.name IN $names)
-        RETURN {
-          name: organization.name,
-          orgId: organization.orgId
-        } as orgByGithub
-      `,
-        {
-          names: workHistories.flatMap(x => x.workHistory.map(y => y.name)),
-        },
-      )
-    ).records.map(x => x.get("orgByGithub") as { name: string; orgId: string });
-
-    const orgsByEmail = (
-      await this.neogma.queryRunner.run(
-        `
-            MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
-            UNWIND $emails as email
-            WITH email, website, organization
-            WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email).domain
-            RETURN organization {
-              id: organization.orgId,
-              name: organization.name,
-              account: email
-            } as orgByEmail
-          `,
-        { emails },
-      )
-    ).records.map(
-      x =>
-        x.get("orgByEmail") as {
-          id: string;
-          name: string;
-          account: string;
-        },
-    );
-
-    const result = [
-      ...workHistories
-        .map(x => {
-          const user = users.find(x => x.github === x.github);
-          const wallet = user?.embeddedWallet;
-          const workHistoryNames = x.workHistory.map(y => y.name);
-          const orgs = [
-            ...orgsByGithub
-              .filter(x => workHistoryNames.includes(x.name))
-              .map(x => x.orgId),
-          ];
-          return {
-            wallet,
-            orgs,
-          };
-        })
-        .filter(x => wallets.includes(x.wallet)),
-      ...users
-        .map(x => {
-          const wallet = x.embeddedWallet;
-          const orgs = [
-            ...orgsByEmail
-              .filter(y =>
-                [x.email, x.google, x.apple]
-                  .filter(Boolean)
-                  .includes(y.account),
-              )
-              .map(x => x.id),
-          ];
-          return {
-            wallet,
-            orgs,
-          };
-        })
-        .filter(x => wallets.includes(x.wallet)),
-    ];
-    return result;
   }
 
   async getUsersAvailableForWork(
@@ -1305,7 +1270,7 @@ export class UserService {
       });
 
       const ecosystemActivations =
-        await this.scorerService.getEcosystemActivations(orgId);
+        await this.scorerService.getAllUserEcosystemActivations(orgId);
 
       return {
         success: true,
@@ -1315,8 +1280,9 @@ export class UserService {
             ...user,
             ecosystemActivations: user.linkedAccounts.wallets.flatMap(
               z =>
-                ecosystemActivations.find(x => x.wallet === z)
-                  ?.ecosystemActivations ?? [],
+                ecosystemActivations
+                  .find(x => x.wallet === z)
+                  ?.ecosystemActivations?.map(x => x.name) ?? [],
             ),
           }).getProperties(),
         ),
@@ -1479,6 +1445,100 @@ export class UserService {
             message: "Setting user note failed",
           };
         })
+    );
+  }
+
+  async updateLinkedAccounts(
+    dto: PrivyUpdateEventPayload,
+    embeddedWallet: string,
+  ): Promise<void> {
+    const user = dto.user;
+    this.logger.log(`Syncing linked accounts for ${embeddedWallet}`);
+    await this.profileService
+      .updateUserLinkedAccounts(embeddedWallet, user)
+      .then(result => {
+        if (result.success) {
+          this.logger.log(`Linked accounts updated for ${embeddedWallet}`);
+        } else {
+          this.logger.error(
+            `Linked accounts not updated for ${embeddedWallet}: ${result.message}`,
+          );
+          return result;
+        }
+      });
+    if (
+      ["github_oauth", "email", "wallet", "google_oauth"].includes(
+        dto.account.type,
+      )
+    ) {
+      await this.profileService.getUserWorkHistory(embeddedWallet, true);
+      await this.profileService.getUserVerifiedOrgs(embeddedWallet, true);
+    }
+  }
+
+  async transferLinkedAccount(
+    dto: PrivyTransferEventPayload,
+    fromEmbeddedWallet: string,
+    toEmbeddedWallet: string,
+  ): Promise<void> {
+    if (dto.account.type === "email" || dto.account.type === "google_oauth") {
+      const fromVerifiedOrgs = data(
+        await this.profileService.getUserVerifiedOrgs(fromEmbeddedWallet),
+      );
+
+      const toVerifiedOrgs = data(
+        await this.profileService.getUserVerifiedOrgs(toEmbeddedWallet),
+      );
+
+      for (const org of fromVerifiedOrgs) {
+        const existingRelation = toVerifiedOrgs.find(x => x.id === org.id);
+        if (
+          existingRelation &&
+          ((existingRelation.isMember === true && org.isMember === false) ||
+            existingRelation.isOwner)
+        ) {
+          await this.transferOrgSeat(
+            org.id,
+            fromEmbeddedWallet,
+            toEmbeddedWallet,
+          );
+        }
+      }
+    }
+
+    if (!dto.deletedUser) {
+      const fromUser = await this.privyService.getUser(dto.fromUser.id);
+      if (fromUser) {
+        await this.profileService.getUserWorkHistory(fromEmbeddedWallet, true);
+        await this.updateLinkedAccounts(
+          {
+            type: "user.unlinked_account",
+            account: dto.account,
+            user: fromUser,
+          },
+          fromEmbeddedWallet,
+        );
+      }
+    } else {
+      const oldPermissions = await this.getUserPermissions(fromEmbeddedWallet);
+      const currentPermissions =
+        await this.getUserPermissions(toEmbeddedWallet);
+      const permissions = uniq([
+        ...oldPermissions
+          .filter(x => !["ORG_MEMBER", "ORG_OWNER", "USER"].includes(x.name))
+          .map(x => x.name),
+        ...currentPermissions.map(x => x.name),
+      ]);
+      await this.syncUserPermissions(toEmbeddedWallet, permissions);
+      await this.deletePrivyUser(fromEmbeddedWallet);
+    }
+    await this.updateLinkedAccounts(
+      {
+        type: "user.linked_account",
+        account: dto.account,
+        user: dto.toUser,
+      },
+      toEmbeddedWallet,
     );
   }
 }

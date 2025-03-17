@@ -134,24 +134,7 @@ export class ProfileController {
   ): Promise<ResponseWithOptionalData<UserVerifiedOrg[]>> {
     this.logger.log(`/profile/organizations/verified`);
 
-    return this.profileService.getUserVerifiedOrgs(address);
-  }
-
-  @Get("organizations/authorized")
-  @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
-  @ApiOkResponse({
-    description:
-      "Returns the authorized organizations of the currently logged in user",
-    schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Response<UserVerifiedOrg[]>),
-    }),
-  })
-  async getUserAuthorizedOrgs(
-    @Session() { address }: SessionObject,
-  ): Promise<ResponseWithOptionalData<UserVerifiedOrg[]>> {
-    this.logger.log(`/profile/organizations/authorized`);
-    return this.profileService.getUserAuthorizedOrgs(address);
+    return this.profileService.getUserVerifiedOrgs(address, true);
   }
 
   @Get("showcase")

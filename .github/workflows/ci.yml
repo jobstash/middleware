@@ -94,7 +94,6 @@ jobs:
           VCDATA_API_KEY: ${{ secrets.VCDATA_API_KEY }}
           PRIVY_APP_ID: ${{ secrets.PRIVY_APP_ID }}
           PRIVY_APP_SECRET: ${{ secrets.PRIVY_APP_SECRET }}
-          GRANTS_STACK_INDEXER_URL: ${{ secrets.GRANTS_STACK_INDEXER_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LLAMA_PAY_API_KEY: ${{ secrets.LLAMA_PAY_API_KEY }}
           LLAMA_PAY_WEBHOOK_KEY: ${{ secrets.LLAMA_PAY_WEBHOOK_KEY }}

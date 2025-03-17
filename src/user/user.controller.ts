@@ -119,8 +119,8 @@ export class UserController {
       }
     } else {
       const memberships = data(
-        await this.profileService.getUserAuthorizedOrgs(address),
-      );
+        await this.profileService.getUserVerifiedOrgs(address),
+      ).filter(x => x.isMember);
       if (memberships.find(x => x.id === body.orgId)) {
         return {
           success: false,

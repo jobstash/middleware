@@ -108,8 +108,8 @@ export class SubscriptionsService {
     wallet: string,
     orgId: string,
   ): Promise<string | undefined> {
-    return data(await this.profileService.getUserAuthorizedOrgs(wallet)).find(
-      org => org.id === orgId,
+    return data(await this.profileService.getUserVerifiedOrgs(wallet)).find(
+      org => org.id === orgId && org.credential === "email" && org.isOwner,
     )?.account;
   }
 

@@ -33,6 +33,7 @@ import { Auth0Module } from "./auth0/auth0.module";
 import { SubscriptionsModule } from "./subscriptions/subscriptions.module";
 import { BullModule } from "@nestjs/bull";
 import { ScheduleModule } from "@nestjs/schedule";
+import { TelemetryModule } from "./telemetry/telemetry.module";
 
 @Module({
   imports: [
@@ -93,6 +94,7 @@ import { ScheduleModule } from "@nestjs/schedule";
     PaymentsModule,
     Auth0Module,
     SubscriptionsModule,
+    TelemetryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

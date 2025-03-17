@@ -172,4 +172,8 @@ export class PrivyService {
       this.logger.error(`PrivyService::deletePrivyUser ${err.message}`);
     });
   }
+
+  async getClient(): Promise<PrivyClient> {
+    return this.privy;
+  }
 }

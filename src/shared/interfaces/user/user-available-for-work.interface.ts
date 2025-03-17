@@ -11,8 +11,6 @@ export class UserAvailableForWork extends UserProfile {
   public static readonly UserAvailableForWorkType = t.intersection([
     UserProfile.UserProfileType,
     t.strict({
-      cryptoAdjacent: t.boolean,
-      cryptoNative: t.boolean,
       attestations: t.strict({
         upvotes: t.union([t.number, t.null]),
         downvotes: t.union([t.number, t.null]),
@@ -36,12 +34,6 @@ export class UserAvailableForWork extends UserProfile {
   workHistory: UserWorkHistory[];
 
   @ApiProperty()
-  cryptoAdjacent: boolean;
-
-  @ApiProperty()
-  cryptoNative: boolean;
-
-  @ApiProperty()
   attestations: {
     upvotes: number | null;
     downvotes: number | null;
@@ -61,8 +53,6 @@ export class UserAvailableForWork extends UserProfile {
       skills,
       showcases,
       workHistory,
-      cryptoNative,
-      cryptoAdjacent,
       attestations,
       note,
       ecosystemActivations,
@@ -74,8 +64,6 @@ export class UserAvailableForWork extends UserProfile {
     this.skills = skills;
     this.showcases = showcases;
     this.workHistory = workHistory;
-    this.cryptoAdjacent = cryptoAdjacent;
-    this.cryptoNative = cryptoNative;
     this.attestations = attestations;
     this.note = note;
     this.ecosystemActivations = ecosystemActivations;

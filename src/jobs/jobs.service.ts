@@ -1547,7 +1547,7 @@ export class JobsService {
         result?.records?.map(record => record.get("result")) ?? [];
 
       const ecosystemActivations =
-        await this.scorerService.getEcosystemActivations(orgId);
+        await this.scorerService.getAllUserEcosystemActivations(orgId);
 
       return {
         success: true,
@@ -1557,8 +1557,9 @@ export class JobsService {
             ...applicant,
             ecosystemActivations: applicant.user.linkedAccounts.wallets.flatMap(
               z =>
-                ecosystemActivations.find(x => x.wallet === z)
-                  ?.ecosystemActivations ?? [],
+                ecosystemActivations
+                  .find(x => x.wallet === z)
+                  ?.ecosystemActivations?.map(x => x.name) ?? [],
             ),
           }).getProperties();
         }),
