@@ -836,9 +836,11 @@ export class UserService {
         OPTIONAL MATCH (user)-[ja:APPLIED_TO|BOOKMARKED|VIEWED_DETAILS]->()
         OPTIONAL MATCH (user)-[ds:DID_SEARCH]->(search:SearchHistory)
         OPTIONAL MATCH (user)-[cl:HAS_CACHE_LOCK]->(lock:UserCacheLock)
-        OPTIONAL MATCH (user)-[oa:HAS_ORGANIZATION_AUTHORIZATION]->()
+        OPTIONAL MATCH (user)-[oa:OCCUPIES]->()
+        OPTIONAL MATCH (user)-[:HAS_ADJACENT_REPO]->(adjacentRepo: UserAdjacentRepo)
+        OPTIONAL MATCH (user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount)
         OPTIONAL MATCH (user)-[:HAS_WORK_HISTORY]->(wh:UserWorkHistory)-[:WORKED_ON_REPO]->(whr:UserWorkHistoryRepo)
-        DETACH DELETE user, lw, wallet, pcr, cr, preferred, contact, rr, gr, scr, showcase, ul, location, sr, er, email, ja, ds, cl, search, lock, oa, wh, whr
+        DETACH DELETE user, lw, wallet, pcr, cr, preferred, contact, rr, gr, scr, showcase, ul, location, sr, er, email, ja, ds, cl, search, lock, oa, wh, whr, adjacentRepo, account
       `,
         { wallet },
       );
