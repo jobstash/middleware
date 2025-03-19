@@ -4,7 +4,6 @@ import {
   Controller,
   Delete,
   Get,
-  Header,
   Headers,
   HttpStatus,
   NotFoundException,
@@ -43,11 +42,7 @@ import {
   COMMUNITY_HEADER,
   EMPTY_SESSION_OBJECT,
 } from "src/shared/constants";
-import {
-  CACHE_CONTROL_HEADER,
-  CACHE_DURATION,
-  CACHE_EXPIRY,
-} from "src/shared/constants/cache-control";
+import { CACHE_DURATION } from "src/shared/constants/cache-control";
 import { Permissions, Session } from "src/shared/decorators";
 import { nonZeroOrNull, responseSchemaWrapper } from "src/shared/helpers";
 import { ProjectProps } from "src/shared/models";
@@ -87,6 +82,7 @@ import { ActivateProjectJobsiteInput } from "./dto/activate-project-jobsites.inp
 import { CreateProjectJobsiteInput } from "./dto/create-project-jobsites.input";
 import { SearchProjectsInput } from "./dto/search-projects.input";
 import mime from "mime";
+import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 
 @Controller("projects")
 @ApiExtraModels(Project)
@@ -161,8 +157,7 @@ export class ProjectsController {
   }
 
   @Get("/list")
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiHeader({
     name: COMMUNITY_HEADER,
     required: false,
@@ -220,8 +215,7 @@ export class ProjectsController {
   }
 
   @Get("/filters")
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiHeader({
     name: COMMUNITY_HEADER,
     required: false,
@@ -545,8 +539,7 @@ export class ProjectsController {
 
   @Get("/search")
   @UseGuards(PBACGuard)
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description: "Returns a list of projects that match the search criteria",
     type: Response<PaginatedData<ProjectListResult>>,

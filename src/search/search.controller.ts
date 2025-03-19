@@ -1,11 +1,10 @@
 import {
-  Body,
   Controller,
   Get,
-  Header,
   Headers,
   Query,
   UseGuards,
+  UseInterceptors,
   ValidationPipe,
 } from "@nestjs/common";
 import { SearchService } from "./search.service";
@@ -22,12 +21,7 @@ import { SearchPillarParams } from "./dto/search-pillar.input";
 import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { BlockScrapersGuard } from "./search.guard";
-import {
-  CACHE_CONTROL_HEADER,
-  CACHE_DURATION,
-  CACHE_EXPIRY,
-  COMMUNITY_HEADER,
-} from "src/shared/constants";
+import { CACHE_DURATION, COMMUNITY_HEADER } from "src/shared/constants";
 import { Session } from "src/shared/decorators";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { ProfileService } from "src/auth/profile/profile.service";
@@ -35,6 +29,7 @@ import { FetchPillarItemLabelsInput } from "./dto/fetch-pillar-item-labels.input
 import { SearchParams } from "./dto/search.input";
 import { SearchPillarFiltersParams } from "./dto/search-pillar-filters-params.input";
 import { ApiHeader } from "@nestjs/swagger";
+import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 
 @Controller("search")
 export class SearchController {
@@ -46,8 +41,7 @@ export class SearchController {
 
   @Get("")
   @UseGuards(PBACGuard, BlockScrapersGuard)
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   async search(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true })) params: SearchParams,
@@ -72,8 +66,7 @@ export class SearchController {
       "Optional header to tailor the response for a specific community",
   })
   @UseGuards(PBACGuard, BlockScrapersGuard)
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   async searchPillar(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true })) params: SearchPillarParams,
@@ -99,8 +92,7 @@ export class SearchController {
       "Optional header to tailor the response for a specific community",
   })
   @UseGuards(PBACGuard, BlockScrapersGuard)
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   async searchPillarItems(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
@@ -130,8 +122,7 @@ export class SearchController {
     description:
       "Optional header to tailor the response for a specific community",
   })
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @UseGuards(BlockScrapersGuard)
   async searchPillarFilters(
     @Query(new ValidationPipe({ transform: true }))
@@ -145,8 +136,7 @@ export class SearchController {
 
   @Get("pillar/labels")
   @UseGuards(PBACGuard, BlockScrapersGuard)
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   async fetchPillarLabels(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))

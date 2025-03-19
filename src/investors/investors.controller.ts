@@ -1,11 +1,11 @@
 import {
   Controller,
   Get,
-  Header,
   HttpStatus,
   Param,
   Query,
   Res,
+  UseInterceptors,
   ValidationPipe,
 } from "@nestjs/common";
 import { InvestorsService } from "./investors.service";
@@ -16,11 +16,7 @@ import {
   ApiBadRequestResponse,
   ApiNotFoundResponse,
 } from "@nestjs/swagger";
-import {
-  CACHE_CONTROL_HEADER,
-  CACHE_DURATION,
-  CACHE_EXPIRY,
-} from "src/shared/constants";
+import { CACHE_DURATION } from "src/shared/constants";
 import {
   Investor,
   PaginatedData,
@@ -29,6 +25,7 @@ import {
 import { ValidationError } from "class-validator";
 import { InvestorListParams } from "./dto/investor-list.input";
 import { Response as ExpressResponse } from "express";
+import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 
 @Controller("investors")
 export class InvestorsController {
@@ -36,8 +33,7 @@ export class InvestorsController {
   constructor(private readonly investorsService: InvestorsService) {}
 
   @Get("/list")
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description:
       "Returns a sorted list of investors that are present in our dataset",

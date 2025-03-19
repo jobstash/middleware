@@ -1,11 +1,11 @@
 import {
   Controller,
   Get,
-  Header,
   HttpStatus,
   Param,
   Query,
   Res,
+  UseInterceptors,
   ValidationPipe,
 } from "@nestjs/common";
 import { ChainsService } from "./chains.service";
@@ -16,11 +16,7 @@ import {
   ApiBadRequestResponse,
   ApiNotFoundResponse,
 } from "@nestjs/swagger";
-import {
-  CACHE_CONTROL_HEADER,
-  CACHE_DURATION,
-  CACHE_EXPIRY,
-} from "src/shared/constants";
+import { CACHE_DURATION } from "src/shared/constants";
 import {
   Chain,
   PaginatedData,
@@ -29,6 +25,7 @@ import {
 import { ValidationError } from "class-validator";
 import { ChainListParams } from "./dto/chain-list.input";
 import { Response as ExpressResponse } from "express";
+import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 
 @Controller("chains")
 export class ChainsController {
@@ -36,8 +33,7 @@ export class ChainsController {
   constructor(private readonly chainsService: ChainsService) {}
 
   @Get("/list")
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description:
       "Returns a sorted list of chains that are present in our dataset",

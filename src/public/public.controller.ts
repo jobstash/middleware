@@ -1,4 +1,10 @@
-import { Controller, Get, Header, Query, ValidationPipe } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Query,
+  UseInterceptors,
+  ValidationPipe,
+} from "@nestjs/common";
 import { PublicService } from "./public.service";
 import {
   ApiBadRequestResponse,
@@ -14,11 +20,8 @@ import {
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { AllJobsInput } from "./dto/all-jobs.input";
 import { ConfigService } from "@nestjs/config";
-import {
-  CACHE_CONTROL_HEADER,
-  CACHE_DURATION,
-  CACHE_EXPIRY,
-} from "src/shared/constants";
+import { CACHE_DURATION } from "src/shared/constants";
+import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 
 @Controller("public")
 export class PublicController {
@@ -29,8 +32,7 @@ export class PublicController {
   ) {}
 
   @Get("/all-jobs")
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description: "Returns a paginated list of all active jobs ",
     type: PaginatedData<JobListResult>,
@@ -72,8 +74,7 @@ export class PublicController {
   }
 
   @Get("/all-jobs/filters")
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description: "Returns the configuration data for the ui filters",
     schema: {
