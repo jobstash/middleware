@@ -683,43 +683,118 @@ export const slugify = (str: string | null | undefined): string => {
 };
 
 export function sprinkleProtectedJobs(jobs: JobListResult[]): JobListResult[] {
-  const protectedJobs = jobs.filter(job => job.access === "protected");
-  const publicJobs = jobs.filter(job => job.access === "public");
+  if (jobs.length <= 1) return jobs;
 
-  if (protectedJobs.length === 0 || publicJobs.length === 0) {
-    return jobs;
-  } else {
-    const result = [];
-    for (let x = 0; x < jobs.length; x++) {
-      if (protectedJobs.length > 0 && publicJobs.length > 0) {
-        if (x === 0) {
-          result.push(protectedJobs.shift() ?? publicJobs.shift());
-        } else if (x % 2 === 0) {
-          result.push(publicJobs.shift() ?? protectedJobs.shift());
-        } else if (x % 3 === 0) {
-          result.push(protectedJobs.shift() ?? publicJobs.shift());
-        } else if (x % 5 === 0) {
-          const randomization = Math.random() > 0.5;
-          const set = randomization
-            ? [
-                protectedJobs.shift() ?? publicJobs.shift(),
-                protectedJobs.shift() ?? publicJobs.shift(),
-              ]
-            : [protectedJobs.shift() ?? publicJobs.shift()];
-          result.push(...set);
-        } else {
-          result.push(publicJobs.shift() ?? protectedJobs.shift());
-        }
-      } else {
-        if (protectedJobs.length === 0) {
-          result.push(...publicJobs);
-        } else {
-          result.push(...protectedJobs);
-        }
-      }
+  // Fast path: use typed arrays for better performance
+  const protectedIndices = new Uint16Array(jobs.length);
+  const publicIndices = new Uint16Array(jobs.length);
+  let protectedCount = 0;
+  let publicCount = 0;
+
+  // Single pass separation (faster than filter)
+  for (let i = 0; i < jobs.length; i++) {
+    if (jobs[i].access === "protected") {
+      protectedIndices[protectedCount++] = i;
+    } else {
+      publicIndices[publicCount++] = i;
     }
-    return result;
   }
+
+  // Early return if no mixing needed
+  if (protectedCount === 0 || publicCount === 0) return jobs;
+
+  // Pre-allocate result array
+  const result = new Array(jobs.length);
+  let resultIndex = 0;
+
+  // Place first protected job at the very top
+  result[resultIndex++] = jobs[protectedIndices[0]];
+
+  // For very small protected sets (< 3%), concentrate them in first 100 positions
+  const isVerySmallSubset = protectedCount / jobs.length < 0.03;
+
+  if (isVerySmallSubset) {
+    // Calculate base spacing within first 100 positions
+    const baseSpacing = Math.floor(100 / (protectedCount * 1.5));
+
+    let protectedIndex = 1; // Start from second protected job
+    let publicIndex = 0;
+
+    // Fibonacci-based spacing multipliers for less obvious distribution
+    const spacingMultipliers = [1, 2, 3, 5, 8, 13];
+    let multiplierIndex = 0;
+
+    // Place protected jobs with variable spacing in first 100 positions
+    while (protectedIndex < protectedCount && resultIndex < 100) {
+      // Calculate variable spacing using multiplier
+      const currentSpacing = Math.max(
+        baseSpacing * (spacingMultipliers[multiplierIndex] / 5),
+        3,
+      );
+
+      // Add public jobs batch
+      const chunk = Math.min(
+        Math.floor(currentSpacing),
+        publicCount - publicIndex,
+        100 - resultIndex,
+      );
+
+      for (let i = 0; i < chunk; i++) {
+        result[resultIndex++] = jobs[publicIndices[publicIndex++]];
+      }
+
+      // Add protected job if we haven't hit position 100
+      if (resultIndex < 100) {
+        result[resultIndex++] = jobs[protectedIndices[protectedIndex++]];
+      }
+
+      // Cycle through multipliers
+      multiplierIndex = (multiplierIndex + 2) % spacingMultipliers.length;
+    }
+
+    // Fast append remaining jobs
+    while (publicIndex < publicCount) {
+      result[resultIndex++] = jobs[publicIndices[publicIndex++]];
+    }
+    while (protectedIndex < protectedCount) {
+      result[resultIndex++] = jobs[protectedIndices[protectedIndex++]];
+    }
+  } else {
+    // Standard distribution for larger protected sets
+    const baseSpacing = Math.max(
+      Math.floor(publicCount / (protectedCount - 1)),
+      1,
+    );
+
+    let protectedIndex = 1;
+    let publicIndex = 0;
+
+    // Prime numbers for spacing variation
+    const primeFactors = [2, 3, 5, 7, 11];
+    let primeIndex = 0;
+
+    // Main distribution loop
+    while (publicIndex < publicCount) {
+      const variation = primeFactors[primeIndex] / 3;
+      const spacing = Math.max(Math.floor(baseSpacing * variation), 2);
+
+      // Bulk copy public jobs
+      const chunk = Math.min(spacing, publicCount - publicIndex);
+      for (let i = 0; i < chunk; i++) {
+        result[resultIndex++] = jobs[publicIndices[publicIndex++]];
+      }
+
+      // Insert protected job if available
+      if (protectedIndex < protectedCount) {
+        result[resultIndex++] = jobs[protectedIndices[protectedIndex++]];
+      }
+
+      // Cycle through prime factors
+      primeIndex = (primeIndex + 2) % primeFactors.length;
+    }
+  }
+
+  return result;
 }
 
 export const isValidFilterConfig = (value: string): boolean =>
