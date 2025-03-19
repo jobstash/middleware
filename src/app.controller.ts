@@ -1,14 +1,10 @@
-import { Controller, Get, Header } from "@nestjs/common";
+import { Controller, Get, Header, UseInterceptors } from "@nestjs/common";
 import { AppService } from "./app.service";
 import { Response, ResponseWithNoData } from "src/shared/types";
 import { ApiExtraModels, ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
-import {
-  CACHE_CONTROL_HEADER,
-  CACHE_DURATION,
-  CACHE_EXPIRY,
-  NO_CACHE,
-} from "./shared/constants/cache-control";
+import { CACHE_DURATION, NO_CACHE } from "./shared/constants/cache-control";
 import { ConfigService } from "@nestjs/config";
+import { CacheHeaderInterceptor } from "./shared/decorators/cache-interceptor.decorator";
 
 @Controller("app")
 @ApiExtraModels(Response, ResponseWithNoData)
@@ -19,8 +15,7 @@ export class AppController {
   ) {}
 
   @Get("health")
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description: "Returns the health status of the server",
     schema: {
@@ -44,7 +39,7 @@ export class AppController {
   }
 
   @Get("sitemap")
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description: "Returns the sitemap of the currently deployed code",
     schema: {

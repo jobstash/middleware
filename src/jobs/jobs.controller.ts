@@ -10,8 +10,10 @@ import {
   Param,
   Post,
   Query,
+  Res,
   UnauthorizedException,
   UseGuards,
+  UseInterceptors,
   ValidationPipe,
 } from "@nestjs/common";
 import {
@@ -66,8 +68,12 @@ import { UpdateJobApplicantListInput } from "./dto/update-job-applicant-list.inp
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
 import { JobsService } from "./jobs.service";
+import { CacheInterceptor } from "@nestjs/cache-manager";
+import { Response as ExpressResponse } from "express";
+import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 
 @Controller("jobs")
+@UseInterceptors(CacheInterceptor)
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
 export class JobsController {
   private readonly logger = new CustomLogger(JobsController.name);
@@ -80,8 +86,7 @@ export class JobsController {
 
   @Get("/list")
   @UseGuards(PBACGuard)
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiHeader({
     name: COMMUNITY_HEADER,
     required: false,
@@ -145,8 +150,7 @@ export class JobsController {
   }
 
   @Get("/filters")
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description: "Returns the configuration data for the ui filters",
     schema: {
@@ -163,6 +167,7 @@ export class JobsController {
     type: ValidationError,
   })
   async getFilterConfigs(
+    @Res({ passthrough: true }) res: ExpressResponse,
     @Headers(COMMUNITY_HEADER)
     community: string | undefined,
   ): Promise<JobFilterConfigs> {
@@ -215,8 +220,7 @@ export class JobsController {
   @Get("/featured")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.SUPER_ADMIN)
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description: "Returns a list of featured jobs",
     type: Response<JobListResult[]>,
@@ -241,8 +245,7 @@ export class JobsController {
   }
 
   @Get("/org/:id")
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description: "Returns a list of jobs posted by an org",
     schema: {
@@ -323,8 +326,7 @@ export class JobsController {
   @Get("/org/:id/applicants")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description:
       "Returns a list of jobs posted by an org with corresponding applicants",
@@ -373,8 +375,7 @@ export class JobsController {
   @Get("/applicants")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.SUPER_ADMIN)
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description: "Returns a list of applicants alongside relevant information",
     schema: {
@@ -431,8 +432,7 @@ export class JobsController {
   }
 
   @Get("/all/filters")
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({

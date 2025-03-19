@@ -5,7 +5,6 @@ import {
   Delete,
   ForbiddenException,
   Get,
-  Header,
   Headers,
   HttpStatus,
   NotFoundException,
@@ -63,11 +62,7 @@ import { NFTStorage, File } from "nft.storage";
 import { ConfigService } from "@nestjs/config";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
-import {
-  CACHE_CONTROL_HEADER,
-  CACHE_DURATION,
-  CACHE_EXPIRY,
-} from "src/shared/constants/cache-control";
+import { CACHE_DURATION } from "src/shared/constants/cache-control";
 import { ValidationError } from "class-validator";
 import { OrgListParams } from "./dto/org-list.input";
 import { UpdateOrgAliasesInput } from "./dto/update-organization-aliases.input";
@@ -82,6 +77,7 @@ import { UserService } from "src/user/user.service";
 import { ImportOrgJobsiteInput } from "./dto/import-organization-jobsites.input";
 import { SearchOrganizationsInput } from "./dto/search-organizations.input";
 import mime from "mime";
+import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 
 @Controller("organizations")
 @ApiExtraModels(ShortOrg, TinyOrg, Organization)
@@ -140,8 +136,7 @@ export class OrganizationsController {
   }
 
   @Get("/list")
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiHeader({
     name: COMMUNITY_HEADER,
     required: false,
@@ -201,8 +196,7 @@ export class OrganizationsController {
   @Get("/all")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.ORG_MEMBER)
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description: "Returns a list of all organizations",
     type: Array<TinyOrg>,
@@ -232,8 +226,7 @@ export class OrganizationsController {
   }
 
   @Get("/filters")
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiHeader({
     name: COMMUNITY_HEADER,
     required: false,
@@ -264,8 +257,7 @@ export class OrganizationsController {
 
   @Get("/search")
   @UseGuards(PBACGuard)
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description: "Returns a list of orgs that match the search criteria",
     type: Response<PaginatedData<ShortOrg>>,

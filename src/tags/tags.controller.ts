@@ -2,21 +2,16 @@ import {
   Body,
   Controller,
   Get,
-  Header,
   Post,
   Query,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
 import { ApiExtraModels, ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import * as Sentry from "@sentry/node";
 import { AuthService } from "src/auth/auth.service";
 import { PBACGuard } from "src/auth/pbac.guard";
-import {
-  CACHE_CONTROL_HEADER,
-  CACHE_DURATION,
-  CACHE_EXPIRY,
-  CheckWalletPermissions,
-} from "src/shared/constants";
+import { CACHE_DURATION, CheckWalletPermissions } from "src/shared/constants";
 import { Permissions } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
@@ -38,6 +33,7 @@ import { LinkTagSynonymDto } from "./dto/link-tag-synonym.dto";
 import { TagsService } from "./tags.service";
 import { MatchTagsInput } from "./dto/match-tags.input";
 import { Session } from "src/shared/decorators";
+import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 @Controller("tags")
 @ApiExtraModels(TagPreference, TagPreference)
 export class TagsController {
@@ -83,8 +79,7 @@ export class TagsController {
   }
 
   @Get("/popular")
-  @Header("Cache-Control", CACHE_CONTROL_HEADER(CACHE_DURATION))
-  @Header("Expires", CACHE_EXPIRY(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description:
       "Returns a list of n most popular tags ranked by their popularity",
