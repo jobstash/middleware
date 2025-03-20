@@ -4,7 +4,6 @@ import {
   Delete,
   ForbiddenException,
   Get,
-  Header,
   Headers,
   NotFoundException,
   Param,
@@ -29,11 +28,7 @@ import * as Sentry from "@sentry/node";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { CheckWalletPermissions, COMMUNITY_HEADER } from "src/shared/constants";
-import {
-  CACHE_CONTROL_HEADER,
-  CACHE_DURATION,
-  CACHE_EXPIRY,
-} from "src/shared/constants/cache-control";
+import { CACHE_DURATION } from "src/shared/constants/cache-control";
 import { Session } from "src/shared/decorators";
 import { Permissions } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
