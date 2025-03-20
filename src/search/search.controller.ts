@@ -20,12 +20,7 @@ import {
 import { SearchPillarParams } from "./dto/search-pillar.input";
 import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
 import { PBACGuard } from "src/auth/pbac.guard";
-import {
-  CACHE_CONTROL_HEADER,
-  CACHE_DURATION,
-  CACHE_EXPIRY,
-  COMMUNITY_HEADER,
-} from "src/shared/constants";
+import { CACHE_DURATION, COMMUNITY_HEADER } from "src/shared/constants";
 import { Session } from "src/shared/decorators";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { ProfileService } from "src/auth/profile/profile.service";

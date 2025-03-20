@@ -8,6 +8,7 @@ import { Observable } from "rxjs";
 import { tap } from "rxjs/operators";
 import { CACHE_CONTROL_HEADER, CACHE_EXPIRY } from "../constants";
 import { CustomLogger } from "../utils/custom-logger";
+import * as etag from "etag";
 
 @Injectable()
 export class CacheHeaderInterceptor implements NestInterceptor {
@@ -19,18 +20,20 @@ export class CacheHeaderInterceptor implements NestInterceptor {
     next: CallHandler<unknown>,
   ): Observable<unknown> {
     return next.handle().pipe(
-      tap(() => {
+      tap((data: unknown) => {
         const http = context.switchToHttp();
         const res = http.getResponse();
 
         const expiry = CACHE_EXPIRY(this.duration);
+        const etagValue = etag(JSON.stringify(data));
 
         this.logger.log(
-          `Setting cache headers for ${context.getClass().name}::${context.getHandler().name} with expiry ${expiry}`,
+          `Setting cache headers for ${context.getClass().name}::${context.getHandler().name} with expiry ${expiry}, etag ${etagValue}`,
         );
 
         res.setHeader("Cache-Control", CACHE_CONTROL_HEADER(this.duration));
         res.setHeader("Expires", expiry);
+        res.setHeader("Etag", etagValue);
       }),
     );
   }
