@@ -10,5 +10,6 @@ import { UserModule } from "src/user/user.module";
   imports: [AuthModule, Auth0Module, forwardRef(() => UserModule)],
   controllers: [OrganizationsController],
   providers: [OrganizationsService, ModelService],
+  exports: [OrganizationsService],
 })
 export class OrganizationsModule {}

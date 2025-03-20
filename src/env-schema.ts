@@ -5,6 +5,7 @@ const envSchema = Joi.object({
   APP_PORT: Joi.number().default(8080),
   DIFF: Joi.string(),
   EMAIL: Joi.string(),
+  EV_DOMAIN: Joi.string().required(),
   VCDATA_API_KEY: Joi.string(),
   GOOGLE_SERVICE_ACCOUNT_EMAIL: Joi.string(),
   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: Joi.string(),

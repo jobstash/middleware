@@ -10,5 +10,6 @@ import { ProjectsModule } from "src/projects/projects.module";
   imports: [GoogleBigQueryModule, AuthModule, ProjectsModule],
   controllers: [GrantsController],
   providers: [GrantsService, MailService],
+  exports: [GrantsService],
 })
 export class GrantsModule {}
