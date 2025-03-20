@@ -5,6 +5,8 @@ import { ConfigService } from "@nestjs/config";
 import { JobsService } from "./jobs/jobs.service";
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "./shared/utils/custom-logger";
+import { JobListParams } from "./jobs/dto/job-list.input";
+import { slugify } from "./shared/helpers";
 
 @Injectable()
 export class AppService {
@@ -17,45 +19,16 @@ export class AppService {
     return { success: true, message: "Server is healthy and up!" };
   }
 
-  async sitemap(): Promise<string> {
+  async sitemap(): Promise<string | undefined> {
     const FE_DOMAIN = this.configService.get<string>("FE_DOMAIN");
     const recentTimestamp = new Date().getTime();
     try {
-      const jobs = (
-        await this.jobsService.getJobsListWithSearch({
-          page: 1,
-          tags: null,
-          query: null,
-          hacks: null,
-          order: null,
-          token: null,
-          audits: null,
-          chains: null,
-          maxTvl: null,
-          minTvl: null,
-          orderBy: null,
-          projects: null,
-          locations: null,
-          seniority: null,
-          investors: null,
-          commitments: null,
-          communities: null,
-          maxHeadCount: null,
-          minHeadCount: null,
-          fundingRounds: null,
-          maxMonthlyFees: null,
-          minMonthlyFees: null,
-          maxSalaryRange: null,
-          minSalaryRange: null,
-          publicationDate: null,
-          classifications: null,
-          maxMonthlyVolume: null,
-          minMonthlyVolume: null,
-          maxMonthlyRevenue: null,
-          minMonthlyRevenue: null,
-          limit: Integer.MAX_SAFE_VALUE.toNumber(),
-        })
-      ).data;
+      const result = await this.jobsService.getJobsListWithSearch({
+        ...new JobListParams(),
+        page: 1,
+        limit: Integer.MAX_SAFE_VALUE.toNumber(),
+      });
+      const jobs = result.data;
       return `<?xml version="1.0" encoding="UTF-8"?>
         <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
           <url>
@@ -64,38 +37,20 @@ export class AppService {
             <changefreq>daily</changefreq>
             <priority>1.0</priority>
           </url>
-          <url>
-            <loc>${FE_DOMAIN}/elite-fast-track</loc>
-            <lastmod>${recentTimestamp}</lastmod>
-            <changefreq>daily</changefreq>
-            <priority>1.0</priority>
-          </url>
           ${jobs
             .map(job => {
-              const otherJobs = jobs.filter(
-                x =>
-                  x.organization.orgId === job.organization.orgId &&
-                  x.shortUUID !== job.shortUUID,
-              );
               const path = "jobs";
+              const slug = slugify(
+                `${job.organization.name} ${job.title} ${job.shortUUID}`,
+              );
               return `<url>
-              <loc>${FE_DOMAIN}/${path}/${job.shortUUID}/details</loc>
+              <loc>${FE_DOMAIN}/${path}/${slug}/details</loc>
               <lastmod>${recentTimestamp}</lastmod>
               <changefreq>daily</changefreq>
               <priority>1.0</priority>
             </url>
-            ${
-              otherJobs.length > 0
-                ? `<url>
-                      <loc>${FE_DOMAIN}/${path}/${job.shortUUID}/other-jobs</loc>
-                      <lastmod>${recentTimestamp}</lastmod>
-                      <changefreq>daily</changefreq>
-                      <priority>1.0</priority>
-                    </url>`
-                : ""
-            }
             <url>
-              <loc>${FE_DOMAIN}/${path}/${job.shortUUID}/organization</loc>
+              <loc>${FE_DOMAIN}/${path}/${slug}/organization</loc>
               <lastmod>${recentTimestamp}</lastmod>
               <changefreq>daily</changefreq>
               <priority>1.0</priority>
@@ -103,13 +58,13 @@ export class AppService {
             ${
               job.organization.projects.length > 0
                 ? `<url>
-                      <loc>${FE_DOMAIN}/${path}/${job.shortUUID}/projects</loc>
+                      <loc>${FE_DOMAIN}/${path}/${slug}/projects</loc>
                       <lastmod>${recentTimestamp}</lastmod>
                       <changefreq>daily</changefreq>
                       <priority>1.0</priority>
                     </url>
                     <url>
-                      <loc>${FE_DOMAIN}/${path}/${job.shortUUID}/competitors</loc>
+                      <loc>${FE_DOMAIN}/${path}/${slug}/competitors</loc>
                       <lastmod>${recentTimestamp}</lastmod>
                       <changefreq>daily</changefreq>
                       <priority>1.0</priority>

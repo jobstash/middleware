@@ -39,6 +39,7 @@ export class AppController {
   }
 
   @Get("sitemap")
+  @Header("Content-Type", "text/xml")
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description: "Returns the sitemap of the currently deployed code",
@@ -46,7 +47,7 @@ export class AppController {
       $ref: getSchemaPath(String),
     },
   })
-  async sitemap(): Promise<string> {
+  async sitemap(): Promise<string | undefined> {
     return this.appService.sitemap();
   }
 }
