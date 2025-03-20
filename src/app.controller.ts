@@ -42,12 +42,27 @@ export class AppController {
   @Header("Content-Type", "text/xml")
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
-    description: "Returns the sitemap of the currently deployed code",
+    description:
+      "Returns the sitemap of the currently deployed jobstash frontend",
     schema: {
       $ref: getSchemaPath(String),
     },
   })
   async sitemap(): Promise<string | undefined> {
     return this.appService.sitemap();
+  }
+
+  @Get("sitemap/ev")
+  @Header("Content-Type", "text/xml")
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @ApiOkResponse({
+    description:
+      "Returns the sitemap of the currently deployed ecosystem vision frontend",
+    schema: {
+      $ref: getSchemaPath(String),
+    },
+  })
+  async evSitemap(): Promise<string | undefined> {
+    return this.appService.evSitemap();
   }
 }

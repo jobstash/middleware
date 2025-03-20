@@ -26,5 +26,6 @@ import { BullModule } from "@nestjs/bull";
   ],
   controllers: [GrantsController],
   providers: [GrantsService, MailService],
+  exports: [GrantsService],
 })
 export class GrantsModule {}

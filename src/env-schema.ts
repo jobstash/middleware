@@ -8,6 +8,7 @@ const envSchema = Joi.object({
   USER_CACHE_EXPIRATION_IN_DAYS: Joi.number().required(),
   DIFF: Joi.string(),
   EMAIL: Joi.string().required(),
+  EV_DOMAIN: Joi.string().required(),
   ETL_CLIENT_ID: Joi.string().required(),
   ETL_CLIENT_SECRET: Joi.string().required(),
   ETL_DOMAIN: Joi.string().required(),
