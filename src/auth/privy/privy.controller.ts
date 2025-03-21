@@ -103,7 +103,7 @@ export class PrivyController {
         (await client.verifyWebhook(
           body,
           { id, timestamp, signature },
-          this.configService.getOrThrow<string>("PRIVY_WEBHOOK_SECRET"),
+          this.configService.getOrThrow<string>("PRIVY_WEBHOOK_KEY"),
         )) as PrivyWebhookPayload | PrivyTestPayload;
 
       if (verifiedPayload.type === "privy.test") {
