@@ -15,6 +15,8 @@ export class UserProfileEntity {
         country: notStringOrNull(this.raw?.location?.country),
       },
       availableForWork: this.raw?.availableForWork ?? false,
+      cryptoNative: this.raw?.cryptoNative ?? false,
+      cryptoAdjacent: this.raw?.cryptoAdjacent ?? false,
       linkedAccounts: {
         discord: notStringOrNull(this.raw?.linkedAccounts?.discord),
         telegram: notStringOrNull(this.raw?.linkedAccounts?.telegram),
