@@ -227,7 +227,6 @@ export class ScorerService {
   ): Promise<
     { wallet: string; ecosystemActivations: EcosystemActivation[] }[]
   > => {
-    console.log(wallets);
     const param = Buffer.from(JSON.stringify(wallets)).toString("base64");
     return firstValueFrom(
       this.httpService
