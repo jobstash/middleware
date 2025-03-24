@@ -1465,7 +1465,7 @@ export class UserService {
     const account = (
       type: LinkedAccountWithMetadata["type"],
     ): LinkedAccountWithMetadata | undefined => {
-      return user?.linkedAccounts?.find(x => x.type === type);
+      return user?.["linked_accounts"]?.find(x => x.type === type);
     };
     const contact = {
       discord: account("discord_oauth")?.["username"] ?? null,

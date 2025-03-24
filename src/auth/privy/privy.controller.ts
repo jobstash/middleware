@@ -120,7 +120,12 @@ export class PrivyController {
           payload.user.id,
         );
         if (embeddedWallet) {
-          this.logger.log(`User updated account - ${embeddedWallet}`);
+          const accountType = payload.account.type.replace("_", " ");
+          this.logger.log(
+            `User ${verifiedPayload.type
+              .replace("user.", "")
+              .replace("_", ` ${accountType} `)} - ${embeddedWallet}`,
+          );
           await this.userService.syncUserLinkedWallets(
             embeddedWallet,
             payload.user,
