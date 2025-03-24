@@ -24,7 +24,11 @@ import { GetAvailableUsersInput } from "./dto/get-available-users.input";
 import { ScorerService } from "src/scorer/scorer.service";
 import { ConfigService } from "@nestjs/config";
 import { ProfileService } from "src/auth/profile/profile.service";
-import { User as PrivyUser, WalletWithMetadata } from "@privy-io/server-auth";
+import {
+  User as PrivyUser,
+  WalletWithMetadata,
+  LinkedAccountWithMetadata,
+} from "@privy-io/server-auth";
 import { PrivyService } from "src/auth/privy/privy.service";
 import { PermissionService } from "./permission.service";
 import { CheckWalletPermissions } from "src/shared/constants";
@@ -715,7 +719,7 @@ export class UserService {
         if (Object.values(contact).filter(Boolean).length > 0) {
           this.logger.log(`Adding contact info for ${embeddedWallet}`);
           this.profileService
-            .updateUserLinkedAccounts(embeddedWallet, user)
+            .updateUserLinkedAccounts(embeddedWallet, contact)
             .then(result => {
               if (result.success) {
                 this.logger.log(`Contact info added to user`);
@@ -776,7 +780,7 @@ export class UserService {
         if (Object.values(contact).filter(Boolean).length > 0) {
           this.logger.log(`Adding contact info for ${embeddedWallet}`);
           this.profileService
-            .updateUserLinkedAccounts(embeddedWallet, user)
+            .updateUserLinkedAccounts(embeddedWallet, contact)
             .then(result => {
               if (result.success) {
                 this.logger.log(`Contact info added to user`);
@@ -1458,14 +1462,23 @@ export class UserService {
   ): Promise<void> {
     const user = dto.user;
     this.logger.log(`Syncing linked accounts for ${embeddedWallet}`);
+    const account = (
+      type: LinkedAccountWithMetadata["type"],
+    ): LinkedAccountWithMetadata | undefined => {
+      return user?.linkedAccounts?.find(x => x.type === type);
+    };
+    const contact = {
+      discord: account("discord_oauth")?.["username"] ?? null,
+      telegram: account("telegram")?.["username"] ?? null,
+      twitter: account("twitter_oauth")?.["username"] ?? null,
+      email: account("email")?.["address"] ?? null,
+      farcaster: account("farcaster")?.["username"] ?? null,
+      github: account("github_oauth")?.["username"] ?? null,
+      google: account("google_oauth")?.["email"] ?? null,
+      apple: account("apple_oauth")?.["email"] ?? null,
+    };
     await this.profileService
-      .updateUserLinkedAccounts(embeddedWallet, {
-        ...user,
-        linkedAccounts:
-          dto.type === "user.linked_account"
-            ? [...(user.linkedAccounts ?? []), dto.account]
-            : user.linkedAccounts,
-      })
+      .updateUserLinkedAccounts(embeddedWallet, contact)
       .then(result => {
         if (result.success) {
           this.logger.log(`Linked accounts updated for ${embeddedWallet}`);

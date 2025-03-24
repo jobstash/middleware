@@ -1,5 +1,4 @@
 import { Injectable } from "@nestjs/common";
-import { User as PrivyUser } from "@privy-io/server-auth";
 import * as Sentry from "@sentry/node";
 import axios from "axios";
 import { randomUUID } from "crypto";
@@ -603,20 +602,19 @@ export class ProfileService {
 
   async updateUserLinkedAccounts(
     wallet: string,
-    user: PrivyUser,
+    contact: {
+      discord: string | null;
+      telegram: string | null;
+      twitter: string | null;
+      email: string | null;
+      farcaster: string | null;
+      github: string | null;
+      google: string | null;
+      apple: string | null;
+    },
   ): Promise<ResponseWithNoData> {
     try {
       const profile = data(await this.getUserProfile(wallet));
-      const contact = {
-        discord: user?.discord?.username ?? null,
-        telegram: user?.telegram?.username ?? null,
-        twitter: user?.twitter?.username ?? null,
-        email: user?.email?.address ?? null,
-        farcaster: user?.farcaster?.username ?? null,
-        github: user?.github?.username ?? null,
-        google: user?.google?.email ?? null,
-        apple: user?.apple?.email ?? null,
-      };
       this.logger.log(
         `Updating linked accounts for ${wallet} ${JSON.stringify(contact)}`,
       );
@@ -653,7 +651,7 @@ export class ProfileService {
         const result = await this.githubUserService.addGithubInfoToUser({
           wallet,
           githubLogin: contact.github,
-          githubId: user.github.subject,
+          githubId: "",
           githubAvatarUrl: (await githubUser)?.data?.avatar_url ?? null,
         });
         if (result.success) {
