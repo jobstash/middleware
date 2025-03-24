@@ -96,7 +96,7 @@ export class PrivyController {
     @Headers("svix-timestamp") timestamp: string,
     @Headers("svix-signature") signature: string,
   ): Promise<void> {
-    this.logger.log("/privy/webhook");
+    this.logger.log("/privy/webhook ${JSON.stringify(body)}");
     const client = await this.privyService.getClient();
     try {
       const verifiedPayload: PrivyWebhookPayload | PrivyTestPayload =
