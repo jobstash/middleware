@@ -617,6 +617,9 @@ export class ProfileService {
         google: user?.google?.email ?? null,
         apple: user?.apple?.email ?? null,
       };
+      this.logger.log(
+        `Updating linked accounts for ${wallet} ${JSON.stringify(contact)}`,
+      );
 
       if (
         profile?.linkedAccounts.github &&
