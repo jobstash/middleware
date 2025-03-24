@@ -108,7 +108,7 @@ export class SubscriptionsService {
     wallet: string,
     orgId: string,
   ): Promise<string | undefined> {
-    return data(await this.profileService.getUserVerifiedOrgs(wallet)).find(
+    return data(await this.profileService.getUserVerifications(wallet)).find(
       org => org.id === orgId && org.credential === "email" && org.isOwner,
     )?.account;
   }
@@ -412,25 +412,24 @@ export class SubscriptionsService {
     try {
       this.logger.log("Fetching org owner email");
       const ownerEmail = data(
-        await this.profileService.getUserVerifiedOrgs(dto.wallet),
+        await this.profileService.getUserVerifications(dto.wallet),
       ).find(org => org.id === dto.orgId)?.account;
       this.logger.log(`Owner email: ${ownerEmail}`);
       const timestamp = new Date();
       this.logger.log("Creating new subscription");
-      const result = await this.neogma
-        .getTransaction(null, async tx => {
-          if (dto.amount > 0) {
-            const pendingPayment = (
-              await tx.run(
-                `
+      const pendingPayment = (
+        await this.neogma.queryRunner.run(
+          `
               MATCH (user:User {wallet: $wallet})-[:HAS_PENDING_PAYMENT]->(payment:PendingPayment)<-[:HAS_PENDING_PAYMENT]-(org:Organization {orgId: $orgId})
               RETURN payment { .* } as payment
             `,
-                { wallet: dto.wallet, orgId: dto.orgId },
-              )
-            ).records[0]?.get("payment");
-
-            if (pendingPayment) {
+          { wallet: dto.wallet, orgId: dto.orgId },
+        )
+      ).records[0]?.get("payment");
+      if (pendingPayment || dto.amount > 0) {
+        const result = await this.neogma
+          .getTransaction(null, async tx => {
+            if (dto.amount > 0) {
               const internalRefCode = randomToken(16);
               const externalRefCode = pendingPayment.reference;
               const quotaInfo = JOBSTASH_QUOTA[dto.jobstash];
@@ -599,48 +598,29 @@ export class SubscriptionsService {
               );
               return true;
             } else {
-              this.logger.warn("No pending payment found");
-              Sentry.withScope(scope => {
-                scope.setTags({
-                  action: "business-logic",
-                  source: "subscriptions.service",
-                });
-                scope.setExtra("input", {
-                  wallet: dto.wallet,
-                  orgId: dto.orgId,
-                  action: "new-subscription",
-                  ...dto,
-                });
-                Sentry.captureMessage(
-                  "Attempted confirmation of missing pending payment",
-                );
-              });
-              return false;
-            }
-          } else {
-            const quotaInfo = JOBSTASH_QUOTA[dto.jobstash];
-            const veriAddons = VERI_ADDONS[dto.veri];
+              const quotaInfo = JOBSTASH_QUOTA[dto.jobstash];
+              const veriAddons = VERI_ADDONS[dto.veri];
 
-            const timestamp = new Date();
-            const payload = {
-              ...dto,
-              stashPool: quotaInfo.stashPool,
-              atsIntegration: quotaInfo.atsIntegration,
-              boostedVacancyMultiplier: quotaInfo.boostedVacancyMultiplier,
-              quota: {
-                veri: dto.veri ? quotaInfo.veri + veriAddons : quotaInfo.veri,
-                createdTimestamp: timestamp.getTime(),
-                expiryTimestamp: addMonths(timestamp, 2).getTime(),
-              },
-              action: "new-subscription",
-              duration: "monthly",
-              timestamp: timestamp.getTime(),
-              expiryTimestamp: addMonths(timestamp, 1).getTime(),
-            };
+              const timestamp = new Date();
+              const payload = {
+                ...dto,
+                stashPool: quotaInfo.stashPool,
+                atsIntegration: quotaInfo.atsIntegration,
+                boostedVacancyMultiplier: quotaInfo.boostedVacancyMultiplier,
+                quota: {
+                  veri: dto.veri ? quotaInfo.veri + veriAddons : quotaInfo.veri,
+                  createdTimestamp: timestamp.getTime(),
+                  expiryTimestamp: addMonths(timestamp, 2).getTime(),
+                },
+                action: "new-subscription",
+                duration: "monthly",
+                timestamp: timestamp.getTime(),
+                expiryTimestamp: addMonths(timestamp, 1).getTime(),
+              };
 
-            const subscription = (
-              await tx.run(
-                `
+              const subscription = (
+                await tx.run(
+                  `
                   CREATE (subscription:OrgSubscription {id: randomUUID()})
                   SET subscription.status = "active"
                   SET subscription.duration = $duration
@@ -648,12 +628,12 @@ export class SubscriptionsService {
                   SET subscription.expiryTimestamp = $expiryTimestamp
                   RETURN subscription
                 `,
-                payload,
-              )
-            ).records[0].get("subscription");
+                  payload,
+                )
+              ).records[0].get("subscription");
 
-            await tx.run(
-              `
+              await tx.run(
+                `
                 CREATE (tier:JobstashBundle {id: randomUUID()})
                 SET tier.name = $jobstash
                 SET tier.stashPool = $stashPool
@@ -666,15 +646,15 @@ export class SubscriptionsService {
                 MATCH (subscription:OrgSubscription {id: $subscriptionId})
                 MERGE (subscription)-[:HAS_SERVICE]->(tier)
               `,
-              {
-                ...payload,
-                createdTimestamp: timestamp.getTime(),
-                subscriptionId: subscription.properties.id,
-              },
-            );
+                {
+                  ...payload,
+                  createdTimestamp: timestamp.getTime(),
+                  subscriptionId: subscription.properties.id,
+                },
+              );
 
-            await tx.run(
-              `
+              await tx.run(
+                `
                 CREATE (veri:VeriAddon {id: randomUUID()})
                 SET veri.name = $veri
                 SET veri.createdTimestamp = $timestamp
@@ -684,15 +664,15 @@ export class SubscriptionsService {
                 MATCH (subscription:OrgSubscription {id: $subscriptionId})
                 MERGE (subscription)-[:HAS_SERVICE]->(veri)
               `,
-              {
-                ...payload,
-                createdTimestamp: timestamp.getTime(),
-                subscriptionId: subscription.properties.id,
-              },
-            );
+                {
+                  ...payload,
+                  createdTimestamp: timestamp.getTime(),
+                  subscriptionId: subscription.properties.id,
+                },
+              );
 
-            await tx.run(
-              `
+              await tx.run(
+                `
                 CREATE (stashAlert:StashAlert {id: randomUUID()})
                 SET stashAlert.active = $stashAlert
                 SET stashAlert.createdTimestamp = $timestamp
@@ -702,15 +682,15 @@ export class SubscriptionsService {
                 MATCH (subscription:OrgSubscription {id: $subscriptionId})
                 MERGE (subscription)-[:HAS_SERVICE]->(stashAlert)
               `,
-              {
-                ...payload,
-                createdTimestamp: timestamp.getTime(),
-                subscriptionId: subscription.properties.id,
-              },
-            );
+                {
+                  ...payload,
+                  createdTimestamp: timestamp.getTime(),
+                  subscriptionId: subscription.properties.id,
+                },
+              );
 
-            await tx.run(
-              `
+              await tx.run(
+                `
                 CREATE (extraSeats:ExtraSeats {id: randomUUID()})
                 SET extraSeats.value = $extraSeats
                 SET extraSeats.createdTimestamp = $timestamp
@@ -720,137 +700,165 @@ export class SubscriptionsService {
                 MATCH (subscription:OrgSubscription {id: $subscriptionId})
                 MERGE (subscription)-[:HAS_SERVICE]->(extraSeats)
               `,
-              {
-                ...payload,
-                createdTimestamp: timestamp.getTime(),
-                subscriptionId: subscription.properties.id,
-              },
-            );
+                {
+                  ...payload,
+                  createdTimestamp: timestamp.getTime(),
+                  subscriptionId: subscription.properties.id,
+                },
+              );
 
-            const quota = (
-              await tx.run(
-                `
+              const quota = (
+                await tx.run(
+                  `
                   CREATE (quota:Quota {id: randomUUID()})
                   SET quota += $quota
                   RETURN quota
                 `,
-                payload,
-              )
-            ).records[0].get("quota");
+                  payload,
+                )
+              ).records[0].get("quota");
 
-            await tx.run(
-              `
+              await tx.run(
+                `
                 MATCH (org:Organization {orgId: $orgId}), (subscription:OrgSubscription {id: $subscriptionId}), (quota:Quota {id: $quotaId})
                 MERGE (org)-[:HAS_SUBSCRIPTION]->(subscription)
                 
                 WITH subscription, quota
                 MERGE (subscription)-[:HAS_QUOTA]->(quota)
               `,
-              {
-                ...payload,
-                subscriptionId: subscription.properties.id,
-                quotaId: quota.properties.id,
-              },
-            );
-            return true;
-          }
-        })
-        .catch(x => {
-          Sentry.withScope(scope => {
-            scope.setTags({
-              action: "db-call",
-              source: "subscriptions.service",
+                {
+                  ...payload,
+                  subscriptionId: subscription.properties.id,
+                  quotaId: quota.properties.id,
+                },
+              );
+              return true;
+            }
+          })
+          .catch(x => {
+            Sentry.withScope(scope => {
+              scope.setTags({
+                action: "db-call",
+                source: "subscriptions.service",
+              });
+              Sentry.captureException(x);
             });
-            Sentry.captureException(x);
+            this.logger.error(
+              `SubscriptionsService::createNewSubscription ${x}`,
+            );
+            return false;
           });
-          this.logger.error(`SubscriptionsService::createNewSubscription ${x}`);
-          return false;
-        });
-      if (result) {
-        this.logger.log("Created new subscription successfully");
-        this.logger.log("Sending confirmation email to owner");
-        const subscription = data(await this.getSubscriptionInfo(dto.orgId));
-        if (dto.jobstash === "starter") {
-          try {
-            await this.mailService.sendEmail(
-              emailBuilder({
-                from: this.from,
-                to: ownerEmail,
-                subject: "Your JobStash Free Trial Has Started",
-                previewText:
-                  "Activate Your Paid Plan to Continue Premium Access!",
-                title: "Hey there,",
-                bodySections: [
-                  text(
-                    "Your free trial of JobStash has officially begun! 🎉 For the next 30 days, you’ll have full access to selected premium features, giving you everything you need to make the most of your experience.",
-                  ),
-                  text(
-                    "Take your time to explore all the benefits, and remember, your trial lasts for 30 days. To continue enjoying premium access after your trial ends, simply activate your paid plan before your trial expires.",
-                  ),
-                  text(
-                    `Need help or have questions? Join our help channel <a href="https://t.me/+24r67MsBXT00ODE8">here</a> – we're here to assist you!`,
-                  ),
-                  text("Thanks for using JobStash.xyz!"),
-                ],
-              }),
-            );
-          } catch (err) {
-            Sentry.withScope(scope => {
-              scope.setTags({
-                action: "email-send",
-                source: "subscriptions.service",
+        if (result) {
+          this.logger.log("Created new subscription successfully");
+          this.logger.log("Sending confirmation email to owner");
+          const subscription = data(await this.getSubscriptionInfo(dto.orgId));
+          if (dto.jobstash === "starter") {
+            try {
+              await this.mailService.sendEmail(
+                emailBuilder({
+                  from: this.from,
+                  to: ownerEmail,
+                  subject: "Your JobStash Free Trial Has Started",
+                  previewText:
+                    "Activate Your Paid Plan to Continue Premium Access!",
+                  title: "Hey there,",
+                  bodySections: [
+                    text(
+                      "Your free trial of JobStash has officially begun! 🎉 For the next 30 days, you’ll have full access to selected premium features, giving you everything you need to make the most of your experience.",
+                    ),
+                    text(
+                      "Take your time to explore all the benefits, and remember, your trial lasts for 30 days. To continue enjoying premium access after your trial ends, simply activate your paid plan before your trial expires.",
+                    ),
+                    text(
+                      `Need help or have questions? Join our help channel <a href="https://t.me/+24r67MsBXT00ODE8">here</a> – we're here to assist you!`,
+                    ),
+                    text("Thanks for using JobStash.xyz!"),
+                  ],
+                }),
+              );
+            } catch (err) {
+              Sentry.withScope(scope => {
+                scope.setTags({
+                  action: "email-send",
+                  source: "subscriptions.service",
+                });
+                Sentry.captureException(err);
               });
-              Sentry.captureException(err);
-            });
-            this.logger.error(
-              `SubscriptionsService::createNewSubscription ${err.message}`,
-            );
+              this.logger.error(
+                `SubscriptionsService::createNewSubscription ${err.message}`,
+              );
+            }
+          } else {
+            try {
+              await this.mailService.sendEmail(
+                emailBuilder({
+                  from: this.from,
+                  to: ownerEmail,
+                  subject:
+                    "JobStash Payment Confirmed – Your Add-Ons Are Undergoing Activation!",
+                  title: "Hey,",
+                  bodySections: [
+                    text(
+                      "You did it! Your payment has been successfully processed, and your add-ons are now under review and getting ready to be activated. The process is underway, and your upgraded experience with JobStash is just around the corner! 💡",
+                    ),
+                    text(
+                      `Our small, dedicated team is working hard to get your add-ons reviewed and activated within the next <span style="font-weight:bold;">24-48 hours</span>. Once everything is live, we’ll send you a confirmation so you can start exploring your new features.`,
+                    ),
+                    text(
+                      `Got questions or need support? We’ve got your back! Just reach out to us via <a href="https://t.me/+24r67MsBXT00ODE8">Telegram</a>. We’re always here to help.`,
+                    ),
+                    text(
+                      "Thanks for being part of the JobStash community – we’re excited to have you on board!",
+                    ),
+                  ],
+                }),
+              );
+            } catch (err) {
+              Sentry.withScope(scope => {
+                scope.setTags({
+                  action: "email-send",
+                  source: "subscriptions.service",
+                });
+                Sentry.captureException(err);
+              });
+              this.logger.error(
+                `SubscriptionsService::createNewSubscription ${err.message}`,
+              );
+            }
           }
+          this.logger.log("Adding owner to org");
+          return this.userService.addOrgUser(
+            dto.orgId,
+            dto.wallet,
+            subscription,
+          );
         } else {
-          try {
-            await this.mailService.sendEmail(
-              emailBuilder({
-                from: this.from,
-                to: ownerEmail,
-                subject:
-                  "JobStash Payment Confirmed – Your Add-Ons Are Undergoing Activation!",
-                title: "Hey,",
-                bodySections: [
-                  text(
-                    "You did it! Your payment has been successfully processed, and your add-ons are now under review and getting ready to be activated. The process is underway, and your upgraded experience with JobStash is just around the corner! 💡",
-                  ),
-                  text(
-                    `Our small, dedicated team is working hard to get your add-ons reviewed and activated within the next <span style="font-weight:bold;">24-48 hours</span>. Once everything is live, we’ll send you a confirmation so you can start exploring your new features.`,
-                  ),
-                  text(
-                    `Got questions or need support? We’ve got your back! Just reach out to us via <a href="https://t.me/+24r67MsBXT00ODE8">Telegram</a>. We’re always here to help.`,
-                  ),
-                  text(
-                    "Thanks for being part of the JobStash community – we’re excited to have you on board!",
-                  ),
-                ],
-              }),
-            );
-          } catch (err) {
-            Sentry.withScope(scope => {
-              scope.setTags({
-                action: "email-send",
-                source: "subscriptions.service",
-              });
-              Sentry.captureException(err);
-            });
-            this.logger.error(
-              `SubscriptionsService::createNewSubscription ${err.message}`,
-            );
-          }
+          this.logger.log("Error creating new subscription");
+          return {
+            success: false,
+            message: "Error creating new subscription",
+          };
         }
-        this.logger.log("Adding owner to org");
-        return this.userService.addOrgUser(dto.orgId, dto.wallet, subscription);
       } else {
-        this.logger.log("Error creating new subscription");
+        this.logger.warn("Skipping confirmation of missing pending payment");
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "business-logic",
+            source: "subscriptions.service",
+          });
+          scope.setExtra("input", {
+            wallet: dto.wallet,
+            orgId: dto.orgId,
+            action: "new-subscription",
+            ...dto,
+          });
+          Sentry.captureMessage(
+            "Attempted confirmation of missing pending payment",
+          );
+        });
         return {
           success: false,
-          message: "Error creating new subscription",
+          message: "Payment not found",
         };
       }
     } catch (err) {

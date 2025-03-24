@@ -52,7 +52,7 @@ export class PrivyController {
     )?.address;
     if (embeddedWallet) {
       this.logger.log("/privy/check-wallet " + embeddedWallet);
-      const result = await this.userService.createPrivyUser(
+      const result = await this.userService.upsertPrivyUser(
         user,
         embeddedWallet,
       );

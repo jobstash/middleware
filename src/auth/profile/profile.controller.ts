@@ -134,7 +134,7 @@ export class ProfileController {
   ): Promise<ResponseWithOptionalData<UserVerifiedOrg[]>> {
     this.logger.log(`/profile/organizations/verified`);
 
-    return this.profileService.getUserVerifiedOrgs(address, true);
+    return this.profileService.getUserVerifications(address);
   }
 
   @Get("showcase")

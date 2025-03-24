@@ -179,7 +179,7 @@ export class ProfileService {
     wallet: string,
   ): Promise<ResponseWithOptionalData<UserOrg[]>> {
     try {
-      const prelim = data(await this.getUserVerifiedOrgs(wallet));
+      const prelim = data(await this.getUserVerifications(wallet));
 
       const result = await this.neogma.queryRunner.run(
         `
@@ -261,23 +261,26 @@ export class ProfileService {
     }
   }
 
-  private async refreshUserOrgVerifications(
+  private async refetchUserVerifications(
     wallet: string,
     withEcosystemActivations = false,
   ): Promise<UserVerifiedOrg[]> {
     try {
       const profile = data(await this.getUserProfile(wallet));
-      const orgs: UserVerifiedOrg[] = [];
+      if (profile) {
+        const orgs: UserVerifiedOrg[] = [];
 
-      this.logger.log(`Fetching work history for ${wallet}`);
-      const workHistory = await this.getUserWorkHistory(wallet);
-      const prelim: UserWorkHistory[] = workHistory?.workHistory ?? [];
+        this.logger.log(`Fetching work history for ${wallet}`);
+        const workHistory = await this.getUserWorkHistory(wallet);
+        const prelim: UserWorkHistory[] = workHistory?.workHistory ?? [];
 
-      if (profile?.linkedAccounts?.github) {
-        this.logger.log(`Fetching orgs for ${wallet} based on github username`);
-        const names = prelim.map(x => x.name);
-        const result = await this.neogma.queryRunner.run(
-          `
+        if (profile?.linkedAccounts?.github) {
+          this.logger.log(
+            `Fetching org verifications for ${wallet} based on github username`,
+          );
+          const names = prelim.map(x => x.name);
+          const result = await this.neogma.queryRunner.run(
+            `
             MATCH (user:User {wallet: $wallet}), (organization: Organization WHERE organization.name IN $names)
             RETURN apoc.coll.toSet(COLLECT(organization {
               id: organization.orgId,
@@ -289,40 +292,42 @@ export class ProfileService {
               logo: organization.logoUrl
             })) as orgsByRepo
           `,
-          { wallet, names },
-        );
-        const orgsByRepo =
-          result?.records[0]
-            ?.get("orgsByRepo")
-            ?.map((record: unknown) => record as UserVerifiedOrg) ?? [];
-        const processed = orgsByRepo.map(
-          (x: UserVerifiedOrg) =>
-            new UserVerifiedOrg({
-              id: x.id,
-              name: x.name,
-              slug: slugify(x.name),
-              url: x.url,
-              logo: x.logo ?? null,
-              account: profile.linkedAccounts.github,
-              hasOwner: x.hasOwner,
-              isOwner: x.isOwner,
-              isMember: x.isMember,
-              credential: "github",
-            }),
-        );
-        orgs.push(...processed);
-      }
+            { wallet, names },
+          );
+          const orgsByRepo =
+            result?.records[0]
+              ?.get("orgsByRepo")
+              ?.map((record: unknown) => record as UserVerifiedOrg) ?? [];
+          const processed = orgsByRepo.map(
+            (x: UserVerifiedOrg) =>
+              new UserVerifiedOrg({
+                id: x.id,
+                name: x.name,
+                slug: slugify(x.name),
+                url: x.url,
+                logo: x.logo ?? null,
+                account: profile.linkedAccounts.github,
+                hasOwner: x.hasOwner,
+                isOwner: x.isOwner,
+                isMember: x.isMember,
+                credential: "github",
+              }),
+          );
+          orgs.push(...processed);
+        }
 
-      const emails = [
-        ...profile.alternateEmails,
-        profile?.linkedAccounts?.email,
-        profile?.linkedAccounts?.google,
-      ].filter(Boolean);
+        const emails = [
+          ...profile.alternateEmails,
+          profile?.linkedAccounts?.email,
+          profile?.linkedAccounts?.google,
+        ].filter(Boolean);
 
-      if (emails.length > 0) {
-        this.logger.log(`Fetching orgs for ${wallet} based on email`);
-        const result = await this.neogma.queryRunner.run(
-          `
+        if (emails.length > 0) {
+          this.logger.log(
+            `Fetching org verifications for ${wallet} based on email`,
+          );
+          const result = await this.neogma.queryRunner.run(
+            `
             MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
             UNWIND $emails as email
             WITH email, website, organization
@@ -338,38 +343,43 @@ export class ProfileService {
               account: email
             })) as orgsByEmail
           `,
-          { wallet, emails },
+            { wallet, emails },
+          );
+          const orgsByEmail =
+            result?.records[0]
+              ?.get("orgsByEmail")
+              ?.map(record => record as UserVerifiedOrg) ?? [];
+          orgsByEmail.forEach(x => {
+            const exists = orgs.some(y => y.id === x.id);
+            if (!exists) {
+              orgs.push(
+                new UserVerifiedOrg({
+                  id: x.id,
+                  name: x.name,
+                  slug: slugify(x.name),
+                  url: x.url,
+                  logo: x.logo ?? null,
+                  account: x.account,
+                  isMember: x.isMember,
+                  hasOwner: x.hasOwner,
+                  isOwner: x.isOwner,
+                  credential: "email",
+                }),
+              );
+            }
+          });
+        }
+
+        this.logger.log(
+          `Found ${orgs.length === 1 ? `${orgs.length} verification` : `${orgs.length > 0 ? orgs.length : "no"} verifications`} for ${wallet}`,
         );
-        const orgsByEmail =
-          result?.records[0]
-            ?.get("orgsByEmail")
-            ?.map(record => record as UserVerifiedOrg) ?? [];
-        orgsByEmail.forEach(x => {
-          const exists = orgs.some(y => y.id === x.id);
-          if (!exists) {
-            orgs.push(
-              new UserVerifiedOrg({
-                id: x.id,
-                name: x.name,
-                slug: slugify(x.name),
-                url: x.url,
-                logo: x.logo ?? null,
-                account: x.account,
-                isMember: x.isMember,
-                hasOwner: x.hasOwner,
-                isOwner: x.isOwner,
-                credential: "email",
-              }),
-            );
-          }
-        });
-      }
 
-      this.logger.log(`Found ${orgs.length} orgs`);
+        this.logger.log(`Persisting user verifications for ${wallet}`);
 
-      await this.neogma.queryRunner.run(
-        `
-          MATCH (user:User {wallet: $wallet})-[r:VERIFIED_FOR_ORG]->(:Organization)
+        await this.neogma.queryRunner.run(
+          `
+          MATCH (user:User {wallet: $wallet})
+          OPTIONAL MATCH (user)-[r:VERIFIED_FOR_ORG]->(:Organization)
           DELETE r
 
           WITH user
@@ -380,41 +390,49 @@ export class ProfileService {
           SET nr.account = org.account
           SET nr.verifiedTimestamp = timestamp()
         `,
-        { wallet, orgs },
-      );
-
-      await this.refreshUserCacheLock([wallet]);
-
-      if (withEcosystemActivations && (workHistory?.wallets?.length ?? 0) > 0) {
-        this.logger.log(
-          `Fetching orgs for ${wallet} based on ecosystem activations`,
+          { wallet, orgs },
         );
-        const mapped: UserVerifiedOrg[] =
-          workHistory?.wallets?.flatMap(x =>
-            x.ecosystemActivations.map(
-              y =>
-                new UserVerifiedOrg({
-                  id: y.id,
-                  name: y.name,
-                  slug: slugify(y.name),
-                  url: "http://ethglobal.com/packs",
-                  logo: "http://ethglobal.com",
-                  account: x.address,
-                  hasOwner: true,
-                  isOwner: true,
-                  isMember: true,
-                  credential: "ecosystemActivation",
-                }),
-            ),
-          ) ?? [];
-        mapped.forEach(x => {
-          const exists = orgs.some(y => y.id === x.id);
-          if (!exists) {
-            orgs.push(x);
-          }
-        });
+
+        this.logger.log(`Persisted user verifications for ${wallet}`);
+
+        await this.refreshUserCacheLock([wallet]);
+
+        if (
+          withEcosystemActivations &&
+          (workHistory?.wallets?.length ?? 0) > 0
+        ) {
+          this.logger.log(
+            `Fetching verifications for ${wallet} based on ecosystem activations`,
+          );
+          const mapped: UserVerifiedOrg[] =
+            workHistory?.wallets?.flatMap(x =>
+              x.ecosystemActivations.map(
+                y =>
+                  new UserVerifiedOrg({
+                    id: y.id,
+                    name: y.name,
+                    slug: slugify(y.name),
+                    url: "http://ethglobal.com/packs",
+                    logo: "http://ethglobal.com",
+                    account: x.address,
+                    hasOwner: true,
+                    isOwner: true,
+                    isMember: true,
+                    credential: "ecosystemActivation",
+                  }),
+              ),
+            ) ?? [];
+          mapped.forEach(x => {
+            const exists = orgs.some(y => y.id === x.id);
+            if (!exists) {
+              orgs.push(x);
+            }
+          });
+        }
+        return orgs;
+      } else {
+        return [];
       }
-      return orgs;
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -425,31 +443,31 @@ export class ProfileService {
         Sentry.captureException(err);
       });
       this.logger.error(
-        `ProfileService::refreshUserOrgVerifications ${err.message}`,
+        `ProfileService::refreshUserVerifications ${err.message}`,
       );
       return [];
     }
   }
 
-  async getUserVerifiedOrgs(
+  async getUserVerifications(
     wallet: string,
     bypassCache = false,
     withEcosystemActivations = false,
   ): Promise<ResponseWithOptionalData<UserVerifiedOrg[]>> {
     const cacheLock = await this.getUserCacheLock(wallet);
     if (bypassCache || !cacheLock || cacheLock <= now()) {
-      this.logger.log(`Refreshing user orgs for ${wallet}`);
-      const orgs = await this.refreshUserOrgVerifications(
+      this.logger.log(`Refreshing user verifications for ${wallet}`);
+      const verifications = await this.refetchUserVerifications(
         wallet,
         withEcosystemActivations,
       );
       return {
         success: true,
-        message: "Retrieved user orgs successfully",
-        data: orgs,
+        message: "Retrieved user verifications successfully",
+        data: verifications,
       };
     } else {
-      this.logger.log(`Fetching cached user orgs for ${wallet}`);
+      this.logger.log(`Fetching cached user orgs verifications for ${wallet}`);
       try {
         const result = await this.neogma.queryRunner.run(
           `
@@ -457,7 +475,7 @@ export class ProfileService {
             RETURN org {
               id: org.orgId,
               name: org.name,
-              slug: org.slug,
+              slug: org.normalizedName,
               url: [(org)-[:HAS_WEBSITE]->(website) | website.url][0],
               logo: org.logoUrl,
               hasOwner: CASE WHEN EXISTS((:User)-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(org)) THEN true ELSE false END,
@@ -469,14 +487,14 @@ export class ProfileService {
           `,
           { wallet },
         );
-        const orgs = result.records.map(
+        const verifications = result.records.map(
           record => new UserVerifiedOrg(record.get("org") as UserVerifiedOrg),
         );
         if (withEcosystemActivations) {
           const workHistory = await this.getUserWorkHistory(wallet);
           if ((workHistory?.wallets?.length ?? 0) > 0) {
             this.logger.log(
-              `Fetching orgs for ${wallet} based on ecosystem activations`,
+              `Fetching verifications for ${wallet} based on ecosystem activations`,
             );
             const mapped: UserVerifiedOrg[] =
               workHistory?.wallets?.flatMap(x =>
@@ -497,17 +515,17 @@ export class ProfileService {
                 ),
               ) ?? [];
             mapped.forEach(x => {
-              const exists = orgs.some(y => y.id === x.id);
+              const exists = verifications.some(y => y.id === x.id);
               if (!exists) {
-                orgs.push(x);
+                verifications.push(x);
               }
             });
           }
         }
         return {
           success: true,
-          message: "Retrieved user orgs successfully",
-          data: orgs,
+          message: "Retrieved user verifications successfully",
+          data: verifications,
         };
       } catch (err) {
         Sentry.withScope(scope => {
@@ -518,10 +536,12 @@ export class ProfileService {
           scope.setExtra("input", { wallet });
           Sentry.captureException(err);
         });
-        this.logger.error(`ProfileService::getUserVerifiedOrgs ${err.message}`);
+        this.logger.error(
+          `ProfileService::getUserVerifications ${err.message}`,
+        );
         return {
           success: false,
-          message: "Error retrieving user orgs",
+          message: "Error retrieving user verifications",
         };
       }
     }
@@ -886,7 +906,7 @@ export class ProfileService {
     dto: ReviewOrgSalaryInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const userOrgs = data(await this.getUserVerifiedOrgs(wallet));
+      const userOrgs = data(await this.getUserVerifications(wallet));
       if (userOrgs?.find(x => x.id === dto.orgId)) {
         await this.neogma.queryRunner.run(
           `
@@ -928,7 +948,7 @@ export class ProfileService {
     dto: RateOrgInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const userOrgs = data(await this.getUserVerifiedOrgs(wallet));
+      const userOrgs = data(await this.getUserVerifications(wallet));
       if (userOrgs?.find(x => x.id === dto.orgId)) {
         await this.neogma.queryRunner.run(
           `
@@ -975,7 +995,7 @@ export class ProfileService {
     dto: ReviewOrgInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const userOrgs = data(await this.getUserVerifiedOrgs(wallet));
+      const userOrgs = data(await this.getUserVerifications(wallet));
       if (userOrgs?.find(x => x.id === dto.orgId)) {
         await this.neogma.queryRunner.run(
           `
@@ -1370,6 +1390,7 @@ export class ProfileService {
   private async refreshUserCacheLock(
     wallets: string[],
   ): Promise<number | null> {
+    this.logger.log(`Refreshing cache lock for ${wallets.join(", ")}`);
     try {
       const result = await this.neogma.queryRunner.run(
         `

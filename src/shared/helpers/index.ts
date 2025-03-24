@@ -551,7 +551,7 @@ export const createTestUser = async (
       x => x.type === "wallet" && x.walletClientType === "privy",
     ) as WalletWithMetadata
   )?.address;
-  await userService.createPrivyUser(user, embeddedWallet);
+  await userService.upsertPrivyUser(user, embeddedWallet);
   await userService.syncUserPermissions(embeddedWallet, [
     "SUPER_ADMIN",
     "USER",

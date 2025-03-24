@@ -183,10 +183,10 @@ export class SubscriptionsController {
         return {
           success: true,
           message: "Retrieved organization usage",
-          data: Array.from(usage).map(x => ({
+          data: Array.from(availableCredits).map(x => ({
             service: x[0],
-            totalUsage: x[1],
-            availableCredits: availableCredits.get(x[0]) ?? 0,
+            totalUsage: usage.get(x[0]) ?? 0,
+            availableCredits: x[1],
           })),
         };
       }

@@ -13,7 +13,6 @@ import {
   PaymentEventData,
   SubscriptionMetadata,
 } from "./dto/webhook-data.dto";
-import { Response } from "express";
 import { JobsService } from "src/jobs/jobs.service";
 import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
 
@@ -41,10 +40,7 @@ export class PaymentsController {
         typeof body.event === "string"
           ? (JSON.parse(body.event) as PaymentEventData)
           : body.event;
-      if (
-        event.type === "charge:confirmed" ||
-        event.type === "charge:pending"
-      ) {
+      if (event.type === "charge:pending") {
         switch (event.data.metadata.action) {
           case "job-promotion":
             this.logger.log(`Handling job promotion webhook event`);

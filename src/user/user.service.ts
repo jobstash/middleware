@@ -685,7 +685,7 @@ export class UserService {
       });
   }
 
-  async createPrivyUser(
+  async upsertPrivyUser(
     user: PrivyUser,
     embeddedWallet: string,
   ): Promise<ResponseWithOptionalData<User>> {
@@ -732,8 +732,8 @@ export class UserService {
             });
         }
 
-        this.profileService.getUserWorkHistory(embeddedWallet);
-        this.profileService.getUserVerifiedOrgs(embeddedWallet);
+        this.profileService.getUserWorkHistory(embeddedWallet, true);
+        this.profileService.getUserVerifications(embeddedWallet, true);
         return {
           success: true,
           message: "User already exists",
@@ -793,8 +793,8 @@ export class UserService {
             });
         }
 
-        this.profileService.getUserWorkHistory(embeddedWallet);
-        this.profileService.getUserVerifiedOrgs(embeddedWallet);
+        this.profileService.getUserWorkHistory(embeddedWallet, true);
+        this.profileService.getUserVerifications(embeddedWallet, true);
 
         return {
           success: true,
@@ -912,7 +912,7 @@ export class UserService {
           const isOwner = !(await this.orgHasOwner(orgId));
           const seatId = randomToken(8);
           const verifications = data(
-            await this.profileService.getUserVerifiedOrgs(wallet),
+            await this.profileService.getUserVerifications(wallet),
           );
           const org = verifications.find(x => x.id === orgId);
 
@@ -1152,7 +1152,7 @@ export class UserService {
     return Promise.all(
       wallets.map(async wallet => {
         const orgs = data(
-          await this.profileService.getUserVerifiedOrgs(wallet),
+          await this.profileService.getUserVerifications(wallet),
         );
         return {
           wallet,
@@ -1495,7 +1495,7 @@ export class UserService {
       )
     ) {
       await this.profileService.getUserWorkHistory(embeddedWallet, true);
-      await this.profileService.getUserVerifiedOrgs(embeddedWallet, true);
+      await this.profileService.getUserVerifications(embeddedWallet, true);
     }
   }
 
@@ -1506,11 +1506,11 @@ export class UserService {
   ): Promise<void> {
     if (dto.account.type === "email" || dto.account.type === "google_oauth") {
       const fromVerifiedOrgs = data(
-        await this.profileService.getUserVerifiedOrgs(fromEmbeddedWallet),
+        await this.profileService.getUserVerifications(fromEmbeddedWallet),
       );
 
       const toVerifiedOrgs = data(
-        await this.profileService.getUserVerifiedOrgs(toEmbeddedWallet),
+        await this.profileService.getUserVerifications(toEmbeddedWallet),
       );
 
       for (const org of fromVerifiedOrgs) {

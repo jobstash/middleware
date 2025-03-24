@@ -93,9 +93,9 @@ export class UserController {
     this.logger.log(`/users/signup ${address}, ${JSON.stringify(body)}`);
     const hasOwner = await this.userService.orgHasOwner(body.orgId);
     if (!hasOwner) {
-      const validOrgs =
-        data(await this.profileService.getUserVerifiedOrgs(address)) ?? [];
-      const verified = validOrgs.find(
+      const verifications =
+        data(await this.profileService.getUserVerifications(address)) ?? [];
+      const verified = verifications.find(
         x => x.id === body.orgId && x.credential === "email",
       );
       if (verified) {
@@ -119,7 +119,7 @@ export class UserController {
       }
     } else {
       const memberships = data(
-        await this.profileService.getUserVerifiedOrgs(address),
+        await this.profileService.getUserVerifications(address),
       ).filter(x => x.isMember);
       if (memberships.find(x => x.id === body.orgId)) {
         return {
