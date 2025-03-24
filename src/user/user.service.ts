@@ -1463,7 +1463,7 @@ export class UserService {
         ...user,
         linkedAccounts:
           dto.type === "user.linked_account"
-            ? [...user.linkedAccounts, dto.account]
+            ? [...(user.linkedAccounts ?? []), dto.account]
             : user.linkedAccounts,
       })
       .then(result => {
