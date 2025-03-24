@@ -1459,7 +1459,13 @@ export class UserService {
     const user = dto.user;
     this.logger.log(`Syncing linked accounts for ${embeddedWallet}`);
     await this.profileService
-      .updateUserLinkedAccounts(embeddedWallet, user)
+      .updateUserLinkedAccounts(embeddedWallet, {
+        ...user,
+        linkedAccounts:
+          dto.type === "user.linked_account"
+            ? [...user.linkedAccounts, dto.account]
+            : user.linkedAccounts,
+      })
       .then(result => {
         if (result.success) {
           this.logger.log(`Linked accounts updated for ${embeddedWallet}`);
