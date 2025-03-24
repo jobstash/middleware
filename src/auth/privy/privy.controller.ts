@@ -119,18 +119,28 @@ export class PrivyController {
         const embeddedWallet = await this.userService.getEmbeddedWallet(
           payload.user.id,
         );
-        this.logger.log(`User updated account - ${embeddedWallet}`);
-        await this.userService.syncUserLinkedWallets(
-          embeddedWallet,
-          payload.user,
-        );
-        await this.userService.updateLinkedAccounts(payload, embeddedWallet);
+        if (embeddedWallet) {
+          this.logger.log(`User updated account - ${embeddedWallet}`);
+          await this.userService.syncUserLinkedWallets(
+            embeddedWallet,
+            payload.user,
+          );
+          await this.userService.updateLinkedAccounts(payload, embeddedWallet);
+        } else {
+          this.logger.warn(`User not found: ${payload.user.id}`);
+        }
       } else if (verifiedPayload.type === "user.authenticated") {
         const embeddedWallet = await this.userService.getEmbeddedWallet(
           (verifiedPayload as PrivyUpdateEventPayload).user.id,
         );
-        this.logger.log(`User authenticated: ${embeddedWallet}`);
-        await this.telemetryService.logUserLoginEvent(verifiedPayload.user.id);
+        if (embeddedWallet) {
+          this.logger.log(`User authenticated: ${embeddedWallet}`);
+          await this.telemetryService.logUserLoginEvent(
+            verifiedPayload.user.id,
+          );
+        } else {
+          this.logger.warn(`User not found: ${verifiedPayload.user.id}`);
+        }
       } else if (verifiedPayload.type === "user.transferred_account") {
         const payload = verifiedPayload as PrivyTransferEventPayload;
         const fromEmbeddedWallet = await this.userService.getEmbeddedWallet(
@@ -139,14 +149,20 @@ export class PrivyController {
         const toEmbeddedWallet = await this.userService.getEmbeddedWallet(
           payload.toUser.id,
         );
-        this.logger.log(
-          `User transferred linked ${verifiedPayload.account.type} account: ${fromEmbeddedWallet} to ${toEmbeddedWallet} `,
-        );
-        await this.userService.transferLinkedAccount(
-          payload,
-          fromEmbeddedWallet,
-          toEmbeddedWallet,
-        );
+        if (fromEmbeddedWallet && toEmbeddedWallet) {
+          this.logger.log(
+            `User transferred linked ${verifiedPayload.account.type} account: ${fromEmbeddedWallet} to ${toEmbeddedWallet} `,
+          );
+          await this.userService.transferLinkedAccount(
+            payload,
+            fromEmbeddedWallet,
+            toEmbeddedWallet,
+          );
+        } else {
+          this.logger.warn(
+            `User not found: ${payload.fromUser.id} or ${payload.toUser.id}`,
+          );
+        }
       } else {
         this.logger.warn(
           `Unsupported webhook event type: ${JSON.stringify(verifiedPayload)}`,
