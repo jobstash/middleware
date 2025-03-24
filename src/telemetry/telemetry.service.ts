@@ -40,8 +40,8 @@ export class TelemetryService {
           MATCH (org:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(job:StructuredJobpost)
           WHERE $shortUUID IS NULL OR job.shortUUID = $shortUUID
           MATCH (:User)-[r:VIEWED_DETAILS]->(job)
-          WHERE $epochStart IS NULL OR r.timestamp >= $epochStart
-          AND $epochEnd IS NULL OR r.timestamp <= $epochEnd
+          WHERE ($epochStart IS NULL OR r.timestamp >= $epochStart)
+          AND ($epochEnd IS NULL OR r.timestamp <= $epochEnd)
           RETURN count(DISTINCT r) as views
         `,
         { shortUUID, orgId, epochStart, epochEnd: epochEnd ?? now() },
@@ -69,8 +69,8 @@ export class TelemetryService {
           MATCH (org:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(job:StructuredJobpost)
           WHERE $shortUUID IS NULL OR job.shortUUID = $shortUUID
           MATCH (:User)-[r:APPLIED_TO]->(job)
-          WHERE $epochStart IS NULL OR r.timestamp >= $epochStart
-          AND $epochEnd IS NULL OR r.timestamp <= $epochEnd
+          WHERE ($epochStart IS NULL OR r.timestamp >= $epochStart)
+          AND ($epochEnd IS NULL OR r.timestamp <= $epochEnd)
           RETURN count(DISTINCT r) as applies
         `,
         { shortUUID, orgId, epochStart, epochEnd: epochEnd ?? now() },
