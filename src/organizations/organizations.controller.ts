@@ -384,7 +384,7 @@ export class OrganizationsController {
   @Post("/upload-logo")
   @UseInterceptors(FileInterceptor("file"))
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN)
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
     description:
       "Uploads an organizations logo and returns the url to the cloud file",
@@ -530,7 +530,7 @@ export class OrganizationsController {
   @Post("/update/:id")
   @UseGuards(PBACGuard)
   @Permissions(
-    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER],
     [CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER],
   )
   @ApiOkResponse({
@@ -555,8 +555,8 @@ export class OrganizationsController {
       )} from ${address}`,
     );
 
-    if (permissions.includes(CheckWalletPermissions.ORG_MEMBER)) {
-      const authorized = await this.userService.isOrgMember(address, id);
+    if (permissions.includes(CheckWalletPermissions.ORG_OWNER)) {
+      const authorized = await this.userService.isOrgOwner(address, id);
       if (!authorized) {
         throw new ForbiddenException({
           success: false,
@@ -881,7 +881,7 @@ export class OrganizationsController {
   @Post("/jobsites/import")
   @UseGuards(PBACGuard)
   @Permissions(
-    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER],
     [CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER],
   )
   @ApiOkResponse({
@@ -905,11 +905,8 @@ export class OrganizationsController {
       )} from ${address}`,
     );
 
-    if (permissions.includes(CheckWalletPermissions.ORG_MEMBER)) {
-      const authorized = await this.userService.isOrgMember(
-        address,
-        body.orgId,
-      );
+    if (permissions.includes(CheckWalletPermissions.ORG_OWNER)) {
+      const authorized = await this.userService.isOrgOwner(address, body.orgId);
       if (!authorized) {
         throw new ForbiddenException({
           success: false,
@@ -923,7 +920,7 @@ export class OrganizationsController {
   @Post("/jobsites/activate")
   @UseGuards(PBACGuard)
   @Permissions(
-    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER],
     [CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER],
   )
   @ApiOkResponse({
@@ -947,11 +944,8 @@ export class OrganizationsController {
       )} from ${address}`,
     );
 
-    if (permissions.includes(CheckWalletPermissions.ORG_MEMBER)) {
-      const authorized = await this.userService.isOrgMember(
-        address,
-        body.orgId,
-      );
+    if (permissions.includes(CheckWalletPermissions.ORG_OWNER)) {
+      const authorized = await this.userService.isOrgOwner(address, body.orgId);
       if (!authorized) {
         throw new ForbiddenException({
           success: false,
@@ -1024,6 +1018,8 @@ export class OrganizationsController {
   }
 
   @Get("/repositories/:id")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
   @ApiOkResponse({
     description:
       "Returns an aggregate of project repositories for the specified organization",
