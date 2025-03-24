@@ -44,7 +44,12 @@ export class TelemetryService {
           AND ($epochEnd IS NULL OR r.timestamp <= $epochEnd)
           RETURN count(DISTINCT r) as views
         `,
-        { shortUUID, orgId, epochStart, epochEnd: epochEnd ?? now() },
+        {
+          shortUUID,
+          orgId,
+          epochStart,
+          epochEnd: !!epochStart ? (epochEnd ?? now()) : null,
+        },
       );
       return {
         success: true,
@@ -73,7 +78,12 @@ export class TelemetryService {
           AND ($epochEnd IS NULL OR r.timestamp <= $epochEnd)
           RETURN count(DISTINCT r) as applies
         `,
-        { shortUUID, orgId, epochStart, epochEnd: epochEnd ?? now() },
+        {
+          shortUUID,
+          orgId,
+          epochStart,
+          epochEnd: !!epochStart ? (epochEnd ?? now()) : null,
+        },
       );
       return {
         success: true,
