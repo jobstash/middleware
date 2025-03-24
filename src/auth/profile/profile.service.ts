@@ -370,7 +370,7 @@ export class ProfileService {
 
       await this.neogma.queryRunner.run(
         `
-          MATCH (user:User {wallet: $wallet})-[run:VERIFIED_FOR_ORG]->(org:Organization)
+          MATCH (user:User {wallet: $wallet})-[r:VERIFIED_FOR_ORG]->(org:Organization)
           DELETE r
 
           UNWIND $orgs as org
