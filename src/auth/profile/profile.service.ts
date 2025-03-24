@@ -373,9 +373,10 @@ export class ProfileService {
           MATCH (user:User {wallet: $wallet})-[r:VERIFIED_FOR_ORG]->(:Organization)
           DELETE r
 
+          WITH user
           UNWIND $orgs as org
-          MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: org.id})
-          CREATE (user)-[nr:VERIFIED_FOR_ORG]->(org)
+          MATCH (organization:Organization {orgId: org.id})
+          CREATE (user)-[nr:VERIFIED_FOR_ORG]->(organization)
           SET nr.credential = org.credential
           SET nr.account = org.account
           SET nr.verifiedTimestamp = timestamp()
