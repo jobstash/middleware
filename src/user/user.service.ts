@@ -729,6 +729,7 @@ export class UserService {
         }
 
         this.profileService.getUserWorkHistory(embeddedWallet);
+        this.profileService.getUserVerifiedOrgs(embeddedWallet);
         return {
           success: true,
           message: "User already exists",
@@ -789,6 +790,7 @@ export class UserService {
         }
 
         this.profileService.getUserWorkHistory(embeddedWallet);
+        this.profileService.getUserVerifiedOrgs(embeddedWallet);
 
         return {
           success: true,

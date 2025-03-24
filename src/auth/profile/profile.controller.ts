@@ -80,7 +80,7 @@ export class ProfileController {
   async getUserProfile(
     @Session() { address }: SessionObject,
   ): Promise<ResponseWithOptionalData<UserProfile>> {
-    this.logger.log(`/profile/dev/info`);
+    this.logger.log(`/profile/info`);
     return this.profileService.getUserProfile(address);
   }
 
