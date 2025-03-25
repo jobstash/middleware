@@ -238,7 +238,8 @@ export class JobDetailsEntity {
               organization?.grants
                 ?.map(grant => ({
                   ...grant,
-                  //TODO: remove this once we have a better way to handle this
+                  tokenAmount: nonZeroOrNull(grant?.tokenAmount),
+                  tokenUnit: notStringOrNull(grant?.tokenUnit),
                   programName: notStringOrNull(grant?.programName) ?? "N/A",
                   createdTimestamp: nonZeroOrNull(grant?.createdTimestamp),
                   updatedTimestamp: nonZeroOrNull(grant?.updatedTimestamp),
