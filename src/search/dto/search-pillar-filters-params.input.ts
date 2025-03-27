@@ -15,7 +15,7 @@ import { Compare } from "src/shared/validators";
 export class SearchPillarFiltersParams {
   @IsString()
   @IsNotEmpty()
-  @IsIn(["projects", "organizations", "grants", "impact", "vcs"])
+  @IsIn(["projects", "organizations", "grants", "impact", "vcs", "jobs"])
   nav: SearchNav;
 
   @IsOptional()

@@ -56,6 +56,9 @@ export const NAV_PILLAR_QUERY_MAPPINGS: Record<
     investors:
       "CYPHER runtime = pipelined MATCH (:Project)<-[:HAS_PROJECT]-(:Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor:Investor) RETURN DISTINCT investor.name as item",
   },
+  jobs: {
+    tags: "CYPHER runtime = pipelined MATCH (:Organization)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
+  },
   vcs: null,
 };
 
@@ -94,6 +97,9 @@ export const NAV_FILTER_LABEL_MAPPINGS: Record<
     ecosystems: "Ecosystems",
     organizations: "Organizations",
   },
+  jobs: {
+    tags: "Tags",
+  },
   vcs: null,
 };
 
@@ -117,6 +123,7 @@ export const NAV_PILLAR_ORDERING: Record<SearchNav, string[]> = {
     "names",
     "tags",
   ],
+  jobs: ["tags"],
   vcs: ["names"],
 };
 
@@ -145,6 +152,7 @@ export const NAV_FILTER_CONFIGS: Record<SearchNav, string[] | null> = {
   ],
   grants: ["date", "programBudget", "order", "orderBy"],
   impact: ["order", "orderBy"],
+  jobs: ["tags"],
   vcs: null,
 };
 
@@ -153,6 +161,7 @@ export const NAV_PILLAR_TITLES: Record<SearchNav, string> = {
   impact: "Concluded Grant Program",
   organizations: "Organization",
   projects: "Project",
+  jobs: "Job",
   vcs: "VC",
 };
 
@@ -236,5 +245,6 @@ export const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<
       names: [grant.name]
     } as config
   `,
+  jobs: null,
   vcs: null,
 };

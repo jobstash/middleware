@@ -3,6 +3,7 @@ export interface SearchResult {
   impact?: SearchResultNav;
   organizations?: SearchResultNav;
   projects?: SearchResultNav;
+  jobs?: SearchResultNav;
   vcs?: SearchResultNav;
 }
 
