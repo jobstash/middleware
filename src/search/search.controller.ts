@@ -13,6 +13,7 @@ import {
   PillarInfo,
   RangeFilter,
   ResponseWithOptionalData,
+  SearchNav,
   SearchResult,
   SelectFilter,
   SessionObject,
@@ -114,6 +115,67 @@ export class SearchController {
     return result;
   }
 
+  @Get("pillar/slugs")
+  @ApiHeader({
+    name: COMMUNITY_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific community",
+  })
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  async searchPillarSlugs(
+    @Session() { address }: SessionObject,
+    @Query("nav") nav: SearchNav,
+    @Headers(COMMUNITY_HEADER)
+    community: string | undefined,
+  ): Promise<string[]> {
+    const query = JSON.stringify({
+      nav,
+      community: community ?? null,
+    });
+    this.logger.log(`/search/pillar/items ${query}`);
+    if (address) {
+      await this.profileService.logSearchInteraction(address, query);
+    }
+    const result = await this.searchService.searchPillarSlugs(nav, community);
+    return result;
+  }
+
+  @Get("pillar/details")
+  @ApiHeader({
+    name: COMMUNITY_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific community",
+  })
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  async searchPillarDetailsBySlug(
+    @Session() { address }: SessionObject,
+    @Query("nav") nav: SearchNav,
+    @Query("slug") slug: string,
+  ): Promise<
+    ResponseWithOptionalData<{
+      title: string;
+      description: string;
+    }>
+  > {
+    const query = JSON.stringify({
+      nav,
+      slug,
+    });
+    this.logger.log(`/search/pillar/details ${query}`);
+    if (address) {
+      await this.profileService.logSearchInteraction(address, query);
+    }
+    const result = await this.searchService.searchPillarDetailsBySlug(
+      nav,
+      slug,
+    );
+    return result;
+  }
+
   @Get("pillar/filters")
   @ApiHeader({
     name: COMMUNITY_HEADER,
@@ -121,6 +183,7 @@ export class SearchController {
     description:
       "Optional header to tailor the response for a specific community",
   })
+  @UseGuards(PBACGuard)
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   async searchPillarFilters(
     @Query(new ValidationPipe({ transform: true }))

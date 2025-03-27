@@ -1125,9 +1125,9 @@ export class SearchService {
       );
       if (pillarData && headerText) {
         const items = pillarData.items;
-        const wanted = items.find(x => slugify(x) === params.item);
+        const wanted = items?.find(x => slugify(x) === params.item);
         const alts = await Promise.all(
-          NAV_PILLAR_ORDERING[params.nav]
+          (NAV_PILLAR_ORDERING[params.nav] ?? [])
             .filter(x => x !== pillar)
             .map(x =>
               this.getPillar(
@@ -1149,7 +1149,9 @@ export class SearchService {
               label: NAV_FILTER_LABEL_MAPPINGS[params.nav][params.pillar],
               items: [
                 wanted,
-                ...items.filter(x => slugify(x) !== params.item).slice(0, 20),
+                ...(items
+                  ?.filter(x => slugify(x) !== params.item)
+                  .slice(0, 20) ?? []),
               ].filter(Boolean),
             },
             altPillars: alts.map(x => ({
@@ -1224,6 +1226,68 @@ export class SearchService {
         Sentry.captureException(err);
       });
       this.logger.error(`SearchService::searchPillarItems ${err.message}`);
+    }
+  }
+
+  async searchPillarSlugs(
+    nav: SearchNav,
+    community: string | undefined,
+  ): Promise<string[]> {
+    const queries = NAV_PILLAR_ORDERING[nav]
+      .map(x => ({
+        pillar: x,
+        query: NAV_PILLAR_QUERY_MAPPINGS[nav][x],
+      }))
+      .filter(Boolean);
+    if (queries.length > 0) {
+      const results = await Promise.all(
+        queries.map(async ({ pillar, query }) => ({
+          pillar,
+          items: (
+            await this.neogma.queryRunner.run(query, { community })
+          ).records.map(record => record.get("item") as string),
+        })),
+      );
+      return results.flatMap(x =>
+        x.items.map(y => `${x.pillar.charAt(0).toLowerCase()}-${slugify(y)}`),
+      );
+    } else {
+      return [];
+    }
+  }
+
+  async searchPillarDetailsBySlug(
+    nav: SearchNav,
+    slug: string,
+  ): Promise<
+    ResponseWithOptionalData<{
+      title: string;
+      description: string;
+    }>
+  > {
+    const pillarPrefix = slug.split("-")[0];
+    const pillar = NAV_PILLAR_ORDERING[nav].find(x =>
+      x.startsWith(pillarPrefix),
+    );
+    if (pillar) {
+      const headerText = await this.fetchHeaderText(nav, pillar);
+      if (headerText) {
+        return {
+          success: true,
+          message: "Retrieved pillar details successfully",
+          data: headerText,
+        };
+      } else {
+        return {
+          success: true,
+          message: "Pillar not found",
+        };
+      }
+    } else {
+      return {
+        success: true,
+        message: "Pillar not found",
+      };
     }
   }
 
