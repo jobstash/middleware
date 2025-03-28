@@ -1233,7 +1233,7 @@ export class SearchService {
     nav: SearchNav,
     community: string | undefined,
   ): Promise<string[]> {
-    const queries = NAV_PILLAR_ORDERING[nav]
+    const queries = (NAV_PILLAR_ORDERING[nav] ?? [])
       .map(x => ({
         pillar: x,
         query: NAV_PILLAR_QUERY_MAPPINGS[nav][x],
