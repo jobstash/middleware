@@ -1270,7 +1270,11 @@ export class SearchService {
       x.startsWith(pillarPrefix),
     );
     if (pillar) {
-      const headerText = await this.fetchHeaderText(nav, pillar);
+      const headerText = await this.fetchHeaderText(
+        nav,
+        pillar,
+        slug.split("-")[1] ?? null,
+      );
       if (headerText) {
         return {
           success: true,
