@@ -1356,7 +1356,6 @@ export class OrganizationsService {
       | "detectedJobsites"
     >,
   ): Promise<OrganizationEntity> {
-    this.logger.log(JSON.stringify(properties));
     const res = await this.neogma.queryRunner.run(
       `
         MATCH (org: Organization {orgId: $id})

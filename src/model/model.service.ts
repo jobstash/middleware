@@ -181,13 +181,6 @@ export class ModelService implements OnModuleInit {
   public UserShowcases: NeogmaModel<UserShowcaseProps, NoRelations>;
 
   onModuleInit = async (): Promise<void> => {
-    // try {
-    //   this.logger.log("Connection Initiated");
-    //   await this.neogma.verifyConnectivity();
-    //   this.logger.log("Connection Successfully");
-    // } catch (e) {
-    //   this.logger.error(e);
-    // }
     this.StructuredJobposts = StructuredJobposts(this.neogma);
     this.Jobposts = Jobposts(this.neogma);
     this.Jobsites = Jobsites(this.neogma);

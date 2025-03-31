@@ -73,8 +73,6 @@ export class ProjectsService {
       page: params.page ?? 1,
     };
 
-    this.logger.log(JSON.stringify(paramsPassed));
-
     const {
       minTvl,
       maxTvl,

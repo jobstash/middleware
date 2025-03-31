@@ -414,7 +414,6 @@ export class SubscriptionsService {
       const ownerEmail = data(
         await this.profileService.getUserVerifications(dto.wallet),
       ).find(org => org.id === dto.orgId)?.account;
-      this.logger.log(`Owner email: ${ownerEmail}`);
       const timestamp = new Date();
       this.logger.log("Creating new subscription");
       const pendingPayment = (

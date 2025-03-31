@@ -635,22 +635,18 @@ export class ProfileService {
   ): Promise<ResponseWithNoData> {
     try {
       const profile = data(await this.getUserProfile(wallet));
-      this.logger.log(
-        `Updating linked accounts for ${wallet} ${JSON.stringify(contact)}`,
-      );
+      this.logger.log(`Updating linked accounts for ${wallet}`);
 
       if (
         profile?.linkedAccounts.github &&
         (profile?.linkedAccounts.github !== contact.github || !contact.github)
       ) {
-        this.logger.log(
-          `Unlinking github user ${profile?.linkedAccounts.github}`,
-        );
+        this.logger.log(`Unlinking github user`);
         await this.githubUserService.removeGithubInfoFromUser(wallet);
       }
 
       if (contact.github) {
-        this.logger.log(`Fetching github info for ${contact.github}`);
+        this.logger.log(`Fetching github info for user`);
         const githubUser = axios
           .get<{
             avatar_url: string;

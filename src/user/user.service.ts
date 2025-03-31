@@ -901,7 +901,7 @@ export class UserService {
     subscription: Subscription,
   ): Promise<ResponseWithNoData> {
     try {
-      this.logger.log(`Adding org user ${wallet} to org ${orgId}`);
+      this.logger.log(`Adding org user ${wallet} to org`);
       if (subscription.status === "active") {
         this.logger.log("Org subscription is active");
         this.logger.log("Checking org user count");

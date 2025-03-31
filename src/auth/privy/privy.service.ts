@@ -81,8 +81,7 @@ export class PrivyService {
     try {
       user = await this.privy.getUser(userId);
       if (!user?.linkedAccounts) {
-        this.logger.warn(`User ${userId} has no linked accounts`);
-        this.logger.warn(user);
+        this.logger.warn(`User has no linked accounts`);
       } else {
         this.logger.log(
           `Fetched user after ${attempts + 1} attempt${

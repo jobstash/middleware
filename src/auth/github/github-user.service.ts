@@ -53,7 +53,7 @@ export class GithubUserService {
     wallet: string,
     githubLogin: string,
   ): Promise<GithubUser | undefined> {
-    this.logger.log(`Linking github user ${githubLogin} to wallet ${wallet}`);
+    this.logger.log(`Linking github user to wallet ${wallet}`);
     const res = await this.neogma.queryRunner.run(
       `
       MATCH (u:User {wallet: $wallet}), (gu:GithubUser {login: $githubLogin})
@@ -95,7 +95,7 @@ export class GithubUserService {
       githubRefreshToken: "[REDACTED]",
     };
     this.logger.log(
-      `/user/addGithubInfoToUser: Assigning ${args.githubLogin} github account to wallet ${args.wallet}`,
+      `/user/addGithubInfoToUser: Assigning github account to wallet ${args.wallet}`,
     );
 
     const { wallet, ...updateObject } = args;
@@ -120,8 +120,6 @@ export class GithubUserService {
         login: updateObject.githubLogin,
         avatarUrl: updateObject.githubAvatarUrl,
       };
-
-      this.logger.log(JSON.stringify(payload));
 
       if (githubUserNode) {
         this.logger.log("debug - GH User node found");

@@ -156,7 +156,7 @@ export class UserController {
       adjacentRepos: AdjacentRepo[];
     }[]
   > {
-    this.logger.log(`/users/work-history ${JSON.stringify(users.split(","))}`);
+    this.logger.log(`/users/work-history`);
     return this.scorerService.getUserWorkHistories(
       users.split(",").map(x => ({ github: x, wallets: [] })),
     );
@@ -173,7 +173,7 @@ export class UserController {
       const orgId = address
         ? await this.userService.findOrgIdByMemberUserWallet(address)
         : null;
-      this.logger.log(`/users/note ${JSON.stringify(body)}`);
+      this.logger.log(`/users/note ${address}`);
       const subscription = data(
         await this.subscriptionService.getSubscriptionInfo(orgId),
       );

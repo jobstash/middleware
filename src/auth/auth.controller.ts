@@ -113,7 +113,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: ExpressResponse,
   ): Promise<ResponseWithNoData> {
     if (isEmail(email)) {
-      this.logger.log(`/user/update-email/${email}`);
+      this.logger.log(`/user/update-email`);
       const { address } = session;
       if (address) {
         const result = await this.userService.updateUserMainEmail(
@@ -157,7 +157,7 @@ export class AuthController {
     @Session() session: SessionObject,
   ): Promise<ResponseWithNoData> {
     if (isEmail(email)) {
-      this.logger.log(`/user/remove-email/${email}`);
+      this.logger.log(`/user/remove-email`);
       const { address } = session;
       if (address) {
         const result = await this.userService.removeUserEmail(

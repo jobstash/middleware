@@ -83,9 +83,7 @@ export class PaymentsController {
             break;
         }
       } else {
-        this.logger.warn(
-          `Unsupported webhook event type: ${event.type} ${JSON.stringify(body)}`,
-        );
+        this.logger.warn(`Unsupported webhook event type: ${event.type}`);
       }
     } else {
       throw new BadRequestException({

@@ -185,9 +185,7 @@ export class ProfileController {
     @Session() { address }: SessionObject,
     @Body("availability") availability: boolean,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(
-      `/profile/dev/availability ${JSON.stringify(availability)}`,
-    );
+    this.logger.log(`/profile/availability`);
 
     return this.profileService.updateUserAvailability(address, availability);
   }
@@ -202,7 +200,7 @@ export class ProfileController {
     @Session() { address }: SessionObject,
     @Body() body: UpdateDevLocationInput,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/profile/dev/info ${JSON.stringify(body)}`);
+    this.logger.log(`/profile/location`);
     return this.profileService.updateUserLocationInfo(address, body);
   }
 
@@ -219,7 +217,7 @@ export class ProfileController {
     @Session() { address }: SessionObject,
     @Body() body: UpdateUserShowCaseInput,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/profile/showcase ${JSON.stringify(body)}`);
+    this.logger.log(`/profile/showcase`);
 
     return this.profileService.updateUserShowCase(address, body);
   }
@@ -237,7 +235,7 @@ export class ProfileController {
     @Session() { address }: SessionObject,
     @Body() body: UpdateUserSkillsInput,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/profile/skills ${JSON.stringify(body)}`);
+    this.logger.log(`/profile/skills`);
 
     return this.profileService.updateUserSkills(address, body);
   }
@@ -580,9 +578,7 @@ export class ProfileController {
                   `,
                 }),
               );
-              this.logger.log(
-                `Email sent to ${orgProfile.linkedAccounts?.email}`,
-              );
+              this.logger.log(`Email sent`);
             }
             return await this.profileService.logApplyInteraction(
               address,

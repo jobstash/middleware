@@ -96,7 +96,7 @@ export class PrivyController {
     @Headers("svix-timestamp") timestamp: string,
     @Headers("svix-signature") signature: string,
   ): Promise<void> {
-    this.logger.log(`/privy/webhook ${JSON.stringify(body)}`);
+    this.logger.log(`/privy/webhook ${body.type}`);
     const client = await this.privyService.getClient();
     try {
       const verifiedPayload: PrivyWebhookPayload | PrivyTestPayload =
@@ -132,7 +132,7 @@ export class PrivyController {
           );
           await this.userService.updateLinkedAccounts(payload, embeddedWallet);
         } else {
-          this.logger.warn(`User not found: ${payload.user.id}`);
+          this.logger.warn(`User not found`);
         }
       } else if (verifiedPayload.type === "user.authenticated") {
         const embeddedWallet = await this.userService.getEmbeddedWallet(
@@ -144,7 +144,7 @@ export class PrivyController {
             verifiedPayload.user.id,
           );
         } else {
-          this.logger.warn(`User not found: ${verifiedPayload.user.id}`);
+          this.logger.warn(`User not found`);
         }
       } else if (verifiedPayload.type === "user.transferred_account") {
         const payload = verifiedPayload as PrivyTransferEventPayload;
@@ -164,13 +164,11 @@ export class PrivyController {
             toEmbeddedWallet,
           );
         } else {
-          this.logger.warn(
-            `User not found: ${payload.fromUser.id} or ${payload.toUser.id}`,
-          );
+          this.logger.warn(`User not found`);
         }
       } else {
         this.logger.warn(
-          `Unsupported webhook event type: ${JSON.stringify(verifiedPayload)}`,
+          `Unsupported webhook event type ${verifiedPayload.type}`,
         );
       }
     } catch (err) {
