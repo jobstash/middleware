@@ -51,6 +51,7 @@ import { ProjectListParams } from "./dto/project-list.input";
 import { UpdateProjectJobsitesInput } from "./dto/update-project-jobsites.input";
 import { UpdateProjectInput } from "./dto/update-project.input";
 import { SearchProjectsInput } from "./dto/search-projects.input";
+import { go } from "fuzzysort";
 
 @Injectable()
 export class ProjectsService {
@@ -68,7 +69,6 @@ export class ProjectsService {
   ): Promise<PaginatedData<ProjectListResult>> {
     const paramsPassed = {
       ...params,
-      query: params.query ? new RegExp(params.query, "gi") : null,
       limit: params.limit ?? 10,
       page: params.page ?? 1,
     };
@@ -91,6 +91,9 @@ export class ProjectsService {
       investors: investorFilterList,
       categories: categoryFilterList,
       communities: communityFilterList,
+      tags: tagFilterList,
+      names: nameFilterList,
+      ecosystems: ecosystemFilterList,
       token,
       query,
       order,
@@ -137,16 +140,22 @@ export class ProjectsService {
         investors: Investor[];
       },
     ): boolean => {
-      const isValidSearchResult =
-        project.name.match(query) ||
-        project.aliases.some(alias => alias.match(query));
+      const isValidSearchResult = query
+        ? go(query, [project.name, ...project.aliases], {
+            threshold: 0.3,
+          }).map(x => x.target).length > 0
+        : true;
       return (
         (!query || isValidSearchResult) &&
         (!categoryFilterList ||
           categoryFilterList.includes(slugify(project.category))) &&
         (!organizationFilterList ||
           organizationFilterList.some(x =>
-            project.orgNames.map(x => slugify(x)).includes(x),
+            project.orgNames.map(slugify).includes(x),
+          )) &&
+        (!ecosystemFilterList ||
+          ecosystemFilterList.some(x =>
+            project.ecosystems.map(slugify).includes(x),
           )) &&
         (!minTvl || (project?.tvl ?? 0) >= minTvl) &&
         (!maxTvl || (project?.tvl ?? 0) < maxTvl) &&
@@ -177,6 +186,17 @@ export class ProjectsService {
           project.investors.filter(investor =>
             investorFilterList.includes(slugify(investor.name)),
           ).length > 0) &&
+        (!tagFilterList ||
+          (tagFilterList.find(x =>
+            project.jobs
+              .flatMap(x => x.tags)
+              .map(x => x.normalizedName)
+              .includes(x),
+          ) ??
+            false)) &&
+        (!nameFilterList ||
+          nameFilterList.includes(project.normalizedName) ||
+          nameFilterList.some(x => project.aliases.map(slugify).includes(x))) &&
         (token === null ||
           (notStringOrNull(project.tokenAddress) !== null) === token)
       );
@@ -630,6 +650,8 @@ export class ProjectsService {
         tags: tagFilterList,
         names: nameFilterList,
         ecosystems: ecosystemFilterList,
+        organizations: organizationFilterList,
+        communities: baseCommunityFilterList,
         minTvl,
         maxTvl,
         minMonthlyVolume,
@@ -644,7 +666,9 @@ export class ProjectsService {
         page: page = 1,
         limit: limit = 20,
       } = params;
-      const communityFilterList = community ? [community] : null;
+      const communityFilterList = community
+        ? [community, ...baseCommunityFilterList]
+        : baseCommunityFilterList;
       const all = await this.models.Projects.getProjectsData();
 
       const projectFilters = (
@@ -660,10 +684,14 @@ export class ProjectsService {
             (tagFilterList.find(x =>
               project.jobs
                 .flatMap(x => x.tags)
-                .map(x => slugify(x.name))
+                .map(x => x.normalizedName)
                 .includes(x),
             ) ??
               false)) &&
+          (!organizationFilterList ||
+            organizationFilterList.some(x =>
+              project.orgNames.map(slugify).includes(x),
+            )) &&
           (!categoryFilterList ||
             categoryFilterList.includes(slugify(project.category))) &&
           (!chainFilterList ||
@@ -671,20 +699,19 @@ export class ProjectsService {
               project.chains.map(x => slugify(x.name)).includes(x),
             )) &&
           (!communityFilterList ||
-            project.communities.filter(community =>
+            project.communities.some(community =>
               communityFilterList.includes(slugify(community)),
-            ).length > 0) &&
+            )) &&
           (!investorFilterList ||
-            project.investors.filter(investor =>
+            project.investors.some(investor =>
               investorFilterList.includes(slugify(investor.name)),
-            ).length > 0) &&
+            )) &&
           (!nameFilterList ||
-            nameFilterList.includes(slugify(project.name)) ||
-            nameFilterList.includes(slugify(project.normalizedName)) ||
-            nameFilterList.some(x => project.aliases.includes(slugify(x)))) &&
+            nameFilterList.includes(project.normalizedName) ||
+            project.aliases.some(x => nameFilterList.includes(slugify(x)))) &&
           (!ecosystemFilterList ||
             ecosystemFilterList.some(x =>
-              project.ecosystems.includes(slugify(x)),
+              project.ecosystems.map(slugify).includes(x),
             )) &&
           (!minTvl || (project.tvl ?? 0) >= minTvl) &&
           (!maxTvl || (project.tvl ?? 0) < maxTvl) &&

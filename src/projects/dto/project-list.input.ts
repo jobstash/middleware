@@ -121,6 +121,24 @@ export class ProjectListParams {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  tags?: string[] | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  names?: string[] | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  ecosystems?: string[] | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @Transform(({ value }) =>
     value === "true" ? true : value === "false" ? false : value,
   )
