@@ -980,11 +980,7 @@ export class OrganizationsService {
         );
       };
 
-      console.log(all.length);
-
       const filtered = all.filter(orgBasedFilters).map(toShortOrgWithSummary);
-
-      console.log(filtered.length);
 
       const defaultSorted = naturalSort<ShortOrgWithSummary>(filtered).by([
         {
