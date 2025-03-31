@@ -25,7 +25,7 @@ export class CacheHeaderInterceptor implements NestInterceptor {
         const res = http.getResponse();
 
         const expiry = CACHE_EXPIRY(this.duration);
-        const etagValue = etag(JSON.stringify(data));
+        const etagValue = etag(JSON.stringify(data) ?? "{}");
 
         this.logger.log(
           `Setting cache headers for ${context.getClass().name}::${context.getHandler().name} with expiry ${expiry}, etag ${etagValue}`,
