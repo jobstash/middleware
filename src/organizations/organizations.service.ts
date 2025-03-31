@@ -244,6 +244,15 @@ export class OrganizationsService {
     }
 
     const projectBasedFilters = (projects: OrgProject[]): boolean => {
+      const filters = [
+        projectFilterList,
+        chainFilterList,
+        ecosystemFilterList,
+        hasProjects,
+      ].filter(Boolean);
+      const filtersApplied = filters.length > 0;
+
+      if (!filtersApplied) return true;
       return (
         (!projectFilterList ||
           projects.filter(x => projectFilterList.includes(slugify(x.name)))
@@ -886,14 +895,23 @@ export class OrganizationsService {
       const all = await this.getOrgListResults();
 
       const projectBasedFilters = (projects: OrgProject[]): boolean => {
+        const filters = [
+          projectFilterList,
+          chainFilterList,
+          ecosystemFilterList,
+          hasProjects,
+        ].filter(Boolean);
+        const filtersApplied = filters.length > 0;
+
+        if (!filtersApplied) return true;
+
         return (
           (!projectFilterList ||
-            projects.filter(x => projectFilterList.includes(slugify(x.name)))
-              .length > 0) &&
+            projects.some(x => projectFilterList.includes(slugify(x.name)))) &&
           (!chainFilterList ||
-            uniq(projects.flatMap(x => x.chains)).filter(x =>
+            uniq(projects.flatMap(x => x.chains)).some(x =>
               chainFilterList.includes(slugify(x.name)),
-            ).length > 0) &&
+            )) &&
           (!ecosystemFilterList ||
             ecosystemFilterList.some(x =>
               uniq(projects.flatMap(x => x.ecosystems)).includes(x),
@@ -909,7 +927,7 @@ export class OrganizationsService {
           locationFilterList,
           investorFilterList,
           fundingRoundFilterList,
-          communityFilterList,
+          fullCommunityFilterList,
           projectFilterList,
           tagFilterList,
           nameFilterList,
@@ -928,7 +946,7 @@ export class OrganizationsService {
           aliases,
           headcountEstimate,
           location,
-          name,
+          normalizedName,
           tags,
         } = org;
 
@@ -939,7 +957,7 @@ export class OrganizationsService {
           (!locationFilterList ||
             locationFilterList.includes(slugify(location))) &&
           (!nameFilterList ||
-            nameFilterList.includes(slugify(name)) ||
+            nameFilterList.includes(normalizedName) ||
             nameFilterList.some(x => aliases.map(slugify).includes(x))) &&
           (!investorFilterList ||
             investors.some(investor =>
@@ -958,7 +976,11 @@ export class OrganizationsService {
         );
       };
 
+      console.log(all.length);
+
       const filtered = all.filter(orgBasedFilters).map(toShortOrgWithSummary);
+
+      console.log(filtered.length);
 
       const defaultSorted = naturalSort<ShortOrgWithSummary>(filtered).by([
         {
