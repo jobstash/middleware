@@ -1408,9 +1408,13 @@ export class SearchService {
         });
 
         const validPassedFilters =
-          passedFilters?.filter(x =>
-            validNavFilters.map(y => y.paramKey).includes(x),
+          passedFilters?.filter(
+            x =>
+              validNavFilters.map(y => y.paramKey).includes(x) &&
+              !x.includes("order"),
           ) ?? [];
+
+        console.log(validPassedFilters);
 
         const configData =
           result.records?.map(record => record.get("config")) ?? [];
