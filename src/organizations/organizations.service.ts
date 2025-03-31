@@ -318,7 +318,9 @@ export class OrganizationsService {
             investorFilterList.includes(slugify(investor.name)),
           )) &&
         (!tagFilterList ||
-          tagFilterList.some(x => tags.map(x => x.name).includes(x))) &&
+          tagFilterList.some(x =>
+            tags.map(x => x.normalizedName).includes(x),
+          )) &&
         (!communityFilterList ||
           community.some(community =>
             communityFilterList.includes(slugify(community)),
@@ -964,7 +966,9 @@ export class OrganizationsService {
               investorFilterList.includes(slugify(investor.name)),
             )) &&
           (!tagFilterList ||
-            tagFilterList.some(x => tags.map(x => x.name).includes(x))) &&
+            tagFilterList.some(x =>
+              tags.map(x => x.normalizedName).includes(x),
+            )) &&
           (!fullCommunityFilterList ||
             community.some(community =>
               fullCommunityFilterList.includes(slugify(community)),
