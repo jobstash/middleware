@@ -13,7 +13,6 @@ import {
   Jobsite,
   TinyOrg,
   Organization,
-  FundingRound,
   ShortOrgWithSummary,
   OrgDetailsResult,
   OrgProject,
@@ -31,7 +30,6 @@ import {
   toShortOrg,
   toShortOrgWithSummary,
   naturalSort,
-  defaultSort,
 } from "src/shared/helpers";
 import {
   OrganizationEntity,
@@ -865,16 +863,17 @@ export class OrganizationsService {
   ): Promise<PaginatedData<ShortOrgWithSummary>> {
     try {
       const {
+        minHeadCount,
+        maxHeadCount,
         locations: locationFilterList,
         investors: investorFilterList,
         fundingRounds: fundingRoundFilterList,
-        tags: tagFilterList,
-        names: nameFilterList,
-        chains: chainFilterList,
-        ecosystems: ecosystemFilterList,
         communities: communityFilterList,
-        minHeadCount,
-        maxHeadCount,
+        ecosystems: ecosystemFilterList,
+        projects: projectFilterList,
+        tags: tagFilterList,
+        chains: chainFilterList,
+        names: nameFilterList,
         hasProjects,
         page: page = 1,
         limit: limit = 20,
@@ -886,68 +885,80 @@ export class OrganizationsService {
 
       const all = await this.getOrgListResults();
 
-      const orgFilters = (org: OrgListResult): boolean => {
-        const {
-          fundingRounds,
-          investors,
-          community,
-          location,
-          name,
-          normalizedName,
-          projects,
-          ecosystems,
-          headcountEstimate,
-          aliases,
-        } = org;
-        const allEcosystems = [
-          ...org.projects.flatMap(x => x.ecosystems),
-          ...ecosystems,
-        ];
-        const chains = projects.flatMap(x => x.chains);
-        const tags = org.tags.map(x => x.normalizedName);
+      const projectBasedFilters = (projects: OrgProject[]): boolean => {
         return (
-          (!locationFilterList ||
-            locationFilterList.includes(slugify(location))) &&
-          (!investorFilterList ||
-            investors.filter(investor =>
-              investorFilterList.includes(slugify(investor.name)),
-            ).length > 0) &&
-          (!communityFilterList ||
-            community.filter(community =>
-              communityFilterList.includes(slugify(community)),
-            ).length > 0) &&
-          (!fundingRoundFilterList ||
-            fundingRoundFilterList.includes(
-              slugify(
-                defaultSort<FundingRound>(fundingRounds).desc(x => x.date)[0]
-                  ?.roundName,
-              ),
-            )) &&
-          (!tagFilterList ||
-            tags.filter(tag => tagFilterList.includes(tag)).length > 0) &&
-          (!nameFilterList ||
-            nameFilterList.includes(slugify(name)) ||
-            nameFilterList.includes(slugify(normalizedName)) ||
-            nameFilterList.some(x => aliases.includes(slugify(x)))) &&
+          (!projectFilterList ||
+            projects.filter(x => projectFilterList.includes(slugify(x.name)))
+              .length > 0) &&
           (!chainFilterList ||
-            chainFilterList.some(x =>
-              chains.map(x => x.normalizedName).includes(slugify(x)),
-            )) &&
+            uniq(projects.flatMap(x => x.chains)).filter(x =>
+              chainFilterList.includes(slugify(x.name)),
+            ).length > 0) &&
           (!ecosystemFilterList ||
             ecosystemFilterList.some(x =>
-              allEcosystems.includes(slugify(x)),
+              uniq(projects.flatMap(x => x.ecosystems)).includes(x),
             )) &&
-          (!communityFilterList ||
-            fullCommunityFilterList.some(x =>
-              community.map(slugify).includes(x),
-            )) &&
-          (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
-          (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
           (!hasProjects === null || projects.length > 0)
         );
       };
 
-      const filtered = all.filter(orgFilters).map(toShortOrgWithSummary);
+      const orgBasedFilters = (org: OrgListResult): boolean => {
+        const filters = [
+          minHeadCount,
+          maxHeadCount,
+          locationFilterList,
+          investorFilterList,
+          fundingRoundFilterList,
+          communityFilterList,
+          projectFilterList,
+          tagFilterList,
+          nameFilterList,
+          chainFilterList,
+          ecosystemFilterList,
+          hasProjects,
+        ].filter(Boolean);
+        const filtersApplied = filters.length > 0;
+
+        if (!filtersApplied) return true;
+
+        const {
+          fundingRounds,
+          investors,
+          community,
+          aliases,
+          headcountEstimate,
+          location,
+          name,
+          tags,
+        } = org;
+
+        return (
+          projectBasedFilters(org.projects) &&
+          (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
+          (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
+          (!locationFilterList ||
+            locationFilterList.includes(slugify(location))) &&
+          (!nameFilterList ||
+            nameFilterList.includes(slugify(name)) ||
+            nameFilterList.some(x => aliases.map(slugify).includes(x))) &&
+          (!investorFilterList ||
+            investors.some(investor =>
+              investorFilterList.includes(slugify(investor.name)),
+            )) &&
+          (!tagFilterList ||
+            tagFilterList.some(x => tags.map(x => x.name).includes(x))) &&
+          (!fullCommunityFilterList ||
+            community.some(community =>
+              fullCommunityFilterList.includes(slugify(community)),
+            )) &&
+          (!fundingRoundFilterList ||
+            fundingRoundFilterList.some(x =>
+              fundingRounds.map(x => x.roundName).includes(x),
+            ))
+        );
+      };
+
+      const filtered = all.filter(orgBasedFilters).map(toShortOrgWithSummary);
 
       const defaultSorted = naturalSort<ShortOrgWithSummary>(filtered).by([
         {
