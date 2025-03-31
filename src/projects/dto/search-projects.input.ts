@@ -1,6 +1,14 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform, Type } from "class-transformer";
-import { IsBoolean, IsNumber, IsOptional, Min } from "class-validator";
+import {
+  IsBoolean,
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from "class-validator";
+import { ListOrder, ProjectListOrderBy } from "src/shared/enums";
 import { toList } from "src/shared/helpers";
 import { Compare } from "src/shared/validators";
 
@@ -130,4 +138,36 @@ export class SearchProjectsInput {
   @IsNumber()
   @Type(() => Number)
   limit?: number | null = null;
+
+  @ApiPropertyOptional({
+    enum: ["asc", "desc"],
+  })
+  @IsOptional()
+  @IsIn(["asc", "desc"])
+  @IsString()
+  order?: ListOrder | null = null;
+
+  @ApiPropertyOptional({
+    enum: [
+      "tvl",
+      "monthlyVolume",
+      "monthlyFees",
+      "monthlyRevenue",
+      "audits",
+      "hacks",
+      "chains",
+    ],
+  })
+  @IsOptional()
+  @IsIn([
+    "tvl",
+    "monthlyVolume",
+    "monthlyFees",
+    "monthlyRevenue",
+    "audits",
+    "hacks",
+    "chains",
+  ])
+  @IsString()
+  orderBy?: ProjectListOrderBy | null = null;
 }

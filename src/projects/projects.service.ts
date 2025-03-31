@@ -663,6 +663,8 @@ export class ProjectsService {
         hasToken,
         page: page = 1,
         limit: limit = 20,
+        order,
+        orderBy,
       } = params;
       const communityFilterList = community
         ? [community, ...baseCommunityFilterList]
@@ -732,11 +734,39 @@ export class ProjectsService {
         .filter(projectFilters)
         .map(x => new ProjectListResultEntity(x).getProperties());
 
-      return paginate<ProjectListResult>(
-        page,
-        limit,
-        naturalSort<ProjectListResult>(filtered).asc(x => x.name),
-      );
+      const getSortParam = (p1: ProjectListResult): number | null => {
+        switch (params.orderBy) {
+          case "audits":
+            return p1.audits.length;
+          case "hacks":
+            return p1.hacks.length;
+          case "chains":
+            return p1.chains.length;
+          case "monthlyVolume":
+            return p1.monthlyVolume ?? 0;
+          case "monthlyFees":
+            return p1.monthlyFees ?? 0;
+          case "monthlyRevenue":
+            return p1.monthlyRevenue ?? 0;
+          case "tvl":
+            return p1.tvl ?? 0;
+          default:
+            return null;
+        }
+      };
+
+      let final: ProjectListResult[] = [];
+      if (!order || order === "asc") {
+        final = naturalSort<ProjectListResult>(filtered).asc(x =>
+          orderBy ? getSortParam(x) : x.name,
+        );
+      } else {
+        final = naturalSort<ProjectListResult>(filtered).desc(x =>
+          orderBy ? getSortParam(x) : x.name,
+        );
+      }
+
+      return paginate<ProjectListResult>(page, limit, final);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({

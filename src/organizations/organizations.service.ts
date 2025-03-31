@@ -888,6 +888,8 @@ export class OrganizationsService {
         hasProjects,
         page: page = 1,
         limit: limit = 20,
+        order,
+        orderBy,
       } = params;
 
       const fullCommunityFilterList = community
@@ -980,16 +982,46 @@ export class OrganizationsService {
         );
       };
 
-      const filtered = all.filter(orgBasedFilters).map(toShortOrgWithSummary);
+      const filtered = all.filter(orgBasedFilters);
 
-      const defaultSorted = naturalSort<ShortOrgWithSummary>(filtered).by([
-        {
-          desc: (x): number => x.lastFundingDate,
-        },
-        { asc: (x): string => x.name },
-      ]);
+      const getSortParam = (org: OrgListResult): number | null => {
+        switch (orderBy) {
+          case "recentFundingDate":
+            return org.lastFundingDate() ?? 0;
+          case "headcountEstimate":
+            return org?.headcountEstimate ?? 0;
+          case "rating":
+            return org?.aggregateRating ?? 0;
+          default:
+            return null;
+        }
+      };
 
-      return paginate<ShortOrgWithSummary>(page, limit, defaultSorted);
+      let final = [];
+
+      if (!order || order === "desc") {
+        final = naturalSort<OrgListResult>(filtered).by([
+          {
+            desc: (x): number =>
+              params.orderBy ? getSortParam(x) : x.lastFundingDate(),
+          },
+          { asc: (x): string => x.name },
+        ]);
+      } else {
+        final = naturalSort<OrgListResult>(filtered).by([
+          {
+            asc: (x): number =>
+              params.orderBy ? getSortParam(x) : x.lastFundingDate(),
+          },
+          { asc: (x): string => x.name },
+        ]);
+      }
+
+      return paginate<ShortOrgWithSummary>(
+        page,
+        limit,
+        final.map(toShortOrgWithSummary),
+      );
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({

@@ -1414,8 +1414,6 @@ export class SearchService {
               !x.includes("order"),
           ) ?? [];
 
-        console.log(validPassedFilters);
-
         const configData =
           result.records?.map(record => record.get("config")) ?? [];
 
