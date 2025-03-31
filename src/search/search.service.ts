@@ -1368,9 +1368,9 @@ export class SearchService {
           community: community ?? null,
         });
 
-        const passedFilters = Object.keys(params).filter(
-          x => x !== "nav" && params[x] !== null,
-        );
+        const passedFilters =
+          Object.keys(params)?.filter(x => x !== "nav" && params[x] !== null) ??
+          [];
 
         const navFilters = NAV_FILTER_CONFIGS[params.nav];
 
@@ -1407,11 +1407,13 @@ export class SearchService {
           }
         });
 
-        const validPassedFilters = passedFilters.filter(x =>
-          validNavFilters.map(y => y.paramKey).includes(x),
-        );
+        const validPassedFilters =
+          passedFilters?.filter(x =>
+            validNavFilters.map(y => y.paramKey).includes(x),
+          ) ?? [];
 
-        const configData = result.records?.map(record => record.get("config"));
+        const configData =
+          result.records?.map(record => record.get("config")) ?? [];
 
         let data: (SearchRangeFilter | SingleSelectFilter)[];
 
@@ -1434,14 +1436,14 @@ export class SearchService {
           const filtered = [];
 
           filtered.push(
-            ...configData.filter(data => {
+            ...(configData ?? []).filter(data => {
               return validPassedFilters.reduce((acc, curr) => {
                 let current: boolean;
                 const value =
                   data[FILTER_PARAM_KEY_REVERSE_PRESETS[params.nav][curr]];
                 const mapped = map.get(curr);
                 if (mapped.kind === "MULTI_SELECT") {
-                  current = value
+                  current = (value ?? [])
                     .filter(Boolean)
                     .some((y: string) => params[curr].includes(slugify(y)));
                 } else if (mapped.kind === "SINGLE_SELECT") {
