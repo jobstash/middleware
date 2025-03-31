@@ -54,11 +54,33 @@ export class OrgListParams {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value,
-  )
-  @IsBoolean()
-  hasProjects?: boolean | null = null;
+  @Type(() => String)
+  @Transform(toList)
+  ecosystems?: string[] | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  projects?: string[] | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  tags?: string[] | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  chains?: string[] | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  names?: string[] | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -66,7 +88,7 @@ export class OrgListParams {
     value === "true" ? true : value === "false" ? false : value,
   )
   @IsBoolean()
-  hasJobs?: boolean | null = null;
+  hasProjects?: boolean | null = null;
 
   @ApiPropertyOptional({
     enum: ["asc", "desc"],

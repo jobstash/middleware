@@ -16,6 +16,7 @@ import {
   FundingRound,
   ShortOrgWithSummary,
   OrgDetailsResult,
+  OrgProject,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -61,6 +62,8 @@ import axios from "axios";
 import { Auth0Service } from "src/auth0/auth0.service";
 import { ImportOrgJobsiteInput } from "./dto/import-organization-jobsites.input";
 import { SearchOrganizationsInput } from "./dto/search-organizations.input";
+import { uniq } from "lodash";
+import { go } from "fuzzysort";
 
 @Injectable()
 export class OrganizationsService {
@@ -194,7 +197,6 @@ export class OrganizationsService {
   ): Promise<PaginatedData<ShortOrg>> {
     const paramsPassed = {
       ...params,
-      query: params.query ? new RegExp(params.query, "gi") : null,
       limit: params.limit ?? 10,
       page: params.page ?? 1,
     };
@@ -205,6 +207,11 @@ export class OrganizationsService {
       investors: investorFilterList,
       fundingRounds: fundingRoundFilterList,
       communities: communityFilterList,
+      ecosystems: ecosystemFilterList,
+      projects: projectFilterList,
+      tags: tagFilterList,
+      chains: chainFilterList,
+      names: nameFilterList,
       hasProjects,
       query,
       order,
@@ -238,8 +245,43 @@ export class OrganizationsService {
       };
     }
 
-    const orgFilters = (org: OrgListResult): boolean => {
-      const projectCount = org.projects.length;
+    const projectBasedFilters = (projects: OrgProject[]): boolean => {
+      return (
+        (!projectFilterList ||
+          projects.filter(x => projectFilterList.includes(slugify(x.name)))
+            .length > 0) &&
+        (!chainFilterList ||
+          uniq(projects.flatMap(x => x.chains)).filter(x =>
+            chainFilterList.includes(slugify(x.name)),
+          ).length > 0) &&
+        (!ecosystemFilterList ||
+          ecosystemFilterList.some(x =>
+            uniq(projects.flatMap(x => x.ecosystems)).includes(x),
+          )) &&
+        (!hasProjects === null || projects.length > 0)
+      );
+    };
+
+    const orgBasedFilters = (org: OrgListResult): boolean => {
+      const filters = [
+        minHeadCount,
+        maxHeadCount,
+        locationFilterList,
+        investorFilterList,
+        fundingRoundFilterList,
+        communityFilterList,
+        projectFilterList,
+        tagFilterList,
+        nameFilterList,
+        chainFilterList,
+        ecosystemFilterList,
+        hasProjects,
+        query,
+      ].filter(Boolean);
+      const filtersApplied = filters.length > 0;
+
+      if (!filtersApplied) return true;
+
       const {
         fundingRounds,
         investors,
@@ -248,35 +290,40 @@ export class OrganizationsService {
         headcountEstimate,
         location,
         name,
+        tags,
       } = org;
-      const isValidSearchResult =
-        name.match(query) || aliases.some(alias => alias.match(query));
+      const isValidSearchResult = query
+        ? go(query, [name, ...aliases], { threshold: 0.3 }).map(x => x.target)
+            .length > 0
+        : true;
       return (
         (!query || isValidSearchResult) &&
-        (hasProjects === null || projectCount > 0 === hasProjects) &&
+        projectBasedFilters(org.projects) &&
         (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
         (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
         (!locationFilterList ||
           locationFilterList.includes(slugify(location))) &&
+        (!nameFilterList ||
+          nameFilterList.includes(slugify(name)) ||
+          nameFilterList.some(x => aliases.map(slugify).includes(x))) &&
         (!investorFilterList ||
-          investors.filter(investor =>
+          investors.some(investor =>
             investorFilterList.includes(slugify(investor.name)),
-          ).length > 0) &&
+          )) &&
+        (!tagFilterList ||
+          tagFilterList.some(x => tags.map(x => x.name).includes(x))) &&
         (!communityFilterList ||
-          community.filter(community =>
+          community.some(community =>
             communityFilterList.includes(slugify(community)),
-          ).length > 0) &&
+          )) &&
         (!fundingRoundFilterList ||
-          fundingRoundFilterList.includes(
-            slugify(
-              defaultSort<FundingRound>(fundingRounds).desc(x => x.date)[0]
-                ?.roundName,
-            ),
+          fundingRoundFilterList.some(x =>
+            fundingRounds.map(x => x.roundName).includes(x),
           ))
       );
     };
 
-    const filtered = results.filter(orgFilters);
+    const filtered = results.filter(orgBasedFilters);
 
     const getSortParam = (org: OrgListResult): number | null => {
       switch (orderBy) {
