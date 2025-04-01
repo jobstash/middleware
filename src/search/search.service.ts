@@ -1037,9 +1037,12 @@ export class SearchService {
         }
       });
 
-      const validPassedFilters = passedFilters.filter(x =>
-        validNavFilters.map(y => y.paramKey).includes(x),
-      );
+      const validPassedFilters =
+        passedFilters?.filter(
+          x =>
+            validNavFilters.map(y => y.paramKey).includes(x) &&
+            !x.includes("order"),
+        ) ?? [];
 
       let data: string[];
 
