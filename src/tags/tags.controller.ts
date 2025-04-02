@@ -221,6 +221,15 @@ export class TagsController {
       });
   }
 
+  @Get("/search")
+  @ApiOkResponse({
+    description: "Return matching tags for a search query",
+    schema: responseSchemaWrapper({ $ref: getSchemaPath(Tag) }),
+  })
+  async searchTags(@Query("query") query: string): Promise<Tag[]> {
+    return this.tagsService.searchTags(query);
+  }
+
   @Post("/create")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.ADMIN)

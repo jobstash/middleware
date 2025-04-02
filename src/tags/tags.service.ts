@@ -707,4 +707,37 @@ export class TagsService {
       return { success: false, message: err.message };
     }
   }
+
+  async searchTags(query: string): Promise<Tag[]> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          CALL db.index.fulltext.queryNodes("tagNames", $query) YIELD node as tag, score
+          WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
+          WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, score
+          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
+          WITH DISTINCT (CASE WHEN other IS NULL THEN tag ELSE other END) AS node, score
+          WHERE (:StructuredJobpost)-[:HAS_TAG]->(node)
+          RETURN node as tag, score
+          ORDER BY score DESC
+
+          `,
+        { query: `name:${slugify(query)}~` },
+      );
+      return result.records.map(record =>
+        new TagEntity(record.get("tag")).getProperties(),
+      );
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "tags.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`TagsService::matchTags ${err.message}`);
+      return [];
+    }
+  }
 }
