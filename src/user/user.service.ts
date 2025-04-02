@@ -1167,10 +1167,8 @@ export class UserService {
             name: user.name,
             avatar: user.avatar,
             alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
-            linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account {
-              .*,
-              wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
-            }][0],
+            linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account][0],
+            wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address],
             location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
             skills: apoc.coll.toSet([
                 (user)-[r:HAS_SKILL]->(tag) |
@@ -1206,14 +1204,17 @@ export class UserService {
         const results = [];
         const ecosystemActivations =
           await this.scorerService.getAllUserEcosystemActivations(orgId);
-        console.log(res.records.length);
         for (const record of res.records) {
           const user = record.get("user");
           const profile = new UserAvailableForWorkEntity({
             ...user,
+            linkedAccounts: {
+              ...user.linkedAccounts,
+              wallets: user.wallets,
+            },
             ecosystemActivations:
               ecosystemActivations
-                .filter(x => user.linkedAccounts?.wallets?.includes(x.wallet))
+                .filter(x => user.wallets?.includes(x.wallet))
                 ?.flatMap(x => x.ecosystemActivations) ?? [],
           }).getProperties();
           if (locationFilter(profile)) {
