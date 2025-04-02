@@ -1121,17 +1121,22 @@ export class UserService {
             githubAvatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
             alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
             location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
-            linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account {
-              .*,
-              wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
-            }][0]
+            linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account][0],
+            wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
           } as user
         `,
       )
       .then(res =>
-        res.records.map(record =>
-          new UserProfileEntity(record.get("user")).getProperties(),
-        ),
+        res.records.map(record => {
+          const user = record.get("user");
+          return new UserProfileEntity({
+            ...user,
+            linkedAccounts: {
+              ...user.linkedAccounts,
+              wallets: user.wallets,
+            },
+          }).getProperties();
+        }),
       )
       .catch(err => {
         Sentry.withScope(scope => {
@@ -1212,10 +1217,8 @@ export class UserService {
             name: user.name,
             avatar: user.avatar,
             alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
-            linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account {
-              .*,
-              wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
-            }][0],
+            linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account][0],
+            wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address],
             location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
             skills: apoc.coll.toSet([
                 (user)-[r:HAS_SKILL]->(tag) |
@@ -1247,11 +1250,7 @@ export class UserService {
         `,
           { orgId: orgId ?? null },
         )
-        .then(res =>
-          res.records
-            .map(x => x.get("user") as UserAvailableForWork)
-            .filter(locationFilter),
-        )
+        .then(res => res.records.map(x => x.get("user")).filter(locationFilter))
         .catch(err => {
           Sentry.withScope(scope => {
             scope.setTags({
@@ -1263,19 +1262,27 @@ export class UserService {
           this.logger.error(
             `UserService::getDevsAvailableForWork ${err.message}`,
           );
-          return <UserAvailableForWork[]>[];
+          return [];
         });
 
       const usersVerifiedOrgs = await this.getUsersVerifiedOrgs(
         users.map(x => x.wallet),
       );
 
-      const filtered = users.filter(user => {
-        const verifiedOrgs = usersVerifiedOrgs.find(
-          x => x.wallet === user.wallet,
-        );
-        return !(verifiedOrgs?.orgs ?? []).includes(orgId);
-      });
+      const filtered = users
+        .map(x => ({
+          ...x,
+          linkedAccounts: {
+            ...x.linkedAccounts,
+            wallets: x.wallets,
+          },
+        }))
+        .filter(user => {
+          const verifiedOrgs = usersVerifiedOrgs.find(
+            x => x.wallet === user.wallet,
+          );
+          return !(verifiedOrgs?.orgs ?? []).includes(orgId);
+        });
 
       const ecosystemActivations =
         await this.scorerService.getAllUserEcosystemActivations(orgId);

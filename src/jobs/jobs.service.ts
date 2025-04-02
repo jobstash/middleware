@@ -1354,10 +1354,8 @@ export class JobsService {
               name: user.name,
               githubAvatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
               alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
-              linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account {
-                .*,
-                wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
-              }][0],
+              linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account][0],
+              wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address],
               location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
               matchingSkills: apoc.coll.sum([
                 (user)-[:HAS_SKILL]->(tag)
@@ -1555,7 +1553,8 @@ export class JobsService {
       return {
         success: true,
         message: "Org jobs and applicants retrieved successfully",
-        data: applicants?.map((applicant: JobApplicant) => {
+        data: applicants?.map(applicant => {
+          applicant.user.linkedAccounts.wallets = applicant.user.wallets;
           return new JobApplicantEntity({
             ...applicant,
             ecosystemActivations: applicant.user.linkedAccounts.wallets.flatMap(

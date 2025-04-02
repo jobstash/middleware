@@ -82,22 +82,26 @@ export class ProfileService {
               githubAvatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
               alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
               location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
-              linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account {
-                .*,
-                wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
-              }][0]
+              linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account][0],
+              wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
             } as profile
           `,
           { wallet },
         );
 
+        const profile = result.records[0]?.get("profile");
+
         return {
           success: true,
           message: "User Profile retrieved successfully",
-          data: result.records[0]?.get("profile")
-            ? new UserProfileEntity(
-                result.records[0]?.get("profile"),
-              ).getProperties()
+          data: profile
+            ? new UserProfileEntity({
+                ...profile,
+                linkedAccounts: {
+                  ...profile.linkedAccounts,
+                  wallets: profile.wallets,
+                },
+              }).getProperties()
             : undefined,
         };
       } catch (err) {
