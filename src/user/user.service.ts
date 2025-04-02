@@ -1206,14 +1206,6 @@ export class UserService {
         const results = [];
         const ecosystemActivations =
           await this.scorerService.getAllUserEcosystemActivations(orgId);
-        // const usersVerifiedOrgs = await this.getUsersVerifiedOrgs(
-        //   res.records
-        //     .map(x => {
-        //       const user = x.get("user");
-        //       return (locationFilter(user) ? user.wallet : null) ?? null;
-        //     })
-        //     .filter(Boolean),
-        // );
         console.log(res.records.length);
         for (const record of res.records) {
           const user = record.get("user");
@@ -1221,16 +1213,11 @@ export class UserService {
             ...user,
             ecosystemActivations:
               ecosystemActivations
-                .find(x => x.wallet === user.wallet)
-                ?.ecosystemActivations?.map(x => x.name) ?? [],
+                .filter(x => user.linkedAccounts?.wallets?.includes(x.wallet))
+                ?.flatMap(x => x.ecosystemActivations) ?? [],
           }).getProperties();
           if (locationFilter(profile)) {
-            // const verifiedOrgs = usersVerifiedOrgs.find(
-            //   x => x.wallet === profile.wallet,
-            // );
-            // if (!(verifiedOrgs?.orgs ?? []).includes(orgId)) {
             results.push(profile);
-            // }
           }
         }
         return results;

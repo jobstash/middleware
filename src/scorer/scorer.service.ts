@@ -231,13 +231,11 @@ export class ScorerService {
 
   getAllUserEcosystemActivations = async (
     orgId: string,
-  ): Promise<
-    { wallet: string; ecosystemActivations: EcosystemActivation[] }[]
-  > => {
+  ): Promise<{ wallet: string; ecosystemActivations: string[] }[]> => {
     return firstValueFrom(
       this.httpService
         .get<
-          { wallet: string; ecosystemActivations: EcosystemActivation[] }[]
+          { wallet: string; ecosystemActivations: string[] }[]
         >(`/scorer/users/ecosystem-activations/all?orgId=${orgId}`)
         .pipe(
           map(res => res.data),
