@@ -1205,15 +1205,7 @@ export class UserService {
       .then(async res => {
         const results = [];
         const ecosystemActivations =
-          await this.scorerService.getWalletEcosystemActivations(
-            res.records
-              .map(x => {
-                const user = x.get("user");
-                return (locationFilter(user) ? user.wallet : null) ?? null;
-              })
-              .filter(Boolean),
-            orgId,
-          );
+          await this.scorerService.getAllUserEcosystemActivations(orgId);
         const usersVerifiedOrgs = await this.getUsersVerifiedOrgs(
           res.records
             .map(x => {
@@ -1227,8 +1219,9 @@ export class UserService {
           const profile = new UserAvailableForWorkEntity({
             ...user,
             ecosystemActivations:
-              ecosystemActivations.find(x => x.wallet === user.wallet)
-                ?.ecosystemActivations ?? [],
+              ecosystemActivations
+                .find(x => x.wallet === user.wallet)
+                ?.ecosystemActivations?.map(x => x.name) ?? [],
           }).getProperties();
           if (locationFilter(profile)) {
             const verifiedOrgs = usersVerifiedOrgs.find(

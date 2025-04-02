@@ -226,4 +226,34 @@ export class ScorerService {
       return res;
     }
   };
+
+  getAllUserEcosystemActivations = async (
+    orgId: string,
+  ): Promise<
+    { wallet: string; ecosystemActivations: EcosystemActivation[] }[]
+  > => {
+    return firstValueFrom(
+      this.httpService
+        .get<
+          { wallet: string; ecosystemActivations: EcosystemActivation[] }[]
+        >(`/scorer/users/ecosystem-activations/all?orgId=${orgId}`)
+        .pipe(
+          map(res => res.data),
+          catchError((err: AxiosError) => {
+            Sentry.withScope(scope => {
+              scope.setTags({
+                action: "proxy-call",
+                source: "scorer.service",
+              });
+              scope.setExtra("input", orgId);
+              Sentry.captureException(err);
+            });
+            this.logger.error(
+              `ScorerService::getWalletEcosystemActivations ${err.message}`,
+            );
+            return of([]);
+          }),
+        ),
+    );
+  };
 }
