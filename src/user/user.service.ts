@@ -1141,18 +1141,18 @@ export class UserService {
     return this.neogma.queryRunner
       .run(
         `
-          MATCH (user:User), (organization: Organization {orgId: $orgId})
+          MATCH (user:User)
           WHERE user.available = true
 
           CALL {
-            WITH user, organization
-            MATCH (user)-[act:VIEWED_DETAILS|APPLIED_TO]->(job:StructuredJobpost)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]-(organization)
-            MATCH (job)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification)
+            WITH user
+            OPTIONAL MATCH (user)-[act:VIEWED_DETAILS|APPLIED_TO]->(job:StructuredJobpost)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]-(:Organization {orgId: $orgId})
+            OPTIONAL MATCH (job)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification)
             RETURN classification.name AS classification, count(*) AS frequency
             ORDER BY frequency DESC
           }
 
-          WITH user, organization, collect(classification) AS classifications
+          WITH user, collect(classification) AS classifications
 
           RETURN {
             wallet: user.wallet,
@@ -1162,7 +1162,7 @@ export class UserService {
               upvotes: null,
               downvotes: null
             },
-            note: [(user)-[:HAS_RECRUITER_NOTE]->(note: RecruiterNote)<-[:HAS_TALENT_NOTE]-(organization) | note.note][0],
+            note: [(user)-[:HAS_RECRUITER_NOTE]->(note: RecruiterNote)<-[:HAS_TALENT_NOTE]-(:Organization {orgId: $orgId}) | note.note][0],
             availableForWork: user.available,
             name: user.name,
             avatar: user.avatar,
@@ -1206,14 +1206,15 @@ export class UserService {
         const results = [];
         const ecosystemActivations =
           await this.scorerService.getAllUserEcosystemActivations(orgId);
-        const usersVerifiedOrgs = await this.getUsersVerifiedOrgs(
-          res.records
-            .map(x => {
-              const user = x.get("user");
-              return (locationFilter(user) ? user.wallet : null) ?? null;
-            })
-            .filter(Boolean),
-        );
+        // const usersVerifiedOrgs = await this.getUsersVerifiedOrgs(
+        //   res.records
+        //     .map(x => {
+        //       const user = x.get("user");
+        //       return (locationFilter(user) ? user.wallet : null) ?? null;
+        //     })
+        //     .filter(Boolean),
+        // );
+        console.log(res.records.length);
         for (const record of res.records) {
           const user = record.get("user");
           const profile = new UserAvailableForWorkEntity({
@@ -1224,12 +1225,12 @@ export class UserService {
                 ?.ecosystemActivations?.map(x => x.name) ?? [],
           }).getProperties();
           if (locationFilter(profile)) {
-            const verifiedOrgs = usersVerifiedOrgs.find(
-              x => x.wallet === profile.wallet,
-            );
-            if (!(verifiedOrgs?.orgs ?? []).includes(orgId)) {
-              results.push(profile);
-            }
+            // const verifiedOrgs = usersVerifiedOrgs.find(
+            //   x => x.wallet === profile.wallet,
+            // );
+            // if (!(verifiedOrgs?.orgs ?? []).includes(orgId)) {
+            results.push(profile);
+            // }
           }
         }
         return results;

@@ -216,7 +216,9 @@ export class ScorerService {
                 scope.setExtra("input", wallets);
                 Sentry.captureException(err);
               });
-              this.logger.error(`ScorerService::getLeanStats ${err.message}`);
+              this.logger.error(
+                `ScorerService::getWalletEcosystemActivations ${err.message}`,
+              );
               return of(
                 [] as { wallet: string; ecosystemActivations: string[] }[],
               );
@@ -249,7 +251,7 @@ export class ScorerService {
               Sentry.captureException(err);
             });
             this.logger.error(
-              `ScorerService::getWalletEcosystemActivations ${err.message}`,
+              `ScorerService::getAllUserEcosystemActivations ${err.message}`,
             );
             return of([]);
           }),

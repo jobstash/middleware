@@ -41,6 +41,7 @@ export class EcosystemActivation {
     name: t.string,
     contractAddress: t.string,
     network: Network,
+    tokenId: t.string,
   });
 
   @ApiProperty()
@@ -55,14 +56,18 @@ export class EcosystemActivation {
   @ApiProperty()
   network: NetworkType;
 
+  @ApiProperty()
+  tokenId: string;
+
   constructor(raw: EcosystemActivation) {
-    const { id, name, contractAddress, network } = raw;
+    const { id, name, contractAddress, network, tokenId } = raw;
     const result = EcosystemActivation.EcosystemActivationType.decode(raw);
 
     this.id = id;
     this.name = name;
     this.contractAddress = contractAddress;
     this.network = network;
+    this.tokenId = tokenId;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

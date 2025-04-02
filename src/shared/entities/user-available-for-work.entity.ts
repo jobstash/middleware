@@ -20,8 +20,8 @@ export class UserAvailableForWorkEntity {
       name: notStringOrNull(this.raw?.name),
       alternateEmails: this.raw?.alternateEmails ?? [],
       location: {
-        city: notStringOrNull(this.raw?.location?.city),
-        country: notStringOrNull(this.raw?.location?.country),
+        city: notStringOrNull(this.raw?.location?.city?.trim()),
+        country: notStringOrNull(this.raw?.location?.country?.trim()),
       },
       availableForWork: this.raw?.availableForWork ?? false,
       linkedAccounts: {
