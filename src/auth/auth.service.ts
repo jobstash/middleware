@@ -5,12 +5,16 @@ import { Request, Response } from "express";
 import { SessionObject } from "src/shared/interfaces";
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import { InjectConnection } from "nestjs-neogma";
+import { Neogma } from "neogma";
 
 @Injectable()
 export class AuthService {
   private readonly logger = new CustomLogger(AuthService.name);
   private readonly jwtConfig: object;
   constructor(
+    @InjectConnection()
+    private neogma: Neogma,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
   ) {
@@ -29,10 +33,21 @@ export class AuthService {
     if (token) {
       const decoded = this.decodeToken(token);
       if (decoded) {
+        const result = await this.neogma.queryRunner.run(
+          `
+          MATCH (u:User {wallet: $address})
+          RETURN {
+            cryptoNative: u.cryptoNative,
+            permissions: [(u)-[:HAS_PERMISSION]->(up:UserPermission) | up.name]
+          } as user
+        `,
+          { address: decoded.address },
+        );
+        const user = result.records[0]?.get("user") ?? [];
         return {
           address: decoded.address ?? null,
-          cryptoNative: decoded.cryptoNative ?? false,
-          permissions: decoded.permissions ?? [],
+          cryptoNative: user?.cryptoNative ?? false,
+          permissions: user.permissions ?? [],
         };
       } else {
         return {
