@@ -82,7 +82,7 @@ export class ProfileService {
               githubAvatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
               alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
               location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
-              linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account][0],
+              linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account { .* }][0],
               wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
             } as profile
           `,
@@ -275,7 +275,7 @@ export class ProfileService {
         const orgs: UserVerifiedOrg[] = [];
 
         this.logger.log(`Fetching work history for ${wallet}`);
-        const workHistory = await this.getUserWorkHistory(wallet);
+        const workHistory = await this.getUserWorkHistory(wallet, true);
         const prelim: UserWorkHistory[] = workHistory?.workHistory ?? [];
 
         if (profile?.linkedAccounts?.github) {
