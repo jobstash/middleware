@@ -1121,7 +1121,7 @@ export class UserService {
             githubAvatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
             alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
             location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
-            linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account { .* }][0],,
+            linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account { .* }][0],
             wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
           } as user
         `,
@@ -1217,7 +1217,7 @@ export class UserService {
             name: user.name,
             avatar: user.avatar,
             alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
-            linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account { .* }][0],,
+            linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account { .* }][0],
             wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address],
             location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
             skills: apoc.coll.toSet([
