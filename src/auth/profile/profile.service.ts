@@ -1395,11 +1395,11 @@ export class ProfileService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (user:User WHERE user.wallet IN $wallets)
-        OPTIONAL MATCH (user)-[:HAS_CACHE_LOCK]->(lock: UserCacheLock)
+        OPTIONAL MATCH (user)-[:HAS_CACHE_LOCK]->(lock:UserCacheLock)
         DETACH DELETE lock
         WITH user
 
-        CREATE (lock: UserCacheLock)
+        CREATE (lock:UserCacheLock)
         SET lock.timestamp = $newTimestamp
 
         WITH user, lock
