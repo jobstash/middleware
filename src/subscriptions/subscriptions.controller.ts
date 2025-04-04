@@ -39,7 +39,7 @@ export class SubscriptionsController {
 
   @Get(":orgId")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
   async getOrgSubscription(
     @Param("orgId") orgId: string,
     @Session() { address }: SessionObject,
@@ -60,7 +60,7 @@ export class SubscriptionsController {
 
   @Get(":orgId/payments")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
   async getOrgPayments(
     @Param("orgId") orgId: string,
     @Session() { address }: SessionObject,
