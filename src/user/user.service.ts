@@ -793,6 +793,10 @@ export class UserService {
             });
         }
 
+        await this.permissionService.syncUserPermissions(embeddedWallet, [
+          CheckWalletPermissions.USER,
+        ]);
+
         await this.profileService.getUserWorkHistory(embeddedWallet, true);
         await this.profileService.getUserVerifications(embeddedWallet, true);
 

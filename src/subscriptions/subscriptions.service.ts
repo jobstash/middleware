@@ -425,7 +425,7 @@ export class SubscriptionsService {
           { wallet: dto.wallet, orgId: dto.orgId },
         )
       ).records[0]?.get("payment");
-      if (pendingPayment || dto.amount > 0) {
+      if (dto.jobstash === "starter" || (pendingPayment && dto.amount > 0)) {
         const result = await this.neogma
           .getTransaction(null, async tx => {
             if (dto.amount > 0) {
