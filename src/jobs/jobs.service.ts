@@ -1354,10 +1354,8 @@ export class JobsService {
               name: user.name,
               githubAvatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
               alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
-              linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account {
-                .*,
-                wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
-              }][0],
+              linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account { .* }][0],
+              wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
               location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
               matchingSkills: apoc.coll.sum([
                 (user)-[:HAS_SKILL]->(tag)
@@ -1546,8 +1544,20 @@ export class JobsService {
         orgId,
         list,
       });
-      const applicants =
-        result?.records?.map(record => record.get("result")) ?? [];
+      const applicants = (
+        result?.records?.map(record => record.get("result")) ?? []
+      )
+        .map(x => ({
+          ...x,
+          user: {
+            ...x.user,
+            linkedAccounts: {
+              ...x.user.linkedAccounts,
+              wallets: x.user.wallets ?? [],
+            },
+          },
+        }))
+        .filter(Boolean);
 
       const ecosystemActivations =
         await this.scorerService.getWalletEcosystemActivations(
