@@ -39,6 +39,7 @@ import { CheckWalletPermissions } from "src/shared/constants";
 export class SubscriptionsService {
   private readonly logger = new CustomLogger(SubscriptionsService.name);
   private readonly from: string;
+  private readonly ORG_ADMIN_DOMAIN: string;
   constructor(
     @InjectConnection()
     private neogma: Neogma,
@@ -49,6 +50,8 @@ export class SubscriptionsService {
     private readonly paymentsService: PaymentsService,
   ) {
     this.from = this.configService.getOrThrow<string>("EMAIL");
+    this.ORG_ADMIN_DOMAIN =
+      this.configService.getOrThrow<string>("ORG_ADMIN_DOMAIN");
   }
 
   async isPaymentReminderNeeded(
@@ -197,9 +200,11 @@ export class SubscriptionsService {
   }): Promise<ResponseWithOptionalData<string>> {
     try {
       const { wallet, email, dto } = input;
+      this.logger.log("Generating payment details");
       const { description, amount } = this.generatePaymentDetails(dto);
 
       if (amount > 0) {
+        this.logger.log("Creating charge");
         const paymentLink = await this.paymentsService.createCharge({
           name: `JobStash.xyz`,
           description,
@@ -220,11 +225,12 @@ export class SubscriptionsService {
             }),
             action: "new-subscription",
           },
-          redirect_url: "https://jobstash.xyz/subscriptions/new?success=true",
-          cancel_url: "https://jobstash.xyz/subscriptions/new?cancelled=true",
+          redirect_url: `${this.ORG_ADMIN_DOMAIN}`,
+          cancel_url: `${this.ORG_ADMIN_DOMAIN}`,
         });
 
         if (paymentLink) {
+          this.logger.log("Creating pending payment");
           await this.neogma.queryRunner.run(
             `
               MERGE (payment: PendingPayment {link: $link})
@@ -253,6 +259,7 @@ export class SubscriptionsService {
           );
 
           try {
+            this.logger.log("Sending payment reminder emails: now");
             await this.mailService.sendEmail(
               emailBuilder({
                 from: this.from,
@@ -276,6 +283,7 @@ export class SubscriptionsService {
               }),
             );
             const now = new Date();
+            this.logger.log("Scheduling payment reminder emails: 24 hours");
             await this.mailService.scheduleEmailWithPredicate({
               mail: emailBuilder({
                 from: this.from,
@@ -302,6 +310,7 @@ export class SubscriptionsService {
               },
               time: addHours(now, 24).getTime(),
             });
+            this.logger.log("Scheduling payment reminder emails: 3 days");
             await this.mailService.scheduleEmailWithPredicate({
               mail: emailBuilder({
                 from: this.from,
@@ -331,6 +340,7 @@ export class SubscriptionsService {
               },
               time: addDays(now, 3).getTime(),
             });
+            this.logger.log("Scheduling payment reminder emails: 7 days");
             await this.mailService.scheduleEmailWithPredicate({
               mail: emailBuilder({
                 from: this.from,
@@ -369,18 +379,21 @@ export class SubscriptionsService {
               `SubscriptionsService::initiateNewSubscription ${err.message}`,
             );
           }
+          this.logger.log("Subscription initiated successfully");
           return {
             success: true,
             message: "Subscription initiated successfully",
             data: paymentLink.url,
           };
         } else {
+          this.logger.log("Error creating new subscription");
           return {
             success: false,
             message: "Subscription initiation failed",
           };
         }
       } else {
+        this.logger.log("Creating new subscription");
         return this.createNewSubscription({
           ...dto,
           extraSeats: dto.jobstash === "starter" ? 0 : dto.extraSeats,
@@ -1016,8 +1029,8 @@ export class SubscriptionsService {
             }),
             action: "subscription-renewal",
           },
-          redirect_url: "https://jobstash.xyz/subscriptions/renew?success=true",
-          cancel_url: "https://jobstash.xyz/subscriptions/renew?cancelled=true",
+          redirect_url: `${this.ORG_ADMIN_DOMAIN}`,
+          cancel_url: `${this.ORG_ADMIN_DOMAIN}`,
         });
 
         if (paymentLink) {
@@ -1436,8 +1449,8 @@ export class SubscriptionsService {
             }),
             action: `subscription-change`,
           },
-          redirect_url: `https://jobstash.xyz/subscriptions/change?success=true`,
-          cancel_url: `https://jobstash.xyz/subscriptions/change?cancelled=true`,
+          redirect_url: `${this.ORG_ADMIN_DOMAIN}`,
+          cancel_url: `${this.ORG_ADMIN_DOMAIN}`,
         });
 
         if (paymentLink) {
