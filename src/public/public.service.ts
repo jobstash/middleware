@@ -3,7 +3,6 @@ import * as Sentry from "@sentry/node";
 import { sort } from "fast-sort";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nestjs-neogma";
-import { ModelService } from "src/model/model.service";
 import {
   AllJobsFilterConfigsEntity,
   JobListResultEntity,
@@ -23,7 +22,6 @@ export class PublicService {
   constructor(
     @InjectConnection()
     private neogma: Neogma,
-    private models: ModelService,
   ) {}
 
   getAllJobsListResults = async (): Promise<JobListResult[]> => {
