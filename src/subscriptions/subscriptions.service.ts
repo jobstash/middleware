@@ -29,7 +29,7 @@ import {
   Subscription,
 } from "src/shared/interfaces/org";
 import { SubscriptionEntity } from "src/shared/entities/subscription.entity";
-import { addDays, addHours, addMonths, getDayOfYear } from "date-fns";
+import { addMonths, getDayOfYear } from "date-fns";
 import { capitalize, now } from "lodash";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { Cron, CronExpression } from "@nestjs/schedule";
@@ -199,7 +199,7 @@ export class SubscriptionsService {
     dto: NewSubscriptionInput;
   }): Promise<ResponseWithOptionalData<string>> {
     try {
-      const { wallet, email, dto } = input;
+      const { wallet, dto } = input;
       this.logger.log("Generating payment details");
       const { description, amount } = this.generatePaymentDetails(dto);
 
@@ -258,127 +258,127 @@ export class SubscriptionsService {
             },
           );
 
-          try {
-            this.logger.log("Sending payment reminder emails: now");
-            await this.mailService.sendEmail(
-              emailBuilder({
-                from: this.from,
-                to: email,
-                subject: "Your hiring tools are waiting for you!",
-                previewText:
-                  "Complete your purchase and unlock JobStash features to help streamline your hiring process.",
-                title: "Hey there,",
-                bodySections: [
-                  text(
-                    "We noticed you left some powerful hiring add-ons in your cart. These features can help you find the right talent faster and more efficiently - perfect for taking your recruitment process to the next level.",
-                  ),
-                  text(
-                    "Don’t leave these tools behind! Just click below to finish your purchase.",
-                  ),
-                  button("Complete Your Purchase", paymentLink.url),
-                  text(
-                    "If you have any questions or need more info, we’re here to help!",
-                  ),
-                ],
-              }),
-            );
-            const now = new Date();
-            this.logger.log("Scheduling payment reminder emails: 24 hours");
-            await this.mailService.scheduleEmailWithPredicate({
-              mail: emailBuilder({
-                from: this.from,
-                to: email,
-                subject: "Your hiring tools are still waiting for you!",
-                previewText:
-                  "Let’s finish what you started! These add-ons are designed to make your hiring easier.",
-                title: "Hi there,",
-                bodySections: [
-                  text(
-                    "It’s been 24 hours since you added those hiring add-ons to your cart. These features are designed to help you streamline your hiring process, access a broader talent pool, and make smarter recruitment decisions.",
-                  ),
-                  text("Take the next step and complete your purchase now."),
-                  button("Complete Your Purchase", paymentLink.url),
-                  text(
-                    "We’re here to help if you have any questions or need assistance.",
-                  ),
-                ],
-              }),
-              predicateName: "isPaymentReminderNeeded",
-              predicateData: {
-                paymentReference: paymentLink.id,
-                orgId: dto.orgId,
-              },
-              time: addHours(now, 24).getTime(),
-            });
-            this.logger.log("Scheduling payment reminder emails: 3 days");
-            await this.mailService.scheduleEmailWithPredicate({
-              mail: emailBuilder({
-                from: this.from,
-                to: email,
-                subject: "Still interested in optimizing your hiring process?",
-                previewText:
-                  "The add-ons you need to improve your hiring are still in your cart!",
-                title: "Hello again,",
-                bodySections: [
-                  text(
-                    "It’s been a few days, and we just wanted to remind you that your cart is still open.",
-                  ),
-                  text(
-                    "These hiring add-ons are designed to make your recruitment process more efficient and give you the edge you need in today’s competitive job market.",
-                  ),
-                  text("Ready to take the next step?"),
-                  button("Complete Your Purchase", paymentLink.url),
-                  text(
-                    "If you’d like more details or have any questions, we’re always here to chat!",
-                  ),
-                ],
-              }),
-              predicateName: "isPaymentReminderNeeded",
-              predicateData: {
-                paymentReference: paymentLink.id,
-                orgId: dto.orgId,
-              },
-              time: addDays(now, 3).getTime(),
-            });
-            this.logger.log("Scheduling payment reminder emails: 7 days");
-            await this.mailService.scheduleEmailWithPredicate({
-              mail: emailBuilder({
-                from: this.from,
-                to: email,
-                subject: "Last chance to complete your purchase!",
-                previewText:
-                  "Don’t let your hiring tools slip away. Your cart expires soon.",
-                title: "Hey there,",
-                bodySections: [
-                  text("Your cart is about to expire!"),
-                  text(
-                    "These hiring add-ons are a great way to enhance your recruitment process, this is your final chance to grab them and improve your hiring process.",
-                  ),
-                  button("Complete Your Purchase", paymentLink.url),
-                  text(
-                    "Let us know if you have any questions - we’d be happy to help!",
-                  ),
-                ],
-              }),
-              predicateName: "isPaymentReminderNeeded",
-              predicateData: {
-                paymentReference: paymentLink.id,
-                orgId: dto.orgId,
-              },
-              time: addDays(now, 7).getTime(),
-            });
-          } catch (err) {
-            Sentry.withScope(scope => {
-              scope.setTags({
-                action: "email-send",
-                source: "subscriptions.service",
-              });
-              Sentry.captureException(err);
-            });
-            this.logger.error(
-              `SubscriptionsService::initiateNewSubscription ${err.message}`,
-            );
-          }
+          // try {
+          //   this.logger.log("Sending payment reminder emails: now");
+          //   await this.mailService.sendEmail(
+          //     emailBuilder({
+          //       from: this.from,
+          //       to: email,
+          //       subject: "Your hiring tools are waiting for you!",
+          //       previewText:
+          //         "Complete your purchase and unlock JobStash features to help streamline your hiring process.",
+          //       title: "Hey there,",
+          //       bodySections: [
+          //         text(
+          //           "We noticed you left some powerful hiring add-ons in your cart. These features can help you find the right talent faster and more efficiently - perfect for taking your recruitment process to the next level.",
+          //         ),
+          //         text(
+          //           "Don’t leave these tools behind! Just click below to finish your purchase.",
+          //         ),
+          //         button("Complete Your Purchase", paymentLink.url),
+          //         text(
+          //           "If you have any questions or need more info, we’re here to help!",
+          //         ),
+          //       ],
+          //     }),
+          //   );
+          //   const now = new Date();
+          //   this.logger.log("Scheduling payment reminder emails: 24 hours");
+          //   await this.mailService.scheduleEmailWithPredicate({
+          //     mail: emailBuilder({
+          //       from: this.from,
+          //       to: email,
+          //       subject: "Your hiring tools are still waiting for you!",
+          //       previewText:
+          //         "Let’s finish what you started! These add-ons are designed to make your hiring easier.",
+          //       title: "Hi there,",
+          //       bodySections: [
+          //         text(
+          //           "It’s been 24 hours since you added those hiring add-ons to your cart. These features are designed to help you streamline your hiring process, access a broader talent pool, and make smarter recruitment decisions.",
+          //         ),
+          //         text("Take the next step and complete your purchase now."),
+          //         button("Complete Your Purchase", paymentLink.url),
+          //         text(
+          //           "We’re here to help if you have any questions or need assistance.",
+          //         ),
+          //       ],
+          //     }),
+          //     predicateName: "isPaymentReminderNeeded",
+          //     predicateData: {
+          //       paymentReference: paymentLink.id,
+          //       orgId: dto.orgId,
+          //     },
+          //     time: addHours(now, 24).getTime(),
+          //   });
+          //   this.logger.log("Scheduling payment reminder emails: 3 days");
+          //   await this.mailService.scheduleEmailWithPredicate({
+          //     mail: emailBuilder({
+          //       from: this.from,
+          //       to: email,
+          //       subject: "Still interested in optimizing your hiring process?",
+          //       previewText:
+          //         "The add-ons you need to improve your hiring are still in your cart!",
+          //       title: "Hello again,",
+          //       bodySections: [
+          //         text(
+          //           "It’s been a few days, and we just wanted to remind you that your cart is still open.",
+          //         ),
+          //         text(
+          //           "These hiring add-ons are designed to make your recruitment process more efficient and give you the edge you need in today’s competitive job market.",
+          //         ),
+          //         text("Ready to take the next step?"),
+          //         button("Complete Your Purchase", paymentLink.url),
+          //         text(
+          //           "If you’d like more details or have any questions, we’re always here to chat!",
+          //         ),
+          //       ],
+          //     }),
+          //     predicateName: "isPaymentReminderNeeded",
+          //     predicateData: {
+          //       paymentReference: paymentLink.id,
+          //       orgId: dto.orgId,
+          //     },
+          //     time: addDays(now, 3).getTime(),
+          //   });
+          //   this.logger.log("Scheduling payment reminder emails: 7 days");
+          //   await this.mailService.scheduleEmailWithPredicate({
+          //     mail: emailBuilder({
+          //       from: this.from,
+          //       to: email,
+          //       subject: "Last chance to complete your purchase!",
+          //       previewText:
+          //         "Don’t let your hiring tools slip away. Your cart expires soon.",
+          //       title: "Hey there,",
+          //       bodySections: [
+          //         text("Your cart is about to expire!"),
+          //         text(
+          //           "These hiring add-ons are a great way to enhance your recruitment process, this is your final chance to grab them and improve your hiring process.",
+          //         ),
+          //         button("Complete Your Purchase", paymentLink.url),
+          //         text(
+          //           "Let us know if you have any questions - we’d be happy to help!",
+          //         ),
+          //       ],
+          //     }),
+          //     predicateName: "isPaymentReminderNeeded",
+          //     predicateData: {
+          //       paymentReference: paymentLink.id,
+          //       orgId: dto.orgId,
+          //     },
+          //     time: addDays(now, 7).getTime(),
+          //   });
+          // } catch (err) {
+          //   Sentry.withScope(scope => {
+          //     scope.setTags({
+          //       action: "email-send",
+          //       source: "subscriptions.service",
+          //     });
+          //     Sentry.captureException(err);
+          //   });
+          //   this.logger.error(
+          //     `SubscriptionsService::initiateNewSubscription ${err.message}`,
+          //   );
+          // }
           this.logger.log("Subscription initiated successfully");
           return {
             success: true,
