@@ -33,12 +33,11 @@ import { PrivyService } from "src/auth/privy/privy.service";
 import { PermissionService } from "./permission.service";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { Subscription } from "src/shared/interfaces/org";
-import { now, uniq } from "lodash";
+import { uniq } from "lodash";
 import {
   PrivyTransferEventPayload,
   PrivyUpdateEventPayload,
 } from "src/auth/privy/dto/webhook.payload";
-import { subMonths } from "date-fns";
 
 @Injectable()
 export class UserService {
@@ -1247,7 +1246,7 @@ export class UserService {
               upvotes: null,
               downvotes: null
             },
-            note: [(user)-[:HAS_RECRUITER_NOTE]->(note:RecruiterNote)<-[:HAS_TALENT_NOTE]-(:Organization) | note.note][0],
+            note: [(user)-[:HAS_RECRUITER_NOTE]->(note:RecruiterNote)<-[:HAS_TALENT_NOTE]-(:Organization { orgId: $orgId }) | note.note][0],
             availableForWork: user.available,
             name: user.name,
             avatar: user.avatar,
@@ -1280,6 +1279,7 @@ export class UserService {
             lastAppliedTimestamp: lastAppliedTimestamp
           } AS user
         `,
+          { orgId: orgId ?? null },
         )
         .then(res => res.records.map(x => x.get("user")).filter(locationFilter))
         .catch(err => {
