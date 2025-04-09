@@ -5,13 +5,14 @@ import {
   Post,
   Query,
   UseGuards,
+  UseInterceptors,
   ValidationPipe,
 } from "@nestjs/common";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { UserService } from "./user.service";
 import { Permissions, Session } from "src/shared/decorators";
 import { PBACGuard } from "src/auth/pbac.guard";
-import { CheckWalletPermissions } from "src/shared/constants";
+import { CACHE_DURATION, CheckWalletPermissions } from "src/shared/constants";
 import {
   AdjacentRepo,
   UserAvailableForWork,
@@ -31,6 +32,7 @@ import { ScorerService } from "src/scorer/scorer.service";
 import { AddUserNoteInput } from "./dto/add-user-note.dto";
 import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
 import { NewSubscriptionInput } from "src/subscriptions/new-subscription.input";
+import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 
 @Controller("users")
 export class UserController {
@@ -53,6 +55,7 @@ export class UserController {
   @Get("available")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   async getUsersAvailableForWork(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
