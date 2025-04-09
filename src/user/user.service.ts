@@ -1197,37 +1197,47 @@ export class UserService {
           `
           MATCH (user:User)
           WHERE user.available = true
-                
+
+          OPTIONAL MATCH (user)-[app:APPLIED_TO]->(job:StructuredJobpost)
+          WITH user, job, app.timestamp AS timestamp
+          WITH user, collect(DISTINCT job) AS jobs, max(timestamp) AS lastAppliedTimestamp
+
           CALL {
-            WITH user
-            OPTIONAL MATCH (user)-[act:APPLIED_TO]->(job:StructuredJobpost)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification)
-            WITH classification.name AS classification, count(*) AS f1
-            RETURN { classification: classification, frequency: f1 } AS classification, f1
-            ORDER BY f1 DESC
+            WITH user, jobs
+            UNWIND jobs AS job
+            OPTIONAL MATCH (job)-[:HAS_CLASSIFICATION]->(jc:JobpostClassification)
+            WITH user, jc.name AS cname
+            WITH user, collect(cname) AS rawClassifications
+            RETURN apoc.map.fromPairs(
+                    [c IN apoc.coll.toSet(rawClassifications) |
+                      [c, size([x IN rawClassifications WHERE x = c])]
+                    ]) AS classificationFrequencies
           }
 
           CALL {
-            WITH user
-            OPTIONAL MATCH (user)-[act:APPLIED_TO]->(job:StructuredJobpost)
-            WHERE act.timestamp >= $threeMonthsAgo
-            OPTIONAL MATCH (job)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-            WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-            OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
-            OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
-            WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
-            WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
-            WITH canonicalTag.name AS tag, count(*) AS f2
-            RETURN { tag: tag, frequency: f2 } AS tag, f2
-            ORDER BY f2 DESC
+            WITH user, jobs
+            UNWIND jobs AS job
+            OPTIONAL MATCH (job)-[:HAS_TAG]->(tag:Tag)
+            OPTIONAL MATCH (tag)-[:HAS_TAG_DESIGNATION]->(designation:TagDesignation)
+            OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
+            OPTIONAL MATCH (tag)-[:IS_PAIR_OF]->(pair:Tag)-[:HAS_TAG_DESIGNATION]->(:PairedDesignation)
+            WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
+              AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+              AND (designation:AllowedDesignation OR designation:DefaultDesignation)
+            WITH user,
+                CASE 
+                  WHEN synonym IS NOT NULL THEN synonym.name
+                  WHEN pair IS NOT NULL THEN pair.name
+                  ELSE tag.name
+                END AS canonicalTag
+            WITH user, collect(canonicalTag) AS rawTags
+            RETURN apoc.map.fromPairs(
+                    [t IN apoc.coll.toSet(rawTags) |
+                      [t, size([x IN rawTags WHERE x = t])]
+                    ]) AS tagFrequencies
           }
 
-          CALL {
-            WITH user
-            OPTIONAL MATCH (user)-[act:APPLIED_TO]->(job:StructuredJobpost)
-            RETURN max(act.timestamp) AS lastAppliedTimestamp
-          }
-                
-          WITH user, collect(classification) AS classifications, collect(tag) AS tags, lastAppliedTimestamp
+          WITH user, lastAppliedTimestamp, classificationFrequencies, tagFrequencies
 
           RETURN {
             wallet: user.wallet,
@@ -1237,45 +1247,39 @@ export class UserService {
               upvotes: null,
               downvotes: null
             },
-            note: [(user)-[:HAS_RECRUITER_NOTE]->(note: RecruiterNote)<-[:HAS_TALENT_NOTE]-(organization) | note.note][0],
+            note: [(user)-[:HAS_RECRUITER_NOTE]->(note:RecruiterNote)<-[:HAS_TALENT_NOTE]-(:Organization) | note.note][0],
             availableForWork: user.available,
             name: user.name,
             avatar: user.avatar,
             alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
-            linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account { .* }][0],
+            linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account:LinkedAccount) | account { .* }][0],
             wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address],
-            location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
+            location: [(user)-[:HAS_LOCATION]->(location:UserLocation) | location { .* }][0],
             skills: apoc.coll.toSet([
-                (user)-[r:HAS_SKILL]->(tag) |
-                tag {
-                  .*,
-                  canTeach: [(user)-[m:HAS_SKILL]->(tag) | m.canTeach][0]
-                }
+              (user)-[r:HAS_SKILL]->(tag:Tag) |
+              tag {
+                .*,
+                canTeach: [(user)-[m:HAS_SKILL]->(tag) | m.canTeach][0]
+              }
             ]),
             showcases: apoc.coll.toSet([
               (user)-[:HAS_SHOWCASE]->(showcase) |
-              showcase {
-                .*
-              }
+              showcase { .* }
             ]),
             workHistory: apoc.coll.toSet([
-              (user)-[:HAS_WORK_HISTORY]->(workHistory: UserWorkHistory) |
+              (user)-[:HAS_WORK_HISTORY]->(workHistory:UserWorkHistory) |
               workHistory {
-                .*,
+                .*, 
                 repositories: apoc.coll.toSet([
-                  (workHistory)-[:WORKED_ON_REPO]->(repo: UserWorkHistoryRepo) |
-                  repo {
-                    .*
-                  }
+                  (workHistory)-[:WORKED_ON_REPO]->(repo:UserWorkHistoryRepo) | repo { .* }
                 ])
               }
             ]),
-            jobCategoryInterests: classifications,
-            tags: tags,
+            jobCategoryInterests: [key IN keys(classificationFrequencies) | { classification: key, frequency: classificationFrequencies[key] }],
+            tags: [key IN keys(tagFrequencies) | { tag: key, frequency: tagFrequencies[key] }],
             lastAppliedTimestamp: lastAppliedTimestamp
-          } as user
+          } AS user
         `,
-          { orgId: orgId ?? null, threeMonthsAgo: subMonths(now(), 3) },
         )
         .then(res => res.records.map(x => x.get("user")).filter(locationFilter))
         .catch(err => {

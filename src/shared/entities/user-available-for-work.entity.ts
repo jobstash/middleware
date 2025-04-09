@@ -9,7 +9,7 @@ export class UserAvailableForWorkEntity {
   getProperties(): UserAvailableForWork {
     return new UserAvailableForWork({
       ...this.raw,
-      note: notStringOrNull(this.raw?.note),
+      note: notStringOrNull(this.raw?.note?.trim()),
       cryptoNative: this.raw?.cryptoNative ?? false,
       cryptoAdjacent: this.raw?.cryptoAdjacent ?? false,
       attestations: {
@@ -17,11 +17,11 @@ export class UserAvailableForWorkEntity {
         downvotes: nonZeroOrNull(this.raw?.attestations?.downvotes),
       },
       githubAvatar: notStringOrNull(this.raw?.githubAvatar),
-      name: notStringOrNull(this.raw?.name),
+      name: notStringOrNull(this.raw?.name?.trim()),
       alternateEmails: this.raw?.alternateEmails ?? [],
       location: {
-        city: notStringOrNull(this.raw?.location?.city),
-        country: notStringOrNull(this.raw?.location?.country),
+        city: notStringOrNull(this.raw?.location?.city?.trim()),
+        country: notStringOrNull(this.raw?.location?.country?.trim()),
       },
       availableForWork: this.raw?.availableForWork ?? false,
       linkedAccounts: {
@@ -57,8 +57,8 @@ export class UserAvailableForWorkEntity {
           workHistory?.repositories?.map(repository => ({
             ...repository,
             cryptoNative: repository?.cryptoNative ?? false,
-            name: notStringOrNull(repository.name),
-            description: notStringOrNull(repository.description),
+            name: notStringOrNull(repository.name?.trim()),
+            description: notStringOrNull(repository.description?.trim()),
             firstContributedAt: nonZeroOrNull(repository.firstContributedAt),
             lastContributedAt: nonZeroOrNull(repository.lastContributedAt),
             commitsCount: nonZeroOrNull(repository.commitsCount),
@@ -66,7 +66,21 @@ export class UserAvailableForWorkEntity {
           })) ?? [],
       })),
       ecosystemActivations: this.raw?.ecosystemActivations ?? [],
-      jobCategoryInterests: this.raw?.jobCategoryInterests ?? [],
+      jobCategoryInterests:
+        this.raw?.jobCategoryInterests
+          .map(interest => ({
+            classification: interest.classification ?? "N/A",
+            frequency: nonZeroOrNull(interest.frequency),
+          }))
+          .filter(interest => interest.classification !== "N/A") ?? [],
+      tags:
+        this.raw?.tags
+          .map(tag => ({
+            tag: tag.tag ?? "N/A",
+            frequency: nonZeroOrNull(tag.frequency),
+          }))
+          .filter(tag => tag.tag !== "N/A") ?? [],
+      lastAppliedTimestamp: nonZeroOrNull(this.raw?.lastAppliedTimestamp),
     });
   }
 }
