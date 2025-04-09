@@ -33,11 +33,12 @@ import { PrivyService } from "src/auth/privy/privy.service";
 import { PermissionService } from "./permission.service";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { Subscription } from "src/shared/interfaces/org";
-import { uniq } from "lodash";
+import { now, uniq } from "lodash";
 import {
   PrivyTransferEventPayload,
   PrivyUpdateEventPayload,
 } from "src/auth/privy/dto/webhook.payload";
+import { subMonths } from "date-fns";
 
 @Injectable()
 export class UserService {
@@ -1199,14 +1200,34 @@ export class UserService {
                 
           CALL {
             WITH user
-            MATCH (organization: Organization {orgId: $orgId})
-            OPTIONAL MATCH (user)-[act:VIEWED_DETAILS|APPLIED_TO]->(job:StructuredJobpost)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]-(organization)
-            OPTIONAL MATCH (job)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification)
-            RETURN classification.name AS classification, count(*) AS frequency
-            ORDER BY frequency DESC
+            OPTIONAL MATCH (user)-[act:APPLIED_TO]->(job:StructuredJobpost)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification)
+            WITH classification.name AS classification, count(*) AS f1
+            RETURN { classification: classification, frequency: f1 } AS classification, f1
+            ORDER BY f1 DESC
+          }
+
+          CALL {
+            WITH user
+            OPTIONAL MATCH (user)-[act:APPLIED_TO]->(job:StructuredJobpost)
+            WHERE act.timestamp >= $threeMonthsAgo
+            OPTIONAL MATCH (job)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+            WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+            OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+            OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+            WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
+            WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
+            WITH canonicalTag.name AS tag, count(*) AS f2
+            RETURN { tag: tag, frequency: f2 } AS tag, f2
+            ORDER BY f2 DESC
+          }
+
+          CALL {
+            WITH user
+            OPTIONAL MATCH (user)-[act:APPLIED_TO]->(job:StructuredJobpost)
+            RETURN max(act.timestamp) AS lastAppliedTimestamp
           }
                 
-          WITH user, collect(classification) AS classifications
+          WITH user, collect(classification) AS classifications, collect(tag) AS tags, lastAppliedTimestamp
 
           RETURN {
             wallet: user.wallet,
@@ -1249,10 +1270,12 @@ export class UserService {
                 ])
               }
             ]),
-            jobCategoryInterests: classifications
+            jobCategoryInterests: classifications,
+            tags: tags,
+            lastAppliedTimestamp: lastAppliedTimestamp
           } as user
         `,
-          { orgId: orgId ?? null },
+          { orgId: orgId ?? null, threeMonthsAgo: subMonths(now(), 3) },
         )
         .then(res => res.records.map(x => x.get("user")).filter(locationFilter))
         .catch(err => {

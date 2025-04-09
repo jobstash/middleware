@@ -20,7 +20,11 @@ export class UserAvailableForWork extends UserProfile {
       skills: t.array(UserSkill.UserSkillType),
       showcases: t.array(UserShowCase.UserShowCaseType),
       workHistory: t.array(UserWorkHistory.UserWorkHistoryType),
-      jobCategoryInterests: t.array(t.string),
+      jobCategoryInterests: t.array(
+        t.strict({ classification: t.string, frequency: t.number }),
+      ),
+      tags: t.array(t.strict({ tag: t.string, frequency: t.number })),
+      lastAppliedTimestamp: t.union([t.number, t.null]),
     }),
   ]);
 
@@ -46,7 +50,13 @@ export class UserAvailableForWork extends UserProfile {
   note: string | null;
 
   @ApiProperty()
-  jobCategoryInterests: string[];
+  jobCategoryInterests: { classification: string; frequency: number }[];
+
+  @ApiProperty()
+  tags: { tag: string; frequency: number }[];
+
+  @ApiProperty()
+  lastAppliedTimestamp: number | null;
 
   constructor(raw: UserAvailableForWork) {
     const {
@@ -57,6 +67,8 @@ export class UserAvailableForWork extends UserProfile {
       note,
       ecosystemActivations,
       jobCategoryInterests,
+      tags,
+      lastAppliedTimestamp,
       ...profile
     } = raw;
     super(profile);
@@ -68,6 +80,8 @@ export class UserAvailableForWork extends UserProfile {
     this.note = note;
     this.ecosystemActivations = ecosystemActivations;
     this.jobCategoryInterests = jobCategoryInterests;
+    this.tags = tags;
+    this.lastAppliedTimestamp = lastAppliedTimestamp;
 
     const result = UserAvailableForWork.UserAvailableForWorkType.decode(raw);
 
