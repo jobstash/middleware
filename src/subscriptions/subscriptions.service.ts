@@ -225,7 +225,7 @@ export class SubscriptionsService {
             }),
             action: "new-subscription",
           },
-          redirect_url: `${this.ORG_ADMIN_DOMAIN}`,
+          redirect_url: `${this.ORG_ADMIN_DOMAIN}/payment/confirmation`,
           cancel_url: `${this.ORG_ADMIN_DOMAIN}`,
         });
 
@@ -1029,7 +1029,7 @@ export class SubscriptionsService {
             }),
             action: "subscription-renewal",
           },
-          redirect_url: `${this.ORG_ADMIN_DOMAIN}`,
+          redirect_url: `${this.ORG_ADMIN_DOMAIN}/payment/confirmation`,
           cancel_url: `${this.ORG_ADMIN_DOMAIN}`,
         });
 
@@ -1449,7 +1449,7 @@ export class SubscriptionsService {
             }),
             action: `subscription-change`,
           },
-          redirect_url: `${this.ORG_ADMIN_DOMAIN}`,
+          redirect_url: `${this.ORG_ADMIN_DOMAIN}/payment/confirmation`,
           cancel_url: `${this.ORG_ADMIN_DOMAIN}`,
         });
 
