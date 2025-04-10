@@ -5,11 +5,17 @@ export class UserProfileEntity {
   constructor(private readonly raw: UserProfile) {}
 
   getProperties(): UserProfile {
+    const privyEmails = [
+      this.raw?.linkedAccounts?.email,
+      this.raw?.linkedAccounts?.google,
+      this.raw?.linkedAccounts?.apple,
+    ];
     return new UserProfile({
       ...this.raw,
       githubAvatar: notStringOrNull(this.raw?.githubAvatar),
       name: notStringOrNull(this.raw?.name),
-      alternateEmails: this.raw?.alternateEmails ?? [],
+      alternateEmails:
+        this.raw?.alternateEmails.filter(x => !privyEmails.includes(x)) ?? [],
       location: {
         city: notStringOrNull(this.raw?.location?.city),
         country: notStringOrNull(this.raw?.location?.country),
