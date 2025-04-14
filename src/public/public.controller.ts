@@ -56,12 +56,12 @@ export class PublicController {
     },
   })
   async getAllJobs(
-    @Session() { address }: SessionObject,
+    @Session() session: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
     params: JobListParams,
   ): Promise<PaginatedData<JobListResult>> {
     this.logger.log(`/public/all-jobs ${JSON.stringify(params)}`);
-    return await this.publicService.getAllJobsList(params, !!address);
+    return await this.publicService.getAllJobsList(params, !!session);
   }
 
   @Get("/all-jobs/filters")
