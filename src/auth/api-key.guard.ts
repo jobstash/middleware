@@ -19,7 +19,7 @@ export class ApiKeyGuard implements CanActivate {
     const req = httpContext.getRequest<Request>();
 
     const hasPermission =
-      req.headers["authorization"]?.split(" ")[1] === this.apiKey;
+      req.headers["authorization"]?.replace("Bearer ", "") === this.apiKey;
 
     if (hasPermission) {
       return true;

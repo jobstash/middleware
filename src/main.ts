@@ -13,7 +13,6 @@ import * as basicAuth from "express-basic-auth";
 import * as compression from "compression";
 import { PublicModule } from "./public/public.module";
 import { generatePublicApiSpec } from "./shared/helpers";
-import { OrganizationsModule } from "./organizations/organizations.module";
 dotenv.config();
 
 if (!process.env.SESSION_SECRET) throw new Error("SESSION_SECRET must be set");
@@ -70,15 +69,15 @@ async function bootstrap(): Promise<void> {
   SwaggerModule.setup("api", app, document);
 
   const publicConfig = new DocumentBuilder()
-    .setTitle("JobStash Middleware")
+    .setTitle("JobStash Public API")
     .setDescription(
-      "This application provides all the data needed by the various frontends in a unified, latency-optimised way",
+      "This application provides third-party access to public data from the JobStash dataset",
     )
+    .addBearerAuth()
     .build();
   const publicDocument = generatePublicApiSpec(
     SwaggerModule.createDocument(app, publicConfig, {
-      // include: [OrganizationsModule, ProjectsModule, PublicModule],
-      include: [PublicModule, OrganizationsModule],
+      include: [PublicModule],
     }),
   );
 
