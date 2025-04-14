@@ -597,8 +597,8 @@ export const generatePublicApiSpec = (
       }),
     ),
     components: {
-      schemas: PUBLIC_API_SCHEMAS,
       ...defaultSpec.components,
+      schemas: PUBLIC_API_SCHEMAS,
     },
   };
 };
