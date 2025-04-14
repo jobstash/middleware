@@ -79,6 +79,7 @@ export class ProjectListResultEntity {
               ? nonZeroOrNull(jobpost?.featureEndDate)
               : null,
             featured: isStillFeatured,
+            onboardIntoWeb3: jobpost?.onboardIntoWeb3 ?? false,
           };
         }) ?? [],
       repos:
@@ -143,6 +144,7 @@ export class ProjectCompetitorListResultEntity {
           culture: notStringOrNull(jobpost?.culture, ["", "undefined"]),
           salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
           paysInCrypto: jobpost?.paysInCrypto ?? null,
+          onboardIntoWeb3: jobpost?.onboardIntoWeb3 ?? false,
           offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
           url:
             jobpost?.access === "protected"
