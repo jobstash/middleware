@@ -31,7 +31,7 @@ export class PublicController {
   private readonly logger = new CustomLogger(PublicController.name);
   constructor(private readonly publicService: PublicService) {}
 
-  @Get("/all-jobs")
+  @Get("jobs")
   @ApiBearerAuth()
   @UseGuards(ApiKeyGuard)
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
@@ -62,11 +62,11 @@ export class PublicController {
     @Query(new ValidationPipe({ transform: true }))
     params: JobListParams,
   ): Promise<PaginatedData<JobListResult>> {
-    this.logger.log(`/public/all-jobs ${JSON.stringify(params)}`);
+    this.logger.log(`/public/jobs ${JSON.stringify(params)}`);
     return await this.publicService.getAllJobsList(params, true);
   }
 
-  @Get("/all-jobs/list")
+  @Get("jobs/list")
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description: "Returns a paginated list of all active jobs ",
@@ -95,11 +95,11 @@ export class PublicController {
     @Query(new ValidationPipe({ transform: true }))
     params: JobListParams,
   ): Promise<PaginatedData<JobListResult>> {
-    this.logger.log(`/public/all-jobs/list ${JSON.stringify(params)}`);
+    this.logger.log(`/public/jobs/list ${JSON.stringify(params)}`);
     return await this.publicService.getAllJobsList(params, false);
   }
 
-  @Get("/all-jobs/filters")
+  @Get("jobs/filters")
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description: "Returns the configuration data for the ui filters",
@@ -120,7 +120,7 @@ export class PublicController {
     @Headers(COMMUNITY_HEADER)
     community: string | undefined,
   ): Promise<JobFilterConfigs> {
-    this.logger.log(`/public/all-jobs/filters`);
+    this.logger.log(`/public/jobs/filters`);
     return this.publicService.getAllJobsFilterConfigs(community);
   }
 }
