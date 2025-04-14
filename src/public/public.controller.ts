@@ -3,6 +3,7 @@ import {
   Get,
   Headers,
   Query,
+  UseGuards,
   UseInterceptors,
   ValidationPipe,
 } from "@nestjs/common";
@@ -16,14 +17,13 @@ import {
   JobFilterConfigs,
   JobListResult,
   PaginatedData,
-  SessionObject,
   ValidationError,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { CACHE_DURATION, COMMUNITY_HEADER } from "src/shared/constants";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { JobListParams } from "src/jobs/dto/job-list.input";
-import { Session } from "src/shared/decorators";
+import { ApiKeyGuard } from "src/auth/api-key.guard";
 
 @Controller("public")
 export class PublicController {
@@ -31,6 +31,7 @@ export class PublicController {
   constructor(private readonly publicService: PublicService) {}
 
   @Get("/all-jobs")
+  @UseGuards(ApiKeyGuard)
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description: "Returns a paginated list of all active jobs ",
@@ -56,12 +57,44 @@ export class PublicController {
     },
   })
   async getAllJobs(
-    @Session() session: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
     params: JobListParams,
   ): Promise<PaginatedData<JobListResult>> {
     this.logger.log(`/public/all-jobs ${JSON.stringify(params)}`);
-    return await this.publicService.getAllJobsList(params, !!session);
+    return await this.publicService.getAllJobsList(params, true);
+  }
+
+  @Get("/all-jobs/list")
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @ApiOkResponse({
+    description: "Returns a paginated list of all active jobs ",
+    type: PaginatedData<JobListResult>,
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(PaginatedData),
+          properties: {
+            page: {
+              type: "number",
+            },
+            count: {
+              type: "number",
+            },
+            data: {
+              type: "array",
+              items: { $ref: getSchemaPath(JobListResult) },
+            },
+          },
+        },
+      ],
+    },
+  })
+  async getAllJobsList(
+    @Query(new ValidationPipe({ transform: true }))
+    params: JobListParams,
+  ): Promise<PaginatedData<JobListResult>> {
+    this.logger.log(`/public/all-jobs/list ${JSON.stringify(params)}`);
+    return await this.publicService.getAllJobsList(params, false);
   }
 
   @Get("/all-jobs/filters")
