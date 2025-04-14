@@ -10,6 +10,7 @@ import {
 import { PublicService } from "./public.service";
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiOkResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
@@ -31,6 +32,7 @@ export class PublicController {
   constructor(private readonly publicService: PublicService) {}
 
   @Get("/all-jobs")
+  @ApiBearerAuth()
   @UseGuards(ApiKeyGuard)
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({

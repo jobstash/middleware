@@ -13,6 +13,7 @@ import {
   ProjectWithRelations,
   FundingRound,
   OrgReview,
+  GrantFunding,
 } from "../interfaces";
 
 export const PUBLIC_API_SCHEMAS = {
@@ -180,119 +181,6 @@ export const PUBLIC_API_SCHEMAS = {
             },
           },
         },
-      },
-    },
-  },
-  ShortOrg: {
-    type: "object",
-    properties: {
-      orgId: {
-        description: "The unique internal id of the organization",
-        type: "string",
-        example: "123",
-      },
-      name: {
-        description: "The name of the organization",
-        type: "string",
-        example: "Example Organization",
-      },
-      normalizedName: {
-        description: "The normalized name of the organization",
-        type: "string",
-        example: "example-organization",
-      },
-      location: {
-        description: "The location of the organization",
-        type: "string",
-        example: "San Francisco, CA",
-      },
-      projectCount: {
-        description: "The number of projects in the organization",
-        type: "number",
-        example: 100,
-      },
-      aggregateRating: {
-        description: "The aggregate rating of the organization",
-        type: "number",
-        example: 4.5,
-      },
-      reviewCount: {
-        description: "The number of reviews for the organization",
-        type: "number",
-        example: 100,
-      },
-      headcountEstimate: {
-        description: "The estimated headcount of the organization",
-        type: "number",
-        example: 100,
-      },
-      lastFundingDate: {
-        description: "The date of the last funding round",
-        type: "number",
-        example: 1650963200,
-      },
-      lastFundingAmount: {
-        description: "The amount of the last funding round",
-        type: "number",
-        example: 10000,
-      },
-      url: {
-        description: "The url of the organization",
-        type: "string",
-        example: "https://example.com",
-      },
-      community: {
-        description: "The list of communities the organization belongs to",
-        type: "array",
-        items: {
-          type: "string",
-        },
-        example: ["LobsterDAO", "EthDam"],
-      },
-      grants: {
-        description: "The list of grants the organization has applied for",
-        type: "array",
-        items: {
-          type: "string",
-        },
-        example: ["Grant 1", "Grant 2"],
-      },
-      logoUrl: {
-        description: "The url of the organization's logo",
-        type: "string",
-        example: "https://example.com/logo.png",
-      },
-    },
-  },
-  OrgFilterConfigs: {
-    type: "object",
-    properties: {
-      headcountEstimate: {
-        $ref: getSchemaPath(RangeFilter),
-      },
-      fundingRounds: {
-        $ref: getSchemaPath(MultiSelectFilter),
-      },
-      investors: {
-        $ref: getSchemaPath(MultiSelectFilter),
-      },
-      communities: {
-        $ref: getSchemaPath(MultiSelectFilter),
-      },
-      locations: {
-        $ref: getSchemaPath(MultiSelectFilter),
-      },
-      hasJobs: {
-        $ref: getSchemaPath(SingleSelectFilter),
-      },
-      hasProjects: {
-        $ref: getSchemaPath(SingleSelectFilter),
-      },
-      order: {
-        $ref: getSchemaPath(SingleSelectFilter),
-      },
-      orderBy: {
-        $ref: getSchemaPath(SingleSelectFilter),
       },
     },
   },
@@ -987,514 +875,50 @@ export const PUBLIC_API_SCHEMAS = {
       },
     },
   },
-  OrgDetailsResult: {
+  GrantFunding: {
     type: "object",
     properties: {
       id: {
-        description: "The unique internal uuid of the organization",
+        description: "The unique internal uuid of the grant",
         type: "string",
         example: "6e62a5a8-49a0-4606-8112-6b43de8a4d89",
       },
-      orgId: {
-        description: "The unique internal id of the organization",
-        type: "string",
-        example: "123",
-      },
-      name: {
-        description: "The name of the organization",
-        type: "string",
-        example: "Example Organization",
-      },
-      normalizedName: {
-        description: "The normalized name of the organization",
-        type: "string",
-        example: "example-organization",
-      },
-      location: {
-        description: "The location of the organization",
-        type: "string",
-        example: "San Francisco, CA",
-      },
-      summary: {
-        description: "A summary of the organization",
-        type: "string",
-        example: "Example Organization",
-      },
-      description: {
-        description: "A description of the organization",
-        type: "string",
-        example: "Example Organization",
-      },
-      logoUrl: {
-        description: "The url of the organization's logo",
-        type: "string",
-        example: "https://example.com/logo.png",
-      },
-      headcountEstimate: {
-        description: "The estimated headcount of the organization",
+      tokenAmount: {
+        description: "The amount of tokens received in the grant",
         type: "number",
-        example: 100,
+        example: 10000,
+      },
+      tokenUnit: {
+        description: "The unit of the token received in the grant",
+        type: "string",
+        example: "ETH",
+      },
+      fundingDate: {
+        description: "The date the grant was funded",
+        type: "number",
+        example: 1650963200,
+      },
+      amount: {
+        description: "The amount of money received in the grant",
+        type: "number",
+        example: 10000,
+      },
+      programName: {
+        description: "The name of the grant program",
+        type: "string",
+        example: "Example Program",
       },
       createdTimestamp: {
-        description: "The timestamp of when the organization was created",
+        description: "The timestamp of when the grant was created",
         type: "number",
         example: 1650963200,
       },
       updatedTimestamp: {
-        description: "The timestamp of when the organization was last updated",
+        description: "The timestamp of when the grant was last updated",
         type: "number",
         example: 1650963200,
       },
-      aggregateRating: {
-        description: "The aggregate rating of the organization",
-        type: "number",
-        example: 4.5,
-      },
-      aggregateRatings: {
-        description: "The aggregate ratings of the organization",
-        type: "object",
-        example: {
-          benefits: 4.5,
-          careerGrowth: 4.5,
-          competency: 4.5,
-          diversityInclusion: 4.5,
-          management: 4.5,
-          onboarding: 4.5,
-          product: 4.5,
-        },
-      },
-      reviewCount: {
-        description: "The number of reviews for the organization",
-        type: "number",
-        example: 100,
-      },
-      discord: {
-        description: "The url of the organization's discord server",
-        type: "string",
-        example: "https://example.com/discord",
-      },
-      website: {
-        description: "The url of the organization's website",
-        type: "string",
-        example: "https://example.com",
-      },
-      telegram: {
-        description: "The url of the organization's telegram group",
-        type: "string",
-        example: "https://example.com/telegram",
-      },
-      github: {
-        description: "The url of the organization's github repository",
-        type: "string",
-        example: "https://example.com/github",
-      },
-      aliases: {
-        description: "The list of aliases for the organization",
-        type: "array",
-        items: {
-          type: "string",
-        },
-        example: ["Example Organization", "Example Organization"],
-      },
-      twitter: {
-        description: "The url of the organization's twitter profile",
-        type: "string",
-        example: "https://example.com/twitter",
-      },
-      docs: {
-        description: "The url of the organization's documentation",
-        type: "string",
-        example: "https://example.com/docs",
-      },
-      community: {
-        description: "The list of communities the organization belongs to",
-        type: "array",
-        items: {
-          type: "string",
-        },
-        example: ["LobsterDAO", "EthDam"],
-      },
-      grants: {
-        description: "The list of grants the organization has applied for",
-        type: "array",
-        items: {
-          type: "string",
-        },
-        example: ["Grant 1", "Grant 2"],
-      },
-      projects: {
-        description: "The list of projects the organization has created",
-        type: "array",
-        items: {
-          $ref: getSchemaPath(ProjectWithRelations),
-        },
-      },
-      fundingRounds: {
-        description:
-          "The list of funding rounds the organization has applied for",
-        type: "array",
-        items: {
-          $ref: getSchemaPath(FundingRound),
-        },
-      },
-      investors: {
-        description: "The list of investors the organization has applied for",
-        type: "array",
-        items: {
-          $ref: getSchemaPath(Investor),
-        },
-      },
-      reviews: {
-        description: "The list of reviews the organization has received",
-        type: "array",
-        items: {
-          $ref: getSchemaPath(OrgReview),
-        },
-      },
     },
-  },
-  ProjectListResult: {
-    type: "object",
-    properties: {
-      id: {
-        description: "The unique internal uuid of the project",
-        type: "string",
-        example: "6e62a5a8-49a0-4606-8112-6b43de8a4d89",
-      },
-      name: {
-        description: "The name of the project",
-        type: "string",
-        example: "Example Project",
-      },
-      orgId: {
-        description: "The unique internal id of the organization",
-        type: "string",
-        example: "128",
-      },
-      normalizedName: {
-        description: "The normalized name of the project",
-        type: "string",
-        example: "example-project",
-      },
-      website: {
-        description: "The url of the project's website",
-        type: "string",
-        example: "https://example.com",
-      },
-      logo: {
-        description: "The url of the project's logo",
-        type: "string",
-        example: "https://example.com/logo.png",
-      },
-      category: {
-        description: "The category of the project as defined by DefiLlama",
-        type: "string",
-        example: "Dexes",
-      },
-      tokenSymbol: {
-        description: "The token symbol of the project",
-        type: "string",
-        example: "EXAMPLE",
-      },
-      tvl: {
-        description: "The total value locked in the project",
-        type: "number",
-        example: 10000,
-      },
-      monthlyVolume: {
-        description: "The monthly volume of the project",
-        type: "number",
-        example: 10000,
-      },
-      monthlyFees: {
-        description: "The monthly fees of the project",
-        type: "number",
-        example: 10000,
-      },
-      monthlyRevenue: {
-        description: "The monthly revenue of the project",
-        type: "number",
-        example: 10000,
-      },
-      monthlyActiveUsers: {
-        description: "The monthly active users of the project",
-        type: "number",
-        example: 10000,
-      },
-      hacks: {
-        description: "The list of hacks the project has fallen victim to",
-        type: "array",
-        items: {
-          $ref: getSchemaPath(Hack),
-        },
-      },
-      audits: {
-        description: "The list of audits the project has had done",
-        type: "array",
-        items: {
-          $ref: getSchemaPath(Audit),
-        },
-      },
-      chains: {
-        description: "The list of chains the project has been deployed on",
-        type: "array",
-        items: {
-          $ref: getSchemaPath(Chain),
-        },
-      },
-      jobs: {
-        description: "The list of open positions the project has",
-        type: "array",
-        items: {
-          $ref: getSchemaPath(StructuredJobpostWithRelations),
-        },
-      },
-      repos: {
-        description: "The list of repositories the project has",
-        type: "array",
-        items: {
-          $ref: getSchemaPath(Repository),
-        },
-      },
-    },
-  },
-  ProjectFilterConfigs: {
-    type: "object",
-    properties: {
-      tvl: {
-        $ref: getSchemaPath(RangeFilter),
-      },
-      monthlyFees: {
-        $ref: getSchemaPath(RangeFilter),
-      },
-      monthlyRevenue: { $ref: getSchemaPath(RangeFilter) },
-      monthlyVolume: { $ref: getSchemaPath(RangeFilter) },
-      hacks: {
-        $ref: getSchemaPath(MultiSelectFilter),
-      },
-      audits: {
-        $ref: getSchemaPath(MultiSelectFilter),
-      },
-      chains: {
-        $ref: getSchemaPath(MultiSelectFilter),
-      },
-      order: {
-        $ref: getSchemaPath(SingleSelectFilter),
-      },
-      orderBy: {
-        $ref: getSchemaPath(SingleSelectFilter),
-      },
-      investors: {
-        $ref: getSchemaPath(MultiSelectFilter),
-      },
-      categories: {
-        $ref: getSchemaPath(MultiSelectFilter),
-      },
-      communities: {
-        $ref: getSchemaPath(MultiSelectFilter),
-      },
-      organizations: {
-        $ref: getSchemaPath(MultiSelectFilter),
-      },
-    },
-  },
-  ProjectDetailsResult: {
-    allOf: [
-      {
-        $ref: getSchemaPath(ProjectWithRelations),
-      },
-      {
-        type: "object",
-        properties: {
-          organization: {
-            properties: {
-              id: {
-                description: "The unique internal uuid of the organization",
-                type: "string",
-                example: "6e62a5a8-49a0-4606-8112-6b43de8a4d89",
-              },
-              orgId: {
-                description: "The unique internal id of the organization",
-                type: "string",
-                example: "123",
-              },
-              name: {
-                description: "The name of the organization",
-                type: "string",
-                example: "Example Organization",
-              },
-              normalizedName: {
-                description: "The normalized name of the organization",
-                type: "string",
-                example: "example-organization",
-              },
-              location: {
-                description: "The location of the organization",
-                type: "string",
-                example: "San Francisco, CA",
-              },
-              summary: {
-                description: "A summary of the organization",
-                type: "string",
-                example: "Example Organization",
-              },
-              description: {
-                description: "A description of the organization",
-                type: "string",
-                example: "Example Organization",
-              },
-              logoUrl: {
-                description: "The url of the organization's logo",
-                type: "string",
-                example: "https://example.com/logo.png",
-              },
-              headcountEstimate: {
-                description: "The estimated headcount of the organization",
-                type: "number",
-                example: 100,
-              },
-              createdTimestamp: {
-                description:
-                  "The timestamp of when the organization was created",
-                type: "number",
-                example: 1650963200,
-              },
-              updatedTimestamp: {
-                description:
-                  "The timestamp of when the organization was last updated",
-                type: "number",
-                example: 1650963200,
-              },
-              aggregateRating: {
-                description: "The aggregate rating of the organization",
-                type: "number",
-                example: 4.5,
-              },
-              aggregateRatings: {
-                description: "The aggregate ratings of the organization",
-                type: "object",
-                example: {
-                  benefits: 4.5,
-                  careerGrowth: 4.5,
-                  competency: 4.5,
-                  diversityInclusion: 4.5,
-                  management: 4.5,
-                  onboarding: 4.5,
-                  product: 4.5,
-                },
-              },
-              reviewCount: {
-                description: "The number of reviews for the organization",
-                type: "number",
-                example: 100,
-              },
-              discord: {
-                description: "The url of the organization's discord server",
-                type: "string",
-                example: "https://example.com/discord",
-              },
-              website: {
-                description: "The url of the organization's website",
-                type: "string",
-                example: "https://example.com",
-              },
-              telegram: {
-                description: "The url of the organization's telegram group",
-                type: "string",
-                example: "https://example.com/telegram",
-              },
-              github: {
-                description: "The url of the organization's github repository",
-                type: "string",
-                example: "https://example.com/github",
-              },
-              aliases: {
-                description: "The list of aliases for the organization",
-                type: "array",
-                items: {
-                  type: "string",
-                },
-                example: ["Example Organization", "Example Organization"],
-              },
-              twitter: {
-                description: "The url of the organization's twitter profile",
-                type: "string",
-                example: "https://example.com/twitter",
-              },
-              docs: {
-                description: "The url of the organization's documentation",
-                type: "string",
-                example: "https://example.com/docs",
-              },
-              community: {
-                description:
-                  "The list of communities the organization belongs to",
-                type: "array",
-                items: {
-                  type: "string",
-                },
-                example: ["LobsterDAO", "EthDam"],
-              },
-              grants: {
-                description:
-                  "The list of grants the organization has applied for",
-                type: "array",
-                items: {
-                  type: "string",
-                },
-                example: ["Grant 1", "Grant 2"],
-              },
-              projects: {
-                description:
-                  "The list of projects the organization has created",
-                type: "array",
-                items: {
-                  $ref: getSchemaPath(ProjectWithRelations),
-                },
-              },
-              fundingRounds: {
-                description:
-                  "The list of funding rounds the organization has applied for",
-                type: "array",
-                items: {
-                  $ref: getSchemaPath(FundingRound),
-                },
-              },
-              investors: {
-                description:
-                  "The list of investors the organization has applied for",
-                type: "array",
-                items: {
-                  $ref: getSchemaPath(Investor),
-                },
-              },
-              reviews: {
-                description:
-                  "The list of reviews the organization has received",
-                type: "array",
-                items: {
-                  $ref: getSchemaPath(OrgReview),
-                },
-              },
-              tags: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    name: {
-                      type: "string",
-                    },
-                    normalizedName: {
-                      type: "string",
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    ],
   },
   JobListResult: {
     allOf: [
@@ -1634,13 +1058,11 @@ export const PUBLIC_API_SCHEMAS = {
                 example: ["LobsterDAO", "EthDam"],
               },
               grants: {
-                description:
-                  "The list of grants the organization has applied for",
+                description: "The list of grants the organization has received",
                 type: "array",
                 items: {
-                  type: "string",
+                  $ref: getSchemaPath(GrantFunding),
                 },
-                example: ["Grant 1", "Grant 2"],
               },
               projects: {
                 description:
@@ -1685,14 +1107,282 @@ export const PUBLIC_API_SCHEMAS = {
               },
             },
           },
+          project: {
+            description: "The project the job is associated with",
+            type: "object",
+            properties: {
+              id: {
+                description: "The unique internal uuid of the project",
+                type: "string",
+                example: "6e62a5a8-49a0-4606-8112-6b43de8a4d89",
+              },
+              name: {
+                description: "The name of the project",
+                type: "string",
+                example: "Example Project",
+              },
+              normalizedName: {
+                description: "The normalized name of the project",
+                type: "string",
+                example: "example-project",
+              },
+              logo: {
+                description: "The url of the project's logo",
+                type: "string",
+                example: "https://example.com/logo.png",
+              },
+              tokenSymbol: {
+                description: "The token symbol of the project",
+                type: "string",
+                example: "EXAMPLE",
+              },
+              tvl: {
+                description: "The total value locked in the project",
+                type: "number",
+                example: 10000,
+              },
+              monthlyVolume: {
+                description: "The monthly volume of the project",
+                type: "number",
+                example: 10000,
+              },
+              monthlyFees: {
+                description: "The monthly fees of the project",
+                type: "number",
+                example: 10000,
+              },
+              monthlyRevenue: {
+                description: "The monthly revenue of the project",
+                type: "number",
+                example: 10000,
+              },
+              monthlyActiveUsers: {
+                description: "The monthly active users of the project",
+                type: "number",
+                example: 10000,
+              },
+              orgIds: {
+                description:
+                  "The list of unique internal ids of the organizations that own the project",
+                type: "array",
+                items: {
+                  type: "string",
+                },
+                example: ["128", "129"],
+              },
+              description: {
+                description: "A description of the project",
+                type: "string",
+                example: "Example Project",
+              },
+              defiLlamaId: {
+                description: "The id of the project on DefiLlama",
+                type: "string",
+                example: "3345",
+              },
+              defiLlamaSlug: {
+                description: "The slug of the project on DefiLlama",
+                type: "string",
+                example: "example-project",
+              },
+              defiLlamaParent: {
+                description: "The parent of the project on DefiLlama",
+                type: "string",
+                example: "Example",
+              },
+              tokenAddress: {
+                description: "The address of the token used in the project",
+                type: "string",
+                example: "0x0000000000000000000000000000000000000000",
+              },
+              createdTimestamp: {
+                description: "The timestamp of when the project was created",
+                type: "number",
+                example: 1650963200,
+              },
+              updatedTimestamp: {
+                description:
+                  "The timestamp of when the project was last updated",
+                type: "number",
+                example: 1650963200,
+              },
+              github: {
+                description: "The url of the project's github repository",
+                type: "string",
+                example: "https://example.com/github",
+              },
+              website: {
+                description: "The url of the project's website",
+                type: "string",
+                example: "https://example.com",
+              },
+              docs: {
+                description: "The url of the project's documentation",
+                type: "string",
+                example: "https://example.com/docs",
+              },
+              category: {
+                description: "The category of the project",
+                type: "string",
+                example: "Dexes",
+              },
+              twitter: {
+                description: "The url of the project's twitter profile",
+                type: "string",
+                example: "https://twitter.com/example",
+              },
+              discord: {
+                description: "The url of the project's discord server",
+                type: "string",
+                example: "https://discord.gg/example",
+              },
+              telegram: {
+                description: "The url of the project's telegram channel",
+                type: "string",
+                example: "https://t.me/example",
+              },
+              hacks: {
+                description:
+                  "The list of hacks the project has fallen victim to",
+                type: "array",
+                items: {
+                  $ref: getSchemaPath(Hack),
+                },
+              },
+              audits: {
+                description: "The list of audits the project has had done",
+                type: "array",
+                items: {
+                  $ref: getSchemaPath(Audit),
+                },
+              },
+              chains: {
+                description:
+                  "The list of chains the project has been deployed on",
+                type: "array",
+                items: {
+                  $ref: getSchemaPath(Chain),
+                },
+              },
+              ecosystems: {
+                description:
+                  "The list of ecosystems the chains project is deployed on belong to",
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+              jobs: {
+                description: "The list of jobs the project has",
+                type: "array",
+                items: {
+                  $ref: getSchemaPath(StructuredJobpostWithRelations),
+                },
+              },
+              repos: {
+                description: "The list of repositories the project has",
+                type: "array",
+                items: {
+                  $ref: getSchemaPath(Repository),
+                },
+              },
+              investors: {
+                description: "The list of investors the project has",
+                type: "array",
+                items: {
+                  $ref: getSchemaPath(Investor),
+                },
+              },
+              fundingRounds: {
+                description: "The list of funding rounds the project has",
+                type: "array",
+                items: {
+                  $ref: getSchemaPath(FundingRound),
+                },
+              },
+              grants: {
+                description: "The list of grants the project has received",
+                type: "array",
+                items: {
+                  $ref: getSchemaPath(GrantFunding),
+                },
+              },
+            },
+          },
         },
       },
     ],
   },
-  AllJobsFilterConfigs: {
+  JobFilterConfigs: {
     type: "object",
     properties: {
-      category: {
+      tvl: {
+        $ref: getSchemaPath(RangeFilter),
+      },
+      salary: {
+        $ref: getSchemaPath(RangeFilter),
+      },
+      headcountEstimate: {
+        $ref: getSchemaPath(RangeFilter),
+      },
+      monthlyFees: {
+        $ref: getSchemaPath(RangeFilter),
+      },
+      monthlyVolume: {
+        $ref: getSchemaPath(RangeFilter),
+      },
+      monthlyRevenue: {
+        $ref: getSchemaPath(RangeFilter),
+      },
+      audits: {
+        $ref: getSchemaPath(MultiSelectFilter),
+      },
+      hacks: {
+        $ref: getSchemaPath(MultiSelectFilter),
+      },
+      fundingRounds: {
+        $ref: getSchemaPath(MultiSelectFilter),
+      },
+      investors: {
+        $ref: getSchemaPath(MultiSelectFilter),
+      },
+      tags: {
+        $ref: getSchemaPath(MultiSelectFilter),
+      },
+      onboardIntoWeb3: {
+        $ref: getSchemaPath(SingleSelectFilter),
+      },
+      order: {
+        $ref: getSchemaPath(SingleSelectFilter),
+      },
+      orderBy: {
+        $ref: getSchemaPath(SingleSelectFilter),
+      },
+      publicationDate: {
+        $ref: getSchemaPath(SingleSelectFilter),
+      },
+      locations: {
+        $ref: getSchemaPath(MultiSelectFilter),
+      },
+      seniority: {
+        $ref: getSchemaPath(MultiSelectFilter),
+      },
+      chains: {
+        $ref: getSchemaPath(MultiSelectFilter),
+      },
+      projects: {
+        $ref: getSchemaPath(MultiSelectFilter),
+      },
+      classifications: {
+        $ref: getSchemaPath(MultiSelectFilter),
+      },
+      commitments: {
+        $ref: getSchemaPath(MultiSelectFilter),
+      },
+      communities: {
+        $ref: getSchemaPath(MultiSelectFilter),
+      },
+      ecosystems: {
         $ref: getSchemaPath(MultiSelectFilter),
       },
       organizations: {
