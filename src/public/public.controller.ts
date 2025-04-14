@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Headers,
   Query,
   UseInterceptors,
   ValidationPipe,
@@ -12,24 +13,22 @@ import {
   getSchemaPath,
 } from "@nestjs/swagger";
 import {
-  AllJobsFilterConfigs,
+  JobFilterConfigs,
   JobListResult,
   PaginatedData,
+  SessionObject,
   ValidationError,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
-import { AllJobsInput } from "./dto/all-jobs.input";
-import { ConfigService } from "@nestjs/config";
-import { CACHE_DURATION } from "src/shared/constants";
+import { CACHE_DURATION, COMMUNITY_HEADER } from "src/shared/constants";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
+import { JobListParams } from "src/jobs/dto/job-list.input";
+import { Session } from "src/shared/decorators";
 
 @Controller("public")
 export class PublicController {
   private readonly logger = new CustomLogger(PublicController.name);
-  constructor(
-    private readonly publicService: PublicService,
-    private readonly configService: ConfigService,
-  ) {}
+  constructor(private readonly publicService: PublicService) {}
 
   @Get("/all-jobs")
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
@@ -57,20 +56,12 @@ export class PublicController {
     },
   })
   async getAllJobs(
+    @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
-    params: AllJobsInput,
+    params: JobListParams,
   ): Promise<PaginatedData<JobListResult>> {
     this.logger.log(`/public/all-jobs ${JSON.stringify(params)}`);
-    const jobs = await this.publicService.getAllJobsList(params);
-    return {
-      ...jobs,
-      data: jobs.data.map(job => ({
-        ...job,
-        url: `${this.configService.getOrThrow<string>("FE_DOMAIN")}/jobs/${
-          job.shortUUID
-        }/details`,
-      })),
-    };
+    return await this.publicService.getAllJobsList(params, !!address);
   }
 
   @Get("/all-jobs/filters")
@@ -80,7 +71,7 @@ export class PublicController {
     schema: {
       allOf: [
         {
-          $ref: getSchemaPath(AllJobsFilterConfigs),
+          $ref: getSchemaPath(JobFilterConfigs),
         },
       ],
     },
@@ -90,8 +81,11 @@ export class PublicController {
       "Returns an error message with a list of values that failed validation",
     type: ValidationError,
   })
-  async getAllJobsListFilterConfigs(): Promise<AllJobsFilterConfigs> {
+  async getAllJobsListFilterConfigs(
+    @Headers(COMMUNITY_HEADER)
+    community: string | undefined,
+  ): Promise<JobFilterConfigs> {
     this.logger.log(`/public/all-jobs/filters`);
-    return this.publicService.getAllJobsFilterConfigs();
+    return this.publicService.getAllJobsFilterConfigs(community);
   }
 }
