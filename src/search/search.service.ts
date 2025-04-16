@@ -43,6 +43,7 @@ import {
   NAV_PILLAR_QUERY_MAPPINGS,
   NAV_FILTER_CONFIGS,
   NAV_FILTER_LABEL_MAPPINGS,
+  NAV_PILLAR_SLUG_PREFIX_MAPPINGS,
 } from "src/shared/constants";
 
 @Injectable()
@@ -1252,7 +1253,10 @@ export class SearchService {
         })),
       );
       return results.flatMap(x =>
-        x.items.map(y => `${x.pillar.charAt(0).toLowerCase()}-${slugify(y)}`),
+        x.items.map(
+          y =>
+            `${NAV_PILLAR_SLUG_PREFIX_MAPPINGS[nav][x.pillar]}-${slugify(y)}`,
+        ),
       );
     } else {
       return [];
@@ -1268,11 +1272,11 @@ export class SearchService {
       description: string;
     }>
   > {
-    const pillarPrefix = slug.charAt(0);
-    const pillar = NAV_PILLAR_ORDERING[nav].find(x =>
-      x.startsWith(pillarPrefix),
+    const pillarPrefix = slug.match(/^([^-]+)/)?.[1];
+    const pillar = NAV_PILLAR_ORDERING[nav].find(
+      x => NAV_PILLAR_SLUG_PREFIX_MAPPINGS[nav][x] === pillarPrefix,
     );
-    const item = slug.slice(2) ?? null;
+    const item = slug.match(/^[^-]+-(.*)/)?.[1] ?? null;
     if (pillar) {
       const headerText = await this.fetchHeaderText(nav, pillar, item);
       if (headerText) {

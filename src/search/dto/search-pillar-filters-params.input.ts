@@ -56,6 +56,21 @@ export class SearchPillarFiltersParams {
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
+  classifications?: string[] | null = null;
+
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  commitments?: string[] | null = null;
+
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  locationTypes?: string[] | null = null;
+
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
   organizations?: string[] | null = null;
 
   @IsOptional()

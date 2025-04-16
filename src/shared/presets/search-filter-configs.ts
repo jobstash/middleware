@@ -72,6 +72,26 @@ export const SINGLE_SELECT_OPTIONS = {
       { label: "Donated Amount", value: "donatedAmount" },
     ],
   },
+  jobs: {
+    order: [
+      { label: "Ascending", value: "asc" },
+      { label: "Descending", value: "desc" },
+    ],
+    orderBy: [
+      { label: "Publication Date", value: "publicationDate" },
+      { label: "Salary", value: "salary" },
+      { label: "Head Count", value: "headcountEstimate" },
+      { label: "Team Size", value: "teamSize" },
+      { label: "Funding Date", value: "fundingDate" },
+      { label: "TVL", value: "tvl" },
+      { label: "Monthly Volume", value: "monthlyVolume" },
+      { label: "Monthly Fees", value: "monthlyFees" },
+      { label: "Monthly Revenue", value: "monthlyRevenue" },
+      { label: "Number of Audits", value: "audits" },
+      { label: "Number of Chains", value: "chains" },
+      { label: "Number of Hacks", value: "hacks" },
+    ],
+  },
   vcs: null,
 };
 
@@ -373,6 +393,64 @@ export const FILTER_CONFIG_PRESETS = {
       options: SINGLE_SELECT_OPTIONS.impact.orderBy,
     },
   },
+  jobs: {
+    classifications: {
+      position: 1,
+      label: "Classifications",
+      show: true,
+      googleAnalyticsEventName: "filter_search_classifications",
+      kind: FilterKind.MULTI_SELECT,
+      prefix: null,
+    },
+    locations: {
+      position: 2,
+      label: "Locations",
+      show: true,
+      googleAnalyticsEventName: "filter_search_locations",
+      kind: FilterKind.MULTI_SELECT,
+      prefix: null,
+    },
+    tags: {
+      position: 3,
+      label: "Tags",
+      show: true,
+      googleAnalyticsEventName: "filter_search_tags",
+      kind: FilterKind.MULTI_SELECT,
+      prefix: null,
+    },
+    commitments: {
+      position: 4,
+      label: "Commitments",
+      show: true,
+      googleAnalyticsEventName: "filter_search_commitments",
+      kind: FilterKind.MULTI_SELECT,
+      prefix: null,
+    },
+    locationTypes: {
+      position: 5,
+      label: "Location Types",
+      show: true,
+      googleAnalyticsEventName: "filter_search_location_types",
+      kind: FilterKind.MULTI_SELECT,
+      prefix: null,
+    },
+    order: {
+      position: 6,
+      label: "Order",
+      show: true,
+      googleAnalyticsEventName: "filter_search_order",
+      kind: FilterKind.ORDER,
+      options: SINGLE_SELECT_OPTIONS.jobs.order,
+    },
+    orderBy: {
+      position: 7,
+      label: "Order By",
+      show: true,
+      googleAnalyticsEventName: "filter_search_order_by",
+      kind: FilterKind.ORDER_BY,
+      options: SINGLE_SELECT_OPTIONS.jobs.orderBy,
+    },
+  },
 };
 
 export const FILTER_PARAM_KEY_PRESETS = {
@@ -451,6 +529,15 @@ export const FILTER_PARAM_KEY_PRESETS = {
     organizations: "organizations",
     names: "names",
   },
+  jobs: {
+    classifications: "classifications",
+    locations: "locations",
+    tags: "tags",
+    commitments: "commitments",
+    locationTypes: "locationTypes",
+    order: "order",
+    orderBy: "orderBy",
+  },
   vcs: null,
 };
 
@@ -519,6 +606,15 @@ export const FILTER_PARAM_KEY_REVERSE_PRESETS = {
     ecosystems: "ecosystems",
     organizations: "organizations",
     names: "names",
+  },
+  jobs: {
+    classifications: "classifications",
+    locations: "locations",
+    tags: "tags",
+    commitments: "commitments",
+    locationTypes: "locationTypes",
+    order: "order",
+    orderBy: "orderBy",
   },
   vcs: null,
 };

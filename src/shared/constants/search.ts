@@ -58,6 +58,14 @@ export const NAV_PILLAR_QUERY_MAPPINGS: Record<
   },
   jobs: {
     tags: "CYPHER runtime = pipelined MATCH (:Organization)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
+    locations:
+      "CYPHER runtime = pipelined MATCH (:Organization)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost) RETURN DISTINCT structured_jobpost.location as item",
+    commitments:
+      "CYPHER runtime = pipelined MATCH (:Organization)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_COMMITMENT]->(commitment:JobpostCommitment) RETURN DISTINCT commitment.name as item",
+    locationTypes:
+      "CYPHER runtime = pipelined MATCH (:Organization)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_LOCATION_TYPE]->(locationType:JobpostLocationType) RETURN DISTINCT locationType.name as item",
+    classifications:
+      "CYPHER runtime = pipelined MATCH (:Organization)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification) RETURN DISTINCT classification.name as item",
   },
   vcs: null,
 };
@@ -99,6 +107,10 @@ export const NAV_FILTER_LABEL_MAPPINGS: Record<
   },
   jobs: {
     tags: "Tags",
+    locations: "Locations",
+    commitments: "Commitments",
+    locationTypes: "Location Types",
+    classifications: "Classifications",
   },
   vcs: null,
 };
@@ -123,7 +135,13 @@ export const NAV_PILLAR_ORDERING: Record<SearchNav, string[]> = {
     "names",
     "tags",
   ],
-  jobs: ["tags"],
+  jobs: [
+    "classifications",
+    "tags",
+    "locationTypes",
+    "locations",
+    "commitments",
+  ],
   vcs: ["names"],
 };
 
@@ -152,7 +170,13 @@ export const NAV_FILTER_CONFIGS: Record<SearchNav, string[] | null> = {
   ],
   grants: ["date", "programBudget", "order", "orderBy"],
   impact: ["order", "orderBy"],
-  jobs: ["tags"],
+  jobs: [
+    "tags",
+    "locations",
+    "commitments",
+    "locationTypes",
+    "classifications",
+  ],
   vcs: null,
 };
 
@@ -245,6 +269,74 @@ export const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<
       names: [grant.name]
     } as config
   `,
-  jobs: null,
+  jobs: `
+    CYPHER runtime = pipelined
+    MATCH (structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+    WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+    AND CASE WHEN $community IS NULL THEN true ELSE EXISTS((structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE|HAS_ORGANIZATION|IS_MEMBER_OF_COMMUNITY*5]->(:OrganizationCommunity {normalizedName: $community})) END
+    MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+      WITH DISTINCT tag, structured_jobpost
+      OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+      OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+      WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
+      WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
+      WITH DISTINCT canonicalTag as tag, structured_jobpost
+      WITH COLLECT(tag.name) as tags, structured_jobpost
+    RETURN {
+      tags: apoc.coll.toSet(tags),
+      locations: [structured_jobpost.location],
+      commitments: apoc.coll.toSet([(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name]),
+      locationTypes: apoc.coll.toSet([(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name]),
+      classifications: apoc.coll.toSet([(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name])
+    } as config
+  `,
   vcs: null,
+};
+
+export const NAV_PILLAR_SLUG_PREFIX_MAPPINGS: Record<
+  SearchNav,
+  Record<string, string>
+> = {
+  projects: {
+    categories: "c",
+    chains: "ch",
+    organizations: "o",
+    investors: "i",
+    names: "p",
+    tags: "t",
+  },
+  organizations: {
+    locations: "l",
+    investors: "i",
+    fundingRounds: "fr",
+    chains: "ch",
+    names: "o",
+    tags: "t",
+    projects: "p",
+  },
+  grants: {
+    names: "g",
+    categories: "c",
+    chains: "ch",
+    ecosystems: "e",
+    organizations: "o",
+  },
+  impact: {
+    names: "i",
+    categories: "c",
+    chains: "ch",
+    ecosystems: "e",
+    organizations: "o",
+  },
+  vcs: {
+    names: "v",
+  },
+  jobs: {
+    classifications: "cl",
+    locations: "l",
+    tags: "t",
+    commitments: "co",
+    locationTypes: "lt",
+  },
 };
