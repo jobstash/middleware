@@ -1268,16 +1268,13 @@ export class SearchService {
       description: string;
     }>
   > {
-    const pillarPrefix = slug.split("-")[0];
+    const pillarPrefix = slug.charAt(0);
     const pillar = NAV_PILLAR_ORDERING[nav].find(x =>
       x.startsWith(pillarPrefix),
     );
+    const item = slug.slice(2) ?? null;
     if (pillar) {
-      const headerText = await this.fetchHeaderText(
-        nav,
-        pillar,
-        slug.split("-")[1] ?? null,
-      );
+      const headerText = await this.fetchHeaderText(nav, pillar, item);
       if (headerText) {
         return {
           success: true,
