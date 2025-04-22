@@ -454,30 +454,33 @@ export class GrantListResult {
       }),
       t.null,
     ]),
-    metadata: t.strict({
-      title: t.string,
-      description: t.union([t.string, t.null]),
-      programBudget: t.union([t.number, t.null]),
-      amountDistributedToDate: t.union([t.number, t.null]),
-      minGrantSize: t.union([t.number, t.null]),
-      maxGrantSize: t.union([t.number, t.null]),
-      grantsToDate: t.union([t.number, t.null]),
-      website: t.union([t.string, t.null]),
-      projectTwitter: t.union([t.string, t.null]),
-      bugBounty: t.union([t.string, t.null]),
-      categories: t.array(t.string),
-      ecosystems: t.array(t.string),
-      organizations: t.array(t.string),
-      networks: t.array(t.string),
-      grantTypes: t.array(t.string),
-      platformsUsed: t.array(t.string),
-      logoImg: t.union([t.string, t.null]),
-      bannerImg: t.union([t.string, t.null]),
-      createdAt: t.union([t.number, t.null]),
-      type: t.union([t.string, t.null]),
-      tags: t.array(t.string),
-      amount: t.union([t.string, t.null]),
-    }),
+    metadata: t.union([
+      t.strict({
+        title: t.string,
+        description: t.union([t.string, t.null]),
+        programBudget: t.union([t.number, t.null]),
+        amountDistributedToDate: t.union([t.number, t.null]),
+        minGrantSize: t.union([t.number, t.null]),
+        maxGrantSize: t.union([t.number, t.null]),
+        grantsToDate: t.union([t.number, t.null]),
+        website: t.union([t.string, t.null]),
+        projectTwitter: t.union([t.string, t.null]),
+        bugBounty: t.union([t.string, t.null]),
+        categories: t.array(t.string),
+        ecosystems: t.array(t.string),
+        organizations: t.array(t.string),
+        networks: t.array(t.string),
+        grantTypes: t.array(t.string),
+        platformsUsed: t.array(t.string),
+        logoImg: t.union([t.string, t.null]),
+        bannerImg: t.union([t.string, t.null]),
+        createdAt: t.union([t.number, t.null]),
+        type: t.union([t.string, t.null]),
+        tags: t.array(t.string),
+        amount: t.union([t.string, t.null]),
+      }),
+      t.null,
+    ]),
   });
 
   @ApiProperty()
@@ -499,7 +502,7 @@ export class GrantListResult {
   eligibility: KarmaGapEligibility | null;
 
   @ApiProperty()
-  metadata: KarmaGapGrantProgramMetadata;
+  metadata: KarmaGapGrantProgramMetadata | null;
 
   constructor(raw: GrantListResult) {
     const { id, name, slug, status, socialLinks, eligibility, metadata } = raw;

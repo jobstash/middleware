@@ -853,28 +853,32 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
                     }
                   : null,
                 eligibility: grant.eligibility,
-                metadata: {
-                  ...grant.metadata,
-                  description: notStringOrNull(grant.metadata.description),
-                  programBudget: nonZeroOrNull(grant.metadata.programBudget),
-                  amountDistributedToDate: nonZeroOrNull(
-                    grant.metadata.amountDistributedToDate,
-                  ),
-                  minGrantSize: nonZeroOrNull(grant.metadata.minGrantSize),
-                  maxGrantSize: nonZeroOrNull(grant.metadata.maxGrantSize),
-                  grantsToDate: nonZeroOrNull(grant.metadata.grantsToDate),
-                  website: notStringOrNull(grant.metadata.website),
-                  projectTwitter: notStringOrNull(
-                    grant.metadata.projectTwitter,
-                  ),
-                  bugBounty: notStringOrNull(grant.metadata.bugBounty),
-                  logoImg: notStringOrNull(grant.metadata.logoImg),
-                  bannerImg: notStringOrNull(grant.metadata.bannerImg),
-                  createdAt: nonZeroOrNull(grant.metadata.createdAt),
-                  startsAt: nonZeroOrNull(grant.metadata.startsAt),
-                  type: notStringOrNull(grant.metadata.type),
-                  amount: notStringOrNull(grant.metadata.amount),
-                },
+                metadata: grant.metadata
+                  ? {
+                      ...grant.metadata,
+                      description: notStringOrNull(grant.metadata.description),
+                      programBudget: nonZeroOrNull(
+                        grant.metadata.programBudget,
+                      ),
+                      amountDistributedToDate: nonZeroOrNull(
+                        grant.metadata.amountDistributedToDate,
+                      ),
+                      minGrantSize: nonZeroOrNull(grant.metadata.minGrantSize),
+                      maxGrantSize: nonZeroOrNull(grant.metadata.maxGrantSize),
+                      grantsToDate: nonZeroOrNull(grant.metadata.grantsToDate),
+                      website: notStringOrNull(grant.metadata.website),
+                      projectTwitter: notStringOrNull(
+                        grant.metadata.projectTwitter,
+                      ),
+                      bugBounty: notStringOrNull(grant.metadata.bugBounty),
+                      logoImg: notStringOrNull(grant.metadata.logoImg),
+                      bannerImg: notStringOrNull(grant.metadata.bannerImg),
+                      createdAt: nonZeroOrNull(grant.metadata.createdAt),
+                      startsAt: nonZeroOrNull(grant.metadata.startsAt),
+                      type: notStringOrNull(grant.metadata.type),
+                      amount: notStringOrNull(grant.metadata.amount),
+                    }
+                  : null,
               }),
           ),
         );
@@ -901,28 +905,32 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
                     }
                   : null,
                 eligibility: grant.eligibility,
-                metadata: {
-                  ...grant.metadata,
-                  description: notStringOrNull(grant.metadata.description),
-                  programBudget: nonZeroOrNull(grant.metadata.programBudget),
-                  amountDistributedToDate: nonZeroOrNull(
-                    grant.metadata.amountDistributedToDate,
-                  ),
-                  minGrantSize: nonZeroOrNull(grant.metadata.minGrantSize),
-                  maxGrantSize: nonZeroOrNull(grant.metadata.maxGrantSize),
-                  grantsToDate: nonZeroOrNull(grant.metadata.grantsToDate),
-                  website: notStringOrNull(grant.metadata.website),
-                  projectTwitter: notStringOrNull(
-                    grant.metadata.projectTwitter,
-                  ),
-                  bugBounty: notStringOrNull(grant.metadata.bugBounty),
-                  logoImg: notStringOrNull(grant.metadata.logoImg),
-                  bannerImg: notStringOrNull(grant.metadata.bannerImg),
-                  createdAt: nonZeroOrNull(grant.metadata.createdAt),
-                  startsAt: nonZeroOrNull(grant.metadata.startsAt),
-                  type: notStringOrNull(grant.metadata.type),
-                  amount: notStringOrNull(grant.metadata.amount),
-                },
+                metadata: grant.metadata
+                  ? {
+                      ...grant.metadata,
+                      description: notStringOrNull(grant.metadata.description),
+                      programBudget: nonZeroOrNull(
+                        grant.metadata.programBudget,
+                      ),
+                      amountDistributedToDate: nonZeroOrNull(
+                        grant.metadata.amountDistributedToDate,
+                      ),
+                      minGrantSize: nonZeroOrNull(grant.metadata.minGrantSize),
+                      maxGrantSize: nonZeroOrNull(grant.metadata.maxGrantSize),
+                      grantsToDate: nonZeroOrNull(grant.metadata.grantsToDate),
+                      website: notStringOrNull(grant.metadata.website),
+                      projectTwitter: notStringOrNull(
+                        grant.metadata.projectTwitter,
+                      ),
+                      bugBounty: notStringOrNull(grant.metadata.bugBounty),
+                      logoImg: notStringOrNull(grant.metadata.logoImg),
+                      bannerImg: notStringOrNull(grant.metadata.bannerImg),
+                      createdAt: nonZeroOrNull(grant.metadata.createdAt),
+                      startsAt: nonZeroOrNull(grant.metadata.startsAt),
+                      type: notStringOrNull(grant.metadata.type),
+                      amount: notStringOrNull(grant.metadata.amount),
+                    }
+                  : null,
               }),
           ),
         );
