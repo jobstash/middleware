@@ -1463,50 +1463,53 @@ export class ProfileService {
 
         await tx.run(
           `
-            MATCH (user: User {wallet: $wallet})
-            SET user.cryptoNative = $cryptoNative
-            SET user.cryptoAdjacent = $cryptoAdjacent
+          MATCH (user:User {wallet: $wallet})
+          SET user.cryptoNative = $cryptoNative,
+              user.cryptoAdjacent = $cryptoAdjacent
 
-            WITH user
+          WITH user
+          UNWIND $history AS workHistory
 
-            UNWIND $history as workHistory
-            CALL {
-              WITH workHistory
-              CREATE (history: UserWorkHistory)
-              SET history.login = workHistory.login
-              SET history.name = workHistory.name
-              SET history.logoUrl = workHistory.logoUrl
-              SET history.description = workHistory.description
-              SET history.url = workHistory.url
-              SET history.firstContributedAt = workHistory.firstContributedAt
-              SET history.lastContributedAt = workHistory.lastContributedAt
-              SET history.commitsCount = workHistory.commitsCount
-              SET history.tenure = workHistory.tenure
-              SET history.cryptoNative = workHistory.cryptoNative
-              SET history.createdAt = timestamp()
+          WITH user, workHistory,
+              user.wallet + '::' + workHistory.name AS historyKey
 
-              WITH workHistory, history
-              UNWIND workHistory.repositories as repo
-              CREATE (historyRepo: UserWorkHistoryRepo)
-              SET historyRepo.name = repo.name
-              SET historyRepo.url = repo.url
-              SET historyRepo.description = repo.description
-              SET historyRepo.cryptoNative = repo.cryptoNative
-              SET historyRepo.firstContributedAt = repo.firstContributedAt
-              SET historyRepo.lastContributedAt = repo.lastContributedAt
-              SET historyRepo.commitsCount = repo.commitsCount
-              SET historyRepo.skills = repo.skills
-              SET historyRepo.tenure = repo.tenure
-              SET historyRepo.stars = repo.stars
-              SET historyRepo.createdAt = timestamp()
+          MERGE (history:UserWorkHistory {compositeKey: historyKey})
+          ON MATCH SET history.login = workHistory.login,
+              history.name = workHistory.name,
+              history.logoUrl = workHistory.logoUrl,
+              history.description = workHistory.description,
+              history.url = workHistory.url,
+              history.firstContributedAt = workHistory.firstContributedAt,
+              history.lastContributedAt = workHistory.lastContributedAt,
+              history.commitsCount = workHistory.commitsCount,
+              history.tenure = workHistory.tenure,
+              history.cryptoNative = workHistory.cryptoNative,
+              history.updatedAt = timestamp()
+          ON CREATE SET history.createdAt = timestamp()
 
-              WITH history, historyRepo
-              MERGE (history)-[:WORKED_ON_REPO]->(historyRepo)
-              RETURN history
-            }
+          MERGE (user)-[:HAS_WORK_HISTORY]->(history)
 
-            WITH history, user
-            MERGE (user)-[:HAS_WORK_HISTORY]->(history)
+          WITH history, workHistory
+
+          UNWIND workHistory.repositories AS repo
+          WITH history, repo,
+              history.compositeKey + '::' + repo.url AS repoKey
+
+          MERGE (historyRepo:UserWorkHistoryRepo {compositeKey: repoKey})
+          ON MATCH SET historyRepo.name = repo.name,
+              historyRepo.url = repo.url,
+              historyRepo.description = repo.description,
+              historyRepo.cryptoNative = repo.cryptoNative,
+              historyRepo.firstContributedAt = repo.firstContributedAt,
+              historyRepo.lastContributedAt = repo.lastContributedAt,
+              historyRepo.commitsCount = repo.commitsCount,
+              historyRepo.skills = repo.skills,
+              historyRepo.tenure = repo.tenure,
+              historyRepo.stars = repo.stars,
+              historyRepo.updatedAt = timestamp()
+          ON CREATE SET historyRepo.createdAt = timestamp()
+
+          MERGE (history)-[:WORKED_ON_REPO]->(historyRepo)
           `,
           {
             wallet,
