@@ -115,10 +115,11 @@ export class OrgListResultEntity {
           createdTimestamp: nonZeroOrNull(project?.createdTimestamp),
           updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
           hacks:
-            project?.hacks?.map(hack => ({
+            project?.hacks.map(hack => ({
               ...hack,
               fundsLost: hack.fundsLost,
               date: nonZeroOrNull(hack.date),
+              issueType: notStringOrNull(hack?.issueType),
               description: notStringOrNull(hack.description),
               fundsReturned: nonZeroOrNull(hack.fundsReturned),
             })) ?? [],
@@ -289,10 +290,11 @@ export class OrgDetailsResultEntity {
           createdTimestamp: nonZeroOrNull(project?.createdTimestamp),
           updatedTimestamp: nonZeroOrNull(project?.updatedTimestamp),
           hacks:
-            project?.hacks?.map(hack => ({
+            project?.hacks.map(hack => ({
               ...hack,
               fundsLost: hack.fundsLost,
               date: nonZeroOrNull(hack.date),
+              issueType: notStringOrNull(hack?.issueType),
               description: notStringOrNull(hack.description),
               fundsReturned: nonZeroOrNull(hack.fundsReturned),
             })) ?? [],
