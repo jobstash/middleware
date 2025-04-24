@@ -7,7 +7,6 @@ import { ValidationPipe } from "@nestjs/common";
 import { ironSession } from "iron-session/express";
 import { IronSessionOptions } from "iron-session";
 import * as dotenv from "dotenv";
-import * as fs from "fs";
 import * as express from "express";
 import * as basicAuth from "express-basic-auth";
 import * as compression from "compression";
@@ -26,15 +25,7 @@ const ironOptions: IronSessionOptions = {
 };
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, {
-    httpsOptions:
-      process.env.LOCAL_HTTPS === "yes"
-        ? {
-            key: fs.readFileSync("./certs/localhost-key.pem"),
-            cert: fs.readFileSync("./certs/localhost.pem"),
-          }
-        : undefined,
-  });
+  const app = await NestFactory.create(AppModule);
   app.useGlobalPipes(
     new ValidationPipe({
       enableDebugMessages: process.env.NODE_ENV === "production" ? false : true,
