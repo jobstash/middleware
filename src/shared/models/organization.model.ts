@@ -47,8 +47,7 @@ export type OrganizationInstance = NeogmaInstance<
   OrganizationMethods
 >;
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface OrganizationStatics {}
+export type OrganizationStatics = object;
 
 export interface OrganizationMethods {
   getJobsites: () => Promise<JobsiteInstance[]>;
