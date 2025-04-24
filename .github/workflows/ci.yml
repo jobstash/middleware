@@ -5,60 +5,56 @@ name: Continous Integration
 ################################
 on:
   push:
-    branches: [dev, "feature/job-**", "fix/job-**"]
+    branches: [main, staging, dev, "feature/job-**", "fix/job-**"]
     paths:
       - "src/**.js"
       - "src/**.ts"
   pull_request:
     branches: [main, staging, dev]
 
-###############
-# Set the Job #
-###############
-jobs:
-  build:
-    # Name the Job
-    name: Validate Code Base
-    # Set the agent to run on
-    runs-on: ubuntu-latest
+concurrency:
+  group: ci-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
-    ##################
-    # Load all steps #
-    ##################
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # for checkout
+    env:
+      # Give every workflow a predictable release + env
+      RELEASE_VERSION: ${{ github.sha }}
+      NODE_ENV: test
+      # Verbose Sentry output in CI
+      SENTRY_DEBUG: true
+
     steps:
-      ##########################
-      # Checkout the code base #
-      ##########################
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          # Full git history is needed to get a proper
-          # list of changed files within `super-linter`
-          fetch-depth: 0
+      - id: env-map
+        run: |
+          case "${GITHUB_REF_NAME}" in
+            main)   echo "env=production"  >> "$GITHUB_OUTPUT" ;;
+            staging) echo "env=staging"    >> "$GITHUB_OUTPUT" ;;
+            dev)     echo "env=development" >> "$GITHUB_OUTPUT" ;;
+            *)      echo "env=feature-branch" >> "$GITHUB_OUTPUT" ;;
+          esac
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 18.13.0
+          node-version: 23.5.0
           cache: "yarn"
-      ##################################################
-      # Build the code base to check for syntax errors #
-      ##################################################
-      - name: Install Dependencies
-        run: yarn install
-      - name: Build Code
-        run: yarn build
-      - name: Cleanup
-        run: rm -rf dist
-      ################################
-      # Run Linter against code base #
-      ################################
-      - name: Lint Code Base
+
+      - name: Install deps
+        run: yarn install --frozen-lockfile
+
+      - name: Lint
         run: yarn lint
-      ##################
-      # Run prod tests #
-      ##################
-      - name: Run Prod Tests
-        run: yarn test --detectOpenHandles --forceExit
+
+      - name: Run Tests
+        run: yarn test --detectOpenHandles --forceExit --ci --coverage \
+          --reporters=default \
+          --reporters=jest-junit
         env:
           NEO4J_HOST_TEST: ${{ secrets.NEO4J_HOST_TEST }}
           NEO4J_PASSWORD_TEST: ${{ secrets.NEO4J_PASSWORD_TEST }}
@@ -87,6 +83,8 @@ jobs:
           NFT_STORAGE_API_KEY: ${{ secrets.NFT_STORAGE_API_KEY }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           SENTRY_TRACES_SAMPLE_RATE: ${{ secrets.SENTRY_TRACES_SAMPLE_RATE }}
+          SENTRY_RELEASE: ${{ github.sha }}
+          SENTRY_ENVIRONMENT: ${{ steps.env-map.outputs.env }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
           REPORT_CONTENT_TO_EMAIL: ${{ secrets.REPORT_CONTENT_TO_EMAIL }}
           SWAGGER_USER: ${{ secrets.SWAGGER_USER }}
@@ -103,3 +101,22 @@ jobs:
           ETL_DOMAIN: ${{ secrets.ETL_DOMAIN }}
           AUTH0_AUDIENCE: ${{ secrets.AUTH0_AUDIENCE }}
           AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
+
+      - name: Upload coverage to artifact store
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+
+      - name: Build (with source maps)
+        run: yarn build --source-map
+
+      - name: Release with sourcemaps to Sentry
+        uses: getsentry/action-release@v3
+        with:
+          environment: ${{ steps.env-map.outputs.env }}
+          release: ${{ env.RELEASE_VERSION }}
+          sourcemaps: ./dist
+          set_commits: "true"
+          finalize: true
+          dist: ${{ github.run_number }}
