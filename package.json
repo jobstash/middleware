@@ -98,6 +98,8 @@
     "@faker-js/faker": "^9.3.0",
     "@fast-check/jest": "^2.0.3",
     "@golevelup/ts-jest": "^0.6.1",
+    "@jest/globals": "^29.7.0",
+    "@langchain/core": "^0.3.48",
     "@nestjs/cli": "^10.4.9",
     "@nestjs/schematics": "^10.2.3",
     "@nestjs/testing": "^10.4.15",
@@ -133,7 +135,8 @@
     "ts-loader": "^9.5.1",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "4.2.0",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "webpack": "^5.99.6"
   },
   "jest": {
     "moduleFileExtensions": [

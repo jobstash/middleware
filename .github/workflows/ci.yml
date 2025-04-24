@@ -29,7 +29,8 @@ jobs:
       SENTRY_DEBUG: true
 
     steps:
-      - id: env-map
+      - name: Map branch to Sentry environment
+        id: env-map
         run: |
           case "${GITHUB_REF_NAME}" in
             main)   echo "env=production"  >> "$GITHUB_OUTPUT" ;;
@@ -37,10 +38,18 @@ jobs:
             dev)     echo "env=development" >> "$GITHUB_OUTPUT" ;;
             *)      echo "env=feature-branch" >> "$GITHUB_OUTPUT" ;;
           esac
-      - uses: actions/checkout@v4
+
+      - name: Checkout
+        uses: actions/checkout@v4
         with: { fetch-depth: 0 }
 
-      - uses: actions/setup-node@v4
+      - name: Enable Corepack & Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 23.5.0
           cache: "yarn"
@@ -52,9 +61,7 @@ jobs:
         run: yarn lint
 
       - name: Run Tests
-        run: yarn test --detectOpenHandles --forceExit --ci --coverage \
-          --reporters=default \
-          --reporters=jest-junit
+        run: yarn test --detectOpenHandles --forceExit --ci --coverage --reporters=default --reporters=jest-junit
         env:
           NEO4J_HOST_TEST: ${{ secrets.NEO4J_HOST_TEST }}
           NEO4J_PASSWORD_TEST: ${{ secrets.NEO4J_PASSWORD_TEST }}
