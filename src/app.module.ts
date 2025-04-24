@@ -106,9 +106,13 @@ export class AppModule implements OnModuleInit {
       tracesSampleRate: parseInt(
         process.env.SENTRY_TRACES_SAMPLE_RATE ?? "0.2",
       ),
-      environment: process.env.NODE_ENV,
-      release: "middleware@" + process.env.npm_package_version,
-      integrations: [nodeProfilingIntegration()],
+      sendDefaultPii: true,
+      integrations: [
+        nodeProfilingIntegration(),
+        Sentry.captureConsoleIntegration(),
+        Sentry.dataloaderIntegration(),
+        Sentry.extraErrorDataIntegration(),
+      ],
     });
   }
 }
