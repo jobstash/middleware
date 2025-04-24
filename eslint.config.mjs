@@ -45,8 +45,7 @@ export default [
 
       parserOptions: {
         project: "tsconfig.json",
-        tsconfigRootDir:
-          "/Users/andysakov/Code/js/projectz/recruitersrip/middleware",
+        tsconfigRootDir: "./",
       },
     },
 
