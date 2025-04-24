@@ -108,8 +108,8 @@ jobs:
           name: coverage
           path: coverage/
 
-      - name: Build (with source maps)
-        run: yarn build --source-map
+      - name: Build
+        run: yarn build
 
       - name: Release with sourcemaps to Sentry
         uses: getsentry/action-release@v3

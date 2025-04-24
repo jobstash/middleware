@@ -6,7 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "nest build",
+    "build": "nest build && yarn sentry:sourcemaps",
     "format": "prettier --write \"src/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -17,7 +17,8 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "sentry:sourcemaps": "sentry-cli sourcemaps inject --org jobstash --project middleware ./dist && sentry-cli sourcemaps upload --org jobstash --project middleware ./dist"
   },
   "dependencies": {
     "@google-cloud/bigquery": "^7.9.1",
@@ -38,6 +39,7 @@
     "@nestjs/throttler": "^6.3.0",
     "@privy-io/server-auth": "^1.17.2",
     "@sendgrid/mail": "^8.1.4",
+    "@sentry/cli": "^2.43.0",
     "@sentry/nestjs": "^8.47.0",
     "@sentry/node": "^8.47.0",
     "@sentry/profiling-node": "^8.47.0",
