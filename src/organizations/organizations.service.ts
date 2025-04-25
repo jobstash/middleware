@@ -327,7 +327,7 @@ export class OrganizationsService {
           )) &&
         (!fundingRoundFilterList ||
           fundingRoundFilterList.some(x =>
-            fundingRounds.map(x => x.roundName).includes(x),
+            fundingRounds.map(x => slugify(x.roundName)).includes(x),
           ))
       );
     };
