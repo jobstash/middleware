@@ -76,7 +76,6 @@ import { Session } from "src/shared/decorators";
 import { UserService } from "src/user/user.service";
 import { ImportOrgJobsiteInput } from "./dto/import-organization-jobsites.input";
 import { SearchOrganizationsInput } from "./dto/search-organizations.input";
-import mime from "mime";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 
 @Controller("organizations")
@@ -408,7 +407,7 @@ export class OrganizationsController {
         "/organizations/upload-logo Uploading logo to IPFS: ",
         file.originalname,
       );
-      const type = mime.getType(file.originalname);
+      const type = file.mimetype;
       const fileForUpload = new File([file.buffer], file.originalname, {
         type,
       });
@@ -856,7 +855,10 @@ export class OrganizationsController {
 
   @Post("/communities")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
+  @Permissions(
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER],
+    [CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER],
+  )
   @ApiOkResponse({
     description: "Upserts an org with a new set of communities",
     schema: responseSchemaWrapper({
