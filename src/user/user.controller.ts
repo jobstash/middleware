@@ -54,7 +54,10 @@ export class UserController {
 
   @Get("available")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
+  @Permissions(
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER],
+  )
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   async getUsersAvailableForWork(
     @Session() { address }: SessionObject,
@@ -167,7 +170,10 @@ export class UserController {
 
   @Post("note")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
+  @Permissions(
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER],
+  )
   async addUserNote(
     @Session() { address }: SessionObject,
     @Body() body: AddUserNoteInput,
