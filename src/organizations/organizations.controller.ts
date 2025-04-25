@@ -856,7 +856,7 @@ export class OrganizationsController {
   @Post("/communities")
   @UseGuards(PBACGuard)
   @Permissions(
-    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
     [CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER],
   )
   @ApiOkResponse({
