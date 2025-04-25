@@ -663,6 +663,7 @@ export class ProjectsService {
         hasToken,
         page: page = 1,
         limit: limit = 20,
+        query,
         order,
         orderBy,
       } = params;
@@ -688,6 +689,10 @@ export class ProjectsService {
                 .includes(x),
             ) ??
               false)) &&
+          (!query ||
+            go(query, [project.name, ...project.aliases], {
+              threshold: 0.3,
+            }).map(x => x.target).length > 0) &&
           (!organizationFilterList ||
             organizationFilterList.some(x =>
               project.orgNames.map(slugify).includes(x),

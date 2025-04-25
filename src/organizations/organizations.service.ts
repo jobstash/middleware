@@ -888,6 +888,7 @@ export class OrganizationsService {
         hasProjects,
         page: page = 1,
         limit: limit = 20,
+        query,
         order,
         orderBy,
       } = params;
@@ -938,6 +939,7 @@ export class OrganizationsService {
           chainFilterList,
           ecosystemFilterList,
           hasProjects,
+          query,
         ].filter(Boolean);
         const filtersApplied = filters.length > 0;
 
@@ -958,6 +960,10 @@ export class OrganizationsService {
           projectBasedFilters(org.projects) &&
           (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
           (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
+          (!query ||
+            go(query, [org.name, ...org.aliases], {
+              threshold: 0.3,
+            }).map(x => x.target).length > 0) &&
           (!locationFilterList ||
             locationFilterList.includes(slugify(location))) &&
           (!nameFilterList ||
@@ -977,7 +983,7 @@ export class OrganizationsService {
             )) &&
           (!fundingRoundFilterList ||
             fundingRoundFilterList.some(x =>
-              fundingRounds.map(x => x.roundName).includes(x),
+              fundingRounds.map(x => slugify(x.roundName)).includes(x),
             ))
         );
       };

@@ -139,6 +139,12 @@ export class SearchProjectsInput {
   @Type(() => Number)
   limit?: number | null = null;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Type(() => String)
+  query: string | null = null;
+
   @ApiPropertyOptional({
     enum: ["asc", "desc"],
   })
