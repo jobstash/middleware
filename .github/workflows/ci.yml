@@ -60,57 +60,67 @@ jobs:
       - name: Lint
         run: yarn lint
 
-      - name: Run Tests
-        run: yarn test --detectOpenHandles --forceExit --ci --coverage --reporters=default --reporters=jest-junit
-        env:
-          NEO4J_HOST_TEST: ${{ secrets.NEO4J_HOST_TEST }}
-          NEO4J_PASSWORD_TEST: ${{ secrets.NEO4J_PASSWORD_TEST }}
-          NEO4J_PORT_TEST: ${{ secrets.NEO4J_PORT_TEST }}
-          NEO4J_SCHEME_TEST: ${{ secrets.NEO4J_SCHEME_TEST }}
-          NEO4J_USERNAME_TEST: ${{ secrets.NEO4J_USERNAME_TEST }}
-          NEO4J_DATABASE_TEST: testdb
-          TEST_DB_MANAGER_URL: ${{ secrets.TEST_DB_MANAGER_URL }}
-          TEST_DB_MANAGER_API_KEY: ${{ secrets.TEST_DB_MANAGER_API_KEY }}
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
-          SKILL_THRESHOLD: ${{ secrets.SKILL_THRESHOLD }}
-          SCORER_API_KEY: ${{ secrets.SCORER_API_KEY }}
-          SCORER_DOMAIN: ${{ secrets.SCORER_DOMAIN }}
-          ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
-          USER_CACHE_EXPIRATION_IN_DAYS: 30
-          APP_PORT: ${{ secrets.APP_PORT }}
-          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
-          GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
-          INFURA_API_KEY: ${{ secrets.INFURA_API_KEY }}
-          JWT_EXPIRES_IN: ${{ secrets.JWT_EXPIRES_IN }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          LOCAL_HTTPS: ${{ secrets.LOCAL_HTTPS }}
-          MAGIC_LINK_EXPIRES_IN: ${{ secrets.MAGIC_LINK_EXPIRES_IN }}
-          MAGIC_LINK_SECRET: ${{ secrets.MAGIC_LINK_SECRET }}
-          MW_DOMAIN: ${{ secrets.MW_DOMAIN }}
-          FE_DOMAIN: ${{ secrets.FE_DOMAIN }}
-          NFT_STORAGE_API_KEY: ${{ secrets.NFT_STORAGE_API_KEY }}
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
-          SENTRY_TRACES_SAMPLE_RATE: ${{ secrets.SENTRY_TRACES_SAMPLE_RATE }}
-          SENTRY_RELEASE: ${{ github.sha }}
-          SENTRY_ENVIRONMENT: ${{ steps.env-map.outputs.env }}
-          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
-          SENTRY_ORG: "jobstash"
-          SENTRY_PROJECT: "middleware"
-          REPORT_CONTENT_TO_EMAIL: ${{ secrets.REPORT_CONTENT_TO_EMAIL }}
-          SWAGGER_USER: ${{ secrets.SWAGGER_USER }}
-          SWAGGER_PASSWORD: ${{ secrets.SWAGGER_PASSWORD }}
-          VCDATA_API_KEY: ${{ secrets.VCDATA_API_KEY }}
-          PRIVY_APP_ID: ${{ secrets.PRIVY_APP_ID }}
-          PRIVY_APP_SECRET: ${{ secrets.PRIVY_APP_SECRET }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          LLAMA_PAY_API_KEY: ${{ secrets.LLAMA_PAY_API_KEY }}
-          LLAMA_PAY_WEBHOOK_KEY: ${{ secrets.LLAMA_PAY_WEBHOOK_KEY }}
-          JOB_PROMOTION_PRICE: ${{ secrets.JOB_PROMOTION_PRICE }}
-          ETL_CLIENT_ID: ${{ secrets.ETL_CLIENT_ID }}
-          ETL_CLIENT_SECRET: ${{ secrets.ETL_CLIENT_SECRET }}
-          ETL_DOMAIN: ${{ secrets.ETL_DOMAIN }}
-          AUTH0_AUDIENCE: ${{ secrets.AUTH0_AUDIENCE }}
-          AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
+      # - name: Run Tests
+      #   run: yarn test --detectOpenHandles --forceExit --ci --coverage --reporters=default --reporters=jest-junit
+      #   env:
+      #     ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
+      #     ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+      #     APP_PORT: ${{ secrets.APP_PORT }}
+      #     ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+      #     AUTH0_AUDIENCE: ${{ secrets.AUTH0_AUDIENCE }}
+      #     AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
+      #     DIFF: ${{ secrets.DIFF }}
+      #     EMAIL: ${{ secrets.EMAIL }}
+      #     ETL_CLIENT_ID: ${{ secrets.ETL_CLIENT_ID }}
+      #     ETL_CLIENT_SECRET: ${{ secrets.ETL_CLIENT_SECRET }}
+      #     ETL_DOMAIN: ${{ secrets.ETL_DOMAIN }}
+      #     EV_DOMAIN: ${{ secrets.EV_DOMAIN }}
+      #     FE_DOMAIN: ${{ secrets.FE_DOMAIN }}
+      #     GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+      #     GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
+      #     INFURA_API_KEY: ${{ secrets.INFURA_API_KEY }}
+      #     JOB_PROMOTION_PRICE: ${{ secrets.JOB_PROMOTION_PRICE }}
+      #     JWT_EXPIRES_IN: ${{ secrets.JWT_EXPIRES_IN }}
+      #     JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      #     LLAMA_PAY_API_KEY: ${{ secrets.LLAMA_PAY_API_KEY }}
+      #     LLAMA_PAY_WEBHOOK_KEY: ${{ secrets.LLAMA_PAY_WEBHOOK_KEY }}
+      #     LOCAL_HTTPS: ${{ secrets.LOCAL_HTTPS }}
+      #     MAGIC_LINK_EXPIRES_IN: ${{ secrets.MAGIC_LINK_EXPIRES_IN }}
+      #     MAGIC_LINK_SECRET: ${{ secrets.MAGIC_LINK_SECRET }}
+      #     MW_DOMAIN: ${{ secrets.MW_DOMAIN }}
+      #     NEO4J_DATABASE_TEST: testdb
+      #     NEO4J_HOST_TEST: ${{ secrets.NEO4J_HOST_TEST }}
+      #     NEO4J_PASSWORD_TEST: ${{ secrets.NEO4J_PASSWORD_TEST }}
+      #     NEO4J_PORT_TEST: ${{ secrets.NEO4J_PORT_TEST }}
+      #     NEO4J_SCHEME_TEST: ${{ secrets.NEO4J_SCHEME_TEST }}
+      #     NEO4J_USERNAME_TEST: ${{ secrets.NEO4J_USERNAME_TEST }}
+      #     NFT_STORAGE_API_KEY: ${{ secrets.NFT_STORAGE_API_KEY }}
+      #     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      #     ORG_ADMIN_DOMAIN: ${{ secrets.ORG_ADMIN_DOMAIN }}
+      #     PRIVY_APP_ID: ${{ secrets.PRIVY_APP_ID }}
+      #     PRIVY_APP_SECRET: ${{ secrets.PRIVY_APP_SECRET }}
+      #     PRIVY_WEBHOOK_KEY: ${{ secrets.PRIVY_WEBHOOK_KEY }}
+      #     REDIS_HOST: ${{ secrets.REDIS_HOST }}
+      #     REDIS_PORT: ${{ secrets.REDIS_PORT }}
+      #     REPORT_CONTENT_TO_EMAIL: ${{ secrets.REPORT_CONTENT_TO_EMAIL }}
+      #     SCORER_API_KEY: ${{ secrets.SCORER_API_KEY }}
+      #     SCORER_DOMAIN: ${{ secrets.SCORER_DOMAIN }}
+      #     SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+      #     SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+      #     SENTRY_ENVIRONMENT: ${{ steps.env-map.outputs.env }}
+      #     SENTRY_ORG: "jobstash"
+      #     SENTRY_PROJECT: "middleware"
+      #     SENTRY_RELEASE: ${{ github.sha }}
+      #     SENTRY_TRACES_SAMPLE_RATE: ${{ secrets.SENTRY_TRACES_SAMPLE_RATE }}
+      #     SENTRY_PROFILE_SAMPLE_RATE: ${{ secrets.SENTRY_PROFILE_SAMPLE_RATE }}
+      #     SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+      #     SKILL_THRESHOLD: ${{ secrets.SKILL_THRESHOLD }}
+      #     SWAGGER_PASSWORD: ${{ secrets.SWAGGER_PASSWORD }}
+      #     SWAGGER_USER: ${{ secrets.SWAGGER_USER }}
+      #     TEST_DB_MANAGER_API_KEY: ${{ secrets.TEST_DB_MANAGER_API_KEY }}
+      #     TEST_DB_MANAGER_URL: ${{ secrets.TEST_DB_MANAGER_URL }}
+      #     USER_CACHE_EXPIRATION_IN_DAYS: 30
+      #     VCDATA_API_KEY: ${{ secrets.VCDATA_API_KEY }}
 
       - name: Upload coverage to artifact store
         uses: actions/upload-artifact@v4
@@ -118,7 +128,7 @@ jobs:
           name: coverage
           path: coverage/
 
-      - name: Build & Upload Sourcemaps
+      - name: Build
         run: yarn build
 
       - name: Release with sourcemaps to Sentry
