@@ -2,7 +2,9 @@ import * as Joi from "joi";
 
 const envSchema = Joi.object({
   ALLOWED_ORIGINS: Joi.string(),
+  ALCHEMY_API_KEY: Joi.string().required(),
   APP_PORT: Joi.number().default(8080),
+  ADMIN_EMAIL: Joi.string().required(),
   AUTH0_AUDIENCE: Joi.string().required(),
   AUTH0_DOMAIN: Joi.string().required(),
   USER_CACHE_EXPIRATION_IN_DAYS: Joi.number().required(),
@@ -45,7 +47,7 @@ const envSchema = Joi.object({
   ),
   NEO4J_USERNAME_TEST: Joi.string(),
   NEO4J_DATABASE_TEST: Joi.string(),
-  NFT_STORAGE_API_KEY: Joi.string().required(),
+  NFT_STORAGE_API_KEY: Joi.string(),
   NODE_ENV: Joi.string()
     .valid("development", "production", "test", "staging")
     .default("development"),
@@ -62,7 +64,8 @@ const envSchema = Joi.object({
   SENDGRID_API_KEY: Joi.string().required(),
   SESSION_SECRET: Joi.string().required(),
   SENTRY_DSN: Joi.string().required(),
-  SENTRY_TRACES_SAMPLE_RATE: Joi.number().required(),
+  SENTRY_TRACES_SAMPLE_RATE: Joi.number().default(1),
+  SENTRY_PROFILE_SAMPLE_RATE: Joi.number().default(0.5),
   SKILL_THRESHOLD: Joi.number().required(),
   SWAGGER_USER: Joi.string().required(),
   SWAGGER_PASSWORD: Joi.string().required(),

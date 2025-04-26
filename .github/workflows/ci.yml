@@ -122,11 +122,11 @@ jobs:
       #     USER_CACHE_EXPIRATION_IN_DAYS: 30
       #     VCDATA_API_KEY: ${{ secrets.VCDATA_API_KEY }}
 
-      - name: Upload coverage to artifact store
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage
-          path: coverage/
+      # - name: Upload coverage to artifact store
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: coverage
+      #     path: coverage/
 
       - name: Build
         run: yarn build
