@@ -1568,7 +1568,7 @@ export class UserService {
     }
 
     if (!dto.deletedUser) {
-      const fromUser = await this.privyService.getUser(dto.fromUser.id);
+      const fromUser = await this.privyService.getUserById(dto.fromUser.id);
       if (fromUser) {
         await this.profileService.getUserWorkHistory(fromEmbeddedWallet, true);
         await this.updateLinkedAccounts(

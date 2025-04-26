@@ -58,6 +58,8 @@ import { Auth0Module } from "src/auth0/auth0.module";
 import { UserService } from "src/user/user.service";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { PrivyService } from "src/auth/privy/privy.service";
+import { CacheModule } from "@nestjs/cache-manager";
+import { ScheduleModule } from "@nestjs/schedule";
 
 describe("JobsController", () => {
   let controller: JobsController;
@@ -215,6 +217,8 @@ describe("JobsController", () => {
             baseURL: configService.get<string>("TEST_DB_MANAGER_URL"),
           }),
         }),
+        ScheduleModule.forRoot(),
+        CacheModule.register({ isGlobal: true }),
       ],
       controllers: [JobsController],
       providers: [
@@ -391,7 +395,9 @@ describe("JobsController", () => {
         undefined,
       );
 
-      expect(details.tags.map(x => x.name)).toEqual(newTags);
+      expect(details.tags.map(x => x.normalizedName)).toEqual(
+        newTags.map(slugify),
+      );
     },
     REALLY_LONG_TIME,
   );
@@ -481,8 +487,8 @@ describe("JobsController", () => {
         undefined,
       );
 
-      expect(details.tags.map(x => x.name)).toStrictEqual(
-        expect.arrayContaining(newTags.map(x => x.name)),
+      expect(details.tags.map(x => x.normalizedName)).toStrictEqual(
+        expect.arrayContaining(newTags.map(x => x.normalizedName)),
       );
       expect(details.commitment).toEqual(commitment);
       expect(details.classification).toEqual(classification);

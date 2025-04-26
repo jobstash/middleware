@@ -239,9 +239,11 @@ export class ProfileService {
       );
 
       const orgs =
-        result.records?.map(res =>
-          new UserOrgEntity(res.get("org")).getProperties(),
-        ) ?? [];
+        result.records.length > 0
+          ? (result.records?.map(res =>
+              new UserOrgEntity(res.get("org")).getProperties(),
+            ) ?? [])
+          : [];
 
       return {
         success: true,

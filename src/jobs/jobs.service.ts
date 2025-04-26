@@ -20,6 +20,7 @@ import {
   JobpostFolderEntity,
 } from "src/shared/entities";
 import {
+  nonZeroOrNull,
   notStringOrNull,
   paginate,
   publicationDateRangeGenerator,
@@ -82,8 +83,14 @@ export class JobsService {
   ) {}
 
   getJobsListResults = async (): Promise<JobListResult[]> => {
-    const results: JobListResult[] = [];
-    const generatedQuery = `
+    return Sentry.startSpan(
+      { name: "Jobs List Query", op: "db.query" },
+      async span => {
+        const results: JobListResult[] = [];
+        span.setAttribute("query.name", "getJobsListResults");
+        span.setAttribute("db.system", "neo4j");
+        span.setAttribute("db.namespace", this.neogma.database);
+        const generatedQuery = `
       CYPHER runtime = parallel
       MATCH (structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
       WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
@@ -249,26 +256,44 @@ export class JobsService {
       } AS result
     `;
 
-    try {
-      const resultSet = (
-        await this.neogma.queryRunner.run(generatedQuery)
-      ).records.map(record => record.get("result") as JobListResult);
-      for (const result of resultSet) {
-        results.push(new JobListResultEntity(result).getProperties());
-      }
-      this.logger.log(`Found ${results.length} jobs`);
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "jobs.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`JobsService::getJobsListResults ${err.message}`);
-    }
+        try {
+          const queryResult = await this.neogma.queryRunner.run(generatedQuery);
+          span.setAttribute("db.query.text", queryResult.summary.query.text);
+          span.setAttribute(
+            "query.type",
+            nonZeroOrNull(queryResult.summary.queryType),
+          );
+          span.setAttribute("query.result", "success");
+          span.setAttribute(
+            "db.response.returned_rows",
+            queryResult.records.length,
+          );
+          span.setAttribute(
+            "query.result.time",
+            nonZeroOrNull(queryResult.summary.resultAvailableAfter),
+          );
+          const resultSet = queryResult.records.map(
+            record => record.get("result") as JobListResult,
+          );
+          for (const result of resultSet) {
+            results.push(new JobListResultEntity(result).getProperties());
+          }
+          this.logger.log(`Found ${results.length} jobs`);
+        } catch (err) {
+          span.setAttribute("query.result", "error");
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "db-call",
+              source: "jobs.service",
+            });
+            Sentry.captureException(err);
+          });
+          this.logger.error(`JobsService::getJobsListResults ${err.message}`);
+        }
 
-    return results;
+        return results;
+      },
+    );
   };
 
   getAllOrgJobsListResults = async (
@@ -513,6 +538,7 @@ export class JobsService {
   async getJobsListWithSearch(
     params: JobListParams,
   ): Promise<PaginatedData<JobListResult>> {
+    const span = Sentry.getActiveSpan();
     const paramsPassed = {
       ...publicationDateRangeGenerator(params.publicationDate as DateRange),
       ...params,
@@ -559,6 +585,7 @@ export class JobsService {
     const results: JobListResult[] = [];
 
     try {
+      span?.addEvent("querying", new Date());
       const jobs = await this.getJobsListResults();
       results.push(...jobs);
     } catch (err) {
@@ -765,6 +792,8 @@ export class JobsService {
       );
     };
 
+    span.addEvent("filtering", new Date());
+
     const filtered = results
       .filter(jobFilters)
       .map(x => new JobListResultEntity(x).getProperties());
@@ -807,6 +836,7 @@ export class JobsService {
     };
 
     let final = [];
+    span.addEvent("sorting", new Date());
     if (!order || order === "desc") {
       final = sort<JobListResult>(filtered).by([
         { desc: (job): boolean => job.featured },
@@ -831,8 +861,10 @@ export class JobsService {
 
     this.logger.log(`Sorted ${final.length} jobs`);
 
+    span.addEvent("sprinkling", new Date());
     const sprinkled = sprinkleProtectedJobs(final);
 
+    span.addEvent("pagination", new Date());
     return paginate<JobListResult>(page, limit, sprinkled);
   }
 
@@ -1835,7 +1867,7 @@ export class JobsService {
             const privyId = await this.profileService.getPrivyId(
               applicant.user.wallet,
             );
-            const user = await this.privyService.getUser(privyId);
+            const user = await this.privyService.getUserById(privyId);
             const wallets =
               await this.privyService.getUserLinkedWallets(privyId);
 
@@ -3973,12 +4005,31 @@ export class JobsService {
     >,
   ): Promise<boolean> {
     try {
-      await this.models.StructuredJobposts.update(job, {
-        return: false,
-        where: {
-          shortUUID: shortUUID,
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (job:StructuredJobpost {shortUUID: $shortUUID})
+        SET job.title = $title
+        SET job.salary = $salary
+        SET job.location = $location
+        SET job.summary = $summary
+        SET job.seniority = $seniority
+        SET job.paysInCrypto = $paysInCrypto
+        SET job.minimumSalary = $minimumSalary
+        SET job.maximumSalary = $maximumSalary
+        SET job.salaryCurrency = $salaryCurrency
+        SET job.offersTokenAllocation = $offersTokenAllocation
+        SET job.url = $url
+        SET job.description = $description
+        SET job.culture = $culture
+        SET job.benefits = $benefits
+        SET job.requirements = $requirements
+        SET job.responsibilities = $responsibilities
+      `,
+        {
+          shortUUID,
+          ...job,
         },
-      });
+      );
       return true;
     } catch (err) {
       Sentry.withScope(scope => {

@@ -198,6 +198,7 @@ describe("ProjectsController", () => {
         website: "https://jobstash.xyz",
         logo: "https://jobstash.xyz",
         twitter: "https://twitter.com/jobstash_xyz",
+        summary: "#1 Crypto Native Job Aggregator",
         discord: null,
         github: null,
         telegram: "https://t.me/jobstashxyz",
@@ -226,6 +227,7 @@ describe("ProjectsController", () => {
         monthlyRevenue: null,
         monthlyActiveUsers: 400,
         orgIds: [],
+        summary: "#1 Crypto Native Job Aggregator",
         description: "#1 Crypto Native Job Aggregator",
         defiLlamaId: null,
         defiLlamaSlug: null,
@@ -258,6 +260,7 @@ describe("ProjectsController", () => {
         twitter: "https://twitter.com/jobstash_xyz",
         discord: null,
         github: null,
+        summary: "#1 Crypto Native Job Aggregator",
         telegram: "https://t.me/jobstashxyz",
         docs: null,
         tokenAddress: null,
@@ -292,6 +295,7 @@ describe("ProjectsController", () => {
         monthlyActiveUsers: 500,
         orgIds: [],
         description: "#1 Crypto Native Job Aggregator",
+        summary: "#1 Crypto Native Job Aggregator",
         defiLlamaId: null,
         defiLlamaSlug: null,
         defiLlamaParent: null,
@@ -460,8 +464,9 @@ describe("ProjectsController", () => {
           limit: 10,
           page: 1,
           tags: null,
+          query: "aave",
         },
-        "AAVE",
+        undefined,
       );
 
       expect(competitors).toEqual({

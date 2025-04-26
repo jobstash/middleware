@@ -100,12 +100,17 @@ import { TelemetryModule } from "./telemetry/telemetry.module";
   providers: [AppService],
 })
 export class AppModule implements OnModuleInit {
+  constructor(private readonly configService: ConfigService) {}
   onModuleInit(): void {
     Sentry.init({
-      dsn: process.env.SENTRY_DSN,
+      dsn: this.configService.get<string>("SENTRY_DSN"),
       tracesSampleRate: parseInt(
-        process.env.SENTRY_TRACES_SAMPLE_RATE ?? "0.2",
+        this.configService.get<string>("SENTRY_TRACES_SAMPLE_RATE") ?? "0.2",
       ),
+      profilesSampleRate: parseInt(
+        this.configService.get<string>("SENTRY_PROFILE_SAMPLE_RATE") ?? "0.2",
+      ),
+      profileLifecycle: "trace",
       sendDefaultPii: true,
       integrations: [
         nodeProfilingIntegration(),

@@ -8,8 +8,8 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { CacheModule } from "@nestjs/cache-manager";
 import envSchema from "src/env-schema";
 import { ModelService } from "src/model/model.service";
-import { ModelModule } from "src/model/model.module";
 import { NeogmaModule, NeogmaModuleOptions } from "nestjs-neogma";
+import { TagsService } from "src/tags/tags.service";
 
 describe("PublicController", () => {
   let controller: PublicController;
@@ -114,10 +114,11 @@ describe("PublicController", () => {
             }) as NeogmaModuleOptions,
         }),
         CacheModule.register({ isGlobal: true }),
-        ModelModule,
+        // forwardRef(() => ModelModule),
+        // forwardRef(() => TagsModule),
       ],
       controllers: [PublicController],
-      providers: [PublicService, ModelService],
+      providers: [PublicService, ModelService, TagsService],
     }).compile();
 
     await module.init();
@@ -141,6 +142,7 @@ describe("PublicController", () => {
     const params = {
       page: 1,
       limit: Number(Integer.MAX_VALUE),
+      query: null,
     };
     const res = await controller.getAllJobs(params);
 

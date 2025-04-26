@@ -22,12 +22,7 @@ import { Integer, Node } from "neo4j-driver";
 import { Neo4jSupportedProperties, NeogmaInstance } from "neogma";
 import { catchError, firstValueFrom } from "rxjs";
 import ShortUniqueId from "short-unique-id";
-import {
-  NON_PUBLIC_API_ROUTES,
-  TEST_EMAIL,
-  TEST_GITHUB_USER,
-  USER_TEST_WALLET,
-} from "../constants";
+import { NON_PUBLIC_API_ROUTES, TEST_EMAIL } from "../constants";
 import { DateRange, JobListOrderBy } from "../enums";
 import {
   JobListResult,
@@ -194,6 +189,10 @@ export const publicationDateRangeGenerator = (
 ): { startDate: number; endDate: number } => {
   const logger = new CustomLogger("PublicationDateRangeGenerator");
   const now = Date.now();
+  if (dateRange === null) {
+    logger.warn("No date range provided, returning null");
+    return { startDate: null, endDate: null };
+  }
   switch (dateRange) {
     case "today":
       return {
@@ -230,9 +229,6 @@ export const publicationDateRangeGenerator = (
         endDate: endOfDay(now).getTime(),
       };
     default:
-      if (dateRange !== null) {
-        logger.error(`Invalid date range: ${dateRange}`);
-      }
       return { startDate: null, endDate: null };
   }
 };
@@ -534,18 +530,14 @@ export const resetTestDB = async (
       }),
     ),
   );
+  setTimeout(() => {}, 10000);
 };
 
 export const createTestUser = async (
   privyService: PrivyService,
   userService: UserService,
 ): Promise<string> => {
-  const user = await privyService.createUser({
-    wallets: [USER_TEST_WALLET],
-    email: TEST_EMAIL,
-    github: TEST_GITHUB_USER,
-    name: "Test User",
-  });
+  const user = await privyService.getUserByEmail(TEST_EMAIL);
   const embeddedWallet = (
     user.linkedAccounts.find(
       x => x.type === "wallet" && x.walletClientType === "privy",

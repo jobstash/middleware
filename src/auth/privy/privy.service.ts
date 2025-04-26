@@ -76,10 +76,10 @@ export class PrivyService {
     }
   }
 
-  async getUser(userId: string, attempts = 0): Promise<User | undefined> {
+  async getUserById(userId: string, attempts = 0): Promise<User | undefined> {
     let user: User;
     try {
-      user = await this.privy.getUser(userId);
+      user = await this.privy.getUser({ idToken: userId });
       if (!user?.linkedAccounts) {
         this.logger.warn(`User has no linked accounts`);
       } else {
@@ -108,14 +108,52 @@ export class PrivyService {
           } seconds...`,
         );
         await new Promise(resolve => setTimeout(resolve, backOffTime));
-        return this.getUser(userId, attempts + 1);
+        return this.getUserById(userId, attempts + 1);
+      }
+    }
+    return user;
+  }
+
+  async getUserByEmail(email: string, attempts = 0): Promise<User | undefined> {
+    let user: User;
+    try {
+      user = await this.privy.getUserByEmail(email);
+      if (!user?.linkedAccounts) {
+        this.logger.warn(`User has no linked accounts`);
+      } else {
+        this.logger.log(
+          `Fetched user after ${attempts + 1} attempt${
+            attempts > 1 ? "s" : ""
+          }`,
+        );
+      }
+    } catch (err) {
+      if (err.message === "User not found") {
+        return undefined;
+      } else {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-call",
+            source: "privy.service",
+          });
+          Sentry.captureException(err);
+        });
+        this.logger.error(`PrivyService::getUser ${err.message}`);
+        const backOffTime = Math.min(360000, Math.pow(2, attempts) * 1000); // Cap back-off time to 60 seconds
+        this.logger.warn(
+          `Rate limited on get user request. Retrying after ${
+            backOffTime / 1000
+          } seconds...`,
+        );
+        await new Promise(resolve => setTimeout(resolve, backOffTime));
+        return this.getUserByEmail(email, attempts + 1);
       }
     }
     return user;
   }
 
   async getUserLinkedWallets(userId: string): Promise<string[]> {
-    const user = await this.getUser(userId);
+    const user = await this.getUserById(userId);
     if (user?.linkedAccounts) {
       return user.linkedAccounts
         .filter(x => x.type === "wallet" && x.walletClientType !== "privy")

@@ -9,7 +9,6 @@ import {
   Param,
   Post,
   Query,
-  Res,
   UnauthorizedException,
   UseGuards,
   UseInterceptors,
@@ -64,7 +63,6 @@ import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
 import { JobsService } from "./jobs.service";
 import { CacheInterceptor } from "@nestjs/cache-manager";
-import { Response as ExpressResponse } from "express";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 
 @Controller("jobs")
@@ -130,18 +128,30 @@ export class JobsController {
     @Headers(COMMUNITY_HEADER)
     community: string | undefined,
   ): Promise<PaginatedData<JobListResult>> {
-    const enrichedParams = {
-      ...params,
-      communities: community
-        ? [...(params.communities ?? []), community]
-        : params.communities,
-    };
-    const queryString = JSON.stringify(enrichedParams);
-    this.logger.log(`/jobs/list ${queryString}`);
-    if (address) {
-      await this.profileService.logSearchInteraction(address, queryString);
-    }
-    return this.jobsService.getJobsListWithSearch(enrichedParams);
+    return Sentry.startSpan(
+      {
+        name: "Get Jobs List With Search",
+        op: "http.request.get",
+        forceTransaction: true,
+      },
+      async span => {
+        const enrichedParams = {
+          ...params,
+          communities: community
+            ? [...(params.communities ?? []), community]
+            : params.communities,
+        };
+        const queryString = JSON.stringify(enrichedParams);
+        span.setAttribute("request.method", "GET");
+        span.setAttribute("request.query.params", queryString);
+        this.logger.log(`/jobs/list ${queryString}`);
+        if (address) {
+          span.setAttribute("user.authenticated", true);
+          await this.profileService.logSearchInteraction(address, queryString);
+        }
+        return this.jobsService.getJobsListWithSearch(enrichedParams);
+      },
+    );
   }
 
   @Get("/filters")
@@ -162,7 +172,6 @@ export class JobsController {
     type: ValidationError,
   })
   async getFilterConfigs(
-    @Res({ passthrough: true }) res: ExpressResponse,
     @Headers(COMMUNITY_HEADER)
     community: string | undefined,
   ): Promise<JobFilterConfigs> {

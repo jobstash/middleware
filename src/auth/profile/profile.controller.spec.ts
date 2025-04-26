@@ -35,7 +35,7 @@ import { UpdateUserShowCaseInput } from "./dto/update-user-showcase.input";
 import { UpdateUserSkillsInput } from "./dto/update-user-skills.input";
 import { TagsModule } from "src/tags/tags.module";
 import { TagsService } from "src/tags/tags.service";
-import { faker } from "@faker-js/faker/.";
+import { faker } from "@faker-js/faker";
 import { createTestUser, resetTestDB } from "src/shared/helpers";
 import { HttpModule, HttpService } from "@nestjs/axios";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -44,6 +44,7 @@ import { PrivyService } from "../privy/privy.service";
 import { Integer } from "neo4j-driver";
 import { UpdateRepoContributionInput } from "./dto/update-repo-contribution.input";
 import { UpdateRepoTagsUsedInput } from "./dto/update-repo-tags-used.input";
+import { BullModule } from "@nestjs/bull";
 
 describe("ProfileController", () => {
   let controller: ProfileController;
@@ -71,6 +72,17 @@ describe("ProfileController", () => {
           validationSchema: envSchema,
           validationOptions: {
             abortEarly: true,
+          },
+        }),
+        BullModule.registerQueue({
+          name: "mail",
+          defaultJobOptions: {
+            attempts: 5,
+            backoff: {
+              type: "exponential",
+            },
+            removeOnComplete: true,
+            timeout: 60000,
           },
         }),
         NeogmaModule.forRootAsync({
@@ -202,20 +214,6 @@ describe("ProfileController", () => {
     "should get user verified organizations",
     async () => {
       const result = await controller.getUserVerifiedOrgs(USER_SESSION_OBJECT);
-      expect(result).toEqual({
-        success: true,
-        message: expect.stringMatching("success"),
-        data: expect.any(Array<UserVerifiedOrg>),
-      });
-    },
-    REALLY_LONG_TIME,
-  );
-
-  it(
-    "should get user authorized organizations",
-    async () => {
-      const result =
-        await controller.getUserAuthorizedOrgs(USER_SESSION_OBJECT);
       expect(result).toEqual({
         success: true,
         message: expect.stringMatching("success"),

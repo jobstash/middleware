@@ -1323,7 +1323,7 @@ export class ProjectsService {
           ON MATCH SET
             dj.updatedTimestamp = timestamp()
         `,
-        dto,
+        { ...dto },
       );
       return {
         success: true,

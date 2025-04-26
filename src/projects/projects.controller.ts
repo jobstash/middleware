@@ -81,7 +81,6 @@ import { AddProjectByUrlInput } from "./dto/add-project-by-url.input";
 import { ActivateProjectJobsiteInput } from "./dto/activate-project-jobsites.input";
 import { CreateProjectJobsiteInput } from "./dto/create-project-jobsites.input";
 import { SearchProjectsInput } from "./dto/search-projects.input";
-import mime from "mime";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 
 @Controller("projects")
@@ -734,7 +733,7 @@ export class ProjectsController {
         "/projects/upload-logo Uploading logo to IPFS: ",
         file.originalname,
       );
-      const type = mime.getType(file.originalname);
+      const type = file.mimetype;
       const fileForUpload = new File([file.buffer], file.originalname, {
         type,
       });

@@ -51,7 +51,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 23.5.0
+          node-version: 22.15.0
           cache: "yarn"
 
       - name: Install deps
@@ -68,7 +68,7 @@ jobs:
           NEO4J_PORT_TEST: ${{ secrets.NEO4J_PORT_TEST }}
           NEO4J_SCHEME_TEST: ${{ secrets.NEO4J_SCHEME_TEST }}
           NEO4J_USERNAME_TEST: ${{ secrets.NEO4J_USERNAME_TEST }}
-          NEO4J_DATABASE_TEST: ${{ secrets.NEO4J_DATABASE_TEST }}
+          NEO4J_DATABASE_TEST: testdb
           TEST_DB_MANAGER_URL: ${{ secrets.TEST_DB_MANAGER_URL }}
           TEST_DB_MANAGER_API_KEY: ${{ secrets.TEST_DB_MANAGER_API_KEY }}
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
@@ -76,6 +76,7 @@ jobs:
           SCORER_API_KEY: ${{ secrets.SCORER_API_KEY }}
           SCORER_DOMAIN: ${{ secrets.SCORER_DOMAIN }}
           ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
+          USER_CACHE_EXPIRATION_IN_DAYS: 30d
           APP_PORT: ${{ secrets.APP_PORT }}
           GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
           GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}

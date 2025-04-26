@@ -44,3 +44,5 @@ certs/localhost-key.pem
 certs/localhost.pem
 
 swagger.yaml
+
+junit.xml
