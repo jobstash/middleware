@@ -28,27 +28,6 @@ export class GithubUserService {
     private models: ModelService,
   ) {}
 
-  async githubUserHasUser(githubId: string): Promise<boolean> {
-    const result = await this.neogma.queryRunner.run(
-      `
-        RETURN EXISTS((:User)-[:HAS_GITHUB_USER]->(:GithubUser {id: $githubId})) AS hasUser
-      `,
-      { githubId },
-    );
-    return result.records[0]?.get("hasUser") as boolean;
-  }
-
-  async getWalletByGithub(githubId: string): Promise<string> {
-    const result = await this.neogma.queryRunner.run(
-      `
-        MATCH (u:User)-[:HAS_GITHUB_USER]->(:GithubUser {id: $githubId})
-        RETURN u.wallet as wallet
-      `,
-      { githubId },
-    );
-    return result.records[0]?.get("wallet") as string;
-  }
-
   async unsafe__linkGithubUser(
     wallet: string,
     githubLogin: string,
@@ -61,24 +40,6 @@ export class GithubUserService {
       RETURN gu
       `,
       { wallet, githubLogin },
-    );
-
-    return res.records.length
-      ? new GithubUserEntity(res.records[0].get("gu")).getProperties()
-      : undefined;
-  }
-
-  async unlinkGithubUser(
-    userId: string,
-    githubUserId: string,
-  ): Promise<GithubUser | undefined> {
-    const res = await this.neogma.queryRunner.run(
-      `
-      MATCH (u:User {id: $userId})-[r:HAS_GITHUB_USER]->(gu:GithubUser {id: $githubUserId})
-      DELETE r
-      RETURN gu
-      `,
-      { userId, githubUserId },
     );
 
     return res.records.length
@@ -207,14 +168,6 @@ export class GithubUserService {
       : undefined;
   }
 
-  async findAll(): Promise<GithubUserNode[]> {
-    const githubNodes = await this.models.GithubUsers.findMany();
-
-    return githubNodes.map(
-      githubNode => new GithubUserNode(instanceToNode(githubNode)),
-    );
-  }
-
   async create(
     createGithubUserDto: CreateGithubUserDto,
   ): Promise<GithubUserNode> {
@@ -229,16 +182,6 @@ export class GithubUserService {
       },
     );
     return new GithubUserNode(instanceToNode(newGithubNode));
-  }
-
-  async upsert(githubUser: GithubUser): Promise<GithubUserNode | undefined> {
-    const oldNode = await this.findByLogin(githubUser.login);
-
-    if (oldNode) {
-      return this.update(oldNode.getId(), githubUser);
-    } else {
-      return this.create(githubUser);
-    }
   }
 
   async update(
@@ -261,27 +204,6 @@ export class GithubUserService {
     } else {
       this.logger.error(`GithubUserService::update node not found`);
       return undefined;
-    }
-  }
-
-  async delete(id: string): Promise<boolean> {
-    try {
-      const result = await this.models.GithubUsers.delete({
-        where: { id: id },
-        detach: true,
-      });
-      return result === 1;
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "jobs.service",
-        });
-        scope.setExtra("input", { id });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`GithubUserService::delete ${err.message}`);
-      return false;
     }
   }
 }
