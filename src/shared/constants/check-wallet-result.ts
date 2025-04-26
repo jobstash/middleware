@@ -6,5 +6,6 @@ export const CheckWalletPermissions = {
   ORG_OWNER: "ORG_OWNER" as const,
   PROJECT_MANAGER: "PROJECT_MANAGER" as const,
   ORG_MANAGER: "ORG_MANAGER" as const,
+  ECOSYSTEM_MANAGER: "ECOSYSTEM_MANAGER" as const,
   TAGS_MANAGER: "TAGS_MANAGER" as const,
 };
