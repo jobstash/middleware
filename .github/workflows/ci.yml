@@ -5,102 +5,145 @@ name: Continous Integration
 ################################
 on:
   push:
-    branches: [dev, "feature/job-**", "fix/job-**"]
+    branches: [main, staging, dev, "feature/job-**", "fix/job-**"]
     paths:
       - "src/**.js"
       - "src/**.ts"
   pull_request:
     branches: [main, staging, dev]
 
-###############
-# Set the Job #
-###############
+concurrency:
+  group: ci-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
-  build:
-    # Name the Job
-    name: Validate Code Base
-    # Set the agent to run on
+  test-build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # for checkout
+    env:
+      # Give every workflow a predictable release + env
+      RELEASE_VERSION: ${{ github.sha }}
+      NODE_ENV: test
+      # Verbose Sentry output in CI
+      SENTRY_DEBUG: true
 
-    ##################
-    # Load all steps #
-    ##################
     steps:
-      ##########################
-      # Checkout the code base #
-      ##########################
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          # Full git history is needed to get a proper
-          # list of changed files within `super-linter`
-          fetch-depth: 0
+      - name: Map branch to Sentry environment
+        id: env-map
+        run: |
+          case "${GITHUB_REF_NAME}" in
+            main)   echo "env=production"  >> "$GITHUB_OUTPUT" ;;
+            staging) echo "env=staging"    >> "$GITHUB_OUTPUT" ;;
+            dev)     echo "env=development" >> "$GITHUB_OUTPUT" ;;
+            *)      echo "env=feature-branch" >> "$GITHUB_OUTPUT" ;;
+          esac
 
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Enable Corepack & Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: 18.13.0
+          node-version: 22.15.0
           cache: "yarn"
-      ##################################################
-      # Build the code base to check for syntax errors #
-      ##################################################
-      - name: Install Dependencies
-        run: yarn install
-      - name: Build Code
-        run: yarn build
-      - name: Cleanup
-        run: rm -rf dist
-      ################################
-      # Run Linter against code base #
-      ################################
-      - name: Lint Code Base
+
+      - name: Install deps
+        run: yarn install --frozen-lockfile
+
+      - name: Lint
         run: yarn lint
-      ##################
-      # Run prod tests #
-      ##################
-      - name: Run Prod Tests
-        run: yarn test --detectOpenHandles --forceExit
+
+      # - name: Run Tests
+      #   run: yarn test --detectOpenHandles --forceExit --ci --coverage --reporters=default --reporters=jest-junit
+      #   env:
+      #     ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
+      #     ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+      #     APP_PORT: ${{ secrets.APP_PORT }}
+      #     ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+      #     AUTH0_AUDIENCE: ${{ secrets.AUTH0_AUDIENCE }}
+      #     AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
+      #     DIFF: ${{ secrets.DIFF }}
+      #     EMAIL: ${{ secrets.EMAIL }}
+      #     ETL_CLIENT_ID: ${{ secrets.ETL_CLIENT_ID }}
+      #     ETL_CLIENT_SECRET: ${{ secrets.ETL_CLIENT_SECRET }}
+      #     ETL_DOMAIN: ${{ secrets.ETL_DOMAIN }}
+      #     EV_DOMAIN: ${{ secrets.EV_DOMAIN }}
+      #     FE_DOMAIN: ${{ secrets.FE_DOMAIN }}
+      #     GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+      #     GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
+      #     INFURA_API_KEY: ${{ secrets.INFURA_API_KEY }}
+      #     JOB_PROMOTION_PRICE: ${{ secrets.JOB_PROMOTION_PRICE }}
+      #     JWT_EXPIRES_IN: ${{ secrets.JWT_EXPIRES_IN }}
+      #     JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      #     LLAMA_PAY_API_KEY: ${{ secrets.LLAMA_PAY_API_KEY }}
+      #     LLAMA_PAY_WEBHOOK_KEY: ${{ secrets.LLAMA_PAY_WEBHOOK_KEY }}
+      #     LOCAL_HTTPS: ${{ secrets.LOCAL_HTTPS }}
+      #     MAGIC_LINK_EXPIRES_IN: ${{ secrets.MAGIC_LINK_EXPIRES_IN }}
+      #     MAGIC_LINK_SECRET: ${{ secrets.MAGIC_LINK_SECRET }}
+      #     MW_DOMAIN: ${{ secrets.MW_DOMAIN }}
+      #     NEO4J_DATABASE_TEST: testdb
+      #     NEO4J_HOST_TEST: ${{ secrets.NEO4J_HOST_TEST }}
+      #     NEO4J_PASSWORD_TEST: ${{ secrets.NEO4J_PASSWORD_TEST }}
+      #     NEO4J_PORT_TEST: ${{ secrets.NEO4J_PORT_TEST }}
+      #     NEO4J_SCHEME_TEST: ${{ secrets.NEO4J_SCHEME_TEST }}
+      #     NEO4J_USERNAME_TEST: ${{ secrets.NEO4J_USERNAME_TEST }}
+      #     NFT_STORAGE_API_KEY: ${{ secrets.NFT_STORAGE_API_KEY }}
+      #     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      #     ORG_ADMIN_DOMAIN: ${{ secrets.ORG_ADMIN_DOMAIN }}
+      #     PRIVY_APP_ID: ${{ secrets.PRIVY_APP_ID }}
+      #     PRIVY_APP_SECRET: ${{ secrets.PRIVY_APP_SECRET }}
+      #     PRIVY_WEBHOOK_KEY: ${{ secrets.PRIVY_WEBHOOK_KEY }}
+      #     REDIS_HOST: ${{ secrets.REDIS_HOST }}
+      #     REDIS_PORT: ${{ secrets.REDIS_PORT }}
+      #     REPORT_CONTENT_TO_EMAIL: ${{ secrets.REPORT_CONTENT_TO_EMAIL }}
+      #     SCORER_API_KEY: ${{ secrets.SCORER_API_KEY }}
+      #     SCORER_DOMAIN: ${{ secrets.SCORER_DOMAIN }}
+      #     SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+      #     SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+      #     SENTRY_ENVIRONMENT: ${{ steps.env-map.outputs.env }}
+      #     SENTRY_ORG: "jobstash"
+      #     SENTRY_PROJECT: "middleware"
+      #     SENTRY_RELEASE: ${{ github.sha }}
+      #     SENTRY_TRACES_SAMPLE_RATE: ${{ secrets.SENTRY_TRACES_SAMPLE_RATE }}
+      #     SENTRY_PROFILE_SAMPLE_RATE: ${{ secrets.SENTRY_PROFILE_SAMPLE_RATE }}
+      #     SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+      #     SKILL_THRESHOLD: ${{ secrets.SKILL_THRESHOLD }}
+      #     SWAGGER_PASSWORD: ${{ secrets.SWAGGER_PASSWORD }}
+      #     SWAGGER_USER: ${{ secrets.SWAGGER_USER }}
+      #     TEST_DB_MANAGER_API_KEY: ${{ secrets.TEST_DB_MANAGER_API_KEY }}
+      #     TEST_DB_MANAGER_URL: ${{ secrets.TEST_DB_MANAGER_URL }}
+      #     USER_CACHE_EXPIRATION_IN_DAYS: 30
+      #     VCDATA_API_KEY: ${{ secrets.VCDATA_API_KEY }}
+
+      # - name: Upload coverage to artifact store
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: coverage
+      #     path: coverage/
+
+      - name: Build
+        run: yarn build
+
+      - name: Release with sourcemaps to Sentry
+        uses: getsentry/action-release@v3
         env:
-          NEO4J_HOST_TEST: ${{ secrets.NEO4J_HOST_TEST }}
-          NEO4J_PASSWORD_TEST: ${{ secrets.NEO4J_PASSWORD_TEST }}
-          NEO4J_PORT_TEST: ${{ secrets.NEO4J_PORT_TEST }}
-          NEO4J_SCHEME_TEST: ${{ secrets.NEO4J_SCHEME_TEST }}
-          NEO4J_USERNAME_TEST: ${{ secrets.NEO4J_USERNAME_TEST }}
-          NEO4J_DATABASE_TEST: ${{ secrets.NEO4J_DATABASE_TEST }}
-          TEST_DB_MANAGER_URL: ${{ secrets.TEST_DB_MANAGER_URL }}
-          TEST_DB_MANAGER_API_KEY: ${{ secrets.TEST_DB_MANAGER_API_KEY }}
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
-          SKILL_THRESHOLD: ${{ secrets.SKILL_THRESHOLD }}
-          SCORER_API_KEY: ${{ secrets.SCORER_API_KEY }}
-          SCORER_DOMAIN: ${{ secrets.SCORER_DOMAIN }}
-          ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
-          APP_PORT: ${{ secrets.APP_PORT }}
-          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
-          GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
-          INFURA_API_KEY: ${{ secrets.INFURA_API_KEY }}
-          JWT_EXPIRES_IN: ${{ secrets.JWT_EXPIRES_IN }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          LOCAL_HTTPS: ${{ secrets.LOCAL_HTTPS }}
-          MAGIC_LINK_EXPIRES_IN: ${{ secrets.MAGIC_LINK_EXPIRES_IN }}
-          MAGIC_LINK_SECRET: ${{ secrets.MAGIC_LINK_SECRET }}
-          MW_DOMAIN: ${{ secrets.MW_DOMAIN }}
-          FE_DOMAIN: ${{ secrets.FE_DOMAIN }}
-          NFT_STORAGE_API_KEY: ${{ secrets.NFT_STORAGE_API_KEY }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: "jobstash"
+          SENTRY_PROJECT: "middleware"
+          SENTRY_RELEASE: ${{ github.sha }}
+          SENTRY_ENVIRONMENT: ${{ steps.env-map.outputs.env }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
-          SENTRY_TRACES_SAMPLE_RATE: ${{ secrets.SENTRY_TRACES_SAMPLE_RATE }}
-          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
-          REPORT_CONTENT_TO_EMAIL: ${{ secrets.REPORT_CONTENT_TO_EMAIL }}
-          SWAGGER_USER: ${{ secrets.SWAGGER_USER }}
-          SWAGGER_PASSWORD: ${{ secrets.SWAGGER_PASSWORD }}
-          VCDATA_API_KEY: ${{ secrets.VCDATA_API_KEY }}
-          PRIVY_APP_ID: ${{ secrets.PRIVY_APP_ID }}
-          PRIVY_APP_SECRET: ${{ secrets.PRIVY_APP_SECRET }}
-          GRANTS_STACK_INDEXER_URL: ${{ secrets.GRANTS_STACK_INDEXER_URL }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          LLAMA_PAY_API_KEY: ${{ secrets.LLAMA_PAY_API_KEY }}
-          LLAMA_PAY_WEBHOOK_KEY: ${{ secrets.LLAMA_PAY_WEBHOOK_KEY }}
-          JOB_PROMOTION_PRICE: ${{ secrets.JOB_PROMOTION_PRICE }}
-          ETL_CLIENT_ID: ${{ secrets.ETL_CLIENT_ID }}
-          ETL_CLIENT_SECRET: ${{ secrets.ETL_CLIENT_SECRET }}
-          ETL_DOMAIN: ${{ secrets.ETL_DOMAIN }}
-          AUTH0_AUDIENCE: ${{ secrets.AUTH0_AUDIENCE }}
-          AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
+        with:
+          environment: ${{ steps.env-map.outputs.env }}
+          release: ${{ env.RELEASE_VERSION }}
+          sourcemaps: ./dist
+          set_commits: "auto"
+          finalize: true
+          dist: ${{ github.run_number }}

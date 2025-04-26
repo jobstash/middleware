@@ -141,6 +141,7 @@ describe("PublicController", () => {
     const params = {
       page: 1,
       limit: Number(Integer.MAX_VALUE),
+      query: null,
     };
     const res = await controller.getAllJobs(params);
 

@@ -9,7 +9,6 @@ import {
   Param,
   Post,
   Query,
-  Res,
   UnauthorizedException,
   UseGuards,
   UseInterceptors,
@@ -64,7 +63,6 @@ import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
 import { JobsService } from "./jobs.service";
 import { CacheInterceptor } from "@nestjs/cache-manager";
-import { Response as ExpressResponse } from "express";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 
 @Controller("jobs")
@@ -162,7 +160,6 @@ export class JobsController {
     type: ValidationError,
   })
   async getFilterConfigs(
-    @Res({ passthrough: true }) res: ExpressResponse,
     @Headers(COMMUNITY_HEADER)
     community: string | undefined,
   ): Promise<JobFilterConfigs> {
