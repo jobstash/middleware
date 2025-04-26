@@ -58,6 +58,7 @@ export class AuthService {
       this.jwtService.verify(token, this.jwtConfig);
       return true;
     } catch (error) {
+      console.log(error);
       return false;
     }
   }
@@ -66,6 +67,7 @@ export class AuthService {
     try {
       return this.jwtService.decode(token, this.jwtConfig);
     } catch (error) {
+      console.log(error);
       return null;
     }
   }

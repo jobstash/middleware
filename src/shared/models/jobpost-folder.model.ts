@@ -29,7 +29,6 @@ export type JobpostFolderInstance = NeogmaInstance<
 //   getUserFoldersByWallet: (wallet: string) => Promise<JobpostFolder[]>;
 // }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
 // export interface JobpostFolderMethods {}
 
 export const JobpostFolders = (

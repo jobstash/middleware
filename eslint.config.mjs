@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import typescriptEslintEslintPlugin from "@typescript-eslint/eslint-plugin";
 import globals from "globals";
 import tsParser from "@typescript-eslint/parser";
@@ -45,8 +46,7 @@ export default [
 
       parserOptions: {
         project: "tsconfig.json",
-        tsconfigRootDir:
-          "./",
+        tsconfigRootDir: "./",
       },
     },
 

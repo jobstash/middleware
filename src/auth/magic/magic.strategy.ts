@@ -3,7 +3,7 @@ import { PassportStrategy } from "@nestjs/passport";
 import { ConfigService } from "@nestjs/config";
 import Strategy from "passport-magic-login";
 import { UserService } from "../../user/user.service";
-import { User } from "src/shared/types";
+import { ResponseWithNoData, User } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import * as SendGrid from "@sendgrid/mail";
@@ -25,8 +25,10 @@ export class MagicAuthStrategy extends PassportStrategy(Strategy, "magic") {
       callbackUrl: "/callback/magic-login",
       sendMagicLink: async (destination: string, href: string) =>
         this.sendToken(destination, href),
-      // eslint-disable-next-line @typescript-eslint/ban-types
-      verify: async (payload: { destination: string }, callback: Function) => {
+      verify: async (
+        payload: { destination: string },
+        callback: (err: ResponseWithNoData, user?: User) => void,
+      ) => {
         const user = await this.verifyUser(payload.destination);
         if (user === null) {
           callback({ success: false, message: "Sign up with email failed" });
