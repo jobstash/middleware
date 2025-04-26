@@ -94,6 +94,8 @@ jobs:
           SENTRY_RELEASE: ${{ github.sha }}
           SENTRY_ENVIRONMENT: ${{ steps.env-map.outputs.env }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          SENTRY_ORG: "jobstash"
+          SENTRY_PROJECT: "middleware"
           REPORT_CONTENT_TO_EMAIL: ${{ secrets.REPORT_CONTENT_TO_EMAIL }}
           SWAGGER_USER: ${{ secrets.SWAGGER_USER }}
           SWAGGER_PASSWORD: ${{ secrets.SWAGGER_PASSWORD }}
@@ -116,10 +118,15 @@ jobs:
           name: coverage
           path: coverage/
 
-      - name: Build
-        run: yarn build
+      - name: Build & Upload Sourcemaps
+        run: yarn build && yarn sentry:sourcemaps
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: "jobstash"
+          SENTRY_PROJECT: "middleware"
+          SENTRY_RELEASE: ${{ github.sha }}
+          SENTRY_ENVIRONMENT: ${{ steps.env-map.outputs.env }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
 
       - name: Release with sourcemaps to Sentry
         uses: getsentry/action-release@v3
