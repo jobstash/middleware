@@ -76,7 +76,7 @@ jobs:
           SCORER_API_KEY: ${{ secrets.SCORER_API_KEY }}
           SCORER_DOMAIN: ${{ secrets.SCORER_DOMAIN }}
           ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
-          USER_CACHE_EXPIRATION_IN_DAYS: 30d
+          USER_CACHE_EXPIRATION_IN_DAYS: 30
           APP_PORT: ${{ secrets.APP_PORT }}
           GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
           GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
@@ -118,6 +118,8 @@ jobs:
 
       - name: Build
         run: yarn build
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Release with sourcemaps to Sentry
         uses: getsentry/action-release@v3
