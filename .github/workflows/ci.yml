@@ -119,7 +119,10 @@ jobs:
           path: coverage/
 
       - name: Build & Upload Sourcemaps
-        run: yarn build && yarn sentry:sourcemaps
+        run: yarn build
+
+      - name: Release with sourcemaps to Sentry
+        uses: getsentry/action-release@v3
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: "jobstash"
@@ -127,9 +130,6 @@ jobs:
           SENTRY_RELEASE: ${{ github.sha }}
           SENTRY_ENVIRONMENT: ${{ steps.env-map.outputs.env }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
-
-      - name: Release with sourcemaps to Sentry
-        uses: getsentry/action-release@v3
         with:
           environment: ${{ steps.env-map.outputs.env }}
           release: ${{ env.RELEASE_VERSION }}
