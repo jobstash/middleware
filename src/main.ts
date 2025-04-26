@@ -71,7 +71,6 @@ async function bootstrap(): Promise<void> {
       include: [PublicModule],
     }),
   );
-
   SwaggerModule.setup("public-api", app, publicDocument);
 
   await app.listen(process.env.PORT ?? 8080);

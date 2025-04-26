@@ -144,6 +144,6 @@ jobs:
           environment: ${{ steps.env-map.outputs.env }}
           release: ${{ env.RELEASE_VERSION }}
           sourcemaps: ./dist
-          set_commits: "true"
+          set_commits: "auto"
           finalize: true
           dist: ${{ github.run_number }}
