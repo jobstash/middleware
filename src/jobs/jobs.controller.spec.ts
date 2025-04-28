@@ -471,6 +471,8 @@ describe("JobsController", () => {
           seniority,
           summary,
           title,
+          protected: false,
+          onboardIntoWeb3: true,
           url,
           tags: newTags,
         },

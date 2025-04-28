@@ -4049,7 +4049,7 @@ export class JobsService {
         SET job.benefits = $benefits
         SET job.requirements = $requirements
         SET job.responsibilities = $responsibilities
-        SET job.protected = $protected
+        SET job.access = $protected
         SET job.onboardIntoWeb3 = $onboardIntoWeb3
       `,
         {
