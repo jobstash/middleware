@@ -17,6 +17,7 @@ import { PaymentsModule } from "src/payments/payments.module";
 import { PrivyModule } from "src/auth/privy/privy.module";
 import { Auth0Module } from "src/auth0/auth0.module";
 import { TagsModule } from "src/tags/tags.module";
+import { SubscriptionsModule } from "src/subscriptions/subscriptions.module";
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { TagsModule } from "src/tags/tags.module";
       }),
     }),
     forwardRef(() => PaymentsModule),
+    forwardRef(() => SubscriptionsModule),
     TagsModule,
   ],
   controllers: [JobsController],
