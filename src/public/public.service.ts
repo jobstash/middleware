@@ -449,14 +449,14 @@ export class PublicService {
     };
 
     const filtered = results.filter(jobFilters).map(x =>
-      new JobListResultEntity({
-        ...x,
+      new JobListResultEntity(x).getProperties(job => ({
+        ...job,
         url: authenticated
-          ? x.access === "public"
-            ? x.url
-            : `https://${this.FE_DOMAIN}/jobs/${x.shortUUID}/details`
-          : `https://${this.FE_DOMAIN}/jobs/${x.shortUUID}/details`,
-      }).getProperties(),
+          ? job.access === "public"
+            ? notStringOrNull(x.url)
+            : `${this.FE_DOMAIN}/jobs/${x.shortUUID}/details`
+          : `${this.FE_DOMAIN}/jobs/${x.shortUUID}/details`,
+      })),
     );
 
     const getSortParam = (jlr: JobListResult): number => {
