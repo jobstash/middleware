@@ -772,7 +772,9 @@ export class JobsController {
       } else {
         const userOrgId =
           await this.userService.findOrgIdByMemberUserWallet(address);
-        const jobOrgId = await this.jobsService.getOrgIdByJobId(dto.shortUUID);
+        const jobOrgId = await this.userService.findOrgIdByJobShortUUID(
+          dto.shortUUID,
+        );
         const subscription = data(
           await this.subscriptionService.getSubscriptionInfo(userOrgId),
         );
@@ -866,7 +868,11 @@ export class JobsController {
 
   @Post("/update/:id")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
+  @Permissions(
+    [CheckWalletPermissions.SUPER_ADMIN],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
+  )
   @ApiOkResponse({
     description: "Updates an existing job's metadata",
     schema: responseSchemaWrapper({
@@ -883,14 +889,14 @@ export class JobsController {
     @Param("id") shortUUID: string,
     @Body(new ValidationPipe({ transform: true })) body: UpdateJobMetadataInput,
   ): Promise<Response<JobListResult> | ResponseWithNoData> {
-    const orgId = await this.userService.findOrgIdByJobShortUUID(shortUUID);
-    const authorized = await this.userService.isOrgMember(
+    const jobOrgId = await this.userService.findOrgIdByJobShortUUID(shortUUID);
+    const userOrgId = await this.userService.findOrgIdByMemberUserWallet(
       session.address,
-      orgId,
     );
 
     if (
-      authorized ||
+      userOrgId === jobOrgId ||
+      session.permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER) ||
       session.permissions.includes(CheckWalletPermissions.SUPER_ADMIN)
     ) {
       this.logger.log(`/jobs/update/${shortUUID} ${JSON.stringify(body)}`);
@@ -1040,7 +1046,8 @@ export class JobsController {
       } else {
         const access = Promise.all(
           dto.shortUUIDs.map(async shortUUID => {
-            const orgId = await this.jobsService.getOrgIdByJobId(shortUUID);
+            const orgId =
+              await this.userService.findOrgIdByJobShortUUID(shortUUID);
             if (orgId === null) {
               return false;
             } else {
@@ -1104,7 +1111,8 @@ export class JobsController {
       } else {
         const access = Promise.all(
           dto.shortUUIDs.map(async shortUUID => {
-            const orgId = await this.jobsService.getOrgIdByJobId(shortUUID);
+            const orgId =
+              await this.userService.findOrgIdByJobShortUUID(shortUUID);
             if (orgId === null) {
               return false;
             } else {

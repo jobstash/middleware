@@ -1109,30 +1109,6 @@ export class JobsService {
     }
   }
 
-  async getOrgIdByJobId(shortUUID: string): Promise<string | null> {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        MATCH (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(:StructuredJobpost {shortUUID: $shortUUID})
-        RETURN org.orgId as orgId
-      `,
-        { shortUUID },
-      );
-
-      return result.records[0]?.get("orgId") as string;
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "jobs.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`JobsService::getOrgIdByJobId ${err.message}`);
-      return null;
-    }
-  }
-
   async getJobDetailsByUuid(
     uuid: string,
     community: string | undefined,
