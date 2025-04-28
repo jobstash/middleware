@@ -93,6 +93,16 @@ export class UpdateJobMetadataInput {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsBoolean()
+  protected: boolean | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  onboardIntoWeb3: boolean | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
   commitment: string | null;
 
