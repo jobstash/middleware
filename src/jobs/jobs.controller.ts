@@ -322,7 +322,10 @@ export class JobsController {
 
   @Get("/org/:id/all")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
+  @Permissions(
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
+  )
   @ApiOkResponse({
     description: "Returns a list of all jobs posted by an org",
     schema: {
@@ -351,18 +354,24 @@ export class JobsController {
     @Query("page") page: number,
     @Query("limit") limit: number,
   ): Promise<PaginatedData<AllOrgJobsListResult>> {
-    const authorized = await this.userService.isOrgMember(address, id);
+    this.logger.log(`/jobs/org/${id}/all ${JSON.stringify({ page, limit })}`);
     if (
-      authorized ||
-      permissions.includes(CheckWalletPermissions.SUPER_ADMIN)
+      (await this.userService.isOrgMember(address, id)) ||
+      (await this.userService.isOrgOwner(address, id))
     ) {
-      this.logger.log(`/jobs/org/${id}/all ${JSON.stringify({ page, limit })}`);
       return this.jobsService.getAllJobsByOrgId(id, page, limit);
     } else {
-      throw new UnauthorizedException({
-        success: false,
-        message: "You are not allowed to access this resource",
-      });
+      if (
+        permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER) ||
+        permissions.includes(CheckWalletPermissions.SUPER_ADMIN)
+      ) {
+        return this.jobsService.getAllJobsByOrgId(id, page, limit);
+      } else {
+        throw new UnauthorizedException({
+          success: false,
+          message: "You are not allowed to access this resource",
+        });
+      }
     }
   }
 
@@ -1006,7 +1015,11 @@ export class JobsController {
 
   @Post("/block")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  @Permissions(
+    [CheckWalletPermissions.SUPER_ADMIN],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+  )
   @ApiOkResponse({
     description: "Blocks a list of jobs",
     schema: {
@@ -1014,12 +1027,39 @@ export class JobsController {
     },
   })
   async blockJobs(
-    @Session() { address }: SessionObject,
+    @Session() { address, permissions }: SessionObject,
     @Body() dto: BlockJobsInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/jobs/block`);
     try {
-      return this.jobsService.blockJobs(address, dto);
+      if (
+        permissions.includes(CheckWalletPermissions.SUPER_ADMIN) ||
+        permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER)
+      ) {
+        return this.jobsService.blockJobs(address, dto);
+      } else {
+        const access = Promise.all(
+          dto.shortUUIDs.map(async shortUUID => {
+            const orgId = await this.jobsService.getOrgIdByJobId(shortUUID);
+            if (orgId === null) {
+              return false;
+            } else {
+              return (
+                (await this.userService.isOrgMember(address, orgId)) ||
+                (await this.userService.isOrgOwner(address, orgId))
+              );
+            }
+          }),
+        );
+        if ((await access).every(x => x === true)) {
+          return this.jobsService.blockJobs(address, dto);
+        } else {
+          throw new UnauthorizedException({
+            success: false,
+            message: "You are not authorized to access this resource",
+          });
+        }
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -1039,7 +1079,11 @@ export class JobsController {
 
   @Post("/unblock")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  @Permissions(
+    [CheckWalletPermissions.SUPER_ADMIN],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+  )
   @ApiOkResponse({
     description: "Unblocks a list of jobs",
     schema: {
@@ -1047,12 +1091,39 @@ export class JobsController {
     },
   })
   async unblockJobs(
-    @Session() { address }: SessionObject,
+    @Session() { address, permissions }: SessionObject,
     @Body() dto: BlockJobsInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/jobs/block`);
     try {
-      return this.jobsService.unblockJobs(address, dto);
+      if (
+        permissions.includes(CheckWalletPermissions.SUPER_ADMIN) ||
+        permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER)
+      ) {
+        return this.jobsService.unblockJobs(address, dto);
+      } else {
+        const access = Promise.all(
+          dto.shortUUIDs.map(async shortUUID => {
+            const orgId = await this.jobsService.getOrgIdByJobId(shortUUID);
+            if (orgId === null) {
+              return false;
+            } else {
+              return (
+                (await this.userService.isOrgMember(address, orgId)) ||
+                (await this.userService.isOrgOwner(address, orgId))
+              );
+            }
+          }),
+        );
+        if ((await access).every(x => x === true)) {
+          return this.jobsService.blockJobs(address, dto);
+        } else {
+          throw new UnauthorizedException({
+            success: false,
+            message: "You are not authorized to access this resource",
+          });
+        }
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
