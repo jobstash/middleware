@@ -128,30 +128,18 @@ export class JobsController {
     @Headers(COMMUNITY_HEADER)
     community: string | undefined,
   ): Promise<PaginatedData<JobListResult>> {
-    return Sentry.startSpan(
-      {
-        name: "Get Jobs List With Search",
-        op: "http.request.get",
-        forceTransaction: true,
-      },
-      async span => {
-        const enrichedParams = {
-          ...params,
-          communities: community
-            ? [...(params.communities ?? []), community]
-            : params.communities,
-        };
-        const queryString = JSON.stringify(enrichedParams);
-        span.setAttribute("request.method", "GET");
-        span.setAttribute("request.query.params", queryString);
-        this.logger.log(`/jobs/list ${queryString}`);
-        if (address) {
-          span.setAttribute("user.authenticated", true);
-          await this.profileService.logSearchInteraction(address, queryString);
-        }
-        return this.jobsService.getJobsListWithSearch(enrichedParams);
-      },
-    );
+    const enrichedParams = {
+      ...params,
+      communities: community
+        ? [...(params.communities ?? []), community]
+        : params.communities,
+    };
+    const queryString = JSON.stringify(enrichedParams);
+    this.logger.log(`/jobs/list ${queryString}`);
+    if (address) {
+      await this.profileService.logSearchInteraction(address, queryString);
+    }
+    return this.jobsService.getJobsListWithSearch(enrichedParams);
   }
 
   @Get("/filters")
