@@ -34,7 +34,9 @@ type RawJobPost = StructuredJobpostWithRelations & {
 export class JobListResultEntity {
   constructor(private readonly raw: RawJobPost) {}
 
-  getProperties(): JobListResult {
+  getProperties(
+    transform?: (job: JobListResult) => JobListResult,
+  ): JobListResult {
     const jobpost = this.raw;
     const { organization, project, tags } = jobpost;
     const reviews =
@@ -49,7 +51,7 @@ export class JobListResultEntity {
       isAfter(now, nonZeroOrNull(jobpost?.featureStartDate) ?? now) &&
       isBefore(now, nonZeroOrNull(jobpost?.featureEndDate) ?? now);
 
-    return new JobListResult({
+    const processed = {
       ...jobpost,
       salary: nonZeroOrNull(jobpost?.salary),
       minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
@@ -282,6 +284,12 @@ export class JobListResultEntity {
           }
         : null,
       tags: tags ?? [],
-    });
+    };
+
+    if (transform) {
+      return new JobListResult(transform(processed));
+    } else {
+      return new JobListResult(processed);
+    }
   }
 }
