@@ -1053,6 +1053,86 @@ export class JobsService {
     }
   }
 
+  async getFeaturedJobsByOrgId(
+    community: string | undefined,
+    orgId: string,
+  ): Promise<ResponseWithOptionalData<JobListResult[]>> {
+    try {
+      const jobs = (await this.getJobsListResults()).filter(
+        x => x?.organization?.orgId === orgId,
+      );
+      const now = new Date().getTime();
+      const featured = community
+        ? jobs
+            .map(x => new JobListResultEntity(x).getProperties())
+            .filter(
+              job =>
+                job.organization.community.includes(community) &&
+                job.featured === true &&
+                job.featureStartDate <= now &&
+                now <= job.featureEndDate,
+            )
+        : jobs
+            .map(x => new JobListResultEntity(x).getProperties())
+            .filter(
+              job =>
+                job.featured === true &&
+                job.featureStartDate <= now &&
+                now <= job.featureEndDate,
+            );
+      const result = sort<JobListResult>(featured).by([
+        { desc: (job): boolean => job.featured },
+        {
+          desc: (job): number =>
+            differenceInHours(job.featureEndDate, job.featureStartDate),
+        },
+        { asc: (job): number => job.featureStartDate },
+      ]);
+      return {
+        success: true,
+        message: "Org featured jobs retrieved successfully",
+        data: result,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getFeaturedJobsByOrgId ${err.message}`);
+      return {
+        success: false,
+        message: "Failed to retrieve featured jobs by orgId",
+      };
+    }
+  }
+
+  async getOrgIdByJobId(shortUUID: string): Promise<string | null> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(:StructuredJobpost {shortUUID: $shortUUID})
+        RETURN org.orgId as orgId
+      `,
+        { shortUUID },
+      );
+
+      return result.records[0]?.get("orgId") as string;
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getOrgIdByJobId ${err.message}`);
+      return null;
+    }
+  }
+
   async getJobDetailsByUuid(
     uuid: string,
     community: string | undefined,
@@ -4219,7 +4299,7 @@ export class JobsService {
     }
   }
 
-  async makeJobFeatured(dto: FeatureJobsInput): Promise<ResponseWithNoData> {
+  async featureJobpost(dto: FeatureJobsInput): Promise<ResponseWithNoData> {
     try {
       const { endDate, startDate, shortUUID } = dto;
       const result = await this.models.StructuredJobposts.update(
@@ -4331,7 +4411,7 @@ export class JobsService {
         this.logger.log(
           `Job ${job.shortUUID} is already promoted, extending feature duration...`,
         );
-        await this.makeJobFeatured({
+        await this.featureJobpost({
           shortUUID: job.shortUUID,
           startDate: new Date(job.featureStartDate).toISOString(),
           endDate: addDays(job.featureEndDate, 7).toISOString(),
@@ -4340,7 +4420,7 @@ export class JobsService {
         this.logger.log(
           `Promoting job ${job.shortUUID} to featured status for a week...`,
         );
-        await this.makeJobFeatured({
+        await this.featureJobpost({
           shortUUID: job.shortUUID,
           startDate: new Date().toISOString(),
           endDate: addDays(new Date(), 7).toISOString(),

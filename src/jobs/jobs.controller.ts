@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -35,6 +36,7 @@ import {
   AllJobsFilterConfigs,
   AllJobsListResult,
   AllOrgJobsListResult,
+  data,
   JobApplicant,
   JobDetailsResult,
   JobFilterConfigs,
@@ -64,6 +66,7 @@ import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
 import { JobsService } from "./jobs.service";
 import { CacheInterceptor } from "@nestjs/cache-manager";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
+import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
 
 @Controller("jobs")
 @UseInterceptors(CacheInterceptor)
@@ -75,6 +78,7 @@ export class JobsController {
     private readonly tagsService: TagsService,
     private readonly profileService: ProfileService,
     private readonly userService: UserService,
+    private readonly subscriptionService: SubscriptionsService,
   ) {}
 
   @Get("/list")
@@ -209,9 +213,13 @@ export class JobsController {
     return result;
   }
 
-  @Get("/featured")
+  @Get("/featured/:orgId")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  @Permissions(
+    [CheckWalletPermissions.SUPER_ADMIN],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+  )
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiOkResponse({
     description: "Returns a list of featured jobs",
@@ -229,11 +237,54 @@ export class JobsController {
     },
   })
   async getFeaturedJobsList(
+    @Param("orgId") orgId: string | null = null,
     @Headers(COMMUNITY_HEADER)
     community: string | undefined,
+    @Session() { address, permissions }: SessionObject,
   ): Promise<ResponseWithOptionalData<JobListResult[]>> {
     this.logger.log(`/jobs/featured`);
-    return this.jobsService.getFeaturedJobs(community);
+    if (permissions.includes(CheckWalletPermissions.SUPER_ADMIN)) {
+      if (orgId === "all") {
+        return this.jobsService.getFeaturedJobs(community);
+      } else {
+        return this.jobsService.getFeaturedJobsByOrgId(community, orgId);
+      }
+    } else {
+      const userOrgId =
+        await this.userService.findOrgIdByMemberUserWallet(address);
+      const subscription = data(
+        await this.subscriptionService.getSubscriptionInfo(userOrgId),
+      );
+      if (subscription.isActive()) {
+        if (permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER)) {
+          return this.jobsService.getFeaturedJobsByOrgId(community, orgId);
+        } else {
+          if (orgId === null) {
+            throw new BadRequestException({
+              success: false,
+              message: "Must specify orgId",
+            });
+          } else {
+            if (
+              (await this.userService.isOrgMember(address, orgId)) ||
+              (await this.userService.isOrgOwner(address, orgId))
+            ) {
+              return this.jobsService.getFeaturedJobsByOrgId(community, orgId);
+            } else {
+              throw new UnauthorizedException({
+                success: false,
+                message: "You are not authorized to access this resource",
+              });
+            }
+          }
+        }
+      } else {
+        throw new UnauthorizedException({
+          success: false,
+          message: "You are not authorized to access this resource",
+        });
+      }
+    }
   }
 
   @Get("/org/:id")
@@ -690,19 +741,52 @@ export class JobsController {
 
   @Post("/feature")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  @Permissions(
+    [CheckWalletPermissions.SUPER_ADMIN],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+  )
   @ApiOkResponse({
     description: "Make a job featured",
     schema: {
       $ref: getSchemaPath(ResponseWithNoData),
     },
   })
-  async makeFeatured(
+  async featureJobpost(
+    @Session() { address, permissions }: SessionObject,
     @Body() dto: FeatureJobsInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/jobs/feature`);
     try {
-      return this.jobsService.makeJobFeatured(dto);
+      if (permissions.includes(CheckWalletPermissions.SUPER_ADMIN)) {
+        return this.jobsService.featureJobpost(dto);
+      } else {
+        const userOrgId =
+          await this.userService.findOrgIdByMemberUserWallet(address);
+        const jobOrgId = await this.jobsService.getOrgIdByJobId(dto.shortUUID);
+        const subscription = data(
+          await this.subscriptionService.getSubscriptionInfo(userOrgId),
+        );
+        if (subscription?.canAccessService("boostedVacancyMultiplier")) {
+          if (permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER)) {
+            return this.jobsService.featureJobpost(dto);
+          } else {
+            if (!(userOrgId === jobOrgId)) {
+              throw new UnauthorizedException({
+                success: false,
+                message: "You are not authorized to access this resource",
+              });
+            } else {
+              return this.jobsService.featureJobpost(dto);
+            }
+          }
+        } else {
+          throw new UnauthorizedException({
+            success: false,
+            message: "You are not authorized to access this resource",
+          });
+        }
+      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({

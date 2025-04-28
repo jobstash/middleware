@@ -336,7 +336,7 @@ describe("JobsController", () => {
         )
       ).data.find(job => !job.featured);
 
-      const result = await controller.makeFeatured({
+      const result = await controller.featureJobpost(EMPTY_SESSION_OBJECT, {
         shortUUID: job.shortUUID,
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
@@ -1055,7 +1055,11 @@ describe("JobsController", () => {
   it(
     "should get featured jobs",
     async () => {
-      const result = await controller.getFeaturedJobsList(undefined);
+      const result = await controller.getFeaturedJobsList(
+        null,
+        undefined,
+        EMPTY_SESSION_OBJECT,
+      );
 
       expect(result).toEqual({
         success: true,
