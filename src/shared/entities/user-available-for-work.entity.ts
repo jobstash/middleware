@@ -53,6 +53,7 @@ export class UserAvailableForWorkEntity {
         firstContributedAt: nonZeroOrNull(workHistory.firstContributedAt),
         lastContributedAt: nonZeroOrNull(workHistory.lastContributedAt),
         createdAt: nonZeroOrNull(workHistory.createdAt),
+        updatedAt: nonZeroOrNull(workHistory.updatedAt),
         repositories:
           workHistory?.repositories?.map(repository => ({
             ...repository,
