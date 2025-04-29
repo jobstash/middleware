@@ -63,6 +63,7 @@ export class UserAvailableForWorkEntity {
             lastContributedAt: nonZeroOrNull(repository.lastContributedAt),
             commitsCount: nonZeroOrNull(repository.commitsCount),
             createdAt: nonZeroOrNull(repository.createdAt),
+            updatedAt: nonZeroOrNull(repository.updatedAt),
           })) ?? [],
       })),
       ecosystemActivations: this.raw?.ecosystemActivations ?? [],

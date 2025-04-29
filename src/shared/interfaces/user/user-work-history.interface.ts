@@ -28,9 +28,11 @@ export class UserWorkHistory {
         tenure: t.number,
         stars: t.number,
         createdAt: t.number,
+        updatedAt: t.union([t.number, t.null]),
       }),
     ),
     createdAt: t.number,
+    updatedAt: t.union([t.number, t.null]),
   });
 
   @ApiProperty()
@@ -76,10 +78,14 @@ export class UserWorkHistory {
     stars: number;
     cryptoNative: boolean;
     createdAt: number;
+    updatedAt: number | null;
   }[];
 
   @ApiProperty()
   createdAt: number;
+
+  @ApiProperty()
+  updatedAt: number | null;
 
   constructor(raw: UserWorkHistory) {
     const {
@@ -95,6 +101,7 @@ export class UserWorkHistory {
       cryptoNative,
       repositories,
       createdAt,
+      updatedAt,
     } = raw;
 
     this.login = login;
@@ -109,6 +116,7 @@ export class UserWorkHistory {
     this.tenure = tenure;
     this.cryptoNative = cryptoNative;
     this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
 
     const result = UserWorkHistory.UserWorkHistoryType.decode(raw);
 
