@@ -1476,6 +1476,17 @@ export class ProfileService {
               user.wallet + '::' + workHistory.name AS historyKey
 
           MERGE (history:UserWorkHistory {compositeKey: historyKey})
+          ON CREATE SET history.login = workHistory.login,
+              history.name = workHistory.name,
+              history.logoUrl = workHistory.logoUrl,
+              history.description = workHistory.description,
+              history.url = workHistory.url,
+              history.firstContributedAt = workHistory.firstContributedAt,
+              history.lastContributedAt = workHistory.lastContributedAt,
+              history.commitsCount = workHistory.commitsCount,
+              history.tenure = workHistory.tenure,
+              history.cryptoNative = workHistory.cryptoNative,
+              history.createdAt = timestamp()
           ON MATCH SET history.login = workHistory.login,
               history.name = workHistory.name,
               history.logoUrl = workHistory.logoUrl,
@@ -1487,7 +1498,6 @@ export class ProfileService {
               history.tenure = workHistory.tenure,
               history.cryptoNative = workHistory.cryptoNative,
               history.updatedAt = timestamp()
-          ON CREATE SET history.createdAt = timestamp()
 
           MERGE (user)-[:HAS_WORK_HISTORY]->(history)
 
@@ -1498,6 +1508,17 @@ export class ProfileService {
               history.compositeKey + '::' + repo.url AS repoKey
 
           MERGE (historyRepo:UserWorkHistoryRepo {compositeKey: repoKey})
+          ON CREATE SET historyRepo.name = repo.name,
+              historyRepo.url = repo.url,
+              historyRepo.description = repo.description,
+              historyRepo.cryptoNative = repo.cryptoNative,
+              historyRepo.firstContributedAt = repo.firstContributedAt,
+              historyRepo.lastContributedAt = repo.lastContributedAt,
+              historyRepo.commitsCount = repo.commitsCount,
+              historyRepo.skills = repo.skills,
+              historyRepo.tenure = repo.tenure,
+              historyRepo.stars = repo.stars,
+              historyRepo.createdAt = timestamp()
           ON MATCH SET historyRepo.name = repo.name,
               historyRepo.url = repo.url,
               historyRepo.description = repo.description,
@@ -1509,7 +1530,6 @@ export class ProfileService {
               historyRepo.tenure = repo.tenure,
               historyRepo.stars = repo.stars,
               historyRepo.updatedAt = timestamp()
-          ON CREATE SET historyRepo.createdAt = timestamp()
 
           MERGE (history)-[:WORKED_ON_REPO]->(historyRepo)
           `,
@@ -1525,12 +1545,18 @@ export class ProfileService {
           `
             MATCH (user: User {wallet: $wallet})
             UNWIND $adjacentRepos as adjacentRepo
-            CREATE (repo: UserAdjacentRepo)
-            SET repo.login = adjacentRepo.login
-            SET repo.name = adjacentRepo.name
-            SET repo.url = adjacentRepo.url
-            SET repo.description = adjacentRepo.description
-            SET repo.createdAt = timestamp()
+            MERGE (repo: UserAdjacentRepo)
+
+            ON CREATE SET repo.login = adjacentRepo.login,
+              repo.name = adjacentRepo.name,
+              repo.url = adjacentRepo.url,
+              repo.description = adjacentRepo.description,
+              repo.createdAt = timestamp()
+            ON MATCH SET repo.login = adjacentRepo.login,
+              repo.name = adjacentRepo.name,
+              repo.url = adjacentRepo.url,
+              repo.description = adjacentRepo.description,
+              repo.updatedAt = timestamp()
 
             WITH repo, user
             MERGE (user)-[:HAS_ADJACENT_REPO]->(repo)
