@@ -134,9 +134,7 @@ export class JobsController {
   ): Promise<PaginatedData<JobListResult>> {
     const enrichedParams = {
       ...params,
-      ecosystems: ecosystem
-        ? [...(params.ecosystems ?? []), ecosystem]
-        : params.ecosystems,
+      ecosystemHeader: ecosystem,
     };
     const queryString = JSON.stringify(enrichedParams);
     this.logger.log(`/jobs/list ${queryString}`);

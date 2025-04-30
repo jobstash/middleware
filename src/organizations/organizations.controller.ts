@@ -183,9 +183,7 @@ export class OrganizationsController {
   ): Promise<PaginatedData<ShortOrg>> {
     const enrichedParams = {
       ...params,
-      ecosystems: ecosystem
-        ? [...(params.ecosystems ?? []), ecosystem]
-        : params.ecosystems,
+      ecosystemHeader: ecosystem,
     };
     this.logger.log(`/organizations/list ${JSON.stringify(enrichedParams)}`);
     return this.organizationsService.getOrgsListWithSearch(enrichedParams);

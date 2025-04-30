@@ -73,11 +73,14 @@ export class OrganizationsService {
     private readonly auth0Service: Auth0Service,
   ) {}
 
-  getOrgListResults = async (): Promise<OrgListResult[]> => {
+  getOrgListResults = async (
+    ecosystem?: string | undefined,
+  ): Promise<OrgListResult[]> => {
     const results: OrgListResult[] = [];
     const generatedQuery = `
         CYPHER runtime = parallel
         MATCH (organization:Organization)
+        WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
         RETURN organization {
           .*,
           discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
@@ -95,9 +98,7 @@ export class OrganizationsService {
             programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
           }],
           investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
-          ecosystems: [(organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem) | ecosystem.name ] + [
-            (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
-          ],
+          ecosystems: [(organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
           projects: [
             (organization)-[:HAS_PROJECT]->(project) | project {
               .*,
@@ -167,7 +168,9 @@ export class OrganizationsService {
 
     try {
       const resultSet = (
-        await this.neogma.queryRunner.run(generatedQuery)
+        await this.neogma.queryRunner.run(generatedQuery, {
+          ecosystem: ecosystem ?? null,
+        })
       ).records?.map(record => record?.get("res") as OrgListResult);
       for (const result of resultSet) {
         results.push(new OrgListResultEntity(result).getProperties());
@@ -189,7 +192,7 @@ export class OrganizationsService {
   };
 
   async getOrgsListWithSearch(
-    params: OrgListParams,
+    params: OrgListParams & { ecosystemHeader?: string },
   ): Promise<PaginatedData<ShortOrg>> {
     const paramsPassed = {
       ...params,
@@ -213,12 +216,13 @@ export class OrganizationsService {
       orderBy,
       page,
       limit,
+      ecosystemHeader,
     } = paramsPassed;
 
     const results: OrgListResult[] = [];
 
     try {
-      const result = await this.getOrgListResults();
+      const result = await this.getOrgListResults(ecosystemHeader);
       results.push(...result);
     } catch (err) {
       Sentry.withScope(scope => {
@@ -472,7 +476,7 @@ export class OrganizationsService {
         `
         CYPHER runtime = pipelined
         MATCH (organization:Organization {orgId: $orgId})
-        WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {name: $ecosystem})) END
+        WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
         RETURN organization {
             .*,
             discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
@@ -484,9 +488,7 @@ export class OrganizationsService {
             twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
             fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
             investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
-            ecosystems: [(organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem) | ecosystem.name ] + [
-              (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
-            ],
+            ecosystems: [(organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
             grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
               .*,
               programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
@@ -616,7 +618,7 @@ export class OrganizationsService {
         `
         CYPHER runtime = pipelined
         MATCH (organization:Organization {normalizedName: $slug})
-        WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {name: $ecosystem})) END
+        WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
         RETURN organization {
             .*,
             discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
@@ -628,9 +630,7 @@ export class OrganizationsService {
             twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
             fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
             investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
-            ecosystems: [(organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem) | ecosystem.name ] + [
-              (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
-            ],
+            ecosystems: [(organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
             grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
               .*,
               programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
@@ -767,9 +767,7 @@ export class OrganizationsService {
           githubs: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
           twitters: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
-          ecosystems: [(organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem) | ecosystem.name ] + [
-            (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
-          ],
+          ecosystems: [(organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
           grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
             .*,
             programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
@@ -884,7 +882,7 @@ export class OrganizationsService {
         ? [ecosystem, ...ecosystemFilterList]
         : ecosystemFilterList;
 
-      const all = await this.getOrgListResults();
+      const all = await this.getOrgListResults(ecosystem);
 
       const projectBasedFilters = (projects: OrgProject[]): boolean => {
         const filters = [
@@ -1047,9 +1045,7 @@ export class OrganizationsService {
           githubs: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
           twitters: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
-          ecosystems: [(organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem) | ecosystem.name ] + [
-            (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
-          ],
+          ecosystems: [(organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
           grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
             .*,
             programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]

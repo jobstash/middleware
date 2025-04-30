@@ -97,13 +97,19 @@ export interface ProjectStatics {
       rawWebsite: RawProjectWebsite;
     })[]
   >;
-  getProjectsData: () => Promise<
+  getProjectsData: (
+    ecosystem?: string | undefined,
+  ) => Promise<
     (ProjectWithRelations & { orgNames: string[]; ecosystems: string[] })[]
   >;
   getProjectsMoreInfoData: () => Promise<ProjectWithRelations[]>;
-  getProjectDetailsById: (id: string) => Promise<ProjectDetailsResult | null>;
+  getProjectDetailsById: (
+    id: string,
+    ecosystem: string | undefined,
+  ) => Promise<ProjectDetailsResult | null>;
   getProjectDetailsBySlug: (
     slug: string,
+    ecosystem: string | undefined,
   ) => Promise<ProjectDetailsResult | null>;
   getProjectsByCategory: (category: string) => Promise<ProjectProps[]>;
   getProjectCompetitors: (
@@ -458,8 +464,12 @@ export const Projects = (
           );
           return projects;
         },
-        getProjectsData: async function () {
-          const query = new QueryBuilder()
+        getProjectsData: async function (ecosystem?: string | undefined) {
+          const query = new QueryBuilder(
+            new BindParam({
+              ecosystem: ecosystem ?? null,
+            }),
+          )
             .raw("CYPHER runtime = parallel")
             .match({
               related: [
@@ -469,6 +479,9 @@ export const Projects = (
                 },
               ],
             })
+            .where(
+              "CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((project)<-[:HAS_PROJECT]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END",
+            )
             .raw(
               `
               OPTIONAL MATCH (project)<-[:HAS_PROJECT]-(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
@@ -524,9 +537,6 @@ export const Projects = (
                   github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
                   twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-                  ecosystems: [
-                    (organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem: OrganizationEcosystem) | ecosystem.name
-                  ],
                   aliases: [
                     (project)-[:HAS_PROJECT_ALIAS]->(alias: ProjectAlias) | alias.name
                   ],
@@ -682,8 +692,13 @@ export const Projects = (
           );
           return projects;
         },
-        getProjectDetailsById: async function (id: string) {
-          const query = new QueryBuilder()
+        getProjectDetailsById: async function (
+          id: string,
+          ecosystem: string | undefined,
+        ) {
+          const query = new QueryBuilder(
+            new BindParam({ ecosystem: ecosystem ?? null }),
+          )
             .raw("CYPHER runtime = pipelined")
             .match({
               related: [
@@ -698,8 +713,9 @@ export const Projects = (
             })
             .raw(
               `
-              OPTIONAL MATCH (project)<-[:HAS_PROJECT]-(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-              WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) AND NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+              OPTIONAL MATCH (project)<-[:HAS_PROJECT|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+              WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((project)<-[:HAS_PROJECT]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+              AND (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) AND NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
               OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
               WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
               OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
@@ -767,9 +783,7 @@ export const Projects = (
                       programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
                     }],
                     investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
-                    ecosystems: [(organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem) | ecosystem.name ] + [
-                      (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
-                    ],
+                    ecosystems: [(organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
                     tags: apoc.coll.toSet([
                       (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
                       WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag { .* }
@@ -843,8 +857,13 @@ export const Projects = (
             : null;
           return project;
         },
-        getProjectDetailsBySlug: async function (slug: string) {
-          const query = new QueryBuilder()
+        getProjectDetailsBySlug: async function (
+          slug: string,
+          ecosystem: string | undefined,
+        ) {
+          const query = new QueryBuilder(
+            new BindParam({ ecosystem: ecosystem ?? null }),
+          )
             .raw("CYPHER runtime = pipelined")
             .match({
               related: [
@@ -859,8 +878,9 @@ export const Projects = (
             })
             .raw(
               `
-              OPTIONAL MATCH (project)<-[:HAS_PROJECT]-(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-              WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) AND NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+              OPTIONAL MATCH (project)<-[:HAS_PROJECT|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+              WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((project)<-[:HAS_PROJECT]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+              AND (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) AND NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
               OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
               WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
               OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
@@ -928,9 +948,7 @@ export const Projects = (
                       programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
                     }],
                     investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
-                    ecosystems: [(organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem) | ecosystem.name ] + [
-                      (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
-                    ],
+                    ecosystems: [(organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
                     tags: apoc.coll.toSet([
                       (project)<-[:HAS_PROJECT]-(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
                       WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag { .* }
@@ -1067,7 +1085,7 @@ export const Projects = (
               ],
             })
             .where(
-              "CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((project)<-[:HAS_PROJECT]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {name: $ecosystem})) END",
+              "CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((project)<-[:HAS_PROJECT]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END",
             )
             .raw("AND project.id <> $id")
             .raw(
@@ -1180,9 +1198,6 @@ export const Projects = (
                   github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
                   twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-                  ecosystems: [
-                    (organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem: OrganizationEcosystem) | ecosystem.name
-                  ],
                   aliases: [
                     (project)-[:HAS_PROJECT_ALIAS]->(alias: ProjectAlias) | alias.name
                   ],

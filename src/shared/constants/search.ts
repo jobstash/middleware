@@ -196,12 +196,11 @@ export const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<
   projects: `
     CYPHER runtime = pipelined
     MATCH (project:Project)
-    WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((project)<-[:HAS_PROJECT|IS_MEMBER_OF_ECOSYSTEM*2]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+    WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((project)<-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
     RETURN {
       names: [project.name] + [(project)-[:HAS_PROJECT_ALIAS]->(alias:ProjectAlias) | alias.name],
       organizations: apoc.coll.toSet([(project)<-[:HAS_PROJECT]-(organization:Organization) | organization.name]),
       ecosystems: apoc.coll.toSet([(project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem: Ecosystem) | ecosystem.name]),
-      ecosystems: apoc.coll.toSet([(project)<-[:HAS_PROJECT|IS_MEMBER_OF_ECOSYSTEM*2]->(ecosystem: OrganizationEcosystem) | ecosystem.name]),
       tvl: project.tvl,
       monthlyFees: project.monthlyFees,
       monthlyVolume: project.monthlyVolume,
@@ -234,7 +233,7 @@ export const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<
         WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag.name
       ]),
       projects: apoc.coll.toSet([(org)-[:HAS_PROJECT]->(project:Project) | project.name]),
-      ecosystems: apoc.coll.toSet([(org)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem:OrganizationEcosystem) | ecosystem.name] + [(org)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem) | ecosystem.name]),
+      ecosystems: apoc.coll.toSet([(org)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem:Ecosystem) | ecosystem.name]),
       headCount: org.headcountEstimate,
       hasProjects: CASE WHEN EXISTS((org)-[:HAS_PROJECT]->(:Project)) THEN true ELSE false END,
       hasJobs: CASE WHEN EXISTS((org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)) THEN true ELSE false END

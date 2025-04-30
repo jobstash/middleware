@@ -205,9 +205,7 @@ export class ProjectsController {
   ): Promise<PaginatedData<ProjectListResult>> {
     const enrichedParams = {
       ...params,
-      ecosystems: ecosystem
-        ? [...(params.ecosystems ?? []), ecosystem]
-        : params.ecosystems,
+      ecosystemHeader: ecosystem,
     };
     this.logger.log(`/projects/list ${JSON.stringify(enrichedParams)}`);
     return this.projectsService.getProjectsListWithSearch(enrichedParams);

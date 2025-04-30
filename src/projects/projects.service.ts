@@ -65,7 +65,7 @@ export class ProjectsService {
   ) {}
 
   async getProjectsListWithSearch(
-    params: ProjectListParams,
+    params: ProjectListParams & { ecosystemHeader?: string },
   ): Promise<PaginatedData<ProjectListResult>> {
     const paramsPassed = {
       ...params,
@@ -97,6 +97,7 @@ export class ProjectsService {
       orderBy,
       page,
       limit,
+      ecosystemHeader,
     } = paramsPassed;
 
     const results: (ProjectWithRelations & {
@@ -105,7 +106,8 @@ export class ProjectsService {
     })[] = [];
 
     try {
-      const projects = await this.models.Projects.getProjectsData();
+      const projects =
+        await this.models.Projects.getProjectsData(ecosystemHeader);
       for (const project of projects) {
         results.push(project);
       }
@@ -298,12 +300,6 @@ export class ProjectsService {
                   AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | investor.name
                 ]),
                 ecosystems: apoc.coll.toSet([
-                  (org: Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem: OrganizationEcosystem)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | ecosystem.name
-                ]),
-                ecosystems: apoc.coll.toSet([
                   (org: Organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem)
                   WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
                   AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
@@ -353,16 +349,13 @@ export class ProjectsService {
     ecosystem: string | undefined,
   ): Promise<ProjectDetailsResult | null> {
     try {
-      const details = await this.models.Projects.getProjectDetailsById(id);
-      if (ecosystem) {
-        return details?.organizations
-          .flatMap(x => x.ecosystems)
-          .includes(ecosystem)
-          ? details
-          : undefined;
-      } else {
-        return details;
-      }
+      const details = await this.models.Projects.getProjectDetailsById(
+        id,
+        ecosystem,
+      );
+      return details
+        ? new ProjectDetailsEntity(details).getProperties()
+        : undefined;
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -384,19 +377,13 @@ export class ProjectsService {
     ecosystem: string | undefined,
   ): Promise<ProjectDetailsResult | null> {
     try {
-      const details = await this.models.Projects.getProjectDetailsBySlug(slug);
-      const result = details
+      const details = await this.models.Projects.getProjectDetailsBySlug(
+        slug,
+        ecosystem,
+      );
+      return details
         ? new ProjectDetailsEntity(details).getProperties()
         : undefined;
-      if (ecosystem) {
-        return result?.organizations
-          .flatMap(x => x.ecosystems)
-          .includes(ecosystem)
-          ? result
-          : undefined;
-      } else {
-        return result;
-      }
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -642,7 +629,7 @@ export class ProjectsService {
         investors: investorFilterList,
         tags: tagFilterList,
         names: nameFilterList,
-        ecosystems: baseEcosystemFilterList,
+        ecosystems: ecosystemFilterList,
         organizations: organizationFilterList,
         minTvl,
         maxTvl,
@@ -661,10 +648,7 @@ export class ProjectsService {
         order,
         orderBy,
       } = params;
-      const ecosystemFilterList = ecosystem
-        ? [ecosystem, ...baseEcosystemFilterList]
-        : baseEcosystemFilterList;
-      const all = await this.models.Projects.getProjectsData();
+      const all = await this.models.Projects.getProjectsData(ecosystem);
 
       const projectFilters = (
         project: ProjectWithRelations & {
