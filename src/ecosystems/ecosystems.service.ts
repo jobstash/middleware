@@ -364,25 +364,98 @@ export class EcosystemsService {
 
   async updateEcosystemOrgs(
     orgId: string,
+    idOrSlug: string,
     dto: UpdateEcosystemOrgsDto,
-  ): Promise<ResponseWithNoData> {
+  ): Promise<ResponseWithOptionalData<OrganizationEcosystemWithOrgs>> {
     try {
-      const ecosystem = data(await this.findOne(orgId, dto.ecosystem));
-      if (!ecosystem) return { success: false, message: "Ecosystem not found" };
-      await this.neogma.queryRunner.run(
+      const existing = data(await this.findOne(orgId, idOrSlug));
+      if (!existing) return { success: false, message: "Ecosystem not found" };
+      const result = await this.neogma.queryRunner.run(
         `
-          MATCH (ecosystem:OrganizationEcosystem {normalizedName: $ecosystem})<-[r:IS_MEMBER_OF_ECOSYSTEM]-(org:Organization))
+          MATCH (ecosystem:OrganizationEcosystem)
+          WHERE ecosystem.id = $idOrSlug OR ecosystem.normalizedName = $idOrSlug
+          MATCH (ecosystem)<-[r:IS_MEMBER_OF_ECOSYSTEM]-(org:Organization)
           DELETE r
 
-          WITH  ecosystem
+          WITH ecosystem
           MATCH (org:Organization WHERE org.orgId IN $orgIds)
           MERGE (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem)
+          RETURN ecosystem {
+            .*
+            orgs: [
+              (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM]-(org:Organization) | org {
+                orgId: org.orgId,
+                name: org.name,
+                normalizedName: org.normalizedName,
+                url: [(org)-[:HAS_WEBSITE]->(website) | website.url][0]
+                logoUrl: org.logoUrl,
+                summary: org.summary,
+                location: org.location,
+                projectCount: size((org)-[:HAS_PROJECT]->(:Project)),
+                headcountEstimate: org.headcountEstimate,
+                fundingRounds: apoc.coll.toSet([
+                  (org)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+                ]),
+                grants: [(org)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+                  .*,
+                  programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                }],
+                reviews: [
+                  (org)-[:HAS_REVIEW]->(review:OrgReview) | review {
+                    compensation: {
+                      salary: review.salary,
+                      currency: review.currency,
+                      offersTokenAllocation: review.offersTokenAllocation
+                    },
+                    rating: {
+                      onboarding: review.onboarding,
+                      careerGrowth: review.careerGrowth,
+                      benefits: review.benefits,
+                      workLifeBalance: review.workLifeBalance,
+                      diversityInclusion: review.diversityInclusion,
+                      management: review.management,
+                      product: review.product,
+                      compensation: review.compensation
+                    },
+                    review: {
+                      title: review.title,
+                      location: review.location,
+                      timezone: review.timezone,
+                      pros: review.pros,
+                      cons: review.cons
+                    },
+                    reviewedTimestamp: review.reviewedTimestamp
+                  }
+                ]
+              }
+            ]
+          } as ecosystem
         `,
-        { ...dto },
+        { ...dto, idOrSlug },
       );
+      const ecosystem = result.records[0].get("ecosystem");
       return {
         success: true,
         message: "Updated organization ecosystem successfully",
+        data: new OrganizationEcosystemWithOrgs({
+          ...ecosystem,
+          createdTimestamp: nonZeroOrNull(ecosystem.createdTimestamp),
+          updatedTimestamp: nonZeroOrNull(ecosystem.updatedTimestamp),
+          orgs: ecosystem.orgs.map(org => {
+            const lastFundingRound = sort(
+              org.fundingRounds as FundingRound[],
+            ).desc(x => x.date)[0];
+            return new ShortOrgEntity({
+              ...org,
+              reviewCount: org.reviews.length,
+              aggregateRating: generateOrgAggregateRatings(
+                org.reviews.map((x: OrgReview) => x.rating),
+              ),
+              lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
+              lastFundingDate: lastFundingRound?.date ?? 0,
+            }).getProperties();
+          }),
+        }),
       };
     } catch (err) {
       Sentry.withScope(scope => {

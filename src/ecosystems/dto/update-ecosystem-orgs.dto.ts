@@ -6,9 +6,4 @@ export class UpdateEcosystemOrgsDto {
   @IsNotEmpty()
   @IsString()
   orgIds: string[];
-
-  @ApiProperty()
-  @IsNotEmpty()
-  @IsString()
-  ecosystem: string;
 }

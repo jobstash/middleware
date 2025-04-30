@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   UseGuards,
+  Put,
 } from "@nestjs/common";
 import { EcosystemsService } from "./ecosystems.service";
 import { CreateEcosystemDto } from "./dto/create-ecosystem.dto";
@@ -32,6 +33,7 @@ import { Permissions, Session } from "src/shared/decorators";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { UserService } from "src/user/user.service";
 import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
+import { UpdateEcosystemOrgsDto } from "./dto/update-ecosystem-orgs.dto";
 
 @Controller("ecosystems")
 export class EcosystemsController {
@@ -172,6 +174,59 @@ export class EcosystemsController {
       };
     }
     return this.ecosystemsService.findOne(orgId, id);
+  }
+
+  @Put(":orgId/:idOrSlug")
+  @UseGuards(PBACGuard)
+  @Permissions([
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ECOSYSTEM_MANAGER,
+  ])
+  @ApiOkResponse({
+    description:
+      "Updates member orgs for an ecosystem owned by an organization",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Organization),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong updating the member orgs for the ecosystem on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async updateEcosystemOrgs(
+    @Param("orgId") orgId: string,
+    @Param("idOrSlug") idOrSlug: string,
+    @Session() { address }: SessionObject,
+    @Body() updateEcosystemDto: UpdateEcosystemOrgsDto,
+  ): Promise<ResponseWithOptionalData<OrganizationEcosystemWithOrgs>> {
+    this.logger.log(
+      `PUT /ecosystems/${orgId}/${idOrSlug} ${JSON.stringify(
+        updateEcosystemDto,
+      )} from ${address}`,
+    );
+    const isMember = await this.userService.isOrgMember(address, orgId);
+    const subscription = data(
+      await this.subscriptionsService.getSubscriptionInfo(orgId),
+    );
+    if (!subscription.isActive()) {
+      return {
+        success: false,
+        message:
+          "Organization does not have an active or valid subscription to use this service",
+      };
+    }
+    if (!isMember) {
+      return {
+        success: false,
+        message: "You are not a member of this organization",
+      };
+    }
+    return this.ecosystemsService.updateEcosystemOrgs(
+      orgId,
+      idOrSlug,
+      updateEcosystemDto,
+    );
   }
 
   @Patch(":orgId/:idOrSlug")
