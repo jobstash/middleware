@@ -993,12 +993,12 @@ export class SearchService {
 
   async getPillar(
     params: SearchPillarFiltersParams & { pillar: string },
-    community: string | undefined,
+    ecosystem: string | undefined,
   ): Promise<Pillar | undefined> {
     const query = NAV_FILTER_CONFIG_QUERY_MAPPINGS[params.nav];
     if (query && NAV_PILLAR_ORDERING[params.nav].includes(params.pillar)) {
       const result = await this.neogma.queryRunner.run(query, {
-        community: community ?? null,
+        ecosystem: ecosystem ?? null,
       });
       const configData =
         result.records?.map(record => record.get("config")) ?? [];
@@ -1111,7 +1111,7 @@ export class SearchService {
 
   async searchPillar(
     params: SearchPillarParams,
-    community: string | undefined,
+    ecosystem: string | undefined,
   ): Promise<ResponseWithOptionalData<PillarInfo>> {
     try {
       const pillar = params.pillar ?? NAV_PILLAR_ORDERING[params.nav][0];
@@ -1120,7 +1120,7 @@ export class SearchService {
           ...params,
           pillar,
         },
-        community,
+        ecosystem,
       );
       const headerText = await this.fetchHeaderText(
         params.nav,
@@ -1139,7 +1139,7 @@ export class SearchService {
                   ...params,
                   pillar: x,
                 },
-                community,
+                ecosystem,
               ),
             ),
         );
@@ -1189,10 +1189,10 @@ export class SearchService {
 
   async searchPillarItems(
     params: SearchPillarItemParams,
-    community: string | undefined,
+    ecosystem: string | undefined,
   ): Promise<PaginatedData<string>> {
     try {
-      const data = await this.getPillar(params, community);
+      const data = await this.getPillar(params, ecosystem);
       if (data) {
         let results: string[];
         if (params.query) {
@@ -1235,7 +1235,7 @@ export class SearchService {
 
   async searchPillarSlugs(
     nav: SearchNav,
-    community: string | undefined,
+    ecosystem: string | undefined,
   ): Promise<string[]> {
     const queries = (NAV_PILLAR_ORDERING[nav] ?? [])
       .map(x => ({
@@ -1248,7 +1248,7 @@ export class SearchService {
         queries.map(async ({ pillar, query }) => ({
           pillar,
           items: (
-            await this.neogma.queryRunner.run(query, { community })
+            await this.neogma.queryRunner.run(query, { ecosystem })
           ).records.map(record => record.get("item") as string),
         })),
       );
@@ -1360,7 +1360,7 @@ export class SearchService {
 
   async searchPillarFilters(
     params: SearchPillarFiltersParams,
-    community: string | undefined,
+    ecosystem: string | undefined,
   ): Promise<
     ResponseWithOptionalData<(SearchRangeFilter | SingleSelectFilter)[]>
   > {
@@ -1369,7 +1369,7 @@ export class SearchService {
 
       if (query) {
         const result = await this.neogma.queryRunner.run(query, {
-          community: community ?? null,
+          ecosystem: ecosystem ?? null,
         });
 
         const passedFilters =

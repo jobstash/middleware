@@ -119,7 +119,6 @@ export class OrganizationWithRelations extends Organization {
       projects: t.array(ProjectWithBaseRelations.ProjectWithBaseRelationsType),
       fundingRounds: t.array(FundingRound.FundingRoundType),
       investors: t.array(Investor.InvestorType),
-      community: t.array(t.string),
       ecosystems: t.array(t.string),
       grants: t.array(GrantFunding.GrantFundingType),
       reviews: t.array(OrgReview.OrgReviewType),
@@ -155,9 +154,6 @@ export class OrganizationWithRelations extends Organization {
 
   @ApiPropertyOptional()
   docs: string | null;
-
-  @ApiProperty()
-  community: string[];
 
   @ApiProperty()
   ecosystems: string[];
@@ -207,7 +203,6 @@ export class OrganizationWithRelations extends Organization {
       projects,
       fundingRounds,
       investors,
-      community,
       grants,
       ecosystems,
       reviews,
@@ -230,7 +225,6 @@ export class OrganizationWithRelations extends Organization {
     this.projects = projects;
     this.fundingRounds = fundingRounds;
     this.investors = investors;
-    this.community = community;
     this.grants = grants;
     this.ecosystems = ecosystems;
     this.reviews = reviews;
@@ -258,7 +252,6 @@ export class ShortOrg {
     reviewCount: t.number,
     lastFundingDate: t.number,
     lastFundingAmount: t.number,
-    community: t.array(t.string),
     grants: t.array(GrantFunding.GrantFundingType),
     ecosystems: t.array(t.string),
     logoUrl: t.union([t.string, t.null]),
@@ -301,9 +294,6 @@ export class ShortOrg {
   url: string;
 
   @ApiProperty()
-  community: string[];
-
-  @ApiProperty()
   ecosystems: string[];
 
   @ApiProperty()
@@ -316,7 +306,6 @@ export class ShortOrg {
       name,
       logoUrl,
       location,
-      community,
       ecosystems,
       normalizedName,
       headcountEstimate,
@@ -334,7 +323,6 @@ export class ShortOrg {
     this.name = name;
     this.logoUrl = logoUrl;
     this.location = location;
-    this.community = community;
     this.ecosystems = ecosystems;
     this.normalizedName = normalizedName;
     this.headcountEstimate = headcountEstimate;

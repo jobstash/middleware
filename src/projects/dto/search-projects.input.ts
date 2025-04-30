@@ -54,12 +54,6 @@ export class SearchProjectsInput {
   @Transform(toList)
   organizations?: string[] | null = null;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Type(() => String)
-  @Transform(toList)
-  communities?: string[] | null = null;
-
   @IsOptional()
   @IsNumber()
   @Min(0)

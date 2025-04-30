@@ -541,7 +541,7 @@ export class ProfileController {
             const job = jobs.find(x => x.shortUUID === shortUUID);
 
             if (orgProfile && orgProfile.linkedAccounts?.email) {
-              const communities = await this.rpcService.getCommunitiesForWallet(
+              const ecosystems = await this.rpcService.getEcosystemsForWallet(
                 address as string,
               );
               await this.mailService.sendEmail(
@@ -563,9 +563,9 @@ export class ProfileController {
                     `),
                     raw(`
                         ${
-                          communities.length > 0
-                            ? `This candidate is part of the following communities: 
-                              <ul>${communities.map(x => `<li>${x}</li>`).join("")}</ul>`
+                          ecosystems.length > 0
+                            ? `This candidate holds activations for the following ecosystems: 
+                              <ul>${ecosystems.map(x => `<li>${x}</li>`).join("")}</ul>`
                             : ""
                         }
                     `),

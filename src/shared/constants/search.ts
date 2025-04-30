@@ -148,7 +148,7 @@ export const NAV_PILLAR_ORDERING: Record<SearchNav, string[]> = {
 export const NAV_FILTER_CONFIGS: Record<SearchNav, string[] | null> = {
   projects: [
     "ecosystems",
-    "communities",
+    "ecosystems",
     "tvl",
     "monthlyVolume",
     "monthlyFees",
@@ -161,7 +161,7 @@ export const NAV_FILTER_CONFIGS: Record<SearchNav, string[] | null> = {
   ],
   organizations: [
     "headCount",
-    "communities",
+    "ecosystems",
     "ecosystems",
     "hasJobs",
     "hasProjects",
@@ -196,12 +196,12 @@ export const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<
   projects: `
     CYPHER runtime = pipelined
     MATCH (project:Project)
-    WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((project)<-[:HAS_PROJECT|IS_MEMBER_OF_COMMUNITY*2]->(:OrganizationCommunity {normalizedName: $community})) END
+    WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((project)<-[:HAS_PROJECT|IS_MEMBER_OF_ECOSYSTEM*2]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
     RETURN {
       names: [project.name] + [(project)-[:HAS_PROJECT_ALIAS]->(alias:ProjectAlias) | alias.name],
       organizations: apoc.coll.toSet([(project)<-[:HAS_PROJECT]-(organization:Organization) | organization.name]),
       ecosystems: apoc.coll.toSet([(project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem: Ecosystem) | ecosystem.name]),
-      communities: apoc.coll.toSet([(project)<-[:HAS_PROJECT|IS_MEMBER_OF_COMMUNITY*2]->(community: OrganizationCommunity) | community.name]),
+      ecosystems: apoc.coll.toSet([(project)<-[:HAS_PROJECT|IS_MEMBER_OF_ECOSYSTEM*2]->(ecosystem: OrganizationEcosystem) | ecosystem.name]),
       tvl: project.tvl,
       monthlyFees: project.monthlyFees,
       monthlyVolume: project.monthlyVolume,
@@ -222,7 +222,7 @@ export const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<
   organizations: `
     CYPHER runtime = pipelined
     MATCH (org:Organization)
-    WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)<-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
+    WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)<-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
     RETURN {
       names: [org.name] + [(org)-[:HAS_ORGANIZATION_ALIAS]->(alias:OrganizationAlias) | alias.name],
       chains: apoc.coll.toSet([(org)-[:HAS_PROJECT|IS_DEPLOYED_ON*2]->(chain:Chain) | chain.name]),
@@ -234,8 +234,7 @@ export const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<
         WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag.name
       ]),
       projects: apoc.coll.toSet([(org)-[:HAS_PROJECT]->(project:Project) | project.name]),
-      communities: apoc.coll.toSet([(org)-[:IS_MEMBER_OF_COMMUNITY]->(community:OrganizationCommunity) | community.name]),
-      ecosystems: apoc.coll.toSet([(org)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem) | ecosystem.name]),
+      ecosystems: apoc.coll.toSet([(org)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem:OrganizationEcosystem) | ecosystem.name] + [(org)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem) | ecosystem.name]),
       headCount: org.headcountEstimate,
       hasProjects: CASE WHEN EXISTS((org)-[:HAS_PROJECT]->(:Project)) THEN true ELSE false END,
       hasJobs: CASE WHEN EXISTS((org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)) THEN true ELSE false END
@@ -273,7 +272,7 @@ export const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<
     CYPHER runtime = pipelined
     MATCH (structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
     WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-    AND CASE WHEN $community IS NULL THEN true ELSE EXISTS((structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE|HAS_ORGANIZATION|IS_MEMBER_OF_COMMUNITY*5]->(:OrganizationCommunity {normalizedName: $community})) END
+    AND CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE|HAS_ORGANIZATION|IS_MEMBER_OF_ECOSYSTEM*5]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
     MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
       WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
       WITH DISTINCT tag, structured_jobpost

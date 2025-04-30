@@ -73,11 +73,11 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "filter_joblist_commitments",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
-  communities: {
+  ecosystems: {
     position: 3,
-    label: "Communities",
+    label: "Ecosystems",
     show: false,
-    googleAnalyticsEventName: "filter_joblist_communities",
+    googleAnalyticsEventName: "filter_joblist_ecosystems",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
   salary: {
@@ -168,15 +168,8 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "filter_joblist_projects",
     kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
   },
-  ecosystems: {
-    position: 16,
-    label: "Ecosystems",
-    show: false,
-    googleAnalyticsEventName: "filter_joblist_ecosystems",
-    kind: FilterKind.MULTI_SELECT_WITH_SEARCH,
-  },
   tvl: {
-    position: 17,
+    position: 16,
     label: "TVL",
     show: true,
     googleAnalyticsEventName: "filter_joblist_tvl",
@@ -184,7 +177,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   monthlyVolume: {
-    position: 18,
+    position: 17,
     label: "Volume/mo",
     show: false,
     googleAnalyticsEventName: "filter_joblist_monthly_volume",
@@ -192,7 +185,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   monthlyFees: {
-    position: 19,
+    position: 18,
     label: "Fees/mo",
     show: false,
     googleAnalyticsEventName: "filter_joblist_monthly_fees",
@@ -200,7 +193,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   monthlyRevenue: {
-    position: 20,
+    position: 19,
     label: "Revenue/mo",
     show: false,
     googleAnalyticsEventName: "filter_joblist_monthly_revenue",
@@ -208,7 +201,7 @@ export const FILTER_CONFIG_PRESETS = {
     prefix: "$",
   },
   token: {
-    position: 21,
+    position: 20,
     label: "Has Token",
     show: true,
     googleAnalyticsEventName: "filter_joblist_has_token",
@@ -216,7 +209,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.token,
   },
   onboardIntoWeb3: {
-    position: 22,
+    position: 21,
     label: "Web3 Beginner Friendly",
     show: true,
     googleAnalyticsEventName: "filter_joblist_onboard_into_web3",
@@ -224,7 +217,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.onboardIntoWeb3,
   },
   orderBy: {
-    position: 23,
+    position: 22,
     label: "Order By",
     show: true,
     googleAnalyticsEventName: "filter_joblist_order_by",
@@ -232,7 +225,7 @@ export const FILTER_CONFIG_PRESETS = {
     options: SINGLE_SELECT_OPTIONS.orderBy,
   },
   order: {
-    position: 24,
+    position: 23,
     label: "Order",
     show: true,
     googleAnalyticsEventName: "filter_joblist_order",
@@ -262,7 +255,6 @@ export const FILTER_PARAM_KEY_PRESETS = {
   projects: "projects",
   classifications: "classifications",
   commitments: "commitments",
-  communities: "communities",
   tvl: {
     lowest: "minTvl",
     highest: "maxTvl",

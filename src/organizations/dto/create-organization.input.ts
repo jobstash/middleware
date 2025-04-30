@@ -83,9 +83,4 @@ export class CreateOrganizationInput {
   @IsOptional()
   @IsArray()
   telegrams?: string[];
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsArray()
-  communities?: string[];
 }

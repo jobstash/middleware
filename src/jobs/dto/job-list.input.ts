@@ -165,7 +165,7 @@ export class JobListParams {
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
-  communities?: string[] | null = null;
+  ecosystems?: string[] | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()

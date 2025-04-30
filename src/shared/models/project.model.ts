@@ -98,7 +98,7 @@ export interface ProjectStatics {
     })[]
   >;
   getProjectsData: () => Promise<
-    (ProjectWithRelations & { orgNames: string[]; communities: string[] })[]
+    (ProjectWithRelations & { orgNames: string[]; ecosystems: string[] })[]
   >;
   getProjectsMoreInfoData: () => Promise<ProjectWithRelations[]>;
   getProjectDetailsById: (id: string) => Promise<ProjectDetailsResult | null>;
@@ -108,13 +108,13 @@ export interface ProjectStatics {
   getProjectsByCategory: (category: string) => Promise<ProjectProps[]>;
   getProjectCompetitors: (
     id: string,
-    community: string | undefined,
+    ecosystem: string | undefined,
   ) => Promise<ProjectWithRelations[]>;
   searchProjects: (query: string) => Promise<ProjectProps[]>;
   getProjectById: (id: string) => Promise<
     | (ProjectWithRelations & {
         orgNames: string[];
-        communities: string[];
+        ecosystems: string[];
       })
     | null
   >;
@@ -524,8 +524,8 @@ export const Projects = (
                   github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
                   twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-                  communities: [
-                    (organization)-[:IS_MEMBER_OF_COMMUNITY]->(community: OrganizationCommunity) | community.name
+                  ecosystems: [
+                    (organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem: OrganizationEcosystem) | ecosystem.name
                   ],
                   aliases: [
                     (project)-[:HAS_PROJECT_ALIAS]->(alias: ProjectAlias) | alias.name
@@ -574,12 +574,12 @@ export const Projects = (
           const result = await query.run(neogma.queryRunner);
           const projects: (ProjectWithRelations & {
             orgNames: string[];
-            communities: string[];
+            ecosystems: string[];
           })[] = result?.records?.map(
             record =>
               record.get("result") as ProjectWithRelations & {
                 orgNames: string[];
-                communities: string[];
+                ecosystems: string[];
               },
           );
           return projects;
@@ -767,8 +767,7 @@ export const Projects = (
                       programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
                     }],
                     investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
-                    community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
-                    ecosystems: [
+                    ecosystems: [(organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem) | ecosystem.name ] + [
                       (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
                     ],
                     tags: apoc.coll.toSet([
@@ -929,8 +928,7 @@ export const Projects = (
                       programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
                     }],
                     investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
-                    community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
-                    ecosystems: [
+                    ecosystems: [(organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem) | ecosystem.name ] + [
                       (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
                     ],
                     tags: apoc.coll.toSet([
@@ -1036,9 +1034,9 @@ export const Projects = (
         },
         getProjectCompetitors: async function (
           id: string,
-          community: string | undefined,
+          ecosystem: string | undefined,
         ) {
-          const params = new BindParam({ id, community: community ?? null });
+          const params = new BindParam({ id, ecosystem: ecosystem ?? null });
           const query = new QueryBuilder(params)
             .raw("CYPHER runtime = parallel")
             .match({
@@ -1069,7 +1067,7 @@ export const Projects = (
               ],
             })
             .where(
-              "CASE WHEN $community IS NULL THEN true ELSE EXISTS((project)<-[:HAS_PROJECT]-(:Organization)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $community})) END",
+              "CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((project)<-[:HAS_PROJECT]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {name: $ecosystem})) END",
             )
             .raw("AND project.id <> $id")
             .raw(
@@ -1182,8 +1180,8 @@ export const Projects = (
                   github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
                   category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
                   twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-                  communities: [
-                    (organization)-[:IS_MEMBER_OF_COMMUNITY]->(community: OrganizationCommunity) | community.name
+                  ecosystems: [
+                    (organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem: OrganizationEcosystem) | ecosystem.name
                   ],
                   aliases: [
                     (project)-[:HAS_PROJECT_ALIAS]->(alias: ProjectAlias) | alias.name
@@ -1231,7 +1229,7 @@ export const Projects = (
           return result?.records[0]?.get("project")
             ? (result?.records[0]?.get("project") as ProjectWithRelations & {
                 orgNames: string[];
-                communities: string[];
+                ecosystems: string[];
               })
             : null;
         },

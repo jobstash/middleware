@@ -25,7 +25,6 @@ export class ProjectFilterConfigs {
     orderBy: SingleSelectFilter.SingleSelectFilterType,
     chains: MultiSelectFilter.MultiSelectFilterType,
     investors: MultiSelectFilter.MultiSelectFilterType,
-    communities: MultiSelectFilter.MultiSelectFilterType,
     ecosystems: MultiSelectFilter.MultiSelectFilterType,
     categories: MultiSelectFilter.MultiSelectFilterType,
     organizations: MultiSelectFilter.MultiSelectFilterType,
@@ -39,8 +38,6 @@ export class ProjectFilterConfigs {
   investors: MultiSelectFilter;
   @ApiProperty()
   categories: MultiSelectFilter;
-  @ApiProperty()
-  communities: MultiSelectFilter;
   @ApiProperty()
   ecosystems: MultiSelectFilter;
   @ApiProperty()
@@ -73,7 +70,6 @@ export class ProjectFilterConfigs {
       orderBy,
       investors,
       categories,
-      communities,
       ecosystems,
       monthlyFees,
       organizations,
@@ -92,7 +88,6 @@ export class ProjectFilterConfigs {
     this.orderBy = orderBy;
     this.investors = investors;
     this.categories = categories;
-    this.communities = communities;
     this.ecosystems = ecosystems;
     this.monthlyFees = monthlyFees;
     this.organizations = organizations;

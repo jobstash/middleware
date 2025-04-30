@@ -40,7 +40,6 @@ export class OrgListResult extends Organization {
       projects: t.array(OrgProject.OrgProjectType),
       fundingRounds: t.array(FundingRound.FundingRoundType),
       investors: t.array(Investor.InvestorType),
-      community: t.array(t.string),
       ecosystems: t.array(t.string),
       grants: t.array(GrantFunding.GrantFundingType),
       tags: t.array(Tag.TagType),
@@ -77,9 +76,6 @@ export class OrgListResult extends Organization {
 
   @ApiPropertyOptional()
   docs: string | null;
-
-  @ApiProperty()
-  community: string[];
 
   @ApiProperty()
   ecosystems: string[];
@@ -136,7 +132,6 @@ export class OrgListResult extends Organization {
       fundingRounds,
       investors,
       ecosystems,
-      community,
       reviews,
       tags,
       ...orgProperties
@@ -158,7 +153,6 @@ export class OrgListResult extends Organization {
     this.projects = projects;
     this.fundingRounds = fundingRounds;
     this.investors = investors;
-    this.community = community;
     this.ecosystems = ecosystems;
     this.reviews = reviews;
     this.tags = tags;

@@ -109,7 +109,6 @@ export class ProjectDetailsEntity {
             fundingDate: nonZeroOrNull(grant?.fundingDate),
             amount: nonZeroOrNull(grant?.amount),
           })) ?? [],
-        community: organization?.community ?? [],
         ecosystems: organization?.ecosystems ?? [],
         investors: Array.from(
           uniqBy(

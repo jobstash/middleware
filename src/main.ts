@@ -37,7 +37,7 @@ async function bootstrap(): Promise<void> {
   app.enableCors({
     credentials: true,
     origin: process.env.ALLOWED_ORIGINS?.split(","),
-    allowedHeaders: ["content-type", "x-community", "authorization"],
+    allowedHeaders: ["content-type", "x-ecosystem", "authorization"],
     methods: ["GET", "OPTIONS", "POST", "DELETE"],
   });
   app.use(

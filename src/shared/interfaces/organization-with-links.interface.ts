@@ -47,7 +47,7 @@ export class OrganizationWithLinks extends Organization {
           repos: t.array(Repository.RepositoryType),
         }),
       ),
-      communities: t.array(t.string),
+      ecosystems: t.array(t.string),
       detectedJobsites: t.array(
         t.strict({ id: t.string, url: t.string, type: t.string }),
       ),
@@ -85,7 +85,7 @@ export class OrganizationWithLinks extends Organization {
   projects: ProjectWithRelations[];
 
   @ApiProperty()
-  communities: string[];
+  ecosystems: string[];
 
   @ApiProperty()
   detectedJobsites: { id: string; url: string; type: string }[];
@@ -104,7 +104,7 @@ export class OrganizationWithLinks extends Organization {
       twitters,
       docs,
       projects,
-      communities,
+      ecosystems,
       detectedJobsites,
       jobsites,
       ...orgProperties
@@ -122,7 +122,7 @@ export class OrganizationWithLinks extends Organization {
     this.twitters = twitters;
     this.docs = docs;
     this.projects = projects;
-    this.communities = communities;
+    this.ecosystems = ecosystems;
     this.jobsites = jobsites;
 
     if (isLeft(result)) {

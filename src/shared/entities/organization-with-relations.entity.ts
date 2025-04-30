@@ -36,7 +36,7 @@ export class OrganizationWithRelationsEntity {
       telegram: notStringOrNull(organization?.telegram),
       website: notStringOrNull(organization?.website),
       aliases: organization?.aliases ?? [],
-      community: organization?.community ?? [],
+      ecosystems: organization?.ecosystems ?? [],
       grants:
         organization?.grants?.map(grant => ({
           ...grant,

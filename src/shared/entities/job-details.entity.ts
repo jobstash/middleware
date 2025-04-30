@@ -256,7 +256,7 @@ export class JobDetailsEntity {
                 "id",
               ),
             ),
-            community: organization?.community ?? [],
+            ecosystems: organization?.ecosystems ?? [],
             reviews:
               organization?.reviews?.map(review =>
                 new OrgReviewEntity(review).getProperties(),

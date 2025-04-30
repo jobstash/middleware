@@ -16,7 +16,7 @@ export class OrganizationWithLinksEntity {
       twitters,
       docs,
       projects,
-      communities,
+      ecosystems,
       detectedJobsites,
       jobsites,
       grants,
@@ -120,7 +120,7 @@ export class OrganizationWithLinksEntity {
             }) ?? [],
           repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
         })) ?? [],
-      communities: communities ?? [],
+      ecosystems: ecosystems ?? [],
       websites: websites ?? [],
       aliases: aliases ?? [],
       detectedJobsites:

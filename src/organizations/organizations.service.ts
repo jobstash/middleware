@@ -43,7 +43,6 @@ import { InjectConnection } from "nestjs-neogma";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
 import { UpdateOrgAliasesInput } from "./dto/update-organization-aliases.input";
-import { UpdateOrgCommunitiesInput } from "./dto/update-organization-communities.input";
 import { UpdateOrgWebsitesInput } from "./dto/update-organization-websites.input";
 import { UpdateOrgTwittersInput } from "./dto/update-organization-twitters.input";
 import { UpdateOrgGithubsInput } from "./dto/update-organization-githubs.input";
@@ -96,8 +95,7 @@ export class OrganizationsService {
             programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
           }],
           investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
-          community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
-          ecosystems: [
+          ecosystems: [(organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem) | ecosystem.name ] + [
             (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
           ],
           projects: [
@@ -204,7 +202,6 @@ export class OrganizationsService {
       locations: locationFilterList,
       investors: investorFilterList,
       fundingRounds: fundingRoundFilterList,
-      communities: communityFilterList,
       ecosystems: ecosystemFilterList,
       projects: projectFilterList,
       tags: tagFilterList,
@@ -276,7 +273,7 @@ export class OrganizationsService {
         locationFilterList,
         investorFilterList,
         fundingRoundFilterList,
-        communityFilterList,
+        ecosystemFilterList,
         projectFilterList,
         tagFilterList,
         nameFilterList,
@@ -292,7 +289,7 @@ export class OrganizationsService {
       const {
         fundingRounds,
         investors,
-        community,
+        ecosystems,
         aliases,
         headcountEstimate,
         location,
@@ -321,9 +318,9 @@ export class OrganizationsService {
           tagFilterList.some(x =>
             tags.map(x => x.normalizedName).includes(x),
           )) &&
-        (!communityFilterList ||
-          community.some(community =>
-            communityFilterList.includes(slugify(community)),
+        (!ecosystemFilterList ||
+          ecosystems.some(ecosystem =>
+            ecosystemFilterList.includes(slugify(ecosystem)),
           )) &&
         (!fundingRoundFilterList ||
           fundingRoundFilterList.some(x =>
@@ -401,7 +398,7 @@ export class OrganizationsService {
   }
 
   async getFilterConfigs(
-    community: string | undefined,
+    ecosystem: string | undefined,
   ): Promise<OrgFilterConfigs> {
     try {
       return await this.neogma.queryRunner
@@ -411,44 +408,38 @@ export class OrganizationsService {
           RETURN {
               minHeadCount: apoc.coll.min([
                 (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) 
-                WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END | org.headcountEstimate
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END | org.headcountEstimate
               ]),
               maxHeadCount: apoc.coll.max([
                 (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) 
-                WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END | org.headcountEstimate
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END | org.headcountEstimate
               ]),
               fundingRounds: apoc.coll.toSet([
                 (org: Organization)-[:HAS_FUNDING_ROUND]->(round: FundingRound)
-                WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
                 AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
                 AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | round.roundName
               ]),
               investors: apoc.coll.toSet([
                 (org: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor)
-                WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
                 AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
                 AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | investor.name
               ]),
-              communities: apoc.coll.toSet([
-                (org: Organization)-[:IS_MEMBER_OF_COMMUNITY]->(community: OrganizationCommunity)
-                WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
-                AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
-                AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | community.name
-              ]),
               ecosystems: apoc.coll.toSet([
                 (org: Organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem)
-                WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
                 AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
                 AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | ecosystem.name
               ]),
               locations: apoc.coll.toSet([
                 (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_LOCATION_TYPE]->(location: JobpostLocationType)
-                WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {normalizedName: $community})) END
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
                 AND (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | location.name
               ])
           } AS res
       `,
-          { community: community ?? null },
+          { ecosystem: ecosystem ?? null },
         )
         .then(res =>
           res.records.length
@@ -474,14 +465,14 @@ export class OrganizationsService {
 
   async getOrgDetailsById(
     orgId: string,
-    community: string | undefined,
+    ecosystem: string | undefined,
   ): Promise<OrgDetailsResult | undefined> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
         CYPHER runtime = pipelined
         MATCH (organization:Organization {orgId: $orgId})
-        WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $community})) END
+        WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {name: $ecosystem})) END
         RETURN organization {
             .*,
             discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
@@ -493,8 +484,7 @@ export class OrganizationsService {
             twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
             fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
             investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
-            community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
-            ecosystems: [
+            ecosystems: [(organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem) | ecosystem.name ] + [
               (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
             ],
             grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
@@ -592,7 +582,7 @@ export class OrganizationsService {
             ])
           } as res
         `,
-        { orgId, community: community ?? null },
+        { orgId, ecosystem: ecosystem ?? null },
       );
       return result.records[0]?.get("res")
         ? new OrgDetailsResultEntity({
@@ -619,14 +609,14 @@ export class OrganizationsService {
 
   async getOrgDetailsBySlug(
     slug: string,
-    community: string | undefined,
+    ecosystem: string | undefined,
   ): Promise<OrgListResult | undefined> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
         CYPHER runtime = pipelined
         MATCH (organization:Organization {normalizedName: $slug})
-        WHERE CASE WHEN $community IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_COMMUNITY]->(:OrganizationCommunity {name: $community})) END
+        WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {name: $ecosystem})) END
         RETURN organization {
             .*,
             discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
@@ -638,8 +628,7 @@ export class OrganizationsService {
             twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
             fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
             investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
-            community: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
-            ecosystems: [
+            ecosystems: [(organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem) | ecosystem.name ] + [
               (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
             ],
             grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
@@ -737,7 +726,7 @@ export class OrganizationsService {
             ])
           } as res
         `,
-        { slug, community: community ?? null },
+        { slug, ecosystem: ecosystem ?? null },
       );
       return result.records[0]?.get("res")
         ? new OrgDetailsResultEntity({
@@ -778,8 +767,7 @@ export class OrganizationsService {
           githubs: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
           twitters: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
-          communities: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
-          ecosystems: [
+          ecosystems: [(organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem) | ecosystem.name ] + [
             (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
           ],
           grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
@@ -870,7 +858,7 @@ export class OrganizationsService {
 
   async searchOrganizations(
     params: SearchOrganizationsInput,
-    community: string | undefined,
+    ecosystem: string | undefined,
   ): Promise<PaginatedData<ShortOrgWithSummary>> {
     try {
       const {
@@ -879,7 +867,6 @@ export class OrganizationsService {
         locations: locationFilterList,
         investors: investorFilterList,
         fundingRounds: fundingRoundFilterList,
-        communities: communityFilterList,
         ecosystems: ecosystemFilterList,
         projects: projectFilterList,
         tags: tagFilterList,
@@ -893,9 +880,9 @@ export class OrganizationsService {
         orderBy,
       } = params;
 
-      const fullCommunityFilterList = community
-        ? [community, ...communityFilterList]
-        : communityFilterList;
+      const fullEcosystemFilterList = ecosystem
+        ? [ecosystem, ...ecosystemFilterList]
+        : ecosystemFilterList;
 
       const all = await this.getOrgListResults();
 
@@ -932,7 +919,7 @@ export class OrganizationsService {
           locationFilterList,
           investorFilterList,
           fundingRoundFilterList,
-          fullCommunityFilterList,
+          fullEcosystemFilterList,
           projectFilterList,
           tagFilterList,
           nameFilterList,
@@ -948,7 +935,7 @@ export class OrganizationsService {
         const {
           fundingRounds,
           investors,
-          community,
+          ecosystems,
           aliases,
           headcountEstimate,
           location,
@@ -977,9 +964,9 @@ export class OrganizationsService {
             tagFilterList.some(x =>
               tags.map(x => x.normalizedName).includes(x),
             )) &&
-          (!fullCommunityFilterList ||
-            community.some(community =>
-              fullCommunityFilterList.includes(slugify(community)),
+          (!fullEcosystemFilterList ||
+            ecosystems.some(ecosystem =>
+              fullEcosystemFilterList.includes(slugify(ecosystem)),
             )) &&
           (!fundingRoundFilterList ||
             fundingRoundFilterList.some(x =>
@@ -1060,8 +1047,7 @@ export class OrganizationsService {
           githubs: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
           twitters: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
-          communities: [(organization)-[:IS_MEMBER_OF_COMMUNITY]->(community) | community.name ],
-          ecosystems: [
+          ecosystems: [(organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem) | ecosystem.name ] + [
             (organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name
           ],
           grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
@@ -1322,11 +1308,6 @@ export class OrganizationsService {
       aliases: organization.aliases,
     });
 
-    await this.updateOrgCommunities({
-      orgId: organization.orgId,
-      communities: organization.communities,
-    });
-
     return new OrganizationEntity(res.records[0]?.get("org"));
   }
 
@@ -1382,7 +1363,7 @@ export class OrganizationsService {
       UpdateOrganizationInput,
       | "grants"
       | "projects"
-      | "communities"
+      | "ecosystems"
       | "aliases"
       | "website"
       | "twitter"
@@ -1715,63 +1696,6 @@ export class OrganizationsService {
         `OrganizationsService::updateOrgProjects ${err.message}`,
       );
       return { success: false, message: "Failed to update org projects" };
-    }
-  }
-
-  async updateOrgCommunities(
-    dto: UpdateOrgCommunitiesInput,
-  ): Promise<ResponseWithOptionalData<string[]>> {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          CALL {
-            MATCH (org:Organization {orgId: $orgId})-[:IS_MEMBER_OF_COMMUNITY]->(community:OrganizationCommunity)
-            DETACH DELETE community
-          }
-          
-          CALL {
-            UNWIND $communities as newCommunity
-            OPTIONAL MATCH (community:OrganizationCommunity WHERE community.name = newCommunity.name)
-            WITH community IS NOT NULL AS communityFound, newCommunity
-            WHERE NOT communityFound
-            CREATE (community:OrganizationCommunity {id: randomUUID(), name: newCommunity.name, normalizedName: newCommunity.normalizedName})
-          }
-
-          MATCH (community:OrganizationCommunity WHERE community.name IN $names), (org:Organization {orgId: $orgId})
-          MERGE (org)-[:IS_MEMBER_OF_COMMUNITY]->(community)
-          
-          RETURN community.name as name
-        `,
-        {
-          orgId: dto.orgId,
-          communities: dto.communities.map(c => ({
-            name: c,
-            normalizedName: slugify(c),
-          })),
-          names: dto.communities,
-        },
-      );
-      const communities = result.records.map(
-        record => record.get("name") as string,
-      );
-      return {
-        success: true,
-        message: "Updated organization communities successfully",
-        data: communities,
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "organizations.service",
-        });
-        scope.setExtra("input", dto);
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `OrganizationsService::updateOrgCommunities ${err.message}`,
-      );
-      return { success: false, message: "Failed to update org communities" };
     }
   }
 

@@ -1048,9 +1048,9 @@ export const PUBLIC_API_SCHEMAS = {
                 type: "string",
                 example: "https://example.com/docs",
               },
-              community: {
+              ecosystem: {
                 description:
-                  "The list of communities the organization belongs to",
+                  "The list of ecosystems the organization belongs to",
                 type: "array",
                 items: {
                   type: "string",
@@ -1377,9 +1377,6 @@ export const PUBLIC_API_SCHEMAS = {
         $ref: getSchemaPath(MultiSelectFilter),
       },
       commitments: {
-        $ref: getSchemaPath(MultiSelectFilter),
-      },
-      communities: {
         $ref: getSchemaPath(MultiSelectFilter),
       },
       ecosystems: {

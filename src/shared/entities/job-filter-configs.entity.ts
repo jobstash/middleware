@@ -41,7 +41,6 @@ type RawJobFilters = {
   hacks?: string[] | null;
   token?: string[] | null;
   onboardIntoWeb3?: string[] | null;
-  communities?: string[] | null;
   ecosystems?: string[] | null;
   organizations?: string[] | null;
   seniority?: string[] | null;
@@ -133,7 +132,6 @@ export class JobFilterConfigsEntity {
         toHeaderCase,
       ),
       ecosystems: this.getMultiValuePresets("ecosystems"),
-      communities: this.getMultiValuePresets("communities"),
       seniority: this.getMultiValuePresetsWithTransform("seniority"),
       locations: this.getMultiValuePresetsWithTransform(
         "locations",

@@ -21,7 +21,7 @@ import {
   ValidationError,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
-import { CACHE_DURATION, COMMUNITY_HEADER } from "src/shared/constants";
+import { CACHE_DURATION, ECOSYSTEM_HEADER } from "src/shared/constants";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { JobListParams } from "src/jobs/dto/job-list.input";
 import { ApiKeyGuard } from "src/auth/api-key.guard";
@@ -117,10 +117,10 @@ export class PublicController {
     type: ValidationError,
   })
   async getAllJobsListFilterConfigs(
-    @Headers(COMMUNITY_HEADER)
-    community: string | undefined,
+    @Headers(ECOSYSTEM_HEADER)
+    ecosystem: string | undefined,
   ): Promise<JobFilterConfigs> {
     this.logger.log(`/public/jobs/filters`);
-    return this.publicService.getAllJobsFilterConfigs(community);
+    return this.publicService.getAllJobsFilterConfigs(ecosystem);
   }
 }

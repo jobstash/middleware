@@ -4,7 +4,7 @@ import { createPublicClient, fallback, http } from "viem";
 import { mainnet, polygon } from "viem/chains";
 import {
   ABI,
-  COMMUNITY_NFT_ADDRESSES,
+  ECOSYSTEM_NFT_ADDRESSES,
   ECOSYSTEMS,
 } from "src/shared/constants/viem";
 import * as Sentry from "@sentry/node";
@@ -41,28 +41,28 @@ export class RpcService {
     });
   }
 
-  async getCommunitiesForWallet(wallet: string): Promise<string[]> {
+  async getEcosystemsForWallet(wallet: string): Promise<string[]> {
     try {
-      const communities = [];
+      const ecosystems = [];
       const hasLobsterDAONFT = await this.ethClient.readContract({
-        address: COMMUNITY_NFT_ADDRESSES[ECOSYSTEMS.LOBSTERDAO].address,
+        address: ECOSYSTEM_NFT_ADDRESSES[ECOSYSTEMS.LOBSTERDAO].address,
         abi: ABI,
         functionName: "balanceOf",
         args: [wallet as `0x${string}`],
       });
       const hasEthdamNFT = await this.polyClient.readContract({
-        address: COMMUNITY_NFT_ADDRESSES[ECOSYSTEMS.ETHDAM].address,
+        address: ECOSYSTEM_NFT_ADDRESSES[ECOSYSTEMS.ETHDAM].address,
         abi: ABI,
         functionName: "balanceOf",
         args: [wallet as `0x${string}`],
       });
       if (hasLobsterDAONFT) {
-        communities.push(COMMUNITY_NFT_ADDRESSES[ECOSYSTEMS.LOBSTERDAO].label);
+        ecosystems.push(ECOSYSTEM_NFT_ADDRESSES[ECOSYSTEMS.LOBSTERDAO].label);
       }
       if (hasEthdamNFT) {
-        communities.push(COMMUNITY_NFT_ADDRESSES[ECOSYSTEMS.ETHDAM].label);
+        ecosystems.push(ECOSYSTEM_NFT_ADDRESSES[ECOSYSTEMS.ETHDAM].label);
       }
-      return communities;
+      return ecosystems;
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -72,7 +72,7 @@ export class RpcService {
         scope.setExtra("input", { wallet });
         Sentry.captureException(err);
       });
-      this.logger.error(`RpcService::getCommunitiesForWallet ${err.message}`);
+      this.logger.error(`RpcService::getEcosystemsForWallet ${err.message}`);
       return [];
     }
   }

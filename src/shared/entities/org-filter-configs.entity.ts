@@ -22,7 +22,6 @@ type RawOrgFilters = {
   fundingRounds?: string[] | null;
   investors?: string[] | null;
   locations?: string[] | null;
-  communities?: string[] | null;
   ecosystems?: string[] | null;
 };
 
@@ -82,7 +81,6 @@ export class OrgFilterConfigsEntity {
       headcountEstimate: this.getRangePresets("headcountEstimate"),
       fundingRounds: this.getMultiValuePresets("fundingRounds"),
       investors: this.getMultiValuePresets("investors"),
-      communities: this.getMultiValuePresets("communities"),
       ecosystems: this.getMultiValuePresets("ecosystems"),
       locations: this.getMultiValuePresets("locations", x => toHeaderCase(x)),
       hasJobs: this.getSingleSelectPresets("hasJobs"),

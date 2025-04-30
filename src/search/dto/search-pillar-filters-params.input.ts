@@ -84,11 +84,6 @@ export class SearchPillarFiltersParams {
   ecosystems?: string[] | null = null;
 
   @IsOptional()
-  @Type(() => String)
-  @Transform(toList)
-  communities?: string[] | null = null;
-
-  @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)

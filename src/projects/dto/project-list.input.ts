@@ -117,7 +117,7 @@ export class ProjectListParams {
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
-  communities?: string[] | null = null;
+  ecosystems?: string[] | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -130,12 +130,6 @@ export class ProjectListParams {
   @Type(() => String)
   @Transform(toList)
   names?: string[] | null = null;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Type(() => String)
-  @Transform(toList)
-  ecosystems?: string[] | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()

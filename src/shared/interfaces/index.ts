@@ -57,7 +57,7 @@ export * from "./github-organization.interface";
 export * from "./project-list-result.interface";
 export * from "./organization-alias.interface";
 export * from "./organization-with-links.interface";
-export * from "./organization-community.interface";
+export * from "./organization-ecosystem.interface";
 export * from "./structured-jobpost-with-relations.interface";
 export * from "./job-applicant.interface";
 export * from "./job-details-result.interface";

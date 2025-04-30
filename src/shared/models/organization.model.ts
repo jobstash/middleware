@@ -35,9 +35,9 @@ import {
 } from "./organization-review.model";
 import { Repositories, RepositoryInstance } from "./repository.model";
 import {
-  OrganizationCommunities,
-  OrganizationCommunityInstance,
-} from "./organization-community.model";
+  OrganizationEcosystems,
+  OrganizationEcosystemInstance,
+} from "./organization-ecosystem.model";
 
 export type OrganizationProps = ExtractProps<Organization>;
 
@@ -72,9 +72,9 @@ export interface OrganizationRelations {
     ReturnType<typeof OrganizationAliases>,
     OrganizationAliasInstance
   >;
-  community: ModelRelatedNodesI<
-    ReturnType<typeof OrganizationCommunities>,
-    OrganizationCommunityInstance
+  ecosystem: ModelRelatedNodesI<
+    ReturnType<typeof OrganizationEcosystems>,
+    OrganizationEcosystemInstance
   >;
   docs: ModelRelatedNodesI<ReturnType<typeof Docsites>, DocsiteInstance>;
   github: ModelRelatedNodesI<
@@ -209,10 +209,10 @@ export const Organizations = (
           direction: "out",
           name: "HAS_ORGANIZATION_ALIAS",
         },
-        community: {
-          model: OrganizationCommunities(neogma),
+        ecosystem: {
+          model: OrganizationEcosystems(neogma),
           direction: "out",
-          name: "IS_MEMBER_OF_COMMUNITY",
+          name: "IS_MEMBER_OF_ECOSYSTEM",
         },
         twitter: {
           model: Twitters(neogma),

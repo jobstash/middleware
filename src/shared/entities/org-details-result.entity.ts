@@ -229,7 +229,6 @@ export class OrgListResultEntity {
           "id",
         ),
       ),
-      community: organization?.community ?? [],
       ecosystems: organization?.ecosystems ?? [],
       tags: tags ?? [],
       reviews:
@@ -414,7 +413,6 @@ export class OrgDetailsResultEntity {
           "id",
         ),
       ),
-      community: organization?.community ?? [],
       ecosystems: organization?.ecosystems ?? [],
       tags: tags ?? [],
       reviews:

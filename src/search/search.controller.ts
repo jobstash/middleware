@@ -21,7 +21,7 @@ import {
 import { SearchPillarParams } from "./dto/search-pillar.input";
 import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
 import { PBACGuard } from "src/auth/pbac.guard";
-import { CACHE_DURATION, COMMUNITY_HEADER } from "src/shared/constants";
+import { CACHE_DURATION, ECOSYSTEM_HEADER } from "src/shared/constants";
 import { Session } from "src/shared/decorators";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { ProfileService } from "src/auth/profile/profile.service";
@@ -60,36 +60,36 @@ export class SearchController {
 
   @Get("pillar")
   @ApiHeader({
-    name: COMMUNITY_HEADER,
+    name: ECOSYSTEM_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific community",
+      "Optional header to tailor the response for a specific ecosystem",
   })
   @UseGuards(PBACGuard)
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   async searchPillar(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true })) params: SearchPillarParams,
-    @Headers(COMMUNITY_HEADER)
-    community: string | undefined,
+    @Headers(ECOSYSTEM_HEADER)
+    ecosystem: string | undefined,
   ): Promise<ResponseWithOptionalData<PillarInfo>> {
     const query = JSON.stringify({
       ...params,
-      community: community ?? null,
+      ecosystem: ecosystem ?? null,
     });
     this.logger.log(`/search/pillar ${query}`);
     if (address) {
       await this.profileService.logSearchInteraction(address, query);
     }
-    return this.searchService.searchPillar(params, community);
+    return this.searchService.searchPillar(params, ecosystem);
   }
 
   @Get("pillar/items")
   @ApiHeader({
-    name: COMMUNITY_HEADER,
+    name: ECOSYSTEM_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific community",
+      "Optional header to tailor the response for a specific ecosystem",
   })
   @UseGuards(PBACGuard)
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
@@ -97,12 +97,12 @@ export class SearchController {
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
     params: SearchPillarItemParams,
-    @Headers(COMMUNITY_HEADER)
-    community: string | undefined,
+    @Headers(ECOSYSTEM_HEADER)
+    ecosystem: string | undefined,
   ): Promise<PaginatedData<string>> {
     const query = JSON.stringify({
       ...params,
-      community: community ?? null,
+      ecosystem: ecosystem ?? null,
     });
     this.logger.log(`/search/pillar/items ${query}`);
     if (address) {
@@ -110,44 +110,44 @@ export class SearchController {
     }
     const result = await this.searchService.searchPillarItems(
       params,
-      community,
+      ecosystem,
     );
     return result;
   }
 
   @Get("pillar/slugs")
   @ApiHeader({
-    name: COMMUNITY_HEADER,
+    name: ECOSYSTEM_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific community",
+      "Optional header to tailor the response for a specific ecosystem",
   })
   @UseGuards(PBACGuard)
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   async searchPillarSlugs(
     @Session() { address }: SessionObject,
     @Query("nav") nav: SearchNav,
-    @Headers(COMMUNITY_HEADER)
-    community: string | undefined,
+    @Headers(ECOSYSTEM_HEADER)
+    ecosystem: string | undefined,
   ): Promise<string[]> {
     const query = JSON.stringify({
       nav,
-      community: community ?? null,
+      ecosystem: ecosystem ?? null,
     });
     this.logger.log(`/search/pillar/items ${query}`);
     if (address) {
       await this.profileService.logSearchInteraction(address, query);
     }
-    const result = await this.searchService.searchPillarSlugs(nav, community);
+    const result = await this.searchService.searchPillarSlugs(nav, ecosystem);
     return result;
   }
 
   @Get("pillar/details")
   @ApiHeader({
-    name: COMMUNITY_HEADER,
+    name: ECOSYSTEM_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific community",
+      "Optional header to tailor the response for a specific ecosystem",
   })
   @UseGuards(PBACGuard)
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
@@ -178,21 +178,21 @@ export class SearchController {
 
   @Get("pillar/filters")
   @ApiHeader({
-    name: COMMUNITY_HEADER,
+    name: ECOSYSTEM_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific community",
+      "Optional header to tailor the response for a specific ecosystem",
   })
   @UseGuards(PBACGuard)
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   async searchPillarFilters(
     @Query(new ValidationPipe({ transform: true }))
     params: SearchPillarFiltersParams,
-    @Headers(COMMUNITY_HEADER)
-    community: string | undefined,
+    @Headers(ECOSYSTEM_HEADER)
+    ecosystem: string | undefined,
   ): Promise<ResponseWithOptionalData<(RangeFilter | SelectFilter)[]>> {
     this.logger.log(`/search/pillar/filters ${JSON.stringify(params)}`);
-    return this.searchService.searchPillarFilters(params, community);
+    return this.searchService.searchPillarFilters(params, ecosystem);
   }
 
   @Get("pillar/labels")

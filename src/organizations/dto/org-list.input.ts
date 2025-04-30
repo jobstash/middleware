@@ -50,12 +50,6 @@ export class OrgListParams {
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
-  communities?: string[] | null = null;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Type(() => String)
-  @Transform(toList)
   ecosystems?: string[] | null = null;
 
   @ApiPropertyOptional()

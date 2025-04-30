@@ -39,7 +39,7 @@ import { PBACGuard } from "src/auth/pbac.guard";
 import { OrganizationsService } from "src/organizations/organizations.service";
 import {
   CheckWalletPermissions,
-  COMMUNITY_HEADER,
+  ECOSYSTEM_HEADER,
   EMPTY_SESSION_OBJECT,
 } from "src/shared/constants";
 import { CACHE_DURATION } from "src/shared/constants/cache-control";
@@ -127,7 +127,7 @@ export class ProjectsController {
         | "jobs"
         | "investors"
         | "repos"
-        | "communities"
+        | "ecosystems"
       >[]
     >
   > {
@@ -158,10 +158,10 @@ export class ProjectsController {
   @Get("/list")
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiHeader({
-    name: COMMUNITY_HEADER,
+    name: ECOSYSTEM_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific community",
+      "Optional header to tailor the response for a specific ecosystem",
   })
   @ApiOkResponse({
     description:
@@ -201,13 +201,13 @@ export class ProjectsController {
   async getProjectsListWithSearch(
     @Query(new ValidationPipe({ transform: true }))
     params: ProjectListParams,
-    @Headers(COMMUNITY_HEADER) community: string | undefined,
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
   ): Promise<PaginatedData<ProjectListResult>> {
     const enrichedParams = {
       ...params,
-      communities: community
-        ? [...(params.communities ?? []), community]
-        : params.communities,
+      ecosystems: ecosystem
+        ? [...(params.ecosystems ?? []), ecosystem]
+        : params.ecosystems,
     };
     this.logger.log(`/projects/list ${JSON.stringify(enrichedParams)}`);
     return this.projectsService.getProjectsListWithSearch(enrichedParams);
@@ -216,10 +216,10 @@ export class ProjectsController {
   @Get("/filters")
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
   @ApiHeader({
-    name: COMMUNITY_HEADER,
+    name: ECOSYSTEM_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific community",
+      "Optional header to tailor the response for a specific ecosystem",
   })
   @ApiOkResponse({
     description: "Returns the configuration data for the ui filters",
@@ -237,10 +237,10 @@ export class ProjectsController {
     type: ValidationError,
   })
   async getFilterConfigs(
-    @Headers(COMMUNITY_HEADER) community: string | undefined,
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
   ): Promise<ProjectFilterConfigs> {
     this.logger.log(`/projects/filters`);
-    return this.projectsService.getFilterConfigs(community);
+    return this.projectsService.getFilterConfigs(ecosystem);
   }
 
   @Get("id/:domain")
@@ -263,10 +263,10 @@ export class ProjectsController {
 
   @Get("details/:id")
   @ApiHeader({
-    name: COMMUNITY_HEADER,
+    name: ECOSYSTEM_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific community",
+      "Optional header to tailor the response for a specific ecosystem",
   })
   @ApiOkResponse({
     description: "Returns the project details for the provided id",
@@ -290,12 +290,12 @@ export class ProjectsController {
   })
   async getProjectDetailsById(
     @Param("id") id: string,
-    @Headers(COMMUNITY_HEADER) community: string | undefined,
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
   ): Promise<ProjectDetailsResult | undefined> {
     this.logger.log(`/projects/details/${id}`);
     const result = await this.projectsService.getProjectDetailsById(
       id,
-      community,
+      ecosystem,
     );
     if (result === undefined) {
       throw new NotFoundException({
@@ -308,10 +308,10 @@ export class ProjectsController {
 
   @Get("details/slug/:slug")
   @ApiHeader({
-    name: COMMUNITY_HEADER,
+    name: ECOSYSTEM_HEADER,
     required: false,
     description:
-      "Optional header to tailor the response for a specific community",
+      "Optional header to tailor the response for a specific ecosystem",
   })
   @ApiOkResponse({
     description: "Returns the project details for the provided slug",
@@ -336,12 +336,12 @@ export class ProjectsController {
   async getProjectDetailsBySlug(
     @Param("slug") slug: string,
     @Res({ passthrough: true }) res: ExpressResponse,
-    @Headers(COMMUNITY_HEADER) community: string | undefined,
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
   ): Promise<ProjectDetailsResult | undefined> {
     this.logger.log(`/projects/details/slug/${slug}`);
     const result = await this.projectsService.getProjectDetailsBySlug(
       slug,
-      community,
+      ecosystem,
     );
     if (result === undefined) {
       res.status(HttpStatus.NOT_FOUND);
@@ -393,11 +393,11 @@ export class ProjectsController {
   })
   async getProjectCompetitors(
     @Param("id") id: string,
-    @Headers(COMMUNITY_HEADER) community: string | undefined,
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
   ): Promise<Response<ProjectProps[]> | ResponseWithNoData> {
     this.logger.log(`/projects/competitors/${id}`);
     return this.projectsService
-      .getProjectCompetitors(id, community)
+      .getProjectCompetitors(id, ecosystem)
       .then(res => ({
         success: true,
         message: "Retrieved all competing projects successfully",
@@ -551,10 +551,10 @@ export class ProjectsController {
   async searchProjects(
     @Query(new ValidationPipe({ transform: true }))
     params: SearchProjectsInput,
-    @Headers(COMMUNITY_HEADER) community: string | undefined,
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
   ): Promise<PaginatedData<ProjectListResult>> {
     this.logger.log(`/projects/search ${JSON.stringify({ params })}`);
-    return this.projectsService.searchProjects(params, community);
+    return this.projectsService.searchProjects(params, ecosystem);
   }
 
   @Get("/search/all")
@@ -1248,7 +1248,7 @@ export class ProjectsController {
         | "jobs"
         | "investors"
         | "repos"
-        | "communities"
+        | "ecosystems"
       >
     >
   > {

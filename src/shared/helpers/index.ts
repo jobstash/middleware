@@ -22,7 +22,7 @@ import { Integer, Node } from "neo4j-driver";
 import { Neo4jSupportedProperties, NeogmaInstance } from "neogma";
 import { catchError, firstValueFrom } from "rxjs";
 import ShortUniqueId from "short-unique-id";
-import { NON_PUBLIC_API_ROUTES, TEST_EMAIL } from "../constants";
+import { TEST_EMAIL } from "../constants";
 import { DateRange, JobListOrderBy } from "../enums";
 import {
   JobListResult,
@@ -409,7 +409,6 @@ export const toShortOrg = (org: OrgListResult): ShortOrg => {
     headcountEstimate,
     aggregateRating,
     reviewCount,
-    community,
     ecosystems,
     grants,
   } = org;
@@ -424,7 +423,6 @@ export const toShortOrg = (org: OrgListResult): ShortOrg => {
     headcountEstimate,
     aggregateRating,
     reviewCount,
-    community,
     ecosystems,
     grants,
     projectCount: org.projects.length,
@@ -446,7 +444,6 @@ export const toShortOrgWithSummary = (
     headcountEstimate,
     aggregateRating,
     reviewCount,
-    community,
     ecosystems,
     grants,
     summary,
@@ -463,7 +460,6 @@ export const toShortOrgWithSummary = (
     headcountEstimate,
     aggregateRating,
     reviewCount,
-    community,
     ecosystems,
     grants,
     projectCount: org.projects.length,
@@ -584,12 +580,6 @@ export const generatePublicApiSpec = (
 ): OpenAPIObject => {
   return {
     ...defaultSpec,
-    paths: Object.fromEntries(
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      Object.entries(defaultSpec.paths).filter(([path, _]) => {
-        return !NON_PUBLIC_API_ROUTES.includes(path);
-      }),
-    ),
     components: {
       ...defaultSpec.components,
       schemas: PUBLIC_API_SCHEMAS,
