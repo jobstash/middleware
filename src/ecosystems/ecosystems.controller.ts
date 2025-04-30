@@ -152,10 +152,10 @@ export class EcosystemsController {
   })
   async findOne(
     @Param("orgId") orgId: string,
-    @Param("id") id: string,
+    @Param("idOrSlug") idOrSlug: string,
     @Session() { address }: SessionObject,
   ): Promise<ResponseWithOptionalData<OrganizationEcosystemWithOrgs>> {
-    this.logger.log(`GET /ecosystems/${orgId}/${id} from ${address}`);
+    this.logger.log(`GET /ecosystems/${orgId}/${idOrSlug} from ${address}`);
     const isMember = await this.userService.isOrgMember(address, orgId);
     const subscription = data(
       await this.subscriptionsService.getSubscriptionInfo(orgId),
@@ -173,7 +173,7 @@ export class EcosystemsController {
         message: "You are not a member of this organization",
       };
     }
-    return this.ecosystemsService.findOne(orgId, id);
+    return this.ecosystemsService.findOne(orgId, idOrSlug);
   }
 
   @Put(":orgId/:idOrSlug")

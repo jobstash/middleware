@@ -16,6 +16,7 @@ import { Neogma } from "neogma";
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import {
+  generateOrgAggregateRating,
   generateOrgAggregateRatings,
   nonZeroOrNull,
   slugify,
@@ -176,17 +177,17 @@ export class EcosystemsService {
           MATCH (org:Organization {orgId: $orgId})-[:OWNS_ECOSYSTEM]->(ecosystem:OrganizationEcosystem)
           WHERE ecosystem.id = $idOrSlug OR ecosystem.normalizedName = $idOrSlug
           RETURN ecosystem {
-            .*
+            .*,
             orgs: [
-              (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM]-(org:Organization) | org {
+              (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem) | org {
                 orgId: org.orgId,
                 name: org.name,
                 normalizedName: org.normalizedName,
-                url: [(org)-[:HAS_WEBSITE]->(website) | website.url][0]
+                url: [(org)-[:HAS_WEBSITE]->(website) | website.url][0],
                 logoUrl: org.logoUrl,
                 summary: org.summary,
                 location: org.location,
-                projectCount: size((org)-[:HAS_PROJECT]->(:Project)),
+                projectCount: apoc.coll.sum([(org)-[:HAS_PROJECT]->(project:Project) | 1]),
                 headcountEstimate: org.headcountEstimate,
                 fundingRounds: apoc.coll.toSet([
                   (org)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
@@ -195,6 +196,7 @@ export class EcosystemsService {
                   .*,
                   programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
                 }],
+                ecosystems: [(org)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
                 reviews: [
                   (org)-[:HAS_REVIEW]->(review:OrgReview) | review {
                     compensation: {
@@ -228,7 +230,7 @@ export class EcosystemsService {
         `,
         { orgId, idOrSlug },
       );
-      const ecosystem = result.records[0].get("ecosystem");
+      const ecosystem = result.records[0]?.get("ecosystem");
       if (ecosystem) {
         return {
           success: true,
@@ -244,8 +246,10 @@ export class EcosystemsService {
               return new ShortOrgEntity({
                 ...org,
                 reviewCount: org.reviews.length,
-                aggregateRating: generateOrgAggregateRatings(
-                  org.reviews.map((x: OrgReview) => x.rating),
+                aggregateRating: generateOrgAggregateRating(
+                  generateOrgAggregateRatings(
+                    org.reviews.map((x: OrgReview) => x.rating),
+                  ),
                 ),
                 lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
                 lastFundingDate: lastFundingRound?.date ?? 0,
@@ -290,9 +294,14 @@ export class EcosystemsService {
           WHERE ecosystem.id = $idOrSlug OR ecosystem.normalizedName = $idOrSlug
           SET ecosystem.name = $name
           SET ecosystem.updatedTimestamp = timestamp()
+          SET ecosystem.normalizedName = $normalizedname
           RETURN ecosystem { .* } as ecosystem
         `,
-        { idOrSlug, ...updateEcosystemDto },
+        {
+          idOrSlug,
+          ...updateEcosystemDto,
+          normalizedname: slugify(updateEcosystemDto.name),
+        },
       );
       const ecosystem = result.records[0].get("ecosystem");
       if (ecosystem) {
@@ -374,24 +383,24 @@ export class EcosystemsService {
         `
           MATCH (ecosystem:OrganizationEcosystem)
           WHERE ecosystem.id = $idOrSlug OR ecosystem.normalizedName = $idOrSlug
-          MATCH (ecosystem)<-[r:IS_MEMBER_OF_ECOSYSTEM]-(org:Organization)
+          OPTIONAL MATCH (ecosystem)<-[r:IS_MEMBER_OF_ECOSYSTEM]-(org:Organization)
           DELETE r
 
           WITH ecosystem
           MATCH (org:Organization WHERE org.orgId IN $orgIds)
           MERGE (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem)
           RETURN ecosystem {
-            .*
+            .*,
             orgs: [
-              (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM]-(org:Organization) | org {
+              (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM]-(org) | org {
                 orgId: org.orgId,
                 name: org.name,
                 normalizedName: org.normalizedName,
-                url: [(org)-[:HAS_WEBSITE]->(website) | website.url][0]
+                url: [(org)-[:HAS_WEBSITE]->(website) | website.url][0],
                 logoUrl: org.logoUrl,
                 summary: org.summary,
                 location: org.location,
-                projectCount: size((org)-[:HAS_PROJECT]->(:Project)),
+                projectCount: apoc.coll.sum([(org)-[:HAS_PROJECT]->(project:Project) | 1]),
                 headcountEstimate: org.headcountEstimate,
                 fundingRounds: apoc.coll.toSet([
                   (org)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
@@ -400,6 +409,7 @@ export class EcosystemsService {
                   .*,
                   programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
                 }],
+                ecosystems: [(org)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
                 reviews: [
                   (org)-[:HAS_REVIEW]->(review:OrgReview) | review {
                     compensation: {
@@ -448,8 +458,10 @@ export class EcosystemsService {
             return new ShortOrgEntity({
               ...org,
               reviewCount: org.reviews.length,
-              aggregateRating: generateOrgAggregateRatings(
-                org.reviews.map((x: OrgReview) => x.rating),
+              aggregateRating: generateOrgAggregateRating(
+                generateOrgAggregateRatings(
+                  org.reviews.map((x: OrgReview) => x.rating),
+                ),
               ),
               lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
               lastFundingDate: lastFundingRound?.date ?? 0,

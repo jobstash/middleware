@@ -1,9 +1,12 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsString } from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { IsNotEmpty } from "class-validator";
+import { toList } from "src/shared/helpers";
 
 export class UpdateEcosystemOrgsDto {
   @ApiProperty()
   @IsNotEmpty()
-  @IsString()
+  @Type(() => String)
+  @Transform(toList)
   orgIds: string[];
 }
