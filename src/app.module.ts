@@ -34,6 +34,7 @@ import { SubscriptionsModule } from "./subscriptions/subscriptions.module";
 import { BullModule } from "@nestjs/bull";
 import { ScheduleModule } from "@nestjs/schedule";
 import { TelemetryModule } from "./telemetry/telemetry.module";
+import { EcosystemsModule } from "./ecosystems/ecosystems.module";
 
 @Module({
   imports: [
@@ -95,6 +96,7 @@ import { TelemetryModule } from "./telemetry/telemetry.module";
     Auth0Module,
     SubscriptionsModule,
     TelemetryModule,
+    EcosystemsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
