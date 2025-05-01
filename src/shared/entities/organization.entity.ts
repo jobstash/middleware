@@ -7,7 +7,25 @@ export class ShortOrgEntity {
 
   getProperties(): ShortOrg {
     return {
-      ...this.raw,
+      orgId: this.raw.orgId,
+      url: this.raw.url,
+      name: this.raw.name,
+      normalizedName: this.raw.normalizedName,
+      location: notStringOrNull(this.raw.location),
+      aggregateRating: intConverter(this.raw.aggregateRating),
+      reviewCount: intConverter(this.raw.reviewCount),
+      ecosystems: this.raw.ecosystems,
+      grants:
+        this.raw?.grants?.map(grant => ({
+          ...grant,
+          tokenAmount: nonZeroOrNull(grant?.tokenAmount),
+          tokenUnit: notStringOrNull(grant?.tokenUnit),
+          programName: notStringOrNull(grant?.programName) ?? "N/A",
+          createdTimestamp: nonZeroOrNull(grant?.createdTimestamp),
+          updatedTimestamp: nonZeroOrNull(grant?.updatedTimestamp),
+          fundingDate: nonZeroOrNull(grant?.fundingDate),
+          amount: nonZeroOrNull(grant?.amount),
+        })) ?? [],
       logoUrl: notStringOrNull(this.raw.logoUrl),
       projectCount: intConverter(this.raw.projectCount),
       headcountEstimate: intConverter(this.raw.headcountEstimate),
@@ -22,8 +40,26 @@ export class ShortOrgWithSummaryEntity {
 
   getProperties(): ShortOrgWithSummary {
     return {
-      ...this.raw,
+      orgId: this.raw.orgId,
+      url: this.raw.url,
+      name: this.raw.name,
+      normalizedName: this.raw.normalizedName,
       summary: notStringOrNull(this.raw.summary),
+      location: notStringOrNull(this.raw.location),
+      aggregateRating: intConverter(this.raw.aggregateRating),
+      reviewCount: intConverter(this.raw.reviewCount),
+      ecosystems: this.raw.ecosystems,
+      grants:
+        this.raw?.grants?.map(grant => ({
+          ...grant,
+          tokenAmount: nonZeroOrNull(grant?.tokenAmount),
+          tokenUnit: notStringOrNull(grant?.tokenUnit),
+          programName: notStringOrNull(grant?.programName) ?? "N/A",
+          createdTimestamp: nonZeroOrNull(grant?.createdTimestamp),
+          updatedTimestamp: nonZeroOrNull(grant?.updatedTimestamp),
+          fundingDate: nonZeroOrNull(grant?.fundingDate),
+          amount: nonZeroOrNull(grant?.amount),
+        })) ?? [],
       logoUrl: notStringOrNull(this.raw.logoUrl),
       projectCount: intConverter(this.raw.projectCount),
       headcountEstimate: intConverter(this.raw.headcountEstimate),

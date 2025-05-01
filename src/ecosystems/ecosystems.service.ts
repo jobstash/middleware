@@ -174,7 +174,7 @@ export class EcosystemsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-          MATCH (org:Organization {orgId: $orgId})-[:OWNS_ECOSYSTEM]->(ecosystem:OrganizationEcosystem)
+          MATCH (:Organization {orgId: $orgId})-[:OWNS_ECOSYSTEM]->(ecosystem:OrganizationEcosystem)
           WHERE ecosystem.id = $idOrSlug OR ecosystem.normalizedName = $idOrSlug
           RETURN ecosystem {
             .*,
@@ -387,8 +387,8 @@ export class EcosystemsService {
           DELETE r
 
           WITH ecosystem
-          MATCH (org:Organization WHERE org.orgId IN $orgIds)
-          MERGE (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem)
+          MATCH (organization:Organization WHERE organization.orgId IN $orgIds)
+          MERGE (organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem)
           RETURN ecosystem {
             .*,
             orgs: [
