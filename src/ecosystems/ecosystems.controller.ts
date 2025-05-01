@@ -296,10 +296,10 @@ export class EcosystemsController {
   })
   async remove(
     @Param("orgId") orgId: string,
-    @Param("id") id: string,
+    @Param("idOrSlug") idOrSlug: string,
     @Session() { address }: SessionObject,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`DELETE /ecosystems/${orgId}/${id} from ${address}`);
+    this.logger.log(`DELETE /ecosystems/${orgId}/${idOrSlug} from ${address}`);
     const isMember = await this.userService.isOrgMember(address, orgId);
     const subscription = data(
       await this.subscriptionsService.getSubscriptionInfo(orgId),
@@ -317,6 +317,6 @@ export class EcosystemsController {
         message: "You are not a member of this organization",
       };
     }
-    return this.ecosystemsService.remove(orgId, id);
+    return this.ecosystemsService.remove(orgId, idOrSlug);
   }
 }
