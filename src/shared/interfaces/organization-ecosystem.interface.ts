@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { isLeft } from "fp-ts/lib/Either";
 import * as t from "io-ts";
 import { report } from "io-ts-human-reporter";
-import { ShortOrg } from "./organization.interface";
+import { ShortOrgWithSummary } from "./organization.interface";
 
 export class OrganizationEcosystem {
   public static readonly OrganizationEcosystemType = t.strict({
@@ -53,12 +53,12 @@ export class OrganizationEcosystemWithOrgs extends OrganizationEcosystem {
   public static readonly OrganizationEcosystemWithOrgsType = t.intersection([
     OrganizationEcosystem.OrganizationEcosystemType,
     t.strict({
-      orgs: t.array(ShortOrg.ShortOrgType),
+      orgs: t.array(ShortOrgWithSummary.ShortOrgWithSummaryType),
     }),
   ]);
 
   @ApiProperty()
-  orgs: ShortOrg[];
+  orgs: ShortOrgWithSummary[];
 
   constructor(raw: OrganizationEcosystemWithOrgs) {
     const { orgs, ...parentProps } = raw;

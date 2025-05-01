@@ -22,7 +22,7 @@ import {
   slugify,
 } from "src/shared/helpers";
 import { sort } from "fast-sort";
-import { ShortOrgEntity } from "src/shared/entities";
+import { ShortOrgWithSummaryEntity } from "src/shared/entities";
 
 @Injectable()
 export class EcosystemsService {
@@ -182,6 +182,7 @@ export class EcosystemsService {
               (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem) | org {
                 orgId: org.orgId,
                 name: org.name,
+                summary: org.summary,
                 normalizedName: org.normalizedName,
                 url: [(org)-[:HAS_WEBSITE]->(website) | website.url][0],
                 logoUrl: org.logoUrl,
@@ -243,7 +244,7 @@ export class EcosystemsService {
               const lastFundingRound = sort(
                 org.fundingRounds as FundingRound[],
               ).desc(x => x.date)[0];
-              return new ShortOrgEntity({
+              return new ShortOrgWithSummaryEntity({
                 ...org,
                 reviewCount: org.reviews.length,
                 aggregateRating: generateOrgAggregateRating(
@@ -395,6 +396,7 @@ export class EcosystemsService {
               (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM]-(org) | org {
                 orgId: org.orgId,
                 name: org.name,
+                summary: org.summary,
                 normalizedName: org.normalizedName,
                 url: [(org)-[:HAS_WEBSITE]->(website) | website.url][0],
                 logoUrl: org.logoUrl,
@@ -455,7 +457,7 @@ export class EcosystemsService {
             const lastFundingRound = sort(
               org.fundingRounds as FundingRound[],
             ).desc(x => x.date)[0];
-            return new ShortOrgEntity({
+            return new ShortOrgWithSummaryEntity({
               ...org,
               reviewCount: org.reviews.length,
               aggregateRating: generateOrgAggregateRating(
