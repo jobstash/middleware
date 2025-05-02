@@ -1267,19 +1267,14 @@ export class JobsService {
     `;
       const result = await this.neogma.queryRunner.run(generatedQuery, {
         shortUUID: uuid,
+        ecosystem: ecosystem ?? null,
       });
       const job = result.records[0]?.get("result")
         ? new JobDetailsEntity(
             result.records[0]?.get("result") as JobDetailsResult,
           ).getProperties(protectLink)
         : undefined;
-      if (ecosystem) {
-        return job?.organization.ecosystems.includes(ecosystem)
-          ? job
-          : undefined;
-      } else {
-        return job;
-      }
+      return job;
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
