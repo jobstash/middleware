@@ -16,7 +16,7 @@ import {
 } from "../helpers";
 import { toHeaderCase } from "js-convert-case";
 
-type RawJobFilters = {
+export type RawJobFilters = {
   minSalaryRange?: number | null;
   maxSalaryRange?: number | null;
   minTvl?: number | null;
@@ -50,7 +50,7 @@ export class JobFilterConfigsEntity {
   configPresets = FILTER_CONFIG_PRESETS;
   paramKeyPresets = FILTER_PARAM_KEY_PRESETS;
 
-  constructor(private readonly raw: RawJobFilters) {}
+  constructor(protected raw: RawJobFilters) {}
 
   getRangePresets(key: string): RangeFilter {
     const range = {

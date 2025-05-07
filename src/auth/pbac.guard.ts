@@ -30,18 +30,20 @@ export class PBACGuard implements CanActivate {
         context.getHandler(),
       ) || [];
 
+    const userPermissions = session?.permissions ?? [];
+
     const canAccess =
       requiredPermissions.length === 0
         ? true
-        : (session.permissions.includes(CheckWalletPermissions.SUPER_ADMIN) ||
+        : (userPermissions.includes(CheckWalletPermissions.SUPER_ADMIN) ||
             requiredPermissions
               .filter(x => Array.isArray(x))
               .some(perm =>
-                (perm as string[]).every(x => session.permissions.includes(x)),
+                (perm as string[]).every(x => userPermissions.includes(x)),
               ) ||
             (requiredPermissions
               .filter(x => typeof x === "string")
-              .every(x => session.permissions.includes(x as string)) &&
+              .every(x => userPermissions.includes(x as string)) &&
               requiredPermissions.filter(x => typeof x === "string").length >
                 0)) &&
           session?.address;

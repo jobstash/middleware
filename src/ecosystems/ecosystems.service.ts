@@ -4,6 +4,7 @@ import { UpdateEcosystemDto } from "./dto/update-ecosystem.dto";
 import { UpdateEcosystemOrgsDto } from "./dto/update-ecosystem-orgs.dto";
 import {
   data,
+  EcosystemJobFilterConfigs,
   EcosystemJobListResult,
   FundingRound,
   OrganizationEcosystem,
@@ -29,6 +30,7 @@ import {
 } from "src/shared/helpers";
 import { sort } from "fast-sort";
 import {
+  EcosystemJobFilterConfigsEntity,
   EcosystemJobListResultEntity,
   ShortOrgWithSummaryEntity,
 } from "src/shared/entities";
@@ -37,6 +39,11 @@ import { go } from "fuzzysort";
 import { uniq } from "lodash";
 import { DateRange } from "src/shared/enums";
 import { EcosystemJobListParams } from "./dto/ecosystem-job-list.input";
+import { ConfigService } from "@nestjs/config";
+import { TagsService } from "src/tags/tags.service";
+import { CreateStoredFilterDto } from "./dto/create-stored-filter.dto";
+import { StoredFilter } from "src/shared/interfaces/stored-filter.interface";
+import { UpdateStoredFilterDto } from "./dto/update-stored-filter.dto";
 
 @Injectable()
 export class EcosystemsService {
@@ -44,6 +51,8 @@ export class EcosystemsService {
   constructor(
     @InjectConnection()
     private neogma: Neogma,
+    private readonly tagsService: TagsService,
+    private readonly configService: ConfigService,
   ) {}
 
   async create(
@@ -104,6 +113,67 @@ export class EcosystemsService {
     }
   }
 
+  async createStoredFilter(
+    orgId: string,
+    address: string,
+    createStoredFilterDto: CreateStoredFilterDto,
+  ): Promise<ResponseWithOptionalData<StoredFilter>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          MATCH (org:Organization {orgId: $orgId}), (user:User {wallet: $address})
+          MERGE (org)-[:HAS_STORED_FILTER]->(filter:StoredFilter {filter: $filter})<-[:CREATED_STORED_FILTER]-(user)
+          ON CREATE SET
+            filter.id = randomUUID(),
+            filter.name = $name,
+            filter.filter = $filter,
+            filter.public = $public,
+            filter.createdTimestamp = timestamp()
+          
+          RETURN filter { .* } as filter
+        `,
+        {
+          orgId,
+          address,
+          ...createStoredFilterDto,
+        },
+      );
+      const filter = result.records[0].get("filter");
+      if (filter) {
+        return {
+          success: true,
+          message: "Created stored filter successfully",
+          data: new StoredFilter({
+            ...filter,
+            createdTimestamp: nonZeroOrNull(filter.createdTimestamp),
+            updatedTimestamp: nonZeroOrNull(filter.updatedTimestamp),
+          }),
+        };
+      } else {
+        return {
+          success: false,
+          message: "Failed to create stored filter",
+        };
+      }
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "ecosystems.service",
+        });
+        scope.setExtra("input", createStoredFilterDto);
+        Sentry.captureException(error);
+      });
+      this.logger.error(
+        `EcosystemsService::createStoredFilter ${error.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to create stored filter",
+      };
+    }
+  }
+
   async findAll(
     orgId: string,
   ): Promise<ResponseWithOptionalData<OrganizationEcosystem[]>> {
@@ -140,6 +210,100 @@ export class EcosystemsService {
       return {
         success: false,
         message: "Failed to retrieve ecosystems",
+      };
+    }
+  }
+
+  async findAllStoredFilters(
+    orgId: string,
+    address: string,
+  ): Promise<ResponseWithOptionalData<StoredFilter[]>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          MATCH (org:Organization {orgId: $orgId})-[:HAS_STORED_FILTER]->(filter:StoredFilter)
+          WHERE filter.public = true OR EXISTS((filter)<-[:CREATED_STORED_FILTER]-(:User {wallet: $address}))
+          RETURN filter { .* } as filter
+        `,
+        { orgId, address },
+      );
+      return {
+        success: true,
+        message: "Retrieved all stored filters successfully",
+        data: result.records.map(record => {
+          const filter = record.get("filter");
+          return new StoredFilter({
+            ...filter,
+            createdTimestamp: nonZeroOrNull(filter.createdTimestamp),
+            updatedTimestamp: nonZeroOrNull(filter.updatedTimestamp),
+          });
+        }),
+      };
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "ecosystems.service",
+        });
+        scope.setExtra("input", orgId);
+        Sentry.captureException(error);
+      });
+      this.logger.error(
+        `EcosystemsService::findAllStoredFilters ${error.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to retrieve stored filters",
+      };
+    }
+  }
+
+  async findStoredFilterById(
+    id: string,
+    address: string,
+    orgId: string,
+  ): Promise<ResponseWithOptionalData<StoredFilter>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          MATCH (org:Organization {orgId: $orgId})-[:HAS_STORED_FILTER]->(filter:StoredFilter {id: $id})
+          WHERE filter.public = true OR EXISTS((filter)<-[:CREATED_STORED_FILTER]-(:User {wallet: $address}))
+          RETURN filter { .* } as filter
+        `,
+        { orgId, id, address },
+      );
+      const filter = result.records[0].get("filter");
+      if (filter) {
+        return {
+          success: true,
+          message: "Retrieved stored filter successfully",
+          data: new StoredFilter({
+            ...filter,
+            createdTimestamp: nonZeroOrNull(filter.createdTimestamp),
+            updatedTimestamp: nonZeroOrNull(filter.updatedTimestamp),
+          }),
+        };
+      } else {
+        return {
+          success: false,
+          message: "Failed to retrieve stored filter",
+        };
+      }
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "ecosystems.service",
+        });
+        scope.setExtra("input", id);
+        Sentry.captureException(error);
+      });
+      this.logger.error(
+        `EcosystemsService::findStoredFilterById ${error.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to retrieve stored filter",
       };
     }
   }
@@ -352,6 +516,79 @@ export class EcosystemsService {
     }
   }
 
+  async updateStoredFilter(
+    orgId: string,
+    address: string,
+    id: string,
+    updateStoredFilterDto: UpdateStoredFilterDto,
+  ): Promise<ResponseWithOptionalData<StoredFilter>> {
+    try {
+      const result1 = await this.neogma.queryRunner.run(
+        `
+        RETURN EXISTS((:Organization {orgId: $orgId})-[:HAS_STORED_FILTER]->(:StoredFilter {id: $id})<-[:CREATED_STORED_FILTER]-(:User {wallet: $address})) as exists
+        `,
+        { id, orgId, address },
+      );
+      const isOwner = result1.records[0].get("exists");
+      if (!isOwner) {
+        return {
+          success: false,
+          message:
+            "You do not have permission to update this stored filter or it does not exist",
+        };
+      }
+      const result = await this.neogma.queryRunner.run(
+        `
+          MATCH (filter:StoredFilter {id: $id})
+          SET filter.name = $name
+          SET filter.filter = $filter
+          SET filter.public = $public
+          SET filter.updatedTimestamp = timestamp()
+          RETURN filter { .* } as filter
+        `,
+        {
+          orgId,
+          address,
+          id,
+          ...updateStoredFilterDto,
+        },
+      );
+      const filter = result.records[0].get("filter");
+      if (filter) {
+        return {
+          success: true,
+          message: "Updated stored filter successfully",
+          data: new StoredFilter({
+            ...filter,
+            createdTimestamp: nonZeroOrNull(filter.createdTimestamp),
+            updatedTimestamp: nonZeroOrNull(filter.updatedTimestamp),
+          }),
+        };
+      } else {
+        return {
+          success: false,
+          message: "Failed to update stored filter",
+        };
+      }
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "ecosystems.service",
+        });
+        scope.setExtra("input", updateStoredFilterDto);
+        Sentry.captureException(error);
+      });
+      this.logger.error(
+        `EcosystemsService::updateStoredFilter ${error.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to update stored filter",
+      };
+    }
+  }
+
   async remove(orgId: string, idOrSlug: string): Promise<ResponseWithNoData> {
     const ecosystem = data(await this.findOne(orgId, idOrSlug));
     if (ecosystem) {
@@ -383,6 +620,61 @@ export class EcosystemsService {
           message: "Failed to delete ecosystem",
         };
       }
+    } else {
+      return {
+        success: false,
+        message: "Ecosystem not found",
+      };
+    }
+  }
+
+  async removeStoredFilter(
+    orgId: string,
+    address: string,
+    id: string,
+  ): Promise<ResponseWithNoData> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        RETURN EXISTS((:Organization {orgId: $orgId})-[:HAS_STORED_FILTER]->(:StoredFilter {id: $id})<-[:CREATED_STORED_FILTER]-(:User {wallet: $address})) as exists
+        `,
+        { id, orgId, address },
+      );
+      const isOwner = result.records[0].get("exists");
+      if (!isOwner) {
+        return {
+          success: false,
+          message:
+            "You do not have permission to delete this stored filter or it does not exist",
+        };
+      }
+      await this.neogma.queryRunner.run(
+        `
+          MATCH (:Organization {orgId: $orgId})-[:HAS_STORED_FILTER]->(filter:StoredFilter {id: $id})<-[:CREATED_STORED_FILTER]-(:User {wallet: $address})
+          DETACH DELETE filter
+          `,
+        { id, orgId, address },
+      );
+      return {
+        success: true,
+        message: "Deleted stored filter successfully",
+      };
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "ecosystems.service",
+        });
+        scope.setExtra("input", id);
+        Sentry.captureException(error);
+      });
+      this.logger.error(
+        `EcosystemsService::removeStoredFilter ${error.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to delete stored filter",
+      };
     }
   }
 
@@ -753,13 +1045,13 @@ export class EcosystemsService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "jobs.service",
+          source: "ecosystems.service",
         });
         scope.setExtra("input", params);
         Sentry.captureException(err);
       });
       this.logger.error(
-        `EcosystemService::getJobsListWithSearch ${err.message}`,
+        `EcosystemsService::getJobsListWithSearch ${err.message}`,
       );
       return {
         page: -1,
@@ -1024,5 +1316,165 @@ export class EcosystemsService {
     this.logger.log(`Sorted ${final.length} jobs`);
 
     return paginate<EcosystemJobListResult>(page, limit, final);
+  }
+
+  async getFilterConfigs(
+    ecosystem: string,
+  ): Promise<EcosystemJobFilterConfigs> {
+    try {
+      const popularity =
+        this.configService.get<string>("SKILL_THRESHOLD") ?? null;
+      const tags = (await this.tagsService.getPopularTags(100)).map(
+        x => x.name,
+      );
+      const result = await this.neogma.queryRunner
+        .run(
+          `
+              CYPHER runtime = parallel
+              RETURN {
+                maxTvl: apoc.coll.max([
+                  (org)-[:HAS_PROJECT]->(project:Project)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
+                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.tvl
+                ]),
+                minTvl: apoc.coll.min([
+                  (org)-[:HAS_PROJECT]->(project:Project)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
+                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.tvl
+                ]),
+                minMonthlyVolume: apoc.coll.min([
+                  (org)-[:HAS_PROJECT]->(project:Project)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
+                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyVolume
+                ]),
+                maxMonthlyVolume: apoc.coll.max([
+                  (org)-[:HAS_PROJECT]->(project:Project)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
+                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyVolume
+                ]),
+                minMonthlyFees: apoc.coll.max([
+                  (org)-[:HAS_PROJECT]->(project:Project)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
+                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyFees
+                ]),
+                maxMonthlyFees: apoc.coll.max([
+                  (org)-[:HAS_PROJECT]->(project:Project)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
+                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyFees
+                ]),
+                minMonthlyRevenue: apoc.coll.max([
+                  (org)-[:HAS_PROJECT]->(project:Project)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
+                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyRevenue
+                ]),
+                maxMonthlyRevenue: apoc.coll.max([
+                  (org)-[:HAS_PROJECT]->(project:Project)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
+                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyRevenue
+                ]),
+                minSalaryRange: apoc.coll.min([
+                  (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                  AND j.salaryCurrency CONTAINS "USD" | j.salary
+                ]),
+                maxSalaryRange: apoc.coll.max([
+                  (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                  AND j.salaryCurrency CONTAINS "USD" | j.salary
+                ]),
+                minHeadCount: apoc.coll.min([
+                  (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) 
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END | org.headcountEstimate
+                ]),
+                maxHeadCount: apoc.coll.max([
+                  (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) 
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END | org.headcountEstimate
+                ]),
+                fundingRounds: apoc.coll.toSet([
+                  (org: Organization)-[:HAS_FUNDING_ROUND]->(round: FundingRound)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | round.roundName
+                ]),
+                investors: apoc.coll.toSet([
+                  (org: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | investor.name
+                ]),
+                ecosystems: apoc.coll.toSet([
+                  (org: Organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | ecosystem.name
+                ]),
+                projects: apoc.coll.toSet([
+                  (org)-[:HAS_PROJECT]->(project:Project)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | project.name
+                ]),
+                classifications: apoc.coll.toSet([
+                  (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                  AND (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | classification.name
+                ]),
+                commitments: apoc.coll.toSet([
+                  (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_COMMITMENT]->(commitment:JobpostCommitment)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                  AND (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | commitment.name
+                ]),
+                chains: apoc.coll.toSet([
+                  (org)-[:HAS_PROJECT|IS_DEPLOYED_ON*2]->(chain: Chain)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | chain.name
+                ]),
+                locations: apoc.coll.toSet([
+                  (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_LOCATION_TYPE]->(location: JobpostLocationType)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                  AND (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | location.name
+                ]),
+                organizations: apoc.coll.toSet([
+                  (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END | org.name
+                ]),
+                seniority: apoc.coll.toSet([
+                  (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                  AND j.seniority IS NOT NULL | j.seniority
+                ])
+              } as res
+            `,
+          { ecosystem, popularity },
+        )
+        .then(res =>
+          res.records.length
+            ? new EcosystemJobFilterConfigsEntity({
+                ...res.records[0].get("res"),
+                tags,
+              }).getProperties()
+            : undefined,
+        );
+      return result;
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "ecosystems.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`EcosystemsService::getFilterConfigs ${err.message}`);
+      return undefined;
+    }
   }
 }

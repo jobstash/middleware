@@ -8,11 +8,11 @@ import {
   Delete,
   UseGuards,
   Put,
-  Headers,
   Query,
   ValidationPipe,
   BadRequestException,
   UseInterceptors,
+  ForbiddenException,
 } from "@nestjs/common";
 import { EcosystemsService } from "./ecosystems.service";
 import { CreateEcosystemDto } from "./dto/create-ecosystem.dto";
@@ -21,17 +21,13 @@ import {
   ApiOkResponse,
   getSchemaPath,
   ApiUnprocessableEntityResponse,
-  ApiHeader,
 } from "@nestjs/swagger";
 import { PBACGuard } from "src/auth/pbac.guard";
-import {
-  CACHE_DURATION,
-  CheckWalletPermissions,
-  ECOSYSTEM_HEADER,
-} from "src/shared/constants";
+import { CACHE_DURATION, CheckWalletPermissions } from "src/shared/constants";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
   data,
+  EcosystemJobFilterConfigs,
   EcosystemJobListResult,
   Organization,
   OrganizationEcosystem,
@@ -48,6 +44,9 @@ import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
 import { UpdateEcosystemOrgsDto } from "./dto/update-ecosystem-orgs.dto";
 import { EcosystemJobListParams } from "./dto/ecosystem-job-list.input";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
+import { StoredFilter } from "src/shared/interfaces/stored-filter.interface";
+import { CreateStoredFilterDto } from "./dto/create-stored-filter.dto";
+import { UpdateStoredFilterDto } from "./dto/update-stored-filter.dto";
 
 @Controller("ecosystems")
 export class EcosystemsController {
@@ -65,11 +64,6 @@ export class EcosystemsController {
     CheckWalletPermissions.USER,
     CheckWalletPermissions.ECOSYSTEM_MANAGER,
   ])
-  @ApiHeader({
-    name: ECOSYSTEM_HEADER,
-    required: true,
-    description: "Header to tailor the response for a specific ecosystem",
-  })
   @ApiOkResponse({
     description: "Returns jobs from orgs in an ecosystem",
     schema: responseSchemaWrapper({
@@ -86,15 +80,27 @@ export class EcosystemsController {
     @Query(new ValidationPipe({ transform: true }))
     params: EcosystemJobListParams,
   ): Promise<PaginatedData<EcosystemJobListResult>> {
+    this.logger.log(
+      `GET /ecosystems/jobs ${JSON.stringify(params)} from ${session.address}`,
+    );
     const orgId = await this.userService.findOrgIdByMemberUserWallet(
       session.address,
     );
-    console.log(orgId);
+    const subscription = data(
+      await this.subscriptionsService.getSubscriptionInfo(orgId),
+    );
+    if (!subscription.isActive()) {
+      throw new ForbiddenException({
+        success: false,
+        message:
+          "Organization does not have an active or valid subscription to use this service",
+      });
+    }
     const ecosystem = data(await this.findAll(orgId, session))[0];
     if (!ecosystem) {
       throw new BadRequestException({
         success: false,
-        message: "You must provide an ecosystem to fetch jobs from",
+        message: "You are not allowed to access this resource",
       });
     } else {
       const enrichedParams = {
@@ -103,6 +109,213 @@ export class EcosystemsController {
       };
       return this.ecosystemsService.getJobsListWithSearch(enrichedParams);
     }
+  }
+
+  @Get("/jobs/filters")
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseGuards(PBACGuard)
+  @Permissions([
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ECOSYSTEM_MANAGER,
+  ])
+  @ApiOkResponse({
+    description: "Returns job filters for orgs in an ecosystem",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(EcosystemJobFilterConfigs),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong fetching the ecosystem jobs on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async getEcosystemJobFilters(
+    @Session() session: SessionObject,
+  ): Promise<EcosystemJobFilterConfigs> {
+    this.logger.log(`GET /ecosystems/jobs/filters from ${session.address}`);
+    const orgId = await this.userService.findOrgIdByMemberUserWallet(
+      session.address,
+    );
+    const subscription = data(
+      await this.subscriptionsService.getSubscriptionInfo(orgId),
+    );
+    if (!subscription.isActive()) {
+      throw new ForbiddenException({
+        success: false,
+        message:
+          "Organization does not have an active or valid subscription to use this service",
+      });
+    }
+    const ecosystem = data(await this.findAll(orgId, session))[0];
+    if (!ecosystem) {
+      throw new BadRequestException({
+        success: false,
+        message: "You are not allowed to access this resource",
+      });
+    } else {
+      return this.ecosystemsService.getFilterConfigs(ecosystem.normalizedName);
+    }
+  }
+
+  @Post("jobs/filters/stored")
+  @UseGuards(PBACGuard)
+  @Permissions([
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ECOSYSTEM_MANAGER,
+  ])
+  @ApiOkResponse({
+    description: "Creates an stored filter config for an organization",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(StoredFilter),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong creating the stored filter config on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async createStoredFilter(
+    @Session() { address }: SessionObject,
+    @Body() createStoredFilterDto: CreateStoredFilterDto,
+  ): Promise<ResponseWithOptionalData<StoredFilter>> {
+    this.logger.log(
+      `POST /ecosystems/jobs/filters/stored ${JSON.stringify(
+        createStoredFilterDto,
+      )} from ${address}`,
+    );
+    const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
+    const subscription = data(
+      await this.subscriptionsService.getSubscriptionInfo(orgId),
+    );
+    if (!subscription.isActive()) {
+      return {
+        success: false,
+        message:
+          "Organization does not have an active or valid subscription to use this service",
+      };
+    }
+    return this.ecosystemsService.createStoredFilter(
+      orgId,
+      address,
+      createStoredFilterDto,
+    );
+  }
+
+  @Get("jobs/filters/stored")
+  @UseGuards(PBACGuard)
+  @Permissions([
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ECOSYSTEM_MANAGER,
+  ])
+  @ApiOkResponse({
+    description: "Fetches all stored filter configs for an organization",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(StoredFilter),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong fetching the stored filters from the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async findAllStoredFilters(
+    @Session() { address }: SessionObject,
+  ): Promise<ResponseWithOptionalData<StoredFilter[]>> {
+    this.logger.log(`GET /ecosystems/jobs/filters/stored from ${address}`);
+    const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
+    const subscription = data(
+      await this.subscriptionsService.getSubscriptionInfo(orgId),
+    );
+    if (!subscription.isActive()) {
+      return {
+        success: false,
+        message:
+          "Organization does not have an active or valid subscription to use this service",
+      };
+    }
+    return this.ecosystemsService.findAllStoredFilters(orgId, address);
+  }
+
+  @Put("jobs/filters/stored/:id")
+  @UseGuards(PBACGuard)
+  @Permissions([
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ECOSYSTEM_MANAGER,
+  ])
+  @ApiOkResponse({
+    description: "Updates a stored filter owned by an organization",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(StoredFilter),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong updating the stored filter from the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async updateStoredFilterById(
+    @Param("id") id: string,
+    @Session() { address }: SessionObject,
+    @Body() updateStoredFilterDto: UpdateStoredFilterDto,
+  ): Promise<ResponseWithOptionalData<StoredFilter>> {
+    this.logger.log(
+      `PUT /ecosystems/jobs/filters/stored/${id} from ${address}`,
+    );
+    const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
+    const subscription = data(
+      await this.subscriptionsService.getSubscriptionInfo(orgId),
+    );
+    if (!subscription.isActive()) {
+      return {
+        success: false,
+        message:
+          "Organization does not have an active or valid subscription to use this service",
+      };
+    }
+    return this.ecosystemsService.updateStoredFilter(
+      orgId,
+      address,
+      id,
+      updateStoredFilterDto,
+    );
+  }
+
+  @Delete("jobs/filters/stored/:id")
+  @UseGuards(PBACGuard)
+  @Permissions([
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ECOSYSTEM_MANAGER,
+  ])
+  @ApiOkResponse({
+    description: "Deletes a stored filter owned by an organization",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(StoredFilter),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong deleting the stored filter on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async removeStoredFilter(
+    @Param("id") id: string,
+    @Session() { address }: SessionObject,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(
+      `DELETE /ecosystems/jobs/filters/stored/${id} from ${address}`,
+    );
+    const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
+    const subscription = data(
+      await this.subscriptionsService.getSubscriptionInfo(orgId),
+    );
+    if (!subscription.isActive()) {
+      return {
+        success: false,
+        message:
+          "Organization does not have an active or valid subscription to use this service",
+      };
+    }
+    return this.ecosystemsService.removeStoredFilter(orgId, address, id);
   }
 
   @Post(":orgId")
@@ -128,7 +341,7 @@ export class EcosystemsController {
     @Body() createEcosystemDto: CreateEcosystemDto,
   ): Promise<ResponseWithOptionalData<OrganizationEcosystem>> {
     this.logger.log(
-      `POST /ecosystems/create ${JSON.stringify(
+      `POST /ecosystems/${orgId} ${JSON.stringify(
         createEcosystemDto,
       )} from ${address}`,
     );

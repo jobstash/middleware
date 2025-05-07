@@ -33,22 +33,34 @@ export class AuthService {
     if (token) {
       const decoded = this.decodeToken(token);
       if (decoded) {
-        const result = await this.neogma.queryRunner.run(
-          `
-          MATCH (u:User {wallet: $address})
-          RETURN {
-            cryptoNative: u.cryptoNative,
-            permissions: [(u)-[:HAS_PERMISSION]->(up:UserPermission) | up.name]
-          } as user
-        `,
-          { address: decoded.address },
-        );
-        const user = result.records[0]?.get("user") ?? [];
-        return {
-          address: decoded.address ?? null,
-          cryptoNative: user?.cryptoNative ?? false,
-          permissions: user.permissions ?? [],
-        };
+        try {
+          const result = await this.neogma.queryRunner.run(
+            `
+              MATCH (u:User {wallet: $address})
+              RETURN {
+                cryptoNative: u.cryptoNative,
+                permissions: [(u)-[:HAS_PERMISSION]->(up:UserPermission) | up.name]
+              } as user
+            `,
+            { address: decoded.address },
+          );
+          const user = result.records[0]?.get("user") ?? [];
+          return {
+            address: decoded.address ?? null,
+            cryptoNative: user?.cryptoNative ?? false,
+            permissions: user.permissions ?? [],
+          };
+        } catch (error) {
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "db-call",
+              source: "auth.service",
+            });
+            Sentry.captureException(error);
+          });
+          this.logger.error(`AuthService::getSession ${error.message}`);
+          return null;
+        }
       } else {
         return {
           address: null,

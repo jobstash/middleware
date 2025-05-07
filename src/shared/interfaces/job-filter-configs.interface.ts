@@ -151,3 +151,35 @@ export class JobFilterConfigs {
     }
   }
 }
+
+export class EcosystemJobFilterConfigs extends JobFilterConfigs {
+  public static readonly EcosystemJobFilterConfigsType = t.intersection([
+    JobFilterConfigs.JobFilterConfigsType,
+    t.strict({
+      online: SingleSelectFilter.SingleSelectFilterType,
+      blocked: SingleSelectFilter.SingleSelectFilterType,
+    }),
+  ]);
+
+  @ApiProperty()
+  online: SingleSelectFilter;
+  @ApiProperty()
+  blocked: SingleSelectFilter;
+
+  constructor(raw: EcosystemJobFilterConfigs) {
+    super(raw);
+    const { online, blocked } = raw;
+
+    const result =
+      EcosystemJobFilterConfigs.EcosystemJobFilterConfigsType.decode(raw);
+
+    this.online = online;
+    this.blocked = blocked;
+
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(x);
+      });
+    }
+  }
+}
