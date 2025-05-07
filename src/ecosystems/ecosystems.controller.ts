@@ -82,11 +82,15 @@ export class EcosystemsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async getEcosystemJobs(
+    @Session() session: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
     params: EcosystemJobListParams,
-    @Headers(ECOSYSTEM_HEADER)
-    ecosystem: string | undefined,
   ): Promise<PaginatedData<EcosystemJobListResult>> {
+    const orgId = await this.userService.findOrgIdByMemberUserWallet(
+      session.address,
+    );
+    console.log(orgId);
+    const ecosystem = data(await this.findAll(orgId, session))[0];
     if (!ecosystem) {
       throw new BadRequestException({
         success: false,
@@ -95,7 +99,7 @@ export class EcosystemsController {
     } else {
       const enrichedParams = {
         ...params,
-        ecosystemHeader: ecosystem,
+        ecosystemHeader: ecosystem.normalizedName,
       };
       return this.ecosystemsService.getJobsListWithSearch(enrichedParams);
     }
