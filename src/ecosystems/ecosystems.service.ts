@@ -4,10 +4,13 @@ import { UpdateEcosystemDto } from "./dto/update-ecosystem.dto";
 import { UpdateEcosystemOrgsDto } from "./dto/update-ecosystem-orgs.dto";
 import {
   data,
+  EcosystemJobListResult,
   FundingRound,
   OrganizationEcosystem,
   OrganizationEcosystemWithOrgs,
   OrgReview,
+  PaginatedData,
+  ProjectWithBaseRelations,
   ResponseWithNoData,
   ResponseWithOptionalData,
 } from "src/shared/interfaces";
@@ -19,10 +22,21 @@ import {
   generateOrgAggregateRating,
   generateOrgAggregateRatings,
   nonZeroOrNull,
+  notStringOrNull,
+  paginate,
+  publicationDateRangeGenerator,
   slugify,
 } from "src/shared/helpers";
 import { sort } from "fast-sort";
-import { ShortOrgWithSummaryEntity } from "src/shared/entities";
+import {
+  EcosystemJobListResultEntity,
+  ShortOrgWithSummaryEntity,
+} from "src/shared/entities";
+import { differenceInHours } from "date-fns";
+import { go } from "fuzzysort";
+import { uniq } from "lodash";
+import { DateRange } from "src/shared/enums";
+import { EcosystemJobListParams } from "./dto/ecosystem-job-list.input";
 
 @Injectable()
 export class EcosystemsService {
@@ -485,5 +499,530 @@ export class EcosystemsService {
       );
       return { success: false, message: "Failed to update ecosystem orgs" };
     }
+  }
+
+  getJobsListResults = async (
+    ecosystem: string,
+  ): Promise<EcosystemJobListResult[]> => {
+    const results: EcosystemJobListResult[] = [];
+    const generatedQuery = `
+        CYPHER runtime = parallel
+        MATCH (structured_jobpost:StructuredJobpost)
+        WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+        MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+        WITH DISTINCT tag, structured_jobpost
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+        WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
+        WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
+        WITH DISTINCT canonicalTag as tag, structured_jobpost
+        WITH COLLECT(tag { .* }) as tags, structured_jobpost
+        RETURN structured_jobpost {
+            id: structured_jobpost.id,
+            url: structured_jobpost.url,
+            title: structured_jobpost.title,
+            access: structured_jobpost.access,
+            salary: structured_jobpost.salary,
+            culture: structured_jobpost.culture,
+            location: structured_jobpost.location,
+            summary: structured_jobpost.summary,
+            benefits: structured_jobpost.benefits,
+            shortUUID: structured_jobpost.shortUUID,
+            seniority: structured_jobpost.seniority,
+            description: structured_jobpost.description,
+            requirements: structured_jobpost.requirements,
+            paysInCrypto: structured_jobpost.paysInCrypto,
+            minimumSalary: structured_jobpost.minimumSalary,
+            maximumSalary: structured_jobpost.maximumSalary,
+            salaryCurrency: structured_jobpost.salaryCurrency,
+            onboardIntoWeb3: structured_jobpost.onboardIntoWeb3,
+            responsibilities: structured_jobpost.responsibilities,
+            featured: structured_jobpost.featured,
+            featureStartDate: structured_jobpost.featureStartDate,
+            featureEndDate: structured_jobpost.featureEndDate,
+            blocked: EXISTS((structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)),
+            online: CASE WHEN EXISTS((structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)) THEN true ELSE EXISTS((structured_jobpost)-[:HAS_STATUS]->(:JobpostOfflineStatus)) END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+            classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
+            commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
+            locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
+            organization: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(organization:Organization) | organization {
+                .*,
+                atsClient: [(organization)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
+                hasUser: CASE WHEN EXISTS((:User)-[:OCCUPIES]->(:OrgUserSeat)<-[:HAS_USER_SEAT]-(organization)) THEN true ELSE false END,
+                discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
+                docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+                aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
+                twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+                projects: [
+                  (organization)-[:HAS_PROJECT]->(project) | project {
+                    .*,
+                    orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
+                    discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                    website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                    docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                    telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                    github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+                    category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                    twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+                    hacks: [
+                      (project)-[:HAS_HACK]->(hack) | hack { .* }
+                    ],
+                    audits: [
+                      (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                    ],
+                    chains: [
+                      (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                    ],
+                    ecosystems: [
+                      (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+                    ],
+                    investors: [(project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) | investor { .* }],
+                    fundingRounds: [
+                      (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                    ],
+                    grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                      .*,
+                      programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                    }]
+                  }
+                ],
+                fundingRounds: apoc.coll.toSet([
+                        (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+                ]),
+                grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+                  .*,
+                  programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                }],
+                investors: apoc.coll.toSet([
+                  (organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }
+                ]),
+                ecosystems: [(organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
+                reviews: [
+                  (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
+                    compensation: {
+                      salary: review.salary,
+                      currency: review.currency,
+                      offersTokenAllocation: review.offersTokenAllocation
+                    },
+                    rating: {
+                      onboarding: review.onboarding,
+                      careerGrowth: review.careerGrowth,
+                      benefits: review.benefits,
+                      workLifeBalance: review.workLifeBalance,
+                      diversityInclusion: review.diversityInclusion,
+                      management: review.management,
+                      product: review.product,
+                      compensation: review.compensation
+                    },
+                    review: {
+                      title: review.title,
+                      location: review.location,
+                      timezone: review.timezone,
+                      pros: review.pros,
+                      cons: review.cons
+                    },
+                    reviewedTimestamp: review.reviewedTimestamp
+                  }
+                ]
+            }][0],
+            project: [
+              (structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(project:Project) | project {
+                .*,
+                atsClient: [(project)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
+                hasUser: CASE WHEN EXISTS((:User)-[:HAS_PROJECT_AUTHORIZATION]->(project)) THEN true ELSE false END,
+                orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
+                discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+                website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+                docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+                telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+                github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+                category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+                twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+                hacks: [
+                  (project)-[:HAS_HACK]->(hack) | hack { .* }
+                ],
+                audits: [
+                  (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+                ],
+                chains: [
+                  (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+                ],
+                ecosystems: [
+                  (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+                ],
+                investors: [(project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) | investor { .* }],
+                fundingRounds: [
+                  (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+                ],
+                grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                  .*,
+                  programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                }]
+              }
+            ][0],
+            tags: apoc.coll.toSet(tags)
+        } AS result
+      `;
+
+    try {
+      const queryResult = await this.neogma.queryRunner.run(generatedQuery, {
+        ecosystem: ecosystem ?? null,
+      });
+      const resultSet = queryResult.records.map(
+        record => record.get("result") as EcosystemJobListResult,
+      );
+      for (const result of resultSet) {
+        results.push(new EcosystemJobListResultEntity(result).getProperties());
+      }
+      this.logger.log(`Found ${results.length} jobs`);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`EcosystemService::getJobsListResults ${err.message}`);
+    }
+
+    return results;
+  };
+
+  async getJobsListWithSearch(
+    params: EcosystemJobListParams & { ecosystemHeader: string },
+  ): Promise<PaginatedData<EcosystemJobListResult>> {
+    const paramsPassed = {
+      ...publicationDateRangeGenerator(params.publicationDate as DateRange),
+      ...params,
+      limit: params.limit ?? 10,
+      page: params.page ?? 1,
+    };
+    const {
+      minTvl,
+      maxTvl,
+      minMonthlyVolume,
+      maxMonthlyVolume,
+      minMonthlyFees,
+      maxMonthlyFees,
+      minMonthlyRevenue,
+      maxMonthlyRevenue,
+      minSalaryRange,
+      maxSalaryRange,
+      minHeadCount,
+      maxHeadCount,
+      startDate,
+      endDate,
+      seniority: seniorityFilterList,
+      locations: locationFilterList,
+      tags: tagFilterList,
+      audits: auditFilter,
+      hacks: hackFilter,
+      chains: chainFilterList,
+      projects: projectFilterList,
+      organizations: organizationFilterList,
+      investors: investorFilterList,
+      fundingRounds: fundingRoundFilterList,
+      classifications: classificationFilterList,
+      commitments: commitmentFilterList,
+      ecosystems: ecosystemFilterList,
+      token,
+      onboardIntoWeb3,
+      query,
+      order,
+      orderBy,
+      page,
+      limit,
+      online,
+      blocked,
+      ecosystemHeader,
+    } = paramsPassed;
+
+    const results: EcosystemJobListResult[] = [];
+
+    try {
+      const jobs = await this.getJobsListResults(ecosystemHeader);
+      results.push(...jobs);
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        scope.setExtra("input", params);
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `EcosystemService::getJobsListWithSearch ${err.message}`,
+      );
+      return {
+        page: -1,
+        count: 0,
+        total: 0,
+        data: [],
+      };
+    }
+
+    const projectBasedFilters = (
+      projects: ProjectWithBaseRelations[],
+    ): boolean => {
+      return (
+        (!projectFilterList ||
+          projects.filter(x => projectFilterList.includes(slugify(x.name)))
+            .length > 0) &&
+        (token === null ||
+          projects.filter(x => notStringOrNull(x.tokenAddress) !== null)
+            .length > 0) &&
+        (!minTvl || projects.filter(x => (x?.tvl ?? 0) >= minTvl).length > 0) &&
+        (!maxTvl || projects.filter(x => (x?.tvl ?? 0) < maxTvl).length > 0) &&
+        (!minMonthlyVolume ||
+          projects.filter(x => (x?.monthlyVolume ?? 0) >= minMonthlyVolume)
+            .length > 0) &&
+        (!maxMonthlyVolume ||
+          projects.filter(x => (x?.monthlyVolume ?? 0) < maxMonthlyVolume)
+            .length > 0) &&
+        (!minMonthlyFees ||
+          projects.filter(x => (x?.monthlyFees ?? 0) >= minMonthlyFees).length >
+            0) &&
+        (!maxMonthlyFees ||
+          projects.filter(x => (x?.monthlyFees ?? 0) < maxMonthlyFees).length >
+            0) &&
+        (!minMonthlyRevenue ||
+          projects.filter(x => (x?.monthlyRevenue ?? 0) >= minMonthlyRevenue)
+            .length > 0) &&
+        (!maxMonthlyRevenue ||
+          projects.filter(x => (x?.monthlyRevenue ?? 0) < maxMonthlyRevenue)
+            .length > 0) &&
+        (auditFilter === null ||
+          projects.filter(x => x.audits.length > 0).length > 0 ===
+            auditFilter) &&
+        (hackFilter === null ||
+          projects.filter(x => x.hacks.length > 0).length > 0 === hackFilter) &&
+        (!chainFilterList ||
+          uniq(projects.flatMap(x => x.chains)).filter(x =>
+            chainFilterList.includes(slugify(x.name)),
+          ).length > 0)
+      );
+    };
+
+    const orgBasedFilters = (jlr: EcosystemJobListResult): boolean => {
+      const filters = [
+        minHeadCount,
+        maxHeadCount,
+        organizationFilterList,
+        investorFilterList,
+        fundingRoundFilterList,
+        ecosystemFilterList,
+        projectFilterList,
+        token,
+        minTvl,
+        maxTvl,
+        minMonthlyVolume,
+        maxMonthlyVolume,
+        minMonthlyFees,
+        maxMonthlyFees,
+        minMonthlyRevenue,
+        maxMonthlyRevenue,
+        auditFilter,
+        hackFilter,
+        chainFilterList,
+      ].filter(Boolean);
+      const jobFromOrg = !!jlr.organization;
+      const filtersApplied = filters.length > 0;
+
+      if (!filtersApplied) return true;
+      if (filtersApplied && !jobFromOrg) return false;
+
+      const {
+        projects,
+        investors,
+        fundingRounds,
+        name: orgName,
+        headcountEstimate,
+        ecosystems,
+      } = jlr.organization;
+      const {
+        tags,
+        seniority,
+        locationType,
+        classification,
+        commitment,
+        salary,
+        salaryCurrency,
+        timestamp,
+      } = jlr;
+
+      return (
+        projectBasedFilters(projects) &&
+        (!organizationFilterList ||
+          organizationFilterList.includes(slugify(orgName))) &&
+        (!seniorityFilterList ||
+          seniorityFilterList.includes(slugify(seniority))) &&
+        (!locationFilterList ||
+          locationFilterList.includes(slugify(locationType))) &&
+        (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
+        (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
+        (!minSalaryRange ||
+          ((salary ?? 0) >= minSalaryRange && salaryCurrency === "USD")) &&
+        (!maxSalaryRange ||
+          ((salary ?? 0) < maxSalaryRange && salaryCurrency === "USD")) &&
+        (!startDate || timestamp >= startDate) &&
+        (!endDate || timestamp < endDate) &&
+        (!commitmentFilterList ||
+          commitmentFilterList.includes(slugify(commitment))) &&
+        (!ecosystemFilterList ||
+          ecosystems.filter(ecosystem =>
+            ecosystemFilterList.includes(slugify(ecosystem)),
+          ).length > 0) &&
+        (!classificationFilterList ||
+          classificationFilterList.includes(slugify(classification))) &&
+        (!investorFilterList ||
+          investors.filter(investor =>
+            investorFilterList.includes(slugify(investor.name)),
+          ).length > 0) &&
+        (!fundingRoundFilterList ||
+          fundingRoundFilterList.includes(
+            slugify(
+              sort<FundingRound>(fundingRounds).desc(x => x.date)[0]?.roundName,
+            ),
+          )) &&
+        (!tagFilterList ||
+          tags.filter(tag => tagFilterList.includes(slugify(tag.name))).length >
+            0)
+      );
+    };
+
+    const jobFilters = (jlr: EcosystemJobListResult): boolean => {
+      const {
+        title,
+        tags,
+        seniority,
+        locationType,
+        classification,
+        commitment,
+        salary,
+        salaryCurrency,
+        timestamp,
+        project,
+        organization,
+      } = jlr;
+
+      const searchSpace = [
+        title,
+        jlr?.project?.name,
+        organization?.name,
+        ...tags.map(x => x.name),
+        ...(organization?.aliases ?? []),
+        ...(organization?.projects?.map(x => x.name) ?? []),
+      ].filter(Boolean);
+
+      const matching = query
+        ? go(query, searchSpace, {
+            threshold: 0.3,
+          }).map(s => s.target)
+        : [];
+
+      const matchesQuery = matching.length > 0;
+
+      return (
+        (!organization || orgBasedFilters(jlr)) &&
+        (!project || projectBasedFilters([project].filter(Boolean))) &&
+        (!locationFilterList ||
+          locationFilterList.includes(slugify(locationType))) &&
+        (!seniorityFilterList ||
+          seniorityFilterList.includes(slugify(seniority))) &&
+        (!minSalaryRange ||
+          ((salary ?? 0) >= minSalaryRange && salaryCurrency === "USD")) &&
+        (!maxSalaryRange ||
+          ((salary ?? 0) < maxSalaryRange && salaryCurrency === "USD")) &&
+        (!startDate || timestamp >= startDate) &&
+        (!endDate || timestamp < endDate) &&
+        (!classificationFilterList ||
+          classificationFilterList.includes(slugify(classification))) &&
+        (!commitmentFilterList ||
+          commitmentFilterList.includes(slugify(commitment))) &&
+        (onboardIntoWeb3 === null || jlr.onboardIntoWeb3 === onboardIntoWeb3) &&
+        (!query || matchesQuery) &&
+        (!tagFilterList ||
+          tags.filter(tag => tagFilterList.includes(slugify(tag.name))).length >
+            0) &&
+        (!online || online === jlr.online) &&
+        (!blocked || blocked === jlr.blocked)
+      );
+    };
+
+    const filtered = results
+      .filter(jobFilters)
+      .map(x => new EcosystemJobListResultEntity(x).getProperties());
+
+    const getSortParam = (jlr: EcosystemJobListResult): number => {
+      const p1 =
+        jlr?.organization?.projects.sort(
+          (a, b) => b.monthlyVolume - a.monthlyVolume,
+        )[0] ?? null;
+      switch (orderBy) {
+        case "audits":
+          return p1?.audits?.length ?? 0;
+        case "hacks":
+          return p1?.hacks?.length ?? 0;
+        case "chains":
+          return p1?.chains?.length ?? 0;
+        case "tvl":
+          return p1?.tvl ?? 0;
+        case "monthlyVolume":
+          return p1?.monthlyVolume ?? 0;
+        case "monthlyFees":
+          return p1?.monthlyFees ?? 0;
+        case "monthlyRevenue":
+          return p1?.monthlyRevenue ?? 0;
+        case "fundingDate":
+          return (
+            sort<FundingRound>(jlr?.organization?.fundingRounds ?? []).desc(
+              x => x.date,
+            )[0]?.date ?? 0
+          );
+        case "headcountEstimate":
+          return jlr?.organization?.headcountEstimate ?? 0;
+        case "publicationDate":
+          return jlr.timestamp;
+        case "salary":
+          return jlr.salary;
+        default:
+          return jlr.timestamp;
+      }
+    };
+
+    let final = [];
+    if (!order || order === "desc") {
+      final = sort<EcosystemJobListResult>(filtered).by([
+        { desc: (job): boolean => job.featured },
+        { asc: (job): number => job.featureStartDate },
+        {
+          desc: (job): number =>
+            differenceInHours(job.featureEndDate, job.featureStartDate),
+        },
+        { desc: (job): number => getSortParam(job) },
+      ]);
+    } else {
+      final = sort<EcosystemJobListResult>(filtered).by([
+        { desc: (job): boolean => job.featured },
+        { asc: (job): number => job.featureStartDate },
+        {
+          desc: (job): number =>
+            differenceInHours(job.featureEndDate, job.featureStartDate),
+        },
+        { asc: (job): number => getSortParam(job) },
+      ]);
+    }
+
+    this.logger.log(`Sorted ${final.length} jobs`);
+
+    return paginate<EcosystemJobListResult>(page, limit, final);
   }
 }

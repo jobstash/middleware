@@ -709,9 +709,7 @@ export class JobsService {
       );
     };
 
-    const jobFilters = (
-      jlr: JobListResult & { orgEcosystems: string[] },
-    ): boolean => {
+    const jobFilters = (jlr: JobListResult): boolean => {
       const {
         title,
         tags,

@@ -1,4 +1,8 @@
-import { ApiExtraModels, ApiPropertyOptional } from "@nestjs/swagger";
+import {
+  ApiExtraModels,
+  ApiProperty,
+  ApiPropertyOptional,
+} from "@nestjs/swagger";
 import { FundingRound } from "./funding-round.interface";
 import { Investor } from "./investor.interface";
 import { OrganizationWithRelations } from "./organization.interface";
@@ -92,6 +96,97 @@ export class JobListResult extends StructuredJobpostWithRelations {
       report(result).forEach(x => {
         throw new Error(
           `job list result instance with id ${this.shortUUID} failed validation with error '${x}'`,
+        );
+      });
+    }
+  }
+}
+
+export class EcosystemJobListResult extends StructuredJobpostWithRelations {
+  public static readonly EcosystemJobListResultType = t.intersection([
+    StructuredJobpostWithRelations.StructuredJobpostWithRelationsType,
+    t.strict({
+      online: t.boolean,
+      blocked: t.boolean,
+      organization: t.union([
+        t.intersection([
+          OrganizationWithRelations.OrganizationWithRelationsType,
+          t.strict({
+            hasUser: t.boolean,
+            atsClient: t.union([
+              t.literal("jobstash"),
+              t.literal("greenhouse"),
+              t.literal("workable"),
+              t.literal("lever"),
+              t.null,
+            ]),
+          }),
+        ]),
+        t.null,
+      ]),
+      project: t.union([
+        t.intersection([
+          ProjectWithBaseRelations.ProjectWithBaseRelationsType,
+          t.strict({
+            hasUser: t.boolean,
+            atsClient: t.union([
+              t.literal("jobstash"),
+              t.literal("greenhouse"),
+              t.literal("workable"),
+              t.literal("lever"),
+              t.null,
+            ]),
+          }),
+        ]),
+        t.null,
+      ]),
+    }),
+  ]);
+
+  @ApiProperty()
+  online: boolean;
+
+  @ApiProperty()
+  blocked: boolean;
+
+  @ApiPropertyOptional()
+  organization:
+    | (OrganizationWithRelations & {
+        hasUser: boolean;
+        atsClient: "jobstash" | "greenhouse" | "workable" | "lever" | null;
+      })
+    | null;
+
+  @ApiPropertyOptional()
+  project:
+    | (ProjectWithBaseRelations & {
+        hasUser: boolean;
+        atsClient: "jobstash" | "greenhouse" | "workable" | "lever" | null;
+      })
+    | null;
+
+  constructor(raw: EcosystemJobListResult) {
+    const { organization, project, online, blocked, ...jobpostProperties } =
+      raw;
+    super(jobpostProperties);
+    const result =
+      EcosystemJobListResult.EcosystemJobListResultType.decode(raw);
+
+    if (organization === null && project === null) {
+      throw new Error(
+        `ecosystem job list result instance with id ${this.shortUUID} has no org or project`,
+      );
+    }
+
+    this.online = online;
+    this.blocked = blocked;
+    this.organization = organization;
+    this.project = project;
+
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(
+          `ecosystem job list result instance with id ${this.shortUUID} failed validation with error '${x}'`,
         );
       });
     }

@@ -8,6 +8,11 @@ import {
   Delete,
   UseGuards,
   Put,
+  Headers,
+  Query,
+  ValidationPipe,
+  BadRequestException,
+  UseInterceptors,
 } from "@nestjs/common";
 import { EcosystemsService } from "./ecosystems.service";
 import { CreateEcosystemDto } from "./dto/create-ecosystem.dto";
@@ -16,15 +21,22 @@ import {
   ApiOkResponse,
   getSchemaPath,
   ApiUnprocessableEntityResponse,
+  ApiHeader,
 } from "@nestjs/swagger";
 import { PBACGuard } from "src/auth/pbac.guard";
-import { CheckWalletPermissions } from "src/shared/constants";
+import {
+  CACHE_DURATION,
+  CheckWalletPermissions,
+  ECOSYSTEM_HEADER,
+} from "src/shared/constants";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
   data,
+  EcosystemJobListResult,
   Organization,
   OrganizationEcosystem,
   OrganizationEcosystemWithOrgs,
+  PaginatedData,
   ResponseWithNoData,
   ResponseWithOptionalData,
   SessionObject,
@@ -34,6 +46,8 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { UserService } from "src/user/user.service";
 import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
 import { UpdateEcosystemOrgsDto } from "./dto/update-ecosystem-orgs.dto";
+import { EcosystemJobListParams } from "./dto/ecosystem-job-list.input";
+import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 
 @Controller("ecosystems")
 export class EcosystemsController {
@@ -43,6 +57,49 @@ export class EcosystemsController {
     private readonly ecosystemsService: EcosystemsService,
     private readonly subscriptionsService: SubscriptionsService,
   ) {}
+
+  @Get("/jobs")
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseGuards(PBACGuard)
+  @Permissions([
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ECOSYSTEM_MANAGER,
+  ])
+  @ApiHeader({
+    name: ECOSYSTEM_HEADER,
+    required: true,
+    description: "Header to tailor the response for a specific ecosystem",
+  })
+  @ApiOkResponse({
+    description: "Returns jobs from orgs in an ecosystem",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(EcosystemJobListResult),
+    }),
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      "Something went wrong fetching the ecosystem jobs on the destination service",
+    schema: responseSchemaWrapper({ type: "string" }),
+  })
+  async getEcosystemJobs(
+    @Query(new ValidationPipe({ transform: true }))
+    params: EcosystemJobListParams,
+    @Headers(ECOSYSTEM_HEADER)
+    ecosystem: string | undefined,
+  ): Promise<PaginatedData<EcosystemJobListResult>> {
+    if (!ecosystem) {
+      throw new BadRequestException({
+        success: false,
+        message: "You must provide an ecosystem to fetch jobs from",
+      });
+    } else {
+      const enrichedParams = {
+        ...params,
+        ecosystemHeader: ecosystem,
+      };
+      return this.ecosystemsService.getJobsListWithSearch(enrichedParams);
+    }
+  }
 
   @Post(":orgId")
   @UseGuards(PBACGuard)
