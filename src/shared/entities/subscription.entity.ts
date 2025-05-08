@@ -12,6 +12,7 @@ export class SubscriptionEntity {
       stashAlert: this.raw.stashAlert ?? false,
       extraSeats: this.raw.extraSeats ?? 0,
       stashPool: this.raw.stashPool ?? false,
+      externalId: notStringOrNull(this.raw.externalId),
       atsIntegration: this.raw.atsIntegration ?? false,
       boostedVacancyMultiplier: this.raw.boostedVacancyMultiplier ?? 0,
       quota: this.raw.quota.map(

@@ -183,6 +183,7 @@ export class Subscription {
       t.literal("ultra"),
       t.null,
     ]),
+    externalId: t.union([t.string, t.null]),
     stashPool: t.boolean,
     stashAlert: t.boolean,
     atsIntegration: t.boolean,
@@ -205,6 +206,9 @@ export class Subscription {
 
   @ApiProperty()
   veri: string | null;
+
+  @ApiProperty()
+  externalId: string | null;
 
   @ApiProperty()
   stashAlert: boolean;
@@ -264,6 +268,7 @@ export class Subscription {
       stashPool,
       stashAlert,
       extraSeats,
+      externalId,
       atsIntegration,
       expiryTimestamp,
       createdTimestamp,
@@ -285,6 +290,7 @@ export class Subscription {
     this.stashAlert = stashAlert;
     this.totalSeats = extraSeats + 1;
     this.extraSeats = extraSeats;
+    this.externalId = externalId;
     this.atsIntegration = atsIntegration;
     this.expiryTimestamp = expiryTimestamp;
     this.createdTimestamp = createdTimestamp;

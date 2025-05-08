@@ -67,6 +67,8 @@ const envSchema = Joi.object({
   SENTRY_TRACES_SAMPLE_RATE: Joi.number().default(1),
   SENTRY_PROFILE_SAMPLE_RATE: Joi.number().default(0.5),
   SKILL_THRESHOLD: Joi.number().required(),
+  STRIPE_API_KEY: Joi.string().required(),
+  STRIPE_WEBHOOK_SECRET: Joi.string().required(),
   SWAGGER_USER: Joi.string().required(),
   SWAGGER_PASSWORD: Joi.string().required(),
   TEST_DB_MANAGER_URL: Joi.string(),

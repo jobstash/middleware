@@ -33,6 +33,7 @@ import { AddUserNoteInput } from "./dto/add-user-note.dto";
 import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
 import { NewSubscriptionInput } from "src/subscriptions/new-subscription.input";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
+import { StripeService } from "src/stripe/stripe.service";
 
 @Controller("users")
 export class UserController {
@@ -41,6 +42,7 @@ export class UserController {
     private readonly userService: UserService,
     private readonly profileService: ProfileService,
     private readonly scorerService: ScorerService,
+    private readonly stripeService: StripeService,
     private readonly subscriptionService: SubscriptionsService,
   ) {}
 
@@ -106,7 +108,7 @@ export class UserController {
       );
       if (verified) {
         if (body.jobstash) {
-          return this.subscriptionService.initiateNewSubscription({
+          return this.stripeService.initiateNewSubscription({
             wallet: address,
             email: verified.account,
             dto: body,

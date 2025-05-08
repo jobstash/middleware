@@ -18,17 +18,18 @@ import { ProfileModule } from "src/auth/profile/profile.module";
 import { HttpModule } from "@nestjs/axios";
 import { REALLY_LONG_TIME } from "src/shared/constants";
 import * as https from "https";
-import { PaymentsModule } from "src/payments/payments.module";
 import { PermissionService } from "./permission.service";
 import { UserController } from "./user.controller";
 import { Auth0Module } from "src/auth0/auth0.module";
 import { TagsService } from "src/tags/tags.service";
 import { SubscriptionsModule } from "src/subscriptions/subscriptions.module";
 import { BullModule } from "@nestjs/bull";
+import { StripeModule } from "src/stripe/stripe.module";
 
 @Module({
   imports: [
     Auth0Module,
+    StripeModule.forRootAsync(),
     forwardRef(() => GithubModule),
     forwardRef(() => PrivyModule),
     forwardRef(() => ProfileModule),
@@ -60,7 +61,6 @@ import { BullModule } from "@nestjs/bull";
     }),
     ConfigModule,
     MailModule,
-    PaymentsModule,
   ],
   controllers: [UserController],
   providers: [

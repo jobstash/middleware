@@ -67,6 +67,7 @@ import { JobsService } from "./jobs.service";
 import { CacheInterceptor } from "@nestjs/cache-manager";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
+import { StripeService } from "src/stripe/stripe.service";
 
 @Controller("jobs")
 @UseInterceptors(CacheInterceptor)
@@ -78,6 +79,7 @@ export class JobsController {
     private readonly tagsService: TagsService,
     private readonly profileService: ProfileService,
     private readonly userService: UserService,
+    private readonly stripeService: StripeService,
     private readonly subscriptionService: SubscriptionsService,
   ) {}
 
@@ -1157,7 +1159,7 @@ export class JobsController {
   async promoteJob(
     @Param("uuid") uuid: string,
     @Headers(ECOSYSTEM_HEADER)
-    ecosystem: string | undefined,
+    ecosystem: string | undefined = undefined,
   ): Promise<
     ResponseWithOptionalData<{
       id: string;
@@ -1165,6 +1167,6 @@ export class JobsController {
     }>
   > {
     this.logger.log(`/jobs/promote/${uuid}`);
-    return await this.jobsService.getJobPromotionPaymentUrl(uuid, ecosystem);
+    return this.stripeService.initiateJobPromotionPayment(uuid, ecosystem);
   }
 }

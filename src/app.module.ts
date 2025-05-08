@@ -27,7 +27,6 @@ import { PrivyModule } from "./auth/privy/privy.module";
 import { GrantsModule } from "./grants/grants.module";
 import { GoogleBigQueryModule } from "./google-bigquery/google-bigquery.module";
 import { SearchModule } from "./search/search.module";
-import { PaymentsModule } from "./payments/payments.module";
 import { UserModule } from "./user/user.module";
 import { Auth0Module } from "./auth0/auth0.module";
 import { SubscriptionsModule } from "./subscriptions/subscriptions.module";
@@ -35,6 +34,7 @@ import { BullModule } from "@nestjs/bull";
 import { ScheduleModule } from "@nestjs/schedule";
 import { TelemetryModule } from "./telemetry/telemetry.module";
 import { EcosystemsModule } from "./ecosystems/ecosystems.module";
+import { StripeModule } from "./stripe/stripe.module";
 
 @Module({
   imports: [
@@ -72,6 +72,7 @@ import { EcosystemsModule } from "./ecosystems/ecosystems.module";
     }),
     ScheduleModule.forRoot(),
     CacheModule.register({ isGlobal: true }),
+    StripeModule.forRootAsync(),
     AuthModule,
     JobsModule,
     TagsModule,
@@ -92,7 +93,6 @@ import { EcosystemsModule } from "./ecosystems/ecosystems.module";
     GrantsModule,
     GoogleBigQueryModule,
     SearchModule,
-    PaymentsModule,
     Auth0Module,
     SubscriptionsModule,
     TelemetryModule,

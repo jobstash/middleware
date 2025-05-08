@@ -3,23 +3,20 @@ import { ConfigService } from "@nestjs/config";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nestjs-neogma";
 import { MailService } from "src/mail/mail.service";
-import { PaymentsService } from "src/payments/payments.service";
 import {
   data,
   ResponseWithNoData,
   ResponseWithOptionalData,
 } from "src/shared/interfaces";
-import { NewSubscriptionInput } from "./new-subscription.input";
 import {
   EXTRA_SEATS_PRICING,
   JOBSTASH_BUNDLE_PRICING,
   STASH_ALERT_PRICE,
   VERI_BUNDLE_PRICING,
 } from "src/shared/constants/pricing";
-import { PricingType } from "src/payments/dto/create-charge.dto";
-import { SubscriptionMetadata } from "src/payments/dto/webhook-data.dto";
+import { SubscriptionMetadata } from "src/stripe/dto/webhook-data.dto";
 import { UserService } from "src/user/user.service";
-import { button, emailBuilder, randomToken, text } from "src/shared/helpers";
+import { emailBuilder, randomToken, text } from "src/shared/helpers";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { JOBSTASH_QUOTA, VERI_ADDONS } from "src/shared/constants/quota";
@@ -30,7 +27,7 @@ import {
 } from "src/shared/interfaces/org";
 import { SubscriptionEntity } from "src/shared/entities/subscription.entity";
 import { addMonths, getDayOfYear } from "date-fns";
-import { capitalize, now } from "lodash";
+import { now } from "lodash";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { CheckWalletPermissions } from "src/shared/constants";
@@ -39,7 +36,6 @@ import { CheckWalletPermissions } from "src/shared/constants";
 export class SubscriptionsService {
   private readonly logger = new CustomLogger(SubscriptionsService.name);
   private readonly from: string;
-  private readonly ORG_ADMIN_DOMAIN: string;
   constructor(
     @InjectConnection()
     private neogma: Neogma,
@@ -47,11 +43,8 @@ export class SubscriptionsService {
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
     private readonly profileService: ProfileService,
-    private readonly paymentsService: PaymentsService,
   ) {
     this.from = this.configService.getOrThrow<string>("EMAIL");
-    this.ORG_ADMIN_DOMAIN =
-      this.configService.getOrThrow<string>("ORG_ADMIN_DOMAIN");
   }
 
   async isPaymentReminderNeeded(
@@ -69,42 +62,6 @@ export class SubscriptionsService {
     ).records[0]?.get("payment");
 
     return !!payment;
-  }
-
-  generatePaymentDetails(dto: {
-    jobstash: string;
-    veri: string;
-    stashAlert: boolean;
-    extraSeats: number;
-  }): { description: string; amount: number } {
-    const { jobstash, veri, stashAlert, extraSeats } = dto;
-    const total = [
-      jobstash ? JOBSTASH_BUNDLE_PRICING[jobstash] : 0,
-      veri ? VERI_BUNDLE_PRICING[veri] : 0,
-      stashAlert ? STASH_ALERT_PRICE : 0,
-    ].reduce((a, b) => a + b, 0);
-
-    const extraSeatCost = extraSeats
-      ? EXTRA_SEATS_PRICING[jobstash] * extraSeats
-      : 0;
-
-    const description = [
-      jobstash
-        ? `Jobstash ${capitalize(jobstash)} Bundle: $${JOBSTASH_BUNDLE_PRICING[jobstash]}`
-        : null,
-      veri
-        ? `Veri ${capitalize(veri)} Addon: $${VERI_BUNDLE_PRICING[veri]}`
-        : null,
-      stashAlert ? `StashAlert: $${STASH_ALERT_PRICE}` : null,
-      extraSeats && jobstash !== "starter"
-        ? `${extraSeats} Extra Seats @ ${EXTRA_SEATS_PRICING[jobstash]}/seat: $${EXTRA_SEATS_PRICING[jobstash] * extraSeats}`
-        : null,
-    ]
-      .filter(Boolean)
-      .join(" + ");
-
-    const amount = total + extraSeatCost;
-    return { description, amount };
   }
 
   async getSubscriptionOwnerEmail(
@@ -193,234 +150,66 @@ export class SubscriptionsService {
     }
   }
 
-  async initiateNewSubscription(input: {
-    wallet: string;
-    email: string;
-    dto: NewSubscriptionInput;
-  }): Promise<ResponseWithOptionalData<string>> {
+  async createPendingPayment(
+    wallet: string,
+    orgId: string,
+    amount: number,
+    action: string,
+    reference: string,
+    link: string,
+  ): Promise<ResponseWithNoData> {
     try {
-      const { wallet, dto } = input;
-      this.logger.log("Generating payment details");
-      const { description, amount } = this.generatePaymentDetails(dto);
+      await this.neogma.queryRunner.run(
+        `
+          MERGE (payment: PendingPayment {link: $link})
+          ON CREATE SET
+            payment.id = randomUUID(),
+            payment.reference = $reference,
+            payment.type = "subscription",
+            payment.amount = $amount,
+            payment.currency = "USD",
+            payment.action = $action,
+            payment.link = $link,
+            payment.createdTimestamp = timestamp()
 
-      if (amount > 0) {
-        this.logger.log("Creating charge");
-        const paymentLink = await this.paymentsService.createCharge({
-          name: `JobStash.xyz`,
-          description,
-          local_price: {
-            amount: amount.toString(),
-            currency: "USD",
-          },
-          pricing_type:
-            this.configService.get("ENVIRONMENT") === "production"
-              ? PricingType.FIXED_PRICE
-              : PricingType.NO_PRICE,
-          metadata: {
-            calldata: JSON.stringify({
-              ...dto,
-              extraSeats: dto.jobstash === "starter" ? 0 : dto.extraSeats,
-              wallet,
-              amount,
-            }),
-            action: "new-subscription",
-          },
-          redirect_url: `${this.ORG_ADMIN_DOMAIN}/payment/confirmation`,
-          cancel_url: `${this.ORG_ADMIN_DOMAIN}`,
-        });
-
-        if (paymentLink) {
-          this.logger.log("Creating pending payment");
-          await this.neogma.queryRunner.run(
-            `
-              MERGE (payment: PendingPayment {link: $link})
-              ON CREATE SET
-                payment.id = randomUUID(),
-                payment.reference = $reference,
-                payment.type = "subscription",
-                payment.amount = $amount,
-                payment.currency = "USD",
-                payment.action = $action,
-                payment.link = $link,
-                payment.createdTimestamp = timestamp()
-
-              WITH payment
-              MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
-              MERGE (user)-[:HAS_PENDING_PAYMENT]->(payment)<-[:HAS_PENDING_PAYMENT]-(org)
-            `,
-            {
-              wallet,
-              reference: paymentLink.id,
-              link: paymentLink.url,
-              amount,
-              action: "new-subscription",
-              orgId: dto.orgId,
-            },
-          );
-
-          // try {
-          //   this.logger.log("Sending payment reminder emails: now");
-          //   await this.mailService.sendEmail(
-          //     emailBuilder({
-          //       from: this.from,
-          //       to: email,
-          //       subject: "Your hiring tools are waiting for you!",
-          //       previewText:
-          //         "Complete your purchase and unlock JobStash features to help streamline your hiring process.",
-          //       title: "Hey there,",
-          //       bodySections: [
-          //         text(
-          //           "We noticed you left some powerful hiring add-ons in your cart. These features can help you find the right talent faster and more efficiently - perfect for taking your recruitment process to the next level.",
-          //         ),
-          //         text(
-          //           "Don’t leave these tools behind! Just click below to finish your purchase.",
-          //         ),
-          //         button("Complete Your Purchase", paymentLink.url),
-          //         text(
-          //           "If you have any questions or need more info, we’re here to help!",
-          //         ),
-          //       ],
-          //     }),
-          //   );
-          //   const now = new Date();
-          //   this.logger.log("Scheduling payment reminder emails: 24 hours");
-          //   await this.mailService.scheduleEmailWithPredicate({
-          //     mail: emailBuilder({
-          //       from: this.from,
-          //       to: email,
-          //       subject: "Your hiring tools are still waiting for you!",
-          //       previewText:
-          //         "Let’s finish what you started! These add-ons are designed to make your hiring easier.",
-          //       title: "Hi there,",
-          //       bodySections: [
-          //         text(
-          //           "It’s been 24 hours since you added those hiring add-ons to your cart. These features are designed to help you streamline your hiring process, access a broader talent pool, and make smarter recruitment decisions.",
-          //         ),
-          //         text("Take the next step and complete your purchase now."),
-          //         button("Complete Your Purchase", paymentLink.url),
-          //         text(
-          //           "We’re here to help if you have any questions or need assistance.",
-          //         ),
-          //       ],
-          //     }),
-          //     predicateName: "isPaymentReminderNeeded",
-          //     predicateData: {
-          //       paymentReference: paymentLink.id,
-          //       orgId: dto.orgId,
-          //     },
-          //     time: addHours(now, 24).getTime(),
-          //   });
-          //   this.logger.log("Scheduling payment reminder emails: 3 days");
-          //   await this.mailService.scheduleEmailWithPredicate({
-          //     mail: emailBuilder({
-          //       from: this.from,
-          //       to: email,
-          //       subject: "Still interested in optimizing your hiring process?",
-          //       previewText:
-          //         "The add-ons you need to improve your hiring are still in your cart!",
-          //       title: "Hello again,",
-          //       bodySections: [
-          //         text(
-          //           "It’s been a few days, and we just wanted to remind you that your cart is still open.",
-          //         ),
-          //         text(
-          //           "These hiring add-ons are designed to make your recruitment process more efficient and give you the edge you need in today’s competitive job market.",
-          //         ),
-          //         text("Ready to take the next step?"),
-          //         button("Complete Your Purchase", paymentLink.url),
-          //         text(
-          //           "If you’d like more details or have any questions, we’re always here to chat!",
-          //         ),
-          //       ],
-          //     }),
-          //     predicateName: "isPaymentReminderNeeded",
-          //     predicateData: {
-          //       paymentReference: paymentLink.id,
-          //       orgId: dto.orgId,
-          //     },
-          //     time: addDays(now, 3).getTime(),
-          //   });
-          //   this.logger.log("Scheduling payment reminder emails: 7 days");
-          //   await this.mailService.scheduleEmailWithPredicate({
-          //     mail: emailBuilder({
-          //       from: this.from,
-          //       to: email,
-          //       subject: "Last chance to complete your purchase!",
-          //       previewText:
-          //         "Don’t let your hiring tools slip away. Your cart expires soon.",
-          //       title: "Hey there,",
-          //       bodySections: [
-          //         text("Your cart is about to expire!"),
-          //         text(
-          //           "These hiring add-ons are a great way to enhance your recruitment process, this is your final chance to grab them and improve your hiring process.",
-          //         ),
-          //         button("Complete Your Purchase", paymentLink.url),
-          //         text(
-          //           "Let us know if you have any questions - we’d be happy to help!",
-          //         ),
-          //       ],
-          //     }),
-          //     predicateName: "isPaymentReminderNeeded",
-          //     predicateData: {
-          //       paymentReference: paymentLink.id,
-          //       orgId: dto.orgId,
-          //     },
-          //     time: addDays(now, 7).getTime(),
-          //   });
-          // } catch (err) {
-          //   Sentry.withScope(scope => {
-          //     scope.setTags({
-          //       action: "email-send",
-          //       source: "subscriptions.service",
-          //     });
-          //     Sentry.captureException(err);
-          //   });
-          //   this.logger.error(
-          //     `SubscriptionsService::initiateNewSubscription ${err.message}`,
-          //   );
-          // }
-          this.logger.log("Subscription initiated successfully");
-          return {
-            success: true,
-            message: "Subscription initiated successfully",
-            data: paymentLink.url,
-          };
-        } else {
-          this.logger.log("Error creating new subscription");
-          return {
-            success: false,
-            message: "Subscription initiation failed",
-          };
-        }
-      } else {
-        this.logger.log("Creating new subscription");
-        return this.createNewSubscription({
-          ...dto,
-          extraSeats: dto.jobstash === "starter" ? 0 : dto.extraSeats,
-          amount,
+          WITH payment
+          MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
+          MERGE (user)-[:HAS_PENDING_PAYMENT]->(payment)<-[:HAS_PENDING_PAYMENT]-(org)
+        `,
+        {
           wallet,
-        });
-      }
+          reference,
+          link,
+          amount,
+          action,
+          orgId: orgId,
+        },
+      );
+      return {
+        success: true,
+        message: "Pending payment created successfully",
+      };
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
-          action: "service-call",
+          action: "db-call",
           source: "subscriptions.service",
         });
         Sentry.captureException(err);
       });
       this.logger.error(
-        `SubscriptionsService::initiateSubscription ${err.message}`,
+        `SubscriptionsService::createPendingPayment ${err.message}`,
       );
       return {
         success: false,
-        message: `Error initiating subscription`,
+        message: "Error creating pending payment",
       };
     }
   }
 
   async createNewSubscription(
     dto: SubscriptionMetadata,
+    stripeSubscriptionId?: string,
   ): Promise<ResponseWithNoData> {
     try {
       this.logger.log("Fetching org owner email");
@@ -454,6 +243,7 @@ export class SubscriptionsService {
                   createdTimestamp: timestamp.getTime(),
                   expiryTimestamp: addMonths(timestamp, 2).getTime(),
                 },
+                externalId: stripeSubscriptionId,
                 stashPool: quotaInfo.stashPool,
                 atsIntegration: quotaInfo.atsIntegration,
                 boostedVacancyMultiplier: quotaInfo.boostedVacancyMultiplier,
@@ -470,6 +260,7 @@ export class SubscriptionsService {
                 await tx.run(
                   `
                     CREATE (subscription:OrgSubscription {id: randomUUID()})
+                    SET subscription.externalId = $externalId
                     SET subscription.status = "active"
                     SET subscription.duration = $duration
                     SET subscription.createdTimestamp = $timestamp
@@ -978,156 +769,6 @@ export class SubscriptionsService {
     }
   }
 
-  async initiateSubscriptionRenewal(
-    wallet: string,
-    orgId: string,
-  ): Promise<ResponseWithOptionalData<string>> {
-    try {
-      const {
-        tier: jobstash,
-        veri,
-        stashAlert,
-        extraSeats,
-      } = data(await this.getSubscriptionInfo(orgId));
-
-      const { description, amount } = this.generatePaymentDetails({
-        jobstash,
-        veri,
-        stashAlert,
-        extraSeats,
-      });
-
-      if (jobstash === "starter") {
-        return {
-          success: false,
-          message:
-            "You can't renew your free trial. Please upgrade to a premium plan to keep using JobStash.xyz.",
-        };
-      } else {
-        const email = await this.getSubscriptionOwnerEmail(wallet, orgId);
-
-        const paymentLink = await this.paymentsService.createCharge({
-          name: `JobStash.xyz`,
-          description,
-          local_price: {
-            amount: amount.toString(),
-            currency: "USD",
-          },
-          pricing_type:
-            this.configService.get("ENVIRONMENT") === "production"
-              ? PricingType.FIXED_PRICE
-              : PricingType.NO_PRICE,
-          metadata: {
-            calldata: JSON.stringify({
-              orgId,
-              jobstash,
-              veri,
-              stashAlert,
-              extraSeats,
-              wallet,
-              amount,
-            }),
-            action: "subscription-renewal",
-          },
-          redirect_url: `${this.ORG_ADMIN_DOMAIN}/payment/confirmation`,
-          cancel_url: `${this.ORG_ADMIN_DOMAIN}`,
-        });
-
-        if (paymentLink) {
-          await this.neogma.queryRunner.run(
-            `
-              MERGE (payment: PendingPayment {link: $link})
-              ON CREATE SET
-                payment.id = randomUUID(),
-                payment.reference = $reference,
-                payment.type = "subscription",
-                payment.amount = $amount,
-                payment.currency = "USD",
-                payment.action = $action,
-                payment.link = $link,
-                payment.createdTimestamp = timestamp()
-
-              WITH payment
-              MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
-              MERGE (user)-[:HAS_PENDING_PAYMENT]->(payment)<-[:HAS_PENDING_PAYMENT]-(org)
-            `,
-            {
-              wallet,
-              reference: paymentLink.id,
-              link: paymentLink.url,
-              amount,
-              action: "subscription-renewal",
-              orgId,
-            },
-          );
-
-          try {
-            await this.mailService.sendEmail(
-              emailBuilder({
-                from: this.from,
-                to: email,
-                subject:
-                  "Renewal Request for Your JobStash Subscription – Complete Your Payment",
-                title: "Hey there,",
-                bodySections: [
-                  text(
-                    "We’ve received your subscription renewal request for JobStash! 🎉 To complete your renewal and continue enjoying our premium features, please follow the payment link below:",
-                  ),
-                  button("Complete Your Purchase", paymentLink.url),
-                  text(
-                    "Once we receive your payment, your subscription will be renewed, and you’ll regain full access to all premium features.",
-                  ),
-                  text(
-                    `If you have any questions or need help with the payment process, feel free to reach out to us! Join our help channel <a href="https://t.me/+24r67MsBXT00ODE8">here</a> – we're here to assist you!`,
-                  ),
-                  text(
-                    "Thank you for being a valued member of the JobStash community. We’re excited to continue supporting your journey!",
-                  ),
-                ],
-              }),
-            );
-          } catch (err) {
-            Sentry.withScope(scope => {
-              scope.setTags({
-                action: "email-send",
-                source: "subscriptions.service",
-              });
-              Sentry.captureException(err);
-            });
-            this.logger.error(
-              `SubscriptionsService::initiateSubscriptionRenewal ${err.message}`,
-            );
-          }
-          return {
-            success: true,
-            message: "Subscription renewal initiated successfully",
-            data: paymentLink.url,
-          };
-        } else {
-          return {
-            success: false,
-            message: "Subscription renewal initiation failed",
-          };
-        }
-      }
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "service-call",
-          source: "subscriptions.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `SubscriptionsService::initiateSubscriptionRenewal ${err.message}`,
-      );
-      return {
-        success: false,
-        message: `Error renewing subscription`,
-      };
-    }
-  }
-
   async renewSubscription(
     dto: SubscriptionMetadata,
   ): Promise<ResponseWithNoData> {
@@ -1374,175 +1015,6 @@ export class SubscriptionsService {
       return {
         success: false,
         message: "Error renewing subscription",
-      };
-    }
-  }
-
-  async initiateSubscriptionChange(
-    wallet: string,
-    orgId: string,
-    dto: NewSubscriptionInput,
-  ): Promise<ResponseWithOptionalData<string>> {
-    try {
-      const {
-        tier: jobstash,
-        veri,
-        stashAlert,
-        extraSeats,
-      } = data(await this.getSubscriptionInfo(orgId));
-
-      const {
-        jobstash: newJobstash,
-        veri: newVeri,
-        stashAlert: newStashAlert,
-        extraSeats: newExtraSeats,
-      } = dto;
-
-      if (
-        jobstash === newJobstash &&
-        veri === newVeri &&
-        stashAlert === newStashAlert &&
-        extraSeats === newExtraSeats
-      ) {
-        return {
-          success: false,
-          message: "Subscription plan change not required",
-        };
-      }
-
-      if (newJobstash === "starter") {
-        return {
-          success: false,
-          message:
-            "You can't change your plan to a free trial. Please select a premium plan to change to.",
-        };
-      } else {
-        const email = await this.getSubscriptionOwnerEmail(wallet, orgId);
-
-        const { description, amount } = this.generatePaymentDetails({
-          jobstash: newJobstash,
-          veri: newVeri,
-          stashAlert: newStashAlert,
-          extraSeats: newExtraSeats,
-        });
-
-        const paymentLink = await this.paymentsService.createCharge({
-          name: `JobStash.xyz`,
-          description,
-          local_price: {
-            amount: amount.toString(),
-            currency: "USD",
-          },
-          pricing_type:
-            this.configService.get("ENVIRONMENT") === "production"
-              ? PricingType.FIXED_PRICE
-              : PricingType.NO_PRICE,
-          metadata: {
-            calldata: JSON.stringify({
-              orgId,
-              jobstash: newJobstash,
-              veri: newVeri,
-              stashAlert: newStashAlert,
-              extraSeats: newExtraSeats,
-              wallet,
-              amount,
-            }),
-            action: `subscription-change`,
-          },
-          redirect_url: `${this.ORG_ADMIN_DOMAIN}/payment/confirmation`,
-          cancel_url: `${this.ORG_ADMIN_DOMAIN}`,
-        });
-
-        if (paymentLink) {
-          await this.neogma.queryRunner.run(
-            `
-              MERGE (payment: PendingPayment {link: $link})
-              ON CREATE SET
-                payment.id = randomUUID(),
-                payment.reference = $reference,
-                payment.type = "subscription",
-                payment.amount = $amount,
-                payment.currency = "USD",
-                payment.action = $action,
-                payment.link = $link,
-                payment.createdTimestamp = timestamp()
-
-              WITH payment
-              MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
-              MERGE (user)-[:HAS_PENDING_PAYMENT]->(payment)<-[:HAS_PENDING_PAYMENT]-(org)
-            `,
-            {
-              wallet,
-              reference: paymentLink.id,
-              link: paymentLink.url,
-              amount,
-              action: `subscription-change`,
-              orgId,
-            },
-          );
-
-          try {
-            //TODO: change these to official copy from @Laura
-            await this.mailService.sendEmail(
-              emailBuilder({
-                from: this.from,
-                to: email,
-                subject: "Your hiring tools are waiting for you!",
-                previewText:
-                  "Complete your purchase and unlock JobStash features to help streamline your hiring process.",
-                title: "Hey there,",
-                bodySections: [
-                  text(
-                    "We noticed you left some powerful hiring add-ons in your cart. These features can help you find the right talent faster and more efficiently - perfect for taking your recruitment process to the next level.",
-                  ),
-                  text(
-                    "Don’t leave these tools behind! Just click below to finish your purchase.",
-                  ),
-                  button("Complete Your Purchase", paymentLink.url),
-                  text(
-                    "If you have any questions or need more info, we’re here to help!",
-                  ),
-                ],
-              }),
-            );
-          } catch (err) {
-            Sentry.withScope(scope => {
-              scope.setTags({
-                action: "email-send",
-                source: "subscriptions.service",
-              });
-              Sentry.captureException(err);
-            });
-            this.logger.error(
-              `SubscriptionsService::initiateSubscriptionChange ${err.message}`,
-            );
-          }
-          return {
-            success: true,
-            message: "Subscription change initiated successfully",
-            data: paymentLink.url,
-          };
-        } else {
-          return {
-            success: false,
-            message: "Subscription change initiation failed",
-          };
-        }
-      }
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "service-call",
-          source: "subscriptions.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `SubscriptionsService::initiateSubscriptionChange ${err.message}`,
-      );
-      return {
-        success: false,
-        message: `Error changing subscription`,
       };
     }
   }

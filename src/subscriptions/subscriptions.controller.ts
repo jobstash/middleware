@@ -25,16 +25,18 @@ import {
   SessionObject,
 } from "src/shared/interfaces";
 import { UserService } from "src/user/user.service";
-import { NewSubscriptionInput } from "./new-subscription.input";
 import { now } from "lodash";
 import { subMonths } from "date-fns";
+import { StripeService } from "src/stripe/stripe.service";
+import { NewSubscriptionInput } from "./new-subscription.input";
 
 @Controller("subscriptions")
 export class SubscriptionsController {
   private logger = new CustomLogger(SubscriptionsController.name);
   constructor(
-    private readonly subscriptionsService: SubscriptionsService,
     private readonly userService: UserService,
+    private readonly stripeService: StripeService,
+    private readonly subscriptionsService: SubscriptionsService,
   ) {}
 
   @Get(":orgId")
@@ -198,30 +200,6 @@ export class SubscriptionsController {
     }
   }
 
-  @Post(":orgId/renew")
-  @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
-  async renewOrgSubscription(
-    @Param("orgId") orgId: string,
-    @Session() { address }: SessionObject,
-  ): Promise<ResponseWithOptionalData<string>> {
-    this.logger.log(`/subscriptions/${orgId}/renew ${address}`);
-    const owner = data(
-      await this.userService.findOrgOwnerProfileByOrgId(orgId),
-    );
-    if (owner?.wallet === address) {
-      return this.subscriptionsService.initiateSubscriptionRenewal(
-        address,
-        orgId,
-      );
-    } else {
-      throw new UnauthorizedException({
-        success: false,
-        message: "You are not the owner of this organization",
-      });
-    }
-  }
-
   @Post(":orgId/change")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
@@ -235,7 +213,7 @@ export class SubscriptionsController {
       await this.userService.findOrgOwnerProfileByOrgId(orgId),
     );
     if (owner?.wallet === address) {
-      return this.subscriptionsService.initiateSubscriptionChange(
+      return this.stripeService.initiateSubscriptionChange(
         address,
         orgId,
         body,
@@ -281,6 +259,7 @@ export class SubscriptionsController {
       await this.userService.findOrgOwnerProfileByOrgId(orgId),
     );
     if (owner?.wallet === address) {
+      await this.stripeService.cancelSubscription(orgId);
       return this.subscriptionsService.cancelSubscription(address, orgId);
     } else {
       throw new UnauthorizedException({

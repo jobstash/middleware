@@ -8,8 +8,6 @@ import { InjectConnection } from "nestjs-neogma";
 import { PrivyService } from "src/auth/privy/privy.service";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { ModelService } from "src/model/model.service";
-import { PricingType } from "src/payments/dto/create-charge.dto";
-import { PaymentsService } from "src/payments/payments.service";
 import { ScorerService } from "src/scorer/scorer.service";
 import {
   AllJobListResultEntity,
@@ -75,7 +73,6 @@ export class JobsService {
     private readonly rpcService: RpcService,
     private readonly configService: ConfigService,
     private readonly scorerService: ScorerService,
-    private readonly paymentsService: PaymentsService,
     private readonly privyService: PrivyService,
     private readonly profileService: ProfileService,
     private readonly tagsService: TagsService,
@@ -4267,69 +4264,6 @@ export class JobsService {
       return {
         success: false,
         message: "Error making job featured",
-      };
-    }
-  }
-
-  async getJobPromotionPaymentUrl(
-    uuid: string,
-    ecosystem: string,
-  ): Promise<ResponseWithOptionalData<{ id: string; url: string }>> {
-    try {
-      const jobDetails = await this.getJobDetailsByUuid(uuid, ecosystem);
-      if (!jobDetails) {
-        return {
-          success: false,
-          message: "Job not found",
-        };
-      }
-      const charge = await this.paymentsService.createCharge({
-        name: jobDetails.title,
-        description: "1 week job promotion",
-        local_price: {
-          amount: this.configService.get<string>("JOB_PROMOTION_PRICE"),
-          currency: "USD",
-        },
-        pricing_type:
-          this.configService.get("ENVIRONMENT") === "production"
-            ? PricingType.FIXED_PRICE
-            : PricingType.NO_PRICE,
-        metadata: {
-          calldata: JSON.stringify({
-            shortUUID: uuid,
-          }),
-          action: "job-promotion",
-        },
-        redirect_url: "https://jobstash.xyz/jobs",
-      });
-
-      if (charge) {
-        return {
-          success: true,
-          message: "Job promotion payment url generated successfully",
-          data: charge,
-        };
-      } else {
-        return {
-          success: false,
-          message: "Job promotion payment url generation failed",
-        };
-      }
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "jobs.service",
-        });
-        scope.setExtra("input", { uuid, ecosystem });
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `JobsService::getJobPromotionPaymentUrl ${err.message}`,
-      );
-      return {
-        success: false,
-        message: "Error generating job promotion payment url",
       };
     }
   }

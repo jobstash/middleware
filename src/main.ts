@@ -7,7 +7,7 @@ import { ValidationPipe } from "@nestjs/common";
 import { ironSession } from "iron-session/express";
 import { IronSessionOptions } from "iron-session";
 import * as dotenv from "dotenv";
-import * as express from "express";
+// import * as express from "express";
 import * as basicAuth from "express-basic-auth";
 import * as compression from "compression";
 import { PublicModule } from "./public/public.module";
@@ -25,7 +25,10 @@ const ironOptions: IronSessionOptions = {
 };
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true,
+    bodyParser: true,
+  });
   app.useGlobalPipes(
     new ValidationPipe({
       enableDebugMessages: process.env.NODE_ENV === "production" ? false : true,
@@ -47,7 +50,6 @@ async function bootstrap(): Promise<void> {
       users: { [process.env.SWAGGER_USER]: process.env.SWAGGER_PASSWORD },
     }),
   );
-  app.use(express.json({ limit: "50mb" }));
 
   const config = new DocumentBuilder()
     .setTitle("JobStash Middleware")
