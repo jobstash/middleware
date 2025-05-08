@@ -21,8 +21,6 @@ const envSchema = Joi.object({
   JOB_PROMOTION_PRICE: Joi.number().required(),
   JWT_EXPIRES_IN: Joi.string().alphanum().required(),
   JWT_SECRET: Joi.string().alphanum().required(),
-  LLAMA_PAY_API_KEY: Joi.string().required(),
-  LLAMA_PAY_WEBHOOK_KEY: Joi.string().required(),
   MAGIC_LINK_EXPIRES_IN: Joi.string().required(),
   MAGIC_LINK_SECRET: Joi.string().required(),
   MW_DOMAIN: Joi.string().required(),

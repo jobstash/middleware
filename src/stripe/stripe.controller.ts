@@ -12,7 +12,6 @@ import Stripe from "stripe";
 import { Request } from "express";
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
-import { UserService } from "src/user/user.service";
 
 @Controller("stripe")
 export class StripeController {
@@ -23,7 +22,6 @@ export class StripeController {
     @Inject("STRIPE_WEBHOOK_SECRET")
     private readonly webhookSecret: string,
     private readonly stripeService: StripeService,
-    private readonly userService: UserService,
   ) {}
 
   @Post("webhook")
