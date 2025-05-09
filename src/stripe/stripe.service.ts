@@ -208,6 +208,7 @@ export class StripeService {
       const prices = await this.stripe.prices.list({
         active: true,
         currency: "usd",
+        expand: ["data.tiers"],
         limit: 100,
       });
       return prices.data;
@@ -298,6 +299,32 @@ export class StripeService {
     }
   }
 
+  async calculateAmount(
+    lineItems: Stripe.Checkout.SessionCreateParams.LineItem[],
+  ): Promise<number> {
+    const prices = await this.getProductPrices();
+    return lineItems.reduce((acc, item) => {
+      const price = prices.find(x => x.id === item.price);
+      if (price.billing_scheme === "per_unit") {
+        return acc + price.unit_amount * item.quantity;
+      } else {
+        let subtotal = 0;
+        let quantity = item.quantity;
+        for (const tier of price.tiers) {
+          const tierLimit = tier.up_to === null ? Infinity : tier.up_to;
+          if (quantity > tierLimit) {
+            subtotal += tier.unit_amount * tierLimit;
+            quantity -= tierLimit;
+          } else {
+            subtotal += tier.unit_amount * quantity;
+            quantity = 0;
+          }
+        }
+        return acc + subtotal;
+      }
+    }, 0);
+  }
+
   async cancelSubscription(orgId: string): Promise<ResponseWithNoData> {
     try {
       const { externalId } = data(
@@ -350,10 +377,7 @@ export class StripeService {
         }
       });
 
-      const amount = lineItems.reduce((acc, item) => {
-        const price = prices.find(x => x.id === item.price);
-        return acc + price.unit_amount * item.quantity;
-      }, 0);
+      const amount = await this.calculateAmount(lineItems);
 
       if (dto.jobstash !== "starter") {
         this.logger.log("Creating customer");
@@ -474,10 +498,7 @@ export class StripeService {
           }
         });
 
-        const amount = lineItems.reduce((acc, item) => {
-          const price = prices.find(x => x.id === item.price);
-          return acc + price.unit_amount * item.quantity;
-        }, 0);
+        const amount = await this.calculateAmount(lineItems);
 
         const customer = data(await this.getCustomerByEmail(email));
         const { id, url, total } = data(
@@ -605,10 +626,7 @@ export class StripeService {
           }
         });
 
-        const amount = lineItems.reduce((acc, item) => {
-          const price = prices.find(x => x.id === item.price);
-          return acc + price.unit_amount * item.quantity;
-        }, 0);
+        const amount = await this.calculateAmount(lineItems);
 
         const result = await this.getCustomerByEmail(email);
 
