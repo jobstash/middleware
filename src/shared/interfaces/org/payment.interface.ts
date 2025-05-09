@@ -55,7 +55,7 @@ export class Payment {
     this.id = id;
     this.type = type;
     this.action = action;
-    this.amount = amount;
+    this.amount = amount / 100;
     this.currency = currency;
     this.timestamp = timestamp;
     this.internalRefCode = internalRefCode;
