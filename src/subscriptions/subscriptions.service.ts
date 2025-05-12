@@ -47,23 +47,6 @@ export class SubscriptionsService {
     this.from = this.configService.getOrThrow<string>("EMAIL");
   }
 
-  async isPaymentReminderNeeded(
-    paymentReference: string,
-    orgId: string,
-  ): Promise<boolean> {
-    const payment = (
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (payment:PendingPayment {reference: $paymentReference})<-[:HAS_PENDING_PAYMENT]-(:Organization {orgId: $orgId})
-        RETURN payment { .* } as payment
-      `,
-        { paymentReference, orgId },
-      )
-    ).records[0]?.get("payment");
-
-    return !!payment;
-  }
-
   async getSubscriptionOwnerEmail(
     wallet: string,
     orgId: string,

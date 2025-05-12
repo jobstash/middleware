@@ -14,6 +14,7 @@ import {
 } from "src/stripe/dto/webhook-data.dto";
 import { JobsService } from "src/jobs/jobs.service";
 import { NewSubscriptionInput } from "src/subscriptions/new-subscription.input";
+import { BUNDLE_LOOKUP_KEYS, LOOKUP_KEYS } from "src/shared/constants";
 
 @Injectable()
 export class StripeService {
@@ -355,13 +356,13 @@ export class StripeService {
   }): Promise<ResponseWithOptionalData<string>> {
     try {
       const { wallet, dto } = input;
-      const lookupIds = [
-        dto.jobstash ? `jobstash_${dto.jobstash}` : null,
-        dto.veri ? `veri_${dto.veri}` : null,
-        dto.stashAlert ? "stash_alert" : null,
+      const lookupKeys = [
+        dto.jobstash ? BUNDLE_LOOKUP_KEYS.JOBSTASH[dto.jobstash] : null,
+        dto.veri ? BUNDLE_LOOKUP_KEYS.VERI[dto.veri] : null,
+        dto.stashAlert ? LOOKUP_KEYS.STASH_ALERT_PRICE : null,
       ].filter(Boolean);
       const prices = await this.getProductPrices().then(x =>
-        x.filter(x => lookupIds.includes(x.lookup_key)),
+        x.filter(x => lookupKeys.includes(x.lookup_key)),
       );
       const lineItems = prices.map(x => {
         if (x.lookup_key.includes("jobstash")) {
@@ -476,13 +477,13 @@ export class StripeService {
           orgId,
         );
 
-        const lookupIds = [
-          jobstash ? `jobstash_${jobstash}` : null,
-          veri ? `veri_${veri}` : null,
-          stashAlert ? "stash_alert" : null,
+        const lookupKeys = [
+          jobstash ? BUNDLE_LOOKUP_KEYS.JOBSTASH[jobstash] : null,
+          veri ? BUNDLE_LOOKUP_KEYS.VERI[veri] : null,
+          stashAlert ? LOOKUP_KEYS.STASH_ALERT_PRICE : null,
         ].filter(Boolean);
         const prices = await this.getProductPrices().then(x =>
-          x.filter(x => lookupIds.includes(x.lookup_key)),
+          x.filter(x => lookupKeys.includes(x.lookup_key)),
         );
         const lineItems = prices.map(x => {
           if (x.lookup_key.includes("jobstash")) {
@@ -604,13 +605,13 @@ export class StripeService {
           orgId,
         );
 
-        const lookupIds = [
-          newJobstash ? `jobstash_${newJobstash}` : null,
-          newVeri ? `veri_${newVeri}` : null,
-          newStashAlert ? "stash_alert" : null,
+        const lookupKeys = [
+          newJobstash ? BUNDLE_LOOKUP_KEYS.JOBSTASH[newJobstash] : null,
+          newVeri ? BUNDLE_LOOKUP_KEYS.VERI[newVeri] : null,
+          newStashAlert ? LOOKUP_KEYS.STASH_ALERT_PRICE : null,
         ].filter(Boolean);
         const prices = await this.getProductPrices().then(x =>
-          x.filter(x => lookupIds.includes(x.lookup_key)),
+          x.filter(x => lookupKeys.includes(x.lookup_key)),
         );
         const lineItems = prices.map(x => {
           if (x.lookup_key.includes("jobstash")) {
@@ -715,7 +716,9 @@ export class StripeService {
       }
 
       const lineItem = await this.getProductPrices().then(x => {
-        const item = x.find(x => x.lookup_key === "job_promo");
+        const item = x.find(
+          x => x.lookup_key === LOOKUP_KEYS.JOB_PROMOTION_PRICE,
+        );
         return {
           price: item.id,
           quantity: 1,

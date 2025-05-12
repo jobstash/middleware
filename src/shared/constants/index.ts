@@ -4,6 +4,7 @@ export * from "./check-wallet-result";
 export * from "./cache-control";
 export * from "./headers";
 export * from "./testing";
+export * from "./stripe";
 export * from "./cache-keys";
 export * from "./search";
 
