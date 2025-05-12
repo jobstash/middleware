@@ -35,6 +35,8 @@ type RawJobPost = StructuredJobpostWithRelations & {
 type RawEcosystemJobPost = StructuredJobpostWithRelations & {
   online: boolean;
   blocked: boolean;
+  applications: number;
+  views: number;
   organization?:
     | (OrganizationWithRelations & {
         hasUser: boolean;
@@ -336,6 +338,8 @@ export class EcosystemJobListResultEntity {
       ...jobpost,
       online: jobpost?.online ?? false,
       blocked: jobpost?.blocked ?? false,
+      views: nonZeroOrNull(jobpost?.views) ?? 0,
+      applications: nonZeroOrNull(jobpost?.applications) ?? 0,
       salary: nonZeroOrNull(jobpost?.salary),
       minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
       maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),

@@ -108,6 +108,8 @@ export class EcosystemJobListResult extends StructuredJobpostWithRelations {
     t.strict({
       online: t.boolean,
       blocked: t.boolean,
+      applications: t.number,
+      views: t.number,
       organization: t.union([
         t.intersection([
           OrganizationWithRelations.OrganizationWithRelationsType,
@@ -149,6 +151,12 @@ export class EcosystemJobListResult extends StructuredJobpostWithRelations {
   @ApiProperty()
   blocked: boolean;
 
+  @ApiProperty()
+  applications: number;
+
+  @ApiProperty()
+  views: number;
+
   @ApiPropertyOptional()
   organization:
     | (OrganizationWithRelations & {
@@ -166,8 +174,15 @@ export class EcosystemJobListResult extends StructuredJobpostWithRelations {
     | null;
 
   constructor(raw: EcosystemJobListResult) {
-    const { organization, project, online, blocked, ...jobpostProperties } =
-      raw;
+    const {
+      organization,
+      project,
+      online,
+      blocked,
+      applications,
+      views,
+      ...jobpostProperties
+    } = raw;
     super(jobpostProperties);
     const result =
       EcosystemJobListResult.EcosystemJobListResultType.decode(raw);
@@ -180,6 +195,8 @@ export class EcosystemJobListResult extends StructuredJobpostWithRelations {
 
     this.online = online;
     this.blocked = blocked;
+    this.applications = applications;
+    this.views = views;
     this.organization = organization;
     this.project = project;
 

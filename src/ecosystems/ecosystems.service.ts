@@ -835,6 +835,8 @@ export class EcosystemsService {
             featureEndDate: structured_jobpost.featureEndDate,
             blocked: EXISTS((structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)),
             online: CASE WHEN EXISTS((structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)) THEN true ELSE EXISTS((structured_jobpost)-[:HAS_STATUS]->(:JobpostOfflineStatus)) END,
+            applications: apoc.coll.sum([(structured_jobpost)<-[:APPLIED_TO]-(:User) | 1]),
+            views: apoc.coll.sum([(structured_jobpost)<-[:VIEWED_DETAILS]-(:User) | 1]),
             timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
