@@ -243,22 +243,11 @@ export class StripeService {
           ).shortUUID;
           await this.jobsService.handleJobPromotion(shortUUID);
           break;
+
         case "new-subscription":
           await this.subscriptionsService.createNewSubscription(
             JSON.parse(metadata.calldata) as unknown as SubscriptionMetadata,
             session.subscription as string,
-          );
-          break;
-
-        case "subscription-renewal":
-          await this.subscriptionsService.renewSubscription(
-            JSON.parse(metadata.calldata) as unknown as SubscriptionMetadata,
-          );
-          break;
-
-        case "subscription-change":
-          await this.subscriptionsService.changeSubscription(
-            JSON.parse(metadata.calldata) as unknown as SubscriptionMetadata,
           );
           break;
 
@@ -274,25 +263,72 @@ export class StripeService {
   }
 
   async handleStripeSubscriptionUpdated(
-    sub: Stripe.Subscription,
+    event: Stripe.CustomerSubscriptionUpdatedEvent,
   ): Promise<void> {
-    this.logger.log(`Stripe subscription updated: ${sub.id}`);
+    this.logger.log(`Stripe subscription updated: ${event.id}`);
 
-    if (sub.cancel_at_period_end || sub.status === "canceled") {
-      await this.handleStripeSubscriptionDeleted(sub);
+    const sub = event.data.object as Stripe.Subscription;
+
+    if (
+      sub.status !== "canceled" &&
+      !sub.pending_update &&
+      !sub.schedule &&
+      sub.latest_invoice
+    ) {
+      const prev = event.data.previous_attributes ?? {};
+      const invoice = await this.stripe.invoices.retrieve(
+        sub.latest_invoice as string,
+      );
+      if (prev.items) {
+        const newItems = sub.items.data.map(x => x.price);
+
+        const newTier = newItems
+          .find(x => x.lookup_key.includes("jobstash"))
+          ?.lookup_key?.split("_")?.[1];
+
+        const newExtraSeats =
+          Math.max(
+            newItems.find(x => x.lookup_key.includes("jobstash"))
+              ?.unit_amount ?? 0,
+            1,
+          ) - 1;
+
+        const newVeri = newItems
+          .find(x => x.lookup_key.includes("veri"))
+          ?.lookup_key?.split("_")?.[1];
+
+        const newStashAlert =
+          newItems.find(x => x.lookup_key === LOOKUP_KEYS.STASH_ALERT_PRICE) !==
+          undefined;
+
+        const meta: Omit<SubscriptionMetadata, "orgId" | "wallet"> = {
+          jobstash: newTier,
+          veri: newVeri ?? null,
+          stashAlert: newStashAlert ?? false,
+          extraSeats: newExtraSeats,
+          amount: invoice.amount_due,
+        };
+
+        await this.subscriptionsService.changeSubscription(
+          meta,
+          invoice.id,
+          sub.id,
+        );
+      } else {
+        await this.subscriptionsService.renewSubscription(
+          sub.id,
+          invoice.amount_paid,
+          sub.id,
+        );
+      }
     }
   }
 
   async handleStripeSubscriptionDeleted(
     sub: Stripe.Subscription,
   ): Promise<void> {
-    const metadata = (sub.metadata || {}) as Record<string, string>;
-
     try {
-      await this.subscriptionsService.cancelSubscription(
-        metadata.wallet,
-        metadata.orgId,
-      );
+      await this.subscriptionsService.cancelSubscription(sub.id);
     } catch (err) {
       this.logger.error(
         `Error handling subscription deletion – ${err.message}`,
@@ -329,7 +365,7 @@ export class StripeService {
   async cancelSubscription(orgId: string): Promise<ResponseWithNoData> {
     try {
       const { externalId } = data(
-        await this.subscriptionsService.getSubscriptionInfo(orgId),
+        await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
       );
       if (externalId) {
         await this.stripe.subscriptions.update(externalId, {
@@ -463,7 +499,9 @@ export class StripeService {
         veri,
         stashAlert,
         extraSeats,
-      } = data(await this.subscriptionsService.getSubscriptionInfo(orgId));
+      } = data(
+        await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
+      );
 
       if (jobstash === "starter") {
         return {
@@ -572,7 +610,9 @@ export class StripeService {
         veri,
         stashAlert,
         extraSeats,
-      } = data(await this.subscriptionsService.getSubscriptionInfo(orgId));
+      } = data(
+        await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
+      );
 
       const {
         jobstash: newJobstash,

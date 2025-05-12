@@ -49,9 +49,7 @@ export class StripeController {
           break;
 
         case "customer.subscription.updated":
-          await this.stripeService.handleStripeSubscriptionUpdated(
-            event.data.object,
-          );
+          await this.stripeService.handleStripeSubscriptionUpdated(event);
           break;
 
         case "customer.subscription.deleted":

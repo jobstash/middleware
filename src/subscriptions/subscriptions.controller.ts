@@ -51,7 +51,7 @@ export class SubscriptionsController {
       await this.userService.findOrgOwnerProfileByOrgId(orgId),
     );
     if (owner?.wallet === address) {
-      return this.subscriptionsService.getSubscriptionInfo(orgId);
+      return this.subscriptionsService.getSubscriptionInfoByOrgId(orgId);
     } else {
       throw new UnauthorizedException({
         success: false,
@@ -99,7 +99,7 @@ export class SubscriptionsController {
     );
     if (owner?.wallet === address) {
       const subscription = data(
-        await this.subscriptionsService.getSubscriptionInfo(orgId),
+        await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
       );
       if (subscription) {
         let usage: QuotaUsage[] = [];
@@ -153,7 +153,7 @@ export class SubscriptionsController {
     );
     if (owner?.wallet === address) {
       const subscription = data(
-        await this.subscriptionsService.getSubscriptionInfo(orgId),
+        await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
       );
       if (subscription) {
         let usage: Map<MeteredService, number>;
@@ -239,28 +239,6 @@ export class SubscriptionsController {
     );
     if (owner?.wallet === address) {
       return this.subscriptionsService.reactivateSubscription(address, orgId);
-    } else {
-      throw new UnauthorizedException({
-        success: false,
-        message: "You are not the owner of this organization",
-      });
-    }
-  }
-
-  @Post(":orgId/cancel")
-  @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
-  async cancelOrgSubscription(
-    @Param("orgId") orgId: string,
-    @Session() { address }: SessionObject,
-  ): Promise<ResponseWithOptionalData<string>> {
-    this.logger.log(`/subscriptions/${orgId}/cancel ${address}`);
-    const owner = data(
-      await this.userService.findOrgOwnerProfileByOrgId(orgId),
-    );
-    if (owner?.wallet === address) {
-      await this.stripeService.cancelSubscription(orgId);
-      return this.subscriptionsService.cancelSubscription(address, orgId);
     } else {
       throw new UnauthorizedException({
         success: false,

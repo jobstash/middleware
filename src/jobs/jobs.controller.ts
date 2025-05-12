@@ -253,7 +253,7 @@ export class JobsController {
       const userOrgId =
         await this.userService.findOrgIdByMemberUserWallet(address);
       const subscription = data(
-        await this.subscriptionService.getSubscriptionInfo(userOrgId),
+        await this.subscriptionService.getSubscriptionInfoByOrgId(userOrgId),
       );
       if (subscription.isActive()) {
         if (permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER)) {
@@ -776,7 +776,7 @@ export class JobsController {
           dto.shortUUID,
         );
         const subscription = data(
-          await this.subscriptionService.getSubscriptionInfo(userOrgId),
+          await this.subscriptionService.getSubscriptionInfoByOrgId(userOrgId),
         );
         if (subscription?.canAccessService("boostedVacancyMultiplier")) {
           if (permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER)) {

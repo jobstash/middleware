@@ -55,7 +55,7 @@ export class ScorerController {
     const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
     if (orgId) {
       const subscription = data(
-        await this.subscriptionsService.getSubscriptionInfo(orgId),
+        await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
       );
       if (subscription?.canAccessService("atsIntegration")) {
         const client = await this.scorerService.getAtsClientInfoByOrgId(orgId);
@@ -117,7 +117,7 @@ export class ScorerController {
       const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
       if (orgId) {
         const subscription = data(
-          await this.subscriptionsService.getSubscriptionInfo(orgId),
+          await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
         );
         if (subscription?.canAccessService("atsIntegration")) {
           const key =
@@ -165,7 +165,7 @@ export class ScorerController {
       const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
       if (orgId) {
         const subscription = data(
-          await this.subscriptionsService.getSubscriptionInfo(orgId),
+          await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
         );
         if (subscription?.canAccessService("veri")) {
           const key =
@@ -289,7 +289,7 @@ export class ScorerController {
     try {
       const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
       const subscription = data(
-        await this.subscriptionsService.getSubscriptionInfo(orgId),
+        await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
       );
       if (subscription?.canAccessService("atsIntegration")) {
         const result = await this.httpService.axiosRef.post<ResponseWithNoData>(

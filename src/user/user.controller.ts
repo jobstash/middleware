@@ -72,7 +72,7 @@ export class UserController {
     if (orgId) {
       this.logger.log(`/users/available ${JSON.stringify(params)}`);
       const subscription = data(
-        await this.subscriptionService.getSubscriptionInfo(orgId),
+        await this.subscriptionService.getSubscriptionInfoByOrgId(orgId),
       );
       if (subscription?.canAccessService("stashPool")) {
         return this.userService.getUsersAvailableForWork(params, orgId);
@@ -136,7 +136,7 @@ export class UserController {
         };
       } else {
         const subscription = data(
-          await this.subscriptionService.getSubscriptionInfo(body.orgId),
+          await this.subscriptionService.getSubscriptionInfoByOrgId(body.orgId),
         );
         return this.userService.addOrgUser(body.orgId, address, subscription);
       }
@@ -186,7 +186,7 @@ export class UserController {
         : null;
       this.logger.log(`/users/note ${address}`);
       const subscription = data(
-        await this.subscriptionService.getSubscriptionInfo(orgId),
+        await this.subscriptionService.getSubscriptionInfoByOrgId(orgId),
       );
       if (subscription?.canAccessService("stashPool")) {
         return this.userService.addUserNote(body.wallet, body.note, orgId);

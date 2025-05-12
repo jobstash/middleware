@@ -87,7 +87,7 @@ export class EcosystemsController {
       session.address,
     );
     const subscription = data(
-      await this.subscriptionsService.getSubscriptionInfo(orgId),
+      await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
       throw new ForbiddenException({
@@ -137,7 +137,7 @@ export class EcosystemsController {
       session.address,
     );
     const subscription = data(
-      await this.subscriptionsService.getSubscriptionInfo(orgId),
+      await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
       throw new ForbiddenException({
@@ -185,7 +185,7 @@ export class EcosystemsController {
     );
     const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
     const subscription = data(
-      await this.subscriptionsService.getSubscriptionInfo(orgId),
+      await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
       return {
@@ -224,7 +224,7 @@ export class EcosystemsController {
     this.logger.log(`GET /ecosystems/jobs/filters/stored from ${address}`);
     const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
     const subscription = data(
-      await this.subscriptionsService.getSubscriptionInfo(orgId),
+      await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
       return {
@@ -263,7 +263,7 @@ export class EcosystemsController {
     );
     const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
     const subscription = data(
-      await this.subscriptionsService.getSubscriptionInfo(orgId),
+      await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
       return {
@@ -306,7 +306,7 @@ export class EcosystemsController {
     );
     const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
     const subscription = data(
-      await this.subscriptionsService.getSubscriptionInfo(orgId),
+      await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
       return {
@@ -347,7 +347,7 @@ export class EcosystemsController {
     );
     const isMember = await this.userService.isOrgMember(address, orgId);
     const subscription = data(
-      await this.subscriptionsService.getSubscriptionInfo(orgId),
+      await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
       return {
@@ -389,7 +389,7 @@ export class EcosystemsController {
     this.logger.log(`GET /ecosystems/${orgId} from ${address}`);
     const isMember = await this.userService.isOrgMember(address, orgId);
     const subscription = data(
-      await this.subscriptionsService.getSubscriptionInfo(orgId),
+      await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
       return {
@@ -432,7 +432,7 @@ export class EcosystemsController {
     this.logger.log(`GET /ecosystems/${orgId}/${idOrSlug} from ${address}`);
     const isMember = await this.userService.isOrgMember(address, orgId);
     const subscription = data(
-      await this.subscriptionsService.getSubscriptionInfo(orgId),
+      await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
       return {
@@ -481,7 +481,7 @@ export class EcosystemsController {
     );
     const isMember = await this.userService.isOrgMember(address, orgId);
     const subscription = data(
-      await this.subscriptionsService.getSubscriptionInfo(orgId),
+      await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
       return {
@@ -533,7 +533,7 @@ export class EcosystemsController {
     );
     const isMember = await this.userService.isOrgMember(address, orgId);
     const subscription = data(
-      await this.subscriptionsService.getSubscriptionInfo(orgId),
+      await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
       return {
@@ -576,7 +576,7 @@ export class EcosystemsController {
     this.logger.log(`DELETE /ecosystems/${orgId}/${idOrSlug} from ${address}`);
     const isMember = await this.userService.isOrgMember(address, orgId);
     const subscription = data(
-      await this.subscriptionsService.getSubscriptionInfo(orgId),
+      await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
       return {
