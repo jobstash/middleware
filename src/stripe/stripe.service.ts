@@ -269,58 +269,101 @@ export class StripeService {
 
     const sub = event.data.object as Stripe.Subscription;
 
-    if (
-      sub.status !== "canceled" &&
-      !sub.pending_update &&
-      !sub.schedule &&
-      sub.latest_invoice
-    ) {
-      const prev = event.data.previous_attributes ?? {};
-      const invoice = await this.stripe.invoices.retrieve(
-        sub.latest_invoice as string,
+    if (sub.cancel_at_period_end || sub.status === "canceled") {
+      await this.handleStripeSubscriptionDeleted(sub);
+    }
+  }
+
+  async handleInvoicePaymentSucceeded(
+    event: Stripe.InvoicePaymentSucceededEvent,
+  ): Promise<void> {
+    const invoice = event.data.object as Stripe.Invoice;
+
+    if (invoice.billing_reason !== "subscription_cycle" || !invoice.parent)
+      return;
+
+    const subscriptionId = invoice.parent.subscription_details
+      .subscription as string;
+
+    const sub = (await this.stripe.subscriptions.retrieve(
+      subscriptionId,
+    )) as Stripe.Subscription;
+
+    // Ignore starter tier (managed in‑house)
+    if (sub.metadata?.jobstash === "starter") return;
+
+    this.logger.log(`Handling invoice payment succeeded: ${invoice.id}`);
+
+    const prices = await this.getProductPrices();
+
+    const itemLines = invoice.lines.data.map(z => ({
+      lineItem: z,
+      lookupKey: prices.find(p => p.id === z.pricing.price_details.price)
+        ?.lookup_key,
+    }));
+
+    const jobstashLine = itemLines.find(l =>
+      l.lookupKey?.startsWith("jobstash_"),
+    );
+    if (!jobstashLine) {
+      this.logger.warn(
+        `invoice.payment_succeeded lacks a jobstash line – skipping`,
       );
-      if (prev.items) {
-        const newItems = sub.items.data.map(x => x.price);
+      return;
+    }
 
-        const newTier = newItems
-          .find(x => x.lookup_key.includes("jobstash"))
-          ?.lookup_key?.split("_")?.[1];
+    const newTier = jobstashLine.lookupKey.split("_")[1]; // growth|pro|max
+    const newExtraSeats = Math.max(jobstashLine.lineItem.quantity - 1, 0);
 
-        const newExtraSeats =
-          Math.max(
-            newItems.find(x => x.lookup_key.includes("jobstash"))
-              ?.unit_amount ?? 0,
-            1,
-          ) - 1;
+    const veriLine = itemLines.find(l => l.lookupKey?.startsWith("veri_"));
+    const newVeri = veriLine ? veriLine.lookupKey.split("_")[1] : null;
 
-        const newVeri = newItems
-          .find(x => x.lookup_key.includes("veri"))
-          ?.lookup_key?.split("_")?.[1];
+    const newStashAlert =
+      itemLines.find(l => l.lookupKey === LOOKUP_KEYS.STASH_ALERT_PRICE) !==
+      undefined;
 
-        const newStashAlert =
-          newItems.find(x => x.lookup_key === LOOKUP_KEYS.STASH_ALERT_PRICE) !==
-          undefined;
+    /* ──────────── Compare with DB to decide renewal vs change ──────────── */
+    const existing = data(
+      await this.subscriptionsService.getSubscriptionInfoByExternalId(
+        subscriptionId,
+      ),
+    );
 
-        const meta: Omit<SubscriptionMetadata, "orgId" | "wallet"> = {
-          jobstash: newTier,
-          veri: newVeri ?? null,
-          stashAlert: newStashAlert ?? false,
-          extraSeats: newExtraSeats,
-          amount: invoice.amount_due,
-        };
+    if (!existing) {
+      this.logger.warn(
+        `Subscription ${subscriptionId} not found in DB when handling invoice.payment_succeeded`,
+      );
+      return;
+    }
 
-        await this.subscriptionsService.changeSubscription(
-          meta,
-          invoice.id,
-          sub.id,
-        );
-      } else {
-        await this.subscriptionsService.renewSubscription(
-          sub.id,
-          invoice.amount_paid,
-          sub.id,
-        );
-      }
+    const isPlanChange =
+      existing.tier !== newTier ||
+      (existing.veri ?? null) !== newVeri ||
+      (existing.stashAlert ?? false) !== newStashAlert ||
+      (existing.extraSeats ?? 0) !== newExtraSeats;
+
+    if (isPlanChange) {
+      this.logger.log(`Handling plan change for ${subscriptionId}`);
+      const meta: Omit<SubscriptionMetadata, "orgId" | "wallet"> = {
+        jobstash: newTier,
+        veri: newVeri,
+        stashAlert: newStashAlert,
+        extraSeats: newExtraSeats,
+        amount: invoice.amount_paid,
+      };
+
+      await this.subscriptionsService.changeSubscription(
+        meta,
+        invoice.id,
+        subscriptionId,
+      );
+    } else {
+      this.logger.log(`Handling subscription renewal for ${subscriptionId}`);
+      await this.subscriptionsService.renewSubscription(
+        subscriptionId,
+        invoice.amount_due,
+        subscriptionId,
+      );
     }
   }
 

@@ -58,6 +58,10 @@ export class StripeController {
           );
           break;
 
+        case "invoice.payment_succeeded":
+          await this.stripeService.handleInvoicePaymentSucceeded(event);
+          break;
+
         default:
           this.logger.warn(
             `Unhandled Stripe webhook event type: ${event.type}`,

@@ -1168,6 +1168,7 @@ export class SubscriptionsService {
 
         const payload = {
           ...dto,
+          ...ownerInfo,
           quota: {
             veri: dto.veri ? quotaInfo.veri + veriAddons : quotaInfo.veri,
             createdTimestamp: timestamp.getTime(),
@@ -1595,8 +1596,8 @@ export class SubscriptionsService {
         `
           MATCH (org:Organization {orgId: $orgId})
           OPTIONAL MATCH (org)-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)-[:HAS_QUOTA|HAS_PAYMENT|HAS_SERVICE]->(node)
-          OPTIONAL MATCH (org)-[:HAS_USER_SEAT]->(userSeat:OrgUserSeat)<-[:OCCUPIES]-(user:User)
-          DETACH DELETE subscription, node, userSeat
+          OPTIONAL MATCH (org)-[:HAS_USER_SEAT]->(userSeat:OrgUserSeat)<-[:OCCUPIES]-(user:User)-[:HAS_PENDING_PAYMENT|MADE_SUBSCRIPTION_PAYMENT|USED_QUOTA]->(node1)
+          DETACH DELETE subscription, node, userSeat, node1
           RETURN user { .* } as user
         `,
         { orgId },
