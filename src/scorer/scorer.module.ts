@@ -15,11 +15,13 @@ import { PrivyModule } from "src/auth/privy/privy.module";
 import { GithubModule } from "src/auth/github/github.module";
 import { UserModule } from "src/user/user.module";
 import { SubscriptionsModule } from "src/subscriptions/subscriptions.module";
+import { StripeModule } from "src/stripe/stripe.module";
 
 @Module({
   imports: [
     PrivyModule,
     GithubModule,
+    StripeModule.forRootAsync(),
     forwardRef(() => UserModule),
     forwardRef(() => SubscriptionsModule),
     HttpModule.registerAsync({

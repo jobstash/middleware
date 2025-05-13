@@ -30,7 +30,9 @@ import { addMonths, getDayOfYear } from "date-fns";
 import { now } from "lodash";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { Cron, CronExpression } from "@nestjs/schedule";
-import { CheckWalletPermissions } from "src/shared/constants";
+import { CheckWalletPermissions, LOOKUP_KEYS } from "src/shared/constants";
+import Stripe from "stripe";
+import { StripeService } from "src/stripe/stripe.service";
 
 @Injectable()
 export class SubscriptionsService {
@@ -56,15 +58,16 @@ export class SubscriptionsService {
     )?.account;
   }
 
-  async recordQuotaUsage(
+  async recordMeteredServiceUsage(
     orgId: string,
     wallet: string,
     amount: number,
     service: MeteredService,
+    stripeService: StripeService,
   ): Promise<ResponseWithNoData> {
     try {
       this.logger.log(
-        `Attempting to record ${amount} quota usage for ${wallet} for ${orgId} on ${service}`,
+        `Attempting to record ${amount} metered service usage for ${wallet} for ${orgId} on ${service}`,
       );
       const subscription = data(await this.getSubscriptionInfoByOrgId(orgId));
       const isOrgMember = await this.userService.isOrgMember(wallet, orgId);
@@ -85,34 +88,42 @@ export class SubscriptionsService {
                 service,
               },
             );
-            this.logger.log(`Successfully recorded quota usage`);
+            this.logger.log(`Successfully recorded metered service usage`);
             return {
               success: true,
-              message: `Successfully recorded quota usage`,
+              message: `Successfully recorded metered service usage`,
             };
           } else {
-            this.logger.log(
-              `Account has exhausted all available quota for ${service}`,
-            );
-            return {
-              success: false,
-              message: `Account has exhausted all available quota for ${service}`,
-            };
+            if (subscription.veriPayg) {
+              return stripeService.recordMeteredServiceUsage(
+                subscription.externalId,
+                service,
+                amount,
+              );
+            } else {
+              this.logger.log(
+                `Account has exhausted all available quota for ${service}`,
+              );
+              return {
+                success: false,
+                message: `Account has exhausted all available quota for ${service}`,
+              };
+            }
           }
         } else {
           this.logger.log(
-            `Cannot record quota usage for expired or inactive subscription`,
+            `Cannot record metered service usage for expired or inactive subscription`,
           );
           return {
             success: false,
-            message: `Cannot record quota usage for expired or inactive subscription`,
+            message: `Cannot record metered service usage for expired or inactive subscription`,
           };
         }
       } else {
-        this.logger.log(`Non org member cannot record quota usage`);
+        this.logger.log(`Non org member cannot record metered service usage`);
         return {
           success: false,
-          message: `Non org member cannot record quota usage`,
+          message: `Non org member cannot record metered service usage`,
         };
       }
     } catch (err) {
@@ -124,11 +135,11 @@ export class SubscriptionsService {
         Sentry.captureException(err);
       });
       this.logger.error(
-        `SubscriptionsService::recordQuotaUsage ${err.message}`,
+        `SubscriptionsService::recordMeteredServiceUsage ${err.message}`,
       );
       return {
         success: false,
-        message: `Error recording quota usage`,
+        message: `Error recording metered service usage`,
       };
     }
   }
@@ -887,9 +898,9 @@ export class SubscriptionsService {
   }
 
   async renewSubscription(
-    subscriptionId: string,
-    amount: number,
     externalId: string,
+    amount: number,
+    invoiceId: string,
   ): Promise<ResponseWithNoData> {
     try {
       this.logger.log("Renewing subscription");
@@ -904,8 +915,8 @@ export class SubscriptionsService {
             source: "subscriptions.service",
           });
           scope.setExtra("input", {
-            subscriptionId,
             externalId,
+            invoiceId,
             action: "subscription-renewal",
           });
           Sentry.captureMessage("Attempted renewal of missing subscription");
@@ -928,8 +939,8 @@ export class SubscriptionsService {
             source: "subscriptions.service",
           });
           scope.setExtra("input", {
-            checkoutSessionId: subscriptionId,
             externalId,
+            invoiceId,
             action: "subscription-renewal",
           });
           Sentry.captureMessage("Attempted renewal of missing subscription");
@@ -943,7 +954,7 @@ export class SubscriptionsService {
       const result = await this.neogma.getTransaction(null, async tx => {
         const internalRefCode = randomToken(16);
         const timestamp = new Date();
-        const externalRefCode = subscriptionId;
+        const externalRefCode = invoiceId;
         const quotaInfo = JOBSTASH_QUOTA[existingSubscription.tier];
         const veriAddons = VERI_ADDONS[existingSubscription.veri];
 
@@ -1062,8 +1073,8 @@ export class SubscriptionsService {
           });
           scope.setExtra("input", {
             ...ownerInfo,
-            checkoutSessionId: subscriptionId,
             externalId,
+            invoiceId,
             amount,
             action: "subscription-renewal",
           });
@@ -1088,8 +1099,8 @@ export class SubscriptionsService {
           source: "subscriptions.service",
         });
         scope.setExtra("input", {
-          checkoutSessionId: subscriptionId,
           externalId,
+          invoiceId,
           amount,
           action: "subscription-renewal",
         });
@@ -1103,12 +1114,15 @@ export class SubscriptionsService {
   }
 
   async changeSubscription(
-    dto: Omit<SubscriptionMetadata, "orgId" | "wallet">,
+    dto: Omit<SubscriptionMetadata, "orgId" | "wallet"> & {
+      paygOptIn?: boolean;
+    },
     invoiceId: string,
-    subscriptionId: string,
+    subscription: Stripe.Subscription,
   ): Promise<ResponseWithNoData> {
     try {
       this.logger.log("Changing subscription");
+      const subscriptionId = subscription.id;
       const ownerInfo = data(
         await this.getSubscriptionOwnerInfoByExternalId(subscriptionId),
       );
@@ -1164,15 +1178,31 @@ export class SubscriptionsService {
         const quotaInfo = JOBSTASH_QUOTA[dto.jobstash];
         const veriAddons = VERI_ADDONS[dto.veri];
 
-        const timestamp = new Date();
+        const timestamp = now();
+
+        const veriCycleStart = subscription.items.data.find(x =>
+          x.price.lookup_key.startsWith("veri_"),
+        )?.current_period_start;
+
+        const stashAlertCycleStart = subscription.items.data.find(
+          x => x.price.lookup_key === LOOKUP_KEYS.STASH_ALERT_PRICE,
+        )?.current_period_end;
+
+        const cycleStart = subscription.items.data.find(x =>
+          x.price.lookup_key.startsWith("jobstash_"),
+        )?.current_period_start;
+
+        const cycleEnd = subscription.items.data.find(x =>
+          x.price.lookup_key.startsWith("jobstash_"),
+        )?.current_period_end;
 
         const payload = {
           ...dto,
           ...ownerInfo,
           quota: {
             veri: dto.veri ? quotaInfo.veri + veriAddons : quotaInfo.veri,
-            createdTimestamp: timestamp.getTime(),
-            expiryTimestamp: addMonths(timestamp, 2).getTime(),
+            createdTimestamp: veriCycleStart,
+            expiryTimestamp: addMonths(veriCycleStart, 2).getTime(),
           },
           externalId: subscriptionId,
           stashPool: quotaInfo.stashPool,
@@ -1183,9 +1213,21 @@ export class SubscriptionsService {
           duration: "monthly",
           internalRefCode,
           externalRefCode,
-          timestamp: timestamp.getTime(),
-          expiryTimestamp: addMonths(timestamp, 1).getTime(),
+          timestamp,
+          expiryTimestamp: cycleEnd,
         };
+
+        await tx.run(
+          `
+            MATCH (subscription:OrgSubscription {id: $subscriptionId})
+            SET subscription.status = "active"
+            SET subscription.veriPayg = $veriPayg
+          `,
+          {
+            subscriptionId: existingSubscription.id,
+            veriPayg: dto.paygOptIn ?? false,
+          },
+        );
 
         if (
           JOBSTASH_BUNDLE_PRICING[existingSubscription.tier] <
@@ -1210,7 +1252,7 @@ export class SubscriptionsService {
             `,
             {
               ...payload,
-              createdTimestamp: timestamp.getTime(),
+              createdTimestamp: cycleStart,
               subscriptionId: existingSubscription.id,
             },
           );
@@ -1274,7 +1316,7 @@ export class SubscriptionsService {
             `,
             {
               ...payload,
-              createdTimestamp: timestamp.getTime(),
+              createdTimestamp: veriCycleStart,
               subscriptionId: existingSubscription.id,
             },
           );
@@ -1334,7 +1376,7 @@ export class SubscriptionsService {
             `,
             {
               ...payload,
-              createdTimestamp: timestamp.getTime(),
+              createdTimestamp: stashAlertCycleStart,
               subscriptionId: existingSubscription.id,
             },
           );
@@ -1395,7 +1437,7 @@ export class SubscriptionsService {
             `,
             {
               ...payload,
-              createdTimestamp: timestamp.getTime(),
+              createdTimestamp: cycleStart,
               subscriptionId: existingSubscription.id,
             },
           );
@@ -1552,40 +1594,6 @@ export class SubscriptionsService {
       return {
         success: false,
         message: "Error cancelling subscription",
-      };
-    }
-  }
-
-  async reactivateSubscription(
-    wallet: string,
-    orgId: string,
-  ): Promise<ResponseWithNoData> {
-    try {
-      await this.neogma.queryRunner.run(
-        `
-          MATCH (org:Organization {orgId: $orgId})-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)
-          SET subscription.status = "active"
-        `,
-        { wallet, orgId },
-      );
-      return {
-        success: true,
-        message: "Subscription reactivated successfully",
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "subscriptions.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `SubscriptionsService::reactivateSubscription ${err.message}`,
-      );
-      return {
-        success: false,
-        message: "Error reactivating subscription",
       };
     }
   }

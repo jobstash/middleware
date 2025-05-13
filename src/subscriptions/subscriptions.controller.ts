@@ -28,7 +28,8 @@ import { UserService } from "src/user/user.service";
 import { now } from "lodash";
 import { subMonths } from "date-fns";
 import { StripeService } from "src/stripe/stripe.service";
-import { NewSubscriptionInput } from "./new-subscription.input";
+import { ChangeSubscriptionInput } from "./dto/change-subscription.input";
+import Stripe from "stripe";
 
 @Controller("subscriptions")
 export class SubscriptionsController {
@@ -83,7 +84,56 @@ export class SubscriptionsController {
     }
   }
 
-  @Get(":orgId/usage")
+  @Get(":orgId/payg/:service/usage")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
+  async getOrgPaygUsageData(
+    @Param("orgId") orgId: string,
+    @Param("service") service: MeteredService,
+    @Session() { address }: SessionObject,
+    @Query("epochStart") epochStart: number,
+    @Query("epochEnd") epochEnd: number,
+    @Query("cursor") cursor?: string,
+    @Query("limit") limit?: number,
+    @Query("valueGroupingWindow")
+    valueGroupingWindow?: Stripe.Billing.MeterListEventSummariesParams.ValueGroupingWindow,
+  ): Promise<ResponseWithOptionalData<QuotaUsage[]>> {
+    this.logger.log(`/subscriptions/${orgId}/payg/${service}/usage ${address}`);
+
+    if (!epochStart || !epochEnd) {
+      return {
+        success: false,
+        message: "Must specify epochStart and epochEnd",
+      };
+    }
+
+    const owner = data(
+      await this.userService.findOrgOwnerProfileByOrgId(orgId),
+    );
+    if (owner?.wallet === address) {
+      const subscription = data(
+        await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
+      );
+      if (subscription) {
+        return this.stripeService.getMeteredServiceUsage(
+          subscription.externalId,
+          service,
+          epochStart ?? subMonths(subscription.expiryTimestamp, 2).getTime(),
+          epochEnd ?? now(),
+          cursor,
+          limit,
+          valueGroupingWindow,
+        );
+      }
+    } else {
+      throw new UnauthorizedException({
+        success: false,
+        message: "You are not the owner of this organization",
+      });
+    }
+  }
+
+  @Get(":orgId/quota/usage")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
   async getOrgUsageData(
@@ -129,7 +179,7 @@ export class SubscriptionsController {
     }
   }
 
-  @Get(":orgId/usage/summary")
+  @Get(":orgId/quota/usage/summary")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
   async getOrgUsageSummary(
@@ -200,12 +250,43 @@ export class SubscriptionsController {
     }
   }
 
+  @Get(":orgId/invoices")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
+  async getOrgInvoices(
+    @Param("orgId") orgId: string,
+    @Session() { address }: SessionObject,
+  ): Promise<ResponseWithOptionalData<Stripe.Invoice[]>> {
+    this.logger.log(`/subscriptions/${orgId}/invoices ${address}`);
+    const owner = data(
+      await this.userService.findOrgOwnerProfileByOrgId(orgId),
+    );
+    if (owner?.wallet === address) {
+      const subscription = data(
+        await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
+      );
+      if (subscription.externalId) {
+        return this.stripeService.getCustomerInvoices(subscription.externalId);
+      } else {
+        return {
+          success: false,
+          message: "Subscription not found",
+        };
+      }
+    } else {
+      throw new UnauthorizedException({
+        success: false,
+        message: "You are not the owner of this organization",
+      });
+    }
+  }
+
   @Post(":orgId/change")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
   async changeOrgSubscription(
     @Param("orgId") orgId: string,
-    @Body() body: NewSubscriptionInput,
+    @Body() body: ChangeSubscriptionInput,
     @Session() { address }: SessionObject,
   ): Promise<ResponseWithOptionalData<string>> {
     this.logger.log(`/subscriptions/${orgId}/change ${address}`);
@@ -238,7 +319,41 @@ export class SubscriptionsController {
       await this.userService.findOrgOwnerProfileByOrgId(orgId),
     );
     if (owner?.wallet === address) {
-      return this.subscriptionsService.reactivateSubscription(address, orgId);
+      return this.stripeService.initiateSubscriptionReactivation(
+        address,
+        orgId,
+      );
+    } else {
+      throw new UnauthorizedException({
+        success: false,
+        message: "You are not the owner of this organization",
+      });
+    }
+  }
+
+  @Post(":orgId/cancel")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
+  async cancelOrgSubscription(
+    @Param("orgId") orgId: string,
+    @Session() { address }: SessionObject,
+  ): Promise<ResponseWithOptionalData<string>> {
+    this.logger.log(`/subscriptions/${orgId}/cancel ${address}`);
+    const owner = data(
+      await this.userService.findOrgOwnerProfileByOrgId(orgId),
+    );
+    if (owner?.wallet === address) {
+      const subscription = data(
+        await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
+      );
+      if (subscription.externalId) {
+        return this.stripeService.cancelSubscription(subscription.externalId);
+      } else {
+        return {
+          success: false,
+          message: "Subscription not found",
+        };
+      }
     } else {
       throw new UnauthorizedException({
         success: false,

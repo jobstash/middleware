@@ -34,6 +34,7 @@ import { UpdateClientPreferencesInput } from "./dto/update-client-preferences.in
 import { BaseClient } from "src/shared/interfaces/client.interface";
 import { RetryCreateClientTagsInput } from "./dto/retry-create-client-tags.input";
 import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
+import { StripeService } from "src/stripe/stripe.service";
 
 @Controller("scorer")
 export class ScorerController {
@@ -44,6 +45,7 @@ export class ScorerController {
     private readonly scorerService: ScorerService,
     private readonly configService: ConfigService,
     private readonly subscriptionsService: SubscriptionsService,
+    private readonly stripeService: StripeService,
   ) {}
 
   @Get("client")
@@ -199,12 +201,14 @@ export class ScorerController {
                   }),
                 ),
             );
-            const result = await this.subscriptionsService.recordQuotaUsage(
-              orgId,
-              address,
-              1,
-              "veri",
-            );
+            const result =
+              await this.subscriptionsService.recordMeteredServiceUsage(
+                orgId,
+                address,
+                1,
+                "veri",
+                this.stripeService,
+              );
             if (result.success) {
               return res.data;
             } else {
@@ -233,12 +237,14 @@ export class ScorerController {
                   }),
                 ),
             );
-            const result = await this.subscriptionsService.recordQuotaUsage(
-              orgId,
-              address,
-              1,
-              "veri",
-            );
+            const result =
+              await this.subscriptionsService.recordMeteredServiceUsage(
+                orgId,
+                address,
+                1,
+                "veri",
+                this.stripeService,
+              );
             if (result.success) {
               return res.data;
             } else {

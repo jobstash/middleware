@@ -31,7 +31,7 @@ import { ProfileService } from "src/auth/profile/profile.service";
 import { ScorerService } from "src/scorer/scorer.service";
 import { AddUserNoteInput } from "./dto/add-user-note.dto";
 import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
-import { NewSubscriptionInput } from "src/subscriptions/new-subscription.input";
+import { NewSubscriptionInput } from "src/subscriptions/dto/new-subscription.input";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { StripeService } from "src/stripe/stripe.service";
 

@@ -13,8 +13,18 @@ import {
   SubscriptionMetadata,
 } from "src/stripe/dto/webhook-data.dto";
 import { JobsService } from "src/jobs/jobs.service";
-import { NewSubscriptionInput } from "src/subscriptions/new-subscription.input";
-import { BUNDLE_LOOKUP_KEYS, LOOKUP_KEYS } from "src/shared/constants";
+import { NewSubscriptionInput } from "src/subscriptions/dto/new-subscription.input";
+import {
+  BUNDLE_LOOKUP_KEYS,
+  LOOKUP_KEYS,
+  METERED_SERVICE_LOOKUP_KEYS,
+} from "src/shared/constants";
+import {
+  JOBSTASH_BUNDLE_PRICING,
+  VERI_BUNDLE_PRICING,
+} from "src/shared/constants/pricing";
+import { MeteredService, QuotaUsage } from "src/shared/interfaces/org";
+import { ChangeSubscriptionInput } from "src/subscriptions/dto/change-subscription.input";
 
 @Injectable()
 export class StripeService {
@@ -29,16 +39,27 @@ export class StripeService {
     private readonly subscriptionsService: SubscriptionsService,
   ) {}
 
-  async createCustomer(
+  async createOrRetrieveCustomer(
     email: string,
-  ): Promise<ResponseWithOptionalData<Stripe.Customer>> {
+  ): Promise<
+    ResponseWithOptionalData<Stripe.Customer | Stripe.DeletedCustomer>
+  > {
     try {
-      const customer = await this.stripe.customers.create({ email });
-      return {
-        success: true,
-        message: "Customer created successfully",
-        data: customer,
-      };
+      const existingCustomer = data(await this.getCustomerByEmail(email));
+      if (existingCustomer) {
+        return {
+          success: true,
+          message: "Customer retrieved successfully",
+          data: existingCustomer,
+        };
+      } else {
+        const customer = await this.stripe.customers.create({ email });
+        return {
+          success: true,
+          message: "Customer created successfully",
+          data: customer,
+        };
+      }
     } catch (error) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -67,9 +88,7 @@ export class StripeService {
     try {
       const customers = await this.stripe.customers.list({
         email,
-        limit: 1,
       });
-      console.log(customers);
       return {
         success: true,
         message: "Customer retrieved successfully",
@@ -125,6 +144,41 @@ export class StripeService {
     }
   }
 
+  async getCustomerBySubscriptionId(
+    id: string,
+  ): Promise<
+    ResponseWithOptionalData<
+      Stripe.Customer | Stripe.DeletedCustomer | undefined
+    >
+  > {
+    try {
+      const subscription = await this.stripe.subscriptions.retrieve(id);
+      const customer = await this.stripe.customers.retrieve(
+        subscription.customer as string,
+      );
+      return {
+        success: true,
+        message: "Customer retrieved successfully",
+        data: customer,
+      };
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "stripe-call",
+          source: "stripe.service",
+        });
+        Sentry.captureException(error);
+      });
+      this.logger.error(
+        `StripeService::getCustomerByEmail Failed to get customer ${error.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to get customer",
+      };
+    }
+  }
+
   async createCheckoutSession(
     lineItems: Stripe.Checkout.SessionCreateParams.LineItem[],
     mode: "subscription" | "payment" = "subscription",
@@ -141,7 +195,6 @@ export class StripeService {
         customer: customerId,
         success_url: `${this.domain}/payment/confirmation`,
         cancel_url: `${this.domain}`,
-        allow_promotion_codes: true,
         metadata,
       });
       return {
@@ -172,38 +225,6 @@ export class StripeService {
     }
   }
 
-  async createCustomerPortalSession(
-    sessionId: string,
-  ): Promise<ResponseWithOptionalData<string>> {
-    try {
-      const session = await this.stripe.billingPortal.sessions.create({
-        customer: sessionId,
-        return_url: `${this.domain}`,
-      });
-      return {
-        success: true,
-        message: "Customer portal session created successfully",
-        data: session.url,
-      };
-    } catch (error) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "stripe-call",
-          source: "stripe.service",
-        });
-        scope.setExtra("input", sessionId);
-        Sentry.captureException(error);
-      });
-      this.logger.error(
-        `StripeService::createCustomerPortalSession Failed to create customer portal session ${error.message}`,
-      );
-      return {
-        success: false,
-        message: "Failed to create customer portal session",
-      };
-    }
-  }
-
   async getProductPrices(): Promise<Stripe.Price[]> {
     try {
       const prices = await this.stripe.prices.list({
@@ -225,6 +246,187 @@ export class StripeService {
         `StripeService::getProductPrices Failed to get product prices ${error.message}`,
       );
       return [];
+    }
+  }
+
+  async getMeteredServiceMeter(
+    service: MeteredService,
+  ): Promise<ResponseWithOptionalData<Stripe.Billing.Meter>> {
+    try {
+      const meters = await this.stripe.billing.meters.list({
+        expand: ["data"],
+        limit: 100,
+      });
+      const meter = meters.data.find(
+        x => x.event_name === METERED_SERVICE_LOOKUP_KEYS[service].eventName,
+      );
+      return {
+        success: true,
+        message: "Successfully retrieved metered service meter",
+        data: meter,
+      };
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "stripe-call",
+          source: "stripe.service",
+        });
+        scope.setExtra("input", { service });
+        Sentry.captureException(error);
+      });
+      this.logger.error(
+        `StripeService::getMeteredServiceMeter Failed to retrieve metered service meter ${error.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to retrieve metered service meter",
+      };
+    }
+  }
+
+  async getMeteredServiceUsage(
+    externalId: string,
+    service: MeteredService,
+    epochStart: number,
+    epochEnd: number,
+    cursor?: string,
+    limit?: number,
+    valueGroupingWindow?: Stripe.Billing.MeterListEventSummariesParams.ValueGroupingWindow,
+  ): Promise<ResponseWithOptionalData<QuotaUsage[]>> {
+    try {
+      const customer = data(await this.getCustomerBySubscriptionId(externalId));
+      const meter = data(await this.getMeteredServiceMeter(service));
+      if (customer) {
+        const usage = await this.stripe.billing.meters.listEventSummaries(
+          meter.id,
+          {
+            customer: customer.id,
+            limit: limit ?? 100,
+            start_time: epochStart,
+            end_time: epochEnd,
+            starting_after: cursor,
+            value_grouping_window: valueGroupingWindow,
+          },
+        );
+        return {
+          success: true,
+          message: "Successfully retrieved metered service usage",
+          data: usage.data.map(x => ({
+            id: x.id,
+            service,
+            amount: Number(x.aggregated_value),
+            timestamp: x.end_time,
+          })),
+        };
+      } else {
+        return {
+          success: false,
+          message:
+            "Failed to retrieve metered service usage for missing customer",
+        };
+      }
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "stripe-call",
+          source: "stripe.service",
+        });
+        scope.setExtra("input", { externalId, service, epochStart, epochEnd });
+        Sentry.captureException(error);
+      });
+      this.logger.error(
+        `StripeService::getMeteredServiceUsage Failed to retrieve metered service usage ${error.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to retrieve metered service usage",
+      };
+    }
+  }
+
+  async recordMeteredServiceUsage(
+    externalId: string,
+    service: MeteredService,
+    amount: number,
+  ): Promise<ResponseWithNoData> {
+    try {
+      const customer = data(await this.getCustomerBySubscriptionId(externalId));
+      if (customer) {
+        const keys = METERED_SERVICE_LOOKUP_KEYS[service];
+        await this.stripe.billing.meterEvents.create({
+          event_name: keys.eventName,
+          payload: {
+            stripe_customer_id: customer.id,
+            [keys.valueKey]: amount.toString(),
+          },
+        });
+        return {
+          success: true,
+          message: "Successfully recorded metered service usage",
+        };
+      } else {
+        return {
+          success: false,
+          message:
+            "Failed to record metered service usage for missing customer",
+        };
+      }
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "stripe-call",
+          source: "stripe.service",
+        });
+        scope.setExtra("input", { externalId, service, amount });
+        Sentry.captureException(error);
+      });
+      this.logger.error(
+        `StripeService::recordMeteredServiceUsage Failed to record metered service usage ${error.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to record metered service usage",
+      };
+    }
+  }
+
+  async getCustomerInvoices(
+    externalId: string,
+  ): Promise<ResponseWithOptionalData<Stripe.Invoice[]>> {
+    try {
+      const customer = data(await this.getCustomerBySubscriptionId(externalId));
+      if (!customer) {
+        return {
+          success: false,
+          message: "Failed to retrieve customer invoices for missing customer",
+        };
+      }
+      const invoices = await this.stripe.invoices.list({
+        customer: customer.id,
+        limit: 100,
+        subscription: externalId,
+      });
+      return {
+        success: true,
+        message: "Successfully retrieved customer invoices",
+        data: invoices.data,
+      };
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "stripe-call",
+          source: "stripe.service",
+        });
+        scope.setExtra("input", { externalId });
+        Sentry.captureException(error);
+      });
+      this.logger.error(
+        `StripeService::getCustomerInvoices Failed to retrieve customer invoices ${error.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to retrieve customer invoices",
+      };
     }
   }
 
@@ -262,34 +464,26 @@ export class StripeService {
     }
   }
 
-  async handleStripeSubscriptionUpdated(
-    event: Stripe.CustomerSubscriptionUpdatedEvent,
-  ): Promise<void> {
-    this.logger.log(`Stripe subscription updated: ${event.id}`);
-
-    const sub = event.data.object as Stripe.Subscription;
-
-    if (sub.cancel_at_period_end || sub.status === "canceled") {
-      await this.handleStripeSubscriptionDeleted(sub);
-    }
-  }
-
   async handleInvoicePaymentSucceeded(
     event: Stripe.InvoicePaymentSucceededEvent,
   ): Promise<void> {
     const invoice = event.data.object as Stripe.Invoice;
 
-    if (invoice.billing_reason !== "subscription_cycle" || !invoice.parent)
+    if (
+      !["subscription_cycle", "subscription_update"].includes(
+        invoice.billing_reason,
+      ) ||
+      !invoice.parent
+    )
       return;
 
     const subscriptionId = invoice.parent.subscription_details
       .subscription as string;
 
-    const sub = (await this.stripe.subscriptions.retrieve(
-      subscriptionId,
-    )) as Stripe.Subscription;
+    const sub = (await this.stripe.subscriptions.retrieve(subscriptionId, {
+      expand: ["items.data"],
+    })) as Stripe.Subscription;
 
-    // Ignore starter tier (managed in‑house)
     if (sub.metadata?.jobstash === "starter") return;
 
     this.logger.log(`Handling invoice payment succeeded: ${invoice.id}`);
@@ -306,13 +500,11 @@ export class StripeService {
       l.lookupKey?.startsWith("jobstash_"),
     );
     if (!jobstashLine) {
-      this.logger.warn(
-        `invoice.payment_succeeded lacks a jobstash line – skipping`,
-      );
+      this.logger.warn(`Jobstash bundle not selected. Skipping`);
       return;
     }
 
-    const newTier = jobstashLine.lookupKey.split("_")[1]; // growth|pro|max
+    const newTier = jobstashLine.lookupKey.split("_")[1];
     const newExtraSeats = Math.max(jobstashLine.lineItem.quantity - 1, 0);
 
     const veriLine = itemLines.find(l => l.lookupKey?.startsWith("veri_"));
@@ -322,7 +514,6 @@ export class StripeService {
       itemLines.find(l => l.lookupKey === LOOKUP_KEYS.STASH_ALERT_PRICE) !==
       undefined;
 
-    /* ──────────── Compare with DB to decide renewal vs change ──────────── */
     const existing = data(
       await this.subscriptionsService.getSubscriptionInfoByExternalId(
         subscriptionId,
@@ -352,22 +543,20 @@ export class StripeService {
         amount: invoice.amount_paid,
       };
 
-      await this.subscriptionsService.changeSubscription(
-        meta,
-        invoice.id,
-        subscriptionId,
-      );
+      await this.subscriptionsService.changeSubscription(meta, invoice.id, sub);
     } else {
-      this.logger.log(`Handling subscription renewal for ${subscriptionId}`);
+      this.logger.log(
+        `Handling subscription renewal/reactivation for ${subscriptionId}`,
+      );
       await this.subscriptionsService.renewSubscription(
         subscriptionId,
-        invoice.amount_due,
-        subscriptionId,
+        invoice.amount_paid,
+        invoice.id,
       );
     }
   }
 
-  async handleStripeSubscriptionDeleted(
+  async handleStripeSubscriptionCanceled(
     sub: Stripe.Subscription,
   ): Promise<void> {
     try {
@@ -461,7 +650,7 @@ export class StripeService {
 
       if (dto.jobstash !== "starter") {
         this.logger.log("Creating customer");
-        const customer = data(await this.createCustomer(input.email));
+        const customer = data(await this.createOrRetrieveCustomer(input.email));
         const { id, url, total } = data(
           await this.createCheckoutSession(
             lineItems,
@@ -532,7 +721,7 @@ export class StripeService {
     }
   }
 
-  async initiateSubscriptionRenewal(
+  async initiateSubscriptionReactivation(
     wallet: string,
     orgId: string,
   ): Promise<ResponseWithOptionalData<string>> {
@@ -598,7 +787,7 @@ export class StripeService {
                 wallet,
                 amount,
               }),
-              action: "new-subscription",
+              action: "subscription-renewal",
             },
           ),
         );
@@ -645,141 +834,137 @@ export class StripeService {
   async initiateSubscriptionChange(
     wallet: string,
     orgId: string,
-    dto: NewSubscriptionInput,
-  ): Promise<ResponseWithOptionalData<string>> {
+    dto: ChangeSubscriptionInput,
+  ): Promise<ResponseWithNoData> {
     try {
       const {
-        tier: jobstash,
-        veri,
-        stashAlert,
-        extraSeats,
+        tier: currentTier,
+        veri: currentVeri,
+        stashAlert: currentStash,
+        extraSeats: currentSeats,
+        externalId,
       } = data(
         await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
       );
 
-      const {
-        jobstash: newJobstash,
-        veri: newVeri,
-        stashAlert: newStashAlert,
-        extraSeats: newExtraSeats,
-      } = dto;
+      const paygCurrently = await this.hasPaygEnabled(externalId);
 
       if (
-        jobstash === newJobstash &&
-        veri === newVeri &&
-        stashAlert === newStashAlert &&
-        extraSeats === newExtraSeats
+        currentTier === dto.jobstash &&
+        currentVeri === dto.veri &&
+        currentStash === dto.stashAlert &&
+        currentSeats === dto.extraSeats &&
+        paygCurrently === (dto.paygOptIn ?? false)
       ) {
-        return {
-          success: false,
-          message: "Subscription plan change not required",
-        };
+        return { success: false, message: "No change required" };
       }
 
-      if (newJobstash === "starter") {
-        return {
-          success: false,
-          message:
-            "You can't change your plan to a free trial. Please select a premium plan to change to.",
-        };
+      const prices = await this.getProductPrices();
+      const subscription = (await this.stripe.subscriptions.retrieve(
+        externalId,
+        { expand: ["items.data.price"] },
+      )) as Stripe.Subscription;
+
+      const priceId = (lk: string): string =>
+        prices.find(p => p.lookup_key === lk)?.id;
+      const itemsByKey = new Map(
+        subscription.items.data.map(i => [i.price.lookup_key, i]),
+      );
+
+      const bundleKey = BUNDLE_LOOKUP_KEYS.JOBSTASH[dto.jobstash];
+      const veriKey = dto.veri ? BUNDLE_LOOKUP_KEYS.VERI[dto.veri] : null;
+      const stashKey = dto.stashAlert ? LOOKUP_KEYS.STASH_ALERT_PRICE : null;
+      const paygKey = LOOKUP_KEYS.VERI_PAYG_PRICE;
+
+      const updateItems: Stripe.SubscriptionUpdateParams.Item[] = [];
+
+      for (const [k, itm] of itemsByKey) {
+        if (k?.startsWith("jobstash_") && k !== bundleKey)
+          updateItems.push({ id: itm.id, deleted: true });
+        if (k?.startsWith("veri_") && k !== veriKey && k !== paygKey)
+          updateItems.push({ id: itm.id, deleted: true });
+      }
+
+      if (itemsByKey.has(bundleKey)) {
+        const itm = itemsByKey.get(bundleKey);
+        updateItems.push({
+          id: itm.id,
+          price: priceId(bundleKey),
+          quantity: 1 + dto.extraSeats,
+        });
       } else {
-        const email = await this.subscriptionsService.getSubscriptionOwnerEmail(
-          wallet,
-          orgId,
-        );
-
-        const lookupKeys = [
-          newJobstash ? BUNDLE_LOOKUP_KEYS.JOBSTASH[newJobstash] : null,
-          newVeri ? BUNDLE_LOOKUP_KEYS.VERI[newVeri] : null,
-          newStashAlert ? LOOKUP_KEYS.STASH_ALERT_PRICE : null,
-        ].filter(Boolean);
-        const prices = await this.getProductPrices().then(x =>
-          x.filter(x => lookupKeys.includes(x.lookup_key)),
-        );
-        const lineItems = prices.map(x => {
-          if (x.lookup_key.includes("jobstash")) {
-            return {
-              price: x.id,
-              quantity: 1 + newExtraSeats,
-            };
-          } else {
-            return {
-              price: x.id,
-              quantity: 1,
-            };
-          }
+        updateItems.push({
+          price: priceId(bundleKey),
+          quantity: 1 + dto.extraSeats,
         });
+      }
 
-        const amount = await this.calculateAmount(lineItems);
-
-        const result = await this.getCustomerByEmail(email);
-
-        const customer = data(result);
-        console.log(customer);
-        if (!customer) {
-          return {
-            success: false,
-            message: "Customer not found",
-          };
-        }
-
-        const paymentLink = data(
-          await this.createCheckoutSession(
-            lineItems,
-            "subscription",
-            customer?.id,
-            {
-              calldata: JSON.stringify({
-                orgId,
-                jobstash: newJobstash,
-                veri: newVeri,
-                stashAlert: newStashAlert,
-                extraSeats: newExtraSeats,
-                wallet,
-                amount,
-              }),
-              action: "subscription-change",
-            },
-          ),
-        );
-
-        if (paymentLink) {
-          await this.subscriptionsService.createPendingPayment(
-            wallet,
-            orgId,
-            amount,
-            "subscription-change",
-            paymentLink.id,
-            paymentLink.url,
-          );
-          return {
-            success: true,
-            message: "Subscription change initiated successfully",
-            data: paymentLink.url,
-          };
-        } else {
-          return {
-            success: false,
-            message: "Subscription change initiation failed",
-          };
+      if (veriKey) {
+        if (!itemsByKey.has(veriKey)) {
+          updateItems.push({ price: priceId(veriKey), quantity: 1 });
         }
       }
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "service-call",
-          source: "subscriptions.service",
+
+      const stashExisting = itemsByKey.get(LOOKUP_KEYS.STASH_ALERT_PRICE);
+      if (stashKey && !stashExisting) {
+        updateItems.push({ price: priceId(stashKey), quantity: 1 });
+      } else if (!stashKey && stashExisting) {
+        updateItems.push({ id: stashExisting.id, deleted: true });
+      }
+
+      const paygExisting = itemsByKey.get(paygKey);
+      if (dto.paygOptIn && !paygExisting) {
+        updateItems.push({
+          price: priceId(paygKey),
         });
+      } else if (!dto.paygOptIn && paygExisting) {
+        updateItems.push({ id: paygExisting.id, deleted: true });
+      }
+
+      const bundleUpgraded =
+        JOBSTASH_BUNDLE_PRICING[dto.jobstash] >
+        JOBSTASH_BUNDLE_PRICING[currentTier];
+
+      const veriUpgraded =
+        (dto.veri ? VERI_BUNDLE_PRICING[dto.veri] : 0) >
+        (currentVeri ? VERI_BUNDLE_PRICING[currentVeri] : 0);
+
+      const stashAlertActivated = !currentStash && dto.stashAlert;
+      const paygActivated = !paygCurrently && (dto.paygOptIn ?? false);
+
+      const isUpgrade =
+        bundleUpgraded || veriUpgraded || stashAlertActivated || paygActivated;
+
+      await this.stripe.subscriptions.update(externalId, {
+        proration_behavior: isUpgrade ? "always_invoice" : "none",
+        billing_cycle_anchor: isUpgrade ? "now" : "unchanged",
+        items: updateItems,
+      });
+
+      return {
+        success: true,
+        message: "Subscription change initiated",
+      };
+    } catch (err) {
+      Sentry.withScope(s => {
+        s.setTags({ action: "subscription-change", source: "stripe.service" });
+        s.setExtra("input", { wallet, orgId, dto });
         Sentry.captureException(err);
       });
       this.logger.error(
-        `SubscriptionsService::initiateSubscriptionChange ${err.message}`,
+        `StripeService::initiateSubscriptionChange ${err.message}`,
       );
-      return {
-        success: false,
-        message: `Error changing subscription`,
-      };
+      return { success: false, message: "Failed to initiate plan change" };
     }
+  }
+
+  private async hasPaygEnabled(subId: string): Promise<boolean> {
+    const sub = (await this.stripe.subscriptions.retrieve(subId, {
+      expand: ["items.data.price"],
+    })) as Stripe.Subscription;
+    return sub.items.data.some(
+      i => i.price.lookup_key === LOOKUP_KEYS.VERI_PAYG_PRICE,
+    );
   }
 
   async initiateJobPromotionPayment(

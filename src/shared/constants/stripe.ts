@@ -1,7 +1,22 @@
+import { MeteredService } from "../interfaces/org";
+
 export const LOOKUP_KEYS: Record<string, string> = {
   JOB_PROMOTION_PRICE: "job_promo",
   STASH_ALERT_PRICE: "stash_alert",
   EXTRA_SEATS_PRICE: "extra_seats",
+};
+
+export const METERED_SERVICE_LOOKUP_KEYS: Record<
+  MeteredService,
+  {
+    eventName: string;
+    valueKey: string;
+  }
+> = {
+  veri: {
+    eventName: "veri_pay_as_you_go_meter",
+    valueKey: "credits",
+  },
 };
 
 export const BUNDLE_LOOKUP_KEYS = {

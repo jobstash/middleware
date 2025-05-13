@@ -184,6 +184,7 @@ export class Subscription {
       t.null,
     ]),
     externalId: t.union([t.string, t.null]),
+    veriPayg: t.boolean,
     stashPool: t.boolean,
     stashAlert: t.boolean,
     atsIntegration: t.boolean,
@@ -209,6 +210,9 @@ export class Subscription {
 
   @ApiProperty()
   externalId: string | null;
+
+  @ApiProperty()
+  veriPayg: boolean;
 
   @ApiProperty()
   stashAlert: boolean;
@@ -273,6 +277,7 @@ export class Subscription {
       expiryTimestamp,
       createdTimestamp,
       boostedVacancyMultiplier,
+      veriPayg,
     } = raw;
     const result = Subscription.SubscriptionType.decode({
       ...raw,
@@ -292,6 +297,7 @@ export class Subscription {
     this.extraSeats = extraSeats;
     this.externalId = externalId;
     this.atsIntegration = atsIntegration;
+    this.veriPayg = veriPayg;
     this.expiryTimestamp = expiryTimestamp;
     this.createdTimestamp = createdTimestamp;
     this.boostedVacancyMultiplier = boostedVacancyMultiplier;
@@ -420,7 +426,12 @@ export class Subscription {
           this.getCurrentEpochAggregateUsage().get(service) ?? 0;
         const availableQuota =
           this.getEpochAggregateQuota(currentTime).get(service) ?? 0;
-        return availableQuota - epochUsage > 0;
+        const hasQuota = availableQuota - epochUsage > 0;
+        if (!hasQuota && !this.veriPayg) {
+          return false;
+        } else {
+          return hasQuota;
+        }
       } else if (service === "boostedVacancyMultiplier") {
         return this.boostedVacancyMultiplier > 0;
       } else {

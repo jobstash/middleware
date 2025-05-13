@@ -10,6 +10,7 @@ export class SubscriptionEntity {
       status: this.raw.status,
       veri: notStringOrNull(this.raw.veri),
       stashAlert: this.raw.stashAlert ?? false,
+      veriPayg: this.raw.veriPayg ?? false,
       extraSeats: this.raw.extraSeats ?? 0,
       stashPool: this.raw.stashPool ?? false,
       externalId: notStringOrNull(this.raw.externalId),
