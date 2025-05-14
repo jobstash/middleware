@@ -51,7 +51,7 @@ export class PublicService {
       CYPHER runtime = parallel
       MATCH (structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
       WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-      AND (CASE WHEN $authenticated = true THEN true ELSE structured_jobpost.access = "public" END)
+      AND (CASE WHEN $authenticated = true THEN structured_jobpost.publishedTimestamp <= 1746057600000 ELSE structured_jobpost.access = "public" END)
       MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
       WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
       WITH DISTINCT tag, structured_jobpost
