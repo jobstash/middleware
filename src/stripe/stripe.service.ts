@@ -567,36 +567,54 @@ export class StripeService {
   async handleStripeSubscriptionUpdated(
     evt: Stripe.CustomerSubscriptionUpdatedEvent,
   ): Promise<void> {
-    this.logger.log(`Handling subscription updated - ${evt.id}`);
-    const sub = evt.data.object as Stripe.Subscription;
-    const externalId = sub.id;
+    try {
+      const sub = evt.data.object as Stripe.Subscription;
+      const externalId = sub.id;
 
-    const existing = data(
-      await this.subscriptionsService.getSubscriptionInfoByExternalId(
-        externalId,
-      ),
-    );
+      if (!evt.data.previous_attributes.items) {
+        return;
+      }
 
-    if (!existing) {
-      this.logger.warn(
-        `Subscription ${externalId} not found in DB when handling subscription.updated`,
+      this.logger.log(`Handling subscription updated - ${evt.id}`);
+
+      const existing = data(
+        await this.subscriptionsService.getSubscriptionInfoByExternalId(
+          externalId,
+        ),
       );
-      return;
-    }
 
-    const previousPayg = evt.data.previous_attributes.items.data.some(
-      i => i.price.lookup_key === LOOKUP_KEYS.VERI_PAYG_PRICE,
-    );
+      if (!existing) {
+        this.logger.warn(
+          `Subscription ${externalId} not found in DB when handling subscription.updated`,
+        );
+        return;
+      }
 
-    const newPayg = sub.items.data.some(
-      i => i.price.lookup_key === LOOKUP_KEYS.VERI_PAYG_PRICE,
-    );
+      const previousPayg = evt.data.previous_attributes.items.data.some(
+        i => i.price.lookup_key === LOOKUP_KEYS.VERI_PAYG_PRICE,
+      );
 
-    if (previousPayg !== newPayg) {
-      this.logger.log(`Handling payg opt in state change`);
-      await this.subscriptionsService.changeSubscriptionPaygState(
-        externalId,
-        newPayg,
+      const newPayg = sub.items.data.some(
+        i => i.price.lookup_key === LOOKUP_KEYS.VERI_PAYG_PRICE,
+      );
+
+      if (previousPayg !== newPayg) {
+        this.logger.log(`Handling payg opt in state change`);
+        await this.subscriptionsService.changeSubscriptionPaygState(
+          externalId,
+          newPayg,
+        );
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "stripe.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `StripeService::handleStripeSubscriptionUpdated ${err.message}`,
       );
     }
   }
@@ -605,7 +623,7 @@ export class StripeService {
     evt: Stripe.CustomerSubscriptionDeletedEvent,
   ): Promise<void> {
     try {
-      this.logger.log(`Handling subscription updated - ${evt.id}`);
+      this.logger.log(`Handling subscription cancelled - ${evt.id}`);
       await this.subscriptionsService.cancelSubscription(evt.data.object.id);
     } catch (err) {
       this.logger.error(
@@ -640,16 +658,11 @@ export class StripeService {
     }, 0);
   }
 
-  async cancelSubscription(orgId: string): Promise<ResponseWithNoData> {
+  async cancelSubscription(externalId: string): Promise<ResponseWithNoData> {
     try {
-      const { externalId } = data(
-        await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
-      );
-      if (externalId) {
-        await this.stripe.subscriptions.update(externalId, {
-          cancel_at_period_end: true,
-        });
-      }
+      await this.stripe.subscriptions.update(externalId, {
+        cancel_at_period_end: true,
+      });
       return {
         success: true,
         message: "Subscription cancelled successfully",
@@ -660,6 +673,108 @@ export class StripeService {
         success: false,
         message: "Error cancelling subscription",
       };
+    }
+  }
+
+  async resumeSubscription(orgId: string): Promise<ResponseWithNoData> {
+    try {
+      const existing = data(
+        await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
+      );
+      if (!existing) {
+        return { success: false, message: "Subscription not found" };
+      }
+
+      const { externalId } = existing;
+
+      const sub = (await this.stripe.subscriptions.retrieve(externalId, {
+        expand: ["latest_invoice.payment_intent"],
+      })) as Stripe.Subscription;
+
+      if (!sub) {
+        return { success: false, message: "Subscription not found on Stripe" };
+      }
+
+      switch (sub.status) {
+        case "canceled":
+        case "incomplete":
+        case "incomplete_expired":
+          return {
+            success: false,
+            message:
+              "This subscription is fully canceled or expired – please start a new checkout to reactivate.",
+          };
+
+        case "active":
+        case "trialing": {
+          if (sub.cancel_at_period_end) {
+            await this.stripe.subscriptions.update(externalId, {
+              cancel_at_period_end: false,
+            });
+            return {
+              success: true,
+              message: "Pending cancellation revoked.",
+            };
+          }
+          if (sub.pause_collection) {
+            await this.stripe.subscriptions.update(externalId, {
+              pause_collection: null,
+            });
+            return {
+              success: true,
+              message: "Subscription un-paused successfully.",
+            };
+          }
+          return { success: false, message: "Subscription is already active." };
+        }
+
+        case "paused":
+          await this.stripe.subscriptions.update(externalId, {
+            pause_collection: null,
+          });
+          return {
+            success: true,
+            message: "Subscription un-paused successfully.",
+          };
+
+        case "past_due":
+        case "unpaid": {
+          if (sub.latest_invoice) {
+            try {
+              await this.stripe.invoices.pay(sub.latest_invoice as string);
+              return {
+                success: true,
+                message:
+                  "Payment attempted. Subscription will reactivate once the charge succeeds.",
+              };
+            } catch {
+              return {
+                success: false,
+                message:
+                  "Outstanding invoice must be paid. Please update the payment method and retry.",
+              };
+            }
+          }
+          return {
+            success: false,
+            message:
+              "Outstanding invoice must be paid. Please update the payment method.",
+          };
+        }
+
+        default:
+          return {
+            success: false,
+            message: `Cannot reactivate subscription while status is “${sub.status}”.`,
+          };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({ action: "service-call", source: "stripe.service" });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`StripeService::resumeSubscription ${err.message}`);
+      return { success: false, message: "Error resuming subscription" };
     }
   }
 
@@ -774,126 +889,14 @@ export class StripeService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "service-call",
-          source: "subscriptions.service",
+          source: "stripe.service",
         });
         Sentry.captureException(err);
       });
-      this.logger.error(
-        `SubscriptionsService::initiateSubscription ${err.message}`,
-      );
+      this.logger.error(`StripeService::initiateSubscription ${err.message}`);
       return {
         success: false,
         message: `Error initiating subscription`,
-      };
-    }
-  }
-
-  async initiateSubscriptionReactivation(
-    wallet: string,
-    orgId: string,
-  ): Promise<ResponseWithOptionalData<string>> {
-    try {
-      const {
-        tier: jobstash,
-        veri,
-        stashAlert,
-        extraSeats,
-      } = data(
-        await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
-      );
-
-      if (jobstash === "starter") {
-        return {
-          success: false,
-          message:
-            "You can't renew your free trial. Please upgrade to a premium plan to keep using JobStash.xyz.",
-        };
-      } else {
-        const email = await this.subscriptionsService.getSubscriptionOwnerEmail(
-          wallet,
-          orgId,
-        );
-
-        const lookupKeys = [
-          jobstash ? BUNDLE_LOOKUP_KEYS.JOBSTASH[jobstash] : null,
-          veri ? BUNDLE_LOOKUP_KEYS.VERI[veri] : null,
-          stashAlert ? LOOKUP_KEYS.STASH_ALERT_PRICE : null,
-        ].filter(Boolean);
-        const prices = await this.getProductPrices().then(x =>
-          x.filter(x => lookupKeys.includes(x.lookup_key)),
-        );
-        const lineItems = prices.map(x => {
-          if (x.lookup_key.includes("jobstash")) {
-            return {
-              price: x.id,
-              quantity: 1 + extraSeats,
-            };
-          } else {
-            return {
-              price: x.id,
-              quantity: 1,
-            };
-          }
-        });
-
-        const amount = await this.calculateAmount(lineItems);
-
-        const customer = data(await this.getCustomerByEmail(email));
-        const { id, url, total } = data(
-          await this.createCheckoutSession(
-            lineItems,
-            "subscription",
-            customer?.id,
-            {
-              calldata: JSON.stringify({
-                orgId,
-                jobstash,
-                veri,
-                stashAlert,
-                extraSeats,
-                wallet,
-                amount,
-              }),
-              action: "subscription-renewal",
-            },
-          ),
-        );
-
-        if (id && url && total) {
-          await this.subscriptionsService.createPendingPayment(
-            wallet,
-            orgId,
-            amount,
-            "subscription-renewal",
-            id,
-            url,
-          );
-          return {
-            success: true,
-            message: "Subscription renewal initiated successfully",
-            data: url,
-          };
-        } else {
-          return {
-            success: false,
-            message: "Subscription renewal initiation failed",
-          };
-        }
-      }
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "service-call",
-          source: "subscriptions.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `SubscriptionsService::initiateSubscriptionRenewal ${err.message}`,
-      );
-      return {
-        success: false,
-        message: `Error renewing subscription`,
       };
     }
   }

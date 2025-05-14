@@ -319,10 +319,7 @@ export class SubscriptionsController {
       await this.userService.findOrgOwnerProfileByOrgId(orgId),
     );
     if (owner?.wallet === address) {
-      return this.stripeService.initiateSubscriptionReactivation(
-        address,
-        orgId,
-      );
+      return this.stripeService.resumeSubscription(orgId);
     } else {
       throw new UnauthorizedException({
         success: false,

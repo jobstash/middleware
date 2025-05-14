@@ -31,5 +31,5 @@ export class ValidationError {
   error: string;
 }
 
-export const data = <X>(value: Response<X> | ResponseWithNoData): X | null =>
-  (value as Response<X>)?.data;
+export const data = <X>(value: ResponseWithOptionalData<X>): X | null =>
+  (value as Response<X>)?.data ?? null;

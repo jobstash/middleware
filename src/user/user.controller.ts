@@ -100,7 +100,10 @@ export class UserController {
   ): Promise<ResponseWithOptionalData<string>> {
     this.logger.log(`/users/signup ${address}, ${JSON.stringify(body)}`);
     const hasOwner = await this.userService.orgHasOwner(body.orgId);
-    if (!hasOwner) {
+    const owner = data(
+      await this.userService.findOrgOwnerProfileByOrgId(body.orgId),
+    );
+    if (!hasOwner || owner?.wallet === address) {
       const verifications =
         data(await this.profileService.getUserVerifications(address)) ?? [];
       const verified = verifications.find(
