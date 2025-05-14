@@ -374,6 +374,7 @@ export class SubscriptionsController {
       await this.userService.findOrgOwnerProfileByOrgId(orgId),
     );
     if (owner?.wallet === address) {
+      await this.stripeService.deleteSubscription(orgId);
       return this.subscriptionsService.resetSubscriptionState(orgId);
     } else {
       throw new UnauthorizedException({

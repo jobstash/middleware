@@ -256,6 +256,7 @@ export class SubscriptionsService {
                     CREATE (subscription:OrgSubscription {id: randomUUID()})
                     SET subscription.externalId = $externalId
                     SET subscription.status = "active"
+                    SET subscription.veriPayg = false
                     SET subscription.duration = $duration
                     SET subscription.createdTimestamp = $timestamp
                     SET subscription.expiryTimestamp = $expiryTimestamp
@@ -1113,10 +1114,56 @@ export class SubscriptionsService {
     }
   }
 
+  async changeSubscriptionPaygState(
+    subscriptionId: string,
+    paygState: boolean,
+  ): Promise<ResponseWithNoData> {
+    try {
+      this.logger.log("Changing subscription payg state");
+      const result = await this.neogma.queryRunner.run(
+        `
+          MATCH (subscription:OrgSubscription {externalId: $subscriptionId})
+          SET subscription.veriPayg = $paygState
+          RETURN subscription
+        `,
+        { subscriptionId, paygState },
+      );
+      if (result.records.length === 0) {
+        this.logger.log("Subscription not found");
+        return {
+          success: false,
+          message: "Subscription not found",
+        };
+      }
+      return {
+        success: true,
+        message: "Subscription payg state changed successfully",
+      };
+    } catch (err) {
+      this.logger.error(
+        `SubscriptionsService::changeSubscriptionPaygState ${err.message}`,
+      );
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "business-logic",
+          source: "subscriptions.service",
+        });
+        scope.setExtra("input", {
+          subscriptionId,
+          paygState,
+          action: "subscription-update",
+        });
+        Sentry.captureException(err);
+      });
+      return {
+        success: false,
+        message: "Error changing subscription payg state",
+      };
+    }
+  }
+
   async changeSubscription(
-    dto: Omit<SubscriptionMetadata, "orgId" | "wallet"> & {
-      paygOptIn?: boolean;
-    },
+    dto: Omit<SubscriptionMetadata, "orgId" | "wallet">,
     invoiceId: string,
     subscription: Stripe.Subscription,
   ): Promise<ResponseWithNoData> {
@@ -1180,21 +1227,25 @@ export class SubscriptionsService {
 
         const timestamp = now();
 
-        const veriCycleStart = subscription.items.data.find(x =>
-          x.price.lookup_key.startsWith("veri_"),
-        )?.current_period_start;
+        const veriCycleStart =
+          subscription.items.data.find(x =>
+            x.price.lookup_key.startsWith("veri_"),
+          )?.current_period_start * 1000;
 
-        const stashAlertCycleStart = subscription.items.data.find(
-          x => x.price.lookup_key === LOOKUP_KEYS.STASH_ALERT_PRICE,
-        )?.current_period_end;
+        const stashAlertCycleStart =
+          subscription.items.data.find(
+            x => x.price.lookup_key === LOOKUP_KEYS.STASH_ALERT_PRICE,
+          )?.current_period_start * 1000;
 
-        const cycleStart = subscription.items.data.find(x =>
-          x.price.lookup_key.startsWith("jobstash_"),
-        )?.current_period_start;
+        const cycleStart =
+          subscription.items.data.find(x =>
+            x.price.lookup_key.startsWith("jobstash_"),
+          )?.current_period_start * 1000;
 
-        const cycleEnd = subscription.items.data.find(x =>
-          x.price.lookup_key.startsWith("jobstash_"),
-        )?.current_period_end;
+        const cycleEnd =
+          subscription.items.data.find(x =>
+            x.price.lookup_key.startsWith("jobstash_"),
+          )?.current_period_end * 1000;
 
         const payload = {
           ...dto,
@@ -1221,11 +1272,9 @@ export class SubscriptionsService {
           `
             MATCH (subscription:OrgSubscription {id: $subscriptionId})
             SET subscription.status = "active"
-            SET subscription.veriPayg = $veriPayg
           `,
           {
             subscriptionId: existingSubscription.id,
-            veriPayg: dto.paygOptIn ?? false,
           },
         );
 

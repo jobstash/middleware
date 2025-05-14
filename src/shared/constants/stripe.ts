@@ -4,6 +4,7 @@ export const LOOKUP_KEYS: Record<string, string> = {
   JOB_PROMOTION_PRICE: "job_promo",
   STASH_ALERT_PRICE: "stash_alert",
   EXTRA_SEATS_PRICE: "extra_seats",
+  VERI_PAYG_PRICE: "veri_payg",
 };
 
 export const METERED_SERVICE_LOOKUP_KEYS: Record<

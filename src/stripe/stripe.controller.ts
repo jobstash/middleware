@@ -48,10 +48,16 @@ export class StripeController {
           this.logger.warn(`Checkout session did not complete: ${event.type}`);
           break;
 
+        case "invoice.payment_succeeded":
+          await this.stripeService.handleInvoicePaymentSucceeded(event);
+          break;
+
+        case "customer.subscription.updated":
+          await this.stripeService.handleStripeSubscriptionUpdated(event);
+          break;
+
         case "customer.subscription.deleted":
-          await this.stripeService.handleStripeSubscriptionCanceled(
-            event.data.object,
-          );
+          await this.stripeService.handleStripeSubscriptionCanceled(event);
           break;
 
         default:

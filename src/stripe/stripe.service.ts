@@ -447,6 +447,7 @@ export class StripeService {
           break;
 
         case "new-subscription":
+          this.logger.log("Handling new subscription webhook event");
           await this.subscriptionsService.createNewSubscription(
             JSON.parse(metadata.calldata) as unknown as SubscriptionMetadata,
             session.subscription as string,
@@ -477,8 +478,23 @@ export class StripeService {
     )
       return;
 
+    this.logger.log(`Handling invoice payment succeeded - ${event.id}`);
+
     const subscriptionId = invoice.parent.subscription_details
       .subscription as string;
+
+    const existing = data(
+      await this.subscriptionsService.getSubscriptionInfoByExternalId(
+        subscriptionId,
+      ),
+    );
+
+    if (!existing) {
+      this.logger.warn(
+        `Subscription ${subscriptionId} not found in DB when handling invoice.payment_succeeded`,
+      );
+      return;
+    }
 
     const sub = (await this.stripe.subscriptions.retrieve(subscriptionId, {
       expand: ["items.data"],
@@ -499,13 +515,18 @@ export class StripeService {
     const jobstashLine = itemLines.find(l =>
       l.lookupKey?.startsWith("jobstash_"),
     );
+
+    const extraSeatsLine = itemLines.find(
+      l => l.lookupKey?.startsWith("jobstash_") && l.lineItem.quantity > 1,
+    );
+
     if (!jobstashLine) {
       this.logger.warn(`Jobstash bundle not selected. Skipping`);
       return;
     }
 
     const newTier = jobstashLine.lookupKey.split("_")[1];
-    const newExtraSeats = Math.max(jobstashLine.lineItem.quantity - 1, 0);
+    const newExtraSeats = extraSeatsLine.lineItem.quantity ?? 0;
 
     const veriLine = itemLines.find(l => l.lookupKey?.startsWith("veri_"));
     const newVeri = veriLine ? veriLine.lookupKey.split("_")[1] : null;
@@ -513,19 +534,6 @@ export class StripeService {
     const newStashAlert =
       itemLines.find(l => l.lookupKey === LOOKUP_KEYS.STASH_ALERT_PRICE) !==
       undefined;
-
-    const existing = data(
-      await this.subscriptionsService.getSubscriptionInfoByExternalId(
-        subscriptionId,
-      ),
-    );
-
-    if (!existing) {
-      this.logger.warn(
-        `Subscription ${subscriptionId} not found in DB when handling invoice.payment_succeeded`,
-      );
-      return;
-    }
 
     const isPlanChange =
       existing.tier !== newTier ||
@@ -556,11 +564,49 @@ export class StripeService {
     }
   }
 
+  async handleStripeSubscriptionUpdated(
+    evt: Stripe.CustomerSubscriptionUpdatedEvent,
+  ): Promise<void> {
+    this.logger.log(`Handling subscription updated - ${evt.id}`);
+    const sub = evt.data.object as Stripe.Subscription;
+    const externalId = sub.id;
+
+    const existing = data(
+      await this.subscriptionsService.getSubscriptionInfoByExternalId(
+        externalId,
+      ),
+    );
+
+    if (!existing) {
+      this.logger.warn(
+        `Subscription ${externalId} not found in DB when handling subscription.updated`,
+      );
+      return;
+    }
+
+    const previousPayg = evt.data.previous_attributes.items.data.some(
+      i => i.price.lookup_key === LOOKUP_KEYS.VERI_PAYG_PRICE,
+    );
+
+    const newPayg = sub.items.data.some(
+      i => i.price.lookup_key === LOOKUP_KEYS.VERI_PAYG_PRICE,
+    );
+
+    if (previousPayg !== newPayg) {
+      this.logger.log(`Handling payg opt in state change`);
+      await this.subscriptionsService.changeSubscriptionPaygState(
+        externalId,
+        newPayg,
+      );
+    }
+  }
+
   async handleStripeSubscriptionCanceled(
-    sub: Stripe.Subscription,
+    evt: Stripe.CustomerSubscriptionDeletedEvent,
   ): Promise<void> {
     try {
-      await this.subscriptionsService.cancelSubscription(sub.id);
+      this.logger.log(`Handling subscription updated - ${evt.id}`);
+      await this.subscriptionsService.cancelSubscription(evt.data.object.id);
     } catch (err) {
       this.logger.error(
         `Error handling subscription deletion – ${err.message}`,
@@ -613,6 +659,27 @@ export class StripeService {
       return {
         success: false,
         message: "Error cancelling subscription",
+      };
+    }
+  }
+
+  async deleteSubscription(orgId: string): Promise<ResponseWithNoData> {
+    try {
+      const { externalId } = data(
+        await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
+      );
+      if (externalId) {
+        await this.stripe.subscriptions.cancel(externalId);
+      }
+      return {
+        success: true,
+        message: "Subscription deleted successfully",
+      };
+    } catch (err) {
+      this.logger.error(`Error deleting subscription – ${err.message}`);
+      return {
+        success: false,
+        message: "Error deleting subscription",
       };
     }
   }
@@ -837,26 +904,44 @@ export class StripeService {
     dto: ChangeSubscriptionInput,
   ): Promise<ResponseWithNoData> {
     try {
+      this.logger.log("Initiating subscription change");
+      const existing = data(
+        await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
+      );
+
+      if (!existing) {
+        this.logger.log("Attempted to change non-existent subscription plan");
+        return {
+          success: false,
+          message: "Subscription not found",
+        };
+      }
+
+      if (dto.jobstash === "starter") {
+        this.logger.log("Attempted to change to starter plan");
+        return {
+          success: false,
+          message: "You cannot move from a paid plan to the free tier",
+        };
+      }
+
       const {
         tier: currentTier,
         veri: currentVeri,
         stashAlert: currentStash,
         extraSeats: currentSeats,
+        veriPayg: currentPayg,
         externalId,
-      } = data(
-        await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
-      );
-
-      const paygCurrently = await this.hasPaygEnabled(externalId);
+      } = existing;
 
       if (
         currentTier === dto.jobstash &&
         currentVeri === dto.veri &&
         currentStash === dto.stashAlert &&
         currentSeats === dto.extraSeats &&
-        paygCurrently === (dto.paygOptIn ?? false)
+        currentPayg === dto.paygOptIn
       ) {
-        return { success: false, message: "No change required" };
+        return { success: true, message: "No change required" };
       }
 
       const prices = await this.getProductPrices();
@@ -874,14 +959,18 @@ export class StripeService {
       const bundleKey = BUNDLE_LOOKUP_KEYS.JOBSTASH[dto.jobstash];
       const veriKey = dto.veri ? BUNDLE_LOOKUP_KEYS.VERI[dto.veri] : null;
       const stashKey = dto.stashAlert ? LOOKUP_KEYS.STASH_ALERT_PRICE : null;
-      const paygKey = LOOKUP_KEYS.VERI_PAYG_PRICE;
+      const paygKey = dto.paygOptIn ? LOOKUP_KEYS.VERI_PAYG_PRICE : null;
 
       const updateItems: Stripe.SubscriptionUpdateParams.Item[] = [];
 
       for (const [k, itm] of itemsByKey) {
         if (k?.startsWith("jobstash_") && k !== bundleKey)
           updateItems.push({ id: itm.id, deleted: true });
-        if (k?.startsWith("veri_") && k !== veriKey && k !== paygKey)
+        if (
+          k?.startsWith("veri_") &&
+          k !== veriKey &&
+          k !== LOOKUP_KEYS.VERI_PAYG_PRICE
+        )
           updateItems.push({ id: itm.id, deleted: true });
       }
 
@@ -912,12 +1001,10 @@ export class StripeService {
         updateItems.push({ id: stashExisting.id, deleted: true });
       }
 
-      const paygExisting = itemsByKey.get(paygKey);
-      if (dto.paygOptIn && !paygExisting) {
-        updateItems.push({
-          price: priceId(paygKey),
-        });
-      } else if (!dto.paygOptIn && paygExisting) {
+      const paygExisting = itemsByKey.get(LOOKUP_KEYS.VERI_PAYG_PRICE);
+      if (paygKey && !paygExisting) {
+        updateItems.push({ price: priceId(paygKey) });
+      } else if (!paygKey && paygExisting) {
         updateItems.push({ id: paygExisting.id, deleted: true });
       }
 
@@ -930,10 +1017,8 @@ export class StripeService {
         (currentVeri ? VERI_BUNDLE_PRICING[currentVeri] : 0);
 
       const stashAlertActivated = !currentStash && dto.stashAlert;
-      const paygActivated = !paygCurrently && (dto.paygOptIn ?? false);
 
-      const isUpgrade =
-        bundleUpgraded || veriUpgraded || stashAlertActivated || paygActivated;
+      const isUpgrade = bundleUpgraded || veriUpgraded || stashAlertActivated;
 
       await this.stripe.subscriptions.update(externalId, {
         proration_behavior: isUpgrade ? "always_invoice" : "none",
@@ -956,15 +1041,6 @@ export class StripeService {
       );
       return { success: false, message: "Failed to initiate plan change" };
     }
-  }
-
-  private async hasPaygEnabled(subId: string): Promise<boolean> {
-    const sub = (await this.stripe.subscriptions.retrieve(subId, {
-      expand: ["items.data.price"],
-    })) as Stripe.Subscription;
-    return sub.items.data.some(
-      i => i.price.lookup_key === LOOKUP_KEYS.VERI_PAYG_PRICE,
-    );
   }
 
   async initiateJobPromotionPayment(
