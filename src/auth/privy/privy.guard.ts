@@ -26,7 +26,7 @@ export class PrivyGuard implements CanActivate {
     try {
       if (accessToken) {
         const verifiedClaims = await this.privy.verifyAuthToken(accessToken);
-        return this.privy.getUser(verifiedClaims.userId);
+        return this.privy.getUserById(verifiedClaims.userId);
       } else {
         throw new ForbiddenException({
           success: false,
@@ -43,16 +43,24 @@ export class PrivyGuard implements CanActivate {
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const httpContext = context.switchToHttp();
-    const req = httpContext.getRequest<Request & { user: User }>();
-    const user = await this.getSession(req);
+    try {
+      const httpContext = context.switchToHttp();
+      const req = httpContext.getRequest<Request & { user: User }>();
+      const user = await this.getSession(req);
 
-    req.user = user;
+      req.user = user;
 
-    if (user) {
-      return true;
-    } else {
-      return false;
+      if (user) {
+        return true;
+      } else {
+        return false;
+      }
+    } catch (err) {
+      this.logger.error(`PrivyGuard::canActivate ${err.message}`);
+      throw new ForbiddenException({
+        success: false,
+        message: "Forbidden resource: Insufficient permissions",
+      });
     }
   }
 }
