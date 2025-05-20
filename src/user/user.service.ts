@@ -829,13 +829,13 @@ export class UserService {
   async getActiveSubscriptions(wallet: string): Promise<string[]> {
     const result = await this.neogma.queryRunner.run(
       `
-        MATCH (user:User {wallet: $wallet})-[:OCCUPIES]->(seat:OrgUserSeat {seatType: "owner"})<-[:HAS_USER_SEAT]-(:Organization)-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)
+        MATCH (user:User {wallet: $wallet})-[:OCCUPIES]->(seat:OrgUserSeat {seatType: "owner"})<-[:HAS_USER_SEAT]-(org:Organization)-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)
         WHERE subscription.status = "active"
-        RETURN subscription.externalId as externalId
+        RETURN org.orgId as orgId
       `,
       { wallet },
     );
-    return result.records.map(x => x.get("externalId"));
+    return result.records.map(x => x.get("orgId"));
   }
 
   async deletePrivyUser(wallet: string): Promise<ResponseWithNoData> {
