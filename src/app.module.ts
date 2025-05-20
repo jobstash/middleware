@@ -72,7 +72,7 @@ import { StripeModule } from "./stripe/stripe.module";
     }),
     ScheduleModule.forRoot(),
     CacheModule.register({ isGlobal: true }),
-    StripeModule.forRootAsync(),
+    StripeModule,
     AuthModule,
     JobsModule,
     TagsModule,

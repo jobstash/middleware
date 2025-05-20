@@ -10,7 +10,7 @@ import { StripeModule } from "src/stripe/stripe.module";
 @Module({
   imports: [
     MailModule,
-    StripeModule.forRootAsync(),
+    forwardRef(() => StripeModule),
     forwardRef(() => AuthModule),
     forwardRef(() => UserModule),
     forwardRef(() => ProfileModule),

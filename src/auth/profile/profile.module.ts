@@ -21,6 +21,7 @@ import { UserModule } from "src/user/user.module";
 import { Auth0Module } from "src/auth0/auth0.module";
 import { TagsService } from "src/tags/tags.service";
 import { BullModule } from "@nestjs/bull";
+import { StripeModule } from "src/stripe/stripe.module";
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { BullModule } from "@nestjs/bull";
     MailModule,
     ConfigModule,
     ThrottlerModule.forRoot(),
+    StripeModule,
   ],
   controllers: [ProfileController],
   providers: [

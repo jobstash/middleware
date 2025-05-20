@@ -21,7 +21,7 @@ import { StripeModule } from "src/stripe/stripe.module";
   imports: [
     PrivyModule,
     GithubModule,
-    StripeModule.forRootAsync(),
+    StripeModule,
     forwardRef(() => UserModule),
     forwardRef(() => SubscriptionsModule),
     HttpModule.registerAsync({

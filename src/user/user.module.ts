@@ -29,7 +29,7 @@ import { StripeModule } from "src/stripe/stripe.module";
 @Module({
   imports: [
     Auth0Module,
-    StripeModule.forRootAsync(),
+    StripeModule,
     forwardRef(() => GithubModule),
     forwardRef(() => PrivyModule),
     forwardRef(() => ProfileModule),

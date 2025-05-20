@@ -391,7 +391,7 @@ export class EcosystemsController {
     const subscription = data(
       await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
-    if (!subscription.isActive()) {
+    if (!subscription?.isActive()) {
       return {
         success: false,
         message:

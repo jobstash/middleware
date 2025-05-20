@@ -21,7 +21,7 @@ import { StripeModule } from "src/stripe/stripe.module";
 @Module({
   imports: [
     Auth0Module,
-    forwardRef(() => StripeModule.forRootAsync()),
+    forwardRef(() => StripeModule),
     forwardRef(() => UserModule),
     forwardRef(() => ProfileModule),
     forwardRef(() => PrivyModule),

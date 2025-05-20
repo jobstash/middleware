@@ -47,7 +47,6 @@ import { AuthModule } from "src/auth/auth.module";
 import { PrivyModule } from "src/auth/privy/privy.module";
 import { ProfileModule } from "src/auth/profile/profile.module";
 import { RpcService } from "src/user/rpc.service";
-import { PaymentsModule } from "src/payments/payments.module";
 import { UserModule } from "src/user/user.module";
 import { faker } from "@faker-js/faker";
 import { sampleSize } from "lodash";
@@ -168,7 +167,6 @@ describe("JobsController", () => {
         forwardRef(() => AuthModule),
         forwardRef(() => ProfileModule),
         forwardRef(() => PrivyModule),
-        forwardRef(() => PaymentsModule),
         forwardRef(() => UserModule),
         ConfigModule.forRoot({
           isGlobal: true,

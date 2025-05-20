@@ -54,6 +54,7 @@ import { UpdateDevLocationInput } from "./dto/update-dev-location.input";
 import { Permissions, Session } from "src/shared/decorators";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { Throttle } from "@nestjs/throttler";
+import { StripeService } from "src/stripe/stripe.service";
 
 @Controller("profile")
 export class ProfileController {
@@ -66,6 +67,7 @@ export class ProfileController {
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
     private readonly jobsService: JobsService,
+    private readonly stripeService: StripeService,
   ) {}
 
   @Get("info")
@@ -253,6 +255,11 @@ export class ProfileController {
     @Session() { address }: SessionObject,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/profile/delete ${address}`);
+
+    const activeSubIds = await this.userService.getActiveSubscriptions(address);
+    for (const subId of activeSubIds) {
+      await this.stripeService.deleteSubscription(subId);
+    }
 
     return this.userService.deletePrivyUser(address);
   }

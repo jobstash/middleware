@@ -826,6 +826,18 @@ export class UserService {
     }
   }
 
+  async getActiveSubscriptions(wallet: string): Promise<string[]> {
+    const result = await this.neogma.queryRunner.run(
+      `
+        MATCH (user:User {wallet: $wallet})-[:OCCUPIES]->(seat:OrgUserSeat {seatType: "owner"})<-[:HAS_USER_SEAT]-(:Organization)-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)
+        WHERE subscription.status = "active"
+        RETURN subscription.externalId as externalId
+      `,
+      { wallet },
+    );
+    return result.records.map(x => x.get("externalId"));
+  }
+
   async deletePrivyUser(wallet: string): Promise<ResponseWithNoData> {
     try {
       const userId = await this.getPrivyId(wallet);
@@ -834,6 +846,8 @@ export class UserService {
       await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})
+        OPTIONAL MATCH (user)-[:OCCUPIES]->(seat:OrgUserSeat {seatType: "owner"})<-[:HAS_USER_SEAT]-(:Organization)-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)-[:HAS_QUOTA|HAS_PAYMENT|HAS_SERVICE]->(node)
+        OPTIONAL MATCH (user)-[:HAS_PENDING_PAYMENT|MADE_SUBSCRIPTION_PAYMENT|USED_QUOTA]->(nodes)
         OPTIONAL MATCH (user)-[cr:HAS_CONTACT_INFO]->(contact: UserContactInfo)
         OPTIONAL MATCH (user)-[lw:HAS_LINKED_WALLET]->(wallet:LinkedWallet)
         OPTIONAL MATCH (user)-[pcr:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo)
@@ -850,7 +864,7 @@ export class UserService {
         OPTIONAL MATCH (user)-[:HAS_ADJACENT_REPO]->(adjacentRepo: UserAdjacentRepo)
         OPTIONAL MATCH (user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount)
         OPTIONAL MATCH (user)-[:HAS_WORK_HISTORY]->(wh:UserWorkHistory)-[:WORKED_ON_REPO]->(whr:UserWorkHistoryRepo)
-        DETACH DELETE user, lw, wallet, pcr, cr, preferred, contact, rr, gr, scr, showcase, ul, location, sr, er, email, ja, ds, cl, search, lock, oa, wh, whr, adjacentRepo, account
+        DETACH DELETE user, lw, wallet, pcr, cr, preferred, contact, rr, gr, scr, showcase, ul, location, sr, er, email, ja, ds, cl, search, lock, oa, wh, whr, adjacentRepo, account, seat, subscription, node, nodes
       `,
         { wallet },
       );
