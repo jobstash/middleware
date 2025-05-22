@@ -13,6 +13,7 @@ import {
   AllJobListResultEntity,
   AllJobsFilterConfigsEntity,
   AllOrgJobsListResultEntity,
+  EcosystemJobListResultEntity,
   JobApplicantEntity,
   JobDetailsEntity,
   JobpostFolderEntity,
@@ -30,6 +31,7 @@ import {
   AllOrgJobsListResult,
   data,
   DateRange,
+  EcosystemJobListResult,
   FundingRound,
   JobApplicant,
   JobDetailsResult,
@@ -273,12 +275,13 @@ export class JobsService {
 
   getAllOrgJobsListResults = async (
     orgId: string,
-  ): Promise<AllOrgJobsListResult[]> => {
-    const results: AllOrgJobsListResult[] = [];
+  ): Promise<EcosystemJobListResult[]> => {
+    const results: EcosystemJobListResult[] = [];
     const generatedQuery = `
       CYPHER runtime = parallel
       MATCH (:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)
       MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
       WITH DISTINCT tag, structured_jobpost
       OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
       OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
@@ -309,12 +312,10 @@ export class JobsService {
           featured: structured_jobpost.featured,
           featureStartDate: structured_jobpost.featureStartDate,
           featureEndDate: structured_jobpost.featureEndDate,
-          isBlocked: CASE WHEN (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation) THEN true ELSE false END,
-          isOnline: CASE WHEN (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) THEN true ELSE false END,
-          project: [(structured_jobpost)<-[:HAS_JOB]->(project) | project {
-            id: project.id,
-            name: project.name
-          }][0],
+          blocked: EXISTS((structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)),
+          online: CASE WHEN EXISTS((structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)) THEN true ELSE EXISTS((structured_jobpost)-[:HAS_STATUS]->(:JobpostOfflineStatus)) END,
+          applications: apoc.coll.sum([(structured_jobpost)<-[:APPLIED_TO]-(:User) | 1]),
+          views: apoc.coll.sum([(structured_jobpost)<-[:VIEWED_DETAILS]-(:User) | 1]),
           timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
@@ -331,7 +332,7 @@ export class JobsService {
               github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
               aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
               twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-          projects: [
+              projects: [
                 (organization)-[:HAS_PROJECT]->(project) | project {
                   .*,
                   orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
@@ -365,7 +366,7 @@ export class JobsService {
                 }
               ],
               fundingRounds: apoc.coll.toSet([
-                (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+                      (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
               ]),
               grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
                 .*,
@@ -403,6 +404,41 @@ export class JobsService {
                 }
               ]
           }][0],
+          project: [
+            (structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(project:Project) | project {
+              .*,
+              atsClient: [(project)-[:HAS_ATS_CLIENT]->(atsClient:AtsClient) | atsClient.name][0],
+              hasUser: CASE WHEN EXISTS((:User)-[:HAS_PROJECT_AUTHORIZATION]->(project)) THEN true ELSE false END,
+              orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
+              discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+              website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+              docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+              telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+              github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+              category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
+              twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+              hacks: [
+                (project)-[:HAS_HACK]->(hack) | hack { .* }
+              ],
+              audits: [
+                (project)-[:HAS_AUDIT]->(audit) | audit { .* }
+              ],
+              chains: [
+                (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
+              ],
+              ecosystems: [
+                (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
+              ],
+              investors: [(project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) | investor { .* }],
+              fundingRounds: [
+                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
+              ],
+              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
+                .*,
+                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+              }]
+            }
+          ][0],
           tags: apoc.coll.toSet(tags)
       } AS result
     `;
@@ -410,9 +446,9 @@ export class JobsService {
     try {
       const resultSet = (
         await this.neogma.queryRunner.run(generatedQuery, { orgId })
-      ).records.map(record => record.get("result") as AllOrgJobsListResult);
+      ).records.map(record => record.get("result") as EcosystemJobListResult);
       for (const result of resultSet) {
-        results.push(new AllOrgJobsListResultEntity(result).getProperties());
+        results.push(new EcosystemJobListResultEntity(result).getProperties());
       }
       this.logger.log(`Found ${results.length} jobs`);
     } catch (err) {
@@ -1310,9 +1346,9 @@ export class JobsService {
     id: string,
     page: number,
     limit: number,
-  ): Promise<PaginatedData<AllOrgJobsListResult>> {
+  ): Promise<PaginatedData<EcosystemJobListResult>> {
     try {
-      return paginate<AllOrgJobsListResult>(
+      return paginate<EcosystemJobListResult>(
         page ?? 1,
         limit ?? 20,
         await this.getAllOrgJobsListResults(id),

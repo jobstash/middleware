@@ -37,6 +37,7 @@ import {
   AllJobsListResult,
   AllOrgJobsListResult,
   data,
+  EcosystemJobListResult,
   JobApplicant,
   JobDetailsResult,
   JobFilterConfigs,
@@ -332,7 +333,7 @@ export class JobsController {
       allOf: [
         {
           type: "array",
-          items: { $ref: getSchemaPath(JobListResult) },
+          items: { $ref: getSchemaPath(EcosystemJobListResult) },
         },
       ],
     },
@@ -353,7 +354,7 @@ export class JobsController {
     @Param("id") id: string,
     @Query("page") page: number,
     @Query("limit") limit: number,
-  ): Promise<PaginatedData<AllOrgJobsListResult>> {
+  ): Promise<PaginatedData<EcosystemJobListResult>> {
     this.logger.log(`/jobs/org/${id}/all ${JSON.stringify({ page, limit })}`);
     if (
       (await this.userService.isOrgMember(address, id)) ||
