@@ -4035,7 +4035,7 @@ export class JobsService {
         SET job.benefits = $benefits
         SET job.requirements = $requirements
         SET job.responsibilities = $responsibilities
-        SET job.access = $protected
+        SET job.access = CASE WHEN $protected THEN "protected" ELSE "public" END
         SET job.onboardIntoWeb3 = $onboardIntoWeb3
       `,
         {

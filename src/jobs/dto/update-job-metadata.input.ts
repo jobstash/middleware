@@ -28,41 +28,41 @@ export class UpdateJobMetadataInput {
   @IsArray()
   responsibilities: string[];
 
-  @ApiPropertyOptional()
-  @IsString()
-  @IsOptional()
-  title: string | null;
-
   @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  title: string;
+
+  @ApiPropertyOptional()
   @IsNumber()
   @IsPositive()
   @IsOptional()
   salary: number | null;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
+  @IsNotEmpty()
   @IsString()
-  summary: string | null;
+  summary: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
+  @IsNotEmpty()
   @IsString()
-  description: string | null;
+  description: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   culture: string | null;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
+  @IsNotEmpty()
   @IsString()
-  location: string | null;
+  location: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
+  @IsNotEmpty()
   @IsString()
-  seniority: string | null;
+  seniority: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -91,43 +91,43 @@ export class UpdateJobMetadataInput {
   @IsBoolean()
   offersTokenAllocation: boolean | null;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
+  @IsNotEmpty()
   @IsBoolean()
-  protected: boolean | null;
+  protected: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
   onboardIntoWeb3: boolean | null;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
+  @IsNotEmpty()
   @IsString()
-  commitment: string | null;
+  commitment: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
+  @IsNotEmpty()
   @IsString()
-  classification: string | null;
+  classification: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
+  @IsNotEmpty()
   @IsString()
-  locationType: string | null;
+  locationType: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   project: string | null;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
+  @IsNotEmpty()
   @IsBoolean()
   isBlocked: boolean;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
+  @IsNotEmpty()
   @IsBoolean()
   isOnline: boolean;
 
