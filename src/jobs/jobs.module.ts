@@ -1,7 +1,6 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { JobsService } from "./jobs.service";
 import { JobsController } from "./jobs.controller";
-import { ModelService } from "src/model/model.service";
 import { UserModule } from "src/user/user.module";
 import { JwtService } from "@nestjs/jwt";
 import { AuthService } from "src/auth/auth.service";
@@ -47,7 +46,6 @@ import { StripeModule } from "src/stripe/stripe.module";
     JobsService,
     AuthService,
     JwtService,
-    ModelService,
     OrganizationsService,
     ScorerService,
   ],

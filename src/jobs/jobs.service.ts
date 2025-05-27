@@ -7,12 +7,10 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nestjs-neogma";
 import { PrivyService } from "src/auth/privy/privy.service";
 import { ProfileService } from "src/auth/profile/profile.service";
-import { ModelService } from "src/model/model.service";
 import { ScorerService } from "src/scorer/scorer.service";
 import {
   AllJobListResultEntity,
   AllJobsFilterConfigsEntity,
-  AllOrgJobsListResultEntity,
   EcosystemJobListResultEntity,
   JobApplicantEntity,
   JobDetailsEntity,
@@ -28,7 +26,6 @@ import {
 import {
   AllJobsFilterConfigs,
   AllJobsListResult,
-  AllOrgJobsListResult,
   data,
   DateRange,
   EcosystemJobListResult,
@@ -71,7 +68,6 @@ export class JobsService {
   constructor(
     @InjectConnection()
     private neogma: Neogma,
-    private models: ModelService,
     private readonly rpcService: RpcService,
     private readonly configService: ConfigService,
     private readonly scorerService: ScorerService,
@@ -3788,44 +3784,19 @@ export class JobsService {
     dto: EditJobTagsInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const oldSkills = await this.models.StructuredJobposts.findRelationships({
-        where: {
-          source: {
-            shortUUID: dto.shortUUID,
-          },
-        },
-        alias: "tags",
-      });
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (job:StructuredJobpost {shortUUID: $shortUUID})
+        OPTIONAL MATCH (job)-[r:HAS_TAG]->(:Tag)
+        DELETE r
 
-      for (const skill of oldSkills) {
-        await this.models.StructuredJobposts.deleteRelationships({
-          alias: "tags",
-          where: {
-            source: { shortUUID: dto.shortUUID },
-            target: {
-              id: skill.target.id,
-              normalizedName: skill.target.normalizedName,
-            },
-          },
-        });
-      }
-
-      for (const skill of dto.tags) {
-        await this.models.StructuredJobposts.relateTo({
-          alias: "tags",
-          where: {
-            source: {
-              shortUUID: dto.shortUUID,
-            },
-            target: {
-              normalizedName: skill,
-            },
-          },
-          properties: {
-            creator: wallet,
-          },
-        });
-      }
+        WITH job
+        MATCH (tag:Tag WHERE tag.normalizedName IN $tags)
+        MERGE (job)-[r:HAS_TAG]->(tag)
+        SET r.creator = $wallet
+        `,
+        { ...dto, wallet },
+      );
 
       return {
         success: true,
@@ -3853,27 +3824,18 @@ export class JobsService {
     dto: ChangeJobCommitmentInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.models.StructuredJobposts.deleteRelationships({
-        alias: "commitment",
-        where: {
-          source: { shortUUID: dto.shortUUID },
-        },
-      });
-      await this.models.StructuredJobposts.relateTo({
-        alias: "commitment",
-        where: {
-          source: {
-            shortUUID: dto.shortUUID,
-          },
-          target: {
-            name: dto.commitment,
-          },
-        },
-        properties: {
-          creator: wallet,
-        },
-      });
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (job:StructuredJobpost {shortUUID: $shortUUID}), (commitment:JobpostCommitment {name: $commitment})
+        OPTIONAL MATCH (job)-[r:HAS_COMMITMENT]->(:JobpostCommitment)
+        DELETE r
 
+        WITH job, commitment
+        MERGE (job)-[r:HAS_COMMITMENT]->(commitment)
+        SET r.creator = $wallet
+        `,
+        { ...dto, wallet },
+      );
       return {
         success: true,
         message: "Job commitment changed successfully",
@@ -3900,27 +3862,18 @@ export class JobsService {
     dto: ChangeJobLocationTypeInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.models.StructuredJobposts.deleteRelationships({
-        alias: "locationType",
-        where: {
-          source: { shortUUID: dto.shortUUID },
-        },
-      });
-      await this.models.StructuredJobposts.relateTo({
-        alias: "locationType",
-        where: {
-          source: {
-            shortUUID: dto.shortUUID,
-          },
-          target: {
-            name: dto.locationType,
-          },
-        },
-        properties: {
-          creator: wallet,
-        },
-      });
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (job:StructuredJobpost {shortUUID: $shortUUID}), (locationType:JobpostLocationType {name: $locationType})
+        OPTIONAL MATCH (job)-[r:HAS_LOCATION_TYPE]->(:JobpostLocationType)
+        DELETE r
 
+        WITH job, locationType
+        MERGE (job)-[r:HAS_LOCATION_TYPE]->(locationType)
+        SET r.creator = $wallet
+        `,
+        { ...dto, wallet },
+      );
       return {
         success: true,
         message: "Job classification changed successfully",
@@ -3947,40 +3900,18 @@ export class JobsService {
     dto: ChangeJobProjectInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const oldProject = (
-        await this.models.Projects.findRelationships({
-          alias: "jobs",
-          limit: 1,
-          where: {
-            target: {
-              shortUUID: dto.shortUUID,
-            },
-          },
-        })
-      )[0];
-      if (oldProject.target) {
-        await this.models.Projects.deleteRelationships({
-          alias: "jobs",
-          where: {
-            source: { id: oldProject.source.id },
-            target: { shortUUID: dto.shortUUID },
-          },
-        });
-      }
-      await this.models.Projects.relateTo({
-        alias: "jobs",
-        where: {
-          target: {
-            shortUUID: dto.shortUUID,
-          },
-          source: {
-            id: dto.projectId,
-          },
-        },
-        properties: {
-          creator: wallet,
-        },
-      });
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (job:StructuredJobpost {shortUUID: $shortUUID}), (project:Project {id: $projectId})
+        OPTIONAL MATCH (job)-[r:HAS_PROJECT]->(:Project)
+        DELETE r
+
+        WITH job, project
+        MERGE (job)-[r:HAS_PROJECT]->(project)
+        SET r.creator = $wallet
+        `,
+        { ...dto, wallet },
+      );
       return {
         success: true,
         message: "Job project changed successfully",
@@ -4109,7 +4040,6 @@ export class JobsService {
       `,
         {
           shortUUIDs: dto.shortUUIDs,
-          creatorWallet: wallet,
         },
       );
 
@@ -4139,45 +4069,21 @@ export class JobsService {
     dto: BlockJobsInput,
   ): Promise<ResponseWithNoData> {
     try {
-      for (const uuid of dto.shortUUIDs) {
-        await this.models.StructuredJobposts.deleteRelationships({
-          alias: "onlineStatus",
-          where: {
-            source: {
-              shortUUID: uuid,
-            },
-            target: {
-              name: "online",
-            },
-          },
-        });
-        await this.models.StructuredJobposts.deleteRelationships({
-          alias: "offlineStatus",
-          where: {
-            source: {
-              shortUUID: uuid,
-            },
-            target: {
-              name: "offline",
-            },
-          },
-        });
-        await this.models.StructuredJobposts.relateTo({
-          alias: "offlineStatus",
-          where: {
-            source: {
-              shortUUID: uuid,
-            },
-            target: {
-              name: "offline",
-            },
-          },
-          properties: {
-            creator: wallet,
-          },
-        });
-      }
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (job:StructuredJobpost WHERE job.shortUUID IN $shortUUIDs), (offline:JobpostOfflineStatus)
+        OPTIONAL MATCH (job)-[r:HAS_STATUS]->()
+        DELETE r  
 
+        WITH job, offline
+        MERGE (job)-[r:HAS_STATUS]->(offline)
+        SET r.creator = $wallet
+        `,
+        {
+          shortUUIDs: dto.shortUUIDs,
+          wallet,
+        },
+      );
       return {
         success: true,
         message: "Jobs made offline successfully",
@@ -4204,44 +4110,21 @@ export class JobsService {
     dto: BlockJobsInput,
   ): Promise<ResponseWithNoData> {
     try {
-      for (const uuid of dto.shortUUIDs) {
-        await this.models.StructuredJobposts.deleteRelationships({
-          alias: "offlineStatus",
-          where: {
-            source: {
-              shortUUID: uuid,
-            },
-            target: {
-              name: "offline",
-            },
-          },
-        });
-        await this.models.StructuredJobposts.deleteRelationships({
-          alias: "onlineStatus",
-          where: {
-            source: {
-              shortUUID: uuid,
-            },
-            target: {
-              name: "online",
-            },
-          },
-        });
-        await this.models.StructuredJobposts.relateTo({
-          alias: "onlineStatus",
-          where: {
-            source: {
-              shortUUID: uuid,
-            },
-            target: {
-              name: "online",
-            },
-          },
-          properties: {
-            creator: wallet,
-          },
-        });
-      }
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (job:StructuredJobpost WHERE job.shortUUID IN $shortUUIDs), (online:JobpostOnlineStatus)
+        OPTIONAL MATCH (job)-[r:HAS_STATUS]->()
+        DELETE r
+
+        WITH job, online
+        MERGE (job)-[r:HAS_STATUS]->(online)
+        SET r.creator = $wallet
+        `,
+        {
+          shortUUIDs: dto.shortUUIDs,
+          wallet,
+        },
+      );
       return {
         success: true,
         message: "Jobs made online successfully",
@@ -4265,28 +4148,24 @@ export class JobsService {
 
   async featureJobpost(dto: FeatureJobsInput): Promise<ResponseWithNoData> {
     try {
-      const { endDate, startDate, shortUUID } = dto;
-      const result = await this.models.StructuredJobposts.update(
+      const { endDate, startDate } = dto;
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (job:StructuredJobpost {shortUUID: $shortUUID})
+        SET job.featured = true
+        SET job.featureStartDate = $startDate
+        SET job.featureEndDate = $endDate
+        `,
         {
-          featured: true,
-          featureStartDate: new Date(startDate).getTime(),
-          featureEndDate: new Date(endDate).getTime(),
+          ...dto,
+          startDate: new Date(startDate).getTime(),
+          endDate: new Date(endDate).getTime(),
         },
-        { where: { shortUUID }, return: true },
       );
-
-      const job = result[0];
-      if (job) {
-        return {
-          success: true,
-          message: "Job made featured successfully",
-        };
-      } else {
-        return {
-          success: false,
-          message: "Job feature failed",
-        };
-      }
+      return {
+        success: true,
+        message: "Job made featured successfully",
+      };
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({

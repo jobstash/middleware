@@ -831,7 +831,7 @@ export class JobsController {
   ): Promise<ResponseWithNoData> {
     try {
       const { tags } = dto;
-      const tagsToAdd = [];
+      const tagsToAdd: string[] = [];
       for (const tag of tags) {
         const tagNormalizedName = this.tagsService.normalizeTagName(tag);
         const tagNode =

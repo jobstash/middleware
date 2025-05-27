@@ -37,7 +37,7 @@ export class UpdateJobMetadataInput {
   @IsNumber()
   @IsPositive()
   @IsOptional()
-  salary: number | null;
+  salary: number | null = null;
 
   @ApiProperty()
   @IsNotEmpty()
@@ -52,7 +52,7 @@ export class UpdateJobMetadataInput {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  culture: string | null;
+  culture: string | null = null;
 
   @ApiProperty()
   @IsNotEmpty()
@@ -67,29 +67,29 @@ export class UpdateJobMetadataInput {
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
-  paysInCrypto: boolean | null;
+  paysInCrypto: boolean | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @IsPositive()
-  minimumSalary: number | null;
+  minimumSalary: number | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @IsPositive()
-  maximumSalary: number | null;
+  maximumSalary: number | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  salaryCurrency: string | null;
+  salaryCurrency: string | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
-  offersTokenAllocation: boolean | null;
+  offersTokenAllocation: boolean | null = null;
 
   @ApiProperty()
   @IsNotEmpty()
@@ -99,7 +99,7 @@ export class UpdateJobMetadataInput {
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
-  onboardIntoWeb3: boolean | null;
+  onboardIntoWeb3: boolean | null = null;
 
   @ApiProperty()
   @IsNotEmpty()
@@ -119,7 +119,7 @@ export class UpdateJobMetadataInput {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  project: string | null;
+  project: string | null = null;
 
   @ApiProperty()
   @IsNotEmpty()
