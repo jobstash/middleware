@@ -133,10 +133,7 @@ export class ProfileController {
 
   @Get("organizations/authorized")
   @UseGuards(PBACGuard)
-  @Permissions(
-    CheckWalletPermissions.USER,
-    CheckWalletPermissions.ORG_AFFILIATE,
-  )
+  @Permissions(CheckWalletPermissions.USER)
   @ApiOkResponse({
     description:
       "Returns the authorized organizations of the currently logged in user",
