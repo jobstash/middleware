@@ -184,6 +184,7 @@ export class StripeService {
     mode: "subscription" | "payment" = "subscription",
     customerId?: string,
     metadata?: Record<string, string>,
+    flag?: string,
   ): Promise<
     ResponseWithOptionalData<{ id: string; url: string; total: number }>
   > {
@@ -193,7 +194,8 @@ export class StripeService {
         line_items: lineItems,
         billing_address_collection: "required",
         customer: customerId,
-        success_url: `${this.domain}/payment/confirmation`,
+        success_url:
+          `${this.domain}/payment/confirmation` + (flag ? `?flag=${flag}` : ""),
         cancel_url: `${this.domain}`,
         metadata,
       });
@@ -803,9 +805,10 @@ export class StripeService {
     wallet: string;
     email: string;
     dto: NewSubscriptionInput;
+    flag?: string;
   }): Promise<ResponseWithOptionalData<string>> {
     try {
-      const { wallet, dto } = input;
+      const { wallet, dto, flag } = input;
       const lookupKeys = [
         dto.jobstash ? BUNDLE_LOOKUP_KEYS.JOBSTASH[dto.jobstash] : null,
         dto.veri ? BUNDLE_LOOKUP_KEYS.VERI[dto.veri] : null,
@@ -846,6 +849,7 @@ export class StripeService {
               }),
               action: "new-subscription",
             },
+            flag,
           ),
         );
 
@@ -1049,6 +1053,7 @@ export class StripeService {
   async initiateJobPromotionPayment(
     uuid: string,
     ecosystem: string,
+    flag?: string,
   ): Promise<ResponseWithOptionalData<{ id: string; url: string }>> {
     try {
       const jobDetails = await this.jobsService.getJobDetailsByUuid(
@@ -1073,12 +1078,18 @@ export class StripeService {
       });
 
       const charge = data(
-        await this.createCheckoutSession([lineItem], "payment", undefined, {
-          calldata: JSON.stringify({
-            shortUUID: uuid,
-          }),
-          action: "job-promotion",
-        }),
+        await this.createCheckoutSession(
+          [lineItem],
+          "payment",
+          undefined,
+          {
+            calldata: JSON.stringify({
+              shortUUID: uuid,
+            }),
+            action: "job-promotion",
+          },
+          flag,
+        ),
       );
 
       if (charge) {

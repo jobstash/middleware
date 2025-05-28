@@ -1159,6 +1159,7 @@ export class JobsController {
   })
   async promoteJob(
     @Param("uuid") uuid: string,
+    @Query("flag") flag: string | undefined,
     @Headers(ECOSYSTEM_HEADER)
     ecosystem: string | undefined = undefined,
   ): Promise<
@@ -1167,7 +1168,11 @@ export class JobsController {
       url: string;
     }>
   > {
-    this.logger.log(`/jobs/promote/${uuid}`);
-    return this.stripeService.initiateJobPromotionPayment(uuid, ecosystem);
+    this.logger.log(`/jobs/promote/${uuid}?flag=${flag}`);
+    return this.stripeService.initiateJobPromotionPayment(
+      uuid,
+      ecosystem,
+      flag,
+    );
   }
 }

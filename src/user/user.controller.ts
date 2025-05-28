@@ -97,8 +97,11 @@ export class UserController {
   async signupToOrg(
     @Body() body: NewSubscriptionInput,
     @Session() { address }: SessionObject,
+    @Query("flag") flag: string | undefined,
   ): Promise<ResponseWithOptionalData<string>> {
-    this.logger.log(`/users/signup ${address}, ${JSON.stringify(body)}`);
+    this.logger.log(
+      `/users/signup?flag=${flag} ${address}, ${JSON.stringify(body)}`,
+    );
     const hasOwner = await this.userService.orgHasOwner(body.orgId);
     const owner = data(
       await this.userService.findOrgOwnerProfileByOrgId(body.orgId),
@@ -115,6 +118,7 @@ export class UserController {
             wallet: address,
             email: verified.account,
             dto: body,
+            flag,
           });
         } else {
           return {
