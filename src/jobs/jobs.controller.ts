@@ -49,6 +49,7 @@ import {
   ResponseWithOptionalData,
   SessionObject,
   StructuredJobpostWithRelations,
+  Tag,
   ValidationError,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -69,6 +70,7 @@ import { CacheInterceptor } from "@nestjs/cache-manager";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
 import { StripeService } from "src/stripe/stripe.service";
+import { isEmpty, isEqual, map, pick, xor } from "lodash";
 
 @Controller("jobs")
 @UseInterceptors(CacheInterceptor)
@@ -901,6 +903,8 @@ export class JobsController {
       session.permissions.includes(CheckWalletPermissions.SUPER_ADMIN)
     ) {
       this.logger.log(`/jobs/update/${shortUUID} ${JSON.stringify(body)}`);
+      const oldJob =
+        await this.jobsService.getJobDetailsByUuidForUpdate(shortUUID);
       const {
         commitment,
         classification,
@@ -913,105 +917,149 @@ export class JobsController {
       } = body;
       const { address } = session;
 
-      if (isBlocked === true) {
-        const res1a = await this.jobsService.blockJobs(address, {
-          shortUUIDs: [shortUUID],
-        });
-        if (res1a.success === false) {
-          this.logger.error(res1a.message);
-          return res1a;
+      // Prepare promises for independent operations
+      const updatePromises: Promise<ResponseWithNoData>[] = [];
+
+      // Block/unblock
+      if (oldJob.blocked !== isBlocked) {
+        console.log("Block/unblock");
+        if (isBlocked === true) {
+          updatePromises.push(
+            this.jobsService.blockJobs(address, { shortUUIDs: [shortUUID] }),
+          );
+        } else if (isBlocked === false) {
+          updatePromises.push(
+            this.jobsService.unblockJobs(address, { shortUUIDs: [shortUUID] }),
+          );
         }
-      } else {
-        if (isBlocked === false) {
-          const res1a = await this.jobsService.unblockJobs(address, {
+      }
+
+      // Online/offline
+      if (oldJob.online !== isOnline) {
+        console.log("Online/offline");
+        if (isOnline === true) {
+          updatePromises.push(
+            this.jobsService.makeJobsOnline(address, {
+              shortUUIDs: [shortUUID],
+            }),
+          );
+        } else if (isOnline === false) {
+          updatePromises.push(
+            this.jobsService.makeJobsOffline(address, {
+              shortUUIDs: [shortUUID],
+            }),
+          );
+        }
+      }
+
+      // Commitment
+      if (commitment !== oldJob.commitment) {
+        console.log("Commitment");
+        updatePromises.push(
+          this.jobsService.changeJobCommitment(address, {
+            shortUUID,
+            commitment,
+          }),
+        );
+      }
+
+      // Classification
+      if (classification !== oldJob.classification) {
+        console.log("Classification");
+        updatePromises.push(
+          this.jobsService.changeJobClassification(address, {
             shortUUIDs: [shortUUID],
-          });
-          if (res1a.success === false) {
-            this.logger.error(res1a.message);
-            return res1a;
-          }
+            classification,
+          }),
+        );
+      }
+
+      // Location type
+      if (locationType !== oldJob.locationType) {
+        console.log("Location type");
+        updatePromises.push(
+          this.jobsService.changeJobLocationType(address, {
+            shortUUID,
+            locationType,
+          }),
+        );
+      }
+
+      // Project
+      if (project !== (oldJob.project?.id ?? null)) {
+        console.log("Project");
+        updatePromises.push(
+          this.jobsService.changeJobProject(address, {
+            shortUUID,
+            projectId: project,
+          }),
+        );
+      }
+
+      const hasSameTags = (
+        arr1: { normalizedName: string }[],
+        arr2: { normalizedName: string }[],
+      ): boolean => {
+        const tags1 = map(arr1, "normalizedName");
+        const tags2 = map(arr2, "normalizedName");
+        return isEmpty(xor(tags1, tags2));
+      };
+
+      // Tags
+      if (!hasSameTags(tags, oldJob.tags)) {
+        console.log("Tags");
+        updatePromises.push(
+          this.editTags(session, { shortUUID, tags: tags.map(x => x.name) }),
+        );
+      }
+
+      const excludedFields = [
+        "commitment",
+        "classification",
+        "locationType",
+        "project",
+        "tags",
+        "isBlocked",
+        "isOnline",
+      ];
+
+      const dtoSubset = { ...dto };
+      excludedFields.forEach(field => delete dtoSubset[field]);
+
+      const oldJobSubset = { ...oldJob };
+      excludedFields.forEach(field => delete oldJobSubset[field]);
+
+      if (!isEqual(oldJobSubset, dtoSubset)) {
+        console.log("Metadata");
+        updatePromises.push(
+          this.jobsService
+            .update(shortUUID, dtoSubset)
+            .then(res => ({
+              success: res,
+              message: "Job metadata updated successfully",
+            }))
+            .catch(err => ({
+              success: false,
+              message: "Error updating job metadata",
+            })),
+        );
+      }
+
+      // Wait for all updates to complete
+      const results = await Promise.all(updatePromises);
+
+      // Check for any failed operations
+      for (const res of results) {
+        if (res && res.success === false) {
+          this.logger.error(res.message);
+          return res;
         }
       }
 
-      if (isOnline === true) {
-        const res1b = await this.jobsService.makeJobsOnline(address, {
-          shortUUIDs: [shortUUID],
-        });
-        if (res1b.success === false) {
-          this.logger.error(res1b.message);
-          return res1b;
-        }
-      } else {
-        if (isOnline === false) {
-          const res1b = await this.jobsService.makeJobsOffline(address, {
-            shortUUIDs: [shortUUID],
-          });
-          if (res1b.success === false) {
-            this.logger.error(res1b.message);
-            return res1b;
-          }
-        }
-      }
-
-      const res2 = await this.jobsService.changeJobCommitment(address, {
-        shortUUID,
-        commitment,
-      });
-      if (res2.success === false) {
-        this.logger.error(res2.message);
-        return res2;
-      }
-
-      const res3 = await this.jobsService.changeJobClassification(address, {
-        shortUUIDs: [shortUUID],
-        classification,
-      });
-      if (res3.success === false) {
-        this.logger.error(res3.message);
-        return res3;
-      }
-
-      const res4 = await this.jobsService.changeJobLocationType(address, {
-        shortUUID,
-        locationType,
-      });
-      if (res4.success === false) {
-        this.logger.error(res4.message);
-        return res4;
-      }
-
-      if (project) {
-        const res5 = await this.jobsService.changeJobProject(address, {
-          shortUUID,
-          projectId: project,
-        });
-        if (res5.success === false) {
-          this.logger.error(res5.message);
-          return res5;
-        }
-      }
-
-      const res6 = await this.editTags(session, {
-        shortUUID,
-        tags: tags.map(x => x.name),
-      });
-      if (res6.success === false) {
-        this.logger.error(res6.message);
-        return res6;
-      }
-
-      const res1 = await this.jobsService.update(shortUUID, dto);
-      if (res1) {
-        return {
-          success: true,
-          message: "Job metadata updated successfully",
-        };
-      } else {
-        return {
-          success: false,
-          message: "Error updating job metadata",
-        };
-      }
+      return {
+        success: true,
+        message: "Job metadata updated successfully",
+      };
     } else {
       throw new ForbiddenException({
         success: false,
