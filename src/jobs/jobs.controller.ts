@@ -891,7 +891,7 @@ export class JobsController {
     @Session() session: SessionObject,
     @Param("id") shortUUID: string,
     @Body(new ValidationPipe({ transform: true })) body: UpdateJobMetadataInput,
-  ): Promise<Response<JobListResult> | ResponseWithNoData> {
+  ): Promise<ResponseWithNoData> {
     const jobOrgId = await this.userService.findOrgIdByJobShortUUID(shortUUID);
     const userOrgId = await this.userService.findOrgIdByMemberUserWallet(
       session.address,
