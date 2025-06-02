@@ -19,6 +19,7 @@ import { UserService } from "src/user/user.service";
 import { SetupOrgLinkInput } from "./dto/setup-org-link.input";
 import {
   CandidateReport,
+  EcosystemActivation,
   ResponseWithNoData,
   ResponseWithOptionalData,
   SessionObject,

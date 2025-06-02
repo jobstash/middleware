@@ -1233,9 +1233,12 @@ export class ProfileService {
       const profile = data(await this.getUserProfile(wallet));
       if (profile) {
         const wallets =
-          await this.scorerService.getEcosystemActivationsForWallets(
-            profile?.linkedAccounts?.wallets ?? [],
-          );
+          data(
+            await this.scorerService.getEcosystemActivationsForWallets(
+              profile?.linkedAccounts?.wallets ?? [],
+              null,
+            ),
+          ) ?? [];
         const workHistory = await this.getUserWorkHistoryCache(wallet);
         const adjacentRepos = await this.getUserAdjacentReposCache(wallet);
         return {

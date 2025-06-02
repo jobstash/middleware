@@ -224,30 +224,48 @@ export class ScorerService {
 
   getEcosystemActivationsForWallets = async (
     wallets: string[],
+    orgId: string | null,
   ): Promise<
-    { wallet: string; ecosystemActivations: EcosystemActivation[] }[]
+    ResponseWithOptionalData<
+      {
+        wallet: string;
+        ecosystemActivations: EcosystemActivation[];
+      }[]
+    >
   > => {
     const param = Buffer.from(JSON.stringify(wallets)).toString("base64");
     return firstValueFrom(
       this.httpService
         .get<
-          { wallet: string; ecosystemActivations: EcosystemActivation[] }[]
-        >(`/scorer/users/ecosystem-activations?wallets=${param}`)
+          ResponseWithOptionalData<
+            {
+              wallet: string;
+              ecosystemActivations: EcosystemActivation[];
+            }[]
+          >
+        >(`/scorer/users/ecosystem-activations?wallets=${param}&orgId=${orgId}`)
         .pipe(
-          map(res => res.data),
+          map(res => ({
+            success: true,
+            message: "Ecosystem activations retrieved successfully",
+            data: res.data,
+          })),
           catchError((err: AxiosError) => {
             Sentry.withScope(scope => {
               scope.setTags({
                 action: "proxy-call",
                 source: "scorer.service",
               });
-              scope.setExtra("input", wallets);
+              scope.setExtra("input", { wallets, orgId });
               Sentry.captureException(err);
             });
             this.logger.error(
               `ScorerService::getWalletEcosystemActivations ${err.message}`,
             );
-            return of([]);
+            return of({
+              success: false,
+              message: "Error retrieving ecosystem activations",
+            });
           }),
         ),
     );

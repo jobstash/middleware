@@ -91,6 +91,27 @@ export class UserController {
     }
   }
 
+  @Get("ecosystem-activations")
+  @UseGuards(PBACGuard)
+  @Permissions(
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER],
+  )
+  async getEcosystemActivationsForWallets(
+    @Query("wallets") wallets: string,
+    @Query("orgId") orgId: string | null,
+  ): Promise<
+    ResponseWithOptionalData<
+      { wallet: string; ecosystemActivations: EcosystemActivation[] }[]
+    >
+  > {
+    this.logger.log(`/users/ecosystem-activations`);
+    return this.scorerService.getEcosystemActivationsForWallets(
+      wallets.split(","),
+      orgId,
+    );
+  }
+
   @Post("signup")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER)
