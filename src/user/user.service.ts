@@ -11,7 +11,6 @@ import {
   UserOrgAffiliationRequest,
   data,
   UserPermission,
-  UserVerifiedOrg,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -38,6 +37,7 @@ import { uniq } from "lodash";
 import {
   PrivyTransferEventPayload,
   PrivyUpdateEventPayload,
+  PrivyCreateEventPayload,
 } from "src/auth/privy/dto/webhook.payload";
 
 @Injectable()
@@ -700,78 +700,46 @@ export class UserService {
           message: "User already exists",
           data: storedUser.getProperties(),
         };
-      }
-
-      const newUserDto = {
-        wallet: embeddedWallet,
-        privyId: user.id,
-        name:
-          user.farcaster?.displayName ??
-          user.google?.name ??
-          user.apple?.subject ??
-          user.github?.name ??
-          (user.telegram
-            ? `${user.telegram.firstName} ${user.telegram.lastName}`
-            : null) ??
-          user.discord?.subject ??
-          user.twitter?.name ??
-          null,
-      };
-
-      this.logger.log(
-        `/user/createPrivyUser: Creating privy user with wallet ${embeddedWallet}`,
-      );
-
-      const newUser = await this.create(newUserDto);
-
-      if (newUser) {
-        await this.syncUserLinkedWallets(embeddedWallet, user);
-
-        const contact = {
-          discord: user.discord?.username ?? null,
-          telegram: user.telegram?.username ?? null,
-          twitter: user.twitter?.username ?? null,
-          email: user.email?.address ?? null,
-          farcaster: user.farcaster?.username ?? null,
-          github: user.github?.username ?? null,
-          google: user.google?.email ?? null,
-          apple: user.apple?.email ?? null,
-        };
-
-        if (Object.values(contact).filter(Boolean).length > 0) {
-          this.logger.log(`Adding contact info for ${embeddedWallet}`);
-          await this.profileService
-            .updateUserLinkedAccounts(embeddedWallet, contact)
-            .then(result => {
-              if (result.success) {
-                this.logger.log(`Contact info added to user`);
-              } else {
-                this.logger.error(
-                  `Contact info not added to user: ${result.message}`,
-                );
-                return result;
-              }
-            });
-        }
-
-        await this.permissionService.syncUserPermissions(embeddedWallet, [
-          CheckWalletPermissions.USER,
-        ]);
-
-        await this.profileService.getUserWorkHistory(embeddedWallet, true);
-        await this.profileService.getUserVerifications(embeddedWallet, true);
-
-        return {
-          success: true,
-          message: "User created successfully",
-          data: newUser.getProperties(),
-        };
       } else {
-        this.logger.error(`UserService::createPrivyUser error creating user`);
-        return {
-          success: false,
-          message: "Error creating user",
+        const newUserDto = {
+          wallet: embeddedWallet,
+          privyId: user.id,
+          name:
+            user.farcaster?.displayName ??
+            user.google?.name ??
+            user.apple?.subject ??
+            user.github?.name ??
+            (user.telegram
+              ? `${user.telegram.firstName} ${user.telegram.lastName}`
+              : null) ??
+            user.discord?.subject ??
+            user.twitter?.name ??
+            null,
         };
+
+        this.logger.log(
+          `/user/createPrivyUser: Creating privy user with wallet ${embeddedWallet}`,
+        );
+
+        const newUser = await this.create(newUserDto);
+
+        if (newUser) {
+          await this.permissionService.syncUserPermissions(embeddedWallet, [
+            CheckWalletPermissions.USER,
+          ]);
+
+          return {
+            success: true,
+            message: "User created successfully",
+            data: newUser.getProperties(),
+          };
+        } else {
+          this.logger.error(`UserService::createPrivyUser error creating user`);
+          return {
+            success: false,
+            message: "Error creating user",
+          };
+        }
       }
     } catch (err) {
       Sentry.withScope(scope => {
@@ -1432,7 +1400,7 @@ export class UserService {
   }
 
   async updateLinkedAccounts(
-    dto: PrivyUpdateEventPayload,
+    dto: PrivyUpdateEventPayload | PrivyCreateEventPayload,
     embeddedWallet: string,
   ): Promise<void> {
     const user = dto.user;
@@ -1465,6 +1433,7 @@ export class UserService {
         }
       });
     if (
+      dto.type === "user.created" ||
       ["github_oauth", "email", "wallet", "google_oauth"].includes(
         dto.account.type,
       )

@@ -52,7 +52,8 @@ export class PrivyController {
         x => x.type === "wallet" && x.walletClientType === "privy",
       ) as WalletWithMetadata
     )?.address;
-    if (embeddedWallet) {
+    const result = await this.userService.upsertPrivyUser(user, embeddedWallet);
+    if (embeddedWallet && result.success) {
       this.logger.log("/privy/check-wallet " + embeddedWallet);
       const cryptoNative =
         (await this.userService.getCryptoNativeStatus(embeddedWallet)) ?? false;
@@ -178,7 +179,11 @@ export class PrivyController {
         )?.address;
         if (embeddedWallet) {
           this.logger.log(`User created: ${embeddedWallet}`);
-          await this.userService.upsertPrivyUser(payload.user, embeddedWallet);
+          await this.userService.syncUserLinkedWallets(
+            embeddedWallet,
+            payload.user,
+          );
+          await this.userService.updateLinkedAccounts(payload, embeddedWallet);
         } else {
           this.logger.warn(`User not found`);
         }
