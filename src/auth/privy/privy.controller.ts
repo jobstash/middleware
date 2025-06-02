@@ -172,7 +172,7 @@ export class PrivyController {
       } else if (verifiedPayload.type === "user.created") {
         const payload = verifiedPayload as PrivyCreateEventPayload;
         const embeddedWallet = (
-          payload.user.linkedAccounts.find(
+          payload.user.linkedAccounts?.find(
             x => x.type === "wallet" && x.walletClientType === "privy",
           ) as WalletWithMetadata
         )?.address;
