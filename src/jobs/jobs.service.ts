@@ -2401,22 +2401,16 @@ export class JobsService {
             tags: apoc.coll.toSet(tags)
         } AS result
       `,
-        { wallet },
+        { wallet, ecosystem },
       );
 
       return {
         success: true,
         message: "User bookmarked jobs retrieved successfully",
-        data: ecosystem
-          ? (result.records
-              ?.map(record =>
-                new JobListResultEntity(record.get("result")).getProperties(),
-              )
-              .filter(job => job.organization.ecosystems.includes(ecosystem)) ??
-            [])
-          : (result.records?.map(record =>
-              new JobListResultEntity(record.get("result")).getProperties(),
-            ) ?? []),
+        data:
+          result.records?.map(record =>
+            new JobListResultEntity(record.get("result")).getProperties(),
+          ) ?? [],
       };
     } catch (err) {
       Sentry.withScope(scope => {
