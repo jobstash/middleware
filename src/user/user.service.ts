@@ -694,47 +694,7 @@ export class UserService {
       const storedUser = await this.findByWallet(embeddedWallet);
 
       if (storedUser) {
-        this.logger.log(`User ${embeddedWallet} already exists. Updating...`);
-        this.syncUserLinkedWallets(embeddedWallet, user);
-
-        const permissions =
-          await this.permissionService.getPermissionsForWallet(embeddedWallet);
-
-        if (permissions.length === 0) {
-          await this.permissionService.syncUserPermissions(embeddedWallet, [
-            CheckWalletPermissions.USER,
-          ]);
-        }
-
-        const contact = {
-          discord: user?.discord?.username ?? null,
-          telegram: user?.telegram?.username ?? null,
-          twitter: user?.twitter?.username ?? null,
-          email: user?.email?.address ?? null,
-          farcaster: user?.farcaster?.username ?? null,
-          github: user?.github?.username ?? null,
-          google: user?.google?.email ?? null,
-          apple: user?.apple?.email ?? null,
-        };
-
-        if (Object.values(contact).filter(Boolean).length > 0) {
-          this.logger.log(`Adding contact info for ${embeddedWallet}`);
-          this.profileService
-            .updateUserLinkedAccounts(embeddedWallet, contact)
-            .then(result => {
-              if (result.success) {
-                this.logger.log(`Contact info added to user`);
-              } else {
-                this.logger.error(
-                  `Contact info not added to user: ${result.message}`,
-                );
-                return result;
-              }
-            });
-        }
-
-        await this.profileService.getUserWorkHistory(embeddedWallet, true);
-        await this.profileService.getUserVerifications(embeddedWallet, true);
+        this.logger.log(`User ${embeddedWallet} already exists.`);
         return {
           success: true,
           message: "User already exists",
@@ -765,7 +725,7 @@ export class UserService {
       const newUser = await this.create(newUserDto);
 
       if (newUser) {
-        this.syncUserLinkedWallets(embeddedWallet, user);
+        await this.syncUserLinkedWallets(embeddedWallet, user);
 
         const contact = {
           discord: user.discord?.username ?? null,
@@ -780,7 +740,7 @@ export class UserService {
 
         if (Object.values(contact).filter(Boolean).length > 0) {
           this.logger.log(`Adding contact info for ${embeddedWallet}`);
-          this.profileService
+          await this.profileService
             .updateUserLinkedAccounts(embeddedWallet, contact)
             .then(result => {
               if (result.success) {

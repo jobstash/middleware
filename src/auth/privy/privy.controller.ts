@@ -24,8 +24,10 @@ import {
   PrivyTestPayload,
   PrivyUpdateEventPayload,
   PrivyTransferEventPayload,
+  PrivyCreateEventPayload,
 } from "./dto/webhook.payload";
 import { TelemetryService } from "src/telemetry/telemetry.service";
+import { CheckWalletPermissions } from "src/shared/constants";
 
 @Controller("privy")
 export class PrivyController {
@@ -52,30 +54,21 @@ export class PrivyController {
     )?.address;
     if (embeddedWallet) {
       this.logger.log("/privy/check-wallet " + embeddedWallet);
-      const result = await this.userService.upsertPrivyUser(
-        user,
-        embeddedWallet,
-      );
-      if (result.success) {
-        const cryptoNative =
-          (await this.userService.getCryptoNativeStatus(embeddedWallet)) ??
-          false;
-        const permissions = (
-          await this.permissionService.getPermissionsForWallet(embeddedWallet)
-        ).map(x => x.name);
-        const token = this.authService.createToken({
-          address: embeddedWallet,
-          permissions,
-          cryptoNative,
-        });
-        return {
-          token,
-          cryptoNative,
-          permissions,
-        };
-      } else {
-        throw new BadRequestException(result);
-      }
+      const cryptoNative =
+        (await this.userService.getCryptoNativeStatus(embeddedWallet)) ?? false;
+      const permissions = (
+        await this.permissionService.getPermissionsForWallet(embeddedWallet)
+      ).map(x => x.name);
+      const token = this.authService.createToken({
+        address: embeddedWallet,
+        permissions,
+        cryptoNative,
+      });
+      return {
+        token,
+        cryptoNative,
+        permissions,
+      };
     } else {
       return {
         token: this.authService.createToken({
@@ -143,6 +136,16 @@ export class PrivyController {
           await this.telemetryService.logUserLoginEvent(
             verifiedPayload.user.id,
           );
+          const permissions =
+            await this.permissionService.getPermissionsForWallet(
+              embeddedWallet,
+            );
+
+          if (permissions.length === 0) {
+            await this.permissionService.syncUserPermissions(embeddedWallet, [
+              CheckWalletPermissions.USER,
+            ]);
+          }
         } else {
           this.logger.warn(`User not found`);
         }
@@ -163,6 +166,19 @@ export class PrivyController {
             fromEmbeddedWallet,
             toEmbeddedWallet,
           );
+        } else {
+          this.logger.warn(`User not found`);
+        }
+      } else if (verifiedPayload.type === "user.created") {
+        const payload = verifiedPayload as PrivyCreateEventPayload;
+        const embeddedWallet = (
+          payload.user.linkedAccounts.find(
+            x => x.type === "wallet" && x.walletClientType === "privy",
+          ) as WalletWithMetadata
+        )?.address;
+        if (embeddedWallet) {
+          this.logger.log(`User created: ${embeddedWallet}`);
+          await this.userService.upsertPrivyUser(payload.user, embeddedWallet);
         } else {
           this.logger.warn(`User not found`);
         }

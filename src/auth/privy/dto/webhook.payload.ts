@@ -18,9 +18,15 @@ export interface PrivyTransferEventPayload {
   deletedUser: boolean;
 }
 
+export interface PrivyCreateEventPayload {
+  type: "user.created";
+  user: User;
+}
+
 export type PrivyWebhookPayload =
   | PrivyUpdateEventPayload
-  | PrivyTransferEventPayload;
+  | PrivyTransferEventPayload
+  | PrivyCreateEventPayload;
 
 export interface PrivyTestPayload {
   type: "privy.test";
