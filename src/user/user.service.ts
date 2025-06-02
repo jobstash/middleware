@@ -11,6 +11,7 @@ import {
   UserOrgAffiliationRequest,
   data,
   UserPermission,
+  UserVerifiedOrg,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -1169,22 +1170,6 @@ export class UserService {
       });
   }
 
-  async getUsersVerifiedOrgs(
-    wallets: string[],
-  ): Promise<{ wallet: string; orgs: string[] }[]> {
-    return Promise.all(
-      wallets.map(async wallet => {
-        const orgs = data(
-          await this.profileService.getUserVerifications(wallet),
-        );
-        return {
-          wallet,
-          orgs: orgs.map(x => x.id),
-        };
-      }),
-    );
-  }
-
   async getUsersAvailableForWork(
     params: GetAvailableUsersInput,
     orgId: string | null,
@@ -1210,6 +1195,7 @@ export class UserService {
           `
           MATCH (user:User)
           WHERE user.available = true
+          AND NOT CASE WHEN $orgId IS NOT NULL THEN EXISTS((user)-[:VERIFIED_FOR_ORG]->(:Organization { orgId: $orgId })) ELSE false END
 
           OPTIONAL MATCH (user)-[app:APPLIED_TO]->(job:StructuredJobpost)
           WITH user, job, app.timestamp AS timestamp
@@ -1310,40 +1296,17 @@ export class UserService {
           return [];
         });
 
-      const usersVerifiedOrgs = await this.getUsersVerifiedOrgs(
-        users.map(x => x.wallet),
-      );
-
-      const filtered = users
-        .map(x => ({
-          ...x,
-          linkedAccounts: {
-            ...x.linkedAccounts,
-            wallets: x.wallets,
-          },
-        }))
-        .filter(user => {
-          const verifiedOrgs = usersVerifiedOrgs.find(
-            x => x.wallet === user.wallet,
-          );
-          return !(verifiedOrgs?.orgs ?? []).includes(orgId);
-        });
-
-      const ecosystemActivations =
-        await this.scorerService.getAllUserEcosystemActivations(orgId);
-
       return {
         success: true,
         message: "Users available for work retrieved successfully",
-        data: filtered.map(user =>
+        data: users.map(user =>
           new UserAvailableForWorkEntity({
             ...user,
-            ecosystemActivations: user.linkedAccounts.wallets.flatMap(
-              z =>
-                ecosystemActivations
-                  .find(x => x.wallet === z)
-                  ?.ecosystemActivations?.map(x => x.name) ?? [],
-            ),
+            linkedAccounts: {
+              ...user.linkedAccounts,
+              wallets: user.wallets,
+            },
+            ecosystemActivations: [],
           }).getProperties(),
         ),
       };
