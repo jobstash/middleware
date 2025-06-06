@@ -193,7 +193,7 @@ export class OrganizationsService {
 
   async getOrgsListWithSearch(
     params: OrgListParams & { ecosystemHeader?: string },
-  ): Promise<PaginatedData<ShortOrg>> {
+  ): Promise<PaginatedData<ShortOrgWithSummary>> {
     const paramsPassed = {
       ...params,
       limit: params.limit ?? 10,
@@ -368,10 +368,10 @@ export class OrganizationsService {
       ]);
     }
 
-    return paginate<ShortOrg>(
+    return paginate<ShortOrgWithSummary>(
       page,
       limit,
-      final.map(x => toShortOrg(x)),
+      final.map(x => toShortOrgWithSummary(x)),
     );
   }
 

@@ -180,7 +180,7 @@ export class OrganizationsController {
     @Query(new ValidationPipe({ transform: true }))
     params: OrgListParams,
     @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
-  ): Promise<PaginatedData<ShortOrg>> {
+  ): Promise<PaginatedData<ShortOrgWithSummary>> {
     const enrichedParams = {
       ...params,
       ecosystemHeader: ecosystem,
