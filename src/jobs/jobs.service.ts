@@ -875,8 +875,9 @@ export class JobsService {
       const tags = (await this.tagsService.getPopularTags(100)).map(
         x => x.name,
       );
-      const result = await this.neogma.queryRunner
-        .run(
+      const result = await Promise.all([
+        // Query 1: Project and Organization Metrics
+        this.neogma.queryRunner.run(
           `
             CYPHER runtime = parallel
             RETURN {
@@ -927,7 +928,17 @@ export class JobsService {
                 WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
                 AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
                 AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyRevenue
-              ]),
+              ])
+            } as res
+          `,
+          { ecosystem, popularity },
+        ),
+
+        // Query 2: Job-related Metrics
+        this.neogma.queryRunner.run(
+          `
+            CYPHER runtime = parallel
+            RETURN {
               minSalaryRange: apoc.coll.min([
                 (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
                 WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
@@ -945,7 +956,17 @@ export class JobsService {
               maxHeadCount: apoc.coll.max([
                 (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) 
                 WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END | org.headcountEstimate
-              ]),
+              ])
+            } as res
+          `,
+          { ecosystem, popularity },
+        ),
+
+        // Query 3: Organization Relationships
+        this.neogma.queryRunner.run(
+          `
+            CYPHER runtime = parallel
+            RETURN {
               fundingRounds: apoc.coll.toSet([
                 (org: Organization)-[:HAS_FUNDING_ROUND]->(round: FundingRound)
                 WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
@@ -970,6 +991,26 @@ export class JobsService {
                 AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
                 AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | project.name
               ]),
+              chains: apoc.coll.toSet([
+                (org)-[:HAS_PROJECT|IS_DEPLOYED_ON*2]->(chain: Chain)
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | chain.name
+              ]),
+              organizations: apoc.coll.toSet([
+                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END | org.name
+              ])
+            } as res
+          `,
+          { ecosystem, popularity },
+        ),
+
+        // Query 4: Job Classifications and Details
+        this.neogma.queryRunner.run(
+          `
+            CYPHER runtime = parallel
+            RETURN {
               classifications: apoc.coll.toSet([
                 (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification)
                 WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
@@ -980,20 +1021,10 @@ export class JobsService {
                 WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
                 AND (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | commitment.name
               ]),
-              chains: apoc.coll.toSet([
-                (org)-[:HAS_PROJECT|IS_DEPLOYED_ON*2]->(chain: Chain)
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
-                AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | chain.name
-              ]),
               locations: apoc.coll.toSet([
                 (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_LOCATION_TYPE]->(location: JobpostLocationType)
                 WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
                 AND (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | location.name
-              ]),
-              organizations: apoc.coll.toSet([
-                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END | org.name
               ]),
               seniority: apoc.coll.toSet([
                 (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
@@ -1003,15 +1034,20 @@ export class JobsService {
             } as res
           `,
           { ecosystem, popularity },
-        )
-        .then(res =>
-          res.records.length
-            ? new JobFilterConfigsEntity({
-                ...res.records[0].get("res"),
-                tags,
-              }).getProperties()
-            : undefined,
-        );
+        ),
+      ]).then(results => {
+        const combinedResult = results.reduce((acc, curr) => {
+          if (curr.records.length) {
+            return { ...acc, ...curr.records[0].get("res") };
+          }
+          return acc;
+        }, {});
+
+        return new JobFilterConfigsEntity({
+          ...combinedResult,
+          tags,
+        }).getProperties();
+      });
       return result;
     } catch (err) {
       Sentry.withScope(scope => {
