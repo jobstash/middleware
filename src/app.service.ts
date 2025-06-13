@@ -70,7 +70,7 @@ export class AppService {
               <priority>1.0</priority>
             </url>
             ${
-              job.organization.projects.length > 0
+              job?.organization?.projects?.length > 0
                 ? `<url>
                       <loc>${FE_DOMAIN}/${path}/${slug}/projects</loc>
                       <lastmod>${recentTimestamp}</lastmod>
