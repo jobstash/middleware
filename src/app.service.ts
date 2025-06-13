@@ -55,7 +55,7 @@ export class AppService {
             .map(job => {
               const path = "jobs";
               const slug = slugify(
-                `${job.organization.name} ${job.title} ${job.shortUUID}`,
+                `${job?.organization?.name ?? job?.project?.name ?? ""} ${job.title} ${job.shortUUID}`,
               );
               return `<url>
               <loc>${FE_DOMAIN}/${path}/${slug}/details</loc>
