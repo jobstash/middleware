@@ -782,11 +782,11 @@ export class StripeService {
 
   async deleteSubscription(orgId: string): Promise<ResponseWithNoData> {
     try {
-      const { externalId } = data(
+      const sub = data(
         await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
       );
-      if (externalId) {
-        await this.stripe.subscriptions.cancel(externalId);
+      if (sub?.externalId) {
+        await this.stripe.subscriptions.cancel(sub.externalId);
       }
       return {
         success: true,

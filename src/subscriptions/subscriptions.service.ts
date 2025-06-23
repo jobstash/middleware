@@ -1649,37 +1649,54 @@ export class SubscriptionsService {
 
   async resetSubscriptionState(orgId: string): Promise<ResponseWithNoData> {
     try {
-      const users = await this.neogma.queryRunner.run(
-        `
+      const sub = data(await this.getSubscriptionInfoByOrgId(orgId));
+      if (sub) {
+        const users = await this.neogma.queryRunner.run(
+          `
           MATCH (org:Organization {orgId: $orgId})
           OPTIONAL MATCH (org)-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)-[:HAS_QUOTA|HAS_PAYMENT|HAS_SERVICE]->(node)
           OPTIONAL MATCH (org)-[:HAS_USER_SEAT]->(userSeat:OrgUserSeat)<-[:OCCUPIES]-(user:User)-[:HAS_PENDING_PAYMENT|MADE_SUBSCRIPTION_PAYMENT|USED_QUOTA]->(node1)
           DETACH DELETE subscription, node, userSeat, node1
           RETURN user { .* } as user
         `,
-        { orgId },
-      );
-      this.logger.log(`Resetting subscription state for ${orgId}`);
-      for (const userRecord of users.records) {
-        const user = userRecord.get("user");
-        const currentPerms = await this.userService.getUserPermissions(
-          user.wallet,
+          { orgId },
         );
-        const permsToDrop: string[] = [
-          CheckWalletPermissions.ORG_MEMBER,
-          CheckWalletPermissions.ORG_OWNER,
-        ];
-        await this.userService.syncUserPermissions(
-          user.wallet,
-          currentPerms
-            .filter(x => !permsToDrop.includes(x.name))
-            .map(x => x.name),
-        );
+        if (users.records.length > 0) {
+          this.logger.log(`Resetting subscription state for ${orgId}`);
+          for (const userRecord of users.records) {
+            const user = userRecord.get("user");
+            const currentPerms = await this.userService.getUserPermissions(
+              user.wallet,
+            );
+            const permsToDrop: string[] = [
+              CheckWalletPermissions.ORG_MEMBER,
+              CheckWalletPermissions.ORG_OWNER,
+            ];
+            await this.userService.syncUserPermissions(
+              user.wallet,
+              currentPerms
+                .filter(x => !permsToDrop.includes(x.name))
+                .map(x => x.name),
+            );
+          }
+          return {
+            success: true,
+            message: "Subscription state reset successfully",
+          };
+        } else {
+          this.logger.log(`No users found for ${orgId}`);
+          return {
+            success: true,
+            message: "Subscription state reset successfully",
+          };
+        }
+      } else {
+        this.logger.log(`No subscription found for ${orgId}`);
+        return {
+          success: true,
+          message: "Org subscription not found",
+        };
       }
-      return {
-        success: true,
-        message: "Subscription state reset successfully",
-      };
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
