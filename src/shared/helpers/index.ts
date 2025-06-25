@@ -796,6 +796,124 @@ export function sprinkleProtectedJobs(jobs: JobListResult[]): JobListResult[] {
   return result;
 }
 
+export function sprinkleSpecialJobs(jobs: JobListResult[]): JobListResult[] {
+  if (jobs.length <= 1) return jobs;
+
+  // Fast path: use typed arrays for better performance
+  const specialIndices = new Uint16Array(jobs.length);
+  const publicIndices = new Uint16Array(jobs.length);
+  let specialCount = 0;
+  let publicCount = 0;
+
+  // Single pass separation (faster than filter)
+  for (let i = 0; i < jobs.length; i++) {
+    if (
+      jobs[i].access === "protected" ||
+      jobs[i].ethSeasonOfInternships === true
+    ) {
+      specialIndices[specialCount++] = i;
+    } else {
+      publicIndices[publicCount++] = i;
+    }
+  }
+
+  // Early return if no mixing needed
+  if (specialCount === 0 || publicCount === 0) return jobs;
+
+  // Pre-allocate result array
+  const result = new Array(jobs.length);
+  let resultIndex = 0;
+
+  // Place first special job at the very top
+  result[resultIndex++] = jobs[specialIndices[0]];
+
+  // For very small special sets (< 3%), concentrate them in first 100 positions
+  const isVerySmallSubset = specialCount / jobs.length < 0.03;
+
+  if (isVerySmallSubset) {
+    // Calculate base spacing within first 100 positions
+    const baseSpacing = Math.floor(100 / (specialCount * 1.5));
+
+    let specialIndex = 1; // Start from second special job
+    let publicIndex = 0;
+
+    // Fibonacci-based spacing multipliers for less obvious distribution
+    const spacingMultipliers = [1, 2, 3, 5, 8, 13];
+    let multiplierIndex = 0;
+
+    // Place special jobs with variable spacing in first 100 positions
+    while (specialIndex < specialCount && resultIndex < 100) {
+      // Calculate variable spacing using multiplier
+      const currentSpacing = Math.max(
+        baseSpacing * (spacingMultipliers[multiplierIndex] / 5),
+        3,
+      );
+
+      // Add public jobs batch
+      const chunk = Math.min(
+        Math.floor(currentSpacing),
+        publicCount - publicIndex,
+        100 - resultIndex,
+      );
+
+      for (let i = 0; i < chunk; i++) {
+        result[resultIndex++] = jobs[publicIndices[publicIndex++]];
+      }
+
+      // Add special job if we haven't hit position 100
+      if (resultIndex < 100) {
+        result[resultIndex++] = jobs[specialIndices[specialIndex++]];
+      }
+
+      // Cycle through multipliers
+      multiplierIndex = (multiplierIndex + 2) % spacingMultipliers.length;
+    }
+
+    // Fast append remaining jobs
+    while (publicIndex < publicCount) {
+      result[resultIndex++] = jobs[publicIndices[publicIndex++]];
+    }
+    while (specialIndex < specialCount) {
+      result[resultIndex++] = jobs[specialIndices[specialIndex++]];
+    }
+  } else {
+    // Standard distribution for larger special sets
+    const baseSpacing = Math.max(
+      Math.floor(publicCount / (specialCount - 1)),
+      1,
+    );
+
+    let specialIndex = 1;
+    let publicIndex = 0;
+
+    // Prime numbers for spacing variation
+    const primeFactors = [2, 3, 5, 7, 11];
+    let primeIndex = 0;
+
+    // Main distribution loop
+    while (publicIndex < publicCount) {
+      const variation = primeFactors[primeIndex] / 3;
+      const spacing = Math.max(Math.floor(baseSpacing * variation), 2);
+
+      // Bulk copy public jobs
+      const chunk = Math.min(spacing, publicCount - publicIndex);
+      for (let i = 0; i < chunk; i++) {
+        result[resultIndex++] = jobs[publicIndices[publicIndex++]];
+      }
+
+      // Insert special job if available
+      if (specialIndex < specialCount) {
+        result[resultIndex++] = jobs[specialIndices[specialIndex++]];
+      }
+
+      // Cycle through prime factors
+      primeIndex = (primeIndex + 2) % primeFactors.length;
+    }
+  }
+
+  return result;
+}
+
 export const isValidFilterConfig = (value: string): boolean =>
   value !== "unspecified" &&
   value !== "undefined" &&

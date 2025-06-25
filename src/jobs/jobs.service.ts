@@ -24,7 +24,8 @@ import {
   paginate,
   publicationDateRangeGenerator,
   slugify,
-  sprinkleProtectedJobs,
+  // sprinkleProtectedJobs,
+  sprinkleSpecialJobs,
 } from "src/shared/helpers";
 import {
   AllJobsFilterConfigs,
@@ -836,7 +837,9 @@ export class JobsService {
 
     this.logger.log(`Sorted ${final.length} jobs`);
 
-    const sprinkled = sprinkleProtectedJobs(final);
+    // TODO: Remove this on the 29th of June 2025
+    const sprinkled = sprinkleSpecialJobs(final);
+    // const sprinkled = sprinkleProtectedJobs(final);
 
     return paginate<JobListResult>(page, limit, sprinkled);
   }
