@@ -35,7 +35,6 @@ import { responseSchemaWrapper } from "src/shared/helpers";
 import {
   AllJobsFilterConfigs,
   AllJobsListResult,
-  AllOrgJobsListResult,
   data,
   EcosystemJobListResult,
   JobApplicant,
@@ -49,7 +48,6 @@ import {
   ResponseWithOptionalData,
   SessionObject,
   StructuredJobpostWithRelations,
-  Tag,
   ValidationError,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -70,7 +68,7 @@ import { CacheInterceptor } from "@nestjs/cache-manager";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
 import { StripeService } from "src/stripe/stripe.service";
-import { isEmpty, isEqual, map, pick, xor } from "lodash";
+import { isEmpty, isEqual, map, xor } from "lodash";
 
 @Controller("jobs")
 @UseInterceptors(CacheInterceptor)
@@ -1040,7 +1038,7 @@ export class JobsController {
             }))
             .catch(err => ({
               success: false,
-              message: "Error updating job metadata",
+              message: `Error updating job metadata: ${err.message}`,
             })),
         );
       }

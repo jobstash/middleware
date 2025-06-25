@@ -829,6 +829,7 @@ export class EcosystemsService {
             maximumSalary: structured_jobpost.maximumSalary,
             salaryCurrency: structured_jobpost.salaryCurrency,
             onboardIntoWeb3: structured_jobpost.onboardIntoWeb3,
+            ethSeasonOfInternships: structured_jobpost.ethSeasonOfInternships,
             responsibilities: structured_jobpost.responsibilities,
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
@@ -1028,6 +1029,7 @@ export class EcosystemsService {
       ecosystems: ecosystemFilterList,
       token,
       onboardIntoWeb3,
+      ethSeasonOfInternships,
       query,
       order,
       orderBy,
@@ -1242,6 +1244,8 @@ export class EcosystemsService {
         (!commitmentFilterList ||
           commitmentFilterList.includes(slugify(commitment))) &&
         (onboardIntoWeb3 === null || jlr.onboardIntoWeb3 === onboardIntoWeb3) &&
+        (ethSeasonOfInternships === null ||
+          jlr.ethSeasonOfInternships === ethSeasonOfInternships) &&
         (!query || matchesQuery) &&
         (!tagFilterList ||
           tags.filter(tag => tagFilterList.includes(slugify(tag.name))).length >

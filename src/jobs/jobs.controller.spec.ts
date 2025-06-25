@@ -471,6 +471,7 @@ describe("JobsController", () => {
           title,
           protected: false,
           onboardIntoWeb3: true,
+          ethSeasonOfInternships: true,
           url,
           tags: newTags,
         },

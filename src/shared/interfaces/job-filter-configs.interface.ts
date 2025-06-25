@@ -24,6 +24,7 @@ export class JobFilterConfigs {
     audits: SingleSelectFilter.SingleSelectFilterType,
     token: SingleSelectFilter.SingleSelectFilterType,
     onboardIntoWeb3: SingleSelectFilter.SingleSelectFilterType,
+    ethSeasonOfInternships: SingleSelectFilter.SingleSelectFilterType,
     order: SingleSelectFilter.SingleSelectFilterType,
     seniority: MultiSelectFilter.MultiSelectFilterType,
     locations: MultiSelectFilter.MultiSelectFilterType,
@@ -85,6 +86,8 @@ export class JobFilterConfigs {
   @ApiProperty()
   onboardIntoWeb3: SingleSelectFilter;
   @ApiProperty()
+  ethSeasonOfInternships: SingleSelectFilter;
+  @ApiProperty()
   order: SingleSelectFilter;
   @ApiProperty()
   orderBy: SingleSelectFilter;
@@ -108,6 +111,7 @@ export class JobFilterConfigs {
       ecosystems,
       classifications,
       onboardIntoWeb3,
+      ethSeasonOfInternships,
       commitments,
       monthlyFees,
       fundingRounds,
@@ -132,6 +136,7 @@ export class JobFilterConfigs {
     this.seniority = seniority;
     this.locations = locations;
     this.onboardIntoWeb3 = onboardIntoWeb3;
+    this.ethSeasonOfInternships = ethSeasonOfInternships;
     this.headcountEstimate = headcountEstimate;
     this.investors = investors;
     this.ecosystems = ecosystems;

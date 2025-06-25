@@ -101,6 +101,11 @@ export class UpdateJobMetadataInput {
   @IsBoolean()
   onboardIntoWeb3: boolean | null = null;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  ethSeasonOfInternships: boolean | null = null;
+
   @ApiProperty()
   @IsNotEmpty()
   @IsString()

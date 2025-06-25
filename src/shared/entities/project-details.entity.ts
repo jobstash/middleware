@@ -190,6 +190,7 @@ export class ProjectDetailsEntity {
               : null,
             featured: isStillFeatured,
             onboardIntoWeb3: jobpost?.onboardIntoWeb3 ?? false,
+            ethSeasonOfInternships: jobpost?.ethSeasonOfInternships ?? false,
           };
         }) ?? [],
     });

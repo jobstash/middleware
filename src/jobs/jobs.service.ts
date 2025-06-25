@@ -113,6 +113,7 @@ export class JobsService {
           maximumSalary: structured_jobpost.maximumSalary,
           salaryCurrency: structured_jobpost.salaryCurrency,
           onboardIntoWeb3: structured_jobpost.onboardIntoWeb3,
+          ethSeasonOfInternships: structured_jobpost.ethSeasonOfInternships,
           responsibilities: structured_jobpost.responsibilities,
           featured: structured_jobpost.featured,
           featureStartDate: structured_jobpost.featureStartDate,
@@ -304,6 +305,7 @@ export class JobsService {
           maximumSalary: structured_jobpost.maximumSalary,
           salaryCurrency: structured_jobpost.salaryCurrency,
           onboardIntoWeb3: structured_jobpost.onboardIntoWeb3,
+          ethSeasonOfInternships: structured_jobpost.ethSeasonOfInternships,
           responsibilities: structured_jobpost.responsibilities,
           featured: structured_jobpost.featured,
           featureStartDate: structured_jobpost.featureStartDate,
@@ -493,6 +495,7 @@ export class JobsService {
               maximumSalary: structured_jobpost.maximumSalary,
               salaryCurrency: structured_jobpost.salaryCurrency,
               onboardIntoWeb3: structured_jobpost.onboardIntoWeb3,
+              ethSeasonOfInternships: structured_jobpost.ethSeasonOfInternships,
               responsibilities: structured_jobpost.responsibilities,
               offersTokenAllocation: structured_jobpost.offersTokenAllocation,
               isBlocked: CASE WHEN (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation) THEN true ELSE false END,
@@ -578,6 +581,7 @@ export class JobsService {
       ecosystems: ecosystemFilterList,
       token,
       onboardIntoWeb3,
+      ethSeasonOfInternships,
       query,
       order,
       orderBy,
@@ -788,6 +792,8 @@ export class JobsService {
         (!commitmentFilterList ||
           commitmentFilterList.includes(slugify(commitment))) &&
         (onboardIntoWeb3 === null || jlr.onboardIntoWeb3 === onboardIntoWeb3) &&
+        (ethSeasonOfInternships === null ||
+          jlr.ethSeasonOfInternships === ethSeasonOfInternships) &&
         (!query || matchesQuery) &&
         (!tagFilterList ||
           tags.filter(tag => tagFilterList.includes(slugify(tag.name))).length >
@@ -1206,6 +1212,7 @@ export class JobsService {
           maximumSalary: structured_jobpost.maximumSalary,
           salaryCurrency: structured_jobpost.salaryCurrency,
           onboardIntoWeb3: structured_jobpost.onboardIntoWeb3,
+          ethSeasonOfInternships: structured_jobpost.ethSeasonOfInternships,
           responsibilities: structured_jobpost.responsibilities,
           featured: structured_jobpost.featured,
           featureStartDate: structured_jobpost.featureStartDate,
@@ -1387,6 +1394,7 @@ export class JobsService {
           maximumSalary: structured_jobpost.maximumSalary,
           salaryCurrency: structured_jobpost.salaryCurrency,
           onboardIntoWeb3: structured_jobpost.onboardIntoWeb3,
+          ethSeasonOfInternships: structured_jobpost.ethSeasonOfInternships,
           responsibilities: structured_jobpost.responsibilities,
           featured: structured_jobpost.featured,
           featureStartDate: structured_jobpost.featureStartDate,
@@ -1698,6 +1706,7 @@ export class JobsService {
             maximumSalary: structured_jobpost.maximumSalary,
             salaryCurrency: structured_jobpost.salaryCurrency,
             onboardIntoWeb3: structured_jobpost.onboardIntoWeb3,
+            ethSeasonOfInternships: structured_jobpost.ethSeasonOfInternships,
             responsibilities: structured_jobpost.responsibilities,
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
@@ -1976,6 +1985,7 @@ export class JobsService {
             maximumSalary: structured_jobpost.maximumSalary,
             salaryCurrency: structured_jobpost.salaryCurrency,
             onboardIntoWeb3: structured_jobpost.onboardIntoWeb3,
+            ethSeasonOfInternships: structured_jobpost.ethSeasonOfInternships,
             responsibilities: structured_jobpost.responsibilities,
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
@@ -2307,6 +2317,7 @@ export class JobsService {
             maximumSalary: structured_jobpost.maximumSalary,
             salaryCurrency: structured_jobpost.salaryCurrency,
             onboardIntoWeb3: structured_jobpost.onboardIntoWeb3,
+            ethSeasonOfInternships: structured_jobpost.ethSeasonOfInternships,
             responsibilities: structured_jobpost.responsibilities,
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
@@ -2504,6 +2515,7 @@ export class JobsService {
             maximumSalary: structured_jobpost.maximumSalary,
             salaryCurrency: structured_jobpost.salaryCurrency,
             onboardIntoWeb3: structured_jobpost.onboardIntoWeb3,
+            ethSeasonOfInternships: structured_jobpost.ethSeasonOfInternships,
             responsibilities: structured_jobpost.responsibilities,
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
@@ -2710,6 +2722,7 @@ export class JobsService {
             maximumSalary: structured_jobpost.maximumSalary,
             salaryCurrency: structured_jobpost.salaryCurrency,
             onboardIntoWeb3: structured_jobpost.onboardIntoWeb3,
+            ethSeasonOfInternships: structured_jobpost.ethSeasonOfInternships,
             responsibilities: structured_jobpost.responsibilities,
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
@@ -2915,6 +2928,7 @@ export class JobsService {
             maximumSalary: structured_jobpost.maximumSalary,
             salaryCurrency: structured_jobpost.salaryCurrency,
             onboardIntoWeb3: structured_jobpost.onboardIntoWeb3,
+            ethSeasonOfInternships: structured_jobpost.ethSeasonOfInternships,
             responsibilities: structured_jobpost.responsibilities,
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
@@ -3126,6 +3140,7 @@ export class JobsService {
             maximumSalary: structured_jobpost.maximumSalary,
             salaryCurrency: structured_jobpost.salaryCurrency,
             onboardIntoWeb3: structured_jobpost.onboardIntoWeb3,
+            ethSeasonOfInternships: structured_jobpost.ethSeasonOfInternships,
             responsibilities: structured_jobpost.responsibilities,
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
@@ -3337,6 +3352,7 @@ export class JobsService {
             maximumSalary: structured_jobpost.maximumSalary,
             salaryCurrency: structured_jobpost.salaryCurrency,
             onboardIntoWeb3: structured_jobpost.onboardIntoWeb3,
+            ethSeasonOfInternships: structured_jobpost.ethSeasonOfInternships,
             responsibilities: structured_jobpost.responsibilities,
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
@@ -3549,6 +3565,7 @@ export class JobsService {
             maximumSalary: structured_jobpost.maximumSalary,
             salaryCurrency: structured_jobpost.salaryCurrency,
             onboardIntoWeb3: structured_jobpost.onboardIntoWeb3,
+            ethSeasonOfInternships: structured_jobpost.ethSeasonOfInternships,
             responsibilities: structured_jobpost.responsibilities,
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
@@ -4192,6 +4209,7 @@ export class JobsService {
         SET job.responsibilities = $responsibilities
         SET job.access = CASE WHEN $protected THEN "protected" ELSE "public" END
         SET job.onboardIntoWeb3 = $onboardIntoWeb3
+        SET job.ethSeasonOfInternships = $ethSeasonOfInternships
       `,
         {
           shortUUID,

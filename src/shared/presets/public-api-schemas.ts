@@ -504,6 +504,11 @@ export const PUBLIC_API_SCHEMAS = {
         type: "boolean",
         example: true,
       },
+      ethSeasonOfInternships: {
+        description: "Whether the job is part of the Eth Season of Internships",
+        type: "boolean",
+        example: true,
+      },
       responsibilities: {
         description: "The responsibilities of the job",
         type: "array",
@@ -1350,6 +1355,9 @@ export const PUBLIC_API_SCHEMAS = {
         $ref: getSchemaPath(MultiSelectFilter),
       },
       onboardIntoWeb3: {
+        $ref: getSchemaPath(SingleSelectFilter),
+      },
+      ethSeasonOfInternships: {
         $ref: getSchemaPath(SingleSelectFilter),
       },
       order: {
