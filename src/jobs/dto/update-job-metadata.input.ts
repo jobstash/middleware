@@ -89,7 +89,22 @@ export class UpdateJobMetadataInput {
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
-  offersTokenAllocation: boolean | null;
+  offersTokenAllocation: boolean | null = null;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsBoolean()
+  protected: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  onboardIntoWeb3: boolean | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  ethSeasonOfInternships: boolean | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()

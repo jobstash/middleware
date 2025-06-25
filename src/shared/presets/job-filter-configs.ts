@@ -30,6 +30,10 @@ export const SINGLE_SELECT_OPTIONS = {
     { label: "Web3 Beginner Friendly", value: true },
     { label: "Not Web3 Beginner Friendly", value: false },
   ],
+  ethSeasonOfInternships: [
+    { label: "Eth Season of Internships", value: true },
+    { label: "Not Eth Season of Internships", value: false },
+  ],
   order: [
     { label: "A-Z", value: "asc" },
     { label: "Z-A", value: "desc" },
@@ -223,6 +227,14 @@ export const FILTER_CONFIG_PRESETS = {
     kind: FilterKind.SINGLE_SELECT,
     options: SINGLE_SELECT_OPTIONS.onboardIntoWeb3,
   },
+  ethSeasonOfInternships: {
+    position: 22,
+    label: "Eth Season of Internships",
+    show: true,
+    googleAnalyticsEventName: "filter_joblist_eth_season_of_internships",
+    kind: FilterKind.SINGLE_SELECT,
+    options: SINGLE_SELECT_OPTIONS.ethSeasonOfInternships,
+  },
   orderBy: {
     position: 23,
     label: "Order By",
@@ -283,6 +295,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
   hacks: "hacks",
   token: "token",
   onboardIntoWeb3: "onboardIntoWeb3",
+  ethSeasonOfInternships: "ethSeasonOfInternships",
   order: "order",
   orderBy: "orderBy",
 };

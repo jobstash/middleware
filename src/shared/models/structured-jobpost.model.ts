@@ -182,6 +182,11 @@ export const StructuredJobposts = (
           allowEmpty: false,
           required: true,
         },
+        ethSeasonOfInternships: {
+          type: "boolean",
+          allowEmpty: false,
+          required: true,
+        },
         responsibilities: {
           type: "array",
           allowEmpty: false,

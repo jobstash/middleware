@@ -12,6 +12,7 @@ export class StructuredJobpost {
     benefits: t.array(t.string),
     requirements: t.array(t.string),
     onboardIntoWeb3: t.boolean,
+    ethSeasonOfInternships: t.boolean,
     responsibilities: t.array(t.string),
     title: t.union([t.string, t.null]),
     salary: t.union([t.number, t.null]),
@@ -54,6 +55,9 @@ export class StructuredJobpost {
 
   @ApiProperty()
   onboardIntoWeb3: boolean;
+
+  @ApiProperty()
+  ethSeasonOfInternships: boolean;
 
   @ApiProperty()
   responsibilities: string[];
@@ -121,6 +125,7 @@ export class StructuredJobpost {
       featured,
       featureStartDate,
       onboardIntoWeb3,
+      ethSeasonOfInternships,
       featureEndDate,
       requirements,
       minimumSalary,
@@ -151,6 +156,7 @@ export class StructuredJobpost {
     this.maximumSalary = maximumSalary;
     this.featured = featured;
     this.onboardIntoWeb3 = onboardIntoWeb3;
+    this.ethSeasonOfInternships = ethSeasonOfInternships;
     this.featureStartDate = featureStartDate;
     this.featureEndDate = featureEndDate;
     this.salaryCurrency = salaryCurrency;

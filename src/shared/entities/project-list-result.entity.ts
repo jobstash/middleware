@@ -81,6 +81,7 @@ export class ProjectListResultEntity {
               : null,
             featured: isStillFeatured,
             onboardIntoWeb3: jobpost?.onboardIntoWeb3 ?? false,
+            ethSeasonOfInternships: jobpost?.ethSeasonOfInternships ?? false,
           };
         }) ?? [],
       repos:
@@ -147,6 +148,7 @@ export class ProjectCompetitorListResultEntity {
           salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
           paysInCrypto: jobpost?.paysInCrypto ?? null,
           onboardIntoWeb3: jobpost?.onboardIntoWeb3 ?? false,
+          ethSeasonOfInternships: jobpost?.ethSeasonOfInternships ?? false,
           offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
           url:
             jobpost?.access === "protected"

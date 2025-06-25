@@ -61,6 +61,7 @@ export class JobListResultEntity {
       salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
       paysInCrypto: jobpost?.paysInCrypto ?? null,
       onboardIntoWeb3: jobpost?.onboardIntoWeb3 ?? false,
+      ethSeasonOfInternships: jobpost?.ethSeasonOfInternships ?? false,
       offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
       url:
         jobpost?.access === "protected" ? null : notStringOrNull(jobpost?.url),
@@ -184,6 +185,8 @@ export class JobListResultEntity {
                       ]),
                       salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
                       onboardIntoWeb3: jobpost?.onboardIntoWeb3 ?? false,
+                      ethSeasonOfInternships:
+                        jobpost?.ethSeasonOfInternships ?? false,
                       paysInCrypto: jobpost?.paysInCrypto ?? null,
                       offersTokenAllocation:
                         jobpost?.offersTokenAllocation ?? null,

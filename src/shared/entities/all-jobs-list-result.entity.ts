@@ -38,6 +38,7 @@ export class AllJobListResultEntity {
       commitment: notStringOrNull(jobpost?.commitment),
       paysInCrypto: jobpost?.paysInCrypto ?? null,
       onboardIntoWeb3: jobpost?.onboardIntoWeb3 ?? false,
+      ethSeasonOfInternships: jobpost?.ethSeasonOfInternships ?? false,
       offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
       timestamp: nonZeroOrNull(jobpost?.timestamp),
       url: notStringOrNull(jobpost?.url),
