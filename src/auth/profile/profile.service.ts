@@ -1666,7 +1666,7 @@ export class ProfileService {
         `
         MATCH (user:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
         MERGE (user)-[r:BLOCKED_ORG_JOBS]->(org)
-        SET r.timestamp = timestamp()
+        SET r.createdTimestamp = timestamp()
       `,
         { wallet, orgId },
       );
@@ -1697,7 +1697,7 @@ export class ProfileService {
         `
         MATCH (user:User {wallet: $wallet}), (job:StructuredJobpost {shortUUID: $shortUUID})
         MERGE (user)-[r:APPLIED_TO]->(job)
-        SET r.timestamp = timestamp()
+        SET r.createdTimestamp = timestamp()
       `,
         { wallet, shortUUID },
       );
@@ -1760,7 +1760,7 @@ export class ProfileService {
         `
         MATCH (user:User {wallet: $wallet}), (job:StructuredJobpost {shortUUID: $shortUUID})
         MERGE (user)-[r:BOOKMARKED]->(job)
-        SET r.timestamp = timestamp()
+        SET r.createdTimestamp = timestamp()
       `,
         { wallet, shortUUID },
       );
@@ -1861,7 +1861,7 @@ export class ProfileService {
         `
         MATCH (user:User {wallet: $wallet}), (job:StructuredJobpost {shortUUID: $shortUUID})
         MERGE (user)-[r:VIEWED_DETAILS]->(job)
-        SET r.timestamp = timestamp()
+        SET r.createdTimestamp = timestamp()
       `,
         { wallet, shortUUID },
       );
@@ -1886,7 +1886,7 @@ export class ProfileService {
         `
         MATCH (user:User {wallet: $wallet})
         MERGE (user)-[r:DID_SEARCH]->(:SearchHistory {query: $query})
-        SET r.timestamp = timestamp()
+        SET r.createdTimestamp = timestamp()
       `,
         { wallet, query },
       );

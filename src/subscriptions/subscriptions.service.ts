@@ -352,7 +352,7 @@ export class SubscriptionsService {
                     SET payment.action = $action
                     SET payment.internalRefCode = $internalRefCode
                     SET payment.externalRefCode = $externalRefCode
-                    SET payment.timestamp = $timestamp
+                    SET payment.createdTimestamp = $timestamp
                     SET payment.expiryTimestamp = $expiryTimestamp
                     RETURN payment
                   `,
@@ -1026,7 +1026,7 @@ export class SubscriptionsService {
               SET payment.action = $action
               SET payment.internalRefCode = $internalRefCode
               SET payment.externalRefCode = $externalRefCode
-              SET payment.timestamp = $timestamp
+              SET payment.createdTimestamp = $timestamp
               SET payment.expiryTimestamp = $expiryTimestamp
               RETURN payment
             `,
@@ -1537,7 +1537,7 @@ export class SubscriptionsService {
               SET payment.action = $action
               SET payment.internalRefCode = $internalRefCode
               SET payment.externalRefCode = $externalRefCode
-              SET payment.timestamp = $timestamp
+              SET payment.createdTimestamp = $timestamp
               SET payment.expiryTimestamp = $expiryTimestamp
               RETURN payment
             `,
@@ -1851,7 +1851,7 @@ export class SubscriptionsService {
         MATCH (org:Organization {orgId: $orgId})-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)
         MATCH (subscription)-[:HAS_PAYMENT]->(payment:Payment)
         RETURN payment { .* } as payment
-        ORDER BY payment.timestamp DESC
+        ORDER BY payment.createdTimestamp DESC
         `,
         { orgId },
       );

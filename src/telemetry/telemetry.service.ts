@@ -19,7 +19,7 @@ export class TelemetryService {
         MATCH (user:User WHERE user.wallet = $walletOrPrivyId OR user.privyId = $walletOrPrivyId)
         MERGE (user)-[:LOGGED_IN]->(history:LoginHistory)
         SET history.id = randomUUID()
-        SET history.timestamp = timestamp()
+        SET history.createdTimestamp = timestamp()
       `,
       { walletOrPrivyId },
     );
@@ -40,8 +40,8 @@ export class TelemetryService {
           MATCH (org:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(job:StructuredJobpost)
           WHERE $shortUUID IS NULL OR job.shortUUID = $shortUUID
           MATCH (:User)-[r:VIEWED_DETAILS]->(job)
-          WHERE ($epochStart IS NULL OR r.timestamp >= $epochStart)
-          AND ($epochEnd IS NULL OR r.timestamp <= $epochEnd)
+          WHERE ($epochStart IS NULL OR r.createdTimestamp >= $epochStart)
+          AND ($epochEnd IS NULL OR r.createdTimestamp <= $epochEnd)
           RETURN count(DISTINCT r) as views
         `,
         {
@@ -74,8 +74,8 @@ export class TelemetryService {
           MATCH (org:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(job:StructuredJobpost)
           WHERE $shortUUID IS NULL OR job.shortUUID = $shortUUID
           MATCH (:User)-[r:APPLIED_TO]->(job)
-          WHERE ($epochStart IS NULL OR r.timestamp >= $epochStart)
-          AND ($epochEnd IS NULL OR r.timestamp <= $epochEnd)
+          WHERE ($epochStart IS NULL OR r.createdTimestamp >= $epochStart)
+          AND ($epochEnd IS NULL OR r.createdTimestamp <= $epochEnd)
           RETURN count(DISTINCT r) as applies
         `,
         {

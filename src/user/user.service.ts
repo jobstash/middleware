@@ -1126,7 +1126,7 @@ export class UserService {
           AND NOT CASE WHEN $orgId IS NOT NULL THEN EXISTS((user)-[:VERIFIED_FOR_ORG]->(:Organization { orgId: $orgId })) ELSE false END
 
           OPTIONAL MATCH (user)-[app:APPLIED_TO]->(job:StructuredJobpost)
-          WITH user, job, app.timestamp AS timestamp
+          WITH user, job, app.createdTimestamp AS timestamp
           WITH user, collect(DISTINCT job) AS jobs, max(timestamp) AS lastAppliedTimestamp
 
           CALL {
@@ -1273,7 +1273,7 @@ export class UserService {
             wallet: user.wallet,
             orgId: org.orgId,
             status: r.status,
-            timestamp: r.timestamp
+            timestamp: r.createdTimestamp
           } as request
         `,
         { wallet, list },
@@ -1322,7 +1322,7 @@ export class UserService {
             wallet: user.wallet,
             orgId: org.orgId,
             status: r.status,
-            timestamp: r.timestamp
+            timestamp: r.createdTimestamp
           } as request
         `,
         { list },
