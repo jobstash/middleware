@@ -1316,7 +1316,7 @@ export class ProfileService {
       const result = await this.neogma.queryRunner.run(
         `
         MATCH (:User {wallet: $wallet})-[:HAS_CACHE_LOCK]->(lock: UserCacheLock)
-        RETURN lock.timestamp as timestamp
+        RETURN lock.createdTimestamp as timestamp
       `,
         { wallet },
       );
@@ -1348,11 +1348,11 @@ export class ProfileService {
         `
         MATCH (user:User WHERE user.wallet IN $wallets)
         CREATE (lock: UserCacheLock)
-        SET lock.timestamp = timestamp()
+        SET lock.createdTimestamp = timestamp()
 
         WITH user, lock
         CREATE (user)-[:HAS_CACHE_LOCK]->(lock)
-        RETURN lock.timestamp as timestamp
+        RETURN lock.createdTimestamp as timestamp
         `,
         { wallets },
       );
