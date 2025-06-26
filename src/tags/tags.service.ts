@@ -177,7 +177,7 @@ export class TagsService {
           CREATE (t:Tag { id: randomUUID() })-[r:HAS_TAG_DESIGNATION]->(dd)
           SET t += $properties
           SET r.creator = $creatorWallet
-          SET r.timestamp = timestamp()
+          SET r.createdTimestamp = timestamp()
           RETURN t
         `,
         {
@@ -208,9 +208,9 @@ export class TagsService {
           MERGE (bt)-[r3:HAS_TAG_DESIGNATION]->(bd)
           MERGE (st)-[r4:HAS_TAG_DESIGNATION]->(bd)
           SET r3.creator = $creatorWallet
-          SET r3.timestamp = timestamp()
+          SET r3.createdTimestamp = timestamp()
           SET r4.creator = $creatorWallet
-          SET r4.timestamp = timestamp()
+          SET r4.createdTimestamp = timestamp()
           RETURN bt
           `,
         {
@@ -234,7 +234,7 @@ export class TagsService {
           MATCH (pt:Tag {normalizedName: $normalizedName})
           MERGE (pt)-[r:HAS_TAG_DESIGNATION]->(pd)
           SET r.creator = $creatorWallet
-          SET r.timestamp = timestamp()
+          SET r.createdTimestamp = timestamp()
           WITH pt
           RETURN pt
           `,
@@ -339,23 +339,23 @@ export class TagsService {
         CYPHER runtime = pipelined
         MATCH (pt:Tag {normalizedName: $preferredNormalizedName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation), (t:Tag {normalizedName: $synonymNormalizedName})
         MERGE (pt)<-[r1:IS_SYNONYM_OF]-(t)
-        SET r1.timestamp = timestamp()
+        SET r1.createdTimestamp = timestamp()
 
         WITH pt, t
         OPTIONAL MATCH (st:Tag)-[:IS_SYNONYM_OF]-(t)
         WHERE st.id <> pt.id AND NOT (st)<-[:IS_SYNONYM_OF]-(pt)
         MERGE (pt)<-[r2:IS_SYNONYM_OF]-(st)
-        SET r2.timestamp = timestamp()
+        SET r2.createdTimestamp = timestamp()
 
         WITH pt, t
         OPTIONAL MATCH (st:Tag)-[:IS_SYNONYM_OF]-(pt)
         WHERE st.id <> t.id AND NOT (st)-[:IS_SYNONYM_OF]->(t)
         MERGE (t)<-[r3:IS_SYNONYM_OF]-(st)
-        SET r3.timestamp = timestamp()
+        SET r3.createdTimestamp = timestamp()
 
         WITH pt, t
         MERGE (t)<-[r4:IS_SYNONYM_OF]-(pt)
-        SET r4.timestamp = timestamp()
+        SET r4.createdTimestamp = timestamp()
 
         RETURN true as result;
         `,
@@ -422,7 +422,7 @@ export class TagsService {
           MATCH (t2:Tag {normalizedName: pairTagNormalizedName})
 
           CREATE (t1)-[p:IS_PAIR_OF]->(t2)
-          SET p.timestamp = timestamp()
+          SET p.createdTimestamp = timestamp()
           SET p.creator = $creatorWallet
         `,
         {
@@ -477,7 +477,7 @@ export class TagsService {
           
           CREATE (sj)-[r:HAS_TAG]->(t)
           
-          SET r.timestamp = timestamp()
+          SET r.createdTimestamp = timestamp()
           SET r.originatingJobpostId = $structuredJobpostId
 
           RETURN t {
@@ -545,13 +545,13 @@ export class TagsService {
         WITH ad, tag
         CREATE (tag)-[nr1:HAS_TAG_DESIGNATION]->(ad)
         SET nr1.creator = $wallet
-        SET nr1.timestamp = timestamp()
+        SET nr1.createdTimestamp = timestamp()
         
         WITH ad, tag
         OPTIONAL MATCH (st:Tag)<-[:IS_SYNONYM_OF]-(tag)
         CREATE (st)-[nr2:HAS_TAG_DESIGNATION]->(ad)
         SET nr2.creator = $wallet
-        SET nr2.timestamp = timestamp()
+        SET nr2.createdTimestamp = timestamp()
       `,
       { normalizedName, wallet },
     );
@@ -569,7 +569,7 @@ export class TagsService {
       CYPHER runtime = pipelined
       MERGE (t1:Tag {normalizedName: $originTagNormalizedName})<-[ts:IS_SYNONYM_OF]-(t2:Tag {normalizedName: $synonymNormalizedName})
 
-      SET ts.timestamp = timestamp()
+      SET ts.createdTimestamp = timestamp()
       SET ts.creator = $synonymSuggesterWallet
 
       WITH t1,t2

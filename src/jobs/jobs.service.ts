@@ -1392,7 +1392,7 @@ export class JobsService {
           note: [(user)-[:HAS_RECRUITER_NOTE]->(note: RecruiterNote)<-[:HAS_TALENT_NOTE]-(organization) | note.note][0],
           cryptoNative: user.cryptoNative,
           cryptoAdjacent: user.cryptoAdjacent,
-          appliedTimestamp: r.timestamp,
+          appliedTimestamp: r.createdTimestamp,
           user: {
               wallet: user.wallet,
               availableForWork: user.available,
@@ -1686,7 +1686,7 @@ export class JobsService {
             downvotes: null
           },
           cryptoNative: user.cryptoNative,
-          appliedTimestamp: r.timestamp,
+          appliedTimestamp: r.createdTimestamp,
           user: {
               wallet: user.wallet,
               availableForWork: user.available,
@@ -3775,7 +3775,7 @@ export class JobsService {
         WITH job
         MATCH (classification:JobpostClassification {name: $classification})
         MERGE (job)-[r:HAS_CLASSIFICATION]->(classification)
-        SET r.timestamp = timestamp()
+        SET r.createdTimestamp = timestamp()
         SET r.creator = $creatorWallet
       `,
         {
@@ -4068,7 +4068,7 @@ export class JobsService {
         `
         MATCH (job:StructuredJobpost WHERE job.shortUUID IN $shortUUIDs),(blocked:BlockedDesignation {name: "BlockedDesignation"})
         MERGE (job)-[r:HAS_JOB_DESIGNATION]->(blocked)
-        SET r.timestamp = timestamp()
+        SET r.createdTimestamp = timestamp()
         SET r.creator = $creatorWallet
       `,
         {

@@ -1256,7 +1256,7 @@ export class UserService {
             wallet: user.wallet,
             orgId: org.orgId,
             status: r.status,
-            timestamp: r.timestamp
+            timestamp: r.createdTimestamp
           } as request
         `,
         { wallet, list },
@@ -1305,7 +1305,7 @@ export class UserService {
             wallet: user.wallet,
             orgId: org.orgId,
             status: r.status,
-            timestamp: r.timestamp
+            timestamp: r.createdTimestamp
           } as request
         `,
         { list },
