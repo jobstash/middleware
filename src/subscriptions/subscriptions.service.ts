@@ -78,7 +78,7 @@ export class SubscriptionsService {
             await this.neogma.queryRunner.run(
               `
                 MATCH (user:User {wallet: $wallet}), (subscription:OrgSubscription {id: $subscriptionId, status: "active"})-[:HAS_QUOTA]->(quota:Quota {id: $quotaId})
-                MERGE (user)-[:USED_QUOTA]->(quotaUsage:QuotaUsage {id: randomUUID(), service: $service, amount: $amount, timestamp: timestamp()})<-[:HAS_USAGE]-(quota)
+                MERGE (user)-[:USED_QUOTA]->(quotaUsage:QuotaUsage {id: randomUUID(), service: $service, amount: $amount, createdTimestamp: timestamp()})<-[:HAS_USAGE]-(quota)
               `,
               {
                 subscriptionId: subscription.id,
