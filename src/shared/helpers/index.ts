@@ -693,15 +693,15 @@ export function sprinkleProtectedJobs(jobs: JobListResult[]): JobListResult[] {
   // Place first protected job at the very top
   result[resultIndex++] = jobs[protectedIndices[0]];
 
+  let protectedIndex = 1; // Start from second protected job
+  let publicIndex = 0;
+
   // For very small protected sets (< 3%), concentrate them in first 100 positions
   const isVerySmallSubset = protectedCount / jobs.length < 0.03;
 
   if (isVerySmallSubset) {
     // Calculate base spacing within first 100 positions
     const baseSpacing = Math.floor(100 / (protectedCount * 1.5));
-
-    let protectedIndex = 1; // Start from second protected job
-    let publicIndex = 0;
 
     // Fibonacci-based spacing multipliers for less obvious distribution
     const spacingMultipliers = [1, 2, 3, 5, 8, 13];
@@ -774,6 +774,15 @@ export function sprinkleProtectedJobs(jobs: JobListResult[]): JobListResult[] {
 
       // Cycle through prime factors
       primeIndex = (primeIndex + 2) % primeFactors.length;
+    }
+  }
+
+  // Fill any remaining slots (shouldn't usually be needed, but ensures no undefineds)
+  while (resultIndex < jobs.length) {
+    if (publicIndex < publicCount) {
+      result[resultIndex++] = jobs[publicIndices[publicIndex++]];
+    } else if (protectedIndex < protectedCount) {
+      result[resultIndex++] = jobs[protectedIndices[protectedIndex++]];
     }
   }
 
