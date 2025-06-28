@@ -27,7 +27,7 @@ export class SubscriptionEntity {
               x.usage.map(y => ({
                 ...y,
                 amount: nonZeroOrNull(y.amount),
-                timestamp: nonZeroOrNull(y.timestamp),
+                createdTimestamp: nonZeroOrNull(y.createdTimestamp),
               })) ?? [],
           }),
       ),

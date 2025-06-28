@@ -36,7 +36,7 @@ export class QuotaUsage {
     id: t.string,
     service: MeteredService,
     amount: t.number,
-    timestamp: t.number,
+    createdTimestamp: t.number,
   });
 
   @ApiProperty()
@@ -49,13 +49,13 @@ export class QuotaUsage {
   amount: number;
 
   @ApiProperty()
-  timestamp: number;
+  createdTimestamp: number;
 
   constructor(raw: QuotaUsage) {
-    const { service, amount, timestamp } = raw;
+    const { service, amount, createdTimestamp } = raw;
     this.service = service;
     this.amount = amount;
-    this.timestamp = timestamp;
+    this.createdTimestamp = createdTimestamp;
 
     const result = QuotaUsage.QuotaUsageType.decode(raw);
 
@@ -371,7 +371,9 @@ export class Subscription {
     const quotas = this.getEpochQuotas(now());
     return quotas.reduce<QuotaUsage[]>((acc, quota) => {
       const validUsage = quota.usage.filter(
-        usage => usage.timestamp >= epochStart && usage.timestamp <= epochEnd,
+        usage =>
+          usage.createdTimestamp >= epochStart &&
+          usage.createdTimestamp <= epochEnd,
       );
       return [...acc, ...validUsage];
     }, []);
