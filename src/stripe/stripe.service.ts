@@ -317,7 +317,7 @@ export class StripeService {
             id: x.id,
             service,
             amount: Number(x.aggregated_value),
-            timestamp: x.end_time,
+            createdTimestamp: x.end_time,
           })),
         };
       } else {
