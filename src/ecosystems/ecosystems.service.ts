@@ -60,6 +60,19 @@ export class EcosystemsService {
     createEcosystemDto: CreateEcosystemDto,
   ): Promise<ResponseWithOptionalData<OrganizationEcosystem>> {
     try {
+      const check = await this.neogma.queryRunner.run(
+        `
+          RETURN EXISTS {MATCH (:OrganizationEcosystem {normalizedName: $normalizedName})} AS existing
+        `,
+        { normalizedName: slugify(createEcosystemDto.name) },
+      );
+      const existing = check.records[0].get("existing") as boolean;
+      if (existing) {
+        return {
+          success: false,
+          message: "This ecosystem name is not available",
+        };
+      }
       const result = await this.neogma.queryRunner.run(
         `
           MATCH (org:Organization {orgId: $orgId})
