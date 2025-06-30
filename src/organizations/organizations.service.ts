@@ -2153,7 +2153,7 @@ export class OrganizationsService {
         MATCH (org:Organization {orgId: $id})
         REMOVE org:Organization
         SET org:Project
-        SET org.orgId = null
+        REMOVE org.orgId, org.headcountEstimate
         RETURN org
       `,
         { id },
