@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { CreateEcosystemDto } from "./dto/create-ecosystem.dto";
 import { UpdateEcosystemDto } from "./dto/update-ecosystem.dto";
 import { UpdateEcosystemOrgsDto } from "./dto/update-ecosystem-orgs.dto";
@@ -68,10 +68,10 @@ export class EcosystemsService {
       );
       const existing = check.records[0].get("existing") as boolean;
       if (existing) {
-        return {
+        throw new BadRequestException({
           success: false,
           message: "This ecosystem name is not available",
-        };
+        });
       }
       const result = await this.neogma.queryRunner.run(
         `
@@ -772,22 +772,23 @@ export class EcosystemsService {
           ...ecosystem,
           createdTimestamp: nonZeroOrNull(ecosystem.createdTimestamp),
           updatedTimestamp: nonZeroOrNull(ecosystem.updatedTimestamp),
-          orgs: ecosystem.orgs.map(org => {
-            const lastFundingRound = sort(
-              org.fundingRounds as FundingRound[],
-            ).desc(x => x.date)[0];
-            return new ShortOrgWithSummaryEntity({
-              ...org,
-              reviewCount: org.reviews.length,
-              aggregateRating: generateOrgAggregateRating(
-                generateOrgAggregateRatings(
-                  org.reviews.map((x: OrgReview) => x.rating),
+          orgs:
+            ecosystem?.orgs?.map(org => {
+              const lastFundingRound = sort(
+                org.fundingRounds as FundingRound[],
+              ).desc(x => x.date)[0];
+              return new ShortOrgWithSummaryEntity({
+                ...org,
+                reviewCount: org.reviews.length,
+                aggregateRating: generateOrgAggregateRating(
+                  generateOrgAggregateRatings(
+                    org.reviews.map((x: OrgReview) => x.rating),
+                  ),
                 ),
-              ),
-              lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
-              lastFundingDate: lastFundingRound?.date ?? 0,
-            }).getProperties();
-          }),
+                lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
+                lastFundingDate: lastFundingRound?.date ?? 0,
+              }).getProperties();
+            }) ?? [],
         }),
       };
     } catch (err) {
