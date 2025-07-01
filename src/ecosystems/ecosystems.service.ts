@@ -106,7 +106,7 @@ export class EcosystemsService {
       } else {
         throw new BadRequestException({
           success: false,
-          message: "Failed to create ecosystem",
+          message: "Failed to create ecosystem for org",
         });
       }
     } catch (error) {
@@ -119,10 +119,10 @@ export class EcosystemsService {
         Sentry.captureException(error);
       });
       this.logger.error(`EcosystemsService::create ${error.message}`);
-      return {
+      throw new BadRequestException({
         success: false,
-        message: "Failed to create ecosystem",
-      };
+        message: "Failed to create ecosystem for unknown reason",
+      });
     }
   }
 
