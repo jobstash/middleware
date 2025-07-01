@@ -104,10 +104,10 @@ export class EcosystemsService {
           }),
         };
       } else {
-        return {
+        throw new BadRequestException({
           success: false,
           message: "Failed to create ecosystem",
-        };
+        });
       }
     } catch (error) {
       Sentry.withScope(scope => {
