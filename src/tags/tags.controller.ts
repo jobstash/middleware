@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  BadRequestException,
   Get,
   Post,
   Query,
@@ -227,6 +228,9 @@ export class TagsController {
     schema: responseSchemaWrapper({ $ref: getSchemaPath(Tag) }),
   })
   async searchTags(@Query("query") query: string): Promise<Tag[]> {
+    if (query.length === 0) {
+      throw new BadRequestException("Query is required");
+    }
     return this.tagsService.searchTags(query);
   }
 
