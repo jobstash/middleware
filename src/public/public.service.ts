@@ -178,7 +178,7 @@ export class PublicService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "jobs.service",
+          source: "public.service",
         });
         Sentry.captureException(err);
       });
@@ -247,7 +247,7 @@ export class PublicService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "jobs.service",
+          source: "public.service",
         });
         scope.setExtra("input", params);
         Sentry.captureException(err);
@@ -678,7 +678,7 @@ export class PublicService {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "db-call",
-          source: "jobs.service",
+          source: "public.service",
         });
         Sentry.captureException(err);
       });
