@@ -10,7 +10,7 @@ export class Payment {
     action: t.string,
     amount: t.number,
     currency: t.string,
-    timestamp: t.number,
+    createdTimestamp: t.number,
     internalRefCode: t.string,
     externalRefCode: t.string,
     expiryTimestamp: t.number,
@@ -28,7 +28,7 @@ export class Payment {
   @ApiProperty()
   currency: string;
   @ApiProperty()
-  timestamp: number;
+  createdTimestamp: number;
   @ApiProperty()
   internalRefCode: string;
   @ApiProperty()
@@ -45,7 +45,7 @@ export class Payment {
       action,
       amount,
       currency,
-      timestamp,
+      createdTimestamp,
       internalRefCode,
       externalRefCode,
       expiryTimestamp,
@@ -57,7 +57,7 @@ export class Payment {
     this.action = action;
     this.amount = amount / 100;
     this.currency = currency;
-    this.timestamp = timestamp;
+    this.createdTimestamp = createdTimestamp;
     this.internalRefCode = internalRefCode;
     this.externalRefCode = externalRefCode;
     this.expiryTimestamp = expiryTimestamp;
