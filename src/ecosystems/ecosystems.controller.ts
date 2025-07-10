@@ -140,6 +140,7 @@ export class EcosystemsController {
   })
   async getEcosystemJobFilters(
     @Session() session: SessionObject,
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
   ): Promise<EcosystemJobFilterConfigs> {
     this.logger.log(`GET /ecosystems/jobs/filters from ${session.address}`);
     const orgId = await this.userService.findOrgIdByMemberUserWallet(
@@ -155,14 +156,19 @@ export class EcosystemsController {
           "Organization does not have an active or valid subscription to use this service",
       });
     }
-    const ecosystem = data(await this.findAll(orgId, session))[0];
-    if (!ecosystem) {
+    const allEcos = data(await this.findAll(orgId, session));
+    const targets = ecosystem
+      ? allEcos.filter(x => x.normalizedName === ecosystem)
+      : allEcos;
+    if (!targets.length) {
       throw new BadRequestException({
         success: false,
         message: "You are not allowed to access this resource",
       });
     } else {
-      return this.ecosystemsService.getFilterConfigs(ecosystem.normalizedName);
+      return this.ecosystemsService.getFilterConfigs(
+        targets.map(x => x.normalizedName),
+      );
     }
   }
 

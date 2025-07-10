@@ -1331,7 +1331,7 @@ export class EcosystemsService {
   }
 
   async getFilterConfigs(
-    ecosystem: string,
+    ecosystems: string[],
   ): Promise<EcosystemJobFilterConfigs> {
     try {
       const popularity =
@@ -1342,131 +1342,275 @@ export class EcosystemsService {
       const result = await this.neogma.queryRunner
         .run(
           `
-              CYPHER runtime = parallel
-              RETURN {
-                maxTvl: apoc.coll.max([
-                  (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.tvl
-                ]),
-                minTvl: apoc.coll.min([
-                  (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.tvl
-                ]),
-                minMonthlyVolume: apoc.coll.min([
-                  (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyVolume
-                ]),
-                maxMonthlyVolume: apoc.coll.max([
-                  (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyVolume
-                ]),
-                minMonthlyFees: apoc.coll.max([
-                  (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyFees
-                ]),
-                maxMonthlyFees: apoc.coll.max([
-                  (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyFees
-                ]),
-                minMonthlyRevenue: apoc.coll.max([
-                  (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyRevenue
-                ]),
-                maxMonthlyRevenue: apoc.coll.max([
-                  (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyRevenue
-                ]),
-                minSalaryRange: apoc.coll.min([
-                  (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND j.salaryCurrency CONTAINS "USD" | j.salary
-                ]),
-                maxSalaryRange: apoc.coll.max([
-                  (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND j.salaryCurrency CONTAINS "USD" | j.salary
-                ]),
-                minHeadCount: apoc.coll.min([
-                  (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) 
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END | org.headcountEstimate
-                ]),
-                maxHeadCount: apoc.coll.max([
-                  (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) 
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END | org.headcountEstimate
-                ]),
-                fundingRounds: apoc.coll.toSet([
-                  (org: Organization)-[:HAS_FUNDING_ROUND]->(round: FundingRound)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | round.roundName
-                ]),
-                investors: apoc.coll.toSet([
-                  (org: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | investor.name
-                ]),
-                ecosystems: apoc.coll.toSet([
-                  (org: Organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | ecosystem.name
-                ]),
-                projects: apoc.coll.toSet([
-                  (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | project.name
-                ]),
-                classifications: apoc.coll.toSet([
-                  (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | classification.name
-                ]),
-                commitments: apoc.coll.toSet([
-                  (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_COMMITMENT]->(commitment:JobpostCommitment)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | commitment.name
-                ]),
-                chains: apoc.coll.toSet([
-                  (org)-[:HAS_PROJECT|IS_DEPLOYED_ON*2]->(chain: Chain)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | chain.name
-                ]),
-                locations: apoc.coll.toSet([
-                  (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_LOCATION_TYPE]->(location: JobpostLocationType)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | location.name
-                ]),
-                organizations: apoc.coll.toSet([
-                  (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END | org.name
-                ]),
-                seniority: apoc.coll.toSet([
-                  (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND j.seniority IS NOT NULL | j.seniority
-                ])
-              } as res
-            `,
-          { ecosystem, popularity },
+            CYPHER runtime = parallel
+            RETURN {
+              maxTvl: apoc.coll.max([
+                (org)-[:HAS_PROJECT]->(project:Project)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                    AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]
+                        ->(:JobpostOnlineStatus)
+                    AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST
+                                   |HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                  | project.tvl
+              ]),
+                    
+              minTvl: apoc.coll.min([
+                (org)-[:HAS_PROJECT]->(project:Project)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                    AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]
+                        ->(:JobpostOnlineStatus)
+                    AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST
+                                   |HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                  | project.tvl
+              ]),
+                    
+              minMonthlyVolume: apoc.coll.min([
+                (org)-[:HAS_PROJECT]->(project:Project)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                    AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]
+                        ->(:JobpostOnlineStatus)
+                    AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST
+                                   |HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                  | project.monthlyVolume
+              ]),
+                    
+              maxMonthlyVolume: apoc.coll.max([
+                (org)-[:HAS_PROJECT]->(project:Project)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                    AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]
+                        ->(:JobpostOnlineStatus)
+                    AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST
+                                   |HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                  | project.monthlyVolume
+              ]),
+                    
+              minMonthlyFees: apoc.coll.min([
+                (org)-[:HAS_PROJECT]->(project:Project)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                    AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]
+                        ->(:JobpostOnlineStatus)
+                    AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST
+                                   |HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                  | project.monthlyFees
+              ]),
+                    
+              maxMonthlyFees: apoc.coll.max([
+                (org)-[:HAS_PROJECT]->(project:Project)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                    AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]
+                        ->(:JobpostOnlineStatus)
+                    AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST
+                                   |HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                  | project.monthlyFees
+              ]),
+                    
+              minMonthlyRevenue: apoc.coll.min([
+                (org)-[:HAS_PROJECT]->(project:Project)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                    AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]
+                        ->(:JobpostOnlineStatus)
+                    AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST
+                                   |HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                  | project.monthlyRevenue
+              ]),
+                    
+              maxMonthlyRevenue: apoc.coll.max([
+                (org)-[:HAS_PROJECT]->(project:Project)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                    AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]
+                        ->(:JobpostOnlineStatus)
+                    AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST
+                                   |HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                  | project.monthlyRevenue
+              ]),
+                    
+              minSalaryRange: apoc.coll.min([
+                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]
+                    ->(j:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                    AND j.salaryCurrency CONTAINS "USD"
+                  | j.salary
+              ]),
+                    
+              maxSalaryRange: apoc.coll.max([
+                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]
+                    ->(j:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                    AND j.salaryCurrency CONTAINS "USD"
+                  | j.salary
+              ]),
+                    
+              minHeadCount: apoc.coll.min([
+                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]
+                    ->(:JobpostOnlineStatus)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                  | org.headcountEstimate
+              ]),
+                    
+              maxHeadCount: apoc.coll.max([
+                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]
+                    ->(:JobpostOnlineStatus)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                  | org.headcountEstimate
+              ]),
+                    
+              fundingRounds: apoc.coll.toSet([
+                (org:Organization)-[:HAS_FUNDING_ROUND]->(round:FundingRound)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                    AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST
+                                   |HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                    AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]
+                        ->(:JobpostOnlineStatus)
+                  | round.roundName
+              ]),
+                    
+              investors: apoc.coll.toSet([
+                (org:Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor:Investor)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                    AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST
+                                   |HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                    AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]
+                        ->(:JobpostOnlineStatus)
+                  | investor.name
+              ]),
+                    
+              ecosystems: apoc.coll.toSet([
+                (org:Organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem:Ecosystem)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                    AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST
+                                   |HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                    AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]
+                        ->(:JobpostOnlineStatus)
+                  | ecosystem.name
+              ]),
+                    
+              projects: apoc.coll.toSet([
+                (org)-[:HAS_PROJECT]->(project:Project)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                    AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST
+                                   |HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                    AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]
+                        ->(:JobpostOnlineStatus)
+                  | project.name
+              ]),
+                    
+              classifications: apoc.coll.toSet([
+                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]
+                    ->(j:StructuredJobpost)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                    AND (j)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+                  | classification.name
+              ]),
+                    
+              commitments: apoc.coll.toSet([
+                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]
+                    ->(j:StructuredJobpost)-[:HAS_COMMITMENT]->(commitment:JobpostCommitment)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                    AND (j)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+                  | commitment.name
+              ]),
+                    
+              chains: apoc.coll.toSet([
+                (org)-[:HAS_PROJECT|IS_DEPLOYED_ON*2]->(chain:Chain)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                    AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST
+                                   |HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                    AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]
+                        ->(:JobpostOnlineStatus)
+                  | chain.name
+              ]),
+                    
+              locations: apoc.coll.toSet([
+                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]
+                    ->(j:StructuredJobpost)-[:HAS_LOCATION_TYPE]->(location:JobpostLocationType)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                    AND (j)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+                  | location.name
+              ]),
+                    
+              organizations: apoc.coll.toSet([
+                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]
+                    ->(:JobpostOnlineStatus)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                  | org.name
+              ]),
+                    
+              seniority: apoc.coll.toSet([
+                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]
+                    ->(j:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+                  WHERE EXISTS {
+                          (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(orgEco:OrganizationEcosystem)
+                          WHERE orgEco.normalizedName IN $ecosystems
+                        }
+                    AND j.seniority IS NOT NULL
+                  | j.seniority
+              ])
+            } AS res;
+          `,
+          { ecosystems, popularity },
         )
         .then(res =>
           res.records.length
