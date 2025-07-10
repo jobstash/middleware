@@ -808,13 +808,12 @@ export class EcosystemsService {
   }
 
   getJobsListResults = async (
-    ecosystem: string,
+    ecosystems: string[],
   ): Promise<EcosystemJobListResult[]> => {
     const results: EcosystemJobListResult[] = [];
     const generatedQuery = `
         CYPHER runtime = parallel
-        MATCH (structured_jobpost:StructuredJobpost)
-        WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+        MATCH (structured_jobpost:StructuredJobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem:OrganizationEcosystem WHERE ecosystem.normalizedName IN $ecosystems)
         MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
         WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
         WITH DISTINCT tag, structured_jobpost
@@ -981,7 +980,7 @@ export class EcosystemsService {
 
     try {
       const queryResult = await this.neogma.queryRunner.run(generatedQuery, {
-        ecosystem: ecosystem ?? null,
+        ecosystems,
       });
       const resultSet = queryResult.records.map(
         record => record.get("result") as EcosystemJobListResult,
@@ -1005,7 +1004,7 @@ export class EcosystemsService {
   };
 
   async getJobsListWithSearch(
-    params: EcosystemJobListParams & { ecosystemHeader: string },
+    params: EcosystemJobListParams & { ecosystems: string[] },
   ): Promise<PaginatedData<EcosystemJobListResult>> {
     const paramsPassed = {
       ...publicationDateRangeGenerator(params.publicationDate as DateRange),
@@ -1040,7 +1039,6 @@ export class EcosystemsService {
       fundingRounds: fundingRoundFilterList,
       classifications: classificationFilterList,
       commitments: commitmentFilterList,
-      ecosystems: ecosystemFilterList,
       token,
       onboardIntoWeb3,
       ethSeasonOfInternships,
@@ -1051,13 +1049,13 @@ export class EcosystemsService {
       limit,
       online,
       blocked,
-      ecosystemHeader,
+      ecosystems,
     } = paramsPassed;
 
     const results: EcosystemJobListResult[] = [];
 
     try {
-      const jobs = await this.getJobsListResults(ecosystemHeader);
+      const jobs = await this.getJobsListResults(ecosystems);
       results.push(...jobs);
     } catch (err) {
       Sentry.withScope(scope => {
@@ -1128,7 +1126,6 @@ export class EcosystemsService {
         organizationFilterList,
         investorFilterList,
         fundingRoundFilterList,
-        ecosystemFilterList,
         projectFilterList,
         token,
         minTvl,
@@ -1155,7 +1152,6 @@ export class EcosystemsService {
         fundingRounds,
         name: orgName,
         headcountEstimate,
-        ecosystems,
       } = jlr.organization;
       const {
         tags,
@@ -1186,10 +1182,6 @@ export class EcosystemsService {
         (!endDate || timestamp < endDate) &&
         (!commitmentFilterList ||
           commitmentFilterList.includes(slugify(commitment))) &&
-        (!ecosystemFilterList ||
-          ecosystems.filter(ecosystem =>
-            ecosystemFilterList.includes(slugify(ecosystem)),
-          ).length > 0) &&
         (!classificationFilterList ||
           classificationFilterList.includes(slugify(classification))) &&
         (!investorFilterList ||

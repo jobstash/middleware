@@ -13,6 +13,7 @@ import {
   BadRequestException,
   UseInterceptors,
   ForbiddenException,
+  Headers,
 } from "@nestjs/common";
 import { EcosystemsService } from "./ecosystems.service";
 import { CreateEcosystemDto } from "./dto/create-ecosystem.dto";
@@ -23,7 +24,11 @@ import {
   ApiUnprocessableEntityResponse,
 } from "@nestjs/swagger";
 import { PBACGuard } from "src/auth/pbac.guard";
-import { CACHE_DURATION, CheckWalletPermissions } from "src/shared/constants";
+import {
+  CACHE_DURATION,
+  CheckWalletPermissions,
+  ECOSYSTEM_HEADER,
+} from "src/shared/constants";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
   data,
@@ -79,6 +84,7 @@ export class EcosystemsController {
     @Session() session: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
     params: EcosystemJobListParams,
+    @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
   ): Promise<PaginatedData<EcosystemJobListResult>> {
     this.logger.log(
       `GET /ecosystems/jobs ${JSON.stringify(params)} from ${session.address}`,
@@ -96,8 +102,11 @@ export class EcosystemsController {
           "Organization does not have an active or valid subscription to use this service",
       });
     }
-    const ecosystem = data(await this.findAll(orgId, session))[0];
-    if (!ecosystem) {
+    const allEcos = data(await this.findAll(orgId, session));
+    const targets = ecosystem
+      ? allEcos.filter(x => x.normalizedName === ecosystem)
+      : allEcos;
+    if (!targets.length) {
       throw new BadRequestException({
         success: false,
         message: "You are not allowed to access this resource",
@@ -105,7 +114,7 @@ export class EcosystemsController {
     } else {
       const enrichedParams = {
         ...params,
-        ecosystemHeader: ecosystem.normalizedName,
+        ecosystems: targets.map(x => x.normalizedName),
       };
       return this.ecosystemsService.getJobsListWithSearch(enrichedParams);
     }
