@@ -376,6 +376,58 @@ export class JobsController {
     }
   }
 
+  @Get("/org/:id/all/filters")
+  @UseGuards(PBACGuard)
+  @Permissions(
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
+  )
+  @ApiOkResponse({
+    description: "Returns the configuration data for the ui filters",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(JobFilterConfigs),
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ValidationError),
+        },
+      ],
+    },
+  })
+  async getOrgAllJobsListFilters(
+    @Session() { address, permissions }: SessionObject,
+    @Param("id") id: string,
+  ): Promise<JobFilterConfigs> {
+    this.logger.log(`/jobs/org/${id}/all/filters`);
+    if (
+      (await this.userService.isOrgMember(address, id)) ||
+      (await this.userService.isOrgOwner(address, id))
+    ) {
+      return this.jobsService.getOrgAllJobsListFilters(id);
+    } else {
+      if (
+        permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER) ||
+        permissions.includes(CheckWalletPermissions.SUPER_ADMIN)
+      ) {
+        return this.jobsService.getOrgAllJobsListFilters(id);
+      } else {
+        throw new UnauthorizedException({
+          success: false,
+          message: "You are not allowed to access this resource",
+        });
+      }
+    }
+  }
+
   @Get("/org/:id/applicants")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)

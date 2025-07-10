@@ -876,8 +876,6 @@ export class JobsService {
     ecosystem: string | null = null,
   ): Promise<JobFilterConfigs> {
     try {
-      const popularity =
-        this.configService.get<string>("SKILL_THRESHOLD") ?? null;
       const tags = (await this.tagsService.getPopularTags(100)).map(
         x => x.name,
       );
@@ -937,7 +935,7 @@ export class JobsService {
               ])
             } as res
           `,
-          { ecosystem, popularity },
+          { ecosystem },
         ),
 
         // Query 2: Job-related Metrics
@@ -965,7 +963,7 @@ export class JobsService {
               ])
             } as res
           `,
-          { ecosystem, popularity },
+          { ecosystem },
         ),
 
         // Query 3: Organization Relationships
@@ -1009,7 +1007,7 @@ export class JobsService {
               ])
             } as res
           `,
-          { ecosystem, popularity },
+          { ecosystem },
         ),
 
         // Query 4: Job Classifications and Details
@@ -1039,7 +1037,7 @@ export class JobsService {
               ])
             } as res
           `,
-          { ecosystem, popularity },
+          { ecosystem },
         ),
       ]).then(results => {
         const combinedResult = results.reduce((acc, curr) => {
@@ -1597,6 +1595,142 @@ export class JobsService {
         Sentry.captureException(err);
       });
       this.logger.error(`JobsService::getAllJobsByOrgId ${err.message}`);
+      return undefined;
+    }
+  }
+
+  async getOrgAllJobsListFilters(id: string): Promise<JobFilterConfigs> {
+    try {
+      const tags = (await this.tagsService.getPopularTags(100)).map(
+        x => x.name,
+      );
+      const result = await Promise.all([
+        // Query 1: Project and Organization Metrics
+        this.neogma.queryRunner.run(
+          `
+            CYPHER runtime = parallel
+            MATCH (org:Organization {orgId: $id})
+            RETURN {
+              maxTvl: apoc.coll.max([
+                (org)-[:HAS_PROJECT]->(project:Project) | project.tvl
+              ]),
+              minTvl: apoc.coll.min([
+                (org)-[:HAS_PROJECT]->(project:Project) | project.tvl
+              ]),
+              minMonthlyVolume: apoc.coll.min([
+                (org)-[:HAS_PROJECT]->(project:Project) | project.monthlyVolume
+              ]),
+              maxMonthlyVolume: apoc.coll.max([
+                (org)-[:HAS_PROJECT]->(project:Project) | project.monthlyVolume
+              ]),
+              minMonthlyFees: apoc.coll.max([
+                (org)-[:HAS_PROJECT]->(project:Project) | project.monthlyFees
+              ]),
+              maxMonthlyFees: apoc.coll.max([
+                (org)-[:HAS_PROJECT]->(project:Project) | project.monthlyFees
+              ]),
+              minMonthlyRevenue: apoc.coll.max([
+                (org)-[:HAS_PROJECT]->(project:Project) | project.monthlyRevenue
+              ]),
+              maxMonthlyRevenue: apoc.coll.max([
+                (org)-[:HAS_PROJECT]->(project:Project) | project.monthlyRevenue
+              ])
+            } as res
+          `,
+          { id },
+        ),
+
+        // Query 2: Job-related Metrics
+        this.neogma.queryRunner.run(
+          `
+            CYPHER runtime = parallel
+            MATCH (org:Organization {orgId: $id})
+            RETURN {
+              minSalaryRange: apoc.coll.min([
+                (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost) WHERE j.salaryCurrency CONTAINS "USD" | j.salary
+              ]),
+              maxSalaryRange: apoc.coll.max([
+                (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost) WHERE j.salaryCurrency CONTAINS "USD" | j.salary
+              ]),
+              minHeadCount: [org.headcountEstimate],
+              maxHeadCount: [org.headcountEstimate]
+            } as res
+          `,
+          { id },
+        ),
+
+        // Query 3: Organization Relationships
+        this.neogma.queryRunner.run(
+          `
+            CYPHER runtime = parallel
+            MATCH (org:Organization {orgId: $id})
+            RETURN {
+              fundingRounds: apoc.coll.toSet([
+                (org)-[:HAS_FUNDING_ROUND]->(round: FundingRound) | round.roundName
+              ]),
+              investors: apoc.coll.toSet([
+                (org)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) | investor.name
+              ]),
+              ecosystems: apoc.coll.toSet([
+                (org)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem) | ecosystem.name
+              ]),
+              projects: apoc.coll.toSet([
+                (org)-[:HAS_PROJECT]->(project:Project) | project.name
+              ]),
+              chains: apoc.coll.toSet([
+                (org)-[:HAS_PROJECT|IS_DEPLOYED_ON*2]->(chain: Chain) | chain.name
+              ]),
+              organizations: [org.name]
+            } as res
+          `,
+          { id },
+        ),
+
+        // Query 4: Job Classifications and Details
+        this.neogma.queryRunner.run(
+          `
+            CYPHER runtime = parallel
+            MATCH (org:Organization {orgId: $id})
+            RETURN {
+              classifications: apoc.coll.toSet([
+                (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification) | classification.name
+              ]),
+              commitments: apoc.coll.toSet([
+                (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_COMMITMENT]->(commitment:JobpostCommitment) | commitment.name
+              ]),
+              locations: apoc.coll.toSet([
+                (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_LOCATION_TYPE]->(location: JobpostLocationType) | location.name
+              ]),
+              seniority: apoc.coll.toSet([
+                (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost) WHERE j.seniority IS NOT NULL | j.seniority
+              ])
+            } as res
+          `,
+          { id },
+        ),
+      ]).then(results => {
+        const combinedResult = results.reduce((acc, curr) => {
+          if (curr.records.length) {
+            return { ...acc, ...curr.records[0].get("res") };
+          }
+          return acc;
+        }, {});
+
+        return new JobFilterConfigsEntity({
+          ...combinedResult,
+          tags,
+        }).getProperties();
+      });
+      return result;
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getOrgAllJobsListFilters ${err.message}`);
       return undefined;
     }
   }
