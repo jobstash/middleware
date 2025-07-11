@@ -480,6 +480,19 @@ export class EcosystemsService {
     try {
       const existing = data(await this.findOne(orgId, idOrSlug));
       if (!existing) return { success: false, message: "Ecosystem not found" };
+      const check = await this.neogma.queryRunner.run(
+        `
+          RETURN EXISTS {MATCH (:OrganizationEcosystem {normalizedName: $normalizedName})} AS existing
+        `,
+        { normalizedName: slugify(updateEcosystemDto.name) },
+      );
+      const updatedNameExists = check.records[0].get("existing") as boolean;
+      if (updatedNameExists) {
+        throw new BadRequestException({
+          success: false,
+          message: "This ecosystem name is not available",
+        });
+      }
       const result = await this.neogma.queryRunner.run(
         `
           MATCH (ecosystem:OrganizationEcosystem)
