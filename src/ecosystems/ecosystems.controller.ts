@@ -400,7 +400,7 @@ export class EcosystemsController {
   async findAll(
     @Param("orgId") orgId: string,
     @Session() { address }: SessionObject,
-  ): Promise<ResponseWithOptionalData<OrganizationEcosystem[]>> {
+  ): Promise<ResponseWithOptionalData<OrganizationEcosystemWithOrgs[]>> {
     this.logger.log(`GET /ecosystems/${orgId} from ${address}`);
     const isMember = await this.userService.isOrgMember(address, orgId);
     const subscription = data(

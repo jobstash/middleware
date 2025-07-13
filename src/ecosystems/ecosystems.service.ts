@@ -189,12 +189,63 @@ export class EcosystemsService {
 
   async findAll(
     orgId: string,
-  ): Promise<ResponseWithOptionalData<OrganizationEcosystem[]>> {
+  ): Promise<ResponseWithOptionalData<OrganizationEcosystemWithOrgs[]>> {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-          MATCH (org:Organization {orgId: $orgId})-[:OWNS_ECOSYSTEM]->(ecosystem:OrganizationEcosystem)
-          RETURN ecosystem { .* } as ecosystem
+          MATCH (:Organization {orgId: $orgId})-[:OWNS_ECOSYSTEM]->(ecosystem:OrganizationEcosystem)
+          RETURN ecosystem {
+            .*,
+            orgs: [
+              (org)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem) | org {
+                orgId: org.orgId,
+                name: org.name,
+                summary: org.summary,
+                normalizedName: org.normalizedName,
+                url: [(org)-[:HAS_WEBSITE]->(website) | website.url][0],
+                logoUrl: org.logoUrl,
+                summary: org.summary,
+                location: org.location,
+                projectCount: apoc.coll.sum([(org)-[:HAS_PROJECT]->(project:Project) | 1]),
+                headcountEstimate: org.headcountEstimate,
+                fundingRounds: apoc.coll.toSet([
+                  (org)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
+                ]),
+                grants: [(org)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
+                  .*,
+                  programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
+                }],
+                ecosystems: [(org)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
+                reviews: [
+                  (org)-[:HAS_REVIEW]->(review:OrgReview) | review {
+                    compensation: {
+                      salary: review.salary,
+                      currency: review.currency,
+                      offersTokenAllocation: review.offersTokenAllocation
+                    },
+                    rating: {
+                      onboarding: review.onboarding,
+                      careerGrowth: review.careerGrowth,
+                      benefits: review.benefits,
+                      workLifeBalance: review.workLifeBalance,
+                      diversityInclusion: review.diversityInclusion,
+                      management: review.management,
+                      product: review.product,
+                      compensation: review.compensation
+                    },
+                    review: {
+                      title: review.title,
+                      location: review.location,
+                      timezone: review.timezone,
+                      pros: review.pros,
+                      cons: review.cons
+                    },
+                    reviewedTimestamp: review.reviewedTimestamp
+                  }
+                ]
+              }
+            ]
+          } as ecosystem
         `,
         { orgId },
       );
@@ -203,10 +254,26 @@ export class EcosystemsService {
         message: "Retrieved all ecosystems successfully",
         data: result.records.map(record => {
           const ecosystem = record.get("ecosystem");
-          return new OrganizationEcosystem({
+          return new OrganizationEcosystemWithOrgs({
             ...ecosystem,
             createdTimestamp: nonZeroOrNull(ecosystem.createdTimestamp),
             updatedTimestamp: nonZeroOrNull(ecosystem.updatedTimestamp),
+            orgs: ecosystem.orgs.map(org => {
+              const lastFundingRound = sort(
+                org.fundingRounds as FundingRound[],
+              ).desc(x => x.date)[0];
+              return new ShortOrgWithSummaryEntity({
+                ...org,
+                reviewCount: org.reviews.length,
+                aggregateRating: generateOrgAggregateRating(
+                  generateOrgAggregateRatings(
+                    org.reviews.map((x: OrgReview) => x.rating),
+                  ),
+                ),
+                lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
+                lastFundingDate: lastFundingRound?.date ?? 0,
+              }).getProperties();
+            }),
           });
         }),
       };
