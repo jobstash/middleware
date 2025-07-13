@@ -803,11 +803,7 @@ export class JobsController {
 
   @Post("/feature")
   @UseGuards(PBACGuard)
-  @Permissions(
-    [CheckWalletPermissions.SUPER_ADMIN],
-    [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
-    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
-  )
+  @Permissions([CheckWalletPermissions.SUPER_ADMIN])
   @ApiOkResponse({
     description: "Make a job featured",
     schema: {
@@ -815,42 +811,11 @@ export class JobsController {
     },
   })
   async featureJobpost(
-    @Session() { address, permissions }: SessionObject,
     @Body() dto: FeatureJobsInput,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/jobs/feature`);
     try {
-      if (permissions.includes(CheckWalletPermissions.SUPER_ADMIN)) {
-        return this.jobsService.featureJobpost(dto);
-      } else {
-        const userOrgId =
-          await this.userService.findOrgIdByMemberUserWallet(address);
-        const jobOrgId = await this.userService.findOrgIdByJobShortUUID(
-          dto.shortUUID,
-        );
-        const subscription = data(
-          await this.subscriptionService.getSubscriptionInfoByOrgId(userOrgId),
-        );
-        if (subscription?.canAccessService("boostedVacancyMultiplier")) {
-          if (permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER)) {
-            return this.jobsService.featureJobpost(dto);
-          } else {
-            if (!(userOrgId === jobOrgId)) {
-              throw new UnauthorizedException({
-                success: false,
-                message: "You are not authorized to access this resource",
-              });
-            } else {
-              return this.jobsService.featureJobpost(dto);
-            }
-          }
-        } else {
-          throw new UnauthorizedException({
-            success: false,
-            message: "You are not authorized to access this resource",
-          });
-        }
-      }
+      return this.jobsService.featureJobpost(dto);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -1239,6 +1204,7 @@ export class JobsController {
   }
 
   @Get("promote/:uuid")
+  @UseGuards(PBACGuard)
   @ApiHeader({
     name: ECOSYSTEM_HEADER,
     required: false,
@@ -1250,6 +1216,7 @@ export class JobsController {
     @Query("flag") flag: string | undefined,
     @Headers(ECOSYSTEM_HEADER)
     ecosystem: string | undefined = undefined,
+    @Session() session: SessionObject,
   ): Promise<
     ResponseWithOptionalData<{
       id: string;
@@ -1257,6 +1224,34 @@ export class JobsController {
     }>
   > {
     this.logger.log(`/jobs/promote/${uuid}?flag=${flag}`);
+    if (session) {
+      const { address } = session;
+      const userOrgId =
+        await this.userService.findOrgIdByMemberUserWallet(address);
+      const subscription = data(
+        await this.subscriptionService.getSubscriptionInfoByOrgId(userOrgId),
+      );
+      if (subscription?.canAccessService("jobPromotions")) {
+        await this.jobsService.handleJobPromotion(uuid);
+        await this.subscriptionService.recordMeteredServiceUsage(
+          userOrgId,
+          address,
+          1,
+          "jobPromotions",
+          this.stripeService,
+        );
+        return {
+          success: true,
+          message: "Job promoted successfully",
+        };
+      } else {
+        return this.stripeService.initiateJobPromotionPayment(
+          uuid,
+          ecosystem,
+          flag,
+        );
+      }
+    }
     return this.stripeService.initiateJobPromotionPayment(
       uuid,
       ecosystem,

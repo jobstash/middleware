@@ -5,11 +5,10 @@ import * as t from "io-ts";
 import { report } from "io-ts-human-reporter";
 import { now } from "lodash";
 
-const METERED_SERVICES = ["veri"] as const;
+const METERED_SERVICES = ["veri", "jobPromotions"] as const;
 
 const NON_METERED_SERVICES = [
   "stashAlert",
-  "boostedVacancyMultiplier",
   "atsIntegration",
   "stashPool",
 ] as const;
@@ -188,7 +187,7 @@ export class Subscription {
     stashPool: t.boolean,
     stashAlert: t.boolean,
     atsIntegration: t.boolean,
-    boostedVacancyMultiplier: t.number,
+    jobPromotions: t.number,
     totalSeats: t.number,
     extraSeats: t.number,
     expired: t.boolean,
@@ -224,7 +223,7 @@ export class Subscription {
   atsIntegration: boolean;
 
   @ApiProperty()
-  boostedVacancyMultiplier: number;
+  jobPromotions: number;
 
   @ApiProperty()
   totalSeats: number;
@@ -276,7 +275,7 @@ export class Subscription {
       atsIntegration,
       expiryTimestamp,
       createdTimestamp,
-      boostedVacancyMultiplier,
+      jobPromotions,
       veriPayg,
     } = raw;
     const result = Subscription.SubscriptionType.decode({
@@ -300,7 +299,7 @@ export class Subscription {
     this.veriPayg = veriPayg;
     this.expiryTimestamp = expiryTimestamp;
     this.createdTimestamp = createdTimestamp;
-    this.boostedVacancyMultiplier = boostedVacancyMultiplier;
+    this.jobPromotions = jobPromotions;
 
     if (isLeft(result)) {
       report(result).forEach(x => {
@@ -422,20 +421,17 @@ export class Subscription {
 
   canAccessService(service: Service): boolean {
     if (this.isActive()) {
-      if (service === "veri") {
+      if (service === "veri" || service === "jobPromotions") {
         const currentTime = now();
         const epochUsage =
           this.getCurrentEpochAggregateUsage().get(service) ?? 0;
         const availableQuota =
           this.getEpochAggregateQuota(currentTime).get(service) ?? 0;
         const hasQuota = availableQuota - epochUsage > 0;
-        if (!hasQuota && !this.veriPayg) {
-          return false;
-        } else {
-          return hasQuota;
-        }
-      } else if (service === "boostedVacancyMultiplier") {
-        return this.boostedVacancyMultiplier > 0;
+        return (
+          (service === "veri" && (hasQuota || this.veriPayg)) ||
+          (service === "jobPromotions" && hasQuota)
+        );
       } else {
         return !!this[service];
       }

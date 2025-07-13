@@ -12,12 +12,13 @@ export const METERED_SERVICE_LOOKUP_KEYS: Record<
   {
     eventName: string;
     valueKey: string;
-  }
+  } | null
 > = {
   veri: {
     eventName: "veri_pay_as_you_go_meter",
     valueKey: "credits",
   },
+  jobPromotions: null,
 };
 
 export const BUNDLE_LOOKUP_KEYS = {

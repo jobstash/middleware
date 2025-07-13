@@ -30,7 +30,11 @@ import { addMonths, getDayOfYear } from "date-fns";
 import { now } from "lodash";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { Cron, CronExpression } from "@nestjs/schedule";
-import { CheckWalletPermissions, LOOKUP_KEYS } from "src/shared/constants";
+import {
+  CheckWalletPermissions,
+  LOOKUP_KEYS,
+  METERED_SERVICE_LOOKUP_KEYS,
+} from "src/shared/constants";
 import Stripe from "stripe";
 import { StripeService } from "src/stripe/stripe.service";
 
@@ -94,7 +98,8 @@ export class SubscriptionsService {
               message: `Successfully recorded metered service usage`,
             };
           } else {
-            if (subscription.veriPayg) {
+            const isPaygAble = METERED_SERVICE_LOOKUP_KEYS[service];
+            if (isPaygAble) {
               return stripeService.recordMeteredServiceUsage(
                 subscription.externalId,
                 service,
@@ -234,13 +239,13 @@ export class SubscriptionsService {
                 ...dto,
                 quota: {
                   veri: dto.veri ? quotaInfo.veri + veriAddons : quotaInfo.veri,
+                  jobPromotions: quotaInfo.jobPromotions,
                   createdTimestamp: timestamp.getTime(),
                   expiryTimestamp: addMonths(timestamp, 2).getTime(),
                 },
                 externalId: stripeSubscriptionId,
                 stashPool: quotaInfo.stashPool,
                 atsIntegration: quotaInfo.atsIntegration,
-                boostedVacancyMultiplier: quotaInfo.boostedVacancyMultiplier,
                 stashAlert: dto.stashAlert,
                 action: "new-subscription",
                 duration: "monthly",
@@ -272,7 +277,6 @@ export class SubscriptionsService {
                   SET tier.name = $jobstash
                   SET tier.stashPool = $stashPool
                   SET tier.atsIntegration = $atsIntegration
-                  SET tier.boostedVacancyMultiplier = $boostedVacancyMultiplier
                   SET tier.createdTimestamp = $createdTimestamp
                   SET tier.expiryTimestamp = $expiryTimestamp
 
@@ -297,6 +301,24 @@ export class SubscriptionsService {
                   WITH veri
                   MATCH (subscription:OrgSubscription {id: $subscriptionId})
                   MERGE (subscription)-[:HAS_SERVICE]->(veri)
+                `,
+                {
+                  ...payload,
+                  createdTimestamp: timestamp.getTime(),
+                  subscriptionId: subscription.properties.id,
+                },
+              );
+
+              await tx.run(
+                `
+                  CREATE (jobPromotions:JobPromotions {id: randomUUID()})
+                  SET jobPromotions.value = $jobPromotions
+                  SET jobPromotions.createdTimestamp = $timestamp
+                  SET jobPromotions.expiryTimestamp = $expiryTimestamp
+
+                  WITH jobPromotions
+                  MATCH (subscription:OrgSubscription {id: $subscriptionId})
+                  MERGE (subscription)-[:HAS_SERVICE]->(jobPromotions)
                 `,
                 {
                   ...payload,
@@ -404,9 +426,9 @@ export class SubscriptionsService {
                 ...dto,
                 stashPool: quotaInfo.stashPool,
                 atsIntegration: quotaInfo.atsIntegration,
-                boostedVacancyMultiplier: quotaInfo.boostedVacancyMultiplier,
                 quota: {
                   veri: dto.veri ? quotaInfo.veri + veriAddons : quotaInfo.veri,
+                  jobPromotions: quotaInfo.jobPromotions,
                   createdTimestamp: timestamp.getTime(),
                   expiryTimestamp: addMonths(timestamp, 2).getTime(),
                 },
@@ -436,7 +458,6 @@ export class SubscriptionsService {
                 SET tier.name = $jobstash
                 SET tier.stashPool = $stashPool
                 SET tier.atsIntegration = $atsIntegration
-                SET tier.boostedVacancyMultiplier = $boostedVacancyMultiplier
                 SET tier.createdTimestamp = $createdTimestamp
                 SET tier.expiryTimestamp = $expiryTimestamp
 
@@ -461,6 +482,24 @@ export class SubscriptionsService {
                 WITH veri
                 MATCH (subscription:OrgSubscription {id: $subscriptionId})
                 MERGE (subscription)-[:HAS_SERVICE]->(veri)
+              `,
+                {
+                  ...payload,
+                  createdTimestamp: timestamp.getTime(),
+                  subscriptionId: subscription.properties.id,
+                },
+              );
+
+              await tx.run(
+                `
+                CREATE (jobPromotions:JobPromotions {id: randomUUID()})
+                SET jobPromotions.value = $jobPromotions
+                SET jobPromotions.createdTimestamp = $timestamp
+                SET jobPromotions.expiryTimestamp = $expiryTimestamp
+
+                WITH jobPromotions
+                MATCH (subscription:OrgSubscription {id: $subscriptionId})
+                MERGE (subscription)-[:HAS_SERVICE]->(jobPromotions)
               `,
                 {
                   ...payload,
@@ -703,10 +742,10 @@ export class SubscriptionsService {
               WHERE bundle.createdTimestamp < timestamp() AND bundle.expiryTimestamp > timestamp()
               | bundle.atsIntegration
             ][0],
-            boostedVacancyMultiplier: [
-              (subscription)-[:HAS_SERVICE]->(bundle:JobstashBundle)
-              WHERE bundle.createdTimestamp < timestamp() AND bundle.expiryTimestamp > timestamp()
-              | bundle.boostedVacancyMultiplier
+            jobPromotions: [
+              (subscription)-[:HAS_SERVICE]->(jobPromotions:JobPromotions)
+              WHERE jobPromotions.createdTimestamp < timestamp() AND jobPromotions.expiryTimestamp > timestamp()
+              | jobPromotions.value
             ][0],
             veri: [
               (subscription)-[:HAS_SERVICE]->(veri:VeriAddon)
@@ -790,10 +829,10 @@ export class SubscriptionsService {
               WHERE bundle.createdTimestamp < timestamp() AND bundle.expiryTimestamp > timestamp()
               | bundle.atsIntegration
             ][0],
-            boostedVacancyMultiplier: [
-              (subscription)-[:HAS_SERVICE]->(bundle:JobstashBundle)
-              WHERE bundle.createdTimestamp < timestamp() AND bundle.expiryTimestamp > timestamp()
-              | bundle.boostedVacancyMultiplier
+            jobPromotions: [
+              (subscription)-[:HAS_SERVICE]->(jobPromotions:JobPromotions)
+              WHERE jobPromotions.createdTimestamp < timestamp() AND jobPromotions.expiryTimestamp > timestamp()
+              | jobPromotions.value
             ][0],
             veri: [
               (subscription)-[:HAS_SERVICE]->(veri:VeriAddon)
@@ -1001,6 +1040,10 @@ export class SubscriptionsService {
             WITH subscription
             MATCH (subscription)-[:HAS_SERVICE]->(veri:VeriAddon)
             SET veri.expiryTimestamp = $expiryTimestamp
+
+            WITH subscription
+            MATCH (subscription)-[:HAS_SERVICE]->(jobPromotions:JobPromotions)
+            SET jobPromotions.expiryTimestamp = $expiryTimestamp
 
             WITH subscription
             MATCH (subscription)-[:HAS_SERVICE]->(stashAlert:StashAlert)
@@ -1252,13 +1295,13 @@ export class SubscriptionsService {
           ...ownerInfo,
           quota: {
             veri: dto.veri ? quotaInfo.veri + veriAddons : quotaInfo.veri,
+            jobPromotions: quotaInfo.jobPromotions,
             createdTimestamp: veriCycleStart,
             expiryTimestamp: addMonths(veriCycleStart, 2).getTime(),
           },
           externalId: subscriptionId,
           stashPool: quotaInfo.stashPool,
           atsIntegration: quotaInfo.atsIntegration,
-          boostedVacancyMultiplier: quotaInfo.boostedVacancyMultiplier,
           stashAlert: dto.stashAlert,
           action: "subscription-change",
           duration: "monthly",
@@ -1292,12 +1335,32 @@ export class SubscriptionsService {
               SET tier.name = $jobstash
               SET tier.stashPool = $stashPool
               SET tier.atsIntegration = $atsIntegration
-              SET tier.boostedVacancyMultiplier = $boostedVacancyMultiplier
               SET tier.createdTimestamp = $createdTimestamp
               SET tier.expiryTimestamp = $expiryTimestamp
 
               WITH subscription, tier
               MERGE (subscription)-[:HAS_SERVICE]->(tier)
+            `,
+            {
+              ...payload,
+              createdTimestamp: cycleStart,
+              subscriptionId: existingSubscription.id,
+            },
+          );
+
+          await tx.run(
+            `
+              MATCH (subscription:OrgSubscription {id: $subscriptionId})-[:HAS_SERVICE]->(jobPromotions:JobPromotions)
+              SET jobPromotions.expiryTimestamp = $expiryTimestamp
+
+              WITH subscription
+              CREATE (jobPromotions:JobPromotions {id: randomUUID()})
+              SET jobPromotions.value = $jobPromotions
+              SET jobPromotions.createdTimestamp = $createdTimestamp
+              SET jobPromotions.expiryTimestamp = $expiryTimestamp
+
+              WITH subscription, jobPromotions
+              MERGE (subscription)-[:HAS_SERVICE]->(jobPromotions)
             `,
             {
               ...payload,
@@ -1325,12 +1388,33 @@ export class SubscriptionsService {
               SET tier.name = $jobstash
               SET tier.stashPool = $stashPool
               SET tier.atsIntegration = $atsIntegration
-              SET tier.boostedVacancyMultiplier = $boostedVacancyMultiplier
               SET tier.createdTimestamp = $createdTimestamp
               SET tier.expiryTimestamp = $expiryTimestamp
 
               WITH subscription, tier
               MERGE (subscription)-[:HAS_SERVICE]->(tier)
+            `,
+            {
+              ...payload,
+              subscriptionId: existingSubscription.id,
+              createdTimestamp: existingTier.properties.expiryTimestamp,
+              expiryTimestamp: addMonths(
+                existingTier.properties.expiryTimestamp,
+                1,
+              ).getTime(),
+            },
+          );
+
+          await tx.run(
+            `
+              MATCH (subscription:OrgSubscription {id: $subscriptionId})
+              CREATE (jobPromotions:JobPromotions {id: randomUUID()})
+              SET jobPromotions.value = $jobPromotions
+              SET jobPromotions.createdTimestamp = $createdTimestamp
+              SET jobPromotions.expiryTimestamp = $expiryTimestamp
+
+              WITH subscription, jobPromotions
+              MERGE (subscription)-[:HAS_SERVICE]->(jobPromotions)
             `,
             {
               ...payload,
@@ -1741,10 +1825,10 @@ export class SubscriptionsService {
               WHERE bundle.createdTimestamp < timestamp() AND bundle.expiryTimestamp > timestamp()
               | bundle.atsIntegration
             ][0],
-            boostedVacancyMultiplier: [
+            jobPromotions: [
               (subscription)-[:HAS_SERVICE]->(bundle:JobstashBundle)
               WHERE bundle.createdTimestamp < timestamp() AND bundle.expiryTimestamp > timestamp()
-              | bundle.boostedVacancyMultiplier
+              | bundle.jobPromotions
             ][0],
             veri: [
               (subscription)-[:HAS_SERVICE]->(veri:VeriAddon)
