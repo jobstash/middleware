@@ -924,7 +924,6 @@ export class JobsController {
   @Permissions(
     [CheckWalletPermissions.SUPER_ADMIN],
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
-    [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
   )
   @ApiOkResponse({
     description: "Updates an existing job's metadata",
@@ -949,7 +948,6 @@ export class JobsController {
 
     if (
       userOrgId === jobOrgId ||
-      session.permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER) ||
       session.permissions.includes(CheckWalletPermissions.SUPER_ADMIN)
     ) {
       this.logger.log(`/jobs/update/${shortUUID} ${JSON.stringify(body)}`);
@@ -1122,7 +1120,6 @@ export class JobsController {
   @UseGuards(PBACGuard)
   @Permissions(
     [CheckWalletPermissions.SUPER_ADMIN],
-    [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
   )
   @ApiOkResponse({
@@ -1137,10 +1134,7 @@ export class JobsController {
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/jobs/block`);
     try {
-      if (
-        permissions.includes(CheckWalletPermissions.SUPER_ADMIN) ||
-        permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER)
-      ) {
+      if (permissions.includes(CheckWalletPermissions.SUPER_ADMIN)) {
         return this.jobsService.blockJobs(address, dto);
       } else {
         const access = Promise.all(
@@ -1187,7 +1181,6 @@ export class JobsController {
   @UseGuards(PBACGuard)
   @Permissions(
     [CheckWalletPermissions.SUPER_ADMIN],
-    [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
   )
   @ApiOkResponse({
@@ -1202,10 +1195,7 @@ export class JobsController {
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/jobs/block`);
     try {
-      if (
-        permissions.includes(CheckWalletPermissions.SUPER_ADMIN) ||
-        permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER)
-      ) {
+      if (permissions.includes(CheckWalletPermissions.SUPER_ADMIN)) {
         return this.jobsService.unblockJobs(address, dto);
       } else {
         const access = Promise.all(
