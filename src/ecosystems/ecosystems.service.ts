@@ -7,8 +7,6 @@ import {
   EcosystemJobFilterConfigs,
   EcosystemJobListResult,
   FundingRound,
-  OrganizationEcosystem,
-  OrganizationEcosystemWithOrgs,
   OrgReview,
   PaginatedData,
   ProjectWithBaseRelations,
@@ -44,6 +42,10 @@ import { TagsService } from "src/tags/tags.service";
 import { CreateStoredFilterDto } from "./dto/create-stored-filter.dto";
 import { StoredFilter } from "src/shared/interfaces/stored-filter.interface";
 import { UpdateStoredFilterDto } from "./dto/update-stored-filter.dto";
+import {
+  OrganizationEcosystem,
+  OrganizationEcosystemWithOrgs,
+} from "src/shared/interfaces/org";
 
 @Injectable()
 export class EcosystemsService {

@@ -35,8 +35,6 @@ import {
   EcosystemJobFilterConfigs,
   EcosystemJobListResult,
   Organization,
-  OrganizationEcosystem,
-  OrganizationEcosystemWithOrgs,
   PaginatedData,
   ResponseWithNoData,
   ResponseWithOptionalData,
@@ -52,6 +50,10 @@ import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.
 import { StoredFilter } from "src/shared/interfaces/stored-filter.interface";
 import { CreateStoredFilterDto } from "./dto/create-stored-filter.dto";
 import { UpdateStoredFilterDto } from "./dto/update-stored-filter.dto";
+import {
+  OrganizationEcosystem,
+  OrganizationEcosystemWithOrgs,
+} from "src/shared/interfaces/org";
 
 @Controller("ecosystems")
 export class EcosystemsController {

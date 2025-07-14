@@ -1,7 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
-import { EcosystemActivation } from "./ecosystem-activation.interface";
+import { EcosystemActivation } from "./org/ecosystem-activation.interface";
 import * as t from "io-ts";
 
 const SupportedPlatforms = [

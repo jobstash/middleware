@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { isLeft } from "fp-ts/lib/Either";
 import * as t from "io-ts";
 import { report } from "io-ts-human-reporter";
-import { ShortOrgWithSummary } from "./organization.interface";
+import { ShortOrgWithSummary } from "../organization.interface";
 
 export class OrganizationEcosystem {
   public static readonly OrganizationEcosystemType = t.strict({

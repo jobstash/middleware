@@ -1,5 +1,6 @@
 import { ModelFactory, Neogma, NeogmaInstance, NeogmaModel } from "neogma";
-import { ExtractProps, OrganizationEcosystem, NoRelations } from "../types";
+import { ExtractProps, NoRelations } from "../types";
+import { OrganizationEcosystem } from "../interfaces/org";
 
 export type OrganizationEcosystemProps = ExtractProps<OrganizationEcosystem>;
 

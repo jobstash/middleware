@@ -15,5 +15,6 @@ import { TagsModule } from "src/tags/tags.module";
   ],
   controllers: [EcosystemsController],
   providers: [EcosystemsService],
+  exports: [EcosystemsService],
 })
 export class EcosystemsModule {}

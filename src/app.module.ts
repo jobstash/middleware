@@ -35,6 +35,7 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { TelemetryModule } from "./telemetry/telemetry.module";
 import { EcosystemsModule } from "./ecosystems/ecosystems.module";
 import { StripeModule } from "./stripe/stripe.module";
+import { WhiteLabelBoardsModule } from "./white-label-boards/white-label-boards.module";
 
 @Module({
   imports: [
@@ -97,6 +98,7 @@ import { StripeModule } from "./stripe/stripe.module";
     SubscriptionsModule,
     TelemetryModule,
     EcosystemsModule,
+    WhiteLabelBoardsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
