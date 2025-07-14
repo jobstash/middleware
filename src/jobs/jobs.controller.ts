@@ -1228,22 +1228,30 @@ export class JobsController {
       const { address } = session;
       const userOrgId =
         await this.userService.findOrgIdByMemberUserWallet(address);
-      const subscription = data(
-        await this.subscriptionService.getSubscriptionInfoByOrgId(userOrgId),
-      );
-      if (subscription?.canAccessService("jobPromotions")) {
-        await this.jobsService.handleJobPromotion(uuid);
-        await this.subscriptionService.recordMeteredServiceUsage(
-          userOrgId,
-          address,
-          1,
-          "jobPromotions",
-          this.stripeService,
+      if (userOrgId) {
+        const subscription = data(
+          await this.subscriptionService.getSubscriptionInfoByOrgId(userOrgId),
         );
-        return {
-          success: true,
-          message: "Job promoted successfully",
-        };
+        if (subscription?.canAccessService("jobPromotions")) {
+          await this.jobsService.handleJobPromotion(uuid);
+          await this.subscriptionService.recordMeteredServiceUsage(
+            userOrgId,
+            address,
+            1,
+            "jobPromotions",
+            this.stripeService,
+          );
+          return {
+            success: true,
+            message: "Job promoted successfully",
+          };
+        } else {
+          return this.stripeService.initiateJobPromotionPayment(
+            uuid,
+            ecosystem,
+            flag,
+          );
+        }
       } else {
         return this.stripeService.initiateJobPromotionPayment(
           uuid,
@@ -1251,11 +1259,12 @@ export class JobsController {
           flag,
         );
       }
+    } else {
+      return this.stripeService.initiateJobPromotionPayment(
+        uuid,
+        ecosystem,
+        flag,
+      );
     }
-    return this.stripeService.initiateJobPromotionPayment(
-      uuid,
-      ecosystem,
-      flag,
-    );
   }
 }
