@@ -72,6 +72,7 @@ export class Quota {
   public static readonly QuotaType = t.strict({
     id: t.string,
     veri: t.number,
+    jobPromotions: t.number,
     createdTimestamp: t.number,
     expiryTimestamp: t.number,
     usage: t.array(QuotaUsage.QuotaUsageType),
@@ -82,6 +83,9 @@ export class Quota {
 
   @ApiProperty()
   veri: number;
+
+  @ApiProperty()
+  jobPromotions: number;
 
   @ApiProperty()
   createdTimestamp: number;
@@ -101,13 +105,19 @@ export class Quota {
       | "getAllAvailableCredits"
     >,
   ) {
-    const { id, veri, createdTimestamp, expiryTimestamp, usage } = raw;
-    const result = Quota.QuotaType.decode({
-      ...raw,
-    });
+    const {
+      id,
+      veri,
+      jobPromotions,
+      createdTimestamp,
+      expiryTimestamp,
+      usage,
+    } = raw;
+    const result = Quota.QuotaType.decode(raw);
 
     this.id = id;
     this.veri = veri;
+    this.jobPromotions = jobPromotions;
     this.createdTimestamp = createdTimestamp;
     this.expiryTimestamp = expiryTimestamp;
     this.usage = usage;
