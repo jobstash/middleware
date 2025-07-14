@@ -312,7 +312,7 @@ export class SubscriptionsService {
               await tx.run(
                 `
                   CREATE (jobPromotions:JobPromotions {id: randomUUID()})
-                  SET jobPromotions.value = $jobPromotions
+                  SET jobPromotions.value = $quota.jobPromotions
                   SET jobPromotions.createdTimestamp = $timestamp
                   SET jobPromotions.expiryTimestamp = $expiryTimestamp
 
@@ -493,7 +493,7 @@ export class SubscriptionsService {
               await tx.run(
                 `
                 CREATE (jobPromotions:JobPromotions {id: randomUUID()})
-                SET jobPromotions.value = $jobPromotions
+                SET jobPromotions.value = $quota.jobPromotions
                 SET jobPromotions.createdTimestamp = $timestamp
                 SET jobPromotions.expiryTimestamp = $expiryTimestamp
 
@@ -1355,7 +1355,7 @@ export class SubscriptionsService {
 
               WITH subscription
               CREATE (jobPromotions:JobPromotions {id: randomUUID()})
-              SET jobPromotions.value = $jobPromotions
+              SET jobPromotions.value = $quota.jobPromotions
               SET jobPromotions.createdTimestamp = $createdTimestamp
               SET jobPromotions.expiryTimestamp = $expiryTimestamp
 
@@ -1409,7 +1409,7 @@ export class SubscriptionsService {
             `
               MATCH (subscription:OrgSubscription {id: $subscriptionId})
               CREATE (jobPromotions:JobPromotions {id: randomUUID()})
-              SET jobPromotions.value = $jobPromotions
+              SET jobPromotions.value = $quota.jobPromotions
               SET jobPromotions.createdTimestamp = $createdTimestamp
               SET jobPromotions.expiryTimestamp = $expiryTimestamp
 
