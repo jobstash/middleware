@@ -8,7 +8,6 @@ import {
   UserEntity,
   UserProfile,
   UserProfileEntity,
-  UserOrgAffiliationRequest,
   data,
   UserPermission,
 } from "src/shared/types";
@@ -18,7 +17,7 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nestjs-neogma";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { ModelService } from "src/model/model.service";
-import { instanceToNode, nonZeroOrNull, randomToken } from "src/shared/helpers";
+import { instanceToNode, randomToken } from "src/shared/helpers";
 import { randomUUID } from "crypto";
 import { GetAvailableUsersInput } from "./dto/get-available-users.input";
 import { ScorerService } from "src/scorer/scorer.service";
@@ -1121,92 +1120,99 @@ export class UserService {
       const users = await this.neogma.queryRunner
         .run(
           `
-          MATCH (user:User)
-          WHERE user.available = true
-          AND NOT CASE WHEN $orgId IS NOT NULL THEN EXISTS((user)-[:VERIFIED_FOR_ORG]->(:Organization { orgId: $orgId })) ELSE false END
-
-          OPTIONAL MATCH (user)-[app:APPLIED_TO]->(job:StructuredJobpost)
-          WITH user, job, app.createdTimestamp AS timestamp
-          WITH user, collect(DISTINCT job) AS jobs, max(timestamp) AS lastAppliedTimestamp
-
-          CALL {
-            WITH user, jobs
-            UNWIND jobs AS job
-            OPTIONAL MATCH (job)-[:HAS_CLASSIFICATION]->(jc:JobpostClassification)
-            WITH user, jc.name AS cname
-            WITH user, collect(cname) AS rawClassifications
-            RETURN apoc.map.fromPairs(
-                    [c IN apoc.coll.toSet(rawClassifications) |
-                      [c, size([x IN rawClassifications WHERE x = c])]
-                    ]) AS classificationFrequencies
-          }
-
-          CALL {
-            WITH user, jobs
-            UNWIND jobs AS job
-            OPTIONAL MATCH (job)-[:HAS_TAG]->(tag:Tag)
-            OPTIONAL MATCH (tag)-[:HAS_TAG_DESIGNATION]->(designation:TagDesignation)
-            OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
-            OPTIONAL MATCH (tag)-[:IS_PAIR_OF]->(pair:Tag)-[:HAS_TAG_DESIGNATION]->(:PairedDesignation)
-            WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
-              AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-              AND (designation:AllowedDesignation OR designation:DefaultDesignation)
+            MATCH (user:User)
+            WHERE user.available = true
+              AND (
+                $orgId IS NULL
+                OR NOT EXISTS { (user)-[:VERIFIED_FOR_ORG]->(:Organization {orgId:$orgId}) }
+              )
+            /* ---------------- gather applications (may be empty) ---------------- */
+            OPTIONAL MATCH (user)-[app:APPLIED_TO]->(job:StructuredJobpost)
             WITH user,
-                CASE 
-                  WHEN synonym IS NOT NULL THEN synonym.name
+                 coalesce(collect(DISTINCT job), []) AS jobs, // never null
+                 max(app.createdTimestamp) AS lastAppliedTimestamp
+            /* ---------------- classification frequencies ---------------- */
+            CALL {
+              WITH jobs
+              WITH CASE WHEN size(jobs) = 0 THEN [NULL] ELSE jobs END AS jlist
+              UNWIND jlist AS job
+              OPTIONAL MATCH (job)-[:HAS_CLASSIFICATION]->(c:JobpostClassification)
+              WITH collect(c.name) AS names // names = [] when no matches
+              RETURN apoc.map.fromPairs(
+                [n IN apoc.coll.toSet(names) |
+                  [n, size([x IN names WHERE x = n])]]
+              ) AS classificationFrequencies
+            }
+            /* ---------------- tag frequencies ---------------- */
+            CALL {
+              WITH jobs
+              WITH CASE WHEN size(jobs) = 0 THEN [NULL] ELSE jobs END AS jlist
+              UNWIND jlist AS job
+              OPTIONAL MATCH (job)-[:HAS_TAG]->(tag:Tag)
+              OPTIONAL MATCH (tag)-[:HAS_TAG_DESIGNATION]->(d:TagDesignation)
+              OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(syn:Tag)-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
+              OPTIONAL MATCH (tag)-[:IS_PAIR_OF]->(pair:Tag)-[:HAS_TAG_DESIGNATION]->(:PairedDesignation)
+              WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
+                AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+                AND (d:AllowedDesignation OR d:DefaultDesignation)
+              WITH collect(
+                CASE
+                  WHEN syn IS NOT NULL THEN syn.name
                   WHEN pair IS NOT NULL THEN pair.name
                   ELSE tag.name
-                END AS canonicalTag
-            WITH user, collect(canonicalTag) AS rawTags
-            RETURN apoc.map.fromPairs(
-                    [t IN apoc.coll.toSet(rawTags) |
-                      [t, size([x IN rawTags WHERE x = t])]
-                    ]) AS tagFrequencies
-          }
-
-          WITH user, lastAppliedTimestamp, classificationFrequencies, tagFrequencies
-
-          RETURN {
-            wallet: user.wallet,
-            cryptoNative: user.cryptoNative,
-            cryptoAdjacent: user.cryptoAdjacent,
-            attestations: {
-              upvotes: null,
-              downvotes: null
-            },
-            note: [(user)-[:HAS_RECRUITER_NOTE]->(note:RecruiterNote)<-[:HAS_TALENT_NOTE]-(:Organization { orgId: $orgId }) | note.note][0],
-            availableForWork: user.available,
-            name: user.name,
-            avatar: user.avatar,
-            alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
-            linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account:LinkedAccount) | account { .* }][0],
-            wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address],
-            location: [(user)-[:HAS_LOCATION]->(location:UserLocation) | location { .* }][0],
-            skills: apoc.coll.toSet([
-              (user)-[r:HAS_SKILL]->(tag:Tag) |
-              tag {
-                .*,
-                canTeach: [(user)-[m:HAS_SKILL]->(tag) | m.canTeach][0]
-              }
-            ]),
-            showcases: apoc.coll.toSet([
-              (user)-[:HAS_SHOWCASE]->(showcase) |
-              showcase { .* }
-            ]),
-            workHistory: apoc.coll.toSet([
-              (user)-[:HAS_WORK_HISTORY]->(workHistory:UserWorkHistory) |
-              workHistory {
-                .*, 
-                repositories: apoc.coll.toSet([
-                  (workHistory)-[:WORKED_ON_REPO]->(repo:UserWorkHistoryRepo) | repo { .* }
-                ])
-              }
-            ]),
-            jobCategoryInterests: [key IN keys(classificationFrequencies) | { classification: key, frequency: classificationFrequencies[key] }],
-            tags: [key IN keys(tagFrequencies) | { tag: key, frequency: tagFrequencies[key] }],
-            lastAppliedTimestamp: lastAppliedTimestamp
-          } AS user
-        `,
+                END
+              ) AS names
+              RETURN apoc.map.fromPairs(
+                [n IN apoc.coll.toSet(names) |
+                  [n, size([x IN names WHERE x = n])]]
+              ) AS tagFrequencies
+            }
+            
+            WITH user, lastAppliedTimestamp, classificationFrequencies, tagFrequencies
+            
+            RETURN {
+              wallet: user.wallet,
+              cryptoNative: user.cryptoNative,
+              cryptoAdjacent: user.cryptoAdjacent,
+              attestations: { upvotes: null, downvotes: null },
+              note: [
+                (user)-[:HAS_RECRUITER_NOTE]->(n:RecruiterNote)
+                <-[:HAS_TALENT_NOTE]-(:Organization {orgId:$orgId}) | n.note
+              ][0],
+              availableForWork: user.available,
+              name: user.name,
+              avatar: user.avatar,
+              alternateEmails: [(user)-[:HAS_EMAIL]->(e:UserEmail) | e.email],
+              linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(a) | a { .* }][0],
+              wallets: [(user)-[:HAS_LINKED_WALLET]->(w) | w.address],
+              location: [(user)-[:HAS_LOCATION]->(loc:UserLocation) | loc { .* }][0],
+              skills: apoc.coll.toSet([
+                (user)-[r:HAS_SKILL]->(t:Tag) |
+                  t { .*, canTeach: [(user)-[m:HAS_SKILL]->(t) | m.canTeach][0] }
+              ]),
+              showcases: apoc.coll.toSet([
+                (user)-[:HAS_SHOWCASE]->(s) | s { .* }
+              ]),
+              workHistory: apoc.coll.toSet([
+                (user)-[:HAS_WORK_HISTORY]->(wh:UserWorkHistory) |
+                  wh {
+                    .*, 
+                    repositories: apoc.coll.toSet([
+                      (wh)-[:WORKED_ON_REPO]->(r:UserWorkHistoryRepo) | r { .* }
+                    ])
+                  }
+              ]),
+              jobCategoryInterests: [
+                k IN keys(classificationFrequencies) |
+                  { classification: k, frequency: classificationFrequencies[k] }
+              ],
+              tags: [
+                k IN keys(tagFrequencies) |
+                  { tag: k, frequency: tagFrequencies[k] }
+              ],
+              lastAppliedTimestamp: lastAppliedTimestamp
+            } AS user;
+          `,
           { orgId: orgId ?? null },
         )
         .then(res => res.records.map(x => x.get("user")).filter(locationFilter))
@@ -1253,104 +1259,6 @@ export class UserService {
         message: "Error retrieving users available for work",
       };
     }
-  }
-
-  async getMyOrgAffiliationRequests(
-    wallet: string,
-    list: "all" | "pending" | "approved" | "rejected",
-  ): Promise<UserOrgAffiliationRequest[]> {
-    return this.neogma.queryRunner
-      .run(
-        `
-          MATCH (user:User { wallet: $wallet })-[r:REQUESTED_TO_BECOME_AFFILIATED_TO]->(org:Organization)
-          WHERE CASE WHEN $list = "all" THEN true
-          WHEN $list = "pending" THEN r.status = "pending"
-          WHEN $list = "approved" THEN r.status = "approved"
-          WHEN $list = "rejected" THEN r.status = "rejected"
-          ELSE true
-          END
-          RETURN {
-            wallet: user.wallet,
-            orgId: org.orgId,
-            status: r.status,
-            timestamp: r.createdTimestamp
-          } as request
-        `,
-        { wallet, list },
-      )
-      .then(async res =>
-        res.records.map(x => {
-          const request = x.get("request");
-          return {
-            wallet: request.wallet,
-            orgId: request.orgId,
-            status: request.status,
-            timestamp: nonZeroOrNull(request.timestamp),
-          };
-        }),
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
-          });
-          scope.setExtra("input", { wallet, list });
-          Sentry.captureException(err);
-        });
-        this.logger.error(
-          `UserService::getMyOrgAffiliationRequests ${err.message}`,
-        );
-        return [];
-      });
-  }
-
-  async getUserOrgAffiliationRequests(
-    list: "all" | "pending" | "approved" | "rejected",
-  ): Promise<UserOrgAffiliationRequest[]> {
-    return this.neogma.queryRunner
-      .run(
-        `
-          MATCH (user:User)-[r:REQUESTED_TO_BECOME_AFFILIATED_TO]->(org:Organization)
-          WHERE CASE WHEN $list = "all" THEN true
-          WHEN $list = "pending" THEN r.status = "pending"
-          WHEN $list = "approved" THEN r.status = "approved"
-          WHEN $list = "rejected" THEN r.status = "rejected"
-          ELSE true
-          END
-          RETURN {
-            wallet: user.wallet,
-            orgId: org.orgId,
-            status: r.status,
-            timestamp: r.createdTimestamp
-          } as request
-        `,
-        { list },
-      )
-      .then(async res =>
-        res.records.map(x => {
-          const request = x.get("request");
-          return {
-            wallet: request.wallet,
-            orgId: request.orgId,
-            status: request.status,
-            timestamp: nonZeroOrNull(request.timestamp),
-          };
-        }),
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
-          });
-          Sentry.captureException(err);
-        });
-        this.logger.error(
-          `UserService::getUserOrgAffiliationRequests ${err.message}`,
-        );
-        return [];
-      });
   }
 
   async addUserNote(
