@@ -78,6 +78,12 @@ export class PrivyService {
 
   async getUserById(userId: string, attempts = 0): Promise<User | undefined> {
     let user: User;
+    if (attempts > 5) {
+      this.logger.warn(
+        `PrivyService::getUserById rate limited, returning undefined after ${attempts} attempts`,
+      );
+      return undefined;
+    }
     try {
       user = await this.privy.getUser({ idToken: userId });
       if (!user?.linkedAccounts) {
@@ -116,6 +122,12 @@ export class PrivyService {
 
   async getUserByEmail(email: string, attempts = 0): Promise<User | undefined> {
     let user: User;
+    if (attempts > 5) {
+      this.logger.warn(
+        `PrivyService::getUserByEmail rate limited, returning undefined after ${attempts} attempts`,
+      );
+      return undefined;
+    }
     try {
       user = await this.privy.getUserByEmail(email);
       if (!user?.linkedAccounts) {
