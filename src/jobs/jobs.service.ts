@@ -2582,7 +2582,7 @@ export class JobsService {
             tags: apoc.coll.toSet(tags)
         } AS result
       `,
-        { wallet, ecosystem },
+        { wallet, ecosystem: ecosystem ?? null },
       );
 
       return {
@@ -2780,7 +2780,7 @@ export class JobsService {
             tags: apoc.coll.toSet(tags)
         } AS result
       `,
-        { wallet, ecosystem },
+        { wallet, ecosystem: ecosystem ?? null },
       );
 
       return {
