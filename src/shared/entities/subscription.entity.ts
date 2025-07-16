@@ -21,6 +21,7 @@ export class SubscriptionEntity {
           new Quota({
             ...x,
             veri: nonZeroOrNull(x.veri) ?? 0,
+            jobPromotions: nonZeroOrNull(x.jobPromotions) ?? 0,
             createdTimestamp: nonZeroOrNull(x.createdTimestamp),
             expiryTimestamp: nonZeroOrNull(x.expiryTimestamp),
             usage:
