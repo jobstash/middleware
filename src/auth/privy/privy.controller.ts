@@ -151,6 +151,22 @@ export class PrivyController {
           }
         } else {
           this.logger.warn(`User not found`);
+          const embeddedWallet = await this.privyService.getUserEmbeddedWallet(
+            (verifiedPayload as PrivyUpdateEventPayload).user.id,
+          );
+          if (embeddedWallet) {
+            this.logger.log(`User created: ${embeddedWallet}`);
+            await this.userService.syncUserLinkedWallets(
+              embeddedWallet,
+              (verifiedPayload as PrivyUpdateEventPayload).user,
+            );
+            await this.userService.updateLinkedAccounts(
+              verifiedPayload as PrivyUpdateEventPayload,
+              embeddedWallet,
+            );
+          } else {
+            this.logger.warn(`User not found`);
+          }
         }
       } else if (verifiedPayload.type === "user.transferred_account") {
         const payload = verifiedPayload as PrivyTransferEventPayload;
