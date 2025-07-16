@@ -1126,24 +1126,21 @@ export class UserService {
                 $orgId IS NULL
                 OR NOT EXISTS { (user)-[:VERIFIED_FOR_ORG]->(:Organization {orgId:$orgId}) }
               )
-            /* ---------------- gather applications (may be empty) ---------------- */
             OPTIONAL MATCH (user)-[app:APPLIED_TO]->(job:StructuredJobpost)
             WITH user,
-                 coalesce(collect(DISTINCT job), []) AS jobs, // never null
-                 max(app.createdTimestamp) AS lastAppliedTimestamp
-            /* ---------------- classification frequencies ---------------- */
+                coalesce(collect(DISTINCT job), []) AS jobs,
+                max(app.createdTimestamp) AS lastAppliedTimestamp
             CALL {
               WITH jobs
               WITH CASE WHEN size(jobs) = 0 THEN [NULL] ELSE jobs END AS jlist
               UNWIND jlist AS job
               OPTIONAL MATCH (job)-[:HAS_CLASSIFICATION]->(c:JobpostClassification)
-              WITH collect(c.name) AS names // names = [] when no matches
+              WITH collect(c.name) AS names
               RETURN apoc.map.fromPairs(
                 [n IN apoc.coll.toSet(names) |
                   [n, size([x IN names WHERE x = n])]]
               ) AS classificationFrequencies
             }
-            /* ---------------- tag frequencies ---------------- */
             CALL {
               WITH jobs
               WITH CASE WHEN size(jobs) = 0 THEN [NULL] ELSE jobs END AS jlist
@@ -1167,9 +1164,7 @@ export class UserService {
                   [n, size([x IN names WHERE x = n])]]
               ) AS tagFrequencies
             }
-            
             WITH user, lastAppliedTimestamp, classificationFrequencies, tagFrequencies
-            
             RETURN {
               wallet: user.wallet,
               cryptoNative: user.cryptoNative,
@@ -1211,7 +1206,7 @@ export class UserService {
                   { tag: k, frequency: tagFrequencies[k] }
               ],
               lastAppliedTimestamp: lastAppliedTimestamp
-            } AS user;
+            } AS user
           `,
           { orgId: orgId ?? null },
         )
