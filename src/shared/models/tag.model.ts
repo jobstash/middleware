@@ -53,6 +53,11 @@ export const Tags = (
           allowEmpty: false,
           required: true,
         },
+        createdTimestamp: {
+          type: "number",
+          allowEmpty: true,
+          required: false,
+        },
       },
       primaryKeyField: "id",
 

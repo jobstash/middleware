@@ -334,7 +334,7 @@ describe("JobsController", () => {
         )
       ).data.find(job => !job.featured);
 
-      const result = await controller.featureJobpost(EMPTY_SESSION_OBJECT, {
+      const result = await controller.featureJobpost({
         shortUUID: job.shortUUID,
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
@@ -416,6 +416,7 @@ describe("JobsController", () => {
         id: randomUUID(),
         name: x,
         normalizedName: x,
+        createdTimestamp: null,
       }));
 
       const {

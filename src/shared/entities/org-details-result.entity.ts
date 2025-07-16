@@ -230,7 +230,11 @@ export class OrgListResultEntity {
         ),
       ),
       ecosystems: organization?.ecosystems ?? [],
-      tags: tags ?? [],
+      tags:
+        tags?.map(tag => ({
+          ...tag,
+          createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
+        })) ?? [],
       reviews:
         reviews?.map(r => new LeanOrgReviewEntity(r).getProperties()) ?? [],
     });
@@ -414,7 +418,11 @@ export class OrgDetailsResultEntity {
         ),
       ),
       ecosystems: organization?.ecosystems ?? [],
-      tags: tags ?? [],
+      tags:
+        tags?.map(tag => ({
+          ...tag,
+          createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
+        })) ?? [],
       reviews:
         reviews?.map(r => new LeanOrgReviewEntity(r).getProperties()) ?? [],
       jobs: jobs.map(x => new OrgJobEntity(x).getProperties()) ?? [],

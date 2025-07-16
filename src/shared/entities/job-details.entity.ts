@@ -271,7 +271,11 @@ export class JobDetailsEntity {
             hasUser: project.hasUser ?? false,
           }
         : null,
-      tags: tags ?? [],
+      tags:
+        tags?.map(tag => ({
+          ...tag,
+          createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
+        })) ?? [],
     });
   }
 }

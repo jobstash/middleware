@@ -10,6 +10,7 @@ export class Tag {
     id: t.string,
     name: t.string,
     normalizedName: t.string,
+    createdTimestamp: t.union([t.number, t.null]),
   });
 
   @ApiProperty()
@@ -18,15 +19,17 @@ export class Tag {
   name: string;
   @ApiProperty()
   normalizedName: string;
+  @ApiProperty()
+  createdTimestamp: number | null;
 
   constructor(raw: Tag) {
-    const { id, name, normalizedName } = raw;
+    const { id, name, normalizedName, createdTimestamp } = raw;
     const result = Tag.TagType.decode(raw);
 
     this.id = id;
     this.name = name;
     this.normalizedName = normalizedName;
-
+    this.createdTimestamp = createdTimestamp;
     if (isLeft(result)) {
       report(result).forEach(x => {
         throw new Error(

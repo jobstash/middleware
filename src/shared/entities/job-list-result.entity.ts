@@ -306,7 +306,11 @@ export class JobListResultEntity {
             hasUser: project.hasUser ?? false,
           }
         : null,
-      tags: tags ?? [],
+      tags:
+        tags?.map(tag => ({
+          ...tag,
+          createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
+        })) ?? [],
     };
 
     if (transform) {
@@ -576,7 +580,11 @@ export class EcosystemJobListResultEntity {
             hasUser: project.hasUser ?? false,
           }
         : null,
-      tags: tags ?? [],
+      tags:
+        tags?.map(tag => ({
+          ...tag,
+          createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
+        })) ?? [],
     };
 
     if (transform) {

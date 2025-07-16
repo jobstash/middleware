@@ -10,13 +10,23 @@ export class StructuredJobpostWithRelations extends StructuredJobpost {
     t.strict({
       classification: t.string,
       commitment: t.union([t.string, t.null]),
-      tags: t.array(t.strict({ name: t.string, normalizedName: t.string })),
+      tags: t.array(
+        t.strict({
+          name: t.string,
+          normalizedName: t.string,
+          createdTimestamp: t.union([t.number, t.null]),
+        }),
+      ),
       locationType: t.union([t.string, t.null]),
     }),
   ]);
 
   @ApiProperty()
-  tags: { name: string; normalizedName: string }[];
+  tags: {
+    name: string;
+    normalizedName: string;
+    createdTimestamp: number | null;
+  }[];
 
   @ApiProperty()
   commitment: string | null;

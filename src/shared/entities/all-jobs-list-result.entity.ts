@@ -57,7 +57,11 @@ export class AllJobListResultEntity {
         : null,
       featured: isStillFeatured,
       project: project ?? null,
-      tags: tags ?? [],
+      tags:
+        tags?.map(tag => ({
+          ...tag,
+          createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
+        })) ?? [],
     });
   }
 }
@@ -254,7 +258,11 @@ export class AllOrgJobsListResultEntity {
             new OrgReviewEntity(review).getProperties(),
           ) ?? [],
       },
-      tags: tags ?? [],
+      tags:
+        tags?.map(tag => ({
+          ...tag,
+          createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
+        })) ?? [],
       project: project ?? null,
     });
   }
