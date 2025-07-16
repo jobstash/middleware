@@ -163,6 +163,19 @@ export class PrivyService {
     }
   }
 
+  async getUserEmbeddedWallet(userId: string): Promise<string | null> {
+    const user = await this.getUserById(userId);
+    if (user?.linkedAccounts) {
+      return (
+        user.linkedAccounts.find(
+          x => x.type === "wallet" && x.walletClientType === "privy",
+        ) as WalletWithMetadata
+      )?.address;
+    } else {
+      return null;
+    }
+  }
+
   async getUsers(attempts = 1): Promise<User[]> {
     let users: User[];
     try {
