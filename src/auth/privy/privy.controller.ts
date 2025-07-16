@@ -12,7 +12,7 @@ import {
 import { PrivySession } from "src/shared/decorators";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { PrivyGuard } from "./privy.guard";
-import { User, WalletWithMetadata } from "@privy-io/server-auth";
+import { User } from "@privy-io/server-auth";
 import { AuthService } from "../auth.service";
 import { SessionObject } from "src/shared/interfaces";
 import { UserService } from "src/user/user.service";
@@ -47,11 +47,9 @@ export class PrivyController {
   async checkWallet(
     @PrivySession() user: User,
   ): Promise<SessionObject & { token: string }> {
-    const embeddedWallet = (
-      user.linkedAccounts.find(
-        x => x.type === "wallet" && x.walletClientType === "privy",
-      ) as WalletWithMetadata
-    )?.address;
+    const embeddedWallet = await this.privyService.getUserEmbeddedWallet(
+      user.id,
+    );
     const result = await this.userService.upsertPrivyUser(user, embeddedWallet);
     if (embeddedWallet && result.success) {
       this.logger.log("/privy/check-wallet " + embeddedWallet);
@@ -172,11 +170,9 @@ export class PrivyController {
         }
       } else if (verifiedPayload.type === "user.created") {
         const payload = verifiedPayload as PrivyCreateEventPayload;
-        const embeddedWallet = (
-          payload.user.linkedAccounts?.find(
-            x => x.type === "wallet" && x.walletClientType === "privy",
-          ) as WalletWithMetadata
-        )?.address;
+        const embeddedWallet = await this.privyService.getUserEmbeddedWallet(
+          payload.user.id,
+        );
         if (embeddedWallet) {
           this.logger.log(`User created: ${embeddedWallet}`);
           await this.userService.syncUserLinkedWallets(
