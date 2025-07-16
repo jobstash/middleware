@@ -20,7 +20,6 @@ import { ModelService } from "src/model/model.service";
 import { instanceToNode, randomToken } from "src/shared/helpers";
 import { randomUUID } from "crypto";
 import { GetAvailableUsersInput } from "./dto/get-available-users.input";
-import { ScorerService } from "src/scorer/scorer.service";
 import { ConfigService } from "@nestjs/config";
 import { ProfileService } from "src/auth/profile/profile.service";
 import {
@@ -48,7 +47,6 @@ export class UserService {
     private models: ModelService,
     readonly configService: ConfigService,
     private readonly profileService: ProfileService,
-    private readonly scorerService: ScorerService,
     private readonly privyService: PrivyService,
     private readonly permissionService: PermissionService,
   ) {}
