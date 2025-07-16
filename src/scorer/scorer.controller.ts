@@ -2,12 +2,15 @@ import {
   Body,
   Controller,
   Delete,
+  BadRequestException,
+  ForbiddenException,
   Get,
   Param,
   Post,
   Query,
   Redirect,
   UseGuards,
+  NotFoundException,
 } from "@nestjs/common";
 import * as Sentry from "@sentry/node";
 import { ScorerService } from "./scorer.service";
@@ -19,7 +22,6 @@ import { UserService } from "src/user/user.service";
 import { SetupOrgLinkInput } from "./dto/setup-org-link.input";
 import {
   CandidateReport,
-  EcosystemActivation,
   ResponseWithNoData,
   ResponseWithOptionalData,
   SessionObject,
@@ -94,17 +96,17 @@ export class ScorerController {
           };
         }
       } else {
-        return {
+        throw new ForbiddenException({
           success: false,
           message:
             "Organization does not have an active or valid subscription to use this service",
-        };
+        });
       }
     } else {
-      return {
+      throw new NotFoundException({
         success: false,
         message: "Client not found",
-      };
+      });
     }
   }
 
@@ -308,11 +310,11 @@ export class ScorerController {
         );
         return result.data;
       } else {
-        return {
+        throw new ForbiddenException({
           success: false,
           message:
             "Organization does not have an active or valid subscription to use this service",
-        };
+        });
       }
     } catch (err) {
       Sentry.withScope(scope => {
@@ -324,10 +326,10 @@ export class ScorerController {
         Sentry.captureException(err);
       });
       this.logger.error(`ScorerController::setupOrgLink ${err.message}`);
-      return {
+      throw new BadRequestException({
         success: false,
         message: "Error setting up org link",
-      };
+      });
     }
   }
 
@@ -341,7 +343,10 @@ export class ScorerController {
     this.logger.log(`/scorer/update/preferences`);
     const result = await this.getClient(session);
     if (result.success === false) {
-      return result;
+      throw new BadRequestException({
+        success: false,
+        message: "Error updating client preferences",
+      });
     } else {
       const result = await firstValueFrom(
         this.httpService

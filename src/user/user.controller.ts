@@ -1,6 +1,8 @@
 import {
   Body,
   Controller,
+  BadRequestException,
+  ForbiddenException,
   Get,
   Post,
   Query,
@@ -77,17 +79,17 @@ export class UserController {
       if (subscription?.canAccessService("stashPool")) {
         return this.userService.getUsersAvailableForWork(params, orgId);
       } else {
-        return {
+        throw new ForbiddenException({
           success: false,
           message:
             "Organization does not have an active or valid subscription to use this service",
-        };
+        });
       }
     } else {
-      return {
+      throw new ForbiddenException({
         success: false,
         message: "Access denied",
-      };
+      });
     }
   }
 
@@ -142,26 +144,26 @@ export class UserController {
             flag,
           });
         } else {
-          return {
+          throw new BadRequestException({
             success: false,
             message: "You must specify a subscription plan",
-          };
+          });
         }
       } else {
-        return {
+        throw new BadRequestException({
           success: false,
           message: "Invalid orgId or user not verified",
-        };
+        });
       }
     } else {
       const memberships = data(
         await this.profileService.getUserVerifications(address),
       ).filter(x => x.isMember);
       if (memberships.find(x => x.id === body.orgId)) {
-        return {
+        throw new BadRequestException({
           success: false,
           message: "User is already a member of this organization",
-        };
+        });
       } else {
         const subscription = data(
           await this.subscriptionService.getSubscriptionInfoByOrgId(body.orgId),
@@ -219,17 +221,17 @@ export class UserController {
       if (subscription?.canAccessService("stashPool")) {
         return this.userService.addUserNote(body.wallet, body.note, orgId);
       } else {
-        return {
+        throw new ForbiddenException({
           success: false,
           message:
             "Organization does not have an active or valid subscription to use this service",
-        };
+        });
       }
     } else {
-      return {
+      throw new ForbiddenException({
         success: false,
         message: "Access denied",
-      };
+      });
     }
   }
 }

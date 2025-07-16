@@ -205,11 +205,11 @@ export class EcosystemsController {
       await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
-      return {
+      throw new ForbiddenException({
         success: false,
         message:
           "Organization does not have an active or valid subscription to use this service",
-      };
+      });
     }
     return this.ecosystemsService.createStoredFilter(
       orgId,
@@ -244,11 +244,11 @@ export class EcosystemsController {
       await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
-      return {
+      throw new ForbiddenException({
         success: false,
         message:
           "Organization does not have an active or valid subscription to use this service",
-      };
+      });
     }
     return this.ecosystemsService.findAllStoredFilters(orgId, address);
   }
@@ -283,11 +283,11 @@ export class EcosystemsController {
       await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
-      return {
+      throw new ForbiddenException({
         success: false,
         message:
           "Organization does not have an active or valid subscription to use this service",
-      };
+      });
     }
     return this.ecosystemsService.updateStoredFilter(
       orgId,
@@ -326,11 +326,11 @@ export class EcosystemsController {
       await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
-      return {
+      throw new ForbiddenException({
         success: false,
         message:
           "Organization does not have an active or valid subscription to use this service",
-      };
+      });
     }
     return this.ecosystemsService.removeStoredFilter(orgId, address, id);
   }
@@ -367,17 +367,17 @@ export class EcosystemsController {
       await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
-      return {
+      throw new ForbiddenException({
         success: false,
         message:
           "Organization does not have an active or valid subscription to use this service",
-      };
+      });
     }
     if (!isMember) {
-      return {
+      throw new ForbiddenException({
         success: false,
         message: "You are not a member of this organization",
-      };
+      });
     }
     return this.ecosystemsService.create(orgId, createEcosystemDto);
   }
@@ -409,17 +409,17 @@ export class EcosystemsController {
       await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription?.isActive()) {
-      return {
+      throw new ForbiddenException({
         success: false,
         message:
           "Organization does not have an active or valid subscription to use this service",
-      };
+      });
     }
     if (!isMember) {
-      return {
+      throw new ForbiddenException({
         success: false,
         message: "You are not a member of this organization",
-      };
+      });
     }
     return this.ecosystemsService.findAll(orgId);
   }
@@ -452,17 +452,17 @@ export class EcosystemsController {
       await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
-      return {
+      throw new ForbiddenException({
         success: false,
         message:
           "Organization does not have an active or valid subscription to use this service",
-      };
+      });
     }
     if (!isMember) {
-      return {
+      throw new ForbiddenException({
         success: false,
         message: "You are not a member of this organization",
-      };
+      });
     }
     return this.ecosystemsService.findOne(orgId, idOrSlug);
   }
@@ -501,17 +501,17 @@ export class EcosystemsController {
       await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
-      return {
+      throw new ForbiddenException({
         success: false,
         message:
           "Organization does not have an active or valid subscription to use this service",
-      };
+      });
     }
     if (!isMember) {
-      return {
+      throw new ForbiddenException({
         success: false,
         message: "You are not a member of this organization",
-      };
+      });
     }
     return this.ecosystemsService.updateEcosystemOrgs(
       orgId,
@@ -553,17 +553,17 @@ export class EcosystemsController {
       await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
-      return {
+      throw new ForbiddenException({
         success: false,
         message:
           "Organization does not have an active or valid subscription to use this service",
-      };
+      });
     }
     if (!isMember) {
-      return {
+      throw new ForbiddenException({
         success: false,
         message: "You are not a member of this organization",
-      };
+      });
     }
     return this.ecosystemsService.update(orgId, idOrSlug, updateEcosystemDto);
   }
@@ -596,17 +596,17 @@ export class EcosystemsController {
       await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId),
     );
     if (!subscription.isActive()) {
-      return {
+      throw new ForbiddenException({
         success: false,
         message:
           "Organization does not have an active or valid subscription to use this service",
-      };
+      });
     }
     if (!isMember) {
-      return {
+      throw new ForbiddenException({
         success: false,
         message: "You are not a member of this organization",
-      };
+      });
     }
     return this.ecosystemsService.remove(orgId, idOrSlug);
   }
