@@ -10,7 +10,7 @@ export class SubscriptionMember {
     credential: t.string,
     account: t.string,
     name: t.union([t.string, t.null]),
-    role: t.string,
+    role: t.union([t.literal("owner"), t.literal("member")]),
     dateJoined: t.number,
   });
 
@@ -30,7 +30,7 @@ export class SubscriptionMember {
   name: string | null;
 
   @ApiProperty()
-  role: string;
+  role: "owner" | "member";
 
   @ApiProperty()
   dateJoined: number;
