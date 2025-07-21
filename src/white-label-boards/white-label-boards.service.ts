@@ -36,12 +36,23 @@ export class WhiteLabelBoardsService {
     createWhiteLabelBoardDto: CreateWhiteLabelBoardDto,
   ): Promise<ResponseWithOptionalData<WhiteLabelBoard>> {
     try {
-      const check = await this.neogma.queryRunner.run(
-        `
-          RETURN EXISTS {MATCH (:WhiteLabelBoard {route: $route})} AS existing
-        `,
-        { route: createWhiteLabelBoardDto.route },
-      );
+      const check =
+        createWhiteLabelBoardDto.domain && createWhiteLabelBoardDto.route
+          ? await this.neogma.queryRunner.run(
+              `
+                RETURN EXISTS {MATCH (:WhiteLabelBoard {domain: $domain, route: $route})} AS existing
+              `,
+              {
+                domain: createWhiteLabelBoardDto.domain,
+                route: createWhiteLabelBoardDto.route,
+              },
+            )
+          : await this.neogma.queryRunner.run(
+              `
+                RETURN EXISTS {MATCH (:WhiteLabelBoard {route: $route})} AS existing
+              `,
+              { route: createWhiteLabelBoardDto.route },
+            );
       const existing = check.records[0].get("existing") as boolean;
       if (existing) {
         throw new BadRequestException({

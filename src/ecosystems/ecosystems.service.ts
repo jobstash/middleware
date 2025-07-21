@@ -64,7 +64,7 @@ export class EcosystemsService {
     try {
       const check = await this.neogma.queryRunner.run(
         `
-          RETURN EXISTS {MATCH (:OrganizationEcosystem {normalizedName: $normalizedName})} AS existing
+          RETURN EXISTS {MATCH (org:Organization {orgId: $orgId})-[:OWNS_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $normalizedName})} AS existing
         `,
         { normalizedName: slugify(createEcosystemDto.name) },
       );
