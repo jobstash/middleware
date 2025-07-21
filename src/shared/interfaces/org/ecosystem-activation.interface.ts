@@ -72,7 +72,7 @@ export class EcosystemActivation {
     if (isLeft(result)) {
       report(result).forEach(x => {
         throw new Error(
-          `tracked ecosystemActivation instance with id ${this.id} failed validation with error '${x}'`,
+          `tracked ecosystem ectivation instance with id ${this.id} failed validation with error '${x}'`,
         );
       });
     }

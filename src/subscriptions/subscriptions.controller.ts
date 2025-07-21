@@ -18,6 +18,7 @@ import {
   Payment,
   QuotaUsage,
   MeteredService,
+  SubscriptionMember,
 } from "src/shared/interfaces/org";
 import {
   data,
@@ -53,6 +54,27 @@ export class SubscriptionsController {
     );
     if (owner?.wallet === address) {
       return this.subscriptionsService.getSubscriptionInfoByOrgId(orgId);
+    } else {
+      throw new UnauthorizedException({
+        success: false,
+        message: "You are not the owner of this organization",
+      });
+    }
+  }
+
+  @Get(":orgId/members")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
+  async getOrgSubscriptionMembers(
+    @Param("orgId") orgId: string,
+    @Session() { address }: SessionObject,
+  ): Promise<ResponseWithOptionalData<SubscriptionMember[]>> {
+    this.logger.log(`/subscriptions/${orgId}/members ${address}`);
+    const owner = data(
+      await this.userService.findOrgOwnerProfileByOrgId(orgId),
+    );
+    if (owner?.wallet === address) {
+      return this.subscriptionsService.getOrgSubscriptionMembers(orgId);
     } else {
       throw new UnauthorizedException({
         success: false,

@@ -870,6 +870,10 @@ export class UserService {
                   WITH seat
                   MATCH (org:Organization {orgId: $orgId}), (user:User {wallet: $wallet})
                   MERGE (user)-[:OCCUPIES]->(seat)<-[:HAS_USER_SEAT]-(org)
+                  ON CREATE SET
+                    seat.createdTimestamp = timestamp()
+                  ON MATCH SET
+                    seat.updatedTimestamp = timestamp()
                 `,
                 {
                   seatType: isOwner ? "owner" : "member",

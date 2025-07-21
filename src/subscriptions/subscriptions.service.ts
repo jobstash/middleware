@@ -16,7 +16,13 @@ import {
 } from "src/shared/constants/pricing";
 import { SubscriptionMetadata } from "src/stripe/dto/webhook-data.dto";
 import { UserService } from "src/user/user.service";
-import { emailBuilder, randomToken, text } from "src/shared/helpers";
+import {
+  emailBuilder,
+  nonZeroOrNull,
+  notStringOrNull,
+  randomToken,
+  text,
+} from "src/shared/helpers";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { JOBSTASH_QUOTA, VERI_ADDONS } from "src/shared/constants/quota";
@@ -24,6 +30,7 @@ import {
   MeteredService,
   Payment,
   Subscription,
+  SubscriptionMember,
 } from "src/shared/interfaces/org";
 import { SubscriptionEntity } from "src/shared/entities/subscription.entity";
 import { addMonths, getDayOfYear } from "date-fns";
@@ -801,6 +808,58 @@ export class SubscriptionsService {
       return {
         success: false,
         message: `Error retrieving subscription info`,
+      };
+    }
+  }
+
+  async getOrgSubscriptionMembers(
+    orgId: string,
+  ): Promise<ResponseWithOptionalData<SubscriptionMember[]>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          MATCH (org:Organization {orgId: $orgId})-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)
+          MATCH (org)-[:HAS_USER_SEAT]->(userSeat:OrgUserSeat)<-[:OCCUPIES]-(user:User)
+          MATCH (user)-[r:VERIFIED_FOR_ORG]->(org)
+          RETURN {
+            id: userSeat.id,
+            wallet: user.wallet,
+            credential: r.credential,
+            account: r.account,
+            name: user.name,
+            role: userSeat.seatType,
+            dateJoined: userSeat.createdTimestamp
+          } as subscriptionMember
+        `,
+        { orgId },
+      );
+      const subscriptionMembers = result.records.map(record => {
+        const subscriptionMember = record.get("subscriptionMember");
+        return new SubscriptionMember({
+          ...subscriptionMember,
+          name: notStringOrNull(subscriptionMember.name),
+          dateJoined: nonZeroOrNull(subscriptionMember.dateJoined),
+        });
+      });
+      return {
+        success: true,
+        message: "Retrieved subscription members successfully",
+        data: subscriptionMembers,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "subscriptions.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `SubscriptionsService::getOrgSubscriptionMembers ${err.message}`,
+      );
+      return {
+        success: false,
+        message: `Error retrieving subscription members`,
       };
     }
   }
