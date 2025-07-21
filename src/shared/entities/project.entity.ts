@@ -54,7 +54,15 @@ export class ProjectWithBaseRelationsEntity {
           ...chain,
           logo: notStringOrNull(chain?.logo),
         })) ?? [],
-      jobs: project?.jobs ?? [],
+      jobs:
+        project?.jobs.map(job => ({
+          ...job,
+          tags:
+            job.tags.map(tag => ({
+              ...tag,
+              createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
+            })) ?? [],
+        })) ?? [],
       repos: project?.repos ?? [],
       grants:
         project?.grants?.map(grant => ({
@@ -134,7 +142,15 @@ export class ProjectWithRelationsEntity {
           ...chain,
           logo: notStringOrNull(chain?.logo),
         })) ?? [],
-      jobs: project?.jobs ?? [],
+      jobs:
+        project?.jobs.map(job => ({
+          ...job,
+          tags:
+            job.tags.map(tag => ({
+              ...tag,
+              createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
+            })) ?? [],
+        })) ?? [],
       repos: project?.repos ?? [],
       grants:
         project?.grants?.map(grant => ({
