@@ -22,6 +22,7 @@ import {
 } from "src/shared/interfaces/org";
 import {
   data,
+  ResponseWithNoData,
   ResponseWithOptionalData,
   SessionObject,
 } from "src/shared/interfaces";
@@ -310,7 +311,7 @@ export class SubscriptionsController {
     @Param("orgId") orgId: string,
     @Body() body: ChangeSubscriptionInput,
     @Session() { address }: SessionObject,
-  ): Promise<ResponseWithOptionalData<string>> {
+  ): Promise<ResponseWithNoData> {
     this.logger.log(`/subscriptions/${orgId}/change ${address}`);
     const owner = data(
       await this.userService.findOrgOwnerProfileByOrgId(orgId),
@@ -335,7 +336,7 @@ export class SubscriptionsController {
   async reactivateOrgSubscription(
     @Param("orgId") orgId: string,
     @Session() { address }: SessionObject,
-  ): Promise<ResponseWithOptionalData<string>> {
+  ): Promise<ResponseWithNoData> {
     this.logger.log(`/subscriptions/${orgId}/reactivate ${address}`);
     const owner = data(
       await this.userService.findOrgOwnerProfileByOrgId(orgId),
@@ -356,7 +357,7 @@ export class SubscriptionsController {
   async cancelOrgSubscription(
     @Param("orgId") orgId: string,
     @Session() { address }: SessionObject,
-  ): Promise<ResponseWithOptionalData<string>> {
+  ): Promise<ResponseWithNoData> {
     this.logger.log(`/subscriptions/${orgId}/cancel ${address}`);
     const owner = data(
       await this.userService.findOrgOwnerProfileByOrgId(orgId),
@@ -387,7 +388,7 @@ export class SubscriptionsController {
   async resetOrgSubscriptionState(
     @Param("orgId") orgId: string,
     @Session() { address }: SessionObject,
-  ): Promise<ResponseWithOptionalData<string>> {
+  ): Promise<ResponseWithNoData> {
     this.logger.log(`/subscriptions/${orgId}/reset ${address}`);
     const owner = data(
       await this.userService.findOrgOwnerProfileByOrgId(orgId),
