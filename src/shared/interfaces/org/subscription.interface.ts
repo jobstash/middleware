@@ -203,6 +203,19 @@ export class Subscription {
     expired: t.boolean,
     status: t.union([t.literal("active"), t.literal("inactive")]),
     duration: t.union([t.literal("monthly"), t.literal("yearly")]),
+    pendingChanges: t.union([
+      t.strict({
+        jobstash: t.union([t.string, t.null]),
+        extraSeats: t.union([t.number, t.null]),
+        veri: t.union([t.string, t.null]),
+        stashAlert: t.union([t.boolean, t.null]),
+        stashPool: t.union([t.boolean, t.null]),
+        atsIntegration: t.union([t.boolean, t.null]),
+        jobPromotions: t.union([t.number, t.null]),
+        cancellationDate: t.union([t.number, t.null]),
+      }),
+      t.null,
+    ]),
     createdTimestamp: t.number,
     expiryTimestamp: t.number,
     quota: t.array(Quota.QuotaType),
@@ -256,6 +269,18 @@ export class Subscription {
   @ApiProperty()
   quota: Quota[];
 
+  @ApiProperty()
+  pendingChanges: {
+    jobstash: string | null;
+    extraSeats: number | null;
+    veri: string | null;
+    stashAlert: boolean | null;
+    stashPool: boolean | null;
+    atsIntegration: boolean | null;
+    jobPromotions: number | null;
+    cancellationDate: number | null;
+  } | null;
+
   constructor(
     raw: Omit<
       Subscription,
@@ -287,9 +312,11 @@ export class Subscription {
       createdTimestamp,
       jobPromotions,
       veriPayg,
+      pendingChanges,
     } = raw;
     const result = Subscription.SubscriptionType.decode({
       ...raw,
+      pendingChanges: pendingChanges ?? null,
       totalSeats: extraSeats + 1,
       expired: now() < expiryTimestamp ? false : true,
     });
@@ -310,7 +337,7 @@ export class Subscription {
     this.expiryTimestamp = expiryTimestamp;
     this.createdTimestamp = createdTimestamp;
     this.jobPromotions = jobPromotions;
-
+    this.pendingChanges = pendingChanges ?? null;
     if (isLeft(result)) {
       report(result).forEach(x => {
         throw new Error(

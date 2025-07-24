@@ -23,8 +23,13 @@ import {
   JOBSTASH_BUNDLE_PRICING,
   VERI_BUNDLE_PRICING,
 } from "src/shared/constants/pricing";
-import { MeteredService, QuotaUsage } from "src/shared/interfaces/org";
+import {
+  MeteredService,
+  QuotaUsage,
+  Subscription,
+} from "src/shared/interfaces/org";
 import { ChangeSubscriptionInput } from "src/subscriptions/dto/change-subscription.input";
+import { JOBSTASH_QUOTA } from "src/shared/constants/quota";
 
 @Injectable()
 export class StripeService {
@@ -175,6 +180,149 @@ export class StripeService {
       return {
         success: false,
         message: "Failed to get customer",
+      };
+    }
+  }
+
+  async getPendingSubscriptionChange(
+    currentSubscription: Subscription,
+  ): Promise<
+    ResponseWithOptionalData<{
+      jobstash: string | null;
+      extraSeats: number | null;
+      veri: string | null;
+      stashAlert: boolean | null;
+      stashPool: boolean | null;
+      atsIntegration: boolean | null;
+      jobPromotions: number | null;
+      cancellationDate: number | null;
+    }>
+  > {
+    try {
+      const subscription = await this.stripe.subscriptions.retrieve(
+        currentSubscription.externalId,
+      );
+
+      if (subscription.canceled_at) {
+        return {
+          success: true,
+          message: "Subscription is canceled",
+          data: {
+            jobstash: null,
+            extraSeats: null,
+            veri: null,
+            stashAlert: null,
+            stashPool: null,
+            atsIntegration: null,
+            jobPromotions: null,
+            cancellationDate: subscription.canceled_at,
+          },
+        };
+      } else {
+        const upcomingInvoice = await this.stripe.invoices.createPreview({
+          subscription: currentSubscription.externalId,
+        });
+
+        const pendingItems = upcomingInvoice.lines.data;
+
+        const prices = await this.getProductPrices();
+
+        if (upcomingInvoice.lines.data.length === 0) {
+          return {
+            success: true,
+            message: "No pending subscription change found",
+            data: {
+              jobstash: null,
+              extraSeats: null,
+              veri: null,
+              stashAlert: null,
+              stashPool: null,
+              atsIntegration: null,
+              jobPromotions: null,
+              cancellationDate: subscription.cancel_at
+                ? subscription.cancel_at
+                : null,
+            },
+          };
+        }
+
+        const getLookupKey = (id: string): string | undefined => {
+          const priceId = pendingItems.find(item => item.id === id)?.pricing
+            .price_details.price;
+          if (priceId) {
+            return prices.find(price => price.id === priceId)?.lookup_key;
+          }
+          return undefined;
+        };
+
+        const jobstashLine = pendingItems.find(item =>
+          getLookupKey(item.id)?.startsWith("jobstash_"),
+        );
+        const veriLine = pendingItems.find(item =>
+          getLookupKey(item.id)?.startsWith("veri_"),
+        );
+        const stashAlertLine = pendingItems.find(
+          item => getLookupKey(item.id) === LOOKUP_KEYS.STASH_ALERT_PRICE,
+        );
+
+        const newJobstash =
+          getLookupKey(jobstashLine?.id)?.split("_")[1] ?? null;
+        const newExtraSeats = (jobstashLine?.quantity ?? 1) - 1;
+        const newVeri = getLookupKey(veriLine?.id)?.split("_")[1] ?? null;
+        const newStashAlert = !!stashAlertLine;
+
+        const {
+          tier,
+          extraSeats,
+          veri,
+          stashAlert,
+          atsIntegration,
+          stashPool,
+          jobPromotions,
+        } = currentSubscription;
+
+        const {
+          jobPromotions: newJobPromotions,
+          atsIntegration: newAtsIntegration,
+          stashPool: newStashPool,
+        } = JOBSTASH_QUOTA[newJobstash];
+
+        return {
+          success: true,
+          message: "Pending subscription change retrieved successfully",
+          data: {
+            jobstash: newJobstash !== tier ? newJobstash : null,
+            extraSeats: newExtraSeats !== extraSeats ? newExtraSeats : null,
+            veri: newVeri !== veri ? newVeri : null,
+            stashAlert: newStashAlert !== stashAlert ? newStashAlert : null,
+            atsIntegration:
+              newAtsIntegration !== atsIntegration ? newAtsIntegration : null,
+            stashPool: newStashPool !== stashPool ? newStashPool : null,
+            jobPromotions:
+              newJobPromotions !== jobPromotions ? newJobPromotions : null,
+            cancellationDate: subscription.cancel_at
+              ? subscription.cancel_at
+              : null,
+          },
+        };
+      }
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "stripe-call",
+          source: "stripe.service",
+        });
+        scope.setExtra("input", {
+          externalId: currentSubscription.externalId,
+        });
+        Sentry.captureException(error);
+      });
+      this.logger.error(
+        `StripeService::getPendingSubscriptionChange Failed to get pending subscription change ${error.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to get pending subscription change",
       };
     }
   }

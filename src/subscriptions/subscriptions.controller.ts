@@ -32,6 +32,7 @@ import { subMonths } from "date-fns";
 import { StripeService } from "src/stripe/stripe.service";
 import { ChangeSubscriptionInput } from "./dto/change-subscription.input";
 import Stripe from "stripe";
+import { SubscriptionEntity } from "src/shared/entities/subscription.entity";
 
 @Controller("subscriptions")
 export class SubscriptionsController {
@@ -54,7 +55,24 @@ export class SubscriptionsController {
       await this.userService.findOrgOwnerProfileByOrgId(orgId),
     );
     if (owner?.wallet === address) {
-      return this.subscriptionsService.getSubscriptionInfoByOrgId(orgId);
+      const subscription =
+        await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId);
+      if (subscription.success) {
+        const pendingChanges =
+          await this.stripeService.getPendingSubscriptionChange(
+            data(subscription),
+          );
+        return {
+          success: true,
+          message: "Retrieved subscription info successfully",
+          data: new SubscriptionEntity({
+            ...data(subscription),
+            pendingChanges: data(pendingChanges),
+          } as Subscription).getProperties(),
+        };
+      } else {
+        return subscription;
+      }
     } else {
       throw new UnauthorizedException({
         success: false,
