@@ -519,7 +519,8 @@ export class StripeService {
     );
 
     const extraSeatsLine = itemLines.find(
-      l => l.lookupKey?.startsWith("jobstash_") && l.lineItem.quantity > 1,
+      l =>
+        l.lookupKey?.startsWith("jobstash_") && (l.lineItem?.quantity ?? 0) > 1,
     );
 
     if (!jobstashLine) {
@@ -528,7 +529,7 @@ export class StripeService {
     }
 
     const newTier = jobstashLine.lookupKey.split("_")[1];
-    const newExtraSeats = extraSeatsLine.lineItem.quantity ?? 0;
+    const newExtraSeats = extraSeatsLine?.lineItem?.quantity ?? 0;
 
     const veriLine = itemLines.find(l => l.lookupKey?.startsWith("veri_"));
     const newVeri = veriLine ? veriLine.lookupKey.split("_")[1] : null;

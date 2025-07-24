@@ -1427,7 +1427,10 @@ export class SubscriptionsService {
               subscriptionId: existingSubscription.id,
             },
           );
-        } else {
+        } else if (
+          JOBSTASH_BUNDLE_PRICING[existingSubscription.tier] >
+          JOBSTASH_BUNDLE_PRICING[dto.jobstash]
+        ) {
           const existingTier = (
             await tx.run(
               `
@@ -1512,7 +1515,11 @@ export class SubscriptionsService {
               subscriptionId: existingSubscription.id,
             },
           );
-        } else {
+        } else if (
+          (existingSubscription.veri
+            ? VERI_BUNDLE_PRICING[existingSubscription.veri]
+            : 0) > VERI_BUNDLE_PRICING[dto.veri]
+        ) {
           const existingTier = (
             await tx.run(
               `
@@ -1572,7 +1579,10 @@ export class SubscriptionsService {
               subscriptionId: existingSubscription.id,
             },
           );
-        } else {
+        } else if (
+          (existingSubscription.stashAlert ? STASH_ALERT_PRICE : 0) >
+          (dto.stashAlert ? STASH_ALERT_PRICE : 0)
+        ) {
           const existingTier = (
             await tx.run(
               `
@@ -1633,7 +1643,11 @@ export class SubscriptionsService {
               subscriptionId: existingSubscription.id,
             },
           );
-        } else {
+        } else if (
+          existingSubscription.extraSeats *
+            EXTRA_SEATS_PRICING[existingSubscription.tier] >
+          dto.extraSeats * EXTRA_SEATS_PRICING[dto.jobstash]
+        ) {
           const existingTier = (
             await tx.run(
               `
