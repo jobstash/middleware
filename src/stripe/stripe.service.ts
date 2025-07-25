@@ -30,6 +30,7 @@ import {
 } from "src/shared/interfaces/org";
 import { ChangeSubscriptionInput } from "src/subscriptions/dto/change-subscription.input";
 import { JOBSTASH_QUOTA } from "src/shared/constants/quota";
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class StripeService {
@@ -42,6 +43,7 @@ export class StripeService {
     private readonly domain: string,
     private readonly jobsService: JobsService,
     private readonly subscriptionsService: SubscriptionsService,
+    private readonly configService: ConfigService,
   ) {}
 
   async createOrRetrieveCustomer(
@@ -330,12 +332,21 @@ export class StripeService {
   async createCheckoutSession(
     lineItems: Stripe.Checkout.SessionCreateParams.LineItem[],
     mode: "subscription" | "payment" = "subscription",
+    action: "new-subscription" | "job-promotion" = "new-subscription",
     customerId?: string,
     metadata?: Record<string, string>,
     flag?: string,
   ): Promise<
     ResponseWithOptionalData<{ id: string; url: string; total: number }>
   > {
+    const successUrl =
+      action === "new-subscription"
+        ? `${this.domain}/payment/confirmation` + (flag ? `?flag=${flag}` : "")
+        : this.configService.get("FE_DOMAIN") + "/jobs";
+    const cancelUrl =
+      action === "new-subscription"
+        ? `${this.domain}` + (flag ? `?flag=${flag}` : "")
+        : this.configService.get("FE_DOMAIN") + "/jobs";
     try {
       const session = await this.stripe.checkout.sessions.create({
         mode,
@@ -343,9 +354,8 @@ export class StripeService {
         billing_address_collection: "required",
         allow_promotion_codes: true,
         customer: customerId,
-        success_url:
-          `${this.domain}/payment/confirmation` + (flag ? `?flag=${flag}` : ""),
-        cancel_url: `${this.domain}`,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
         metadata,
       });
       return {
@@ -990,6 +1000,7 @@ export class StripeService {
           await this.createCheckoutSession(
             lineItems,
             "subscription",
+            "new-subscription",
             customer.id,
             {
               calldata: JSON.stringify({
@@ -1231,6 +1242,7 @@ export class StripeService {
         await this.createCheckoutSession(
           [lineItem],
           "payment",
+          "job-promotion",
           undefined,
           {
             calldata: JSON.stringify({
