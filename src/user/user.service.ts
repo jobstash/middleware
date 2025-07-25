@@ -1,4 +1,8 @@
-import { Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import {
   UserAvailableForWork,
   UserAvailableForWorkEntity,
@@ -10,6 +14,8 @@ import {
   UserProfileEntity,
   data,
   UserPermission,
+  TalentListWithUsers,
+  TalentListWithUsersEntity,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -17,7 +23,7 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nestjs-neogma";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { ModelService } from "src/model/model.service";
-import { instanceToNode, randomToken } from "src/shared/helpers";
+import { instanceToNode, randomToken, slugify } from "src/shared/helpers";
 import { randomUUID } from "crypto";
 import { GetAvailableUsersInput } from "./dto/get-available-users.input";
 import { ConfigService } from "@nestjs/config";
@@ -37,6 +43,10 @@ import {
   PrivyUpdateEventPayload,
   PrivyCreateEventPayload,
 } from "src/auth/privy/dto/webhook.payload";
+import { UpdateTalentListInput } from "./dto/update-talent-list.input";
+import { CreateTalentListInput } from "./dto/create-talent-list.input";
+import { TalentList, TalentListEntity } from "src/shared/types";
+import { UpdateTalentListNameInput } from "./dto/update-talent-list-name.input";
 
 @Injectable()
 export class UserService {
@@ -1057,6 +1067,334 @@ export class UserService {
     permissions: string[],
   ): Promise<void> {
     return this.permissionService.syncUserPermissions(wallet, permissions);
+  }
+
+  async getTalentLists(
+    orgId: string,
+  ): Promise<ResponseWithOptionalData<TalentList[]>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (org:Organization {orgId: $orgId})-[:HAS_TALENT_LIST]->(list:TalentList)
+        RETURN list { .* } as list
+      `,
+        { orgId },
+      );
+      return {
+        success: true,
+        message: "Talent lists retrieved successfully",
+        data: result.records.map(record =>
+          new TalentListEntity(record.get("list")).getProperties(),
+        ),
+      };
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
+        });
+        Sentry.captureException(error);
+      });
+      this.logger.error(`UserService::getTalentLists ${error.message}`);
+      return {
+        success: false,
+        message: "Error retrieving talent lists",
+      };
+    }
+  }
+
+  async createTalentList(
+    orgId: string,
+    body: CreateTalentListInput,
+  ): Promise<ResponseWithOptionalData<TalentList>> {
+    const { name } = body;
+    const normalizedName = slugify(name);
+
+    try {
+      const existing = await this.neogma.queryRunner.run(
+        `
+        MATCH (:Organization {orgId: $orgId})-[:HAS_TALENT_LIST]->(list:TalentList {normalizedName: $normalizedName})
+        RETURN list
+      `,
+        { orgId, normalizedName },
+      );
+
+      if (existing.records.length > 0) {
+        throw new BadRequestException({
+          success: false,
+          message: "A talent list with that name already exists",
+        });
+      }
+
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (org:Organization {orgId: $orgId})
+        MERGE (list:TalentList {normalizedName: $normalizedName})
+        ON CREATE SET
+          list.id = randomUUID(),
+          list.name = $name,
+          list.description = $description,
+          list.createdTimestamp = timestamp()
+        ON MATCH SET
+          list.updatedTimestamp = timestamp()
+        MERGE (org)-[:HAS_TALENT_LIST]->(list)
+        RETURN list { .* } as list
+      `,
+        { orgId, ...body, normalizedName },
+      );
+
+      return {
+        success: true,
+        message: "Talent list created successfully",
+        data: new TalentListEntity(
+          result.records[0].get("list"),
+        ).getProperties(),
+      };
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
+        });
+        scope.setExtra("input", { orgId, ...body, normalizedName });
+        Sentry.captureException(error);
+      });
+      this.logger.error(`UserService::createTalentList ${error.message}`);
+      return {
+        success: false,
+        message: `Error creating talent list: ${error.message}`,
+      };
+    }
+  }
+
+  async getTalentList(
+    orgId: string,
+    normalizedName: string,
+  ): Promise<ResponseWithOptionalData<TalentListWithUsers>> {
+    const result = await this.neogma.queryRunner.run(
+      `
+        MATCH (org:Organization {orgId: $orgId})-[:HAS_TALENT_LIST]->(list:TalentList {normalizedName: $normalizedName})
+            
+        OPTIONAL MATCH (list)-[:HAS_TALENT]->(user:User)
+        WHERE user.available
+          AND NOT EXISTS { (user)-[:VERIFIED_FOR_ORG]->(org) }
+            
+        WITH list, org, user
+            
+        OPTIONAL MATCH (user)-[app:APPLIED_TO]->(job:StructuredJobpost)
+        WITH list, org,
+            collect(DISTINCT user) AS users,
+            collect(DISTINCT job) AS jobs,
+            max(app.createdTimestamp) AS lastAppliedTimestamp
+            
+        CALL {
+          WITH jobs
+          UNWIND jobs AS j
+          OPTIONAL MATCH (j)-[:HAS_CLASSIFICATION]->(c:JobpostClassification)
+          WITH collect(c.name) AS names
+          RETURN apoc.map.fromPairs(
+            [n IN apoc.coll.toSet(names) |
+              [n, size([x IN names WHERE x = n])]]
+            ) AS classFreq
+        }
+
+        CALL {
+          WITH jobs
+          UNWIND jobs AS j
+          OPTIONAL MATCH (j)-[:HAS_TAG]->(tag:Tag)
+          OPTIONAL MATCH (tag)-[:HAS_TAG_DESIGNATION]->(d:TagDesignation)
+          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(syn:Tag)-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
+          OPTIONAL MATCH (tag)-[:IS_PAIR_OF]->(pair:Tag)-[:HAS_TAG_DESIGNATION]->(:PairedDesignation)
+          WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
+            AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+            AND (d:AllowedDesignation OR d:DefaultDesignation)
+          WITH collect(
+            CASE
+              WHEN syn  IS NOT NULL THEN syn.name
+              WHEN pair IS NOT NULL THEN pair.name
+              ELSE tag.name
+            END) AS names
+          RETURN apoc.map.fromPairs(
+                [n IN apoc.coll.toSet(names) |
+                  [n, size([x IN names WHERE x = n])]]
+              ) AS tagFreq
+        }
+
+        CALL {
+          WITH users, lastAppliedTimestamp, classFreq, tagFreq
+          UNWIND users AS user
+          RETURN collect({
+              id: user.id,
+              wallet: user.wallet,
+              cryptoNative: user.cryptoNative,
+              cryptoAdjacent: user.cryptoAdjacent,
+              attestations: {upvotes: null, downvotes: null},
+              note: [
+                (user)-[:HAS_RECRUITER_NOTE]->(n:RecruiterNote)
+                <-[:HAS_TALENT_NOTE]-(org) | n.note
+              ][0],
+              availableForWork: user.available,
+              name: user.name,
+              avatar: user.avatar,
+              alternateEmails: [(user)-[:HAS_EMAIL]->(e:UserEmail) | e.email],
+              linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(a) | a { .* }][0],
+              wallets: [(user)-[:HAS_LINKED_WALLET]->(w) | w.address],
+              location: [(user)-[:HAS_LOCATION]->(loc:UserLocation) | loc { .* }][0],
+              skills: apoc.coll.toSet([
+                (user)-[r:HAS_SKILL]->(t:Tag) |
+                  t { .*, canTeach: [(user)-[m:HAS_SKILL]->(t) | m.canTeach][0] }
+              ]),
+              showcases: apoc.coll.toSet([
+                (user)-[:HAS_SHOWCASE]->(s) | s { .* }
+              ]),
+              workHistory: apoc.coll.toSet([
+                (user)-[:HAS_WORK_HISTORY]->(wh:UserWorkHistory) |
+                  wh {
+                    .*, 
+                    repositories: apoc.coll.toSet([
+                      (wh)-[:WORKED_ON_REPO]->(r:UserWorkHistoryRepo) | r { .* }
+                    ])
+                  }
+              ]),
+              jobCategoryInterests: [
+                k IN keys(classFreq) |
+                  {classification: k, frequency: classFreq[k]}
+              ],
+              tags: [
+                k IN keys(tagFreq) |
+                  {tag: k, frequency: tagFreq[k]}
+              ],
+              lastAppliedTimestamp: lastAppliedTimestamp
+            }) AS parsedUsers
+        }
+        WITH list, parsedUsers
+        RETURN list { .*, users: parsedUsers }
+      `,
+      { orgId, normalizedName },
+    );
+
+    const list = result.records[0]?.get("list");
+
+    if (list) {
+      return {
+        success: true,
+        message: "Talent list retrieved successfully",
+        data: new TalentListWithUsersEntity(list).getProperties(),
+      };
+    } else {
+      throw new NotFoundException({
+        success: false,
+        message: "Talent list not found",
+      });
+    }
+  }
+
+  async updateTalentList(
+    orgId: string,
+    normalizedName: string,
+    body: UpdateTalentListNameInput,
+  ): Promise<ResponseWithOptionalData<TalentList>> {
+    const { name, description } = body;
+    const newNormalizedName = slugify(name);
+
+    const existing = await this.neogma.queryRunner.run(
+      `
+        MATCH (:Organization {orgId: $orgId})-[:HAS_TALENT_LIST]->(list:TalentList {normalizedName: $normalizedName})
+        RETURN list
+      `,
+      { orgId, normalizedName: newNormalizedName },
+    );
+
+    if (existing.records.length > 0 && normalizedName !== newNormalizedName) {
+      return {
+        success: false,
+        message: "A talent list with that name already exists",
+      };
+    }
+
+    const result = await this.neogma.queryRunner.run(
+      `
+        MATCH (:Organization {orgId: $orgId})-[:HAS_TALENT_LIST]->(list:TalentList {normalizedName: $normalizedName})
+        SET list.name = $name, list.normalizedName = $newNormalizedName, list.description = $description, list.updatedTimestamp = timestamp()
+        RETURN list { .* } as list
+      `,
+      { orgId, normalizedName, name, newNormalizedName, description },
+    );
+
+    if (result.records.length === 0) {
+      throw new NotFoundException({
+        success: false,
+        message: "Talent list not found",
+      });
+    }
+
+    return {
+      success: true,
+      message: "Talent list updated successfully",
+      data: new TalentListEntity(result.records[0].get("list")).getProperties(),
+    };
+  }
+
+  async deleteTalentList(
+    orgId: string,
+    normalizedName: string,
+  ): Promise<ResponseWithNoData> {
+    await this.neogma.queryRunner.run(
+      `
+        MATCH (:Organization {orgId: $orgId})-[:HAS_TALENT_LIST]->(list:TalentList {normalizedName: $normalizedName})
+        DETACH DELETE list
+      `,
+      { orgId, normalizedName },
+    );
+
+    return {
+      success: true,
+      message: "Talent list deleted successfully",
+    };
+  }
+
+  async updateOrgTalentList(
+    orgId: string,
+    normalizedName: string,
+    body: UpdateTalentListInput,
+  ): Promise<ResponseWithOptionalData<TalentListWithUsers>> {
+    const { wallets } = body;
+    try {
+      await this.neogma.queryRunner.run(
+        `
+          MATCH (org:Organization {orgId: $orgId})-[:HAS_TALENT_LIST]->(list:TalentList {normalizedName: $normalizedName})
+          OPTIONAL MATCH (list)-[r:HAS_TALENT]->(user:User)
+          DELETE r
+
+          WITH list
+          UNWIND $wallets AS wallet
+          MATCH (user:User {wallet: wallet, available: true})
+          MERGE (list)-[:HAS_TALENT]->(user)
+        `,
+        { orgId, wallets, normalizedName },
+      );
+      const updated = await this.getTalentList(orgId, normalizedName);
+      return {
+        success: updated.success,
+        message: updated.success
+          ? "Talent list updated successfully"
+          : updated.message,
+        data: data(updated),
+      };
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
+        });
+        Sentry.captureException(error);
+      });
+      this.logger.error(`UserService::updateOrgTalentList ${error.message}`);
+      return {
+        success: false,
+        message: "Error updating talent list",
+      };
+    }
   }
 
   async findAll(): Promise<UserProfile[]> {

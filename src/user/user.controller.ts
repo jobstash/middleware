@@ -9,6 +9,9 @@ import {
   UseGuards,
   UseInterceptors,
   ValidationPipe,
+  Param,
+  Delete,
+  Put,
 } from "@nestjs/common";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { UserService } from "./user.service";
@@ -24,10 +27,12 @@ import {
   SessionObject,
   ResponseWithOptionalData,
   data,
+  TalentList,
+  TalentListWithUsers,
 } from "src/shared/interfaces";
 import { GetAvailableUsersInput } from "./dto/get-available-users.input";
 import { ApiKeyGuard } from "src/auth/api-key.guard";
-import { ApiOkResponse } from "@nestjs/swagger";
+import { ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import { UserWorkHistory } from "src/shared/interfaces/user/user-work-history.interface";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { ScorerService } from "src/scorer/scorer.service";
@@ -36,6 +41,9 @@ import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
 import { NewSubscriptionInput } from "src/subscriptions/dto/new-subscription.input";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { StripeService } from "src/stripe/stripe.service";
+import { UpdateTalentListInput } from "./dto/update-talent-list.input";
+import { CreateTalentListInput } from "./dto/create-talent-list.input";
+import { UpdateTalentListNameInput } from "./dto/update-talent-list-name.input";
 
 @Controller("users")
 export class UserController {
@@ -91,6 +99,121 @@ export class UserController {
         message: "Access denied",
       });
     }
+  }
+
+  @Get("/org/:id/talent-lists")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
+  async getTalentLists(
+    @Session() { address }: SessionObject,
+    @Param("id") orgId: string,
+  ): Promise<ResponseWithOptionalData<TalentList[]>> {
+    this.logger.log(`/users/org/:id/talent-lists`);
+    if (!(await this.userService.isOrgMember(address, orgId))) {
+      throw new ForbiddenException({
+        success: false,
+        message: "You are not authorized to access this resource",
+      });
+    }
+    return this.userService.getTalentLists(orgId);
+  }
+
+  @Get("/org/:id/talent-lists/:list")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
+  async getTalentList(
+    @Session() { address }: SessionObject,
+    @Param("id") orgId: string,
+    @Param("list") list: string,
+  ): Promise<ResponseWithOptionalData<TalentListWithUsers>> {
+    this.logger.log(`/users/org/:id/talent-list/:list`);
+    if (!(await this.userService.isOrgMember(address, orgId))) {
+      throw new ForbiddenException({
+        success: false,
+        message: "You are not authorized to access this resource",
+      });
+    }
+    return this.userService.getTalentList(orgId, list);
+  }
+
+  @Post("/org/:id/talent-lists")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
+  async createTalentList(
+    @Session() { address }: SessionObject,
+    @Param("id") orgId: string,
+    @Body() body: CreateTalentListInput,
+  ): Promise<ResponseWithOptionalData<TalentList>> {
+    this.logger.log(`/users/org/:id/talent-lists`);
+    if (!(await this.userService.isOrgMember(address, orgId))) {
+      throw new ForbiddenException({
+        success: false,
+        message: "You are not authorized to access this resource",
+      });
+    }
+    return this.userService.createTalentList(orgId, body);
+  }
+
+  @Post("/org/:id/talent-lists/:list")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
+  async updateTalentListName(
+    @Session() { address }: SessionObject,
+    @Param("id") orgId: string,
+    @Param("list") list: string,
+    @Body() body: UpdateTalentListNameInput,
+  ): Promise<ResponseWithOptionalData<TalentList>> {
+    this.logger.log(`/users/org/:id/talent-lists/:list`);
+    if (!(await this.userService.isOrgMember(address, orgId))) {
+      throw new ForbiddenException({
+        success: false,
+        message: "You are not authorized to access this resource",
+      });
+    }
+    return this.userService.updateTalentList(orgId, list, body);
+  }
+
+  @Put("/org/:id/talent-lists/:list")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
+  async updateOrgTalentList(
+    @Session() { address }: SessionObject,
+    @Param("id") orgId: string,
+    @Param("list") list: string,
+    @Body() body: UpdateTalentListInput,
+  ): Promise<ResponseWithOptionalData<TalentListWithUsers>> {
+    this.logger.log(`/users/org/:id/talent-lists/:list/talent`);
+    if (!(await this.userService.isOrgMember(address, orgId))) {
+      throw new ForbiddenException({
+        success: false,
+        message: "You are not authorized to access this resource",
+      });
+    }
+    if (body.wallets.length === 0) {
+      throw new BadRequestException({
+        success: false,
+        message: "Wallets array cannot be empty",
+      });
+    }
+    return this.userService.updateOrgTalentList(orgId, list, body);
+  }
+
+  @Delete("/org/:id/talent-lists/:list")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
+  async deleteTalentList(
+    @Session() { address }: SessionObject,
+    @Param("id") orgId: string,
+    @Param("list") list: string,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`/users/org/:id/talent-lists/:list`);
+    if (!(await this.userService.isOrgMember(address, orgId))) {
+      throw new ForbiddenException({
+        success: false,
+        message: "You are not authorized to access this resource",
+      });
+    }
+    return this.userService.deleteTalentList(orgId, list);
   }
 
   @Get("ecosystem-activations")
