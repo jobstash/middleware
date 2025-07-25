@@ -341,6 +341,7 @@ export class StripeService {
         mode,
         line_items: lineItems,
         billing_address_collection: "required",
+        allow_promotion_codes: true,
         customer: customerId,
         success_url:
           `${this.domain}/payment/confirmation` + (flag ? `?flag=${flag}` : ""),
