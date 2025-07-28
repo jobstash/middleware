@@ -189,12 +189,6 @@ export class UserController {
         message: "You are not authorized to access this resource",
       });
     }
-    if (body.wallets.length === 0) {
-      throw new BadRequestException({
-        success: false,
-        message: "Wallets array cannot be empty",
-      });
-    }
     return this.userService.updateOrgTalentList(orgId, list, body);
   }
 
