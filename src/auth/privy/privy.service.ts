@@ -76,6 +76,29 @@ export class PrivyService {
     }
   }
 
+  async getUserEmbeddedWallet(userId: string): Promise<string | undefined> {
+    const user = await this.getUserById(userId);
+    if (user?.linkedAccounts) {
+      return (
+        user.linkedAccounts.find(
+          x => x.type === "wallet" && x.walletClientType === "privy",
+        ) as WalletWithMetadata
+      ).address;
+    }
+    return undefined;
+  }
+
+  async extractEmbeddedWallet(user: User): Promise<string | undefined> {
+    if (user?.linkedAccounts) {
+      return (
+        user.linkedAccounts.find(
+          x => x.type === "wallet" && x.walletClientType === "privy",
+        ) as WalletWithMetadata
+      ).address;
+    }
+    return undefined;
+  }
+
   async getUserById(userId: string, attempts = 0): Promise<User | undefined> {
     let user: User;
     if (attempts > 5) {
@@ -85,7 +108,7 @@ export class PrivyService {
       return undefined;
     }
     try {
-      user = await this.privy.getUser({ idToken: userId });
+      user = await this.privy.getUserById(userId);
       if (!user?.linkedAccounts) {
         this.logger.warn(`User has no linked accounts`);
       } else {
