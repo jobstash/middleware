@@ -174,9 +174,13 @@ export class PrivyController {
         }
       } else if (verifiedPayload.type === "user.created") {
         const payload = verifiedPayload as PrivyCreateEventPayload;
-        const embeddedWallet = await this.userService.getEmbeddedWallet(
-          payload.user.id,
-        );
+        const embeddedWallet = payload.user.linkedAccounts
+          ? (
+              payload.user.linkedAccounts.find(
+                x => x.type === "wallet" && x.walletClientType === "privy",
+              ) as WalletWithMetadata
+            )?.address
+          : null;
         if (embeddedWallet) {
           this.logger.log(`User created: ${embeddedWallet}`);
           await this.userService.syncUserLinkedWallets(
@@ -186,6 +190,23 @@ export class PrivyController {
           await this.userService.updateLinkedAccounts(payload, embeddedWallet);
         } else {
           this.logger.warn(`User not found`);
+          const result = await this.userService.upsertPrivyUser(
+            payload.user,
+            embeddedWallet,
+          );
+          if (result.success) {
+            this.logger.log(`User created: ${embeddedWallet}`);
+            await this.userService.syncUserLinkedWallets(
+              embeddedWallet,
+              payload.user,
+            );
+            await this.userService.updateLinkedAccounts(
+              payload,
+              embeddedWallet,
+            );
+          } else {
+            this.logger.warn(`User not found`);
+          }
         }
       } else {
         this.logger.warn(
