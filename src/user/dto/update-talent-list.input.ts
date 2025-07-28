@@ -1,9 +1,8 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsArray, IsEthereumAddress, IsNotEmpty } from "class-validator";
+import { IsArray, IsEthereumAddress } from "class-validator";
 
 export class UpdateTalentListInput {
   @ApiProperty()
-  @IsNotEmpty()
   @IsArray()
   @IsEthereumAddress({ each: true })
   wallets: string[];

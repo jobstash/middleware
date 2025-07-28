@@ -32,7 +32,7 @@ import {
 } from "src/shared/interfaces";
 import { GetAvailableUsersInput } from "./dto/get-available-users.input";
 import { ApiKeyGuard } from "src/auth/api-key.guard";
-import { ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
+import { ApiOkResponse } from "@nestjs/swagger";
 import { UserWorkHistory } from "src/shared/interfaces/user/user-work-history.interface";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { ScorerService } from "src/scorer/scorer.service";
