@@ -190,23 +190,6 @@ export class PrivyController {
           await this.userService.updateLinkedAccounts(payload, embeddedWallet);
         } else {
           this.logger.warn(`User not found`);
-          const result = await this.userService.upsertPrivyUser(
-            payload.user,
-            embeddedWallet,
-          );
-          if (result.success) {
-            this.logger.log(`User created: ${embeddedWallet}`);
-            await this.userService.syncUserLinkedWallets(
-              embeddedWallet,
-              payload.user,
-            );
-            await this.userService.updateLinkedAccounts(
-              payload,
-              embeddedWallet,
-            );
-          } else {
-            this.logger.warn(`User not found`);
-          }
         }
       } else {
         this.logger.warn(
