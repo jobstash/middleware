@@ -47,25 +47,38 @@ export class PrivyController {
   async checkWallet(
     @PrivySession() user: User,
   ): Promise<SessionObject & { token: string }> {
-    const embeddedWallet = await this.privyService.extractEmbeddedWallet(user);
-    const result = await this.userService.upsertPrivyUser(user, embeddedWallet);
-    if (embeddedWallet && result.success) {
-      this.logger.log("/privy/check-wallet " + embeddedWallet);
-      const cryptoNative =
-        (await this.userService.getCryptoNativeStatus(embeddedWallet)) ?? false;
-      const permissions = (
-        await this.permissionService.getPermissionsForWallet(embeddedWallet)
-      ).map(x => x.name);
-      const token = this.authService.createToken({
-        address: embeddedWallet,
-        permissions,
-        cryptoNative,
-      });
-      return {
-        token,
-        cryptoNative,
-        permissions,
-      };
+    const embeddedWallet =
+      (await this.privyService.extractEmbeddedWallet(user)) ??
+      (await this.privyService.getUserEmbeddedWallet(user.id));
+    if (embeddedWallet) {
+      const result = await this.userService.upsertPrivyUser(
+        user,
+        embeddedWallet,
+      );
+      if (result.success) {
+        this.logger.log("/privy/check-wallet " + embeddedWallet);
+        const cryptoNative =
+          (await this.userService.getCryptoNativeStatus(embeddedWallet)) ??
+          false;
+        const permissions = (
+          await this.permissionService.getPermissionsForWallet(embeddedWallet)
+        ).map(x => x.name);
+        const token = this.authService.createToken({
+          address: embeddedWallet,
+          permissions,
+          cryptoNative,
+        });
+        return {
+          token,
+          cryptoNative,
+          permissions,
+        };
+      } else {
+        throw new BadRequestException({
+          success: false,
+          message: "Failed to authenticate user: " + result.message,
+        });
+      }
     } else {
       return {
         token: this.authService.createToken({
@@ -166,7 +179,7 @@ export class PrivyController {
         } else {
           this.logger.warn(`User not found`);
         }
-      } else if (verifiedPayload.type === "user.created") {
+      } else if (verifiedPayload.type === "user.wallet_created") {
         const payload = verifiedPayload as PrivyCreateEventPayload;
         const embeddedWallet = await this.privyService.extractEmbeddedWallet(
           payload.user,

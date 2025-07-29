@@ -83,7 +83,7 @@ export class PrivyService {
         user.linkedAccounts.find(
           x => x.type === "wallet" && x.walletClientType === "privy",
         ) as WalletWithMetadata
-      ).address;
+      )?.address;
     }
     return undefined;
   }
@@ -94,7 +94,7 @@ export class PrivyService {
         user.linkedAccounts.find(
           x => x.type === "wallet" && x.walletClientType === "privy",
         ) as WalletWithMetadata
-      ).address;
+      )?.address;
     }
     return undefined;
   }

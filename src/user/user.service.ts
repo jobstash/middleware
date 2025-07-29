@@ -1676,7 +1676,7 @@ export class UserService {
         }
       });
     if (
-      dto.type === "user.created" ||
+      dto.type === "user.wallet_created" ||
       ["github_oauth", "email", "wallet", "google_oauth"].includes(
         dto.account.type,
       )

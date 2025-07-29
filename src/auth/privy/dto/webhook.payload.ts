@@ -19,7 +19,7 @@ export interface PrivyTransferEventPayload {
 }
 
 export interface PrivyCreateEventPayload {
-  type: "user.created";
+  type: "user.wallet_created";
   user: User;
 }
 
