@@ -30,6 +30,7 @@ import {
   UserOrg,
   UserProfile,
   UserRepo,
+  UserVerificationStatus,
   UserVerifiedOrg,
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -102,6 +103,23 @@ export class ProfileController {
     this.logger.log(`/profile/repositories`);
 
     return this.profileService.getUserRepos(address, params);
+  }
+
+  @Get("verification/status")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  @ApiOkResponse({
+    description:
+      "Returns the verification status of the currently logged in user",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(Response<UserVerificationStatus>),
+    }),
+  })
+  async getUserVerificationStatus(
+    @Session() { address }: SessionObject,
+  ): Promise<ResponseWithOptionalData<UserVerificationStatus>> {
+    this.logger.log(`/profile/verification/status`);
+    return this.profileService.getUserVerificationStatus(address);
   }
 
   @Get("organizations")

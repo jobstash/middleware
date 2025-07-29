@@ -1663,26 +1663,86 @@ export class UserService {
       google: account("google_oauth")?.["email"] ?? null,
       apple: account("apple_oauth")?.["email"] ?? null,
     };
-    await this.profileService
-      .updateUserLinkedAccounts(embeddedWallet, contact)
-      .then(result => {
-        if (result.success) {
-          this.logger.log(`Linked accounts updated for ${embeddedWallet}`);
-        } else {
-          this.logger.error(
-            `Linked accounts not updated for ${embeddedWallet}: ${result.message}`,
-          );
-          return result;
-        }
+    let updateVerificationStatus =
+      await this.profileService.updateUserVerificationStatus(
+        embeddedWallet,
+        "PENDING",
+      );
+    if (updateVerificationStatus.success) {
+      this.logger.log(
+        `User verification status updated to PENDING for ${embeddedWallet}`,
+      );
+    } else {
+      this.logger.error(
+        `User verification status not updated to PENDING for ${embeddedWallet}: ${updateVerificationStatus.message}`,
+      );
+    }
+
+    try {
+      await this.profileService
+        .updateUserLinkedAccounts(embeddedWallet, contact)
+        .then(result => {
+          if (result.success) {
+            this.logger.log(`Linked accounts updated for ${embeddedWallet}`);
+          } else {
+            this.logger.error(
+              `Linked accounts not updated for ${embeddedWallet}: ${result.message}`,
+            );
+            return result;
+          }
+        });
+      if (
+        dto.type === "user.wallet_created" ||
+        ["github_oauth", "email", "wallet", "google_oauth"].includes(
+          dto.account.type,
+        )
+      ) {
+        await this.profileService.getUserWorkHistory(embeddedWallet, true);
+        await this.profileService.getUserVerifications(embeddedWallet, true);
+      }
+      updateVerificationStatus =
+        await this.profileService.updateUserVerificationStatus(
+          embeddedWallet,
+          "VERIFIED",
+          Date.now(),
+        );
+      if (updateVerificationStatus.success) {
+        this.logger.log(
+          `User verification status updated to VERIFIED for ${embeddedWallet}`,
+        );
+      } else {
+        this.logger.error(
+          `User verification status not updated to VERIFIED for ${embeddedWallet}: ${updateVerificationStatus.message}`,
+        );
+      }
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
+        });
+        scope.setExtra("input", {
+          dto,
+          embeddedWallet,
+        });
+        Sentry.captureException(error);
       });
-    if (
-      dto.type === "user.wallet_created" ||
-      ["github_oauth", "email", "wallet", "google_oauth"].includes(
-        dto.account.type,
-      )
-    ) {
-      await this.profileService.getUserWorkHistory(embeddedWallet, true);
-      await this.profileService.getUserVerifications(embeddedWallet, true);
+      this.logger.error(`UserService::updateLinkedAccounts ${error.message}`);
+      updateVerificationStatus =
+        await this.profileService.updateUserVerificationStatus(
+          embeddedWallet,
+          "REJECTED",
+          Date.now(),
+        );
+      if (updateVerificationStatus.success) {
+        this.logger.log(
+          `User verification status updated to REJECTED for ${embeddedWallet}`,
+        );
+      } else {
+        this.logger.error(
+          `User verification status not updated to REJECTED for ${embeddedWallet}: ${updateVerificationStatus.message}`,
+        );
+      }
     }
   }
 

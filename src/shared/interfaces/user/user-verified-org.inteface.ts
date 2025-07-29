@@ -88,3 +88,39 @@ export class UserVerifiedOrg {
     }
   }
 }
+
+export class UserVerificationStatus {
+  public static readonly UserVerificationStatusType = t.strict({
+    id: t.string,
+    status: t.string,
+    verifiedTimestamp: t.number,
+  });
+
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  status: string;
+
+  @ApiProperty()
+  verifiedTimestamp: number;
+
+  constructor(raw: UserVerificationStatus) {
+    const { id, status, verifiedTimestamp } = raw;
+
+    this.id = id;
+    this.status = status;
+    this.verifiedTimestamp = verifiedTimestamp;
+
+    const result =
+      UserVerificationStatus.UserVerificationStatusType.decode(raw);
+
+    if (isLeft(result)) {
+      report(result).forEach(x => {
+        throw new Error(
+          `user verification status instance with id ${this.id} failed validation with error '${x}'`,
+        );
+      });
+    }
+  }
+}

@@ -37,6 +37,7 @@ import {
   UserRepo,
   UserShowCase,
   UserSkill,
+  UserVerificationStatus,
   UserVerifiedOrg,
   UserWorkHistory,
   data,
@@ -550,6 +551,90 @@ export class ProfileService {
           message: "Error retrieving user verifications",
         };
       }
+    }
+  }
+
+  async updateUserVerificationStatus(
+    wallet: string,
+    status: "PENDING" | "VERIFIED" | "REJECTED",
+    timestamp?: number,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $wallet})
+        MERGE (user)-[:HAS_VERIFICATION_STATUS]->(status:UserVerificationStatus)
+        ON CREATE SET status.id = randomUUID(), status.status = $status, status.verifiedTimestamp = $timestamp
+        ON MATCH SET status.status = $status, status.verifiedTimestamp = $timestamp
+      `,
+        { wallet, status, timestamp: status === "VERIFIED" ? timestamp : null },
+      );
+      return {
+        success: true,
+        message: "User verification status updated successfully",
+      };
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet, status, timestamp });
+        Sentry.captureException(error);
+      });
+      this.logger.error(
+        `ProfileService::updateUserVerificationStatus ${error.message}`,
+      );
+      return {
+        success: false,
+        message: "Error updating user verification status",
+      };
+    }
+  }
+
+  async getUserVerificationStatus(
+    wallet: string,
+  ): Promise<ResponseWithOptionalData<UserVerificationStatus>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (user:User {wallet: $wallet})-[r:HAS_VERIFICATION_STATUS]->(status:UserVerificationStatus)
+        RETURN status {
+          id: status.id,
+          status: status.status,
+          verifiedTimestamp: status.verifiedTimestamp
+        } as status
+      `,
+        { wallet },
+      );
+      const status = result.records[0]?.get("status")
+        ? new UserVerificationStatus(
+            result.records[0]?.get("status") as UserVerificationStatus,
+          )
+        : undefined;
+      return {
+        success: !!status,
+        message: status
+          ? "User verification status retrieved successfully"
+          : "User verification status not found",
+        data: status,
+      };
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "profile.service",
+        });
+        scope.setExtra("input", { wallet });
+        Sentry.captureException(error);
+      });
+      this.logger.error(
+        `ProfileService::getUserVerificationStatus ${error.message}`,
+      );
+      return {
+        success: false,
+        message: "Error getting user verification status",
+      };
     }
   }
 
