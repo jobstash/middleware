@@ -92,15 +92,19 @@ export class UserVerifiedOrg {
 export class UserVerificationStatus {
   public static readonly UserVerificationStatusType = t.strict({
     id: t.string,
-    status: t.string,
-    verifiedTimestamp: t.number,
+    status: t.union([
+      t.literal("PENDING"),
+      t.literal("VERIFIED"),
+      t.literal("REJECTED"),
+    ]),
+    verifiedTimestamp: t.union([t.number, t.null]),
   });
 
   @ApiProperty()
   id: string;
 
   @ApiProperty()
-  status: string;
+  status: "PENDING" | "VERIFIED" | "REJECTED";
 
   @ApiProperty()
   verifiedTimestamp: number;
