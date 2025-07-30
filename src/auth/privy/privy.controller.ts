@@ -47,8 +47,7 @@ export class PrivyController {
     @PrivySession() user: User,
   ): Promise<SessionObject & { token: string }> {
     const embeddedWallet =
-      (await this.privyService.extractEmbeddedWallet(user)) ??
-      (await this.privyService.getOrCreateUserEmbeddedWallet(user.id));
+      await this.privyService.getOrCreateUserEmbeddedWallet(user);
     if (embeddedWallet) {
       const result = await this.userService.upsertPrivyUser(
         user,

@@ -76,10 +76,7 @@ export class PrivyService {
     }
   }
 
-  async getOrCreateUserEmbeddedWallet(
-    userId: string,
-  ): Promise<string | undefined> {
-    const user = await this.getUserById(userId);
+  async getOrCreateUserEmbeddedWallet(user: User): Promise<string | undefined> {
     const embeddedWallet = this.extractEmbeddedWallet(user);
     if (embeddedWallet) {
       return embeddedWallet;
@@ -88,7 +85,7 @@ export class PrivyService {
         const { address: newEmbeddedWallet } =
           await this.privy.walletApi.createWallet({
             chainType: "ethereum",
-            owner: { userId },
+            owner: { userId: user.id },
           });
         return newEmbeddedWallet;
       } catch (error) {
@@ -107,7 +104,7 @@ export class PrivyService {
     }
   }
 
-  async extractEmbeddedWallet(user: User): Promise<string | undefined> {
+  private extractEmbeddedWallet(user: User): string | undefined {
     if (user?.linkedAccounts) {
       return (
         user.linkedAccounts.find(
