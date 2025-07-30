@@ -560,18 +560,22 @@ export class ProfileService {
     timestamp?: number,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
+      const result = await this.neogma.queryRunner.run(
         `
         MATCH (user:User {wallet: $wallet})
         MERGE (user)-[:HAS_VERIFICATION_STATUS]->(status:UserVerificationStatus)
         ON CREATE SET status.id = randomUUID(), status.status = $status, status.verifiedTimestamp = $timestamp
         ON MATCH SET status.status = $status, status.verifiedTimestamp = $timestamp
+        RETURN user
       `,
         { wallet, status, timestamp: status === "VERIFIED" ? timestamp : null },
       );
+      const user = result.records[0]?.get("user");
       return {
-        success: true,
-        message: "User verification status updated successfully",
+        success: !!user,
+        message: user
+          ? "User verification status updated successfully"
+          : "User not found",
       };
     } catch (error) {
       Sentry.withScope(scope => {

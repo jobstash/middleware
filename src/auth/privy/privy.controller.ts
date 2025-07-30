@@ -51,34 +51,22 @@ export class PrivyController {
       (await this.privyService.extractEmbeddedWallet(user)) ??
       (await this.privyService.getUserEmbeddedWallet(user.id));
     if (embeddedWallet) {
-      const result = await this.userService.upsertPrivyUser(
-        user,
-        embeddedWallet,
-      );
-      if (result.success) {
-        this.logger.log("/privy/check-wallet " + embeddedWallet);
-        const cryptoNative =
-          (await this.userService.getCryptoNativeStatus(embeddedWallet)) ??
-          false;
-        const permissions = (
-          await this.permissionService.getPermissionsForWallet(embeddedWallet)
-        ).map(x => x.name);
-        const token = this.authService.createToken({
-          address: embeddedWallet,
-          permissions,
-          cryptoNative,
-        });
-        return {
-          token,
-          cryptoNative,
-          permissions,
-        };
-      } else {
-        throw new BadRequestException({
-          success: false,
-          message: "Failed to authenticate user: " + result.message,
-        });
-      }
+      this.logger.log("/privy/check-wallet " + embeddedWallet);
+      const cryptoNative =
+        (await this.userService.getCryptoNativeStatus(embeddedWallet)) ?? false;
+      const permissions = (
+        await this.permissionService.getPermissionsForWallet(embeddedWallet)
+      ).map(x => x.name);
+      const token = this.authService.createToken({
+        address: embeddedWallet,
+        permissions,
+        cryptoNative,
+      });
+      return {
+        token,
+        cryptoNative,
+        permissions,
+      };
     } else {
       return {
         token: this.authService.createToken({
@@ -186,6 +174,15 @@ export class PrivyController {
         );
         if (embeddedWallet) {
           this.logger.log(`User created: ${embeddedWallet}`);
+          const result = await this.userService.upsertPrivyUser(
+            payload.user,
+            embeddedWallet,
+          );
+          if (result.success) {
+            this.logger.log(`User created: ${embeddedWallet}`);
+          } else {
+            this.logger.warn(`Failed to upsert user: ${result.message}`);
+          }
           await this.userService.syncUserLinkedWallets(
             embeddedWallet,
             payload.user,
