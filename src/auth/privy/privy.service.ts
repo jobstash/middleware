@@ -76,16 +76,35 @@ export class PrivyService {
     }
   }
 
-  async getUserEmbeddedWallet(userId: string): Promise<string | undefined> {
+  async getOrCreateUserEmbeddedWallet(
+    userId: string,
+  ): Promise<string | undefined> {
     const user = await this.getUserById(userId);
-    if (user?.linkedAccounts) {
-      return (
-        user.linkedAccounts.find(
-          x => x.type === "wallet" && x.walletClientType === "privy",
-        ) as WalletWithMetadata
-      )?.address;
+    const embeddedWallet = this.extractEmbeddedWallet(user);
+    if (embeddedWallet) {
+      return embeddedWallet;
+    } else {
+      try {
+        const { address: newEmbeddedWallet } =
+          await this.privy.walletApi.createWallet({
+            chainType: "ethereum",
+            owner: { userId },
+          });
+        return newEmbeddedWallet;
+      } catch (error) {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "service-call",
+            source: "privy.service",
+          });
+          Sentry.captureException(error);
+        });
+        this.logger.error(
+          `PrivyService::getOrCreateUserEmbeddedWallet ${error.message}`,
+        );
+        return undefined;
+      }
     }
-    return undefined;
   }
 
   async extractEmbeddedWallet(user: User): Promise<string | undefined> {

@@ -24,7 +24,6 @@ import {
   PrivyTestPayload,
   PrivyUpdateEventPayload,
   PrivyTransferEventPayload,
-  PrivyCreateEventPayload,
 } from "./dto/webhook.payload";
 import { TelemetryService } from "src/telemetry/telemetry.service";
 import { CheckWalletPermissions } from "src/shared/constants";
@@ -49,24 +48,44 @@ export class PrivyController {
   ): Promise<SessionObject & { token: string }> {
     const embeddedWallet =
       (await this.privyService.extractEmbeddedWallet(user)) ??
-      (await this.privyService.getUserEmbeddedWallet(user.id));
+      (await this.privyService.getOrCreateUserEmbeddedWallet(user.id));
     if (embeddedWallet) {
-      this.logger.log("/privy/check-wallet " + embeddedWallet);
-      const cryptoNative =
-        (await this.userService.getCryptoNativeStatus(embeddedWallet)) ?? false;
-      const permissions = (
-        await this.permissionService.getPermissionsForWallet(embeddedWallet)
-      ).map(x => x.name);
-      const token = this.authService.createToken({
-        address: embeddedWallet,
-        permissions,
-        cryptoNative,
-      });
-      return {
-        token,
-        cryptoNative,
-        permissions,
-      };
+      const result = await this.userService.upsertPrivyUser(
+        user,
+        embeddedWallet,
+      );
+      if (result.success) {
+        this.logger.log("/privy/check-wallet " + embeddedWallet);
+        this.userService.updateLinkedAccounts(
+          {
+            type: "user.wallet_created",
+            user,
+          },
+          embeddedWallet,
+        );
+        this.userService.syncUserLinkedWallets(embeddedWallet, user);
+        const cryptoNative =
+          (await this.userService.getCryptoNativeStatus(embeddedWallet)) ??
+          false;
+        const permissions = (
+          await this.permissionService.getPermissionsForWallet(embeddedWallet)
+        ).map(x => x.name);
+        const token = this.authService.createToken({
+          address: embeddedWallet,
+          permissions,
+          cryptoNative,
+        });
+        return {
+          token,
+          cryptoNative,
+          permissions,
+        };
+      } else {
+        throw new BadRequestException({
+          success: false,
+          message: "Failed to authenticate user: " + result.message,
+        });
+      }
     } else {
       return {
         token: this.authService.createToken({
@@ -166,43 +185,6 @@ export class PrivyController {
           );
         } else {
           this.logger.warn(`User not found`);
-        }
-      } else if (verifiedPayload.type === "user.wallet_created") {
-        const payload = verifiedPayload as PrivyCreateEventPayload;
-        const embeddedWallet = await this.privyService.extractEmbeddedWallet(
-          payload.user,
-        );
-        if (embeddedWallet) {
-          this.logger.log(`User created: ${embeddedWallet}`);
-          const result = await this.userService.upsertPrivyUser(
-            payload.user,
-            embeddedWallet,
-          );
-          if (result.success) {
-            this.logger.log(`User created: ${embeddedWallet}`);
-          } else {
-            this.logger.warn(`Failed to upsert user: ${result.message}`);
-          }
-          await this.userService.syncUserLinkedWallets(
-            embeddedWallet,
-            payload.user,
-          );
-          await this.userService.updateLinkedAccounts(payload, embeddedWallet);
-        } else {
-          this.logger.warn(`User not found. Falling back to privyId`);
-          const embeddedWallet = await this.privyService.getUserEmbeddedWallet(
-            payload.user.id,
-          );
-          if (embeddedWallet) {
-            await this.userService.syncUserLinkedWallets(
-              embeddedWallet,
-              payload.user,
-            );
-            await this.userService.updateLinkedAccounts(
-              payload,
-              embeddedWallet,
-            );
-          }
         }
       } else {
         this.logger.warn(
