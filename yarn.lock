@@ -2492,10 +2492,10 @@
   dependencies:
     zod "^3.24.3"
 
-"@privy-io/public-api@2.40.1":
-  version "2.40.1"
-  resolved "https://registry.yarnpkg.com/@privy-io/public-api/-/public-api-2.40.1.tgz#2771246a8c6079d504735941736619cdfd8ef417"
-  integrity sha512-NzUKE2kDAV2nlb+iUyxrelv9qqpojjvfl99Z3sLmREyPsFb3keTGKVpfjyHzPwmCK/qDddOD/bXkgvVFktIW8g==
+"@privy-io/public-api@2.41.0":
+  version "2.41.0"
+  resolved "https://registry.yarnpkg.com/@privy-io/public-api/-/public-api-2.41.0.tgz#9c54a831f1ed6ef4c143724c414a0776462fe42f"
+  integrity sha512-IByl1pdy9vhVLd2KSY1E1yVMmo4pD4KpYzIcGNr7VljN3zS1SZA4KGYrjF3AP2mT5FkzpAyxcqox7h87jhnWow==
   dependencies:
     "@privy-io/api-base" "1.5.2"
     bs58 "^5.0.0"
@@ -2503,16 +2503,16 @@
     viem "^2"
     zod "^3.24.3"
 
-"@privy-io/server-auth@^1.28.8":
-  version "1.28.8"
-  resolved "https://registry.yarnpkg.com/@privy-io/server-auth/-/server-auth-1.28.8.tgz#be477619143d8476abdb0a8abcdae1568e43ec22"
-  integrity sha512-HICefqtZnOLbnWQCiKh1/WrGq91aj0Rrt1z6qlfU5mWR+qA96PGB9E/U/onAB9kdNz/Hoo0oWR+jGTC+50N/DA==
+"@privy-io/server-auth@^1.29.0":
+  version "1.29.0"
+  resolved "https://registry.yarnpkg.com/@privy-io/server-auth/-/server-auth-1.29.0.tgz#8cba5662b1463f489913473acfb7d4c0de8bd008"
+  integrity sha512-S8rl2b3USk/EPb88BMtxnjtOEsVgi0Zn1FRscWIiRSbidoI7jXPduO1rN3pzBHWk3M8vF3pYYpjcOAyucCXrQw==
   dependencies:
     "@hpke/chacha20poly1305" "^1.6.2"
     "@hpke/core" "^1.7.2"
     "@noble/curves" "^1.6.0"
     "@noble/hashes" "^1.5.0"
-    "@privy-io/public-api" "2.40.1"
+    "@privy-io/public-api" "2.41.0"
     "@solana/web3.js" "^1.95.8"
     canonicalize "^2.0.0"
     dotenv "^16.0.3"
