@@ -1648,7 +1648,6 @@ export class UserService {
   ): Promise<void> {
     const user = dto.user;
     this.logger.log(`Syncing linked accounts for ${embeddedWallet}`);
-    console.log(user);
     const account = (
       type: LinkedAccountWithMetadata["type"],
     ): LinkedAccountWithMetadata | undefined => {
@@ -1664,7 +1663,6 @@ export class UserService {
       google: account("google_oauth")?.["email"] ?? null,
       apple: account("apple_oauth")?.["email"] ?? null,
     };
-    console.log(contact);
     let updateVerificationStatus =
       await this.profileService.updateUserVerificationStatus(
         embeddedWallet,
