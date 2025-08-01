@@ -12,6 +12,7 @@ export class DashboardJobStats {
       promoted: t.union([t.number, t.null]),
     }),
     applicationsThisMonth: t.union([t.number, t.null]),
+    totalApplications: t.union([t.number, t.null]),
     totalJobCount: t.union([t.number, t.null]),
   });
 
@@ -33,6 +34,12 @@ export class DashboardJobStats {
   applicationsThisMonth: number | null;
 
   @ApiProperty({
+    description: "The total number of applications",
+    example: 100,
+  })
+  totalApplications: number | null;
+
+  @ApiProperty({
     description: "The total number of jobs",
     example: 100,
   })
@@ -41,6 +48,7 @@ export class DashboardJobStats {
   constructor(data: DashboardJobStats) {
     this.jobCounts = data.jobCounts;
     this.applicationsThisMonth = data.applicationsThisMonth;
+    this.totalApplications = data.totalApplications;
     this.totalJobCount = data.totalJobCount;
 
     const result = DashboardJobStats.DashboardJobStatsType.decode(data);

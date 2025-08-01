@@ -13,6 +13,7 @@ export class DashboardJobStatsEntity {
         promoted: nonZeroOrNull(this.raw?.jobCounts?.promoted),
       },
       applicationsThisMonth: nonZeroOrNull(this.raw?.applicationsThisMonth),
+      totalApplications: nonZeroOrNull(this.raw?.totalApplications),
       totalJobCount: nonZeroOrNull(this.raw?.totalJobCount),
     });
   }

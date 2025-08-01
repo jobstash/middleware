@@ -127,6 +127,9 @@ export class TelemetryService {
               (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(:StructuredJobpost)<-[r:APPLIED_TO]-(user:User)
               WHERE r.createdTimestamp >= $epochStart | 1
             ]),
+            totalApplications: apoc.coll.sum([
+              (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(:StructuredJobpost)<-[r:APPLIED_TO]-(user:User) | 1
+            ]),
             totalJobCount: apoc.coll.sum([
               (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(job:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus|JobpostOfflineStatus) | 1
             ])
@@ -152,6 +155,9 @@ export class TelemetryService {
             applicationsThisMonth: apoc.coll.sum([
               (org)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(:StructuredJobpost)<-[r:APPLIED_TO]-(user:User)
               WHERE r.createdTimestamp >= $epochStart | 1
+            ]),
+            totalApplications: apoc.coll.sum([
+              (org)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(:StructuredJobpost)<-[r:APPLIED_TO]-(user:User) | 1
             ]),
             totalJobCount: apoc.coll.sum([
               (org)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(job:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus|JobpostOfflineStatus) | 1
