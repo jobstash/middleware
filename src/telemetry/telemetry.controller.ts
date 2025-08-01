@@ -10,11 +10,16 @@ import { TelemetryService } from "./telemetry.service";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { CACHE_DURATION, CheckWalletPermissions } from "src/shared/constants";
 import { Permissions, Session } from "src/shared/decorators";
-import { ResponseWithOptionalData, SessionObject } from "src/shared/interfaces";
+import {
+  ResponseWithOptionalData,
+  SessionObject,
+  DashboardJobStats,
+} from "src/shared/interfaces";
 import { GetJobStatsInput } from "./dto/get-job-stats.input";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { UserService } from "src/user/user.service";
+import { GetDashboardJobStatsInput } from "./dto/get-dashboard-job-stats.input";
 
 @Controller("telemetry")
 export class TelemetryController {
@@ -60,5 +65,34 @@ export class TelemetryController {
       };
     }
     return this.telemetryService.getJobApplyCount(params);
+  }
+
+  @Get("dashboard/stats/jobs")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  async getDashboardStats(
+    @Session() { address, permissions }: SessionObject,
+    @Query(new ValidationPipe({ transform: true }))
+    params: GetDashboardJobStatsInput,
+  ): Promise<ResponseWithOptionalData<DashboardJobStats>> {
+    this.logger.log(`/telemetry/dashboard/stats/jobs`);
+    const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
+
+    if (
+      (params.type === "ecosystem" &&
+        !permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER)) ||
+      (params.type === "organization" && params.id !== orgId)
+    ) {
+      return {
+        success: false,
+        message: "You are not authorized to access this resource",
+      };
+    }
+
+    return this.telemetryService.getDashboardJobStats({
+      type: params.type,
+      id: params.id,
+    });
   }
 }

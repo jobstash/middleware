@@ -66,3 +66,4 @@ export * from "./org/ecosystem-activation.interface";
 export * from "./defillama-project-prefill.interface";
 export * from "./search-filter-configs.interface";
 export * from "./talent-list.interface";
+export * from "./dashboard-job-stats.interface";

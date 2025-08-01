@@ -33,3 +33,4 @@ export * from "./project-list-result.entity";
 export * from "./all-jobs-filter-configs.entity";
 export * from "./ecosystem-job-filter-configs.entity";
 export * from "./talent-list.entity";
+export * from "./dashboard-job-stats.entity";

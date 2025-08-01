@@ -1467,7 +1467,7 @@ export class UserService {
                 OR NOT EXISTS { (user)-[:VERIFIED_FOR_ORG]->(:Organization {orgId:$orgId}) }
               )
             OPTIONAL MATCH (user)-[app:APPLIED_TO]->(job:StructuredJobpost)
-            WITH user,
+            WITH DISTINCT user,
                 coalesce(collect(DISTINCT job), []) AS jobs,
                 max(app.createdTimestamp) AS lastAppliedTimestamp
             CALL {
@@ -1504,7 +1504,7 @@ export class UserService {
                   [n, size([x IN names WHERE x = n])]]
               ) AS tagFrequencies
             }
-            WITH user, lastAppliedTimestamp, classificationFrequencies, tagFrequencies
+            WITH DISTINCT user, lastAppliedTimestamp, classificationFrequencies, tagFrequencies
             RETURN {
               wallet: user.wallet,
               cryptoNative: user.cryptoNative,
