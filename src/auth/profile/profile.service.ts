@@ -1698,7 +1698,7 @@ export class ProfileService {
             MATCH (user:User {wallet: $wallet})-[:HAS_GITHUB_USER]->(ghu:GithubUser)
             
             UNWIND $org.repositories as orgRepo
-            MERGE (ghu)-[:CONTRIBUTED_TO]->(repo: GithubRepository {nameWithOwner: orgRepo.nameWithOwner})
+            MERGE (repo: GithubRepository {nameWithOwner: orgRepo.nameWithOwner})
             ON CREATE SET
               repo.id = randomUUID(),
               repo.name = orgRepo.name,
@@ -1709,6 +1709,9 @@ export class ProfileService {
             ON MATCH SET
               repo.description = orgRepo.description,
               repo.updatedTimestamp = timestamp()
+            
+            WITH repo,ghu
+            MERGE (ghu)-[:CONTRIBUTED_TO]->(repo)
             
             WITH repo
             MATCH (gho:GithubOrganization {login: $org.login})
