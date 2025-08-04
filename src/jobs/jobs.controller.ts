@@ -321,6 +321,49 @@ export class JobsController {
     return this.jobsService.getJobsByOrgId(id, ecosystem);
   }
 
+  @Get("/org/:id/top")
+  @UseGuards(PBACGuard)
+  @Permissions([CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER])
+  @ApiOkResponse({
+    description: "Returns a list of top jobs posted by an org",
+    schema: {
+      allOf: [
+        {
+          type: "array",
+          items: { $ref: getSchemaPath(EcosystemJobListResult) },
+        },
+      ],
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Returns an error message with a list of values that failed validation",
+    schema: {
+      allOf: [
+        {
+          $ref: getSchemaPath(ValidationError),
+        },
+      ],
+    },
+  })
+  async getOrgTopJobsList(
+    @Session() { address }: SessionObject,
+    @Param("id") id: string,
+  ): Promise<ResponseWithOptionalData<EcosystemJobListResult[]>> {
+    this.logger.log(`/jobs/org/${id}/top`);
+    if (
+      (await this.userService.isOrgMember(address, id)) ||
+      (await this.userService.isOrgOwner(address, id))
+    ) {
+      return this.jobsService.getTopJobsByOrgId(id);
+    } else {
+      throw new UnauthorizedException({
+        success: false,
+        message: "You are not allowed to access this resource",
+      });
+    }
+  }
+
   @Get("/org/:id/all")
   @UseGuards(PBACGuard)
   @Permissions(

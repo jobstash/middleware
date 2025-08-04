@@ -1574,6 +1574,31 @@ export class JobsService {
     }
   }
 
+  async getTopJobsByOrgId(
+    id: string,
+  ): Promise<ResponseWithOptionalData<EcosystemJobListResult[]>> {
+    try {
+      const jobs = await this.getAllOrgJobsListResults(id);
+      const topJobs = sort(jobs).desc(x => x.applications ?? 0);
+      return {
+        success: true,
+        message: "Top jobs retrieved successfully",
+        data: topJobs.slice(0, 10),
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        scope.setExtra("input", id);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getTopJobsByOrgId ${err.message}`);
+      return undefined;
+    }
+  }
+
   async getAllJobsByOrgId(
     id: string,
     page: number,
