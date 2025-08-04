@@ -762,7 +762,6 @@ export class ProfileService {
         const result = await this.githubUserService.addGithubInfoToUser({
           wallet,
           githubLogin: contact.github,
-          githubId: "",
           githubAvatarUrl: (await githubUser)?.data?.avatar_url ?? null,
         });
         if (result.success) {

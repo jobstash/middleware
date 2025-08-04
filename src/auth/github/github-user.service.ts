@@ -77,7 +77,6 @@ export class GithubUserService {
       const githubUserNode = await this.findByLogin(updateObject.githubLogin);
 
       const payload = {
-        id: updateObject.githubId,
         login: updateObject.githubLogin,
         avatarUrl: updateObject.githubAvatarUrl,
       };
@@ -89,7 +88,7 @@ export class GithubUserService {
           return { success: false, message: "Github data is identical" };
         }
 
-        await this.update(githubUserNode.getId(), payload);
+        await this.update(payload);
         await this.unsafe__linkGithubUser(wallet, updateObject.githubLogin);
         return {
           success: true,
@@ -171,36 +170,44 @@ export class GithubUserService {
   async create(
     createGithubUserDto: CreateGithubUserDto,
   ): Promise<GithubUserNode> {
-    const newGithubNode = await this.models.GithubUsers.createOne(
+    const result = await this.neogma.queryRunner.run(
+      `
+      MERGE (ghu:GithubUser {login: $login})
+      ON CREATE SET
+        ghu.id = randomUUID(),
+        ghu.avatarUrl = $avatarUrl,
+        ghu.createdTimestamp = timestamp()
+      ON MATCH SET
+        ghu.avatarUrl = $avatarUrl,
+        ghu.updatedTimestamp = timestamp()
+      RETURN ghu
+      `,
       {
-        ...createGithubUserDto,
-        createdTimestamp: new Date().getTime(),
-        updatedTimestamp: new Date().getTime(),
-      },
-      {
-        validate: false,
+        login: createGithubUserDto.login,
+        avatarUrl: createGithubUserDto.avatarUrl,
       },
     );
-    return new GithubUserNode(instanceToNode(newGithubNode));
+    return new GithubUserNode(result.records[0].get("ghu"));
   }
 
   async update(
-    id: string,
     updateGithubUserDto: UpdateGithubUserDto,
   ): Promise<GithubUserNode | undefined> {
-    const oldNode = await this.findById(id);
+    const oldNode = await this.findByLogin(updateGithubUserDto.login);
     if (oldNode) {
-      const result = await this.models.GithubUsers.update(
+      const result = await this.neogma.queryRunner.run(
+        `
+        MATCH (ghu:GithubUser {login: $login})
+        SET
+          ghu.avatarUrl = $avatarUrl,
+          ghu.updatedTimestamp = timestamp()
+        RETURN ghu
+        `,
         {
           ...updateGithubUserDto,
-          updatedTimestamp: new Date().getTime(),
-        },
-        {
-          where: { id },
-          return: true,
         },
       );
-      return new GithubUserNode(instanceToNode(result[0][0]));
+      return new GithubUserNode(result.records[0].get("ghu"));
     } else {
       this.logger.error(`GithubUserService::update node not found`);
       return undefined;

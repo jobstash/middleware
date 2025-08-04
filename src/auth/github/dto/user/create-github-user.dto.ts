@@ -8,8 +8,4 @@ export class CreateGithubUserDto {
   @IsOptional()
   @IsUrl()
   avatarUrl: string;
-
-  @IsOptional()
-  @IsString()
-  id: string;
 }

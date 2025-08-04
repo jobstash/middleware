@@ -7,8 +7,6 @@ export class GithubUser {
   public static readonly GithubUserType = t.strict({
     id: t.string,
     login: t.string,
-    nodeId: t.string,
-    gravatarId: t.union([t.string, t.null]),
     avatarUrl: t.string,
     createdTimestamp: t.union([t.number, t.null]),
     updatedTimestamp: t.union([t.number, t.null]),
@@ -30,9 +28,8 @@ export class GithubUser {
   updatedTimestamp: number | null;
 
   constructor(raw: GithubUser) {
-    const { id, login, avatarUrl, createdTimestamp, updatedTimestamp } = raw;
+    const { login, avatarUrl, createdTimestamp, updatedTimestamp } = raw;
     const result = GithubUser.GithubUserType.decode(raw);
-    this.id = id;
     this.login = login;
     this.avatarUrl = avatarUrl;
     this.createdTimestamp = createdTimestamp;
