@@ -101,6 +101,30 @@ export class UserController {
     }
   }
 
+  @Get("available/top")
+  @UseGuards(PBACGuard)
+  @Permissions(
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER],
+  )
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  async getTopUsers(
+    @Session() { address }: SessionObject,
+  ): Promise<ResponseWithOptionalData<UserAvailableForWork[]>> {
+    const orgId = address
+      ? await this.userService.findOrgIdByMemberUserWallet(address)
+      : null;
+    if (orgId) {
+      this.logger.log(`/users/available/top`);
+      return this.userService.getTopUsers(orgId);
+    } else {
+      throw new ForbiddenException({
+        success: false,
+        message: "Access denied",
+      });
+    }
+  }
+
   @Get("/org/:id/talent-lists")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)

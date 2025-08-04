@@ -47,6 +47,7 @@ import { UpdateTalentListInput } from "./dto/update-talent-list.input";
 import { CreateTalentListInput } from "./dto/create-talent-list.input";
 import { TalentList, TalentListEntity } from "src/shared/types";
 import { UpdateTalentListNameInput } from "./dto/update-talent-list-name.input";
+import { sort } from "fast-sort";
 
 @Injectable()
 export class UserService {
@@ -1568,16 +1569,22 @@ export class UserService {
       return {
         success: true,
         message: "Users available for work retrieved successfully",
-        data: users.map(user =>
-          new UserAvailableForWorkEntity({
-            ...user,
-            linkedAccounts: {
-              ...user.linkedAccounts,
-              wallets: user.wallets,
-            },
-            ecosystemActivations: [],
-          }).getProperties(),
-        ),
+        data: sort(
+          users.map(user =>
+            new UserAvailableForWorkEntity({
+              ...user,
+              linkedAccounts: {
+                ...user.linkedAccounts,
+                wallets: user.wallets,
+              },
+              ecosystemActivations: [],
+            }).getProperties(),
+          ),
+        ).by([
+          { desc: (user): boolean => user.cryptoNative },
+          { desc: (user): boolean => user.cryptoAdjacent },
+          { desc: (user): number => user.workHistory.length ?? 0 },
+        ]),
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -1586,6 +1593,52 @@ export class UserService {
           source: "user.service",
         });
         scope.setExtra("input", params);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`UserService::getDevsAvailableForWork ${err.message}`);
+      return {
+        success: false,
+        message: "Error retrieving users available for work",
+      };
+    }
+  }
+
+  async getTopUsers(
+    orgId: string,
+  ): Promise<ResponseWithOptionalData<UserAvailableForWork[]>> {
+    try {
+      const base = await this.getUsersAvailableForWork(
+        {
+          city: null,
+          country: null,
+          page: null,
+          limit: null,
+        },
+        orgId,
+      );
+      if (!base.success) {
+        return base;
+      }
+      const users = data(base);
+      const topUsers = sort(users).by([
+        { desc: (user): boolean => user.cryptoNative },
+        { desc: (user): boolean => user.cryptoAdjacent },
+        { desc: (user): number => user.attestations.upvotes ?? 0 },
+        { asc: (user): number => user.attestations.downvotes ?? 0 },
+        { desc: (user): number => user.workHistory.length ?? 0 },
+        { desc: (user): number => user.lastAppliedTimestamp ?? 0 },
+      ]);
+      return {
+        success: true,
+        message: "Top users retrieved successfully",
+        data: topUsers.slice(0, 50),
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
+        });
         Sentry.captureException(err);
       });
       this.logger.error(`UserService::getDevsAvailableForWork ${err.message}`);
