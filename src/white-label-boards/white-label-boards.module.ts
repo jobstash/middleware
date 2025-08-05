@@ -6,6 +6,7 @@ import { EcosystemsModule } from "src/ecosystems/ecosystems.module";
 import { AuthModule } from "src/auth/auth.module";
 import { SubscriptionsModule } from "src/subscriptions/subscriptions.module";
 import { UserModule } from "src/user/user.module";
+import { JobsModule } from "src/jobs/jobs.module";
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { UserModule } from "src/user/user.module";
     forwardRef(() => SubscriptionsModule),
     OrganizationsModule,
     EcosystemsModule,
+    JobsModule,
   ],
   controllers: [WhiteLabelBoardsController],
   providers: [WhiteLabelBoardsService],

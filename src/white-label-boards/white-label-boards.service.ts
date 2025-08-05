@@ -3,7 +3,11 @@ import { Neogma } from "neogma";
 import { InjectConnection } from "nestjs-neogma";
 import { CreateWhiteLabelBoardDto } from "src/white-label-boards/dto/create-white-label-board.dto";
 import { UpdateWhiteLabelBoardDto } from "src/white-label-boards/dto/update-white-label-board.dto";
-import { nonZeroOrNull, toShortOrgWithSummary } from "src/shared/helpers";
+import {
+  nonZeroOrNull,
+  notStringOrNull,
+  toShortOrgWithSummary,
+} from "src/shared/helpers";
 import {
   ResponseWithOptionalData,
   data,
@@ -113,8 +117,18 @@ export class WhiteLabelBoardsService {
           message: "Created white label board successfully",
           data: new WhiteLabelBoard({
             ...wlb,
+            domain: notStringOrNull(wlb.domain),
             createdTimestamp: nonZeroOrNull(wlb.createdTimestamp),
             updatedTimestamp: nonZeroOrNull(wlb.updatedTimestamp),
+            sourceType: createWhiteLabelBoardDto.sourceType,
+            org:
+              createWhiteLabelBoardDto.sourceType === "organization"
+                ? toShortOrgWithSummary(source as OrgListResult)
+                : null,
+            ecosystem:
+              createWhiteLabelBoardDto.sourceType === "ecosystem"
+                ? (source as OrganizationEcosystemWithOrgs)
+                : null,
           }),
         };
       } else {
@@ -186,6 +200,7 @@ export class WhiteLabelBoardsService {
 
             return new WhiteLabelBoardWithSource({
               ...wlb,
+              domain: notStringOrNull(wlb.domain),
               createdTimestamp: nonZeroOrNull(wlb.createdTimestamp),
               updatedTimestamp: nonZeroOrNull(wlb.updatedTimestamp),
               sourceType,
@@ -305,6 +320,7 @@ export class WhiteLabelBoardsService {
           message: "Retrieved white label board successfully",
           data: new WhiteLabelBoardWithSource({
             ...wlb,
+            domain: notStringOrNull(wlb.domain),
             createdTimestamp: nonZeroOrNull(wlb.createdTimestamp),
             updatedTimestamp: nonZeroOrNull(wlb.updatedTimestamp),
             org: sourceType === "organization" ? org : null,
@@ -398,6 +414,7 @@ export class WhiteLabelBoardsService {
           message: "Retrieved public board successfully",
           data: new WhiteLabelBoardWithSource({
             ...wlb,
+            domain: notStringOrNull(wlb.domain),
             createdTimestamp: nonZeroOrNull(wlb.createdTimestamp),
             updatedTimestamp: nonZeroOrNull(wlb.updatedTimestamp),
             org: sourceType === "organization" ? org : null,
@@ -505,6 +522,7 @@ export class WhiteLabelBoardsService {
           message: "Updated white label board successfully",
           data: new WhiteLabelBoardWithSource({
             ...wlb,
+            domain: notStringOrNull(wlb.domain),
             createdTimestamp: nonZeroOrNull(wlb.createdTimestamp),
             updatedTimestamp: nonZeroOrNull(wlb.updatedTimestamp),
             sourceType: updateWhiteLabelBoardDto.sourceType,

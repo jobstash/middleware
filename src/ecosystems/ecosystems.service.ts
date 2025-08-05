@@ -7,6 +7,7 @@ import {
   EcosystemJobFilterConfigs,
   EcosystemJobListResult,
   FundingRound,
+  JobListResult,
   OrgReview,
   PaginatedData,
   ProjectWithBaseRelations,
@@ -30,6 +31,7 @@ import { sort } from "fast-sort";
 import {
   EcosystemJobFilterConfigsEntity,
   EcosystemJobListResultEntity,
+  JobListResultEntity,
   ShortOrgWithSummaryEntity,
 } from "src/shared/entities";
 import { differenceInHours } from "date-fns";
@@ -1416,6 +1418,13 @@ export class EcosystemsService {
     this.logger.log(`Sorted ${final.length} jobs`);
 
     return paginate<EcosystemJobListResult>(page, limit, final);
+  }
+
+  async getEcosystemJobs(ecosystem: string): Promise<JobListResult[]> {
+    const jobs = await this.getJobsListResults([ecosystem]);
+    return jobs
+      .filter(z => z.online)
+      .map(x => new JobListResultEntity(x).getProperties());
   }
 
   async getFilterConfigs(

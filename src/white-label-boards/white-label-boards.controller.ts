@@ -12,13 +12,17 @@ import {
   UseGuards,
   UseInterceptors,
   Headers,
+  Query,
 } from "@nestjs/common";
 import { WhiteLabelBoardsService } from "./white-label-boards.service";
 import {
   ResponseWithNoData,
   ResponseWithOptionalData,
   SessionObject,
+  ShortOrgWithSummary,
   data,
+  PaginatedData,
+  JobListResult,
 } from "src/shared/interfaces";
 import { WhiteLabelBoardWithSource } from "src/shared/interfaces/org";
 import { CreateWhiteLabelBoardDto } from "./dto/create-white-label-board.dto";
@@ -33,28 +37,40 @@ import {
 } from "src/shared/constants";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { Permissions, Session } from "src/shared/decorators";
-import { notStringOrNull, responseSchemaWrapper } from "src/shared/helpers";
+import {
+  notStringOrNull,
+  paginate,
+  responseSchemaWrapper,
+} from "src/shared/helpers";
+import { EcosystemsService } from "src/ecosystems/ecosystems.service";
+import { JobsService } from "src/jobs/jobs.service";
 
 @Controller("white-label-boards")
 export class WhiteLabelBoardsController {
   constructor(
+    private readonly jobsService: JobsService,
+    private readonly ecosystemsService: EcosystemsService,
     private readonly whiteLabelBoardsService: WhiteLabelBoardsService,
   ) {}
 
-  @Get("public")
+  @Get("public/orgs")
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
-  @ApiOperation({ summary: "Get a white label board by route or domain" })
+  @ApiOperation({
+    summary: "Get all organizations for a public white label board",
+  })
   @ApiOkResponse({
-    description: "Returns a white label board by route or domain",
+    description: "Returns all organizations for a public white label board",
     schema: responseSchemaWrapper({
       $ref: getSchemaPath(WhiteLabelBoardWithSource),
     }),
   })
-  async findOnePublic(
+  async getPublicBoardOrgs(
     @Headers(PUBLIC_WHITE_LABEL_BOARD_ROUTE_HEADER) route: string | null = null,
     @Headers(PUBLIC_WHITE_LABEL_BOARD_DOMAIN_HEADER)
     domain: string | null = null,
-  ): Promise<ResponseWithOptionalData<WhiteLabelBoardWithSource>> {
+    @Query("page") page: number = 1,
+    @Query("limit") limit: number = 10,
+  ): Promise<PaginatedData<ShortOrgWithSummary>> {
     if (!notStringOrNull(route) && !notStringOrNull(domain)) {
       throw new BadRequestException({
         success: false,
@@ -75,7 +91,61 @@ export class WhiteLabelBoardsController {
         message: "Failed to retrieve public board",
       });
     } else {
-      return wlb;
+      const wlbData = data(wlb);
+      if (wlbData.sourceType === "organization") {
+        return paginate(page, limit, [wlbData.org]);
+      } else {
+        return paginate(page, limit, wlbData.ecosystem.orgs);
+      }
+    }
+  }
+
+  @Get("public/jobs")
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @ApiOperation({
+    summary: "Get all jobs for a public white label board",
+  })
+  @ApiOkResponse({
+    description: "Returns all jobs for a public white label board",
+    schema: responseSchemaWrapper({
+      $ref: getSchemaPath(PaginatedData<JobListResult>),
+    }),
+  })
+  async getPublicBoardJobs(
+    @Headers(PUBLIC_WHITE_LABEL_BOARD_ROUTE_HEADER) route: string | null = null,
+    @Headers(PUBLIC_WHITE_LABEL_BOARD_DOMAIN_HEADER)
+    domain: string | null = null,
+    @Query("page") page: number = 1,
+    @Query("limit") limit: number = 10,
+  ): Promise<PaginatedData<JobListResult>> {
+    if (!notStringOrNull(route) && !notStringOrNull(domain)) {
+      throw new BadRequestException({
+        success: false,
+        message: "Route or domain is required",
+      });
+    }
+    const wlb = await this.whiteLabelBoardsService.findOnePublic(
+      route ? route : (domain ?? ""),
+    );
+    if (!wlb.success && !data(wlb)) {
+      throw new NotFoundException({
+        success: false,
+        message: "Public board not found",
+      });
+    } else if (!wlb.success) {
+      throw new BadRequestException({
+        success: false,
+        message: "Failed to retrieve public board",
+      });
+    } else {
+      const wlbData = data(wlb);
+      const jobs =
+        wlbData.sourceType === "organization"
+          ? await this.jobsService.getJobsByOrgId(wlbData.org.orgId, undefined)
+          : await this.ecosystemsService.getEcosystemJobs(
+              wlbData.ecosystem.normalizedName,
+            );
+      return paginate(page, limit, jobs);
     }
   }
 
