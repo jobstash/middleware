@@ -115,16 +115,20 @@ export class TelemetryService {
           RETURN {
             jobCounts: {
               active: apoc.coll.sum([
-                (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(job:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | 1
+                (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(job:StructuredJobpost)
+                WHERE (job)-[:HAS_STATUS]->(:JobpostOnlineStatus) | 1
               ]),
               inactive: apoc.coll.sum([
-                (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(job:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOfflineStatus) | 1
+                (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(job:StructuredJobpost)
+                WHERE (job)-[:HAS_STATUS]->(:JobpostOfflineStatus) | 1
               ]),
               expert: apoc.coll.sum([
-                (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(job:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) WHERE job.access = "protected" | 1
+                (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(job:StructuredJobpost)
+                WHERE (job)-[:HAS_STATUS]->(:JobpostOnlineStatus) AND job.access = "protected" | 1
               ]),
               promoted: apoc.coll.sum([
-                (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(job:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) WHERE job.featured = true | 1
+                (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(job:StructuredJobpost)
+                WHERE (job)-[:HAS_STATUS]->(:JobpostOnlineStatus) AND job.featured = true | 1
               ])
             },
             applicationsThisMonth: apoc.coll.sum([
