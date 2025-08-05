@@ -8,7 +8,7 @@ export class DashboardTalentStatsEntity {
     return new DashboardTalentStats({
       topJobCategories: this.raw?.topJobCategories.map(x => ({
         label: x.label,
-        count: x.count,
+        count: nonZeroOrNull(x.count) ?? 0,
       })),
       totalAvailableTalent: nonZeroOrNull(this.raw?.totalAvailableTalent),
       newTalentThisWeek: nonZeroOrNull(this.raw?.newTalentThisWeek),

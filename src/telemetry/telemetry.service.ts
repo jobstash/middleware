@@ -15,7 +15,6 @@ import {
   DashboardJobStatsEntity,
   DashboardTalentStatsEntity,
 } from "src/shared/entities";
-import { GetDashboardTalentStatsInput } from "./dto/get-dashboard-talent-stats.input";
 
 @Injectable()
 export class TelemetryService {
@@ -179,17 +178,13 @@ export class TelemetryService {
     };
   }
 
-  async getDashboardTalentStats(
-    data: GetDashboardTalentStatsInput,
-  ): Promise<ResponseWithOptionalData<DashboardTalentStats>> {
-    const { id } = data;
+  async getDashboardTalentStats(): Promise<
+    ResponseWithOptionalData<DashboardTalentStats>
+  > {
     const result = await this.neogma.queryRunner.run(
       `
-        MATCH (org:Organization {orgId: $id})
-
         /* -------- totals (global available users) -------- */
         CALL {
-          WITH org
           MATCH (u:User {available: true})
           RETURN
             count(DISTINCT u) AS totalAvailableTalent,
@@ -198,8 +193,7 @@ export class TelemetryService {
 
         /* -------- category ranking + recency (org-scoped) -------- */
         CALL {
-          WITH org
-          MATCH (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(job:StructuredJobpost)
+          MATCH (:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(job:StructuredJobpost)
           WITH DISTINCT job
           MATCH (:User {available: true})-[a:APPLIED_TO]->(job)-[:HAS_CLASSIFICATION]->(c:JobpostClassification)
           WITH coalesce(c.name, 'Unclassified') AS label, a
@@ -216,7 +210,7 @@ export class TelemetryService {
           recentApplication: recentApplication
         } AS stats;
       `,
-      { id, epochStart: subDays(new Date(), 7).getTime(), topN: 10 },
+      { epochStart: subDays(new Date(), 7).getTime(), topN: 10 },
     );
     return {
       success: true,

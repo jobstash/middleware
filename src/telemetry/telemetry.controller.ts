@@ -21,7 +21,6 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { UserService } from "src/user/user.service";
 import { GetDashboardJobStatsInput } from "./dto/get-dashboard-job-stats.input";
-import { GetDashboardTalentStatsInput } from "./dto/get-dashboard-talent-stats.input";
 
 @Controller("telemetry")
 export class TelemetryController {
@@ -102,23 +101,11 @@ export class TelemetryController {
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
-  async getDashboardTalentStats(
-    @Session() { address }: SessionObject,
-    @Query(new ValidationPipe({ transform: true }))
-    params: GetDashboardTalentStatsInput,
-  ): Promise<ResponseWithOptionalData<DashboardTalentStats>> {
+  async getDashboardTalentStats(): Promise<
+    ResponseWithOptionalData<DashboardTalentStats>
+  > {
     this.logger.log(`/telemetry/dashboard/stats/talent`);
-    const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
 
-    if (params.id !== orgId) {
-      return {
-        success: false,
-        message: "You are not authorized to access this resource",
-      };
-    }
-
-    return this.telemetryService.getDashboardTalentStats({
-      id: params.id,
-    });
+    return this.telemetryService.getDashboardTalentStats();
   }
 }
