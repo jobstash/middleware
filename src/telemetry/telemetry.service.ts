@@ -5,12 +5,17 @@ import { InjectConnection } from "nestjs-neogma";
 import {
   ResponseWithOptionalData,
   DashboardJobStats,
+  DashboardTalentStats,
 } from "src/shared/interfaces";
 import { GetJobStatsInput } from "./dto/get-job-stats.input";
 import { intConverter } from "src/shared/helpers";
 import { GetDashboardJobStatsInput } from "./dto/get-dashboard-job-stats.input";
-import { subMonths } from "date-fns";
-import { DashboardJobStatsEntity } from "src/shared/entities";
+import { subDays, subMonths } from "date-fns";
+import {
+  DashboardJobStatsEntity,
+  DashboardTalentStatsEntity,
+} from "src/shared/entities";
+import { GetDashboardTalentStatsInput } from "./dto/get-dashboard-talent-stats.input";
 
 @Injectable()
 export class TelemetryService {
@@ -169,6 +174,54 @@ export class TelemetryService {
       success: true,
       message: "Retrieved dashboard job stats successfully",
       data: new DashboardJobStatsEntity(
+        result.records[0]?.get("stats"),
+      ).getProperties(),
+    };
+  }
+
+  async getDashboardTalentStats(
+    data: GetDashboardTalentStatsInput,
+  ): Promise<ResponseWithOptionalData<DashboardTalentStats>> {
+    const { id } = data;
+    const result = await this.neogma.queryRunner.run(
+      `
+        MATCH (org:Organization {orgId: $id})
+
+        /* -------- totals (global available users) -------- */
+        CALL {
+          WITH org
+          MATCH (u:User {available: true})
+          RETURN
+            count(DISTINCT u) AS totalAvailableTalent,
+            count(DISTINCT CASE WHEN u.createdTimestamp >= $epochStart THEN u END) AS newTalentThisWeek
+        }
+
+        /* -------- category ranking + recency (org-scoped) -------- */
+        CALL {
+          WITH org
+          MATCH (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(job:StructuredJobpost)
+          WITH DISTINCT job
+          MATCH (:User {available: true})-[a:APPLIED_TO]->(job)-[:HAS_CLASSIFICATION]->(c:JobpostClassification)
+          WITH coalesce(c.name, 'Unclassified') AS label, a
+          WITH label, count(a) AS cnt, max(a.createdTimestamp) AS recentApplication
+          ORDER BY cnt DESC, label ASC
+          WITH collect({label: label, count: cnt}) AS ranked, max(recentApplication) AS recentApplication
+          RETURN ranked, recentApplication
+        }
+
+        RETURN {
+          topJobCategories: ranked[0..coalesce($topN, 5)],
+          totalAvailableTalent: totalAvailableTalent,
+          newTalentThisWeek: newTalentThisWeek,
+          recentApplication: recentApplication
+        } AS stats;
+      `,
+      { id, epochStart: subDays(new Date(), 7).getTime(), topN: 10 },
+    );
+    return {
+      success: true,
+      message: "Retrieved dashboard talent stats successfully",
+      data: new DashboardTalentStatsEntity(
         result.records[0]?.get("stats"),
       ).getProperties(),
     };
