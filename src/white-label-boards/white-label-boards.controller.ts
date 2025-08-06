@@ -44,10 +44,12 @@ import {
 } from "src/shared/helpers";
 import { EcosystemsService } from "src/ecosystems/ecosystems.service";
 import { JobsService } from "src/jobs/jobs.service";
+import { UserService } from "src/user/user.service";
 
 @Controller("white-label-boards")
 export class WhiteLabelBoardsController {
   constructor(
+    private readonly userService: UserService,
     private readonly jobsService: JobsService,
     private readonly ecosystemsService: EcosystemsService,
     private readonly whiteLabelBoardsService: WhiteLabelBoardsService,
@@ -165,12 +167,18 @@ export class WhiteLabelBoardsController {
   })
   async findAll(
     @Param("orgId") orgId: string,
-    @Session() { permissions }: SessionObject,
+    @Session() { address, permissions }: SessionObject,
   ): Promise<ResponseWithOptionalData<WhiteLabelBoardWithSource[]>> {
     if (!notStringOrNull(orgId)) {
       throw new BadRequestException({
         success: false,
         message: "Organization ID is required",
+      });
+    }
+    if (!(await this.userService.isOrgMember(address, orgId))) {
+      throw new ForbiddenException({
+        success: false,
+        message: "You are not authorized to access this resource",
       });
     }
     return this.whiteLabelBoardsService.findAll(
@@ -196,7 +204,7 @@ export class WhiteLabelBoardsController {
   async findOne(
     @Param("orgId") orgId: string,
     @Param("routeOrDomain") routeOrDomain: string,
-    @Session() { permissions }: SessionObject,
+    @Session() { address, permissions }: SessionObject,
   ): Promise<ResponseWithOptionalData<WhiteLabelBoardWithSource>> {
     if (!notStringOrNull(orgId)) {
       throw new BadRequestException({
@@ -208,6 +216,12 @@ export class WhiteLabelBoardsController {
       throw new BadRequestException({
         success: false,
         message: "Route or domain is required",
+      });
+    }
+    if (!(await this.userService.isOrgMember(address, orgId))) {
+      throw new ForbiddenException({
+        success: false,
+        message: "You are not authorized to access this resource",
       });
     }
     const wlb = await this.whiteLabelBoardsService.findOne(
@@ -257,12 +271,18 @@ export class WhiteLabelBoardsController {
   async create(
     @Param("orgId") orgId: string,
     @Body() createWhiteLabelBoardDto: CreateWhiteLabelBoardDto,
-    @Session() { permissions }: SessionObject,
+    @Session() { address, permissions }: SessionObject,
   ): Promise<ResponseWithOptionalData<WhiteLabelBoardWithSource>> {
     if (!notStringOrNull(orgId)) {
       throw new BadRequestException({
         success: false,
         message: "Organization ID is required",
+      });
+    }
+    if (!(await this.userService.isOrgMember(address, orgId))) {
+      throw new ForbiddenException({
+        success: false,
+        message: "You are not authorized to access this resource",
       });
     }
     if (
@@ -295,7 +315,7 @@ export class WhiteLabelBoardsController {
     @Param("orgId") orgId: string,
     @Param("routeOrDomain") routeOrDomain: string,
     @Body() updateWhiteLabelBoardDto: UpdateWhiteLabelBoardDto,
-    @Session() { permissions }: SessionObject,
+    @Session() { address, permissions }: SessionObject,
   ): Promise<ResponseWithOptionalData<WhiteLabelBoardWithSource>> {
     if (!notStringOrNull(orgId)) {
       throw new BadRequestException({
@@ -309,11 +329,23 @@ export class WhiteLabelBoardsController {
         message: "Route or domain is required",
       });
     }
+    if (!(await this.userService.isOrgMember(address, orgId))) {
+      throw new ForbiddenException({
+        success: false,
+        message: "You are not authorized to access this resource",
+      });
+    }
     const wlb = await this.whiteLabelBoardsService.findOne(
       orgId,
       routeOrDomain,
     );
     const target = data(wlb);
+    if (!target || !wlb.success) {
+      throw new NotFoundException({
+        success: false,
+        message: "White label board not found",
+      });
+    }
     if (
       (target.sourceType === "ecosystem" ||
         updateWhiteLabelBoardDto.sourceType === "ecosystem") &&
@@ -346,7 +378,7 @@ export class WhiteLabelBoardsController {
   async delete(
     @Param("orgId") orgId: string,
     @Param("routeOrDomain") routeOrDomain: string,
-    @Session() { permissions }: SessionObject,
+    @Session() { address, permissions }: SessionObject,
   ): Promise<ResponseWithNoData> {
     if (!notStringOrNull(orgId)) {
       throw new BadRequestException({
@@ -358,6 +390,12 @@ export class WhiteLabelBoardsController {
       throw new BadRequestException({
         success: false,
         message: "Route or domain is required",
+      });
+    }
+    if (!(await this.userService.isOrgMember(address, orgId))) {
+      throw new ForbiddenException({
+        success: false,
+        message: "You are not authorized to access this resource",
       });
     }
     const wlb = await this.whiteLabelBoardsService.findOne(
