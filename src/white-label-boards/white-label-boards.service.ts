@@ -115,7 +115,7 @@ export class WhiteLabelBoardsService {
         return {
           success: true,
           message: "Created white label board successfully",
-          data: new WhiteLabelBoard({
+          data: new WhiteLabelBoardWithSource({
             ...wlb,
             domain: notStringOrNull(wlb.domain),
             createdTimestamp: nonZeroOrNull(wlb.createdTimestamp),
@@ -147,10 +147,18 @@ export class WhiteLabelBoardsService {
         Sentry.captureException(error);
       });
       this.logger.error(`WhiteLabelBoardsService::create ${error.message}`);
-      throw new BadRequestException({
-        success: false,
-        message: "Failed to create white label board for unknown reason",
-      });
+      if (error instanceof BadRequestException) {
+        throw new BadRequestException({
+          success: false,
+          message: error.message,
+        });
+      } else {
+        return {
+          success: false,
+          message:
+            "Failed to create white label board for org for unexpected reason",
+        };
+      }
     }
   }
 
