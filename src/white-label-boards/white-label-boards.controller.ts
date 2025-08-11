@@ -30,7 +30,8 @@ import { UpdateWhiteLabelBoardDto } from "./dto/update-white-label-board.dto";
 import { ApiOkResponse, ApiOperation, getSchemaPath } from "@nestjs/swagger";
 import { PBACGuard } from "src/auth/pbac.guard";
 import {
-  CACHE_DURATION,
+  CACHE_DURATION_15_MINUTES,
+  CACHE_DURATION_1_HOUR,
   CheckWalletPermissions,
   PUBLIC_WHITE_LABEL_BOARD_DOMAIN_HEADER,
   PUBLIC_WHITE_LABEL_BOARD_ROUTE_HEADER,
@@ -56,7 +57,7 @@ export class WhiteLabelBoardsController {
   ) {}
 
   @Get("public/orgs")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
   @ApiOperation({
     summary: "Get all organizations for a public white label board",
   })
@@ -103,7 +104,7 @@ export class WhiteLabelBoardsController {
   }
 
   @Get("public/jobs")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
   @ApiOperation({
     summary: "Get all jobs for a public white label board",
   })
@@ -152,7 +153,7 @@ export class WhiteLabelBoardsController {
   }
 
   @Get(":orgId")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @UseGuards(PBACGuard)
   @Permissions(
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
@@ -188,7 +189,7 @@ export class WhiteLabelBoardsController {
   }
 
   @Get(":orgId/:routeOrDomain")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @UseGuards(PBACGuard)
   @Permissions(
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],

@@ -28,7 +28,7 @@ import * as Sentry from "@sentry/node";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { CheckWalletPermissions, ECOSYSTEM_HEADER } from "src/shared/constants";
-import { CACHE_DURATION } from "src/shared/constants/cache-control";
+import { CACHE_DURATION_1_HOUR } from "src/shared/constants/cache-control";
 import { Session } from "src/shared/decorators";
 import { Permissions } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
@@ -86,7 +86,7 @@ export class JobsController {
 
   @Get("/list")
   @UseGuards(PBACGuard)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiHeader({
     name: ECOSYSTEM_HEADER,
     required: false,
@@ -148,7 +148,7 @@ export class JobsController {
   }
 
   @Get("/filters")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiOkResponse({
     description: "Returns the configuration data for the ui filters",
     schema: {
@@ -221,7 +221,7 @@ export class JobsController {
     [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
   )
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiOkResponse({
     description: "Returns a list of featured jobs",
     type: Response<JobListResult[]>,
@@ -289,7 +289,7 @@ export class JobsController {
   }
 
   @Get("/org/:id")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiOkResponse({
     description: "Returns a list of jobs posted by an org",
     schema: {
@@ -474,7 +474,7 @@ export class JobsController {
   @Get("/org/:id/applicants")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiOkResponse({
     description:
       "Returns a list of jobs posted by an org with corresponding applicants",
@@ -523,7 +523,7 @@ export class JobsController {
   @Get("/applicants")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.SUPER_ADMIN)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiOkResponse({
     description: "Returns a list of applicants alongside relevant information",
     schema: {
@@ -580,7 +580,7 @@ export class JobsController {
   }
 
   @Get("/all/filters")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.SUPER_ADMIN)
   @ApiOkResponse({

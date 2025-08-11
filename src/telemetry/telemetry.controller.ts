@@ -8,7 +8,10 @@ import {
 } from "@nestjs/common";
 import { TelemetryService } from "./telemetry.service";
 import { PBACGuard } from "src/auth/pbac.guard";
-import { CACHE_DURATION, CheckWalletPermissions } from "src/shared/constants";
+import {
+  CACHE_DURATION_1_HOUR,
+  CheckWalletPermissions,
+} from "src/shared/constants";
 import { Permissions, Session } from "src/shared/decorators";
 import {
   ResponseWithOptionalData,
@@ -33,7 +36,7 @@ export class TelemetryController {
   @Get("job/views")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   async getJobViewCount(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
@@ -52,7 +55,7 @@ export class TelemetryController {
   @Get("job/applies")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   async getJobApplyCount(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
@@ -71,7 +74,7 @@ export class TelemetryController {
   @Get("dashboard/stats/jobs")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   async getDashboardStats(
     @Session() { address, permissions }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
@@ -100,7 +103,7 @@ export class TelemetryController {
   @Get("dashboard/stats/talent")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   async getDashboardTalentStats(): Promise<
     ResponseWithOptionalData<DashboardTalentStats>
   > {

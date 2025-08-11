@@ -42,7 +42,7 @@ import {
   ECOSYSTEM_HEADER,
   EMPTY_SESSION_OBJECT,
 } from "src/shared/constants";
-import { CACHE_DURATION } from "src/shared/constants/cache-control";
+import { CACHE_DURATION_1_HOUR } from "src/shared/constants/cache-control";
 import { Permissions, Session } from "src/shared/decorators";
 import { nonZeroOrNull, responseSchemaWrapper } from "src/shared/helpers";
 import { ProjectProps } from "src/shared/models";
@@ -156,7 +156,7 @@ export class ProjectsController {
   }
 
   @Get("/list")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiHeader({
     name: ECOSYSTEM_HEADER,
     required: false,
@@ -212,7 +212,7 @@ export class ProjectsController {
   }
 
   @Get("/filters")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiHeader({
     name: ECOSYSTEM_HEADER,
     required: false,
@@ -536,7 +536,7 @@ export class ProjectsController {
 
   @Get("/search")
   @UseGuards(PBACGuard)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiOkResponse({
     description: "Returns a list of projects that match the search criteria",
     type: Response<PaginatedData<ProjectListResult>>,

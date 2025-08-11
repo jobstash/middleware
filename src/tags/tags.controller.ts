@@ -12,7 +12,10 @@ import { ApiExtraModels, ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
 import * as Sentry from "@sentry/node";
 import { AuthService } from "src/auth/auth.service";
 import { PBACGuard } from "src/auth/pbac.guard";
-import { CACHE_DURATION, CheckWalletPermissions } from "src/shared/constants";
+import {
+  CACHE_DURATION_1_HOUR,
+  CheckWalletPermissions,
+} from "src/shared/constants";
 import { Permissions } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
 import {
@@ -80,7 +83,7 @@ export class TagsController {
   }
 
   @Get("/popular")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiOkResponse({
     description:
       "Returns a list of n most popular tags ranked by their popularity",

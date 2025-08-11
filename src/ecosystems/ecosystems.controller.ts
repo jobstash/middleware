@@ -25,7 +25,7 @@ import {
 } from "@nestjs/swagger";
 import { PBACGuard } from "src/auth/pbac.guard";
 import {
-  CACHE_DURATION,
+  CACHE_DURATION_1_HOUR,
   CheckWalletPermissions,
   ECOSYSTEM_HEADER,
 } from "src/shared/constants";
@@ -65,7 +65,7 @@ export class EcosystemsController {
   ) {}
 
   @Get("/jobs")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @UseGuards(PBACGuard)
   @Permissions([
     CheckWalletPermissions.USER,
@@ -123,7 +123,7 @@ export class EcosystemsController {
   }
 
   @Get("/jobs/filters")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @UseGuards(PBACGuard)
   @Permissions([
     CheckWalletPermissions.USER,

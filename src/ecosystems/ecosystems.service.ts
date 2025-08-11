@@ -1422,9 +1422,11 @@ export class EcosystemsService {
 
   async getEcosystemJobs(ecosystem: string): Promise<JobListResult[]> {
     const jobs = await this.getJobsListResults([ecosystem]);
-    return jobs
-      .filter(z => z.online)
-      .map(x => new JobListResultEntity(x).getProperties());
+    return sort(
+      jobs
+        .filter(z => z.online)
+        .map(x => new JobListResultEntity(x).getProperties()),
+    ).desc(x => x.timestamp);
   }
 
   async getFilterConfigs(

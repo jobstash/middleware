@@ -16,7 +16,7 @@ import {
   ApiBadRequestResponse,
   ApiNotFoundResponse,
 } from "@nestjs/swagger";
-import { CACHE_DURATION } from "src/shared/constants";
+import { CACHE_DURATION_1_HOUR } from "src/shared/constants";
 import {
   Investor,
   PaginatedData,
@@ -33,7 +33,7 @@ export class InvestorsController {
   constructor(private readonly investorsService: InvestorsService) {}
 
   @Get("/list")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiOkResponse({
     description:
       "Returns a sorted list of investors that are present in our dataset",

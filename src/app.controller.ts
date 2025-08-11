@@ -2,7 +2,10 @@ import { Controller, Get, Header, UseInterceptors } from "@nestjs/common";
 import { AppService } from "./app.service";
 import { Response, ResponseWithNoData } from "src/shared/types";
 import { ApiExtraModels, ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
-import { CACHE_DURATION, NO_CACHE } from "./shared/constants/cache-control";
+import {
+  CACHE_DURATION_1_HOUR,
+  NO_CACHE,
+} from "./shared/constants/cache-control";
 import { ConfigService } from "@nestjs/config";
 import { CacheHeaderInterceptor } from "./shared/decorators/cache-interceptor.decorator";
 
@@ -15,7 +18,7 @@ export class AppController {
   ) {}
 
   @Get("health")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiOkResponse({
     description: "Returns the health status of the server",
     schema: {
@@ -40,7 +43,7 @@ export class AppController {
 
   @Get("sitemap")
   @Header("Content-Type", "text/xml")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiOkResponse({
     description:
       "Returns the sitemap of the currently deployed jobstash frontend",
@@ -54,7 +57,7 @@ export class AppController {
 
   @Get("sitemap/ev")
   @Header("Content-Type", "text/xml")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiOkResponse({
     description:
       "Returns the sitemap of the currently deployed ecosystem vision frontend",

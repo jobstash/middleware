@@ -62,7 +62,7 @@ import { NFTStorage, File } from "nft.storage";
 import { ConfigService } from "@nestjs/config";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
-import { CACHE_DURATION } from "src/shared/constants/cache-control";
+import { CACHE_DURATION_1_HOUR } from "src/shared/constants/cache-control";
 import { ValidationError } from "class-validator";
 import { OrgListParams } from "./dto/org-list.input";
 import { UpdateOrgAliasesInput } from "./dto/update-organization-aliases.input";
@@ -134,7 +134,7 @@ export class OrganizationsController {
   }
 
   @Get("/list")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiHeader({
     name: ECOSYSTEM_HEADER,
     required: false,
@@ -192,7 +192,7 @@ export class OrganizationsController {
   @Get("/all")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.ORG_MEMBER)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiOkResponse({
     description: "Returns a list of all organizations",
     type: Array<TinyOrg>,
@@ -222,7 +222,7 @@ export class OrganizationsController {
   }
 
   @Get("/filters")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiHeader({
     name: ECOSYSTEM_HEADER,
     required: false,
@@ -253,7 +253,7 @@ export class OrganizationsController {
 
   @Get("/search")
   @UseGuards(PBACGuard)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiOkResponse({
     description: "Returns a list of orgs that match the search criteria",
     type: Response<PaginatedData<ShortOrg>>,

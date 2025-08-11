@@ -17,7 +17,10 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { UserService } from "./user.service";
 import { Permissions, Session } from "src/shared/decorators";
 import { PBACGuard } from "src/auth/pbac.guard";
-import { CACHE_DURATION, CheckWalletPermissions } from "src/shared/constants";
+import {
+  CACHE_DURATION_1_HOUR,
+  CheckWalletPermissions,
+} from "src/shared/constants";
 import {
   AdjacentRepo,
   UserAvailableForWork,
@@ -70,7 +73,7 @@ export class UserController {
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER],
   )
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   async getUsersAvailableForWork(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
@@ -107,7 +110,7 @@ export class UserController {
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER],
   )
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   async getTopUsers(
     @Session() { address }: SessionObject,
   ): Promise<ResponseWithOptionalData<UserAvailableForWork[]>> {
