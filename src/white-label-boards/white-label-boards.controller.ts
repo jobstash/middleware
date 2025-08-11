@@ -55,12 +55,7 @@ export class WhiteLabelBoardsController {
   ) {}
 
   @Get("public/orgs")
-  @UseInterceptors(
-    new CacheHeaderInterceptor({ mode: "revalidate-always" }, [
-      PUBLIC_WHITE_LABEL_BOARD_ROUTE_HEADER,
-      PUBLIC_WHITE_LABEL_BOARD_DOMAIN_HEADER,
-    ]),
-  )
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "no-store" }))
   @ApiOperation({
     summary: "Get all organizations for a public white label board",
   })
@@ -107,12 +102,7 @@ export class WhiteLabelBoardsController {
   }
 
   @Get("public/jobs")
-  @UseInterceptors(
-    new CacheHeaderInterceptor({ mode: "revalidate-always" }, [
-      PUBLIC_WHITE_LABEL_BOARD_ROUTE_HEADER,
-      PUBLIC_WHITE_LABEL_BOARD_DOMAIN_HEADER,
-    ]),
-  )
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "no-store" }))
   @ApiOperation({
     summary: "Get all jobs for a public white label board",
   })
@@ -161,9 +151,7 @@ export class WhiteLabelBoardsController {
   }
 
   @Get(":orgId")
-  @UseInterceptors(
-    new CacheHeaderInterceptor({ mode: "no-store" }, ["Authorization"]),
-  )
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "no-store" }))
   @UseGuards(PBACGuard)
   @Permissions(
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
@@ -199,9 +187,7 @@ export class WhiteLabelBoardsController {
   }
 
   @Get(":orgId/:routeOrDomain")
-  @UseInterceptors(
-    new CacheHeaderInterceptor({ mode: "no-store" }, ["Authorization"]),
-  )
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "no-store" }))
   @UseGuards(PBACGuard)
   @Permissions(
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
