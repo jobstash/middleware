@@ -1,5 +1,5 @@
 export const CACHE_CONTROL_HEADER = (duration: number): string =>
-  `max-age=${duration}, public`;
+  `max-age=${duration}, public, must-revalidate`;
 
 export const CACHE_EXPIRY = (durationSeconds: number): string => {
   const nowMillis = Date.now();
