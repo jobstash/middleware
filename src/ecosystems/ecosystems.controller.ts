@@ -65,7 +65,7 @@ export class EcosystemsController {
   ) {}
 
   @Get("/jobs")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "no-store" }))
   @UseGuards(PBACGuard)
   @Permissions([
     CheckWalletPermissions.USER,
