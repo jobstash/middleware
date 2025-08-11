@@ -591,9 +591,9 @@ export class EcosystemsService {
           success: true,
           message: "Updated ecosystem successfully",
           data: new OrganizationEcosystem({
-            ...existing,
-            createdTimestamp: nonZeroOrNull(existing.createdTimestamp),
-            updatedTimestamp: nonZeroOrNull(existing.updatedTimestamp),
+            ...ecosystem,
+            createdTimestamp: nonZeroOrNull(ecosystem.createdTimestamp),
+            updatedTimestamp: nonZeroOrNull(ecosystem.updatedTimestamp),
           }),
         };
       } else {
