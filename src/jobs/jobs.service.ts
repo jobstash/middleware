@@ -1557,9 +1557,11 @@ export class JobsService {
     ecosystem: string | undefined,
   ): Promise<JobListResult[] | undefined> {
     try {
-      return (await this.getJobsListResults(ecosystem))
-        .filter(x => x?.organization?.orgId === id)
-        .map(orgJob => new JobListResultEntity(orgJob).getProperties());
+      return sort(
+        (await this.getJobsListResults(ecosystem))
+          .filter(x => x?.organization?.orgId === id)
+          .map(orgJob => new JobListResultEntity(orgJob).getProperties()),
+      ).desc(x => x.timestamp);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
