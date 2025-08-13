@@ -338,7 +338,7 @@ export class ProfileService {
             MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
             UNWIND $emails as email
             WITH email, website, organization
-            WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email).domain
+            WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host = apoc.data.email(email).domain
             RETURN apoc.coll.toSet(COLLECT(organization {
               id: organization.orgId,
               name: organization.name,
@@ -392,7 +392,7 @@ export class ProfileService {
           WITH user
           UNWIND $orgs as org
           MATCH (organization:Organization {orgId: org.id})
-          CREATE (user)-[nr:VERIFIED_FOR_ORG]->(organization)
+          MERGE (user)-[nr:VERIFIED_FOR_ORG]->(organization)
           SET nr.credential = org.credential
           SET nr.account = org.account
           SET nr.verifiedTimestamp = timestamp()
