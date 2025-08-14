@@ -792,7 +792,7 @@ export class UserService {
         OPTIONAL MATCH (user)-[gr:HAS_GITHUB_USER]->(:GithubUser)
         OPTIONAL MATCH (user)-[scr:HAS_SHOWCASE]->(showcase:UserShowCase)
         OPTIONAL MATCH (user)-[ul:HAS_LOCATION]->(location:UserLocation)
-        OPTIONAL MATCH (user)-[sr:HAS_SKILL]->(:Tag)
+        OPTIONAL MATCH (user)-[sr:HAS_SKILL]->(:LegacyTag)
         OPTIONAL MATCH (user)-[er:HAS_EMAIL]->(email:UserEmail|UserUnverifiedEmail)
         OPTIONAL MATCH (user)-[ja:APPLIED_TO|BOOKMARKED|VIEWED_DETAILS]->()
         OPTIONAL MATCH (user)-[ds:DID_SEARCH]->(search:SearchHistory)
@@ -1202,11 +1202,11 @@ export class UserService {
         CALL {
           WITH jobs
           UNWIND jobs AS j
-          OPTIONAL MATCH (j)-[:HAS_TAG]->(tag:Tag)
+          OPTIONAL MATCH (j)-[:HAS_TAG]->(tag:LegacyTag)
           OPTIONAL MATCH (tag)-[:HAS_TAG_DESIGNATION]->(d:TagDesignation)
-          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(syn:Tag)-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
-          OPTIONAL MATCH (tag)-[:IS_PAIR_OF]->(pair:Tag)-[:HAS_TAG_DESIGNATION]->(:PairedDesignation)
-          WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
+          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(syn:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
+          OPTIONAL MATCH (tag)-[:IS_PAIR_OF]->(pair:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:PairedDesignation)
+          WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation)
             AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
             AND (d:AllowedDesignation OR d:DefaultDesignation)
           WITH collect(
@@ -1242,8 +1242,8 @@ export class UserService {
               wallets: [(user)-[:HAS_LINKED_WALLET]->(w) | w.address],
               location: [(user)-[:HAS_LOCATION]->(loc:UserLocation) | loc { .* }][0],
               skills: apoc.coll.toSet([
-                (user)-[r:HAS_SKILL]->(t:Tag) |
-                  t { .*, canTeach: [(user)-[m:HAS_SKILL]->(t) | m.canTeach][0] }
+                (user)-[r:HAS_SKILL]->(t:LegacyTag) |
+                  t { .*, canTeach: r.canTeach }
               ]),
               showcases: apoc.coll.toSet([
                 (user)-[:HAS_SHOWCASE]->(s) | s { .* }
@@ -1486,11 +1486,11 @@ export class UserService {
               WITH jobs
               WITH CASE WHEN size(jobs) = 0 THEN [NULL] ELSE jobs END AS jlist
               UNWIND jlist AS job
-              OPTIONAL MATCH (job)-[:HAS_TAG]->(tag:Tag)
+              OPTIONAL MATCH (job)-[:HAS_TAG]->(tag:LegacyTag)
               OPTIONAL MATCH (tag)-[:HAS_TAG_DESIGNATION]->(d:TagDesignation)
-              OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(syn:Tag)-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
-              OPTIONAL MATCH (tag)-[:IS_PAIR_OF]->(pair:Tag)-[:HAS_TAG_DESIGNATION]->(:PairedDesignation)
-              WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
+              OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(syn:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
+              OPTIONAL MATCH (tag)-[:IS_PAIR_OF]->(pair:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:PairedDesignation)
+              WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation)
                 AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
                 AND (d:AllowedDesignation OR d:DefaultDesignation)
               WITH collect(
@@ -1523,8 +1523,8 @@ export class UserService {
               wallets: [(user)-[:HAS_LINKED_WALLET]->(w) | w.address],
               location: [(user)-[:HAS_LOCATION]->(loc:UserLocation) | loc { .* }][0],
               skills: apoc.coll.toSet([
-                (user)-[r:HAS_SKILL]->(t:Tag) |
-                  t { .*, canTeach: [(user)-[m:HAS_SKILL]->(t) | m.canTeach][0] }
+                (user)-[r:HAS_SKILL]->(t:LegacyTag) |
+                  t { .*, canTeach: r.canTeach }
               ]),
               showcases: apoc.coll.toSet([
                 (user)-[:HAS_SHOWCASE]->(s) | s { .* }

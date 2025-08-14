@@ -36,7 +36,7 @@ export const Tags = (
 ): NeogmaModel<TagProps, NoRelations, TagMethods, TagStatics> =>
   ModelFactory<TagProps, NoRelations, TagStatics, TagMethods>(
     {
-      label: "Tag",
+      label: "LegacyTag",
       schema: {
         id: {
           type: "string",
@@ -64,7 +64,7 @@ export const Tags = (
       methods: {
         isBlockedTag: async function (): Promise<boolean> {
           const query = `
-            RETURN EXISTS( (:Tag {id: $id})-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation) ) as blocked
+            RETURN EXISTS( (:LegacyTag {id: $id})-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation) ) as blocked
           `;
           const result = await neogma.queryRunner.run(query, { id: this.id });
           return result.records[0]?.get("blocked") as boolean;
@@ -77,7 +77,7 @@ export const Tags = (
             .match({
               optional: true,
               related: [
-                { label: "Tag", identifier: "pt" },
+                { label: "LegacyTag", identifier: "pt" },
                 { name: "HAS_TAG_DESIGNATION", direction: "out" },
                 { label: "PreferredDesignation" },
               ],
@@ -97,7 +97,7 @@ export const Tags = (
             .raw("CYPHER runtime = parallel")
             .match({
               related: [
-                { label: "Tag", identifier: "t1" },
+                { label: "LegacyTag", identifier: "t1" },
                 { name: "HAS_TAG_DESIGNATION", direction: "out" },
                 { label: "PairedDesignation" },
               ],
@@ -121,7 +121,7 @@ export const Tags = (
                   direction: "out",
                 },
                 {
-                  label: "Tag",
+                  label: "LegacyTag",
                   identifier: "tag",
                 },
                 { name: "HAS_TAG_DESIGNATION", direction: "out" },
@@ -129,14 +129,14 @@ export const Tags = (
               ],
             })
             .raw(
-              "WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)",
+              "WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)",
             )
             .with("DISTINCT tag")
             .raw(
-              "OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)",
+              "OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)",
             )
             .raw(
-              "OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)",
+              "OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)",
             )
             .with(
               "tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others",
@@ -167,7 +167,7 @@ export const Tags = (
                   direction: "out",
                 },
                 {
-                  label: "Tag",
+                  label: "LegacyTag",
                   identifier: "tag",
                 },
                 { name: "HAS_TAG_DESIGNATION", direction: "out" },
@@ -175,14 +175,14 @@ export const Tags = (
               ],
             })
             .raw(
-              "WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)",
+              "WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)",
             )
             .with("DISTINCT tag")
             .raw(
-              "OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)",
+              "OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)",
             )
             .raw(
-              "OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)",
+              "OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)",
             )
             .with(
               "tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others",
@@ -202,7 +202,7 @@ export const Tags = (
                   name: "HAS_TAG",
                 },
                 {
-                  label: "Tag",
+                  label: "LegacyTag",
                   identifier: "tag",
                 },
               ],
@@ -222,7 +222,7 @@ export const Tags = (
             .match({
               related: [
                 {
-                  label: "Tag",
+                  label: "LegacyTag",
                   identifier: "tag",
                 },
                 { name: "HAS_TAG_DESIGNATION", direction: "out" },

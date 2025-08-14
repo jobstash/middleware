@@ -41,7 +41,7 @@ export const NAV_PILLAR_QUERY_MAPPINGS: Record<
       "CYPHER runtime = pipelined MATCH (:Organization)-[:HAS_PROJECT]->(project:Project) RETURN DISTINCT project.name as item",
     fundingRounds:
       "CYPHER runtime = pipelined MATCH (:Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) RETURN DISTINCT funding_round.roundName as item",
-    tags: "CYPHER runtime = pipelined MATCH (:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
+    tags: "CYPHER runtime = pipelined MATCH (:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag:LegacyTag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
   },
   projects: {
     names:
@@ -50,14 +50,14 @@ export const NAV_PILLAR_QUERY_MAPPINGS: Record<
       "CYPHER runtime = pipelined MATCH (:Project)-[:HAS_CATEGORY]->(category:ProjectCategory) RETURN DISTINCT category.name as item",
     organizations:
       "CYPHER runtime = pipelined MATCH (:Project)<-[:HAS_PROJECT]-(organization:Organization) RETURN DISTINCT organization.name as item",
-    tags: "CYPHER runtime = pipelined MATCH (:Project)<-[:HAS_PROJECT|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*5]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
+    tags: "CYPHER runtime = pipelined MATCH (:Project)<-[:HAS_PROJECT|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*5]->(tag:LegacyTag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
     chains:
       "CYPHER runtime = pipelined MATCH (:Project)-[:IS_DEPLOYED_ON]->(chain:Chain) RETURN DISTINCT chain.name as item",
     investors:
       "CYPHER runtime = pipelined MATCH (:Project)<-[:HAS_PROJECT]-(:Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor:Investor) RETURN DISTINCT investor.name as item",
   },
   jobs: {
-    tags: "CYPHER runtime = pipelined MATCH (:Organization)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag: Tag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
+    tags: "CYPHER runtime = pipelined MATCH (:Organization)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag:LegacyTag) WHERE NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation) RETURN DISTINCT tag.name as item",
     locations:
       "CYPHER runtime = pipelined MATCH (:Organization)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost) RETURN DISTINCT structured_jobpost.location as item",
     commitments:
@@ -213,7 +213,7 @@ export const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<
       ecosystems: apoc.coll.toSet([(project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem: Ecosystem) | ecosystem.name]),
       investors: apoc.coll.toSet([(project)<-[:HAS_PROJECT]-(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) | investor.name]),
       tags: apoc.coll.toSet([
-        (project)<-[:HAS_PROJECT]-(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        (project)<-[:HAS_PROJECT]-(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
         WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag.name
       ])
     } as config
@@ -229,7 +229,7 @@ export const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<
       investors: apoc.coll.toSet([(org)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor:Investor) | investor.name]),
       fundingRounds: apoc.coll.toSet([(org)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round.roundName]),
       tags: apoc.coll.toSet([
-        (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
         WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag.name
       ]),
       projects: apoc.coll.toSet([(org)-[:HAS_PROJECT]->(project:Project) | project.name]),
@@ -272,11 +272,11 @@ export const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<
     MATCH (structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
     WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
     AND CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE|HAS_ORGANIZATION|IS_MEMBER_OF_ECOSYSTEM*5]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-    MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+    MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
       WITH DISTINCT tag, structured_jobpost
-      OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
-      OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+      OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
+      OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)
       WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
       WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
       WITH DISTINCT canonicalTag as tag, structured_jobpost

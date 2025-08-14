@@ -146,9 +146,9 @@ export class ProfileService {
             name: organization.name,
             logo: organization.logo
           }][0],
-          tags: apoc.coll.toSet([(gu)-[:USED_TAG]->(tag: Tag)-[:USED_ON]->(repo) WHERE (user)-[:HAS_SKILL]->(tag) | tag {
+          tags: apoc.coll.toSet([(gu)-[:USED_TAG]->(tag:LegacyTag)-[:USED_ON]->(repo) WHERE (user)-[:HAS_SKILL]->(tag:LegacyTag) | tag {
             .*,
-            canTeach: [(user)-[m:HAS_SKILL]->(tag)-[:USED_ON]->(repo) | m.canTeach][0]
+            canTeach: [(user)-[m:HAS_SKILL]->(tag:LegacyTag)-[:USED_ON]->(repo) | m.canTeach][0]
           }]),
           contribution: r.summary
         }
@@ -681,7 +681,7 @@ export class ProfileService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
-          MATCH (user:User {wallet: $wallet})-[r:HAS_SKILL]->(skill:Tag)
+          MATCH (user:User {wallet: $wallet})-[r:HAS_SKILL]->(skill:LegacyTag)
           RETURN skill { .*, canTeach: r.canTeach } as skill
         `,
         { wallet },
@@ -951,14 +951,14 @@ export class ProfileService {
       await this.neogma.queryRunner.run(
         `
           MATCH (user:User {wallet: $wallet})
-          OPTIONAL MATCH (user)-[r:HAS_SKILL]->(:Tag)
+          OPTIONAL MATCH (user)-[r:HAS_SKILL]->(:LegacyTag)
           DELETE r
 
           WITH user
           UNWIND $skills as skillData
           WITH skillData, user
-          MATCH (skill:Tag {id: skillData.id, normalizedName: skillData.normalizedName})
-          MERGE (user)-[r:HAS_SKILL]->(skill)
+          MATCH (skill:LegacyTag {id: skillData.id, normalizedName: skillData.normalizedName})
+          MERGE (user)-[r:HAS_SKILL]->(skill:LegacyTag)
           SET r.canTeach = skillData.canTeach
         `,
         {
@@ -1235,14 +1235,14 @@ export class ProfileService {
           `
         MATCH (user:User {wallet: $wallet})
         MATCH (user)-[:HAS_GITHUB_USER]->(ghu:GithubUser)-[:CONTRIBUTED_TO]->(repo:GithubRepository {id: $id})
-        OPTIONAL MATCH (ghu)-[r1:USED_TAG]->(tag: Tag)-[r2:USED_ON]->(repo)
+        OPTIONAL MATCH (ghu)-[r1:USED_TAG]->(tag:LegacyTag)-[r2:USED_ON]->(repo)
         DETACH DELETE r1,r2
 
         WITH ghu, user
         UNWIND $tagsUsed as data
         WITH data, ghu, user
-        MATCH (repo:GithubRepository {id: $id}), (tag: Tag {normalizedName: data.normalizedName})
-        MERGE (user)-[s:HAS_SKILL]->(tag)
+        MATCH (repo:GithubRepository {id: $id}), (tag:LegacyTag {normalizedName: data.normalizedName})
+        MERGE (user)-[s:HAS_SKILL]->(tag:LegacyTag)
         SET s.canTeach = data.canTeach
         MERGE (ghu)-[:USED_TAG]->(tag)-[:USED_ON]->(repo)
       `,

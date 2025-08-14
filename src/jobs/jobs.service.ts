@@ -85,11 +85,11 @@ export class JobsService {
       MATCH (structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
       WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
       AND NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-      MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+      MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
       WITH DISTINCT tag, structured_jobpost
-      OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
-      OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+      OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
+      OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)
       WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
       WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
       WITH DISTINCT canonicalTag as tag, structured_jobpost
@@ -277,11 +277,11 @@ export class JobsService {
     const generatedQuery = `
       CYPHER runtime = parallel
       MATCH (:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)
-      MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+      MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
       WITH DISTINCT tag, structured_jobpost
-      OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
-      OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+      OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
+      OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)
       WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
       WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
       WITH DISTINCT canonicalTag as tag, structured_jobpost
@@ -468,10 +468,10 @@ export class JobsService {
     const generatedQuery = `
           CYPHER runtime = parallel
           MATCH (structured_jobpost:StructuredJobpost)
-          MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+          MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
           WITH DISTINCT tag, structured_jobpost
-          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
-          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
+          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)
           WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
           WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
           WITH DISTINCT canonicalTag as tag, structured_jobpost
@@ -1182,11 +1182,11 @@ export class JobsService {
       MATCH (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost {shortUUID: $shortUUID})-[:HAS_STATUS]->(:JobpostOnlineStatus)
       WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
       AND NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-      MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+      MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
       WITH DISTINCT tag, structured_jobpost
-      OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
-      OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+      OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
+      OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)
       WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
       WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
       WITH DISTINCT canonicalTag as tag, structured_jobpost
@@ -1364,11 +1364,11 @@ export class JobsService {
       const generatedQuery = `
       CYPHER runtime = parallel
       MATCH (structured_jobpost:StructuredJobpost {shortUUID: $shortUUID})
-      MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+      MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+      WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
       WITH DISTINCT tag, structured_jobpost
-      OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
-      OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+      OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
+      OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)
       WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
       WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
       WITH DISTINCT canonicalTag as tag, structured_jobpost
@@ -1777,10 +1777,10 @@ export class JobsService {
         CYPHER runtime = pipelined
         MATCH (org:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-        MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
         WITH DISTINCT tag, structured_jobpost
-        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
-        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
+        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)
         WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
         WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
         WITH DISTINCT canonicalTag as tag, structured_jobpost
@@ -1819,14 +1819,14 @@ export class JobsService {
               wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address],
               location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
               matchingSkills: apoc.coll.sum([
-                (user)-[:HAS_SKILL]->(tag)
-                WHERE (structured_jobpost)-[:HAS_TAG]->(tag) | 1
+                (user)-[:HAS_SKILL]->(tag:LegacyTag)
+                WHERE (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag) | 1
               ]),
               skills: apoc.coll.toSet([
-                (user)-[:HAS_SKILL]->(tag) |
+                (user)-[r:HAS_SKILL]->(tag:LegacyTag) |
                 tag {
                   .*,
-                  canTeach: [(user)-[m:HAS_SKILL]->(tag) | m.canTeach][0]
+                  canTeach: r.canTeach
                 }
               ]),
               showcases: apoc.coll.toSet([
@@ -2059,10 +2059,10 @@ export class JobsService {
         CYPHER runtime = parallel
         MATCH (:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-        MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
         WITH DISTINCT tag, structured_jobpost
-        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
-        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
+        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)
         WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
         WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
         WITH DISTINCT canonicalTag as tag, structured_jobpost
@@ -2098,14 +2098,14 @@ export class JobsService {
               avatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
               location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
               matchingSkills: apoc.coll.sum([
-                (user)-[:HAS_SKILL]->(tag)
-                WHERE (structured_jobpost)-[:HAS_TAG]->(tag) | 1
+                (user)-[:HAS_SKILL]->(tag:LegacyTag)
+                WHERE (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag) | 1
               ]),
               skills: apoc.coll.toSet([
-                (user)-[:HAS_SKILL]->(tag) |
+                (user)-[r:HAS_SKILL]->(tag:LegacyTag) |
                 tag {
                   .*,
-                  canTeach: [(user)-[m:HAS_SKILL]->(tag) | m.canTeach][0]
+                  canTeach: r.canTeach
                 }
               ]),
               showcases: apoc.coll.toSet([
@@ -2451,10 +2451,10 @@ export class JobsService {
         MATCH (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost)
         WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
         AND NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-        MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
         WITH DISTINCT tag, structured_jobpost
-        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
-        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
+        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)
         WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
         WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
         WITH DISTINCT canonicalTag as tag, structured_jobpost
@@ -2649,10 +2649,10 @@ export class JobsService {
         MATCH (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost)
         WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
         AND NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-        MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
         WITH DISTINCT tag, structured_jobpost
-        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
-        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
+        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)
         WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
         WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
         WITH DISTINCT canonicalTag as tag, structured_jobpost
@@ -2854,10 +2854,10 @@ export class JobsService {
         
         CALL {
           WITH structured_jobpost
-          MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+          MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
           WITH DISTINCT tag
-          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
-          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
+          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)
           WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
           WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
           WITH DISTINCT canonicalTag as tag
@@ -3060,10 +3060,10 @@ export class JobsService {
         
         CALL {
           WITH structured_jobpost
-          MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+          MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
           WITH DISTINCT tag
-          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
-          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
+          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)
           WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
           WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
           WITH DISTINCT canonicalTag as tag
@@ -3272,10 +3272,10 @@ export class JobsService {
         
         CALL {
           WITH structured_jobpost
-          MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+          MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
           WITH DISTINCT tag
-          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
-          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
+          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)
           WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
           WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
           WITH DISTINCT canonicalTag as tag
@@ -3484,10 +3484,10 @@ export class JobsService {
         
         CALL {
           WITH structured_jobpost
-          MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+          MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
           WITH DISTINCT tag
-          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
-          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
+          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)
           WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
           WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
           WITH DISTINCT canonicalTag as tag
@@ -3697,10 +3697,10 @@ export class JobsService {
         
         CALL {
           WITH structured_jobpost
-          MATCH (structured_jobpost)-[:HAS_TAG]->(tag: Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+          MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
           WITH DISTINCT tag
-          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
-          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
+          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)
           WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
           WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
           WITH DISTINCT canonicalTag as tag
@@ -3941,7 +3941,7 @@ export class JobsService {
         `
             MATCH (:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
             WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-            AND (structured_jobpost)-[:HAS_TAG]->(:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+            AND (structured_jobpost)-[:HAS_TAG]->(:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
             WITH structured_jobpost
 
             UNWIND $applicants AS applicant
@@ -4189,11 +4189,11 @@ export class JobsService {
       await this.neogma.queryRunner.run(
         `
         MATCH (job:StructuredJobpost {shortUUID: $shortUUID})
-        OPTIONAL MATCH (job)-[r:HAS_TAG]->(:Tag)
+        OPTIONAL MATCH (job)-[r:HAS_TAG]->(:LegacyTag)
         DELETE r
 
         WITH job
-        MATCH (tag:Tag WHERE tag.normalizedName IN $tags)
+        MATCH (tag:LegacyTag WHERE tag.normalizedName IN $tags)
         MERGE (job)-[r:HAS_TAG]->(tag)
         SET r.creator = $wallet
         `,
