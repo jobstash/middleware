@@ -904,11 +904,11 @@ export class EcosystemsService {
     const generatedQuery = `
         CYPHER runtime = parallel
         MATCH (structured_jobpost:StructuredJobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(ecosystem:OrganizationEcosystem WHERE ecosystem.normalizedName IN $ecosystems)
-        MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-        WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+        MATCH (structured_jobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
         WITH DISTINCT tag, structured_jobpost
-        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
-        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
         WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, structured_jobpost
         WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, structured_jobpost
         WITH DISTINCT canonicalTag as tag, structured_jobpost

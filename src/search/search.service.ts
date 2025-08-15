@@ -237,11 +237,11 @@ export class SearchService {
           `
           CALL db.index.fulltext.queryNodes("tagNames", $query) YIELD node as tag
           WHERE (:Project)<-[:HAS_PROJECT|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*5]->(tag)
-          AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation)
+          AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
           AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
           WITH DISTINCT tag
-          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
-          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)
+          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
           WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
           WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
           WITH DISTINCT canonicalTag as tag
@@ -253,12 +253,12 @@ export class SearchService {
         result = await this.neogma.queryRunner.run(
           `
           CYPHER runtime = parallel
-          MATCH (:Project)<-[:HAS_PROJECT|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*5]->(t:LegacyTag)
-          WHERE NOT (t)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation)
+          MATCH (:Project)<-[:HAS_PROJECT|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*5]->(t:Tag)
+          WHERE NOT (t)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
           AND NOT (t)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
           WITH DISTINCT t
-          OPTIONAL MATCH (t)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
-          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(t)-[:IS_PAIR_OF]->(pair:LegacyTag)
+          OPTIONAL MATCH (t)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(t)-[:IS_PAIR_OF]->(pair:Tag)
           WITH t, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
           WITH CASE WHEN size(others) > 0 THEN head(others) ELSE t END AS canonicalTag
           WITH DISTINCT canonicalTag.name as name
@@ -274,11 +274,11 @@ export class SearchService {
           `
           CALL db.index.fulltext.queryNodes("tagNames", $query) YIELD node as tag
           WHERE (:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag)
-          AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation)
+          AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
           AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
           WITH DISTINCT tag
-          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
-          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:LegacyTag)
+          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
           WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
           WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
           WITH DISTINCT canonicalTag as tag
@@ -290,12 +290,12 @@ export class SearchService {
         result = await this.neogma.queryRunner.run(
           `
           CYPHER runtime = parallel
-          MATCH (o:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(t:LegacyTag)
-          WHERE NOT (t)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation)
+          MATCH (o:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(t:Tag)
+          WHERE NOT (t)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
           AND NOT (t)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
           WITH DISTINCT t
-          OPTIONAL MATCH (t)-[:IS_SYNONYM_OF]-(synonym:LegacyTag)--(:PreferredDesignation)
-          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(t)-[:IS_PAIR_OF]->(pair:LegacyTag)
+          OPTIONAL MATCH (t)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(t)-[:IS_PAIR_OF]->(pair:Tag)
           WITH t, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
           WITH CASE WHEN size(others) > 0 THEN head(others) ELSE t END AS canonicalTag
           WITH DISTINCT canonicalTag.name as name

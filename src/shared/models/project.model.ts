@@ -484,13 +484,13 @@ export const Projects = (
             )
             .raw(
               `
-              OPTIONAL MATCH (project)<-[:HAS_PROJECT]-(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+              OPTIONAL MATCH (project)<-[:HAS_PROJECT]-(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
               WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) AND NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-              OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-              WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-              OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:LegacyTag)--(:PreferredDesignation)
+              OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+              WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+              OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
               WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost, project
-              OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:LegacyTag)
+              OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
               WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost, project
               WITH apoc.coll.toSet(COLLECT(structured_jobpost {
                   id: structured_jobpost.id,
@@ -608,13 +608,13 @@ export const Projects = (
             })
             .raw(
               `
-              OPTIONAL MATCH (project)<-[:HAS_PROJECT]-(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+              OPTIONAL MATCH (project)<-[:HAS_PROJECT]-(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
               WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) AND NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-              OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-              WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-              OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:LegacyTag)--(:PreferredDesignation)
+              OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+              WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+              OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
               WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost, project
-              OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:LegacyTag)
+              OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
               WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost, project
               WITH apoc.coll.toSet(COLLECT(structured_jobpost {
                   id: structured_jobpost.id,
@@ -715,14 +715,14 @@ export const Projects = (
             })
             .raw(
               `
-              OPTIONAL MATCH (project)<-[:HAS_PROJECT|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+              OPTIONAL MATCH (project)<-[:HAS_PROJECT|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
               WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((project)<-[:HAS_PROJECT]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
               AND (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) AND NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-              OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-              WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-              OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:LegacyTag)--(:PreferredDesignation)
+              OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+              WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+              OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
               WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost, project
-              OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:LegacyTag)
+              OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
               WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost, project
               WITH apoc.coll.toSet(COLLECT(structured_jobpost {
                   id: structured_jobpost.id,
@@ -788,7 +788,7 @@ export const Projects = (
                     investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                     ecosystems: [(organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
                     tags: apoc.coll.toSet([
-                      (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+                      (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
                       WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag { .* }
                     ]),
                     reviews: [
@@ -844,7 +844,7 @@ export const Projects = (
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                   ],
                   tags: apoc.coll.toSet([
-                    (project)<-[:HAS_PROJECT]-(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+                    (project)<-[:HAS_PROJECT]-(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
                     WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag { .* }
                   ])
                 } as result
@@ -881,14 +881,14 @@ export const Projects = (
             })
             .raw(
               `
-              OPTIONAL MATCH (project)<-[:HAS_PROJECT|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+              OPTIONAL MATCH (project)<-[:HAS_PROJECT|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
               WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((project)<-[:HAS_PROJECT]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
               AND (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) AND NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-              OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-              WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-              OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:LegacyTag)--(:PreferredDesignation)
+              OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+              WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+              OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
               WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost, project
-              OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:LegacyTag)
+              OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
               WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost, project
               WITH apoc.coll.toSet(COLLECT(structured_jobpost {
                   id: structured_jobpost.id,
@@ -954,7 +954,7 @@ export const Projects = (
                     investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
                     ecosystems: [(organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
                     tags: apoc.coll.toSet([
-                      (project)<-[:HAS_PROJECT]-(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+                      (project)<-[:HAS_PROJECT]-(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
                       WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag { .* }
                     ]),
                     reviews: [
@@ -1010,7 +1010,7 @@ export const Projects = (
                     (project)-[:HAS_REPOSITORY]->(repo) | repo { .* }
                   ],
                   tags: apoc.coll.toSet([
-                    (project)<-[:HAS_PROJECT]-(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+                    (project)<-[:HAS_PROJECT]-(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
                     WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag { .* }
                   ])
                 } as result
@@ -1094,13 +1094,13 @@ export const Projects = (
             .raw("AND project.id <> $id")
             .raw(
               `
-              OPTIONAL MATCH (project)<-[:HAS_PROJECT]-(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+              OPTIONAL MATCH (project)<-[:HAS_PROJECT]-(organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
               WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) AND NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-              OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag:LegacyTag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-              WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:LegacyTag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-              OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:LegacyTag)--(:PreferredDesignation)
+              OPTIONAL MATCH (structured_jobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+              WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+              OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
               WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, structured_jobpost, project
-              OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:LegacyTag)
+              OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
               WITH apoc.coll.toSet(COLLECT(CASE WHEN other IS NULL THEN tag { .* } ELSE other { .* } END)) AS tags, structured_jobpost, project
               WITH apoc.coll.toSet(COLLECT(structured_jobpost {
                   id: structured_jobpost.id,
