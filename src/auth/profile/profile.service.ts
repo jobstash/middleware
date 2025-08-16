@@ -80,6 +80,7 @@ export class ProfileService {
             RETURN user {
               .*,
               wallet: $wallet,
+              availableForWork: user.available,
               githubAvatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
               alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
               location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],

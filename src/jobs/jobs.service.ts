@@ -1,5 +1,4 @@
 import { Injectable } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import * as Sentry from "@sentry/node";
 import { addDays, differenceInHours } from "date-fns";
 import { sort } from "fast-sort";
@@ -69,7 +68,6 @@ export class JobsService {
     @InjectConnection()
     private neogma: Neogma,
     private readonly rpcService: RpcService,
-    private readonly configService: ConfigService,
     private readonly scorerService: ScorerService,
     private readonly privyService: PrivyService,
     private readonly profileService: ProfileService,
