@@ -36,7 +36,7 @@ export const Tags = (
 ): NeogmaModel<TagProps, NoRelations, TagMethods, TagStatics> =>
   ModelFactory<TagProps, NoRelations, TagStatics, TagMethods>(
     {
-      label: "LegacyTag",
+      label: "Tag",
       schema: {
         id: {
           type: "string",
@@ -77,7 +77,7 @@ export const Tags = (
             .match({
               optional: true,
               related: [
-                { label: "LegacyTag", identifier: "pt" },
+                { label: "Tag", identifier: "pt" },
                 { name: "HAS_TAG_DESIGNATION", direction: "out" },
                 { label: "PreferredDesignation" },
               ],
@@ -97,7 +97,7 @@ export const Tags = (
             .raw("CYPHER runtime = parallel")
             .match({
               related: [
-                { label: "LegacyTag", identifier: "t1" },
+                { label: "Tag", identifier: "t1" },
                 { name: "HAS_TAG_DESIGNATION", direction: "out" },
                 { label: "PairedDesignation" },
               ],
@@ -121,7 +121,7 @@ export const Tags = (
                   direction: "out",
                 },
                 {
-                  label: "LegacyTag",
+                  label: "Tag",
                   identifier: "tag",
                 },
                 { name: "HAS_TAG_DESIGNATION", direction: "out" },
@@ -167,7 +167,7 @@ export const Tags = (
                   direction: "out",
                 },
                 {
-                  label: "LegacyTag",
+                  label: "Tag",
                   identifier: "tag",
                 },
                 { name: "HAS_TAG_DESIGNATION", direction: "out" },
@@ -202,7 +202,7 @@ export const Tags = (
                   name: "HAS_TAG",
                 },
                 {
-                  label: "LegacyTag",
+                  label: "Tag",
                   identifier: "tag",
                 },
               ],
@@ -222,7 +222,7 @@ export const Tags = (
             .match({
               related: [
                 {
-                  label: "LegacyTag",
+                  label: "Tag",
                   identifier: "tag",
                 },
                 { name: "HAS_TAG_DESIGNATION", direction: "out" },
