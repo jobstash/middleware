@@ -1,5 +1,6 @@
 import { Node } from "neo4j-driver";
 import { Tag } from "../interfaces";
+import { nonZeroOrNull } from "../helpers";
 
 export class TagEntity {
   constructor(private readonly node: Node) {}
@@ -19,6 +20,11 @@ export class TagEntity {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { ...properties } = <Record<string, any>>this.node.properties;
 
-    return properties as Tag;
+    return {
+      id: properties.id,
+      name: properties.name,
+      normalizedName: properties.normalizedName,
+      createdTimestamp: nonZeroOrNull(properties.createdTimestamp),
+    };
   }
 }
