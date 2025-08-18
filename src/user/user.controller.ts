@@ -7,7 +7,7 @@ import {
   Post,
   Query,
   UseGuards,
-  UseInterceptors,
+  // UseInterceptors,
   ValidationPipe,
   Param,
   Delete,
@@ -18,7 +18,7 @@ import { UserService } from "./user.service";
 import { Permissions, Session } from "src/shared/decorators";
 import { PBACGuard } from "src/auth/pbac.guard";
 import {
-  CACHE_DURATION_15_MINUTES,
+  // CACHE_DURATION_15_MINUTES,
   CheckWalletPermissions,
 } from "src/shared/constants";
 import {
@@ -42,7 +42,7 @@ import { ScorerService } from "src/scorer/scorer.service";
 import { AddUserNoteInput } from "./dto/add-user-note.dto";
 import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
 import { NewSubscriptionInput } from "src/subscriptions/dto/new-subscription.input";
-import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
+// import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { StripeService } from "src/stripe/stripe.service";
 import { UpdateTalentListInput } from "./dto/update-talent-list.input";
 import { CreateTalentListInput } from "./dto/create-talent-list.input";
@@ -73,7 +73,7 @@ export class UserController {
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER],
   )
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
+  // @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
   async getUsersAvailableForWork(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
@@ -110,7 +110,7 @@ export class UserController {
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER],
   )
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
+  // @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
   async getTopUsers(
     @Session() { address }: SessionObject,
   ): Promise<ResponseWithOptionalData<UserAvailableForWork[]>> {

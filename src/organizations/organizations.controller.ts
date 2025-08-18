@@ -192,7 +192,7 @@ export class OrganizationsController {
   @Get("/all")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.ORG_MEMBER)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  // @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiOkResponse({
     description: "Returns a list of all organizations",
     type: Array<TinyOrg>,

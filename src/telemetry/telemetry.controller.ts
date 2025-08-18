@@ -3,13 +3,13 @@ import {
   Get,
   Query,
   UseGuards,
-  UseInterceptors,
+  // UseInterceptors,
   ValidationPipe,
 } from "@nestjs/common";
 import { TelemetryService } from "./telemetry.service";
 import { PBACGuard } from "src/auth/pbac.guard";
 import {
-  CACHE_DURATION_1_HOUR,
+  // CACHE_DURATION_1_HOUR,
   CheckWalletPermissions,
 } from "src/shared/constants";
 import { Permissions, Session } from "src/shared/decorators";
@@ -21,7 +21,7 @@ import {
 } from "src/shared/interfaces";
 import { GetJobStatsInput } from "./dto/get-job-stats.input";
 import { CustomLogger } from "src/shared/utils/custom-logger";
-import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
+// import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { UserService } from "src/user/user.service";
 import { GetDashboardJobStatsInput } from "./dto/get-dashboard-job-stats.input";
 
@@ -36,7 +36,7 @@ export class TelemetryController {
   @Get("job/views")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  // @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   async getJobViewCount(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
@@ -55,7 +55,7 @@ export class TelemetryController {
   @Get("job/applies")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  // @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   async getJobApplyCount(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
@@ -74,7 +74,7 @@ export class TelemetryController {
   @Get("dashboard/stats/jobs")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  // @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   async getDashboardStats(
     @Session() { address, permissions }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
@@ -103,7 +103,7 @@ export class TelemetryController {
   @Get("dashboard/stats/talent")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  // @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   async getDashboardTalentStats(): Promise<
     ResponseWithOptionalData<DashboardTalentStats>
   > {

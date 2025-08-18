@@ -221,7 +221,7 @@ export class JobsController {
     [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
   )
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  // @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiOkResponse({
     description: "Returns a list of featured jobs",
     type: Response<JobListResult[]>,
@@ -474,7 +474,7 @@ export class JobsController {
   @Get("/org/:id/applicants")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  // @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiOkResponse({
     description:
       "Returns a list of jobs posted by an org with corresponding applicants",
