@@ -164,6 +164,11 @@ export class ProjectCompetitorListResultEntity {
           description: notStringOrNull(jobpost?.description),
           commitment: notStringOrNull(jobpost?.commitment),
           timestamp: nonZeroOrNull(jobpost?.timestamp),
+          tags:
+            jobpost?.tags.map(tag => ({
+              ...tag,
+              createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
+            })) ?? [],
         })) ?? [],
       repos: project?.repos?.map(repo => ({ ...repo })) ?? [],
     });
