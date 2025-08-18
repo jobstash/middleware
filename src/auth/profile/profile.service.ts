@@ -959,7 +959,7 @@ export class ProfileService {
           UNWIND $skills as skillData
           WITH skillData, user
           MATCH (skill:Tag {id: skillData.id, normalizedName: skillData.normalizedName})
-          MERGE (user)-[r:HAS_SKILL]->(skill:Tag)
+          MERGE (user)-[r:HAS_SKILL]->(skill)
           SET r.canTeach = skillData.canTeach
         `,
         {
