@@ -21,7 +21,10 @@ import {
 import { SearchPillarParams } from "./dto/search-pillar.input";
 import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
 import { PBACGuard } from "src/auth/pbac.guard";
-import { CACHE_DURATION_1_HOUR, ECOSYSTEM_HEADER } from "src/shared/constants";
+import {
+  CACHE_DURATION_15_MINUTES,
+  ECOSYSTEM_HEADER,
+} from "src/shared/constants";
 import { Session } from "src/shared/decorators";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { ProfileService } from "src/auth/profile/profile.service";
@@ -41,7 +44,7 @@ export class SearchController {
 
   @Get("")
   @UseGuards(PBACGuard)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
   async search(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true })) params: SearchParams,
@@ -66,7 +69,7 @@ export class SearchController {
       "Optional header to tailor the response for a specific ecosystem",
   })
   @UseGuards(PBACGuard)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
   async searchPillar(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true })) params: SearchPillarParams,
@@ -92,7 +95,7 @@ export class SearchController {
       "Optional header to tailor the response for a specific ecosystem",
   })
   @UseGuards(PBACGuard)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
   async searchPillarItems(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
@@ -123,7 +126,7 @@ export class SearchController {
       "Optional header to tailor the response for a specific ecosystem",
   })
   @UseGuards(PBACGuard)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
   async searchPillarSlugs(
     @Session() { address }: SessionObject,
     @Query("nav") nav: SearchNav,
@@ -150,7 +153,7 @@ export class SearchController {
       "Optional header to tailor the response for a specific ecosystem",
   })
   @UseGuards(PBACGuard)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
   async searchPillarDetailsBySlug(
     @Session() { address }: SessionObject,
     @Query("nav") nav: SearchNav,
@@ -184,7 +187,7 @@ export class SearchController {
       "Optional header to tailor the response for a specific ecosystem",
   })
   @UseGuards(PBACGuard)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
   async searchPillarFilters(
     @Query(new ValidationPipe({ transform: true }))
     params: SearchPillarFiltersParams,
@@ -197,7 +200,7 @@ export class SearchController {
 
   @Get("pillar/labels")
   @UseGuards(PBACGuard)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
   async fetchPillarLabels(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
