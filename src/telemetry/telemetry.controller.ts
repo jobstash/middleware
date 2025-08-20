@@ -100,6 +100,35 @@ export class TelemetryController {
     });
   }
 
+  @Get("dashboard/stats/jobs/series")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
+  // @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  async getDashboardJobStatsSeries(
+    @Session() { address, permissions }: SessionObject,
+    @Query(new ValidationPipe({ transform: true }))
+    params: GetDashboardJobStatsInput,
+  ): Promise<ResponseWithOptionalData<{ month: string; count: number }[]>> {
+    this.logger.log(`/telemetry/dashboard/stats/jobs`);
+    const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
+
+    if (
+      (params.type === "ecosystem" &&
+        !permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER)) ||
+      (params.type === "organization" && params.id !== orgId)
+    ) {
+      return {
+        success: false,
+        message: "You are not authorized to access this resource",
+      };
+    }
+
+    return this.telemetryService.getDashboardJobStatsSeries({
+      type: params.type,
+      id: params.id,
+    });
+  }
+
   @Get("dashboard/stats/talent")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)

@@ -15,9 +15,12 @@ import {
   DashboardJobStatsEntity,
   DashboardTalentStatsEntity,
 } from "src/shared/entities";
+import * as Sentry from "@sentry/node";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Injectable()
 export class TelemetryService {
+  private readonly logger = new CustomLogger(TelemetryService.name);
   constructor(
     @InjectConnection()
     private neogma: Neogma,
@@ -45,8 +48,9 @@ export class TelemetryService {
         message: "Missing required parameters",
       };
     } else {
-      const result = await this.neogma.queryRunner.run(
-        `
+      try {
+        const result = await this.neogma.queryRunner.run(
+          `
           MATCH (org:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(job:StructuredJobpost)
           WHERE $shortUUID IS NULL OR job.shortUUID = $shortUUID
           MATCH (:User)-[r:VIEWED_DETAILS]->(job)
@@ -54,18 +58,33 @@ export class TelemetryService {
           AND ($epochEnd IS NULL OR r.createdTimestamp <= $epochEnd)
           RETURN count(DISTINCT r) as views
         `,
-        {
-          shortUUID,
-          orgId,
-          epochStart,
-          epochEnd: !!epochStart ? (epochEnd ?? now()) : null,
-        },
-      );
-      return {
-        success: true,
-        message: "Retrieved job views successfully",
-        data: intConverter((result.records[0]?.get("views") as number) ?? 0),
-      };
+          {
+            shortUUID,
+            orgId,
+            epochStart,
+            epochEnd: !!epochStart ? (epochEnd ?? now()) : null,
+          },
+        );
+        return {
+          success: true,
+          message: "Retrieved job views successfully",
+          data: intConverter((result.records[0]?.get("views") as number) ?? 0),
+        };
+      } catch (error) {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "telemetry.service",
+          });
+          Sentry.captureException(error);
+        });
+        this.logger.error(`TelemetryService::getJobViewCount ${error.message}`);
+        return {
+          success: false,
+          message: "Error retrieving job views",
+          data: 0,
+        };
+      }
     }
   }
 
@@ -79,8 +98,9 @@ export class TelemetryService {
         message: "Missing required parameters",
       };
     } else {
-      const result = await this.neogma.queryRunner.run(
-        `
+      try {
+        const result = await this.neogma.queryRunner.run(
+          `
           MATCH (org:Organization {orgId: $orgId})-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(job:StructuredJobpost)
           WHERE $shortUUID IS NULL OR job.shortUUID = $shortUUID
           MATCH (:User)-[r:APPLIED_TO]->(job)
@@ -88,18 +108,37 @@ export class TelemetryService {
           AND ($epochEnd IS NULL OR r.createdTimestamp <= $epochEnd)
           RETURN count(DISTINCT r) as applies
         `,
-        {
-          shortUUID,
-          orgId,
-          epochStart,
-          epochEnd: !!epochStart ? (epochEnd ?? now()) : null,
-        },
-      );
-      return {
-        success: true,
-        message: "Retrieved job applies successfully",
-        data: intConverter((result.records[0]?.get("applies") as number) ?? 0),
-      };
+          {
+            shortUUID,
+            orgId,
+            epochStart,
+            epochEnd: !!epochStart ? (epochEnd ?? now()) : null,
+          },
+        );
+        return {
+          success: true,
+          message: "Retrieved job applies successfully",
+          data: intConverter(
+            (result.records[0]?.get("applies") as number) ?? 0,
+          ),
+        };
+      } catch (error) {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "telemetry.service",
+          });
+          Sentry.captureException(error);
+        });
+        this.logger.error(
+          `TelemetryService::getJobApplyCount ${error.message}`,
+        );
+        return {
+          success: false,
+          message: "Error retrieving job applies",
+          data: 0,
+        };
+      }
     }
   }
 
@@ -139,7 +178,7 @@ export class TelemetryService {
               (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(:StructuredJobpost)<-[r:APPLIED_TO]-(user:User) | 1
             ]),
             totalJobCount: apoc.coll.sum([
-              (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(job:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus|JobpostOfflineStatus) | 1
+              (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(job:StructuredJobpost) | 1
             ])
           } AS stats
         `
@@ -172,21 +211,129 @@ export class TelemetryService {
             ])
           } AS stats
         `;
-    const result = await this.neogma.queryRunner.run(query, { id, epochStart });
-    return {
-      success: true,
-      message: "Retrieved dashboard job stats successfully",
-      data: new DashboardJobStatsEntity(
-        result.records[0]?.get("stats"),
-      ).getProperties(),
-    };
+    try {
+      const result = await this.neogma.queryRunner.run(query, {
+        id,
+        epochStart,
+      });
+      return {
+        success: true,
+        message: "Retrieved dashboard job stats successfully",
+        data: new DashboardJobStatsEntity(
+          result.records[0]?.get("stats"),
+        ).getProperties(),
+      };
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "telemetry.service",
+        });
+        Sentry.captureException(error);
+      });
+      this.logger.error(
+        `TelemetryService::getDashboardJobStats ${error.message}`,
+      );
+      return {
+        success: false,
+        message: "Error retrieving dashboard job stats",
+        data: null,
+      };
+    }
+  }
+
+  async getDashboardJobStatsSeries(
+    data: GetDashboardJobStatsInput,
+  ): Promise<ResponseWithOptionalData<{ month: string; count: number }[]>> {
+    const { type, id } = data;
+    const query =
+      type === "ecosystem"
+        ? `
+          /* Build month buckets anchored to first of month using APOC (13 points) */
+          WITH apoc.date.currentTimestamp() AS nowMs
+          WITH apoc.date.parse(apoc.date.format(nowMs, 'ms', 'yyyy-MM-01'), 'ms', 'yyyy-MM-dd') AS startMs, range(0, 12) AS idx
+          UNWIND idx AS i
+          WITH startMs, i
+          WITH apoc.date.parse(apoc.date.format(apoc.date.add(startMs, 'ms', -(i*30), "d"), 'ms', 'yyyy-MM-01'), 'ms', 'yyyy-MM-dd') AS mEndMs,
+            apoc.date.parse(apoc.date.format(apoc.date.add(startMs, 'ms', -((i + 1)*30), 'd'), 'ms', 'yyyy-MM-01'), 'ms', 'yyyy-MM-dd') AS mStartMs
+          CALL {
+            WITH mStartMs, mEndMs
+            MATCH (ecosystem:OrganizationEcosystem {normalizedName: $id})
+            OPTIONAL MATCH (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(job:StructuredJobpost)
+            WITH job.shortUUID as uuid, mStartMs, mEndMs, CASE WHEN job.publishedTimestamp IS NULL THEN job.firstSeenTimestamp ELSE job.publishedTimestamp END AS timestamp
+            WHERE timestamp >= mStartMs
+              AND timestamp < mEndMs
+            RETURN COUNT(DISTINCT uuid) AS cnt
+          }
+          RETURN { month: apoc.date.format(mEndMs, 'ms', 'MMMM'), count: cnt } AS monthCount
+        `
+        : `
+          /* Build month buckets anchored to first of month using APOC (13 points) */
+          WITH apoc.date.currentTimestamp() AS nowMs
+          WITH apoc.date.parse(apoc.date.format(nowMs, 'ms', 'yyyy-MM-01'), 'ms', 'yyyy-MM-dd') AS startMs, range(0, 12) AS idx
+          UNWIND idx AS i
+          WITH startMs, i
+          WITH apoc.date.parse(apoc.date.format(apoc.date.add(startMs, 'ms', -(i*30), "d"), 'ms', 'yyyy-MM-01'), 'ms', 'yyyy-MM-dd') AS mEndMs,
+            apoc.date.parse(apoc.date.format(apoc.date.add(startMs, 'ms', -((i + 1)*30), 'd'), 'ms', 'yyyy-MM-01'), 'ms', 'yyyy-MM-dd') AS mStartMs
+          CALL {
+            WITH mStartMs, mEndMs
+            MATCH (org:Organization {orgId: $id})
+            OPTIONAL MATCH (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(job:StructuredJobpost)
+            WITH job.shortUUID as uuid, mStartMs, mEndMs, CASE WHEN job.publishedTimestamp IS NULL THEN job.firstSeenTimestamp ELSE job.publishedTimestamp END AS timestamp
+            WHERE timestamp >= mStartMs
+              AND timestamp < mEndMs
+            RETURN COUNT(DISTINCT uuid) as cnt
+          }
+          RETURN { month: apoc.date.format(mEndMs, 'ms', 'MMMM'), count: cnt } AS monthCount
+        `;
+
+    try {
+      const result = await this.neogma.queryRunner.run(query, { id });
+      const seriesValue = result.records.map(record =>
+        record.get("monthCount"),
+      );
+      const rawSeries = Array.isArray(seriesValue)
+        ? (seriesValue as {
+            month: string;
+            count: number | { low: number; high: number };
+          }[])
+        : [];
+
+      const dataSeries = rawSeries.map(x => ({
+        month: x.month,
+        count: intConverter(x.count) ?? 0,
+      }));
+
+      return {
+        success: true,
+        message: "Retrieved dashboard job stats series successfully",
+        data: dataSeries,
+      };
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "telemetry.service",
+        });
+        Sentry.captureException(error);
+      });
+      this.logger.error(
+        `TelemetryService::getDashboardJobStatsSeries ${error.message}`,
+      );
+      return {
+        success: false,
+        message: "Error retrieving dashboard job stats series",
+        data: [],
+      };
+    }
   }
 
   async getDashboardTalentStats(): Promise<
     ResponseWithOptionalData<DashboardTalentStats>
   > {
-    const result = await this.neogma.queryRunner.run(
-      `
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
         /* -------- totals (global available users) -------- */
         CALL {
           MATCH (u:User {available: true})
@@ -214,14 +361,31 @@ export class TelemetryService {
           recentApplication: recentApplication
         } AS stats;
       `,
-      { epochStart: subDays(new Date(), 7).getTime(), topN: 10 },
-    );
-    return {
-      success: true,
-      message: "Retrieved dashboard talent stats successfully",
-      data: new DashboardTalentStatsEntity(
-        result.records[0]?.get("stats"),
-      ).getProperties(),
-    };
+        { epochStart: subDays(new Date(), 7).getTime(), topN: 10 },
+      );
+      return {
+        success: true,
+        message: "Retrieved dashboard talent stats successfully",
+        data: new DashboardTalentStatsEntity(
+          result.records[0]?.get("stats"),
+        ).getProperties(),
+      };
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "telemetry.service",
+        });
+        Sentry.captureException(error);
+      });
+      this.logger.error(
+        `TelemetryService::getDashboardTalentStats ${error.message}`,
+      );
+      return {
+        success: false,
+        message: "Error retrieving dashboard talent stats",
+        data: null,
+      };
+    }
   }
 }
