@@ -69,6 +69,7 @@ import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.
 import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
 import { StripeService } from "src/stripe/stripe.service";
 import { isEmpty, isEqual, map, xor } from "lodash";
+import { AccountService } from "src/auth/account/account.service";
 
 @Controller("jobs")
 @UseInterceptors(CacheInterceptor)
@@ -78,9 +79,10 @@ export class JobsController {
   constructor(
     private readonly jobsService: JobsService,
     private readonly tagsService: TagsService,
-    private readonly profileService: ProfileService,
     private readonly userService: UserService,
     private readonly stripeService: StripeService,
+    private readonly accountService: AccountService,
+    private readonly profileService: ProfileService,
     private readonly subscriptionService: SubscriptionsService,
   ) {}
 
@@ -932,6 +934,7 @@ export class JobsController {
   @Permissions(
     [CheckWalletPermissions.SUPER_ADMIN],
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
   )
   @ApiOkResponse({
     description: "Updates an existing job's metadata",
@@ -954,9 +957,15 @@ export class JobsController {
       session.address,
     );
 
+    const delegateAccess = data(
+      await this.accountService.getDelegateAccess(userOrgId, jobOrgId),
+    );
+
     if (
       userOrgId === jobOrgId ||
-      session.permissions.includes(CheckWalletPermissions.SUPER_ADMIN)
+      session.permissions.includes(CheckWalletPermissions.SUPER_ADMIN) ||
+      (session.permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER) &&
+        delegateAccess === "accepted")
     ) {
       this.logger.log(`/jobs/update/${shortUUID} ${JSON.stringify(body)}`);
       const oldJob =
@@ -1129,6 +1138,7 @@ export class JobsController {
   @Permissions(
     [CheckWalletPermissions.SUPER_ADMIN],
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
   )
   @ApiOkResponse({
     description: "Blocks a list of jobs",
@@ -1142,6 +1152,8 @@ export class JobsController {
   ): Promise<ResponseWithNoData> {
     this.logger.log(`/jobs/block`);
     try {
+      const userOrgId =
+        await this.userService.findOrgIdByMemberUserWallet(address);
       if (permissions.includes(CheckWalletPermissions.SUPER_ADMIN)) {
         return this.jobsService.blockJobs(address, dto);
       } else {
@@ -1152,9 +1164,16 @@ export class JobsController {
             if (orgId === null) {
               return false;
             } else {
+              const delegateAccess = data(
+                await this.accountService.getDelegateAccess(userOrgId, orgId),
+              );
               return (
                 (await this.userService.isOrgMember(address, orgId)) ||
-                (await this.userService.isOrgOwner(address, orgId))
+                (await this.userService.isOrgOwner(address, orgId)) ||
+                (permissions.includes(
+                  CheckWalletPermissions.ECOSYSTEM_MANAGER,
+                ) &&
+                  delegateAccess === "accepted")
               );
             }
           }),
@@ -1190,6 +1209,7 @@ export class JobsController {
   @Permissions(
     [CheckWalletPermissions.SUPER_ADMIN],
     [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
   )
   @ApiOkResponse({
     description: "Unblocks a list of jobs",
@@ -1201,8 +1221,10 @@ export class JobsController {
     @Session() { address, permissions }: SessionObject,
     @Body() dto: BlockJobsInput,
   ): Promise<ResponseWithNoData> {
-    this.logger.log(`/jobs/block`);
+    this.logger.log(`/jobs/unblock`);
     try {
+      const userOrgId =
+        await this.userService.findOrgIdByMemberUserWallet(address);
       if (permissions.includes(CheckWalletPermissions.SUPER_ADMIN)) {
         return this.jobsService.unblockJobs(address, dto);
       } else {
@@ -1213,15 +1235,22 @@ export class JobsController {
             if (orgId === null) {
               return false;
             } else {
+              const delegateAccess = data(
+                await this.accountService.getDelegateAccess(userOrgId, orgId),
+              );
               return (
                 (await this.userService.isOrgMember(address, orgId)) ||
-                (await this.userService.isOrgOwner(address, orgId))
+                (await this.userService.isOrgOwner(address, orgId)) ||
+                (permissions.includes(
+                  CheckWalletPermissions.ECOSYSTEM_MANAGER,
+                ) &&
+                  delegateAccess === "accepted")
               );
             }
           }),
         );
         if ((await access).every(x => x === true)) {
-          return this.jobsService.blockJobs(address, dto);
+          return this.jobsService.unblockJobs(address, dto);
         } else {
           throw new UnauthorizedException({
             success: false,

@@ -16,6 +16,7 @@ import { Auth0Module } from "src/auth0/auth0.module";
 import { TagsModule } from "src/tags/tags.module";
 import { SubscriptionsModule } from "src/subscriptions/subscriptions.module";
 import { StripeModule } from "src/stripe/stripe.module";
+import { AccountModule } from "src/auth/account/account.module";
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { StripeModule } from "src/stripe/stripe.module";
     forwardRef(() => UserModule),
     forwardRef(() => ProfileModule),
     forwardRef(() => PrivyModule),
+    forwardRef(() => AccountModule),
     HttpModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
