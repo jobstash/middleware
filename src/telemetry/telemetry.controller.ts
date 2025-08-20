@@ -108,7 +108,14 @@ export class TelemetryController {
     @Session() { address, permissions }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
     params: GetDashboardJobStatsInput,
-  ): Promise<ResponseWithOptionalData<{ month: string; count: number }[]>> {
+  ): Promise<
+    ResponseWithOptionalData<
+      {
+        organization: string;
+        stats: { month: string; count: number }[];
+      }[]
+    >
+  > {
     this.logger.log(`/telemetry/dashboard/stats/jobs`);
     const orgId = await this.userService.findOrgIdByMemberUserWallet(address);
 

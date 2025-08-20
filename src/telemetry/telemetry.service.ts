@@ -242,49 +242,71 @@ export class TelemetryService {
     }
   }
 
-  async getDashboardJobStatsSeries(
-    data: GetDashboardJobStatsInput,
-  ): Promise<ResponseWithOptionalData<{ month: string; count: number }[]>> {
+  async getDashboardJobStatsSeries(data: GetDashboardJobStatsInput): Promise<
+    ResponseWithOptionalData<
+      {
+        organization: string;
+        stats: { month: string; count: number }[];
+      }[]
+    >
+  > {
     const { type, id } = data;
     const query =
       type === "ecosystem"
         ? `
-          /* Build month buckets anchored to first of month using APOC (13 points) */
-          WITH apoc.date.currentTimestamp() AS nowMs
-          WITH apoc.date.parse(apoc.date.format(nowMs, 'ms', 'yyyy-MM-01'), 'ms', 'yyyy-MM-dd') AS startMs, range(0, 12) AS idx
-          UNWIND idx AS i
-          WITH startMs, i
-          WITH apoc.date.parse(apoc.date.format(apoc.date.add(startMs, 'ms', -(i*30), "d"), 'ms', 'yyyy-MM-01'), 'ms', 'yyyy-MM-dd') AS mEndMs,
-            apoc.date.parse(apoc.date.format(apoc.date.add(startMs, 'ms', -((i + 1)*30), 'd'), 'ms', 'yyyy-MM-01'), 'ms', 'yyyy-MM-dd') AS mStartMs
+          MATCH (ecosystem:OrganizationEcosystem {normalizedName: $id})
+          OPTIONAL MATCH (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM]-(org:Organization)
+          WITH org.name as organization, org.orgId as orgId
           CALL {
-            WITH mStartMs, mEndMs
-            MATCH (ecosystem:OrganizationEcosystem {normalizedName: $id})
-            OPTIONAL MATCH (ecosystem)<-[:IS_MEMBER_OF_ECOSYSTEM|HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*4]->(job:StructuredJobpost)
-            WITH job.shortUUID as uuid, mStartMs, mEndMs, CASE WHEN job.publishedTimestamp IS NULL THEN job.firstSeenTimestamp ELSE job.publishedTimestamp END AS timestamp
-            WHERE timestamp >= mStartMs
-              AND timestamp < mEndMs
-            RETURN COUNT(DISTINCT uuid) AS cnt
+            WITH orgId, organization
+            /* Build month buckets anchored to first of month using APOC (13 points) */
+            WITH apoc.date.currentTimestamp() AS nowMs, orgId
+            WITH apoc.date.parse(apoc.date.format(nowMs, 'ms', 'yyyy-MM-01'), 'ms', 'yyyy-MM-dd') AS startMs, range(0, 12) AS idx, orgId
+            UNWIND idx AS i
+            WITH orgId, startMs, i
+            WITH orgId, apoc.date.parse(apoc.date.format(apoc.date.add(startMs, 'ms', -(i*30), "d"), 'ms', 'yyyy-MM-01'), 'ms', 'yyyy-MM-dd') AS mEndMs,
+              apoc.date.parse(apoc.date.format(apoc.date.add(startMs, 'ms', -((i + 1)*30), 'd'), 'ms', 'yyyy-MM-01'), 'ms', 'yyyy-MM-dd') AS mStartMs
+            CALL {
+              WITH mStartMs, mEndMs, orgId
+              MATCH (org:Organization {orgId: orgId})
+              OPTIONAL MATCH (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(job:StructuredJobpost)
+              WITH job.shortUUID as uuid, mStartMs, mEndMs, CASE WHEN job.publishedTimestamp IS NULL THEN job.firstSeenTimestamp ELSE job.publishedTimestamp END AS timestamp
+              WHERE timestamp >= mStartMs
+                AND timestamp < mEndMs
+              RETURN COUNT(DISTINCT uuid) AS cnt
+            }
+            RETURN COLLECT({ month: apoc.date.format(mEndMs, 'ms', 'MMMM'), count: cnt }) AS stats
           }
-          RETURN { month: apoc.date.format(mEndMs, 'ms', 'MMMM'), count: cnt } AS monthCount
+          RETURN {
+            organization: organization,
+            stats: stats
+          } AS monthCount
         `
         : `
-          /* Build month buckets anchored to first of month using APOC (13 points) */
-          WITH apoc.date.currentTimestamp() AS nowMs
-          WITH apoc.date.parse(apoc.date.format(nowMs, 'ms', 'yyyy-MM-01'), 'ms', 'yyyy-MM-dd') AS startMs, range(0, 12) AS idx
-          UNWIND idx AS i
-          WITH startMs, i
-          WITH apoc.date.parse(apoc.date.format(apoc.date.add(startMs, 'ms', -(i*30), "d"), 'ms', 'yyyy-MM-01'), 'ms', 'yyyy-MM-dd') AS mEndMs,
-            apoc.date.parse(apoc.date.format(apoc.date.add(startMs, 'ms', -((i + 1)*30), 'd'), 'ms', 'yyyy-MM-01'), 'ms', 'yyyy-MM-dd') AS mStartMs
+          MATCH (org:Organization {orgId: $id})
           CALL {
-            WITH mStartMs, mEndMs
-            MATCH (org:Organization {orgId: $id})
-            OPTIONAL MATCH (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(job:StructuredJobpost)
-            WITH job.shortUUID as uuid, mStartMs, mEndMs, CASE WHEN job.publishedTimestamp IS NULL THEN job.firstSeenTimestamp ELSE job.publishedTimestamp END AS timestamp
-            WHERE timestamp >= mStartMs
-              AND timestamp < mEndMs
-            RETURN COUNT(DISTINCT uuid) as cnt
+            /* Build month buckets anchored to first of month using APOC (13 points) */
+            WITH apoc.date.currentTimestamp() AS nowMs
+            WITH apoc.date.parse(apoc.date.format(nowMs, 'ms', 'yyyy-MM-01'), 'ms', 'yyyy-MM-dd') AS startMs, range(0, 12) AS idx
+            UNWIND idx AS i
+            WITH startMs, i
+            WITH apoc.date.parse(apoc.date.format(apoc.date.add(startMs, 'ms', -(i*30), "d"), 'ms', 'yyyy-MM-01'), 'ms', 'yyyy-MM-dd') AS mEndMs,
+              apoc.date.parse(apoc.date.format(apoc.date.add(startMs, 'ms', -((i + 1)*30), 'd'), 'ms', 'yyyy-MM-01'), 'ms', 'yyyy-MM-dd') AS mStartMs
+            CALL {
+              WITH mStartMs, mEndMs
+              MATCH (org:Organization {orgId: $id})
+              OPTIONAL MATCH (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(job:StructuredJobpost)
+              WITH job.shortUUID as uuid, mStartMs, mEndMs, CASE WHEN job.publishedTimestamp IS NULL THEN job.firstSeenTimestamp ELSE job.publishedTimestamp END AS timestamp
+              WHERE timestamp >= mStartMs
+                AND timestamp < mEndMs
+              RETURN COUNT(DISTINCT uuid) as cnt
+            }
+            RETURN COLLECT({ month: apoc.date.format(mEndMs, 'ms', 'MMMM'), count: cnt }) AS stats
           }
-          RETURN { month: apoc.date.format(mEndMs, 'ms', 'MMMM'), count: cnt } AS monthCount
+          RETURN {
+            organization: org.name,
+            stats: stats
+          } AS monthCount
         `;
 
     try {
@@ -294,14 +316,20 @@ export class TelemetryService {
       );
       const rawSeries = Array.isArray(seriesValue)
         ? (seriesValue as {
-            month: string;
-            count: number | { low: number; high: number };
+            organization: string;
+            stats: {
+              month: string;
+              count: number | { low: number; high: number };
+            }[];
           }[])
         : [];
 
       const dataSeries = rawSeries.map(x => ({
-        month: x.month,
-        count: intConverter(x.count) ?? 0,
+        organization: x.organization,
+        stats: x.stats.map(y => ({
+          month: y.month,
+          count: intConverter(y.count) ?? 0,
+        })),
       }));
 
       return {
