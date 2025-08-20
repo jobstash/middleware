@@ -36,6 +36,7 @@ import { TelemetryModule } from "./telemetry/telemetry.module";
 import { EcosystemsModule } from "./ecosystems/ecosystems.module";
 import { StripeModule } from "./stripe/stripe.module";
 import { WhiteLabelBoardsModule } from "./white-label-boards/white-label-boards.module";
+import { AccountModule } from "./auth/account/account.module";
 
 @Module({
   imports: [
@@ -99,6 +100,7 @@ import { WhiteLabelBoardsModule } from "./white-label-boards/white-label-boards.
     TelemetryModule,
     EcosystemsModule,
     WhiteLabelBoardsModule,
+    AccountModule,
   ],
   controllers: [AppController],
   providers: [AppService],
