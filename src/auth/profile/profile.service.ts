@@ -339,7 +339,7 @@ export class ProfileService {
             MATCH (organization: Organization)-[:HAS_WEBSITE]->(website: Website)
             UNWIND $emails as email
             WITH email, website, organization
-            WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host = apoc.data.email(email).domain
+            WHERE email IS NOT NULL AND website IS NOT NULL AND apoc.data.url(website.url).host CONTAINS apoc.data.email(email).domain
             RETURN apoc.coll.toSet(COLLECT(organization {
               id: organization.orgId,
               name: organization.name,
