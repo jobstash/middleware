@@ -86,7 +86,9 @@ export class TelemetryController {
     if (
       (params.type === "ecosystem" &&
         !permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER)) ||
-      (params.type === "organization" && params.id !== orgId)
+      (params.type === "organization" &&
+        params.id !== orgId &&
+        !permissions.includes(CheckWalletPermissions.ORG_MEMBER))
     ) {
       return {
         success: false,
@@ -122,7 +124,9 @@ export class TelemetryController {
     if (
       (params.type === "ecosystem" &&
         !permissions.includes(CheckWalletPermissions.ECOSYSTEM_MANAGER)) ||
-      (params.type === "organization" && params.id !== orgId)
+      (params.type === "organization" &&
+        params.id !== orgId &&
+        !permissions.includes(CheckWalletPermissions.ORG_MEMBER))
     ) {
       return {
         success: false,
