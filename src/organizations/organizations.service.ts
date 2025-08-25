@@ -1332,7 +1332,7 @@ export class OrganizationsService {
         );
         return {
           success: false,
-          message: "Error adding organization",
+          message: `Error adding organization: ${response2.statusText}`,
         };
       }
     } catch (err) {
