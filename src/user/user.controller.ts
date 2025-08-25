@@ -119,7 +119,18 @@ export class UserController {
       : null;
     if (orgId) {
       this.logger.log(`/users/available/top`);
-      return this.userService.getTopUsers(orgId);
+      const subscription = data(
+        await this.subscriptionService.getSubscriptionInfoByOrgId(orgId),
+      );
+      if (subscription?.canAccessService("stashPool")) {
+        return this.userService.getTopUsers(orgId);
+      } else {
+        throw new ForbiddenException({
+          success: false,
+          message:
+            "Organization does not have an active or valid subscription to use this service",
+        });
+      }
     } else {
       throw new ForbiddenException({
         success: false,
