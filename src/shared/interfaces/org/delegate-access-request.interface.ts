@@ -16,6 +16,7 @@ export class DelegateAccessRequest {
       t.literal("pending"),
       t.literal("accepted"),
       t.literal("revoked"),
+      t.literal("expired"),
     ]),
     requestor: t.string,
     createdTimestamp: t.number,
@@ -73,7 +74,7 @@ export class DelegateAccessRequest {
     description: "The status of the delegate access request",
     example: "pending",
   })
-  status: "pending" | "accepted" | "revoked";
+  status: "pending" | "accepted" | "revoked" | "expired";
 
   @ApiProperty({
     description: "The  of the user requesting the delegate access",
@@ -145,7 +146,7 @@ export class DelegateAccessRequest {
     this.toOrgId = toOrgId;
     this.toOrgName = toOrgName;
     this.toOrgLogo = toOrgLogo;
-    this.status = status;
+    this.status = expiryTimestamp < Date.now() ? "expired" : status;
     this.requestor = requestor;
     this.createdTimestamp = createdTimestamp;
     this.expiryTimestamp = expiryTimestamp;
