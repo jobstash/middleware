@@ -95,6 +95,7 @@ export class AccountService {
             authToken: r.authToken,
             toOrgLogo: coalesce(toOrg.logoUrl, [(toOrg)-[:HAS_WEBSITE]->(website) | website.url][0])
           }
+          ORDER BY r.createdTimestamp DESC
         `,
         { orgId },
       );
