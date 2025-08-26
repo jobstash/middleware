@@ -3,13 +3,7 @@ import * as Sentry from "@sentry/node";
 import { Neogma } from "neogma";
 import { InjectConnection } from "nestjs-neogma";
 import { MailService } from "src/mail/mail.service";
-import {
-  button,
-  emailBuilder,
-  obfuscate,
-  randomToken,
-  text,
-} from "src/shared/helpers";
+import { button, emailBuilder, randomToken, text } from "src/shared/helpers";
 import {
   data,
   ResponseWithNoData,
@@ -112,7 +106,7 @@ export class AccountService {
         message: "Retrieved delegate access requests",
         data: requests.map(x => ({
           ...x,
-          authToken: x.status === "pending" ? obfuscate(x.authToken) : null,
+          authToken: x.status === "pending" ? x.authToken : null,
           link:
             x.status === "pending"
               ? `${this.configService.get("ORG_ADMIN_DOMAIN")}/delegate-access?fromOrgId=${x.fromOrgId}&toOrgId=${x.toOrgId}&authToken=${x.authToken}`
