@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
 import { AccountService } from "./account.service";
 import {
   data,
@@ -14,6 +14,7 @@ import { UserService } from "src/user/user.service";
 import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { PBACGuard } from "../pbac.guard";
+import { DelegateAccessRequest } from "src/shared/interfaces/org";
 
 @Controller("account")
 export class AccountController {
@@ -22,6 +23,33 @@ export class AccountController {
     private readonly accountService: AccountService,
     private readonly subscriptionService: SubscriptionsService,
   ) {}
+
+  @Get("delegate-access/requests")
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.USER,
+    CheckWalletPermissions.ORG_MEMBER,
+    CheckWalletPermissions.ECOSYSTEM_MANAGER,
+  )
+  async getDelegateAccessRequests(
+    @Session() { address }: SessionObject,
+    @Query("orgId") orgId: string,
+  ): Promise<ResponseWithOptionalData<DelegateAccessRequest[]>> {
+    if (!orgId) {
+      return {
+        success: false,
+        message: "Org ID is required",
+      };
+    }
+    const isMember = await this.userService.isOrgMember(address, orgId);
+    if (!isMember) {
+      return {
+        success: false,
+        message: "You are not authorized to access this resource",
+      };
+    }
+    return this.accountService.getDelegateAccessRequests(orgId);
+  }
 
   @Post("delegate-access/request")
   @UseGuards(PBACGuard)

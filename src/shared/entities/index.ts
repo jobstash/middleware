@@ -35,3 +35,4 @@ export * from "./ecosystem-job-filter-configs.entity";
 export * from "./talent-list.entity";
 export * from "./dashboard-job-stats.entity";
 export * from "./dashboard-talent-stats.entity";
+export * from "./delegate-access-request.entity";

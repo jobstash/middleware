@@ -16,6 +16,8 @@ import { DelegateAccessInput } from "./dto/delegate-access.input";
 import { RevokeDelegateAccessInput } from "./dto/revoke-delegate-access.input";
 import { UserService } from "src/user/user.service";
 import { ConfigService } from "@nestjs/config";
+import { DelegateAccessRequest } from "src/shared/interfaces/org";
+import { DelegateAccessRequestEntity } from "src/shared/entities/delegate-access-request.entity";
 
 @Injectable()
 export class AccountService {
@@ -72,6 +74,56 @@ export class AccountService {
     }
   }
 
+  async getDelegateAccessRequests(
+    orgId: string,
+  ): Promise<ResponseWithOptionalData<DelegateAccessRequest[]>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          MATCH (org:Organization)-[r:HAS_DELEGATE_ACCESS]->(toOrg:Organization)
+          WHERE org.orgId = $orgId OR toOrg.orgId = $orgId
+          RETURN r {
+            .*,
+            requestor: coalesce([(:User {wallet: r.requestorAddress})-[ru:VERIFIED_FOR_ORG {credential: "email"}]->(org) | ru.account][0], r.requestorAddress),
+            grantor: coalesce([(:User {wallet: r.grantorAddress})-[ru:VERIFIED_FOR_ORG {credential: "email"}]->(toOrg) | ru.account][0], r.grantorAddress),
+            revoker: coalesce([(:User {wallet: r.revokerAddress})-[ru:VERIFIED_FOR_ORG {credential: "email"}]->(toOrg) | ru.account][0], r.revokerAddress),
+            fromOrgId: org.orgId,
+            fromOrgName: org.name,
+            fromOrgLogo: coalesce(org.logoUrl, [(org)-[:HAS_WEBSITE]->(website) | website.url][0]),
+            toOrgId: toOrg.orgId,
+            toOrgName: toOrg.name,
+            toOrgLogo: coalesce(toOrg.logoUrl, [(toOrg)-[:HAS_WEBSITE]->(website) | website.url][0])
+          }
+        `,
+        { orgId },
+      );
+      const requests = result.records.map(record => {
+        return new DelegateAccessRequestEntity(record.get("r")).getProperties();
+      });
+      return {
+        success: true,
+        message: "Retrieved delegate access requests",
+        data: requests,
+      };
+    } catch (error) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "account.service",
+        });
+        Sentry.captureException(error);
+      });
+      this.logger.error(
+        `AccountService::getDelegateAccessRequests ${error.message}`,
+      );
+      return {
+        success: false,
+        message: "Error getting delegate access requests",
+        data: null,
+      };
+    }
+  }
+
   async requestDelegateAccess(
     requestorAddress: string,
     fromOrgId: string,
@@ -122,7 +174,7 @@ export class AccountService {
         `
           MATCH (fromOrg:Organization {orgId: $fromOrgId}),(toOrg:Organization {orgId: $toOrgId})
           MERGE (fromOrg)-[r:HAS_DELEGATE_ACCESS]->(toOrg)
-          ON CREATE SET r.createdTimestamp = timestamp(), r.expiryTimestamp = timestamp() + $expiryDurationMs, r.requestorAddress = $requestorAddress, r.status = 'pending', r.authToken = $authToken
+          ON CREATE SET r.id = randomUUID(), r.createdTimestamp = timestamp(), r.expiryTimestamp = timestamp() + $expiryDurationMs, r.requestorAddress = $requestorAddress, r.status = 'pending', r.authToken = $authToken
           RETURN r
         `,
         { fromOrgId, toOrgId, requestorAddress, authToken, expiryDurationMs },

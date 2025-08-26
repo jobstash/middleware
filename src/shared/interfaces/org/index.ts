@@ -4,3 +4,4 @@ export * from "./white-label-board.interface";
 export * from "./ecosystem-activation.interface";
 export * from "./organization-ecosystem.interface";
 export * from "./subscription-member.interface";
+export * from "./delegate-access-request.interface";
