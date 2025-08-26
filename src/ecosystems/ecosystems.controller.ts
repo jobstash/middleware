@@ -176,10 +176,10 @@ export class EcosystemsController {
 
   @Post("jobs/filters/stored")
   @UseGuards(PBACGuard)
-  @Permissions([
-    CheckWalletPermissions.USER,
-    CheckWalletPermissions.ECOSYSTEM_MANAGER,
-  ])
+  @Permissions(
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
+  )
   @ApiOkResponse({
     description: "Creates an stored filter config for an organization",
     schema: responseSchemaWrapper({
@@ -220,10 +220,10 @@ export class EcosystemsController {
 
   @Get("jobs/filters/stored")
   @UseGuards(PBACGuard)
-  @Permissions([
-    CheckWalletPermissions.USER,
-    CheckWalletPermissions.ECOSYSTEM_MANAGER,
-  ])
+  @Permissions(
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
+  )
   @ApiOkResponse({
     description: "Fetches all stored filter configs for an organization",
     schema: responseSchemaWrapper({
@@ -255,10 +255,10 @@ export class EcosystemsController {
 
   @Put("jobs/filters/stored/:id")
   @UseGuards(PBACGuard)
-  @Permissions([
-    CheckWalletPermissions.USER,
-    CheckWalletPermissions.ECOSYSTEM_MANAGER,
-  ])
+  @Permissions(
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
+  )
   @ApiOkResponse({
     description: "Updates a stored filter owned by an organization",
     schema: responseSchemaWrapper({
@@ -299,10 +299,10 @@ export class EcosystemsController {
 
   @Delete("jobs/filters/stored/:id")
   @UseGuards(PBACGuard)
-  @Permissions([
-    CheckWalletPermissions.USER,
-    CheckWalletPermissions.ECOSYSTEM_MANAGER,
-  ])
+  @Permissions(
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ECOSYSTEM_MANAGER],
+  )
   @ApiOkResponse({
     description: "Deletes a stored filter owned by an organization",
     schema: responseSchemaWrapper({
