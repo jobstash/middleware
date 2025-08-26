@@ -20,6 +20,8 @@ export class DelegateAccessRequestEntity {
       updatedTimestamp: nonZeroOrNull(this.raw.updatedTimestamp),
       grantor: notStringOrNull(this.raw.grantor),
       revoker: notStringOrNull(this.raw.revoker),
+      authToken: notStringOrNull(this.raw.authToken),
+      link: notStringOrNull(this.raw.link),
     });
   }
 }

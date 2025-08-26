@@ -24,6 +24,8 @@ export class DelegateAccessRequest {
     updatedTimestamp: t.union([t.number, t.null]),
     grantor: t.union([t.string, t.null]),
     revoker: t.union([t.string, t.null]),
+    authToken: t.union([t.string, t.null]),
+    link: t.union([t.string, t.null]),
   });
 
   @ApiProperty({
@@ -112,6 +114,18 @@ export class DelegateAccessRequest {
   })
   revoker: string | null;
 
+  @ApiProperty({
+    description: "The auth token of the delegate access request",
+    example: "123e4567-e89b-12d3-a456-426614174000",
+  })
+  authToken: string | null;
+
+  @ApiProperty({
+    description: "The link of the delegate access request",
+    example: "https://example.com/delegate-access",
+  })
+  link: string | null;
+
   constructor(raw: DelegateAccessRequest) {
     const result = DelegateAccessRequest.DelegateAccessRequestType.decode(raw);
 
@@ -138,6 +152,8 @@ export class DelegateAccessRequest {
       updatedTimestamp,
       grantor,
       revoker,
+      authToken,
+      link,
     } = raw;
     this.id = id;
     this.fromOrgId = fromOrgId;
@@ -153,5 +169,7 @@ export class DelegateAccessRequest {
     this.updatedTimestamp = updatedTimestamp;
     this.grantor = grantor;
     this.revoker = revoker;
+    this.authToken = authToken;
+    this.link = link;
   }
 }
