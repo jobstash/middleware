@@ -190,7 +190,7 @@ export class AccountService {
 
       const domain = this.configService.get("ORG_ADMIN_DOMAIN");
 
-      const delegateAccessLink = `${domain}/delegate-access?toOrgId=${fromOrgId}&authToken=${authToken}`;
+      const delegateAccessLink = `${domain}/delegate-access?fromOrgId=${fromOrgId}&toOrgId=${toOrgId}&authToken=${authToken}`;
 
       const targetOwner = data(
         await this.userService.findOrgOwnerProfileByOrgId(toOrgId),
@@ -267,11 +267,10 @@ export class AccountService {
 
   async acceptDelegateAccessRequest(
     grantorAddress: string,
-    fromOrgId: string,
     data: AcceptDelegateAccessInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const { toOrgId, authToken } = data;
+      const { fromOrgId, toOrgId, authToken } = data;
 
       const toOrg = await this.neogma.queryRunner.run(
         `

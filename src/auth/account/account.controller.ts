@@ -15,12 +15,14 @@ import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { PBACGuard } from "../pbac.guard";
 import { DelegateAccessRequest } from "src/shared/interfaces/org";
+import { ProfileService } from "../profile/profile.service";
 
 @Controller("account")
 export class AccountController {
   constructor(
     private readonly userService: UserService,
     private readonly accountService: AccountService,
+    private readonly profileService: ProfileService,
     private readonly subscriptionService: SubscriptionsService,
   ) {}
 
@@ -97,37 +99,34 @@ export class AccountController {
 
   @Post("delegate-access/accept")
   @UseGuards(PBACGuard)
-  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER)
+  @Permissions(CheckWalletPermissions.USER)
   async acceptDelegateAccessRequest(
     @Session() { address }: SessionObject,
     @Body() body: AcceptDelegateAccessInput,
   ): Promise<ResponseWithNoData> {
-    const fromOrgId =
-      await this.userService.findOrgIdByMemberUserWallet(address);
-    const subscription = data(
-      await this.subscriptionService.getSubscriptionInfoByOrgId(fromOrgId),
+    const userVerifications = data(
+      await this.profileService.getUserVerifications(address),
     );
-    if (!subscription?.isActive()) {
+
+    if (
+      !userVerifications.some(
+        verification =>
+          verification.id === body.toOrgId &&
+          verification.credential === "email",
+      )
+    ) {
       return {
         success: false,
-        message:
-          "Your organization does not have a valid or active subscription",
+        message: "You are not authorized to access this resource",
       };
     }
 
-    return this.accountService.acceptDelegateAccessRequest(
-      address,
-      fromOrgId,
-      body,
-    );
+    return this.accountService.acceptDelegateAccessRequest(address, body);
   }
 
   @Post("delegate-access/revoke")
   @UseGuards(PBACGuard)
-  @Permissions(
-    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER],
-    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER],
-  )
+  @Permissions([CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER])
   async revokeDelegateAccess(
     @Session() { address }: SessionObject,
     @Body() body: RevokeDelegateAccessInput,
