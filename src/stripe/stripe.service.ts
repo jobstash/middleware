@@ -1068,6 +1068,7 @@ export class StripeService {
 
   async initiateSubscriptionChange(
     wallet: string,
+    email: string,
     orgId: string,
     dto: ChangeSubscriptionInput,
   ): Promise<ResponseWithNoData> {
@@ -1188,11 +1189,25 @@ export class StripeService {
 
       const isUpgrade = bundleUpgraded || veriUpgraded || stashAlertActivated;
 
-      await this.stripe.subscriptions.update(externalId, {
-        proration_behavior: isUpgrade ? "always_invoice" : "none",
-        billing_cycle_anchor: isUpgrade ? "now" : "unchanged",
-        items: updateItems,
-      });
+      if (currentTier === "starter") {
+        return this.initiateNewSubscription({
+          wallet,
+          email,
+          dto: {
+            jobstash: dto.jobstash,
+            veri: dto.veri,
+            stashAlert: dto.stashAlert,
+            extraSeats: dto.extraSeats,
+            orgId,
+          },
+        });
+      } else {
+        await this.stripe.subscriptions.update(externalId, {
+          proration_behavior: isUpgrade ? "always_invoice" : "none",
+          billing_cycle_anchor: isUpgrade ? "now" : "unchanged",
+          items: updateItems,
+        });
+      }
 
       return {
         success: true,

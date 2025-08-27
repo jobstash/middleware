@@ -33,6 +33,7 @@ import { StripeService } from "src/stripe/stripe.service";
 import { ChangeSubscriptionInput } from "./dto/change-subscription.input";
 import Stripe from "stripe";
 import { SubscriptionEntity } from "src/shared/entities/subscription.entity";
+import { ProfileService } from "src/auth/profile/profile.service";
 
 @Controller("subscriptions")
 export class SubscriptionsController {
@@ -40,6 +41,7 @@ export class SubscriptionsController {
   constructor(
     private readonly userService: UserService,
     private readonly stripeService: StripeService,
+    private readonly profileService: ProfileService,
     private readonly subscriptionsService: SubscriptionsService,
   ) {}
 
@@ -334,9 +336,15 @@ export class SubscriptionsController {
     const owner = data(
       await this.userService.findOrgOwnerProfileByOrgId(orgId),
     );
-    if (owner?.wallet === address) {
+    const verifications =
+      data(await this.profileService.getUserVerifications(address)) ?? [];
+    const verified = verifications.find(
+      x => x.id === body.orgId && x.credential === "email",
+    );
+    if (owner?.wallet === address && verified) {
       return this.stripeService.initiateSubscriptionChange(
         address,
+        verified.account,
         orgId,
         body,
       );
