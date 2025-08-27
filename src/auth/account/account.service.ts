@@ -205,18 +205,18 @@ export class AccountService {
         await this.userService.findOrgOwnerProfileByOrgId(toOrgId),
       );
 
-      const targetEmail = data(
-        await this.profileService.getUserVerifications(
-          targetOwner.wallet,
-          false,
-          false,
-        ),
-      ).find(
-        verification =>
-          verification.credential === "email" && verification.id === toOrgId,
-      ).account;
+      if (targetOwner) {
+        const targetEmail = data(
+          await this.profileService.getUserVerifications(
+            targetOwner.wallet,
+            false,
+            false,
+          ),
+        ).find(
+          verification =>
+            verification.credential === "email" && verification.id === toOrgId,
+        ).account;
 
-      if (targetEmail) {
         try {
           const email = emailBuilder({
             from: this.configService.get("EMAIL"),
@@ -252,7 +252,7 @@ export class AccountService {
 
       return {
         success: true,
-        message: targetEmail
+        message: targetOwner
           ? "Delegate access request sent"
           : "Delegate access request created",
         data: delegateAccessLink,
