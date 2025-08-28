@@ -201,10 +201,6 @@ export class StripeService {
     }>
   > {
     try {
-      const subscription = await this.stripe.subscriptions.retrieve(
-        currentSubscription.externalId,
-      );
-
       if (currentSubscription.tier === "starter") {
         return {
           success: true,
@@ -221,6 +217,10 @@ export class StripeService {
           },
         };
       }
+
+      const subscription = await this.stripe.subscriptions.retrieve(
+        currentSubscription.externalId,
+      );
 
       if (subscription.canceled_at) {
         return {
