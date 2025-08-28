@@ -384,8 +384,6 @@ export class ProfileService {
 
         this.logger.log(`Persisting user verifications for ${wallet}`);
 
-        console.log(wallet, orgs);
-
         await this.neogma.queryRunner.run(
           `
           MATCH (user:User {wallet: $wallet})
