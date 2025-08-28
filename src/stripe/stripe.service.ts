@@ -142,7 +142,7 @@ export class StripeService {
         Sentry.captureException(error);
       });
       this.logger.error(
-        `StripeService::getCustomerByEmail Failed to get customer ${error.message}`,
+        `StripeService::getCustomerById Failed to get customer ${error.message}`,
       );
       return {
         success: false,
@@ -177,7 +177,7 @@ export class StripeService {
         Sentry.captureException(error);
       });
       this.logger.error(
-        `StripeService::getCustomerByEmail Failed to get customer ${error.message}`,
+        `StripeService::getCustomerBySubscriptionId Failed to get customer ${error.message}`,
       );
       return {
         success: false,
