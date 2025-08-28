@@ -298,7 +298,7 @@ export class AccountService {
 
       const result = await this.neogma.queryRunner.run(
         `
-          MATCH (fromOrg:Organization {orgId: $toOrgId})-[r:HAS_DELEGATE_ACCESS {authToken: $authToken, status: 'pending'}]->(toOrg:Organization {orgId: $fromOrgId})
+          MATCH (fromOrg:Organization {orgId: $fromOrgId})-[r:HAS_DELEGATE_ACCESS {authToken: $authToken, status: 'pending'}]->(toOrg:Organization {orgId: $toOrgId})
           WHERE r.expiryTimestamp > timestamp()
           SET r.updatedTimestamp = timestamp(), r.grantorAddress = $grantorAddress, r.status = 'accepted'
           REMOVE r.authToken
