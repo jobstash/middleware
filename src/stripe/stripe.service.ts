@@ -205,6 +205,23 @@ export class StripeService {
         currentSubscription.externalId,
       );
 
+      if (currentSubscription.tier === "starter") {
+        return {
+          success: true,
+          message: "Subscription is starter",
+          data: {
+            jobstash: null,
+            extraSeats: null,
+            veri: null,
+            stashAlert: null,
+            stashPool: null,
+            atsIntegration: null,
+            jobPromotions: null,
+            cancellationDate: null,
+          },
+        };
+      }
+
       if (subscription.canceled_at) {
         return {
           success: true,
@@ -1113,6 +1130,20 @@ export class StripeService {
         return { success: true, message: "No change required" };
       }
 
+      if (currentTier === "starter") {
+        return this.initiateNewSubscription({
+          wallet,
+          email,
+          dto: {
+            jobstash: dto.jobstash,
+            veri: dto.veri,
+            stashAlert: dto.stashAlert,
+            extraSeats: dto.extraSeats,
+            orgId,
+          },
+        });
+      }
+
       const prices = await this.getProductPrices();
       const subscription = (await this.stripe.subscriptions.retrieve(
         externalId,
@@ -1189,25 +1220,11 @@ export class StripeService {
 
       const isUpgrade = bundleUpgraded || veriUpgraded || stashAlertActivated;
 
-      if (currentTier === "starter") {
-        return this.initiateNewSubscription({
-          wallet,
-          email,
-          dto: {
-            jobstash: dto.jobstash,
-            veri: dto.veri,
-            stashAlert: dto.stashAlert,
-            extraSeats: dto.extraSeats,
-            orgId,
-          },
-        });
-      } else {
-        await this.stripe.subscriptions.update(externalId, {
-          proration_behavior: isUpgrade ? "always_invoice" : "none",
-          billing_cycle_anchor: isUpgrade ? "now" : "unchanged",
-          items: updateItems,
-        });
-      }
+      await this.stripe.subscriptions.update(externalId, {
+        proration_behavior: isUpgrade ? "always_invoice" : "none",
+        billing_cycle_anchor: isUpgrade ? "now" : "unchanged",
+        items: updateItems,
+      });
 
       return {
         success: true,
