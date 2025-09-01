@@ -1424,9 +1424,11 @@ export class SubscriptionsService {
           `
             MATCH (subscription:OrgSubscription {id: $subscriptionId})
             SET subscription.status = "active"
+            SET subscription.externalId = $externalId
           `,
           {
             subscriptionId: existingSubscription.id,
+            externalId: subscriptionId,
           },
         );
 
