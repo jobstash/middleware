@@ -626,10 +626,30 @@ export class StripeService {
 
         case "new-subscription":
           this.logger.log("Handling new subscription webhook event");
-          await this.subscriptionsService.createNewSubscription(
-            JSON.parse(metadata.calldata) as unknown as SubscriptionMetadata,
-            session.subscription as string,
+          const calldata = JSON.parse(
+            metadata.calldata,
+          ) as unknown as SubscriptionMetadata;
+          const existing = data(
+            await this.subscriptionsService.getSubscriptionInfoByOrgId(
+              calldata.orgId,
+            ),
           );
+          if (existing && existing.tier === "starter") {
+            const invoice = session.invoice as string;
+            const subscription = await this.stripe.subscriptions.retrieve(
+              session.subscription as string,
+            );
+            await this.subscriptionsService.changeSubscription(
+              calldata,
+              invoice,
+              subscription,
+            );
+          } else {
+            await this.subscriptionsService.createNewSubscription(
+              calldata,
+              session.subscription as string,
+            );
+          }
           break;
 
         default:

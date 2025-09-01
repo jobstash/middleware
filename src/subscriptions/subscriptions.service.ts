@@ -996,6 +996,51 @@ export class SubscriptionsService {
     }
   }
 
+  async getSubscriptionOwnerInfoByOrgId(
+    orgId: string,
+  ): Promise<ResponseWithOptionalData<{ orgId: string; wallet: string }>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          MATCH (org:Organization {orgId: $orgId})-[:HAS_USER_SEAT]->(userSeat:OrgUserSeat { seatType: "owner" })<-[:OCCUPIES]-(user:User)
+          RETURN {
+            orgId: org.orgId,
+            wallet: user.wallet
+          } as info
+        `,
+        { orgId },
+      );
+      const info = result.records[0]?.get("info");
+      if (info) {
+        return {
+          success: true,
+          message: "Retrieved subscription owner info successfully",
+          data: info,
+        };
+      } else {
+        return {
+          success: false,
+          message: "Subscription not found",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "subscriptions.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `SubscriptionsService::getSubscriptionOwnerInfoByOrgId ${err.message}`,
+      );
+      return {
+        success: false,
+        message: `Error retrieving subscription owner info`,
+      };
+    }
+  }
+
   async renewSubscription(
     externalId: string,
     amount: number,
@@ -1265,16 +1310,19 @@ export class SubscriptionsService {
   }
 
   async changeSubscription(
-    dto: Omit<SubscriptionMetadata, "orgId" | "wallet">,
+    dto: Omit<SubscriptionMetadata, "orgId" | "wallet"> & {
+      orgId?: string;
+      wallet?: string;
+    },
     invoiceId: string,
     subscription: Stripe.Subscription,
   ): Promise<ResponseWithNoData> {
     try {
       this.logger.log("Changing subscription");
       const subscriptionId = subscription.id;
-      const ownerInfo = data(
-        await this.getSubscriptionOwnerInfoByExternalId(subscriptionId),
-      );
+      const ownerInfo = dto.orgId
+        ? data(await this.getSubscriptionOwnerInfoByOrgId(dto.orgId))
+        : data(await this.getSubscriptionOwnerInfoByExternalId(subscriptionId));
 
       if (!ownerInfo) {
         this.logger.log("Subscription owner not found");
@@ -1298,7 +1346,9 @@ export class SubscriptionsService {
       }
 
       const existingSubscription = data(
-        await this.getSubscriptionInfoByExternalId(subscriptionId),
+        dto.orgId
+          ? await this.getSubscriptionInfoByOrgId(dto.orgId)
+          : await this.getSubscriptionInfoByExternalId(subscriptionId),
       );
       if (!existingSubscription) {
         this.logger.log("Subscription not found");
