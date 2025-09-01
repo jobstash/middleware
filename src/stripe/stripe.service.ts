@@ -865,7 +865,6 @@ export class StripeService {
       }
 
       const { externalId } = existing;
-
       const sub = (await this.stripe.subscriptions.retrieve(externalId, {
         expand: ["latest_invoice.payment_intent"],
       })) as Stripe.Subscription;
