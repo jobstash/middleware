@@ -1243,7 +1243,7 @@ export class ProfileService {
         UNWIND $tagsUsed as data
         WITH data, ghu, user
         MATCH (repo:GithubRepository {id: $id}), (tag:Tag {normalizedName: data.normalizedName})
-        MERGE (user)-[s:HAS_SKILL]->(tag:Tag)
+        MERGE (user)-[s:HAS_SKILL]->(tag)
         SET s.canTeach = data.canTeach
         MERGE (ghu)-[:USED_TAG]->(tag)-[:USED_ON]->(repo)
       `,
