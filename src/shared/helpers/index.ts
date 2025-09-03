@@ -665,128 +665,115 @@ export const slugify = (str: string | null | undefined): string => {
   return slug;
 };
 
-export function sprinkleProtectedJobs(jobs: JobListResult[]): JobListResult[] {
-  if (jobs.length <= 1) return jobs;
+function makeRng(seed: number) {
+  let t = seed >>> 0;
+  return function rand(): number {
+    t += 0x6d2b79f5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
-  // Fast path: use typed arrays for better performance
-  const protectedIndices = new Uint16Array(jobs.length);
-  const publicIndices = new Uint16Array(jobs.length);
-  let protectedCount = 0;
-  let publicCount = 0;
+interface MixOptions {
+  /** Size of the "priority window" we care about, default 100 */
+  N?: number;
+  /** How many from B must appear within the first N; default min(B.length, ceil(0.25*N)) */
+  targetBInFirstN?: number;
+  /** Max random jitter around evenly spaced B positions (in indices), default auto */
+  maxJitter?: number;
+  /** Seed for reproducible randomness; if omitted, Math.random() is used */
+  seed?: number;
+}
 
-  // Single pass separation (faster than filter)
-  for (let i = 0; i < jobs.length; i++) {
-    if (jobs[i].access === "protected") {
-      protectedIndices[protectedCount++] = i;
+/**
+ * Mix B into A so that exactly kB of B appear within the first N results,
+ * roughly evenly spaced but with jitter so it doesn't look mechanical.
+ *
+ * - Preserves internal order of A and of B.
+ * - After the first N, remaining items are appended A-then-B (preserving each list's order).
+ */
+function interleaveSemiRandom<A extends JobListResult, B extends JobListResult>(
+  A: A[],
+  B: B[],
+  opts: MixOptions = {},
+): (A | B)[] {
+  const N = opts.N ?? 100;
+  const kB = Math.max(
+    0,
+    Math.min(B.length, N, opts.targetBInFirstN ?? Math.ceil(0.25 * N)),
+  );
+
+  if (N <= 0 || kB === 0 || B.length === 0) {
+    return [...A, ...B];
+  }
+
+  const rng = opts.seed != null ? makeRng(opts.seed) : Math.random;
+  const maxJitter = opts.maxJitter ?? Math.max(1, Math.floor(N / (kB * 3)));
+
+  const idealPositions: number[] = [];
+  for (let i = 0; i < kB; i++) {
+    const pos = Math.round(((i + 0.5) * N) / kB - 0.5);
+    idealPositions.push(Math.max(0, Math.min(N - 1, pos)));
+  }
+
+  const positions: number[] = [];
+  let lastPlaced = -1;
+  for (let i = 0; i < idealPositions.length; i++) {
+    const base = idealPositions[i];
+    const jitter = Math.floor((rng() * 2 - 1) * maxJitter);
+    let candidate = base + jitter;
+
+    const minAllowed = lastPlaced + 1;
+    const maxAllowed = N - (kB - i);
+    candidate = Math.max(candidate, minAllowed);
+    candidate = Math.min(candidate, maxAllowed);
+
+    positions.push(candidate);
+    lastPlaced = candidate;
+  }
+
+  const aIdxEnd = Math.min(A.length, N);
+  let ai = 0;
+  let bi = 0;
+  let pi = 0;
+  const firstWindow: (A | B)[] = [];
+
+  for (let i = 0; i < N; i++) {
+    const shouldPlaceB = pi < positions.length && i === positions[pi];
+
+    if (shouldPlaceB && bi < B.length) {
+      firstWindow.push(B[bi++]);
+      pi++;
+    } else if (ai < aIdxEnd) {
+      firstWindow.push(A[ai++]);
+    } else if (bi < B.length && pi < positions.length) {
+      firstWindow.push(B[bi++]);
+      pi++;
+    } else if (ai < A.length) {
+      firstWindow.push(A[ai++]);
+    } else if (bi < B.length) {
+      firstWindow.push(B[bi++]);
     } else {
-      publicIndices[publicCount++] = i;
+      break;
     }
   }
 
-  // Early return if no mixing needed
-  if (protectedCount === 0 || publicCount === 0) return jobs;
+  const rest: (A | B)[] = [];
+  while (bi < B.length) rest.push(B[bi++]);
+  while (ai < A.length) rest.push(A[ai++]);
 
-  // Pre-allocate result array
-  const result = new Array(jobs.length);
-  let resultIndex = 0;
+  return firstWindow.concat(rest);
+}
 
-  // Place first protected job at the very top
-  result[resultIndex++] = jobs[protectedIndices[0]];
+export function sprinkleProtectedJobs(jobs: JobListResult[]): JobListResult[] {
+  const protectedJobs = jobs.filter(job => job.access === "protected");
+  const publicJobs = jobs.filter(job => job.access === "public");
 
-  let protectedIndex = 1; // Start from second protected job
-  let publicIndex = 0;
-
-  // For very small protected sets (< 3%), concentrate them in first 100 positions
-  const isVerySmallSubset = protectedCount / jobs.length < 0.03;
-
-  if (isVerySmallSubset) {
-    // Calculate base spacing within first 100 positions
-    const baseSpacing = Math.floor(100 / (protectedCount * 1.5));
-
-    // Fibonacci-based spacing multipliers for less obvious distribution
-    const spacingMultipliers = [1, 2, 3, 5, 8, 13];
-    let multiplierIndex = 0;
-
-    // Place protected jobs with variable spacing in first 100 positions
-    while (protectedIndex < protectedCount && resultIndex < 100) {
-      // Calculate variable spacing using multiplier
-      const currentSpacing = Math.max(
-        baseSpacing * (spacingMultipliers[multiplierIndex] / 5),
-        3,
-      );
-
-      // Add public jobs batch
-      const chunk = Math.min(
-        Math.floor(currentSpacing),
-        publicCount - publicIndex,
-        100 - resultIndex,
-      );
-
-      for (let i = 0; i < chunk; i++) {
-        result[resultIndex++] = jobs[publicIndices[publicIndex++]];
-      }
-
-      // Add protected job if we haven't hit position 100
-      if (resultIndex < 100) {
-        result[resultIndex++] = jobs[protectedIndices[protectedIndex++]];
-      }
-
-      // Cycle through multipliers
-      multiplierIndex = (multiplierIndex + 2) % spacingMultipliers.length;
-    }
-
-    // Fast append remaining jobs
-    while (publicIndex < publicCount) {
-      result[resultIndex++] = jobs[publicIndices[publicIndex++]];
-    }
-    while (protectedIndex < protectedCount) {
-      result[resultIndex++] = jobs[protectedIndices[protectedIndex++]];
-    }
-  } else {
-    // Standard distribution for larger protected sets
-    const baseSpacing = Math.max(
-      Math.floor(publicCount / (protectedCount - 1)),
-      1,
-    );
-
-    let protectedIndex = 1;
-    let publicIndex = 0;
-
-    // Prime numbers for spacing variation
-    const primeFactors = [2, 3, 5, 7, 11];
-    let primeIndex = 0;
-
-    // Main distribution loop
-    while (publicIndex < publicCount) {
-      const variation = primeFactors[primeIndex] / 3;
-      const spacing = Math.max(Math.floor(baseSpacing * variation), 2);
-
-      // Bulk copy public jobs
-      const chunk = Math.min(spacing, publicCount - publicIndex);
-      for (let i = 0; i < chunk; i++) {
-        result[resultIndex++] = jobs[publicIndices[publicIndex++]];
-      }
-
-      // Insert protected job if available
-      if (protectedIndex < protectedCount) {
-        result[resultIndex++] = jobs[protectedIndices[protectedIndex++]];
-      }
-
-      // Cycle through prime factors
-      primeIndex = (primeIndex + 2) % primeFactors.length;
-    }
-  }
-
-  // Fill any remaining slots (shouldn't usually be needed, but ensures no undefineds)
-  while (resultIndex < jobs.length) {
-    if (publicIndex < publicCount) {
-      result[resultIndex++] = jobs[publicIndices[publicIndex++]];
-    } else if (protectedIndex < protectedCount) {
-      result[resultIndex++] = jobs[protectedIndices[protectedIndex++]];
-    }
-  }
-
-  return result;
+  return interleaveSemiRandom(publicJobs, protectedJobs, {
+    N: Math.floor(jobs.length * 0.5),
+    targetBInFirstN: Math.floor(protectedJobs.length * 0.5),
+  });
 }
 
 export const isValidFilterConfig = (value: string): boolean =>
