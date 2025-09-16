@@ -735,7 +735,7 @@ export class SubscriptionsService {
           MATCH (org:Organization {orgId: $orgId})-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)
           OPTIONAL MATCH (subscription)-[:HAS_SERVICE]->(svc)
           WITH subscription,
-              CASE WHEN subscription.expiryTimestamp > now THEN "inactive" ELSE "active" END AS status,
+              CASE WHEN subscription.expiryTimestamp > now AND subscription.status = "active" THEN "active" ELSE "inactive" END AS status,
               apoc.agg.maxItems(CASE WHEN svc:JobstashBundle THEN svc END, svc.expiryTimestamp, 1) AS bAgg,
               apoc.agg.maxItems(CASE WHEN svc:JobPromotions  THEN svc END, svc.expiryTimestamp, 1) AS jpAgg,
               apoc.agg.maxItems(CASE WHEN svc:VeriAddon     THEN svc END, svc.expiryTimestamp, 1) AS vAgg,
@@ -864,7 +864,7 @@ export class SubscriptionsService {
           OPTIONAL MATCH (subscription)-[:HAS_SERVICE]->(svc)
 
           WITH subscription,
-              CASE WHEN subscription.expiryTimestamp > now THEN "inactive" ELSE "active" END AS status,
+              CASE WHEN subscription.expiryTimestamp > now AND subscription.status = "active" THEN "active" ELSE "inactive" END AS status,
               apoc.agg.maxItems(CASE WHEN svc:JobstashBundle THEN svc END, svc.expiryTimestamp, 1) AS bAgg,
               apoc.agg.maxItems(CASE WHEN svc:JobPromotions  THEN svc END, svc.expiryTimestamp, 1) AS jpAgg,
               apoc.agg.maxItems(CASE WHEN svc:VeriAddon     THEN svc END, svc.expiryTimestamp, 1) AS vAgg,
@@ -1915,7 +1915,7 @@ export class SubscriptionsService {
           MATCH (org)-[:HAS_USER_SEAT]->(userSeat:OrgUserSeat { seatType: "owner" })<-[:OCCUPIES]-(user:User)
           OPTIONAL MATCH (subscription)-[:HAS_SERVICE]->(svc)
           WITH subscription,
-              CASE WHEN subscription.expiryTimestamp > now THEN "inactive" ELSE "active" END AS status,
+              CASE WHEN subscription.expiryTimestamp > now AND subscription.status = "active" THEN "active" ELSE "inactive" END AS status,
               apoc.agg.maxItems(CASE WHEN svc:JobstashBundle THEN svc END, svc.expiryTimestamp, 1) AS bAgg,
               apoc.agg.maxItems(CASE WHEN svc:JobPromotions  THEN svc END, svc.expiryTimestamp, 1) AS jpAgg,
               apoc.agg.maxItems(CASE WHEN svc:VeriAddon     THEN svc END, svc.expiryTimestamp, 1) AS vAgg,
