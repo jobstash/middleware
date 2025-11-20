@@ -9,25 +9,25 @@ export const JOBSTASH_QUOTA: {
   starter: {
     veri: 10,
     stashPool: false,
-    atsIntegration: true,
+    atsIntegration: false,
     jobPromotions: 0,
   },
   growth: {
-    veri: 250,
+    veri: 100,
     stashPool: true,
-    atsIntegration: true,
+    atsIntegration: false,
     jobPromotions: 0,
   },
   pro: {
     veri: 500,
     stashPool: true,
-    atsIntegration: true,
+    atsIntegration: false,
     jobPromotions: 1,
   },
   max: {
     veri: 1000,
     stashPool: true,
-    atsIntegration: true,
+    atsIntegration: false,
     jobPromotions: 2,
   },
 };
