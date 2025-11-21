@@ -771,8 +771,12 @@ export function sprinkleProtectedJobs(jobs: JobListResult[]): JobListResult[] {
   const publicJobs = jobs.filter(job => job.access === "public");
 
   return interleaveSemiRandom(publicJobs, protectedJobs, {
-    N: Math.max(100, Math.floor(jobs.length * 0.4)),
-    targetBInFirstN: Math.floor(protectedJobs.length * 0.7),
+    // Expand the priority window to ensure enough room for protected jobs
+    N: Math.min(200, Math.max(100, Math.floor(jobs.length * 0.5))),
+    // Aim to place all (or nearly all) protected jobs within the first N
+    targetBInFirstN: Math.min(protectedJobs.length, 200),
+    // Reduce jitter to avoid drifting too many protected jobs past N under heavy A density
+    maxJitter: 2,
   });
 }
 
