@@ -1,8 +1,8 @@
 export const JOBSTASH_BUNDLE_PRICING = {
   starter: 0,
   growth: 29,
-  pro: 49,
-  max: 99,
+  pro: 150,
+  max: 299,
 };
 
 export const VERI_BUNDLE_PRICING = {
