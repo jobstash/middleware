@@ -1296,10 +1296,12 @@ export class JobsController {
     }>
   > {
     this.logger.log(`/jobs/promote/${uuid}?flag=${flag}`);
+    this.logger.log(`Session data: ${JSON.stringify(session)}`);
     if (session) {
       const { address } = session;
       const userOrgId =
         await this.userService.findOrgIdByMemberUserWallet(address);
+      this.logger.log(`Found user org id: ${userOrgId}`);
       if (userOrgId) {
         this.logger.log(
           `User org id ${userOrgId} found, checking subscription`,
@@ -1327,6 +1329,9 @@ export class JobsController {
             message: "Job promoted successfully",
           };
         } else {
+          this.logger.log(
+            `User org id ${userOrgId} does not have quota left for job promotions, initiating payment`,
+          );
           return this.stripeService.initiateJobPromotionPayment(
             uuid,
             ecosystem,
@@ -1334,6 +1339,7 @@ export class JobsController {
           );
         }
       } else {
+        this.logger.log(`No user org id found, initiating payment`);
         return this.stripeService.initiateJobPromotionPayment(
           uuid,
           ecosystem,
@@ -1341,6 +1347,7 @@ export class JobsController {
         );
       }
     } else {
+      this.logger.log(`No session found, initiating payment`);
       return this.stripeService.initiateJobPromotionPayment(
         uuid,
         ecosystem,
