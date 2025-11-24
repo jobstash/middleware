@@ -1301,9 +1301,18 @@ export class JobsController {
       const userOrgId =
         await this.userService.findOrgIdByMemberUserWallet(address);
       if (userOrgId) {
+        this.logger.log(
+          `User org id ${userOrgId} found, checking subscription`,
+        );
         const subscription = data(
           await this.subscriptionService.getSubscriptionInfoByOrgId(userOrgId),
         );
+        this.logger.log(`Subscription data: ${JSON.stringify(subscription)}`);
+
+        this.logger.log(
+          `Checking job promotion access: ${subscription?.canAccessService("jobPromotions")}`,
+        );
+
         if (subscription?.canAccessService("jobPromotions")) {
           await this.jobsService.handleJobPromotion(uuid);
           await this.subscriptionService.recordMeteredServiceUsage(
