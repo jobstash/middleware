@@ -19,6 +19,7 @@ import { Neogma } from "neogma";
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import {
+  dropPublicJobsFromOrgsWithOnlineExpertJobs,
   generateOrgAggregateRating,
   generateOrgAggregateRatings,
   nonZeroOrNull,
@@ -1355,6 +1356,12 @@ export class EcosystemsService {
       .filter(jobFilters)
       .map(x => new EcosystemJobListResultEntity(x).getProperties());
 
+    // Drop public jobs from orgs that have online expert jobs
+    const filteredWithExpertRule = dropPublicJobsFromOrgsWithOnlineExpertJobs(
+      filtered,
+      job => job.online,
+    );
+
     const getSortParam = (jlr: EcosystemJobListResult): number => {
       const p1 =
         jlr?.organization?.projects.sort(
@@ -1394,7 +1401,7 @@ export class EcosystemsService {
 
     let final = [];
     if (!order || order === "desc") {
-      final = sort<EcosystemJobListResult>(filtered).by([
+      final = sort<EcosystemJobListResult>(filteredWithExpertRule).by([
         { desc: (job): boolean => job.featured },
         { asc: (job): number => job.featureStartDate },
         {
@@ -1404,7 +1411,7 @@ export class EcosystemsService {
         { desc: (job): number => getSortParam(job) },
       ]);
     } else {
-      final = sort<EcosystemJobListResult>(filtered).by([
+      final = sort<EcosystemJobListResult>(filteredWithExpertRule).by([
         { desc: (job): boolean => job.featured },
         { asc: (job): number => job.featureStartDate },
         {
@@ -1422,9 +1429,14 @@ export class EcosystemsService {
 
   async getEcosystemJobs(ecosystem: string): Promise<JobListResult[]> {
     const jobs = await this.getJobsListResults([ecosystem]);
+    const onlineJobs = jobs.filter(z => z.online);
+    // Drop public jobs from orgs that have online expert jobs
+    const filteredJobs = dropPublicJobsFromOrgsWithOnlineExpertJobs(
+      onlineJobs,
+      () => true, // All jobs in this array are already online
+    );
     return sort(
-      jobs
-        .filter(z => z.online)
+      filteredJobs
         .map(x => new JobListResultEntity(x).getProperties()),
     ).desc(x => x.timestamp);
   }

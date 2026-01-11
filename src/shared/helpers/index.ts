@@ -780,6 +780,53 @@ export function sprinkleProtectedJobs(jobs: JobListResult[]): JobListResult[] {
   });
 }
 
+/**
+ * Drops public jobs from organizations that have at least one online expert (protected) job.
+ *
+ * Business Rule: If an organization has any ONLINE expert job (access === "protected"),
+ * drop all non-expert (public) jobs from that organization in the output.
+ *
+ * @param jobs Array of job results
+ * @param isJobOnline Optional function to check if job is online.
+ *                    Defaults to () => true (for services that only fetch online jobs).
+ *                    For EcosystemJobListResult, pass (job) => job.online
+ */
+export function dropPublicJobsFromOrgsWithOnlineExpertJobs<
+  T extends {
+    access: "public" | "protected";
+    organization: { orgId: string } | null;
+  }
+>(jobs: T[], isJobOnline: (job: T) => boolean = () => true): T[] {
+  // Step 1: Identify orgs with at least one ONLINE expert job
+  const orgsWithOnlineExpertJobs = new Set<string>();
+
+  for (const job of jobs) {
+    if (
+      job.access === "protected" &&
+      job.organization?.orgId &&
+      isJobOnline(job)
+    ) {
+      orgsWithOnlineExpertJobs.add(job.organization.orgId);
+    }
+  }
+
+  // Step 2: Filter out public jobs from those orgs
+  return jobs.filter(job => {
+    // Always keep protected/expert jobs
+    if (job.access === "protected") {
+      return true;
+    }
+
+    // Keep public jobs without an organization
+    if (!job.organization?.orgId) {
+      return true;
+    }
+
+    // Drop public jobs from orgs that have online expert jobs
+    return !orgsWithOnlineExpertJobs.has(job.organization.orgId);
+  });
+}
+
 export const isValidFilterConfig = (value: string): boolean =>
   value !== "unspecified" &&
   value !== "undefined" &&

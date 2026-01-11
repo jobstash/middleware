@@ -16,6 +16,7 @@ import {
   JobpostFolderEntity,
 } from "src/shared/entities";
 import {
+  dropPublicJobsFromOrgsWithOnlineExpertJobs,
   notStringOrNull,
   paginate,
   publicationDateRangeGenerator,
@@ -840,6 +841,10 @@ export class JobsService {
       .filter(jobFilters)
       .map(x => new JobListResultEntity(x).getProperties());
 
+    // Drop public jobs from orgs that have online expert jobs
+    const filteredWithExpertRule =
+      dropPublicJobsFromOrgsWithOnlineExpertJobs(filtered);
+
     const getSortParam = (jlr: JobListResult): number => {
       const p1 =
         jlr?.organization?.projects.sort(
@@ -879,7 +884,7 @@ export class JobsService {
 
     let final = [];
     if (!order || order === "desc") {
-      final = sort<JobListResult>(filtered).by([
+      final = sort<JobListResult>(filteredWithExpertRule).by([
         { desc: (job): boolean => job.featured },
         { asc: (job): number => job.featureStartDate },
         {
@@ -889,7 +894,7 @@ export class JobsService {
         { desc: (job): number => getSortParam(job) },
       ]);
     } else {
-      final = sort<JobListResult>(filtered).by([
+      final = sort<JobListResult>(filteredWithExpertRule).by([
         { desc: (job): boolean => job.featured },
         { asc: (job): number => job.featureStartDate },
         {

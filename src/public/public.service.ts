@@ -8,6 +8,7 @@ import {
   JobListResultEntity,
 } from "src/shared/entities";
 import {
+  dropPublicJobsFromOrgsWithOnlineExpertJobs,
   slugify,
   paginate,
   notStringOrNull,
@@ -460,6 +461,10 @@ export class PublicService {
       })),
     );
 
+    // Drop public jobs from orgs that have online expert jobs
+    const filteredWithExpertRule =
+      dropPublicJobsFromOrgsWithOnlineExpertJobs(filtered);
+
     const getSortParam = (jlr: JobListResult): number => {
       const p1 =
         jlr?.organization?.projects.sort(
@@ -499,7 +504,7 @@ export class PublicService {
 
     let final = [];
     if (!order || order === "desc") {
-      final = sort<JobListResult>(filtered).by([
+      final = sort<JobListResult>(filteredWithExpertRule).by([
         { desc: (job): boolean => job.featured },
         { asc: (job): number => job.featureStartDate },
         {
@@ -509,7 +514,7 @@ export class PublicService {
         { desc: (job): number => getSortParam(job) },
       ]);
     } else {
-      final = sort<JobListResult>(filtered).by([
+      final = sort<JobListResult>(filteredWithExpertRule).by([
         { desc: (job): boolean => job.featured },
         { asc: (job): number => job.featureStartDate },
         {
