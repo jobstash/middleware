@@ -41,7 +41,7 @@ export type RawJobFilters = {
   hacks?: string[] | null;
   token?: string[] | null;
   onboardIntoWeb3?: string[] | null;
-  ethSeasonOfInternships?: string[] | null;
+  expertJobs?: string[] | null;
   ecosystems?: string[] | null;
   organizations?: string[] | null;
   seniority?: string[] | null;
@@ -140,8 +140,8 @@ export class JobFilterConfigsEntity {
       ),
       token: this.getSingleSelectPresets("token"),
       onboardIntoWeb3: this.getSingleSelectPresets("onboardIntoWeb3"),
-      ethSeasonOfInternships: this.getSingleSelectPresets(
-        "ethSeasonOfInternships",
+      expertJobs: this.getSingleSelectPresets(
+        "expertJobs",
       ),
       order: this.getSingleSelectPresets("order"),
       orderBy: this.getSingleSelectPresets("orderBy"),

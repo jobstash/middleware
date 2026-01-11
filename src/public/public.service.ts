@@ -230,7 +230,7 @@ export class PublicService {
       ecosystems: ecosystemFilterList,
       token,
       onboardIntoWeb3,
-      ethSeasonOfInternships,
+      expertJobs,
       query,
       order,
       orderBy,
@@ -440,8 +440,8 @@ export class PublicService {
         (!commitmentFilterList ||
           commitmentFilterList.includes(slugify(commitment))) &&
         (onboardIntoWeb3 === null || jlr.onboardIntoWeb3 === onboardIntoWeb3) &&
-        (ethSeasonOfInternships === null ||
-          jlr.ethSeasonOfInternships === ethSeasonOfInternships) &&
+        (expertJobs === null ||
+          (jlr.access === "protected") === expertJobs) &&
         (!query || matchesQuery) &&
         (!tagFilterList ||
           tags.filter(tag => tagFilterList.includes(slugify(tag.name))).length >
