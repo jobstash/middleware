@@ -247,9 +247,12 @@ export class JobsService {
       const queryResult = await this.neogma.queryRunner.run(generatedQuery, {
         ecosystem: ecosystem ?? null,
       });
+      this.logger.debug(`Executed query for ecosystem: ${ecosystem ?? "all"}`);
+      this.logger.debug(`Query returned ${queryResult.records.length} records`);
       const resultSet = queryResult.records.map(
         record => record.get("result") as JobListResult,
       );
+      this.logger.debug(`Mapping results to JobListResultEntity`);
       for (const result of resultSet) {
         results.push(new JobListResultEntity(result).getProperties());
       }
@@ -790,8 +793,7 @@ export class JobsService {
         (!commitmentFilterList ||
           commitmentFilterList.includes(slugify(commitment))) &&
         (onboardIntoWeb3 === null || jlr.onboardIntoWeb3 === onboardIntoWeb3) &&
-        (expertJobs === null ||
-          (jlr.access === "protected") === expertJobs) &&
+        (expertJobs === null || (jlr.access === "protected") === expertJobs) &&
         (!query || matchesQuery) &&
         (!tagFilterList ||
           tags.filter(tag => tagFilterList.includes(slugify(tag.name))).length >
