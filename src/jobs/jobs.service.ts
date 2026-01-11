@@ -244,6 +244,9 @@ export class JobsService {
     `;
 
     try {
+      this.logger.debug(
+        `Generating jobs list for ecosystem: ${ecosystem ?? "all"}`,
+      );
       const queryResult = await this.neogma.queryRunner.run(generatedQuery, {
         ecosystem: ecosystem ?? null,
       });
