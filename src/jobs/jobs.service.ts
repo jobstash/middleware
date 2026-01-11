@@ -243,21 +243,53 @@ export class JobsService {
       } AS result
     `;
 
+    this.logger.log("Starting getJobsListResults");
+
     try {
-      this.logger.debug(
+      this.logger.log(
         `Generating jobs list for ecosystem: ${ecosystem ?? "all"}`,
       );
       const queryResult = await this.neogma.queryRunner.run(generatedQuery, {
         ecosystem: ecosystem ?? null,
       });
-      this.logger.debug(`Executed query for ecosystem: ${ecosystem ?? "all"}`);
-      this.logger.debug(`Query returned ${queryResult.records.length} records`);
+      this.logger.log(`Executed query for ecosystem: ${ecosystem ?? "all"}`);
+      this.logger.log(`Query returned ${queryResult.records.length} records`);
       const resultSet = queryResult.records.map(
         record => record.get("result") as JobListResult,
       );
-      this.logger.debug(`Mapping results to JobListResultEntity`);
-      for (const result of resultSet) {
-        results.push(new JobListResultEntity(result).getProperties());
+      this.logger.log(`Mapping results to JobListResultEntity`);
+
+      for (const [i, result] of resultSet.entries()) {
+        try {
+          const entity = new JobListResultEntity(result).getProperties();
+          results.push(entity);
+        } catch (err) {
+          const info = {
+            index: i,
+            id: (result as any)?.id,
+            shortUUID: (result as any)?.shortUUID,
+            url: (result as any)?.url,
+            title: (result as any)?.title,
+          };
+
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "entity-mapping",
+              source: "jobs.service",
+            });
+            scope.setExtra("failed_result", info);
+            // If you want, you can also attach the raw result, but it can be huge:
+            // scope.setExtra("raw_result", result);
+            Sentry.captureException(err);
+          });
+
+          const msg = err instanceof Error ? err.message : String(err);
+          this.logger.error(
+            `JobsService::getJobsListResults mapping failed ${msg} - info: ${JSON.stringify(info)}`,
+          );
+
+          continue;
+        }
       }
       this.logger.log(`Found ${results.length} jobs`);
     } catch (err) {
