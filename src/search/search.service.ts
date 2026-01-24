@@ -11,6 +11,12 @@ import {
   paginate,
   slugify,
 } from "src/shared/helpers";
+import { subDays, startOfDay, endOfDay } from "date-fns";
+import {
+  PillarPageData,
+  PillarJob,
+  ParsedPillarSlug,
+} from "./dto/pillar-page.output";
 import {
   MultiSelectFilter,
   PaginatedData,
@@ -1707,6 +1713,316 @@ export class SearchService {
         Sentry.captureException(err);
       });
       this.logger.error(`SearchService::searchPillarFilters ${err.message}`);
+    }
+  }
+
+  /**
+   * Parse a pillar slug to extract the pillar type and value
+   * @param slug - The full slug with prefix (e.g., "s-senior", "t-typescript")
+   * @returns ParsedPillarSlug with pillarType, value, and prefix
+   */
+  private parsePillarSlug(slug: string): ParsedPillarSlug | null {
+    const prefixMatch = slug.match(/^([^-]+)/);
+    if (!prefixMatch) return null;
+
+    const prefix = prefixMatch[1];
+    const value = slug.match(/^[^-]+-(.*)/)?.[1] ?? null;
+
+    if (!value) return null;
+
+    // Find the pillar type for the jobs nav
+    const jobsPillarMappings = NAV_PILLAR_SLUG_PREFIX_MAPPINGS["jobs"];
+    const pillarType = Object.entries(jobsPillarMappings).find(
+      ([, p]) => p === prefix,
+    )?.[0];
+
+    if (!pillarType) return null;
+
+    return { pillarType, value, prefix };
+  }
+
+  /**
+   * Build a Cypher WHERE clause based on the pillar type and value
+   * @param pillarType - The type of pillar (e.g., "seniority", "tags", "organizations")
+   * @param value - The normalized value to filter by
+   * @returns Object containing the filter clause and any required parameters
+   */
+  private buildPillarFilterClause(
+    pillarType: string,
+    value: string,
+  ): { clause: string; params: Record<string, unknown> } {
+    const seniorityMap: Record<string, string> = {
+      intern: "1",
+      junior: "2",
+      senior: "3",
+      lead: "4",
+      head: "5",
+    };
+
+    switch (pillarType) {
+      case "tags":
+        // Tags have normalizedName property
+        return {
+          clause: `EXISTS((sj)-[:HAS_TAG]->(:Tag {normalizedName: $filterValue}))`,
+          params: { filterValue: value },
+        };
+
+      case "classifications":
+        // JobpostClassification only has 'name', no normalizedName - remove separators and compare
+        return {
+          clause: `size([(sj)-[:HAS_CLASSIFICATION]->(cl:JobpostClassification) WHERE toLower(replace(replace(cl.name, ' ', ''), '_', '')) = $filterValue | cl]) > 0`,
+          params: { filterValue: value.toLowerCase().replace(/-/g, "") },
+        };
+
+      case "locations":
+        // Split slug by hyphens and check ALL parts exist in location
+        // "lyon-france" → ["lyon", "france"], check all in "Lyon, France"
+        return {
+          clause: `all(word IN split($filterValue, '-') WHERE toLower(sj.location) CONTAINS word)`,
+          params: { filterValue: value.toLowerCase() },
+        };
+
+      case "commitments":
+        // JobpostCommitment only has 'name', no normalizedName - remove separators and compare
+        return {
+          clause: `size([(sj)-[:HAS_COMMITMENT]->(co:JobpostCommitment) WHERE toLower(replace(replace(co.name, ' ', ''), '_', '')) = $filterValue | co]) > 0`,
+          params: { filterValue: value.toLowerCase().replace(/-/g, "") },
+        };
+
+      case "locationTypes":
+        // JobpostLocationType only has 'name', no normalizedName - remove separators and compare
+        return {
+          clause: `size([(sj)-[:HAS_LOCATION_TYPE]->(lt:JobpostLocationType) WHERE toLower(replace(replace(lt.name, ' ', ''), '_', '')) = $filterValue | lt]) > 0`,
+          params: { filterValue: value.toLowerCase().replace(/-/g, "") },
+        };
+
+      case "organizations":
+        // Organization has normalizedName property - use anonymous node to avoid variable conflict
+        return {
+          clause: `EXISTS((sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(:Organization {normalizedName: $filterValue}))`,
+          params: { filterValue: value },
+        };
+
+      case "seniority":
+        const seniorityValue = seniorityMap[value.toLowerCase()] ?? value;
+        return {
+          clause: `sj.seniority = $filterValue`,
+          params: { filterValue: seniorityValue },
+        };
+
+      case "investors":
+        return {
+          clause: `EXISTS((sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(:Organization)-[:HAS_FUNDING_ROUND]->(:FundingRound)-[:HAS_INVESTOR]->(:Investor {normalizedName: $filterValue}))`,
+          params: { filterValue: value },
+        };
+
+      case "fundingRounds":
+        // FundingRound uses 'roundName', no normalizedName - remove separators and compare
+        return {
+          clause: `size([(sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(:Organization)-[:HAS_FUNDING_ROUND]->(fr:FundingRound) WHERE toLower(replace(replace(fr.roundName, ' ', ''), '_', '')) = $filterValue | fr]) > 0`,
+          params: { filterValue: value.toLowerCase().replace(/-/g, "") },
+        };
+
+      default:
+        return { clause: "true", params: {} };
+    }
+  }
+
+  /**
+   * Get pillar page data with filtered jobs using database-level filtering
+   * Returns all jobs from the past 30 days matching the pillar filter
+   * @param slug - Pillar slug with prefix (e.g., "s-senior", "t-typescript")
+   * @param ecosystem - Optional ecosystem filter
+   * @returns ResponseWithOptionalData containing title, description, and filtered jobs
+   */
+  async getPillarPageData(
+    slug: string,
+    ecosystem?: string,
+  ): Promise<ResponseWithOptionalData<PillarPageData>> {
+    try {
+      // Parse the slug to get pillar type and value
+      const parsed = this.parsePillarSlug(slug);
+      if (!parsed) {
+        return {
+          success: false,
+          message: `Invalid slug format: ${slug}`,
+        };
+      }
+
+      const { pillarType, value } = parsed;
+
+      // Get title and description
+      const headerText = await this.fetchHeaderText("jobs", pillarType, value);
+      if (!headerText) {
+        return {
+          success: true,
+          message: "Pillar not found",
+          data: null,
+        };
+      }
+
+      // Build the filter clause
+      const { clause: filterClause, params: filterParams } =
+        this.buildPillarFilterClause(pillarType, value);
+
+      // Fixed 30-day date range
+      const now = Date.now();
+      const thirtyDaysAgo = subDays(now, 30);
+      const startDate = startOfDay(thirtyDaysAgo).getTime();
+      const endDate = endOfDay(now).getTime();
+
+      // Build and execute the optimized Cypher query (no pagination)
+      const jobsQuery = `
+        CYPHER runtime = parallel
+        MATCH (sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        ${ecosystem ? `AND EXISTS((sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem}))` : ""}
+        AND ${filterClause}
+
+        OPTIONAL MATCH (sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(org:Organization)
+
+        WITH sj, org
+        OPTIONAL MATCH (sj)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+        AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
+
+        WITH sj, org, tag
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+        WITH sj, org, tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
+        WITH sj, org, CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
+
+        WITH sj, org, collect(DISTINCT {id: canonicalTag.id, name: canonicalTag.name, normalizedName: canonicalTag.normalizedName}) as tags
+
+        RETURN {
+          id: sj.id,
+          shortUUID: sj.shortUUID,
+          title: sj.title,
+          url: sj.url,
+          summary: sj.summary,
+          salary: sj.salary,
+          minimumSalary: sj.minimumSalary,
+          maximumSalary: sj.maximumSalary,
+          salaryCurrency: sj.salaryCurrency,
+          paysInCrypto: sj.paysInCrypto,
+          offersTokenAllocation: sj.offersTokenAllocation,
+          seniority: CASE sj.seniority
+            WHEN '1' THEN 'Intern'
+            WHEN '2' THEN 'Junior'
+            WHEN '3' THEN 'Senior'
+            WHEN '4' THEN 'Lead'
+            WHEN '5' THEN 'Head'
+            ELSE sj.seniority
+          END,
+          timestamp: COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp),
+          commitment: [(sj)-[:HAS_COMMITMENT]->(c:JobpostCommitment) | c.name][0],
+          locationType: [(sj)-[:HAS_LOCATION_TYPE]->(lt:JobpostLocationType) | lt.name][0],
+          classification: [(sj)-[:HAS_CLASSIFICATION]->(cl:JobpostClassification) | cl.name][0],
+          location: sj.location,
+          access: COALESCE(sj.access, 'public'),
+          featured: COALESCE(sj.featured, false),
+          featureStartDate: sj.featureStartDate,
+          featureEndDate: sj.featureEndDate,
+          onboardIntoWeb3: COALESCE(sj.onboardIntoWeb3, false),
+          organization: CASE WHEN org IS NOT NULL THEN {
+            id: org.id,
+            name: org.name,
+            normalizedName: org.normalizedName,
+            orgId: org.orgId,
+            website: [(org)-[:HAS_WEBSITE]->(website) | website.url][0],
+            summary: org.summary,
+            location: org.location,
+            description: org.description,
+            logoUrl: org.logoUrl,
+            headcountEstimate: org.headcountEstimate,
+            fundingRounds: [(org)-[:HAS_FUNDING_ROUND]->(fr:FundingRound) WHERE fr.id IS NOT NULL | {
+              id: fr.id,
+              date: fr.date,
+              roundName: fr.roundName,
+              raisedAmount: fr.raisedAmount
+            }],
+            investors: [(org)-[:HAS_FUNDING_ROUND]->(:FundingRound)-[:HAS_INVESTOR]->(inv:Investor) | {
+              id: inv.id,
+              name: inv.name,
+              normalizedName: inv.normalizedName
+            }]
+          } ELSE null END,
+          tags: [t IN tags WHERE t.name IS NOT NULL | t]
+        } as job
+        ORDER BY job.featured DESC, job.timestamp DESC
+        LIMIT 20
+      `;
+
+      const queryParams = {
+        ...filterParams,
+        startDate,
+        endDate,
+        ecosystem: ecosystem ?? null,
+      };
+
+      const jobsResult = await this.neogma.queryRunner.run(
+        jobsQuery,
+        queryParams,
+      );
+
+      const jobs: PillarJob[] =
+        jobsResult.records
+          ?.map(record => {
+            const job = record.get("job");
+            const org = job.organization;
+            return {
+              ...job,
+              salary: intConverter(job.salary) || null,
+              minimumSalary: intConverter(job.minimumSalary) || null,
+              maximumSalary: intConverter(job.maximumSalary) || null,
+              timestamp: intConverter(job.timestamp),
+              featureStartDate: intConverter(job.featureStartDate) || null,
+              featureEndDate: intConverter(job.featureEndDate) || null,
+              tags: (job.tags ?? []).filter(
+                (t: { name: string | null }) => t.name !== null,
+              ),
+              organization: org
+                ? {
+                    ...org,
+                    headcountEstimate: intConverter(org.headcountEstimate) || null,
+                    fundingRounds: (org.fundingRounds ?? []).map(
+                      (fr: Record<string, unknown>) => ({
+                        ...fr,
+                        date: intConverter(fr.date as number),
+                        raisedAmount: intConverter(fr.raisedAmount as number) || null,
+                      }),
+                    ),
+                    investors: org.investors ?? [],
+                  }
+                : null,
+            };
+          })
+          .filter(Boolean) ?? [];
+
+      return {
+        success: true,
+        message: "Retrieved pillar page data",
+        data: {
+          title: headerText.title,
+          description: headerText.description,
+          jobs,
+        },
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "search.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`SearchService::getPillarPageData ${err.message}`);
+      return {
+        success: false,
+        message: "Error retrieving pillar page data",
+      };
     }
   }
 }

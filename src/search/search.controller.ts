@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Headers,
+  Param,
   Query,
   UseGuards,
   UseInterceptors,
@@ -23,6 +24,7 @@ import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
 import { PBACGuard } from "src/auth/pbac.guard";
 import {
   CACHE_DURATION_15_MINUTES,
+  CACHE_DURATION_1_HOUR,
   ECOSYSTEM_HEADER,
 } from "src/shared/constants";
 import { Session } from "src/shared/decorators";
@@ -31,7 +33,8 @@ import { ProfileService } from "src/auth/profile/profile.service";
 import { FetchPillarItemLabelsInput } from "./dto/fetch-pillar-item-labels.input";
 import { SearchParams } from "./dto/search.input";
 import { SearchPillarFiltersParams } from "./dto/search-pillar-filters-params.input";
-import { ApiHeader } from "@nestjs/swagger";
+import { PillarPageData } from "./dto/pillar-page.output";
+import { ApiHeader, ApiOperation } from "@nestjs/swagger";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 
 @Controller("search")
@@ -219,5 +222,36 @@ export class SearchController {
       await this.profileService.logSearchInteraction(address, query);
     }
     return this.searchService.fetchPillarItemLabels(params);
+  }
+
+  @Get("pillar/page/static/:slug")
+  @ApiOperation({
+    summary: "Get static pillar page data with filtered jobs",
+    description:
+      "Returns title, description, and all jobs from the past 30 days matching the pillar filter. Optimized for static site generation.",
+  })
+  @ApiHeader({
+    name: ECOSYSTEM_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific ecosystem",
+  })
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  async getStaticPillarPage(
+    @Session() { address }: SessionObject,
+    @Param("slug") slug: string,
+    @Headers(ECOSYSTEM_HEADER)
+    ecosystem: string | undefined,
+  ): Promise<ResponseWithOptionalData<PillarPageData>> {
+    const query = JSON.stringify({
+      slug,
+      ecosystem: ecosystem ?? null,
+    });
+    this.logger.log(`/search/pillar/page/static/${slug} ${query}`);
+    if (address) {
+      await this.profileService.logSearchInteraction(address, query);
+    }
+    return this.searchService.getPillarPageData(slug, ecosystem);
   }
 }
