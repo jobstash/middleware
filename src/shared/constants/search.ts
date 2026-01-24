@@ -66,6 +66,12 @@ export const NAV_PILLAR_QUERY_MAPPINGS: Record<
       "CYPHER runtime = pipelined MATCH (:Organization)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_LOCATION_TYPE]->(locationType:JobpostLocationType) RETURN DISTINCT locationType.name as item",
     classifications:
       "CYPHER runtime = pipelined MATCH (:Organization)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_CLASSIFICATION]->(classification:JobpostClassification) RETURN DISTINCT classification.name as item",
+    organizations:
+      "CYPHER runtime = pipelined MATCH (org:Organization)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation) RETURN DISTINCT org.name as item",
+    investors:
+      "CYPHER runtime = pipelined MATCH (org:Organization)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation) WITH DISTINCT org MATCH (org)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor:Investor) RETURN DISTINCT investor.name as item",
+    fundingRounds:
+      "CYPHER runtime = pipelined MATCH (org:Organization)<-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation) WITH DISTINCT org MATCH (org)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) RETURN DISTINCT funding_round.roundName as item",
   },
   vcs: null,
 };
@@ -111,6 +117,9 @@ export const NAV_FILTER_LABEL_MAPPINGS: Record<
     commitments: "Commitments",
     locationTypes: "Location Types",
     classifications: "Classifications",
+    organizations: "Organizations",
+    investors: "Investors",
+    fundingRounds: "Funding Rounds",
   },
   vcs: null,
 };
@@ -137,10 +146,13 @@ export const NAV_PILLAR_ORDERING: Record<SearchNav, string[]> = {
   ],
   jobs: [
     "classifications",
+    "organizations",
     "tags",
     "locationTypes",
     "locations",
     "commitments",
+    "investors",
+    "fundingRounds",
   ],
   vcs: ["names"],
 };
@@ -176,6 +188,9 @@ export const NAV_FILTER_CONFIGS: Record<SearchNav, string[] | null> = {
     "commitments",
     "locationTypes",
     "classifications",
+    "organizations",
+    "investors",
+    "fundingRounds",
   ],
   vcs: null,
 };
@@ -286,7 +301,10 @@ export const NAV_FILTER_CONFIG_QUERY_MAPPINGS: Record<
       locations: [structured_jobpost.location],
       commitments: apoc.coll.toSet([(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name]),
       locationTypes: apoc.coll.toSet([(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name]),
-      classifications: apoc.coll.toSet([(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name])
+      classifications: apoc.coll.toSet([(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name]),
+      organizations: apoc.coll.toSet([(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(org:Organization) | org.name]),
+      investors: apoc.coll.toSet([(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(org:Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor:Investor) | investor.name]),
+      fundingRounds: apoc.coll.toSet([(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(org:Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round.roundName])
     } as config
   `,
   vcs: null,
@@ -336,5 +354,8 @@ export const NAV_PILLAR_SLUG_PREFIX_MAPPINGS: Record<
     tags: "t",
     commitments: "co",
     locationTypes: "lt",
+    organizations: "o",
+    investors: "i",
+    fundingRounds: "fr",
   },
 };
