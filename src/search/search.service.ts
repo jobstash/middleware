@@ -962,11 +962,20 @@ export class SearchService {
         title: `${title} ${capitalize(pillar)}`,
         description: `A list of ${lowerCase(title)} ${pillar}${item ? ` called ${item}` : ""}`,
       };
-    } else {
-      return (
-        item
-          ? await this.neogma.queryRunner.run(
-              `
+    }
+
+    // Handle new job pillars with programmatic SEO templates
+    if (nav === "jobs" && typeof pillar === "string") {
+      const jobsPillarText = this.getJobsPillarText(pillar, item);
+      if (jobsPillarText) {
+        return jobsPillarText;
+      }
+    }
+
+    return (
+      item
+        ? await this.neogma.queryRunner.run(
+            `
             CYPHER runtime = pipelined
             MATCH (pillar:PillarItem {nav: $nav, pillar: $pillar, item: $item})
             RETURN {
@@ -974,10 +983,10 @@ export class SearchService {
               description: pillar.description
             } as text
       `,
-              { nav, pillar, item: slugify(item) },
-            )
-          : await this.neogma.queryRunner.run(
-              `
+            { nav, pillar, item: slugify(item) },
+          )
+        : await this.neogma.queryRunner.run(
+            `
             CYPHER runtime = pipelined
             MATCH (pillar:Pillar {nav: $nav, pillar: $pillar})
             RETURN {
@@ -985,10 +994,92 @@ export class SearchService {
               description: pillar.description
             } as text
       `,
-              { nav, pillar, item },
-            )
-      ).records[0]?.get("text") as { title: string; description: string };
+            { nav, pillar, item },
+          )
+    ).records[0]?.get("text") as { title: string; description: string };
+  }
+
+  private getJobsPillarText(
+    pillar: string,
+    item?: string,
+  ): { title: string; description: string } | null {
+    if (!item) return null;
+
+    const displayName = this.formatDisplayName(item);
+
+    switch (pillar) {
+      case "organizations":
+        return {
+          title: `${displayName} Jobs - Web3 & Crypto Careers`,
+          description: `Explore crypto jobs at ${displayName}. Join the ${displayName} team and build the future of web3. Browse open positions and apply today.`,
+        };
+
+      case "seniority":
+        return this.getSeniorityText(item, displayName);
+
+      case "investors":
+        return {
+          title: `Jobs at ${displayName} Portfolio Companies`,
+          description: `Find web3 jobs at companies backed by ${displayName}. Join crypto startups and blockchain projects in the ${displayName} portfolio.`,
+        };
+
+      case "fundingRounds":
+        return {
+          title: `${displayName} Crypto Jobs - Web3 Opportunities`,
+          description: `Find web3 jobs at ${displayName} funded companies. Join crypto startups and blockchain projects at this funding stage.`,
+        };
+
+      default:
+        return null;
     }
+  }
+
+  private formatDisplayName(slug: string): string {
+    return slug
+      .split("-")
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  }
+
+  private getSeniorityText(
+    item: string,
+    displayName: string,
+  ): { title: string; description: string } {
+    const seniorityMap: Record<string, { title: string; description: string }> =
+      {
+        intern: {
+          title: "Web3 Internships - Entry Level Crypto Jobs",
+          description:
+            "Discover web3 internship opportunities to kickstart your crypto career. Gain hands-on blockchain experience at top companies hiring interns.",
+        },
+        junior: {
+          title: "Junior Web3 Jobs - Entry Level Crypto Careers",
+          description:
+            "Find junior web3 positions perfect for early career professionals. Explore entry-level crypto roles with growth potential in blockchain.",
+        },
+        senior: {
+          title: "Senior Web3 Jobs - Experienced Crypto Roles",
+          description:
+            "Browse senior web3 positions for experienced professionals. Find crypto roles that leverage your blockchain expertise.",
+        },
+        lead: {
+          title: "Lead Web3 Jobs - Crypto Leadership Positions",
+          description:
+            "Explore lead positions in web3. Find crypto roles where you can mentor teams, drive blockchain architecture, and shape product direction.",
+        },
+        head: {
+          title: "Head of Web3 Jobs - Executive Crypto Careers",
+          description:
+            "Discover executive positions in web3. Lead departments, set strategic direction, and make high-impact decisions at crypto companies.",
+        },
+      };
+
+    return (
+      seniorityMap[item.toLowerCase()] ?? {
+        title: `${displayName} Web3 Jobs - Crypto Careers`,
+        description: `Find ${displayName.toLowerCase()}-level web3 positions. Explore crypto opportunities matching your experience level.`,
+      }
+    );
   }
 
   async getPillar(
