@@ -418,8 +418,16 @@ export const FILTER_CONFIG_PRESETS = {
       kind: FilterKind.MULTI_SELECT,
       prefix: null,
     },
-    organizations: {
+    seniority: {
       position: 6,
+      label: "Seniority",
+      show: true,
+      googleAnalyticsEventName: "filter_search_seniority",
+      kind: FilterKind.MULTI_SELECT,
+      prefix: null,
+    },
+    organizations: {
+      position: 7,
       label: "Organizations",
       show: true,
       googleAnalyticsEventName: "filter_search_organizations",
@@ -427,7 +435,7 @@ export const FILTER_CONFIG_PRESETS = {
       prefix: null,
     },
     investors: {
-      position: 7,
+      position: 8,
       label: "Investors",
       show: true,
       googleAnalyticsEventName: "filter_search_investors",
@@ -435,7 +443,7 @@ export const FILTER_CONFIG_PRESETS = {
       prefix: null,
     },
     fundingRounds: {
-      position: 8,
+      position: 9,
       label: "Funding Rounds",
       show: true,
       googleAnalyticsEventName: "filter_search_funding_rounds",
@@ -443,7 +451,7 @@ export const FILTER_CONFIG_PRESETS = {
       prefix: null,
     },
     order: {
-      position: 9,
+      position: 10,
       label: "Order",
       show: true,
       googleAnalyticsEventName: "filter_search_order",
@@ -451,7 +459,7 @@ export const FILTER_CONFIG_PRESETS = {
       options: SINGLE_SELECT_OPTIONS.jobs.order,
     },
     orderBy: {
-      position: 10,
+      position: 11,
       label: "Order By",
       show: true,
       googleAnalyticsEventName: "filter_search_order_by",
@@ -541,6 +549,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
     tags: "tags",
     commitments: "commitments",
     locationTypes: "locationTypes",
+    seniority: "seniority",
     organizations: "organizations",
     investors: "investors",
     fundingRounds: "fundingRounds",
@@ -620,6 +629,7 @@ export const FILTER_PARAM_KEY_REVERSE_PRESETS = {
     tags: "tags",
     commitments: "commitments",
     locationTypes: "locationTypes",
+    seniority: "seniority",
     organizations: "organizations",
     investors: "investors",
     fundingRounds: "fundingRounds",
