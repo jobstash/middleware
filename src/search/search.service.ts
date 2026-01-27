@@ -1776,6 +1776,30 @@ export class SearchService {
   }
 
   /**
+   * Resolve a location slug value to ALL original DB locations that match
+   * Required because the same slug can map to multiple DB values due to:
+   * - Accented vs non-accented characters (São Paulo vs Sao Paulo)
+   * - Trailing/leading whitespace variations
+   * @param slugValue - The slugified location value (e.g., "sao-paulo-brazil")
+   * @returns Array of all matching DB location strings
+   */
+  private async resolveLocationSlugs(
+    slugValue: string,
+  ): Promise<string[]> {
+    const query = `
+      CYPHER runtime = pipelined
+      MATCH (sj:StructuredJobpost)
+      WHERE sj.location IS NOT NULL
+      RETURN DISTINCT sj.location as location
+    `;
+    const result = await this.neogma.queryRunner.run(query);
+    const locations = result.records.map(r => r.get("location") as string);
+
+    // Find ALL locations whose slugified form matches
+    return locations.filter(loc => slugify(loc) === slugValue);
+  }
+
+  /**
    * Build a Cypher WHERE clause based on the pillar type and value
    * @param pillarType - The type of pillar (e.g., "seniority", "tags", "organizations")
    * @param value - The normalized value to filter by
@@ -1804,29 +1828,36 @@ export class SearchService {
       case "classifications":
         // JobpostClassification only has 'name', no normalizedName - remove separators and compare
         return {
-          clause: `size([(sj)-[:HAS_CLASSIFICATION]->(cl:JobpostClassification) WHERE toLower(replace(replace(cl.name, ' ', ''), '_', '')) = $filterValue | cl]) > 0`,
+          clause: `size([(sj)-[:HAS_CLASSIFICATION]->(cl:JobpostClassification) WHERE toLower(replace(replace(replace(cl.name, ' ', ''), '_', ''), '-', '')) = $filterValue | cl]) > 0`,
           params: { filterValue: value.toLowerCase().replace(/-/g, "") },
         };
 
       case "locations":
-        // Split slug by hyphens and check ALL parts exist in location
-        // "lyon-france" → ["lyon", "france"], check all in "Lyon, France"
+        // Check if value is a JSON array (resolved locations) or plain string (direct match)
+        if (value.startsWith("[")) {
+          // Resolved locations - use IN clause for exact matches
+          return {
+            clause: `sj.location IN $filterValues`,
+            params: { filterValues: JSON.parse(value) as string[] },
+          };
+        }
+        // Direct match - normalize both sides (works for non-accented locations)
         return {
-          clause: `all(word IN split($filterValue, '-') WHERE toLower(sj.location) CONTAINS word)`,
-          params: { filterValue: value.toLowerCase() },
+          clause: `toLower(replace(replace(replace(replace(sj.location, ' ', ''), '/', ''), '-', ''), ',', '')) CONTAINS $filterValue`,
+          params: { filterValue: value.toLowerCase().replace(/-/g, "") },
         };
 
       case "commitments":
         // JobpostCommitment only has 'name', no normalizedName - remove separators and compare
         return {
-          clause: `size([(sj)-[:HAS_COMMITMENT]->(co:JobpostCommitment) WHERE toLower(replace(replace(co.name, ' ', ''), '_', '')) = $filterValue | co]) > 0`,
+          clause: `size([(sj)-[:HAS_COMMITMENT]->(co:JobpostCommitment) WHERE toLower(replace(replace(replace(co.name, ' ', ''), '_', ''), '-', '')) = $filterValue | co]) > 0`,
           params: { filterValue: value.toLowerCase().replace(/-/g, "") },
         };
 
       case "locationTypes":
         // JobpostLocationType only has 'name', no normalizedName - remove separators and compare
         return {
-          clause: `size([(sj)-[:HAS_LOCATION_TYPE]->(lt:JobpostLocationType) WHERE toLower(replace(replace(lt.name, ' ', ''), '_', '')) = $filterValue | lt]) > 0`,
+          clause: `size([(sj)-[:HAS_LOCATION_TYPE]->(lt:JobpostLocationType) WHERE toLower(replace(replace(replace(lt.name, ' ', ''), '_', ''), '-', '')) = $filterValue | lt]) > 0`,
           params: { filterValue: value.toLowerCase().replace(/-/g, "") },
         };
 
@@ -1895,9 +1926,13 @@ export class SearchService {
         };
       }
 
+      // For locations, we try direct Cypher match first (fast path)
+      // Only fallback to expensive JS-based resolution if no jobs found
+      const filterValue = value;
+
       // Build the filter clause
       const { clause: filterClause, params: filterParams } =
-        this.buildPillarFilterClause(pillarType, value);
+        this.buildPillarFilterClause(pillarType, filterValue);
 
       // Fixed 30-day date range
       const now = Date.now();
@@ -2035,7 +2070,80 @@ export class SearchService {
           })
           .filter(Boolean) ?? [];
 
-      // If no jobs found, return not found response
+      // If no jobs found for locations, try fallback with resolved locations
+      // This handles accented characters (São Paulo) that Cypher can't transliterate
+      if (jobs.length === 0 && pillarType === "locations") {
+        const resolvedLocations = await this.resolveLocationSlugs(value);
+        if (resolvedLocations.length > 0) {
+          // Retry with resolved locations (exact match via IN clause)
+          const { clause: fallbackClause, params: fallbackParams } =
+            this.buildPillarFilterClause(
+              pillarType,
+              JSON.stringify(resolvedLocations),
+            );
+
+          const fallbackQuery = jobsQuery.replace(filterClause, fallbackClause);
+          const fallbackResult = await this.neogma.queryRunner.run(
+            fallbackQuery,
+            {
+              ...fallbackParams,
+              startDate,
+              endDate,
+              ecosystem: ecosystem ?? null,
+            },
+          );
+
+          const fallbackJobs: PillarJob[] =
+            fallbackResult.records
+              ?.map(record => {
+                const job = record.get("job");
+                const org = job.organization;
+                return {
+                  ...job,
+                  salary: intConverter(job.salary) || null,
+                  minimumSalary: intConverter(job.minimumSalary) || null,
+                  maximumSalary: intConverter(job.maximumSalary) || null,
+                  timestamp: intConverter(job.timestamp),
+                  featureStartDate: intConverter(job.featureStartDate) || null,
+                  featureEndDate: intConverter(job.featureEndDate) || null,
+                  tags: (job.tags ?? []).filter(
+                    (t: { name: string | null }) => t.name !== null,
+                  ),
+                  organization: org
+                    ? {
+                        ...org,
+                        headcountEstimate:
+                          intConverter(org.headcountEstimate) || null,
+                        fundingRounds: (org.fundingRounds ?? []).map(
+                          (fr: Record<string, unknown>) => ({
+                            ...fr,
+                            date: intConverter(fr.date as number),
+                            raisedAmount:
+                              intConverter(fr.raisedAmount as number) || null,
+                          }),
+                        ),
+                        investors: org.investors ?? [],
+                      }
+                    : null,
+                };
+              })
+              .filter(Boolean) ?? [];
+
+          if (fallbackJobs.length > 0) {
+            return {
+              success: true,
+              message: "Retrieved pillar page data",
+              data: {
+                title: headerText.title,
+                description: headerText.description,
+                jobs: fallbackJobs,
+              },
+            };
+          }
+        }
+      }
+
+      // No jobs found after all attempts
       if (jobs.length === 0) {
         return {
           success: true,
