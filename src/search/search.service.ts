@@ -1819,7 +1819,7 @@ export class SearchService {
       case "fundingRounds":
         // FundingRound uses 'roundName', no normalizedName - remove separators and compare
         return {
-          clause: `size([(sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(:Organization)-[:HAS_FUNDING_ROUND]->(fr:FundingRound) WHERE toLower(replace(replace(fr.roundName, ' ', ''), '_', '')) = $filterValue | fr]) > 0`,
+          clause: `size([(sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(:Organization)-[:HAS_FUNDING_ROUND]->(fr:FundingRound) WHERE toLower(replace(replace(replace(fr.roundName, ' ', ''), '_', ''), '-', '')) = $filterValue | fr]) > 0`,
           params: { filterValue: value.toLowerCase().replace(/-/g, "") },
         };
 
