@@ -1035,8 +1035,42 @@ export class SearchService {
           description: `Find web3 jobs at ${displayName} funded companies. Join crypto startups and blockchain projects at this funding stage.`,
         };
 
+      case "classifications":
+        return {
+          title: `${displayName} Jobs - Web3 & Crypto Careers`,
+          description: `Find ${displayName.toLowerCase()} jobs in web3 and crypto. Browse blockchain positions and apply today.`,
+        };
+
+      case "tags":
+        return {
+          title: `${displayName} Jobs - Web3 & Crypto Careers`,
+          description: `Explore ${displayName} jobs in blockchain and crypto. Find positions requiring ${displayName} skills.`,
+        };
+
+      case "locations":
+        return {
+          title: `Web3 Jobs in ${displayName} - Crypto Careers`,
+          description: `Find web3 and crypto jobs in ${displayName}. Browse blockchain positions in your area.`,
+        };
+
+      case "commitments":
+        return {
+          title: `${displayName} Web3 Jobs - Crypto Careers`,
+          description: `Browse ${displayName.toLowerCase()} web3 positions. Find crypto jobs that match your schedule.`,
+        };
+
+      case "locationTypes":
+        return {
+          title: `${displayName} Web3 Jobs - Crypto Careers`,
+          description: `Find ${displayName.toLowerCase()} web3 positions. Explore crypto jobs with flexible work arrangements.`,
+        };
+
       default:
-        return null;
+        // Generic fallback for any new pillar types
+        return {
+          title: `${displayName} Web3 Jobs - Crypto Careers`,
+          description: `Explore web3 jobs related to ${displayName.toLowerCase()}. Find crypto and blockchain opportunities.`,
+        };
     }
   }
 
@@ -2000,6 +2034,15 @@ export class SearchService {
             };
           })
           .filter(Boolean) ?? [];
+
+      // If no jobs found, return not found response
+      if (jobs.length === 0) {
+        return {
+          success: true,
+          message: "No jobs found for this pillar",
+          data: null,
+        };
+      }
 
       return {
         success: true,
