@@ -34,6 +34,8 @@ import { FetchPillarItemLabelsInput } from "./dto/fetch-pillar-item-labels.input
 import { SearchParams } from "./dto/search.input";
 import { SearchPillarFiltersParams } from "./dto/search-pillar-filters-params.input";
 import { PillarPageData } from "./dto/pillar-page.output";
+import { JobSuggestionsInput } from "./dto/job-suggestions.input";
+import { SuggestionsResponse } from "./dto/job-suggestions.output";
 import { ApiHeader, ApiOperation } from "@nestjs/swagger";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 
@@ -62,6 +64,25 @@ export class SearchController {
       }
     }
     return this.searchService.search(params);
+  }
+
+  @Get("jobs/suggestions")
+  @ApiOperation({
+    summary: "Get job search suggestions with pagination",
+    description:
+      "Returns paginated suggestions for jobs and job-related pillars. " +
+      "Supports group selection (jobs, organizations, tags, classifications, locations, investors, fundingRounds) " +
+      "and pagination. When a query is provided, only groups with matching results are returned.",
+  })
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
+  async getJobSuggestions(
+    @Query(new ValidationPipe({ transform: true })) params: JobSuggestionsInput,
+  ): Promise<SuggestionsResponse> {
+    this.logger.log(
+      `/search/jobs/suggestions q=${params.q} group=${params.group} page=${params.page} limit=${params.limit}`,
+    );
+    return this.searchService.getJobSuggestions(params);
   }
 
   @Get("pillar")

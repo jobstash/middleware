@@ -18,6 +18,16 @@ import {
   ParsedPillarSlug,
 } from "./dto/pillar-page.output";
 import {
+  SuggestionItem,
+  GroupInfo,
+  SuggestionsResponse,
+} from "./dto/job-suggestions.output";
+import {
+  JobSuggestionsInput,
+  SuggestionGroupId,
+  SUGGESTION_GROUPS,
+} from "./dto/job-suggestions.input";
+import {
   MultiSelectFilter,
   PaginatedData,
   Pillar,
@@ -36,6 +46,7 @@ import { SearchPillarParams } from "./dto/search-pillar.input";
 import { FetchPillarItemLabelsInput } from "./dto/fetch-pillar-item-labels.input";
 import { SearchParams } from "./dto/search.input";
 import { QueryResult } from "neo4j-driver-core";
+import { int } from "neo4j-driver";
 import { SearchPillarFiltersParams } from "./dto/search-pillar-filters-params.input";
 import {
   FILTER_CONFIG_PRESETS,
@@ -1783,9 +1794,7 @@ export class SearchService {
    * @param slugValue - The slugified location value (e.g., "sao-paulo-brazil")
    * @returns Array of all matching DB location strings
    */
-  private async resolveLocationSlugs(
-    slugValue: string,
-  ): Promise<string[]> {
+  private async resolveLocationSlugs(slugValue: string): Promise<string[]> {
     const query = `
       CYPHER runtime = pipelined
       MATCH (sj:StructuredJobpost)
@@ -2055,12 +2064,14 @@ export class SearchService {
               organization: org
                 ? {
                     ...org,
-                    headcountEstimate: intConverter(org.headcountEstimate) || null,
+                    headcountEstimate:
+                      intConverter(org.headcountEstimate) || null,
                     fundingRounds: (org.fundingRounds ?? []).map(
                       (fr: Record<string, unknown>) => ({
                         ...fr,
                         date: intConverter(fr.date as number),
-                        raisedAmount: intConverter(fr.raisedAmount as number) || null,
+                        raisedAmount:
+                          intConverter(fr.raisedAmount as number) || null,
                       }),
                     ),
                     investors: org.investors ?? [],
@@ -2173,6 +2184,731 @@ export class SearchService {
       return {
         success: false,
         message: "Error retrieving pillar page data",
+      };
+    }
+  }
+
+  /**
+   * Sanitize a query string for fulltext index search.
+   * Escapes special Lucene characters that could cause query parse errors.
+   */
+  private sanitizeFulltextQuery(query: string): string {
+    // Escape Lucene special characters: + - && || ! ( ) { } [ ] ^ " ~ * ? : \ /
+    return query.replace(/[+\-&|!(){}[\]^"~*?:\\/]/g, "\\$&");
+  }
+
+  private readonly GROUP_LABELS: Record<SuggestionGroupId, string> = {
+    jobs: "Jobs",
+    organizations: "Organizations",
+    tags: "Tags",
+    classifications: "Classifications",
+    locations: "Locations",
+    investors: "Investors",
+    fundingRounds: "Funding Rounds",
+  };
+
+  /**
+   * Get the 30-day date range for pillar page consistency.
+   * Suggestions should only return items that have jobs within this range.
+   */
+  private getPillarDateRange(): { startDate: number; endDate: number } {
+    const now = Date.now();
+    const thirtyDaysAgo = subDays(now, 30);
+    return {
+      startDate: startOfDay(thirtyDaysAgo).getTime(),
+      endDate: endOfDay(now).getTime(),
+    };
+  }
+
+  /**
+   * Check if a group has any results for a given query (LIMIT 1 presence check).
+   * Pillar-linked categories (organizations, tags, classifications, locations,
+   * investors, fundingRounds) use 30-day date filter for consistency with pillar pages.
+   */
+  private async checkGroupHasResults(
+    group: SuggestionGroupId,
+    query: string | null,
+    fulltextQuery: string | null,
+  ): Promise<boolean> {
+    // Without a query, all groups have results
+    if (!query) return true;
+
+    const { startDate, endDate } = this.getPillarDateRange();
+
+    const queries: Record<SuggestionGroupId, string> = {
+      jobs: `
+        CYPHER runtime = pipelined
+        MATCH (sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        AND ALL(word IN split(toLower(replace(replace($query, ' ', ''), '-', '')), ' ')
+          WHERE toLower(replace(replace(sj.title, ' ', ''), '-', '')) CONTAINS word)
+        RETURN true as hasResults
+        LIMIT 1
+      `,
+      organizations: `
+        CALL db.index.fulltext.queryNodes("organizations", $fulltextQuery) YIELD node as org, score
+        MATCH (org)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        RETURN true as hasResults
+        LIMIT 1
+      `,
+      tags: `
+        CALL db.index.fulltext.queryNodes("tagNames", $fulltextQuery) YIELD node as tag, score
+        MATCH (sj:StructuredJobpost)-[:HAS_TAG]->(tag)
+        WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
+        AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+        RETURN true as hasResults
+        LIMIT 1
+      `,
+      classifications: `
+        CYPHER runtime = pipelined
+        MATCH (cl:JobpostClassification)<-[:HAS_CLASSIFICATION]-(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        AND toLower(cl.name) CONTAINS toLower($query)
+        RETURN true as hasResults
+        LIMIT 1
+      `,
+      locations: `
+        CYPHER runtime = pipelined
+        MATCH (sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        AND sj.location IS NOT NULL
+        AND ALL(word IN split(toLower($query), ' ') WHERE toLower(sj.location) CONTAINS word)
+        RETURN true as hasResults
+        LIMIT 1
+      `,
+      investors: `
+        CALL db.index.fulltext.queryNodes("investors", $fulltextQuery) YIELD node as investor, score
+        MATCH (org:Organization)-[:HAS_FUNDING_ROUND]->(:FundingRound)-[:HAS_INVESTOR]->(investor)
+        MATCH (org)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        RETURN true as hasResults
+        LIMIT 1
+      `,
+      fundingRounds: `
+        CALL db.index.fulltext.queryNodes("rounds", $fulltextQuery) YIELD node as fr, score
+        MATCH (org:Organization)-[:HAS_FUNDING_ROUND]->(fr)
+        MATCH (org)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        RETURN true as hasResults
+        LIMIT 1
+      `,
+    };
+
+    const result = await this.neogma.queryRunner.run(queries[group], {
+      query,
+      fulltextQuery,
+      startDate,
+      endDate,
+    });
+    return result.records.length > 0;
+  }
+
+  /**
+   * Get groups that have results for a given query
+   */
+  private async getGroupsWithResults(
+    query: string | null,
+  ): Promise<GroupInfo[]> {
+    // Without a query, return all groups
+    if (!query) {
+      return SUGGESTION_GROUPS.map(id => ({
+        id,
+        label: this.GROUP_LABELS[id],
+      }));
+    }
+
+    const fulltextQuery = `*${this.sanitizeFulltextQuery(query)}*`;
+
+    // Run all presence checks in parallel
+    const results = await Promise.all(
+      SUGGESTION_GROUPS.map(async group => ({
+        id: group,
+        hasResults: await this.checkGroupHasResults(
+          group,
+          query,
+          fulltextQuery,
+        ),
+      })),
+    );
+
+    return results
+      .filter(r => r.hasResults)
+      .map(r => ({
+        id: r.id,
+        label: this.GROUP_LABELS[r.id],
+      }));
+  }
+
+  /**
+   * Get paginated items for a specific group
+   */
+  private async getGroupItems(
+    group: SuggestionGroupId,
+    query: string | null,
+    page: number,
+    limit: number,
+  ): Promise<{ items: SuggestionItem[]; hasMore: boolean }> {
+    // Ensure integers for Neo4j SKIP/LIMIT
+    const skip = Math.floor((page - 1) * limit);
+    // Fetch one extra to determine hasMore
+    const fetchLimit = Math.floor(limit + 1);
+
+    let items: SuggestionItem[];
+
+    switch (group) {
+      case "jobs":
+        items = await this.getJobsGroupItems(query, skip, fetchLimit);
+        break;
+      case "organizations":
+        items = await this.getOrganizationsGroupItems(query, skip, fetchLimit);
+        break;
+      case "tags":
+        items = await this.getTagsGroupItems(query, skip, fetchLimit);
+        break;
+      case "classifications":
+        items = await this.getClassificationsGroupItems(
+          query,
+          skip,
+          fetchLimit,
+        );
+        break;
+      case "locations":
+        items = await this.getLocationsGroupItems(query, skip, fetchLimit);
+        break;
+      case "investors":
+        items = await this.getInvestorsGroupItems(query, skip, fetchLimit);
+        break;
+      case "fundingRounds":
+        items = await this.getFundingRoundsGroupItems(query, skip, fetchLimit);
+        break;
+      default:
+        items = [];
+    }
+
+    // Dedupe by id (first occurrence wins)
+    const uniqueItems = [
+      ...new Map(items.map(item => [item.id, item])).values(),
+    ];
+
+    const hasMore = uniqueItems.length > limit;
+    return {
+      items: uniqueItems.slice(0, limit),
+      hasMore,
+    };
+  }
+
+  /**
+   * Get paginated jobs with optional search query.
+   * Jobs are searched by title only (since only title is displayed, query highlighting requires title match).
+   */
+  private async getJobsGroupItems(
+    query: string | null,
+    skip: number,
+    limit: number,
+  ): Promise<SuggestionItem[]> {
+    // Ensure integers for Neo4j
+    const intSkip = Math.floor(skip);
+    const intLimit = Math.floor(limit);
+
+    const { startDate, endDate } = this.getPillarDateRange();
+
+    if (!query) {
+      // No query: return most recent jobs with org name, limited to 30 days
+      const result = await this.neogma.queryRunner.run(
+        `
+        CYPHER runtime = pipelined
+        MATCH (org:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        RETURN DISTINCT sj.shortUUID as id, sj.title as title, org.name as orgName, sj.timestamp as timestamp
+        ORDER BY timestamp DESC
+        SKIP $skip
+        LIMIT $limit
+        `,
+        { skip: int(intSkip), limit: int(intLimit), startDate, endDate },
+      );
+
+      return result.records.map(record => ({
+        id: record.get("id") as string,
+        label: `${record.get("title")} at ${record.get("orgName")}`,
+        href: `/${slugify(record.get("title") as string)}/${record.get("id") as string}`,
+      }));
+    }
+
+    // With query: search by title, include org name, limited to 30 days
+    const result = await this.neogma.queryRunner.run(
+      `
+      CYPHER runtime = pipelined
+      MATCH (org:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+      WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+      AND ALL(word IN split(toLower(replace(replace($query, ' ', ''), '-', '')), ' ')
+        WHERE toLower(replace(replace(sj.title, ' ', ''), '-', '')) CONTAINS word)
+      RETURN DISTINCT sj.shortUUID as id, sj.title as title, org.name as orgName
+      SKIP $skip
+      LIMIT $limit
+      `,
+      { query, skip: int(intSkip), limit: int(intLimit), startDate, endDate },
+    );
+
+    return result.records.map(record => ({
+      id: record.get("id") as string,
+      label: `${record.get("title")} at ${record.get("orgName")}`,
+      href: `/${slugify(record.get("title") as string)}/${record.get("id") as string}`,
+    }));
+  }
+
+  private async getOrganizationsGroupItems(
+    query: string | null,
+    skip: number,
+    limit: number,
+  ): Promise<SuggestionItem[]> {
+    const intSkip = Math.floor(skip);
+    const intLimit = Math.floor(limit);
+    const { startDate, endDate } = this.getPillarDateRange();
+
+    if (!query) {
+      // No query: return alphabetically sorted organizations with jobs in last 30 days
+      const result = await this.neogma.queryRunner.run(
+        `
+        CYPHER runtime = pipelined
+        MATCH (org:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        RETURN DISTINCT org.normalizedName as id, org.name as label
+        ORDER BY label
+        SKIP $skip
+        LIMIT $limit
+        `,
+        { skip: int(intSkip), limit: int(intLimit), startDate, endDate },
+      );
+
+      return result.records.map(record => ({
+        id: record.get("id") as string,
+        label: record.get("label") as string,
+        href: `/o-${record.get("id") as string}`,
+      }));
+    }
+
+    const fulltextQuery = `*${this.sanitizeFulltextQuery(query)}*`;
+    const result = await this.neogma.queryRunner.run(
+      `
+      CALL db.index.fulltext.queryNodes("organizations", $query) YIELD node as org, score
+      MATCH (org)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+      WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+      RETURN DISTINCT org.normalizedName as id, org.name as label, score
+      ORDER BY score DESC
+      SKIP $skip
+      LIMIT $limit
+      `,
+      {
+        query: fulltextQuery,
+        skip: int(intSkip),
+        limit: int(intLimit),
+        startDate,
+        endDate,
+      },
+    );
+
+    return result.records.map(record => ({
+      id: record.get("id") as string,
+      label: record.get("label") as string,
+      href: `/o-${record.get("id") as string}`,
+    }));
+  }
+
+  private async getTagsGroupItems(
+    query: string | null,
+    skip: number,
+    limit: number,
+  ): Promise<SuggestionItem[]> {
+    const intSkip = Math.floor(skip);
+    const intLimit = Math.floor(limit);
+    const { startDate, endDate } = this.getPillarDateRange();
+
+    if (!query) {
+      // No query: return alphabetically sorted tags with jobs in last 30 days
+      const result = await this.neogma.queryRunner.run(
+        `
+        CYPHER runtime = pipelined
+        MATCH (tag:Tag)<-[:HAS_TAG]-(sj:StructuredJobpost)
+        WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
+        AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+        RETURN DISTINCT tag.normalizedName as id, tag.name as label
+        ORDER BY label
+        SKIP $skip
+        LIMIT $limit
+        `,
+        { skip: int(intSkip), limit: int(intLimit), startDate, endDate },
+      );
+
+      return result.records.map(record => ({
+        id: record.get("id") as string,
+        label: record.get("label") as string,
+        href: `/t-${record.get("id") as string}`,
+      }));
+    }
+
+    const fulltextQuery = `*${this.sanitizeFulltextQuery(query)}*`;
+    const result = await this.neogma.queryRunner.run(
+      `
+      CALL db.index.fulltext.queryNodes("tagNames", $query) YIELD node as tag, score
+      MATCH (sj:StructuredJobpost)-[:HAS_TAG]->(tag)
+      WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+      AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
+      AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+      RETURN DISTINCT tag.normalizedName as id, tag.name as label, score
+      ORDER BY score DESC
+      SKIP $skip
+      LIMIT $limit
+      `,
+      {
+        query: fulltextQuery,
+        skip: int(intSkip),
+        limit: int(intLimit),
+        startDate,
+        endDate,
+      },
+    );
+
+    return result.records.map(record => ({
+      id: record.get("id") as string,
+      label: record.get("label") as string,
+      href: `/t-${record.get("id") as string}`,
+    }));
+  }
+
+  private async getClassificationsGroupItems(
+    query: string | null,
+    skip: number,
+    limit: number,
+  ): Promise<SuggestionItem[]> {
+    const intSkip = Math.floor(skip);
+    const intLimit = Math.floor(limit);
+    const { startDate, endDate } = this.getPillarDateRange();
+
+    if (!query) {
+      // No query: return alphabetically sorted classifications with jobs in last 30 days
+      const result = await this.neogma.queryRunner.run(
+        `
+        CYPHER runtime = pipelined
+        MATCH (cl:JobpostClassification)<-[:HAS_CLASSIFICATION]-(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        RETURN DISTINCT cl.name as label
+        ORDER BY label
+        SKIP $skip
+        LIMIT $limit
+        `,
+        { skip: int(intSkip), limit: int(intLimit), startDate, endDate },
+      );
+
+      return result.records.map(record => {
+        const label = record.get("label") as string;
+        return {
+          id: slugify(label),
+          label,
+          href: `/cl-${slugify(label)}`,
+        };
+      });
+    }
+
+    const result = await this.neogma.queryRunner.run(
+      `
+      CYPHER runtime = pipelined
+      MATCH (cl:JobpostClassification)<-[:HAS_CLASSIFICATION]-(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+      WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+      AND toLower(cl.name) CONTAINS toLower($query)
+      RETURN DISTINCT cl.name as label
+      ORDER BY label
+      SKIP $skip
+      LIMIT $limit
+      `,
+      { query, skip: int(intSkip), limit: int(intLimit), startDate, endDate },
+    );
+
+    return result.records.map(record => {
+      const label = record.get("label") as string;
+      return {
+        id: slugify(label),
+        label,
+        href: `/cl-${slugify(label)}`,
+      };
+    });
+  }
+
+  private async getLocationsGroupItems(
+    query: string | null,
+    skip: number,
+    limit: number,
+  ): Promise<SuggestionItem[]> {
+    const intSkip = Math.floor(skip);
+    const intLimit = Math.floor(limit);
+    const { startDate, endDate } = this.getPillarDateRange();
+
+    if (!query) {
+      // No query: return alphabetically sorted locations with jobs in last 30 days
+      const result = await this.neogma.queryRunner.run(
+        `
+        CYPHER runtime = pipelined
+        MATCH (sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        AND sj.location IS NOT NULL
+        RETURN DISTINCT sj.location as label
+        ORDER BY label
+        SKIP $skip
+        LIMIT $limit
+        `,
+        { skip: int(intSkip), limit: int(intLimit), startDate, endDate },
+      );
+
+      return result.records.map(record => {
+        const label = record.get("label") as string;
+        return {
+          id: slugify(label),
+          label,
+          href: `/l-${slugify(label)}`,
+        };
+      });
+    }
+
+    const result = await this.neogma.queryRunner.run(
+      `
+      CYPHER runtime = pipelined
+      MATCH (sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+      WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+      AND sj.location IS NOT NULL
+      AND ALL(word IN split(toLower($query), ' ') WHERE toLower(sj.location) CONTAINS word)
+      RETURN DISTINCT sj.location as label
+      ORDER BY label
+      SKIP $skip
+      LIMIT $limit
+      `,
+      { query, skip: int(intSkip), limit: int(intLimit), startDate, endDate },
+    );
+
+    return result.records.map(record => {
+      const label = record.get("label") as string;
+      return {
+        id: slugify(label),
+        label,
+        href: `/l-${slugify(label)}`,
+      };
+    });
+  }
+
+  private async getInvestorsGroupItems(
+    query: string | null,
+    skip: number,
+    limit: number,
+  ): Promise<SuggestionItem[]> {
+    const intSkip = Math.floor(skip);
+    const intLimit = Math.floor(limit);
+    const { startDate, endDate } = this.getPillarDateRange();
+
+    if (!query) {
+      // No query: return alphabetically sorted investors with jobs in last 30 days
+      const result = await this.neogma.queryRunner.run(
+        `
+        CYPHER runtime = pipelined
+        MATCH (org:Organization)-[:HAS_FUNDING_ROUND]->(:FundingRound)-[:HAS_INVESTOR]->(investor:Investor)
+        MATCH (org)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        RETURN DISTINCT investor.normalizedName as id, investor.name as label
+        ORDER BY label
+        SKIP $skip
+        LIMIT $limit
+        `,
+        { skip: int(intSkip), limit: int(intLimit), startDate, endDate },
+      );
+
+      return result.records.map(record => ({
+        id: record.get("id") as string,
+        label: record.get("label") as string,
+        href: `/i-${record.get("id") as string}`,
+      }));
+    }
+
+    const fulltextQuery = `*${this.sanitizeFulltextQuery(query)}*`;
+    const result = await this.neogma.queryRunner.run(
+      `
+      CALL db.index.fulltext.queryNodes("investors", $query) YIELD node as investor, score
+      MATCH (org:Organization)-[:HAS_FUNDING_ROUND]->(:FundingRound)-[:HAS_INVESTOR]->(investor)
+      MATCH (org)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+      WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+      RETURN DISTINCT investor.normalizedName as id, investor.name as label, score
+      ORDER BY score DESC
+      SKIP $skip
+      LIMIT $limit
+      `,
+      {
+        query: fulltextQuery,
+        skip: int(intSkip),
+        limit: int(intLimit),
+        startDate,
+        endDate,
+      },
+    );
+
+    return result.records.map(record => ({
+      id: record.get("id") as string,
+      label: record.get("label") as string,
+      href: `/i-${record.get("id") as string}`,
+    }));
+  }
+
+  private async getFundingRoundsGroupItems(
+    query: string | null,
+    skip: number,
+    limit: number,
+  ): Promise<SuggestionItem[]> {
+    const intSkip = Math.floor(skip);
+    const intLimit = Math.floor(limit);
+    const { startDate, endDate } = this.getPillarDateRange();
+
+    if (!query) {
+      // No query: return alphabetically sorted funding rounds with jobs in last 30 days
+      const result = await this.neogma.queryRunner.run(
+        `
+        CYPHER runtime = pipelined
+        MATCH (org:Organization)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)
+        MATCH (org)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        RETURN DISTINCT fr.roundName as label
+        ORDER BY label
+        SKIP $skip
+        LIMIT $limit
+        `,
+        { skip: int(intSkip), limit: int(intLimit), startDate, endDate },
+      );
+
+      return result.records.map(record => {
+        const label = record.get("label") as string;
+        return {
+          id: slugify(label),
+          label,
+          href: `/fr-${slugify(label)}`,
+        };
+      });
+    }
+
+    const fulltextQuery = `*${this.sanitizeFulltextQuery(query)}*`;
+    const result = await this.neogma.queryRunner.run(
+      `
+      CALL db.index.fulltext.queryNodes("rounds", $query) YIELD node as fr, score
+      MATCH (org:Organization)-[:HAS_FUNDING_ROUND]->(fr)
+      MATCH (org)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+      WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+      RETURN DISTINCT fr.roundName as label, score
+      ORDER BY score DESC
+      SKIP $skip
+      LIMIT $limit
+      `,
+      {
+        query: fulltextQuery,
+        skip: int(intSkip),
+        limit: int(intLimit),
+        startDate,
+        endDate,
+      },
+    );
+
+    return result.records.map(record => {
+      const label = record.get("label") as string;
+      return {
+        id: slugify(label),
+        label,
+        href: `/fr-${slugify(label)}`,
+      };
+    });
+  }
+
+  /**
+   * Get job search suggestions with pagination and group selection.
+   */
+  async getJobSuggestions(
+    params: JobSuggestionsInput,
+  ): Promise<SuggestionsResponse> {
+    try {
+      const { q, group: requestedGroup, page = 1, limit = 10 } = params;
+      const query = q?.trim() || null;
+
+      // Get groups with results first to determine the active group
+      const groups = await this.getGroupsWithResults(query);
+      const groupIds = groups.map(g => g.id) as SuggestionGroupId[];
+
+      // Determine active group:
+      // 1. Use requested group if specified and has results
+      // 2. Otherwise prefer "jobs" if it has results
+      // 3. Otherwise use first group with results
+      let activeGroup: SuggestionGroupId;
+      if (requestedGroup && groupIds.includes(requestedGroup)) {
+        activeGroup = requestedGroup;
+      } else if (groupIds.includes("jobs")) {
+        activeGroup = "jobs";
+      } else {
+        activeGroup = groupIds[0] ?? "jobs";
+      }
+
+      // Get items for the active group
+      const { items, hasMore } = await this.getGroupItems(
+        activeGroup,
+        query,
+        page,
+        limit,
+      );
+
+      return {
+        groups,
+        activeGroup,
+        items,
+        page,
+        hasMore,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "search.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`SearchService::getJobSuggestions ${err.message}`);
+      return {
+        groups: [],
+        activeGroup: params.group || "jobs",
+        items: [],
+        page: params.page || 1,
+        hasMore: false,
       };
     }
   }
