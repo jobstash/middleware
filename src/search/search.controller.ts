@@ -36,6 +36,8 @@ import { SearchPillarFiltersParams } from "./dto/search-pillar-filters-params.in
 import { PillarPageData } from "./dto/pillar-page.output";
 import { JobSuggestionsInput } from "./dto/job-suggestions.input";
 import { SuggestionsResponse } from "./dto/job-suggestions.output";
+import { SkillSuggestionsInput } from "./dto/skill-suggestions.input";
+import { SkillSuggestionsData } from "./dto/skill-suggestions.output";
 import { ApiHeader, ApiOperation } from "@nestjs/swagger";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 
@@ -83,6 +85,25 @@ export class SearchController {
       `/search/jobs/suggestions q=${params.q} group=${params.group} page=${params.page} limit=${params.limit}`,
     );
     return this.searchService.getJobSuggestions(params);
+  }
+
+  @Get("tags/suggestions")
+  @ApiOperation({
+    summary: "Get skill suggestions ordered by job count",
+    description:
+      "Returns paginated skill/tag suggestions ordered by popularity (job count). " +
+      "When a query is provided, results are filtered by relevance using fulltext search.",
+  })
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
+  async getSkillSuggestions(
+    @Query(new ValidationPipe({ transform: true }))
+    params: SkillSuggestionsInput,
+  ): Promise<ResponseWithOptionalData<SkillSuggestionsData>> {
+    this.logger.log(
+      `/search/tags/suggestions q=${params.q} page=${params.page} limit=${params.limit}`,
+    );
+    return this.searchService.getSkillSuggestions(params);
   }
 
   @Get("pillar")

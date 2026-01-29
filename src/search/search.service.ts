@@ -23,6 +23,11 @@ import {
   GroupInfo,
   SuggestionsResponse,
 } from "./dto/job-suggestions.output";
+import { SkillSuggestionsInput } from "./dto/skill-suggestions.input";
+import {
+  SkillSuggestionItem,
+  SkillSuggestionsData,
+} from "./dto/skill-suggestions.output";
 import {
   JobSuggestionsInput,
   SuggestionGroupId,
@@ -2274,7 +2279,12 @@ export class SearchService {
       },
     ];
 
-    type Candidate = { key: string; label: string; prefix: string; score: number };
+    type Candidate = {
+      key: string;
+      label: string;
+      prefix: string;
+      score: number;
+    };
 
     const toSuggestion = (c: Candidate): SuggestedPillar => ({
       label: c.label,
@@ -2309,9 +2319,7 @@ export class SearchService {
           key,
           label,
           prefix: config.prefix,
-          score: useUbiquityPenalty
-            ? count * (1 - count / totalJobs)
-            : count,
+          score: useUbiquityPenalty ? count * (1 - count / totalJobs) : count,
         }))
         .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label));
 
@@ -2319,8 +2327,9 @@ export class SearchService {
     }
 
     // Same-type pick: up to SAME_TYPE_LIMIT
-    const sameTypePicked = (candidatesByType.get(currentPillarType) ?? [])
-      .slice(0, SAME_TYPE_LIMIT);
+    const sameTypePicked = (
+      candidatesByType.get(currentPillarType) ?? []
+    ).slice(0, SAME_TYPE_LIMIT);
     const results: SuggestedPillar[] = sameTypePicked.map(toSuggestion);
 
     // Cross-type fill with remaining budget
@@ -2336,7 +2345,11 @@ export class SearchService {
 
     // First pass: give each cross-type group up to MIN_PER_CROSS_TYPE
     for (const group of crossTypeGroups) {
-      const take = Math.min(MIN_PER_CROSS_TYPE, group.candidates.length, remaining);
+      const take = Math.min(
+        MIN_PER_CROSS_TYPE,
+        group.candidates.length,
+        remaining,
+      );
       group.taken = take;
       remaining -= take;
       if (remaining <= 0) break;
@@ -2348,7 +2361,10 @@ export class SearchService {
       changed = false;
       for (const group of crossTypeGroups) {
         if (remaining <= 0) break;
-        if (group.taken < group.candidates.length && group.taken < MAX_PER_CROSS_TYPE) {
+        if (
+          group.taken < group.candidates.length &&
+          group.taken < MAX_PER_CROSS_TYPE
+        ) {
           group.taken++;
           remaining--;
           changed = true;
@@ -3031,6 +3047,110 @@ export class SearchService {
   /**
    * Get job search suggestions with pagination and group selection.
    */
+  async getSkillSuggestions(
+    params: SkillSuggestionsInput,
+  ): Promise<ResponseWithOptionalData<SkillSuggestionsData>> {
+    try {
+      const { q, page = 1, limit = 10 } = params;
+      const query = q?.trim() || null;
+      const skip = Math.floor((page - 1) * limit);
+      const fetchLimit = Math.floor(limit + 1);
+
+      const items = await this.getSkillSuggestionItems(query, skip, fetchLimit);
+
+      const uniqueItems = [
+        ...new Map(items.map(item => [item.id, item])).values(),
+      ];
+
+      const hasMore = uniqueItems.length > limit;
+      return {
+        success: true,
+        message: "Retrieved skill suggestions successfully",
+        data: {
+          items: uniqueItems.slice(0, limit),
+          page,
+          hasMore,
+        },
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "search.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`SearchService::getSkillSuggestions ${err.message}`);
+      return {
+        success: false,
+        message: "Failed to retrieve skill suggestions",
+      };
+    }
+  }
+
+  private async getSkillSuggestionItems(
+    query: string | null,
+    skip: number,
+    limit: number,
+  ): Promise<SkillSuggestionItem[]> {
+    const intSkip = Math.floor(skip);
+    const intLimit = Math.floor(limit);
+    const { startDate, endDate } = this.getPillarDateRange();
+
+    if (!query) {
+      const result = await this.neogma.queryRunner.run(
+        `
+        CYPHER runtime = pipelined
+        MATCH (tag:Tag)<-[:HAS_TAG]-(sj:StructuredJobpost)
+        WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
+        AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+        WITH tag.id as id, tag.name as name, tag.normalizedName as normalizedName, count(DISTINCT sj) as popularity
+        RETURN id, name, normalizedName
+        ORDER BY popularity DESC, name ASC
+        SKIP $skip LIMIT $limit
+        `,
+        { skip: int(intSkip), limit: int(intLimit), startDate, endDate },
+      );
+
+      return result.records.map(record => ({
+        id: record.get("id") as string,
+        name: record.get("name") as string,
+        normalizedName: record.get("normalizedName") as string,
+      }));
+    }
+
+    const fulltextQuery = `*${this.sanitizeFulltextQuery(query)}*`;
+    const result = await this.neogma.queryRunner.run(
+      `
+      CALL db.index.fulltext.queryNodes("tagNames", $query) YIELD node as tag, score
+      MATCH (sj:StructuredJobpost)-[:HAS_TAG]->(tag)
+      WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
+      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+      AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
+      AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+      RETURN DISTINCT tag.id as id, tag.name as name, tag.normalizedName as normalizedName, score
+      ORDER BY score DESC
+      SKIP $skip
+      LIMIT $limit
+      `,
+      {
+        query: fulltextQuery,
+        skip: int(intSkip),
+        limit: int(intLimit),
+        startDate,
+        endDate,
+      },
+    );
+
+    return result.records.map(record => ({
+      id: record.get("id") as string,
+      name: record.get("name") as string,
+      normalizedName: record.get("normalizedName") as string,
+    }));
+  }
+
   async getJobSuggestions(
     params: JobSuggestionsInput,
   ): Promise<SuggestionsResponse> {
