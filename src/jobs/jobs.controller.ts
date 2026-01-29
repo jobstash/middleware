@@ -63,6 +63,7 @@ import { JobListParams } from "./dto/job-list.input";
 import { UpdateJobApplicantListInput } from "./dto/update-job-applicant-list.input";
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
+import { SimilarJob } from "./dto/similar-jobs.output";
 import { JobsService } from "./jobs.service";
 import { CacheInterceptor } from "@nestjs/cache-manager";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
@@ -214,6 +215,28 @@ export class JobsController {
       });
     }
     return result;
+  }
+
+  @Get("similar/:uuid")
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  @ApiHeader({
+    name: ECOSYSTEM_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific ecosystem",
+  })
+  @ApiOkResponse({
+    description: "Returns a list of similar jobs based on shared tag overlap",
+    type: [SimilarJob],
+  })
+  async getSimilarJobs(
+    @Param("uuid") uuid: string,
+    @Headers(ECOSYSTEM_HEADER)
+    ecosystem: string | undefined,
+  ): Promise<ResponseWithOptionalData<SimilarJob[]>> {
+    this.logger.log(`/jobs/similar/${uuid}`);
+    return this.jobsService.getSimilarJobs(uuid, ecosystem);
   }
 
   @Get("/featured/:orgId")

@@ -17,6 +17,7 @@ import {
 } from "src/shared/entities";
 import {
   dropPublicJobsFromOrgsWithOnlineExpertJobs,
+  nonZeroOrNull,
   notStringOrNull,
   paginate,
   publicationDateRangeGenerator,
@@ -58,6 +59,7 @@ import { UpdateJobApplicantListInput } from "./dto/update-job-applicant-list.inp
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
 import { ChangeJobProjectInput } from "./dto/update-job-project.input";
+import { SimilarJob } from "./dto/similar-jobs.output";
 import { TagsService } from "src/tags/tags.service";
 import { uniq } from "lodash";
 import { go } from "fuzzysort";
@@ -4654,6 +4656,88 @@ export class JobsService {
       this.logger.error(
         `Job ${shortUUID} could not be promoted because it does not exist`,
       );
+    }
+  }
+
+  async getSimilarJobs(
+    uuid: string,
+    ecosystem: string | undefined,
+  ): Promise<ResponseWithOptionalData<SimilarJob[]>> {
+    try {
+      const generatedQuery = `
+        CYPHER runtime = pipelined
+        MATCH (sourceOrg)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(source:StructuredJobpost {shortUUID: $shortUUID})-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((sourceOrg)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+        AND NOT (source)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        MATCH (source)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+        WITH DISTINCT tag, source, sourceOrg
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+        WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, source, sourceOrg
+        WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, source, sourceOrg
+        WITH collect(DISTINCT canonicalTag) AS sourceTags, source, sourceOrg
+        WITH sourceTags, toFloat(size(sourceTags)) AS sourceTagCount, source, sourceOrg,
+          [(source)-[:HAS_CLASSIFICATION]->(c:JobpostClassification) | c.name][0] AS sourceClassName
+        UNWIND sourceTags AS sTag
+        WITH source, sourceOrg, sTag, sourceClassName, sourceTagCount,
+          [sTag] + [(sTag)-[:IS_SYNONYM_OF|IS_PAIR_OF]-(related:Tag) | related] AS expandedTags
+        UNWIND expandedTags AS matchableTag
+        MATCH (other:StructuredJobpost)-[:HAS_TAG]->(matchableTag)
+        WHERE other <> source
+          AND COALESCE(other.publishedTimestamp, other.firstSeenTimestamp) >= $now - $decayMs
+          AND (other)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+          AND NOT (other)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+          AND CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((other)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+        MATCH (otherOrg)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(other)
+        WHERE otherOrg <> sourceOrg
+        WITH other, count(DISTINCT sTag) AS sharedTags, sourceClassName, sourceTagCount, collect(otherOrg)[0] AS otherOrg
+        WITH other, otherOrg,
+          toFloat(sharedTags) / sourceTagCount AS tagRatio,
+          CASE WHEN sourceClassName IS NOT NULL AND [(other)-[:HAS_CLASSIFICATION]->(c:JobpostClassification) | c.name][0] = sourceClassName THEN 1.0 ELSE 0.0 END AS classMatch,
+          1.0 / (1.0 + toFloat($now - CASE WHEN other.publishedTimestamp IS NOT NULL THEN other.publishedTimestamp ELSE other.firstSeenTimestamp END) / $decayMs) AS recencyScore
+        WITH other, otherOrg,
+          0.4 * tagRatio + 0.3 * recencyScore + 0.3 * classMatch AS score
+        ORDER BY score DESC
+        LIMIT 5
+        RETURN other {
+          .shortUUID, .title,
+          timestamp: CASE WHEN other.publishedTimestamp IS NOT NULL
+            THEN other.publishedTimestamp ELSE other.firstSeenTimestamp END,
+          organization: otherOrg { .name, .logoUrl, .normalizedName, website: [(otherOrg)-[:HAS_WEBSITE]->(w) | w.url][0] }
+        } AS result
+      `;
+      const queryResult = await this.neogma.queryRunner.run(generatedQuery, {
+        shortUUID: uuid,
+        ecosystem: ecosystem ?? null,
+        now: Date.now(),
+        decayMs: 30 * 24 * 60 * 60 * 1000, // 30-day half-life
+      });
+      const data = queryResult.records
+        .map(record => {
+          const result = record.get("result") as SimilarJob;
+          return { ...result, timestamp: nonZeroOrNull(result.timestamp) };
+        })
+        .sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
+      return {
+        success: true,
+        message: "Similar jobs retrieved successfully",
+        data,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        scope.setExtra("input", uuid);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getSimilarJobs ${err.message}`);
+      return {
+        success: false,
+        message: "Failed to retrieve similar jobs",
+      };
     }
   }
 }
