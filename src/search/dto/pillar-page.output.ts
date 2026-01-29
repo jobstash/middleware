@@ -77,6 +77,11 @@ export interface PillarJob {
   organization: PillarOrganization | null;
 }
 
+export interface SuggestedPillar {
+  label: string;
+  href: string;
+}
+
 /**
  * Response data for a pillar page
  */
@@ -84,6 +89,7 @@ export interface PillarPageData {
   title: string;
   description: string;
   jobs: PillarJob[];
+  suggestedPillars: SuggestedPillar[];
 }
 
 /**

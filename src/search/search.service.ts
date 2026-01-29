@@ -16,6 +16,7 @@ import {
   PillarPageData,
   PillarJob,
   ParsedPillarSlug,
+  SuggestedPillar,
 } from "./dto/pillar-page.output";
 import {
   SuggestionItem,
@@ -2148,6 +2149,11 @@ export class SearchService {
                 title: headerText.title,
                 description: headerText.description,
                 jobs: fallbackJobs,
+                suggestedPillars: this.deriveSuggestedPillars(
+                  fallbackJobs,
+                  pillarType,
+                  value,
+                ),
               },
             };
           }
@@ -2170,6 +2176,11 @@ export class SearchService {
           title: headerText.title,
           description: headerText.description,
           jobs,
+          suggestedPillars: this.deriveSuggestedPillars(
+            jobs,
+            pillarType,
+            value,
+          ),
         },
       };
     } catch (err) {
@@ -2186,6 +2197,171 @@ export class SearchService {
         message: "Error retrieving pillar page data",
       };
     }
+  }
+
+  private deriveSuggestedPillars(
+    jobs: PillarJob[],
+    currentPillarType: string,
+    currentValue: string,
+  ): SuggestedPillar[] {
+    const TOTAL_BUDGET = 14;
+    const SAME_TYPE_LIMIT = 4;
+    const MIN_PER_CROSS_TYPE = 2;
+    const MAX_PER_CROSS_TYPE = 4;
+
+    const totalJobs = jobs.length;
+    const useUbiquityPenalty = totalJobs > 3;
+
+    const configs: {
+      pillarType: string;
+      prefix: string;
+      extract: (job: PillarJob) => { label: string; key: string }[];
+    }[] = [
+      {
+        pillarType: "tags",
+        prefix: "/t-",
+        extract: job =>
+          job.tags.map(t => ({ label: t.name, key: t.normalizedName })),
+      },
+      {
+        pillarType: "organizations",
+        prefix: "/o-",
+        extract: job =>
+          job.organization
+            ? [
+                {
+                  label: job.organization.name,
+                  key: job.organization.normalizedName,
+                },
+              ]
+            : [],
+      },
+      {
+        pillarType: "classifications",
+        prefix: "/cl-",
+        extract: job =>
+          job.classification
+            ? [{ label: job.classification, key: slugify(job.classification) }]
+            : [],
+      },
+      {
+        pillarType: "locations",
+        prefix: "/l-",
+        extract: job =>
+          job.location
+            ? [{ label: job.location, key: slugify(job.location) }]
+            : [],
+      },
+      {
+        pillarType: "investors",
+        prefix: "/i-",
+        extract: job =>
+          (job.organization?.investors ?? []).map(i => ({
+            label: i.name,
+            key: i.normalizedName,
+          })),
+      },
+      {
+        pillarType: "fundingRounds",
+        prefix: "/fr-",
+        extract: job =>
+          (job.organization?.fundingRounds ?? [])
+            .filter(fr => fr.roundName)
+            .map(fr => ({
+              label: fr.roundName as string,
+              key: slugify(fr.roundName as string),
+            })),
+      },
+    ];
+
+    type Candidate = { key: string; label: string; prefix: string; score: number };
+
+    const toSuggestion = (c: Candidate): SuggestedPillar => ({
+      label: c.label,
+      href: `${c.prefix}${c.key}`,
+    });
+
+    // Build scored candidates per type
+    const candidatesByType = new Map<string, Candidate[]>();
+
+    for (const config of configs) {
+      const counts = new Map<string, { label: string; count: number }>();
+
+      for (const job of jobs) {
+        for (const item of config.extract(job)) {
+          if (!item.key) continue;
+          if (
+            config.pillarType === currentPillarType &&
+            item.key === currentValue
+          )
+            continue;
+          const existing = counts.get(item.key);
+          if (existing) {
+            existing.count++;
+          } else {
+            counts.set(item.key, { label: item.label, count: 1 });
+          }
+        }
+      }
+
+      const scored: Candidate[] = Array.from(counts.entries())
+        .map(([key, { label, count }]) => ({
+          key,
+          label,
+          prefix: config.prefix,
+          score: useUbiquityPenalty
+            ? count * (1 - count / totalJobs)
+            : count,
+        }))
+        .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label));
+
+      candidatesByType.set(config.pillarType, scored);
+    }
+
+    // Same-type pick: up to SAME_TYPE_LIMIT
+    const sameTypePicked = (candidatesByType.get(currentPillarType) ?? [])
+      .slice(0, SAME_TYPE_LIMIT);
+    const results: SuggestedPillar[] = sameTypePicked.map(toSuggestion);
+
+    // Cross-type fill with remaining budget
+    let remaining = TOTAL_BUDGET - sameTypePicked.length;
+
+    const crossTypeGroups = configs
+      .filter(c => c.pillarType !== currentPillarType)
+      .map(c => ({
+        candidates: candidatesByType.get(c.pillarType) ?? [],
+        taken: 0,
+      }))
+      .filter(g => g.candidates.length > 0);
+
+    // First pass: give each cross-type group up to MIN_PER_CROSS_TYPE
+    for (const group of crossTypeGroups) {
+      const take = Math.min(MIN_PER_CROSS_TYPE, group.candidates.length, remaining);
+      group.taken = take;
+      remaining -= take;
+      if (remaining <= 0) break;
+    }
+
+    // Second pass: round-robin remaining slots
+    let changed = true;
+    while (remaining > 0 && changed) {
+      changed = false;
+      for (const group of crossTypeGroups) {
+        if (remaining <= 0) break;
+        if (group.taken < group.candidates.length && group.taken < MAX_PER_CROSS_TYPE) {
+          group.taken++;
+          remaining--;
+          changed = true;
+        }
+      }
+    }
+
+    // Emit cross-type results in config order
+    for (const group of crossTypeGroups) {
+      results.push(...group.candidates.slice(0, group.taken).map(toSuggestion));
+    }
+
+    return results;
   }
 
   /**
