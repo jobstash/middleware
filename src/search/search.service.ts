@@ -2209,10 +2209,10 @@ export class SearchService {
     currentPillarType: string,
     currentValue: string,
   ): SuggestedPillar[] {
-    const TOTAL_BUDGET = 14;
-    const SAME_TYPE_LIMIT = 4;
-    const MIN_PER_CROSS_TYPE = 2;
-    const MAX_PER_CROSS_TYPE = 4;
+    const TOTAL_BUDGET = 9;
+    const SAME_TYPE_LIMIT = 2;
+    const MIN_PER_CROSS_TYPE = 1;
+    const MAX_PER_CROSS_TYPE = 2;
 
     const totalJobs = jobs.length;
     const useUbiquityPenalty = totalJobs > 3;
