@@ -14,6 +14,7 @@ import { AuthService } from "src/auth/auth.service";
 import { PBACGuard } from "src/auth/pbac.guard";
 import {
   CACHE_DURATION_1_HOUR,
+  CACHE_DURATION_15_MINUTES,
   CheckWalletPermissions,
 } from "src/shared/constants";
 import { Permissions } from "src/shared/decorators/role.decorator";
@@ -36,6 +37,8 @@ import { DeletePreferredTagInput } from "./dto/delete-preferred-tag.input";
 import { LinkTagSynonymDto } from "./dto/link-tag-synonym.dto";
 import { TagsService } from "./tags.service";
 import { MatchTagsInput } from "./dto/match-tags.input";
+import { BatchMatchTagsInput } from "./dto/batch-match-tags.input";
+import { BatchMatchTagsResult } from "./dto/batch-match-tags.output";
 import { Session } from "src/shared/decorators";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 @Controller("tags")
@@ -306,6 +309,18 @@ export class TagsController {
     }>
   > {
     return this.tagsService.matchTags(body.tags);
+  }
+
+  @Post("/batch-match")
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
+  @ApiOkResponse({
+    description:
+      "Batch match a list of skill strings to Tag nodes using fuzzy search. Returns matched tags with IDs and scores, plus unmatched inputs.",
+  })
+  async batchMatchTags(
+    @Body() body: BatchMatchTagsInput,
+  ): Promise<ResponseWithOptionalData<BatchMatchTagsResult[]>> {
+    return this.tagsService.batchMatchTags(body.tags, body.scoreThreshold);
   }
 
   @Post("link-synonym")
