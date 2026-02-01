@@ -36,3 +36,4 @@ export * from "./talent-list.entity";
 export * from "./dashboard-job-stats.entity";
 export * from "./dashboard-talent-stats.entity";
 export * from "./delegate-access-request.entity";
+export * from "./job-match-result.entity";
