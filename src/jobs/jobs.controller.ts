@@ -28,7 +28,10 @@ import * as Sentry from "@sentry/node";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { CheckWalletPermissions, ECOSYSTEM_HEADER } from "src/shared/constants";
-import { CACHE_DURATION_1_HOUR } from "src/shared/constants/cache-control";
+import {
+  CACHE_DURATION_1_HOUR,
+  CACHE_DURATION_15_MINUTES,
+} from "src/shared/constants/cache-control";
 import { Session } from "src/shared/decorators";
 import { Permissions } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
@@ -41,6 +44,7 @@ import {
   JobDetailsResult,
   JobFilterConfigs,
   JobListResult,
+  JobMatchResult,
   JobpostFolder,
   PaginatedData,
   Response,
@@ -63,6 +67,7 @@ import { JobListParams } from "./dto/job-list.input";
 import { UpdateJobApplicantListInput } from "./dto/update-job-applicant-list.input";
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
+import { JobMatchInput } from "./dto/job-match.input";
 import { SimilarJob } from "./dto/similar-jobs.output";
 import { JobsService } from "./jobs.service";
 import { CacheInterceptor } from "@nestjs/cache-manager";
@@ -237,6 +242,37 @@ export class JobsController {
   ): Promise<ResponseWithOptionalData<SimilarJob[]>> {
     this.logger.log(`/jobs/similar/${uuid}`);
     return this.jobsService.getSimilarJobs(uuid, ecosystem);
+  }
+
+  @Get("match/:uuid")
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
+  @ApiOkResponse({
+    description:
+      "Returns a match score indicating how well user skills match a job's required tags",
+    type: JobMatchResult,
+  })
+  @ApiNotFoundResponse({
+    description: "Returns that no job was found for the specified uuid",
+    type: ResponseWithNoData,
+  })
+  async getJobMatchScore(
+    @Param("uuid") shortUuid: string,
+    @Query(new ValidationPipe({ transform: true }))
+    query: JobMatchInput,
+  ): Promise<ResponseWithOptionalData<JobMatchResult>> {
+    this.logger.log(`/jobs/match/${shortUuid}`);
+    const result = await this.jobsService.getJobMatchScore(
+      shortUuid,
+      query.skills,
+      query.isExpert,
+    );
+    if (!result.success) {
+      throw new NotFoundException({
+        success: false,
+        message: "Job not found",
+      });
+    }
+    return result;
   }
 
   @Get("/featured/:orgId")

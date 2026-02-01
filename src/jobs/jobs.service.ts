@@ -13,6 +13,8 @@ import {
   EcosystemJobListResultEntity,
   JobApplicantEntity,
   JobDetailsEntity,
+  JobMatchCategory,
+  JobMatchResult,
   JobpostFolderEntity,
 } from "src/shared/entities";
 import {
@@ -4737,6 +4739,145 @@ export class JobsService {
       return {
         success: false,
         message: "Failed to retrieve similar jobs",
+      };
+    }
+  }
+
+  async getJobMatchScore(
+    shortUuid: string,
+    skills: string[],
+    isExpert: boolean,
+  ): Promise<ResponseWithOptionalData<JobMatchResult>> {
+    try {
+      const generatedQuery = `
+        CYPHER runtime = parallel
+        MATCH (sj:StructuredJobpost {shortUUID: $shortUUID})-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        MATCH (sj)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE NOT (tag)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        WITH COLLECT(DISTINCT tag) AS directTags
+        UNWIND directTags AS tag
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)
+          WHERE NOT (synonym)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        OPTIONAL MATCH (tag)-[:IS_PAIR_OF]-(pair:Tag)
+          WHERE NOT (pair)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        WITH tag,
+             tag.normalizedName AS tagName,
+             COLLECT(DISTINCT synonym) AS synonymNodes,
+             COLLECT(DISTINCT pair) AS pairNodes
+        WITH tag, tagName,
+             [s IN synonymNodes WHERE s IS NOT NULL] AS synonyms,
+             [p IN pairNodes WHERE p IS NOT NULL] AS pairs
+        WITH tag, tagName,
+             apoc.coll.toSet(
+               [tagName] + [s IN synonyms | s.normalizedName] + [p IN pairs | p.normalizedName]
+             ) AS expanded,
+             synonyms, pairs
+        WITH COLLECT({
+               id: tag.id,
+               name: tag.name,
+               normalizedName: tag.normalizedName,
+               expanded: expanded
+             }) AS tagMappings,
+             apoc.coll.toSet(apoc.coll.flatten(COLLECT(expanded))) AS jobTags,
+             COLLECT(tag {.id, .name, .normalizedName})
+               + apoc.coll.flatten(COLLECT([s IN synonyms | s {.id, .name, .normalizedName}]))
+               + apoc.coll.flatten(COLLECT([p IN pairs | p {.id, .name, .normalizedName}])) AS allTags
+        RETURN jobTags, tagMappings, allTags
+      `;
+      const queryResult = await this.neogma.queryRunner.run(generatedQuery, {
+        shortUUID: shortUuid,
+      });
+
+      if (queryResult.records.length === 0) {
+        return {
+          success: false,
+          message: "Job not found",
+        };
+      }
+
+      const jobTags: string[] = queryResult.records[0].get("jobTags");
+      const tagMappings: Array<{
+        id: string;
+        name: string;
+        normalizedName: string;
+        expanded: string[];
+      }> = queryResult.records[0].get("tagMappings");
+      const allTags: Array<{
+        id: string;
+        name: string;
+        normalizedName: string;
+      }> = queryResult.records[0].get("allTags");
+      const jobTagSet = new Set(jobTags);
+
+      if (jobTagSet.size === 0 || skills.length === 0) {
+        return {
+          success: true,
+          message: "Job match score calculated successfully",
+          data: {
+            score: 0,
+            category: JobMatchCategory.UNLIKELY_FIT,
+            matchedSkills: [],
+            recommendedSkills: [],
+          },
+        };
+      }
+
+      const tagLookup = new Map(
+        allTags.map(t => [t.normalizedName, t]),
+      );
+      const userSkillSet = new Set(skills);
+      const matchedSkills = skills
+        .filter(s => jobTagSet.has(s))
+        .map(s => tagLookup.get(s))
+        .filter(
+          (t): t is { id: string; name: string; normalizedName: string } =>
+            t != null,
+        );
+      const matchedCount = matchedSkills.length;
+      const jobCoverage = matchedCount / jobTagSet.size;
+      const skillRelevance = matchedCount / skills.length;
+      const overlapRatio = 0.35 * jobCoverage + 0.65 * skillRelevance;
+      const score = Math.pow(overlapRatio, isExpert ? 0.6 : 1.4);
+      const roundedScore = Math.round(score * 100) / 100;
+      const category =
+        roundedScore >= 0.6
+          ? JobMatchCategory.STRONG_FIT
+          : roundedScore >= 0.3
+            ? JobMatchCategory.PARTIAL_FIT
+            : JobMatchCategory.UNLIKELY_FIT;
+
+      const recommendedSkills = tagMappings
+        .filter(tm => !tm.expanded.some(name => userSkillSet.has(name)))
+        .map(tm => ({
+          id: tm.id,
+          name: tm.name,
+          normalizedName: tm.normalizedName,
+        }));
+
+      return {
+        success: true,
+        message: "Job match score calculated successfully",
+        data: {
+          score: roundedScore,
+          category,
+          matchedSkills,
+          recommendedSkills,
+        },
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        scope.setExtra("input", { shortUuid, skills, isExpert });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getJobMatchScore ${err.message}`);
+      return {
+        success: false,
+        message: "Failed to calculate job match score",
       };
     }
   }
