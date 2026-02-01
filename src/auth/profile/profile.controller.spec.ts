@@ -346,7 +346,15 @@ describe("ProfileController", () => {
       expect(result4).toEqual({
         success: true,
         message: expect.stringMatching("success"),
-        data: expect.arrayContaining(skills.skills),
+        data: expect.arrayContaining(
+          skills.skills.map(skill =>
+            expect.objectContaining({
+              id: skill.id,
+              name: skill.name,
+              canTeach: skill.canTeach,
+            }),
+          ),
+        ),
       });
     },
     REALLY_LONG_TIME,

@@ -181,14 +181,28 @@ export class ProfileController {
     description: "Returns the skills of the currently logged in user",
     schema: responseSchemaWrapper({
       $ref: getSchemaPath(
-        Response<{ id: string; name: string; canTeach: boolean }[]>,
+        Response<
+          {
+            id: string;
+            name: string;
+            normalizedName: string;
+            canTeach: boolean;
+          }[]
+        >,
       ),
     }),
   })
   async getUserSkills(
     @Session() { address }: SessionObject,
   ): Promise<
-    ResponseWithOptionalData<{ id: string; name: string; canTeach: boolean }[]>
+    ResponseWithOptionalData<
+      {
+        id: string;
+        name: string;
+        normalizedName: string;
+        canTeach: boolean;
+      }[]
+    >
   > {
     this.logger.log(`/profile/skills`);
 
