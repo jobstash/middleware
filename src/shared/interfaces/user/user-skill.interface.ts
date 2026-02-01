@@ -6,20 +6,23 @@ export class UserSkill {
   public static readonly UserSkillType = t.strict({
     id: t.string,
     name: t.union([t.string, t.null]),
+    normalizedName: t.union([t.string, t.null]),
     canTeach: t.union([t.boolean, t.null]),
   });
 
   id: string;
   name: string | null;
+  normalizedName: string | null;
   canTeach: boolean | null;
 
   constructor(raw: UserSkill) {
-    const { id, name, canTeach } = raw;
+    const { id, name, normalizedName, canTeach } = raw;
 
     const result = UserSkill.UserSkillType.decode(raw);
 
     this.id = id;
     this.name = name;
+    this.normalizedName = normalizedName;
     this.canTeach = canTeach;
 
     if (isLeft(result)) {
