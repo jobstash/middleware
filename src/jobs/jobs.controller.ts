@@ -69,6 +69,8 @@ import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
 import { JobMatchInput } from "./dto/job-match.input";
 import { SimilarJob } from "./dto/similar-jobs.output";
+import { SuggestedJobsInput } from "./dto/suggested-jobs.input";
+import { PillarJob } from "./dto/suggested-jobs.output";
 import { JobsService } from "./jobs.service";
 import { CacheInterceptor } from "@nestjs/cache-manager";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
@@ -242,6 +244,24 @@ export class JobsController {
   ): Promise<ResponseWithOptionalData<SimilarJob[]>> {
     this.logger.log(`/jobs/similar/${uuid}`);
     return this.jobsService.getSimilarJobs(uuid, ecosystem);
+  }
+
+  @Get("suggested")
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
+  @ApiOkResponse({
+    description: "Returns a paginated list of jobs ranked by skill match relevance",
+  })
+  async getSuggestedJobs(
+    @Query(new ValidationPipe({ transform: true }))
+    query: SuggestedJobsInput,
+  ): Promise<ResponseWithOptionalData<PaginatedData<PillarJob>>> {
+    this.logger.log(`/jobs/suggested`);
+    return this.jobsService.getSuggestedJobs(
+      query.skills,
+      query.isExpert,
+      query.limit,
+      query.page,
+    );
   }
 
   @Get("match/:uuid")
