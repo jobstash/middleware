@@ -19,6 +19,7 @@ import {
 } from "src/shared/entities";
 import {
   dropPublicJobsFromOrgsWithOnlineExpertJobs,
+  intConverter,
   nonZeroOrNull,
   notStringOrNull,
   paginate,
@@ -62,6 +63,7 @@ import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
 import { ChangeJobProjectInput } from "./dto/update-job-project.input";
 import { SimilarJob } from "./dto/similar-jobs.output";
+import { PillarJob } from "./dto/suggested-jobs.output";
 import { TagsService } from "src/tags/tags.service";
 import { uniq } from "lodash";
 import { go } from "fuzzysort";
@@ -4823,47 +4825,18 @@ export class JobsService {
         };
       }
 
-      const tagLookup = new Map(
-        allTags.map(t => [t.normalizedName, t]),
+      const matchResult = this.calculateMatchScore(
+        skills,
+        jobTagSet,
+        tagMappings,
+        allTags,
+        isExpert,
       );
-      const userSkillSet = new Set(skills);
-      const matchedSkills = skills
-        .filter(s => jobTagSet.has(s))
-        .map(s => tagLookup.get(s))
-        .filter(
-          (t): t is { id: string; name: string; normalizedName: string } =>
-            t != null,
-        );
-      const matchedCount = matchedSkills.length;
-      const jobCoverage = matchedCount / jobTagSet.size;
-      const skillRelevance = matchedCount / skills.length;
-      const overlapRatio = 0.35 * jobCoverage + 0.65 * skillRelevance;
-      const score = Math.pow(overlapRatio, isExpert ? 0.6 : 1.4);
-      const roundedScore = Math.round(score * 100) / 100;
-      const category =
-        roundedScore >= 0.6
-          ? JobMatchCategory.STRONG_FIT
-          : roundedScore >= 0.3
-            ? JobMatchCategory.PARTIAL_FIT
-            : JobMatchCategory.UNLIKELY_FIT;
-
-      const recommendedSkills = tagMappings
-        .filter(tm => !tm.expanded.some(name => userSkillSet.has(name)))
-        .map(tm => ({
-          id: tm.id,
-          name: tm.name,
-          normalizedName: tm.normalizedName,
-        }));
 
       return {
         success: true,
         message: "Job match score calculated successfully",
-        data: {
-          score: roundedScore,
-          category,
-          matchedSkills,
-          recommendedSkills,
-        },
+        data: matchResult,
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -4878,6 +4851,264 @@ export class JobsService {
       return {
         success: false,
         message: "Failed to calculate job match score",
+      };
+    }
+  }
+
+  private calculateMatchScore(
+    userSkills: string[],
+    jobTagSet: Set<string>,
+    tagMappings: Array<{
+      id: string;
+      name: string;
+      normalizedName: string;
+      expanded: string[];
+    }>,
+    allTags: Array<{ id: string; name: string; normalizedName: string }>,
+    isExpert: boolean,
+  ): JobMatchResult {
+    const tagLookup = new Map(allTags.map(t => [t.normalizedName, t]));
+    const userSkillSet = new Set(userSkills);
+    const matchedSkills = userSkills
+      .filter(s => jobTagSet.has(s))
+      .map(s => tagLookup.get(s))
+      .filter(
+        (t): t is { id: string; name: string; normalizedName: string } =>
+          t != null,
+      );
+    const matchedCount = matchedSkills.length;
+    const jobCoverage = matchedCount / jobTagSet.size;
+    const skillRelevance = matchedCount / userSkills.length;
+    const overlapRatio = 0.35 * jobCoverage + 0.65 * skillRelevance;
+    const score = Math.pow(overlapRatio, isExpert ? 0.6 : 1.4);
+    const roundedScore = Math.round(score * 100) / 100;
+    const category =
+      roundedScore >= 0.6
+        ? JobMatchCategory.STRONG_FIT
+        : roundedScore >= 0.3
+          ? JobMatchCategory.PARTIAL_FIT
+          : JobMatchCategory.UNLIKELY_FIT;
+
+    const recommendedSkills = tagMappings
+      .filter(tm => !tm.expanded.some(name => userSkillSet.has(name)))
+      .map(tm => ({
+        id: tm.id,
+        name: tm.name,
+        normalizedName: tm.normalizedName,
+      }));
+
+    return {
+      score: roundedScore,
+      category,
+      matchedSkills,
+      recommendedSkills,
+    };
+  }
+
+  async getSuggestedJobs(
+    skills: string[],
+    isExpert: boolean,
+    limit: number,
+    page: number,
+  ): Promise<ResponseWithOptionalData<PaginatedData<PillarJob>>> {
+    if (!skills.length) {
+      return {
+        success: true,
+        message: "Suggested jobs retrieved successfully",
+        data: { page, count: 0, total: 0, data: [] },
+      };
+    }
+
+    const exponent = isExpert ? 0.6 : 1.4;
+    const minFromScore = Math.pow(0.3, 1 / exponent);
+    const minForOneMatch = 0.65 / skills.length;
+    const minOverlapRatio = Math.min(minFromScore, minForOneMatch);
+    const minMatchCount = Math.min(5, Math.max(1, Math.ceil(skills.length / 6.5)));
+    const thirtyDaysAgo = Math.floor(Date.now() / 1000) - 30 * 24 * 60 * 60;
+    const skip = (page - 1) * limit;
+
+    try {
+      const generatedQuery = `
+        CYPHER runtime = parallel
+
+        UNWIND $userSkills AS skillName
+        MATCH (tag:Tag {normalizedName: skillName})
+        WHERE NOT (tag)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)
+          WHERE NOT (synonym)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        OPTIONAL MATCH (tag)-[:IS_PAIR_OF]-(pair:Tag)
+          WHERE NOT (pair)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        WITH COLLECT(DISTINCT tag) + COLLECT(DISTINCT synonym) + COLLECT(DISTINCT pair) AS expandedTags
+        WITH apoc.coll.toSet([t IN expandedTags WHERE t IS NOT NULL]) AS userTagNodes,
+             [t IN apoc.coll.toSet([t IN expandedTags WHERE t IS NOT NULL]) | t.normalizedName] AS userExpandedNames
+
+        UNWIND userTagNodes AS userTag
+        MATCH (sj:StructuredJobpost)-[:HAS_TAG]->(userTag)
+        WHERE (sj)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+          AND NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+          AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $thirtyDaysAgo
+        WITH DISTINCT sj, userExpandedNames
+
+        MATCH (sj)-[:HAS_TAG]->(jobTag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE NOT (jobTag)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        WITH sj, userExpandedNames, COLLECT(DISTINCT jobTag) AS directTags
+        UNWIND directTags AS tag
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)
+          WHERE NOT (synonym)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        OPTIONAL MATCH (tag)-[:IS_PAIR_OF]-(pair:Tag)
+          WHERE NOT (pair)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        WITH sj, userExpandedNames, tag,
+             apoc.coll.toSet(
+               [tag.normalizedName]
+               + [s IN COLLECT(DISTINCT synonym) WHERE s IS NOT NULL | s.normalizedName]
+               + [p IN COLLECT(DISTINCT pair) WHERE p IS NOT NULL | p.normalizedName]
+             ) AS expanded
+        WITH sj, userExpandedNames,
+             apoc.coll.toSet(apoc.coll.flatten(COLLECT(expanded))) AS jobExpandedNames
+
+        WITH sj,
+             SIZE([name IN jobExpandedNames WHERE name IN userExpandedNames]) AS matchedCount,
+             SIZE(jobExpandedNames) AS jobTagCount
+        WHERE matchedCount >= $minMatchCount
+        WITH sj, matchedCount, jobTagCount,
+             CASE WHEN jobTagCount = 0 OR $skillCount = 0 THEN 0.0
+                  ELSE 0.35 * (toFloat(matchedCount) / jobTagCount) + 0.65 * (toFloat(matchedCount) / $skillCount)
+             END AS overlapRatio
+
+        WHERE overlapRatio >= $minOverlapRatio
+        WITH sj, overlapRatio
+        ORDER BY COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) DESC
+        WITH COLLECT(sj) AS allJobs, COUNT(sj) AS total
+        WITH allJobs[toInteger($skip)..toInteger($skip)+toInteger($limit)] AS pageJobs, total
+        UNWIND pageJobs AS sj
+
+        OPTIONAL MATCH (sj)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+          AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
+        WITH sj, total, tag
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+        WITH sj, total, tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
+        WITH sj, total, CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
+        WITH sj, total, collect(DISTINCT {id: canonicalTag.id, name: canonicalTag.name, normalizedName: canonicalTag.normalizedName}) as tags
+
+        OPTIONAL MATCH (sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(org:Organization)
+        WITH sj, total, tags, head(collect(DISTINCT org)) AS org
+
+        RETURN total, {
+          id: sj.id,
+          shortUUID: sj.shortUUID,
+          title: sj.title,
+          url: sj.url,
+          summary: sj.summary,
+          salary: sj.salary,
+          minimumSalary: sj.minimumSalary,
+          maximumSalary: sj.maximumSalary,
+          salaryCurrency: sj.salaryCurrency,
+          paysInCrypto: sj.paysInCrypto,
+          offersTokenAllocation: sj.offersTokenAllocation,
+          seniority: CASE sj.seniority
+            WHEN '1' THEN 'Intern' WHEN '2' THEN 'Junior'
+            WHEN '3' THEN 'Senior' WHEN '4' THEN 'Lead'
+            WHEN '5' THEN 'Head' ELSE sj.seniority END,
+          timestamp: COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp),
+          commitment: [(sj)-[:HAS_COMMITMENT]->(c:JobpostCommitment) | c.name][0],
+          locationType: [(sj)-[:HAS_LOCATION_TYPE]->(lt:JobpostLocationType) | lt.name][0],
+          classification: [(sj)-[:HAS_CLASSIFICATION]->(cl:JobpostClassification) | cl.name][0],
+          location: sj.location,
+          access: COALESCE(sj.access, 'public'),
+          featured: COALESCE(sj.featured, false),
+          featureStartDate: sj.featureStartDate,
+          featureEndDate: sj.featureEndDate,
+          onboardIntoWeb3: COALESCE(sj.onboardIntoWeb3, false),
+          organization: CASE WHEN org IS NOT NULL THEN {
+            id: org.id, name: org.name, normalizedName: org.normalizedName,
+            orgId: org.orgId,
+            website: [(org)-[:HAS_WEBSITE]->(w) | w.url][0],
+            summary: org.summary, location: org.location,
+            description: org.description, logoUrl: org.logoUrl,
+            headcountEstimate: org.headcountEstimate,
+            fundingRounds: [(org)-[:HAS_FUNDING_ROUND]->(fr:FundingRound) WHERE fr.id IS NOT NULL | {
+              id: fr.id, date: fr.date, roundName: fr.roundName, raisedAmount: fr.raisedAmount
+            }],
+            investors: [(org)-[:HAS_FUNDING_ROUND]->(:FundingRound)-[:HAS_INVESTOR]->(inv:Investor) | {
+              id: inv.id, name: inv.name, normalizedName: inv.normalizedName
+            }]
+          } ELSE null END,
+          tags: [t IN tags WHERE t.name IS NOT NULL | t]
+        } AS job
+        ORDER BY job.timestamp DESC
+      `;
+
+      const queryResult = await this.neogma.queryRunner.run(generatedQuery, {
+        userSkills: skills,
+        minOverlapRatio,
+        minMatchCount,
+        skillCount: skills.length,
+        thirtyDaysAgo,
+        skip,
+        limit,
+      });
+
+      const records = queryResult.records;
+      const total = records.length > 0 ? records[0].get("total").toNumber() : 0;
+      const jobs: PillarJob[] = records.map(r => {
+        const job = r.get("job");
+        const org = job.organization;
+        return {
+          ...job,
+          salary: intConverter(job.salary) || null,
+          minimumSalary: intConverter(job.minimumSalary) || null,
+          maximumSalary: intConverter(job.maximumSalary) || null,
+          timestamp: intConverter(job.timestamp),
+          featureStartDate: intConverter(job.featureStartDate) || null,
+          featureEndDate: intConverter(job.featureEndDate) || null,
+          tags: (job.tags ?? []).filter(
+            (t: { name: string | null }) => t.name !== null,
+          ),
+          organization: org
+            ? {
+                ...org,
+                headcountEstimate:
+                  intConverter(org.headcountEstimate) || null,
+                fundingRounds: (org.fundingRounds ?? []).map(
+                  (fr: Record<string, unknown>) => ({
+                    ...fr,
+                    date: intConverter(fr.date as number),
+                    raisedAmount:
+                      intConverter(fr.raisedAmount as number) || null,
+                  }),
+                ),
+                investors: [
+                  ...new Map(
+                    (org.investors ?? []).map(
+                      (inv: { id: string }) => [inv.id, inv] as const,
+                    ),
+                  ).values(),
+                ],
+              }
+            : null,
+        };
+      });
+
+      return {
+        success: true,
+        message: "Suggested jobs retrieved successfully",
+        data: { page, count: jobs.length, total, data: jobs },
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        scope.setExtra("input", { skills, isExpert, limit, page });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getSuggestedJobs ${err.message}`);
+      return {
+        success: false,
+        message: "Failed to retrieve suggested jobs",
       };
     }
   }
