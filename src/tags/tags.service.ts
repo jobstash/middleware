@@ -780,6 +780,7 @@ export class TagsService {
   async batchMatchTags(
     tags: string[],
     scoreThreshold = 0.5,
+    maxResults = 15,
   ): Promise<ResponseWithOptionalData<BatchMatchTagsResult[]>> {
     try {
       if (tags.length === 0) {
@@ -913,7 +914,7 @@ export class TagsService {
               maxCooccur > 0 ? cooccur / maxCooccur : 0;
             return {
               ...c,
-              score: c.score * (0.6 + 0.4 * normalizedCooccurrence),
+              score: c.score * (0.4 + 0.6 * normalizedCooccurrence),
             };
           });
         } else {
@@ -924,6 +925,7 @@ export class TagsService {
 
       const data: BatchMatchTagsResult[] = candidates
         .sort((a, b) => b.score - a.score)
+        .slice(0, maxResults)
         .map(({ id, name, normalizedName, score }) => ({
           id,
           name,

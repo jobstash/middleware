@@ -3,6 +3,7 @@ import {
   IsArray,
   IsNotEmpty,
   IsNumber,
+  IsInt,
   IsOptional,
   IsString,
   ArrayMaxSize,
@@ -24,4 +25,11 @@ export class BatchMatchTagsInput {
   @Min(0)
   @Max(1)
   scoreThreshold?: number;
+
+  @ApiPropertyOptional({ default: 15, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  maxResults?: number;
 }

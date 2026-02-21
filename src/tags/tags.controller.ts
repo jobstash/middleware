@@ -320,7 +320,11 @@ export class TagsController {
   async batchMatchTags(
     @Body() body: BatchMatchTagsInput,
   ): Promise<ResponseWithOptionalData<BatchMatchTagsResult[]>> {
-    return this.tagsService.batchMatchTags(body.tags, body.scoreThreshold);
+    return this.tagsService.batchMatchTags(
+      body.tags,
+      body.scoreThreshold,
+      body.maxResults,
+    );
   }
 
   @Post("link-synonym")
