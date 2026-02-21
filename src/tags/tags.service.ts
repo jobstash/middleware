@@ -15,7 +15,7 @@ import { Neogma } from "neogma";
 import { UpdateTagDto } from "./dto/update-tag.dto";
 import { TagEntity } from "src/shared/entities/tag.entity";
 import NotFoundError from "src/shared/errors/not-found-error";
-import { instanceToNode, slugify } from "src/shared/helpers";
+import { instanceToNode, intConverter, slugify } from "src/shared/helpers";
 import { ConfigService } from "@nestjs/config";
 
 @Injectable()
@@ -758,7 +758,7 @@ export class TagsService {
       const escaped = this.sanitizeLucene(w);
       if (w.length <= 2) return `name:${escaped}`;
       if (w.length <= 4) return `name:${escaped}~1`;
-      return `name:${escaped}~`;
+      return `name:${escaped}~1`;
     };
 
     const terms: string[] = [];
@@ -779,7 +779,7 @@ export class TagsService {
 
   async batchMatchTags(
     tags: string[],
-    scoreThreshold = 0.3,
+    scoreThreshold = 0.5,
   ): Promise<ResponseWithOptionalData<BatchMatchTagsResult[]>> {
     try {
       if (tags.length === 0) {
@@ -842,7 +842,7 @@ export class TagsService {
         WITH input, matches, matches[0].score AS maxScore
         UNWIND matches AS m
         WITH input, m.id AS id, m.name AS name, m.normalizedName AS normalizedName, m.score AS score
-        WHERE score >= maxScore * 0.55
+        WHERE score >= maxScore * 0.75
         RETURN input, id, name, normalizedName, score
         `,
         { queries, scoreThreshold },
@@ -867,9 +867,69 @@ export class TagsService {
         }
       }
 
-      const data: BatchMatchTagsResult[] = [...tagMap.values()]
+      let candidates = [...tagMap.values()];
+
+      // Co-occurrence filtering: only when 3+ candidates
+      if (candidates.length >= 3) {
+        const tagIds = candidates.map(c => c.id);
+
+        const coResult = await this.neogma.queryRunner.run(
+          `
+          UNWIND $tagIds AS tagId
+          MATCH (tag:Tag {id: tagId})<-[:HAS_TAG]-(sj:StructuredJobpost)-[:HAS_TAG]->(other:Tag)
+          WHERE other.id IN $tagIds AND other.id <> tagId
+          WITH tagId, count(DISTINCT other.id) AS cooccurringTags
+          RETURN tagId, cooccurringTags
+          `,
+          { tagIds },
+        );
+
+        const cooccurrenceMap = new Map<string, number>();
+        for (const record of coResult.records) {
+          cooccurrenceMap.set(
+            record.get("tagId") as string,
+            intConverter(record.get("cooccurringTags")),
+          );
+        }
+
+        // Snapshot before filtering for safety net
+        const preFilterTop = candidates
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 5);
+
+        // Drop tags with 0 co-occurrence
+        const filtered = candidates.filter(
+          c => (cooccurrenceMap.get(c.id) ?? 0) > 0,
+        );
+
+        if (filtered.length > 0) {
+          // Re-score with co-occurrence boost
+          const maxCooccur = Math.max(
+            ...filtered.map(c => cooccurrenceMap.get(c.id) ?? 0),
+          );
+          candidates = filtered.map(c => {
+            const cooccur = cooccurrenceMap.get(c.id) ?? 0;
+            const normalizedCooccurrence =
+              maxCooccur > 0 ? cooccur / maxCooccur : 0;
+            return {
+              ...c,
+              score: c.score * (0.6 + 0.4 * normalizedCooccurrence),
+            };
+          });
+        } else {
+          // Safety net: restore top 5 from pre-filter snapshot
+          candidates = preFilterTop;
+        }
+      }
+
+      const data: BatchMatchTagsResult[] = candidates
         .sort((a, b) => b.score - a.score)
-        .map(({ id, name, normalizedName }) => ({ id, name, normalizedName }));
+        .map(({ id, name, normalizedName, score }) => ({
+          id,
+          name,
+          normalizedName,
+          score,
+        }));
 
       return {
         success: true,
