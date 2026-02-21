@@ -4924,7 +4924,7 @@ export class JobsService {
     const minForOneMatch = 0.65 / skills.length;
     const minOverlapRatio = Math.min(minFromScore, minForOneMatch);
     const minMatchCount = Math.min(5, Math.max(1, Math.ceil(skills.length / 6.5)));
-    const thirtyDaysAgo = Math.floor(Date.now() / 1000) - 30 * 24 * 60 * 60;
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
     const skip = (page - 1) * limit;
 
     try {
