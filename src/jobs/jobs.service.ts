@@ -4879,13 +4879,15 @@ export class JobsService {
     const matchedCount = matchedSkills.length;
     const jobCoverage = matchedCount / jobTagSet.size;
     const skillRelevance = matchedCount / userSkills.length;
-    const overlapRatio = 0.35 * jobCoverage + 0.65 * skillRelevance;
-    const score = Math.pow(overlapRatio, isExpert ? 0.6 : 1.4);
+    const score =
+      jobCoverage === 0 || skillRelevance === 0
+        ? 0
+        : Math.sqrt(jobCoverage * skillRelevance);
     const roundedScore = Math.round(score * 100) / 100;
     const category =
-      roundedScore >= 0.6
+      roundedScore >= 0.55
         ? JobMatchCategory.STRONG_FIT
-        : roundedScore >= 0.3
+        : roundedScore >= 0.25
           ? JobMatchCategory.PARTIAL_FIT
           : JobMatchCategory.UNLIKELY_FIT;
 
@@ -4919,11 +4921,8 @@ export class JobsService {
       };
     }
 
-    const exponent = isExpert ? 0.6 : 1.4;
-    const minFromScore = Math.pow(0.3, 1 / exponent);
-    const minForOneMatch = 0.65 / skills.length;
-    const minOverlapRatio = Math.min(minFromScore, minForOneMatch);
-    const minMatchCount = Math.min(5, Math.max(1, Math.ceil(skills.length / 6.5)));
+    const minOverlapRatio = isExpert ? 0.15 : 0.25;
+    const minMatchCount = Math.min(5, Math.max(1, Math.ceil(skills.length / 3)));
     const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
     const skip = (page - 1) * limit;
 
@@ -4938,64 +4937,60 @@ export class JobsService {
           WHERE NOT (synonym)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
         OPTIONAL MATCH (tag)-[:IS_PAIR_OF]-(pair:Tag)
           WHERE NOT (pair)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
-        WITH COLLECT(DISTINCT tag) + COLLECT(DISTINCT synonym) + COLLECT(DISTINCT pair) AS expandedTags
-        WITH apoc.coll.toSet([t IN expandedTags WHERE t IS NOT NULL]) AS userTagNodes,
-             [t IN apoc.coll.toSet([t IN expandedTags WHERE t IS NOT NULL]) | t.normalizedName] AS userExpandedNames
+        WITH COLLECT(DISTINCT tag) + COLLECT(DISTINCT synonym) + COLLECT(DISTINCT pair) AS discoveryTags,
+             apoc.coll.toSet(
+               COLLECT(DISTINCT tag.normalizedName)
+               + [s IN COLLECT(DISTINCT synonym) WHERE s IS NOT NULL | s.normalizedName]
+             ) AS userScoringNames
 
-        UNWIND userTagNodes AS userTag
+        UNWIND apoc.coll.toSet([t IN discoveryTags WHERE t IS NOT NULL]) AS userTag
         MATCH (sj:StructuredJobpost)-[:HAS_TAG]->(userTag)
         WHERE (sj)-[:HAS_STATUS]->(:JobpostOnlineStatus)
           AND NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
           AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $thirtyDaysAgo
-        WITH DISTINCT sj, userExpandedNames
+        WITH DISTINCT sj, userScoringNames
 
         MATCH (sj)-[:HAS_TAG]->(jobTag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
         WHERE NOT (jobTag)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
-        WITH sj, userExpandedNames, COLLECT(DISTINCT jobTag) AS directTags
-        UNWIND directTags AS tag
-        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)
+        OPTIONAL MATCH (jobTag)-[:IS_SYNONYM_OF]-(synonym:Tag)
           WHERE NOT (synonym)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
-        OPTIONAL MATCH (tag)-[:IS_PAIR_OF]-(pair:Tag)
-          WHERE NOT (pair)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
-        WITH sj, userExpandedNames, tag,
+        WITH sj, userScoringNames,
              apoc.coll.toSet(
-               [tag.normalizedName]
+               COLLECT(DISTINCT jobTag.normalizedName)
                + [s IN COLLECT(DISTINCT synonym) WHERE s IS NOT NULL | s.normalizedName]
-               + [p IN COLLECT(DISTINCT pair) WHERE p IS NOT NULL | p.normalizedName]
-             ) AS expanded
-        WITH sj, userExpandedNames,
-             apoc.coll.toSet(apoc.coll.flatten(COLLECT(expanded))) AS jobExpandedNames
+             ) AS jobScoringNames
 
         WITH sj,
-             SIZE([name IN jobExpandedNames WHERE name IN userExpandedNames]) AS matchedCount,
-             SIZE(jobExpandedNames) AS jobTagCount
+             SIZE([name IN jobScoringNames WHERE name IN userScoringNames]) AS matchedCount,
+             SIZE(jobScoringNames) AS jobTagCount
         WHERE matchedCount >= $minMatchCount
         WITH sj, matchedCount, jobTagCount,
              CASE WHEN jobTagCount = 0 OR $skillCount = 0 THEN 0.0
-                  ELSE 0.35 * (toFloat(matchedCount) / jobTagCount) + 0.65 * (toFloat(matchedCount) / $skillCount)
+                  ELSE sqrt(toFloat(matchedCount) / jobTagCount * toFloat(matchedCount) / $skillCount)
              END AS overlapRatio
 
         WHERE overlapRatio >= $minOverlapRatio
-        WITH sj, overlapRatio
-        ORDER BY COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) DESC
-        WITH COLLECT(sj) AS allJobs, COUNT(sj) AS total
-        WITH allJobs[toInteger($skip)..toInteger($skip)+toInteger($limit)] AS pageJobs, total
-        UNWIND pageJobs AS sj
+        WITH COLLECT({node: sj, ratio: overlapRatio}) AS entries
+        WITH SIZE(entries) AS total, entries
+        UNWIND entries AS entry
+        WITH entry.node AS sj, entry.ratio AS overlapRatio, total
+        ORDER BY COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) DESC, overlapRatio DESC
+        SKIP toInteger($skip) LIMIT toInteger($limit)
 
         OPTIONAL MATCH (sj)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
         WHERE NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
           AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
-        WITH sj, total, tag
+        WITH sj, total, overlapRatio, tag
         OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
         OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
-        WITH sj, total, tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
-        WITH sj, total, CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
-        WITH sj, total, collect(DISTINCT {id: canonicalTag.id, name: canonicalTag.name, normalizedName: canonicalTag.normalizedName}) as tags
+        WITH sj, total, overlapRatio, tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
+        WITH sj, total, overlapRatio, CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
+        WITH sj, total, overlapRatio, collect(DISTINCT {id: canonicalTag.id, name: canonicalTag.name, normalizedName: canonicalTag.normalizedName}) as tags
 
         OPTIONAL MATCH (sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(org:Organization)
-        WITH sj, total, tags, head(collect(DISTINCT org)) AS org
+        WITH sj, total, overlapRatio, tags, head(collect(DISTINCT org)) AS org
 
-        RETURN total, {
+        RETURN total, overlapRatio, {
           id: sj.id,
           shortUUID: sj.shortUUID,
           title: sj.title,
@@ -5037,7 +5032,7 @@ export class JobsService {
           } ELSE null END,
           tags: [t IN tags WHERE t.name IS NOT NULL | t]
         } AS job
-        ORDER BY job.timestamp DESC
+        ORDER BY job.timestamp DESC, overlapRatio DESC
       `;
 
       const queryResult = await this.neogma.queryRunner.run(generatedQuery, {
