@@ -24,7 +24,6 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { CACHE_DURATION_1_HOUR, ECOSYSTEM_HEADER } from "src/shared/constants";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { JobListParams } from "src/jobs/dto/job-list.input";
-import { ApiKeyGuard } from "src/auth/api-key.guard";
 
 @Controller("public")
 export class PublicController {
@@ -33,7 +32,6 @@ export class PublicController {
 
   @Get("jobs")
   @ApiBearerAuth()
-  @UseGuards(ApiKeyGuard)
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiOkResponse({
     description: "Returns a paginated list of all active jobs ",
