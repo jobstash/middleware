@@ -1082,6 +1082,9 @@ export class SearchService {
           description: `Find ${displayName.toLowerCase()} web3 positions. Explore crypto jobs with flexible work arrangements.`,
         };
 
+      case "booleans":
+        return this.getBooleanPillarText(item);
+
       default:
         // Generic fallback for any new pillar types
         return {
@@ -1089,6 +1092,24 @@ export class SearchService {
           description: `Explore web3 jobs related to ${displayName.toLowerCase()}. Find crypto and blockchain opportunities.`,
         };
     }
+  }
+
+  private getBooleanPillarText(
+    filterName: string,
+  ): { title: string; description: string } | null {
+    const texts: Record<string, { title: string; description: string }> = {
+      expertJobs: {
+        title: "Urgently Hiring Jobs",
+        description:
+          "These companies are actively hiring right now. Apply today for a higher chance of landing your next role.",
+      },
+      onboardIntoWeb3: {
+        title: "Web3 Entry Level Jobs",
+        description:
+          "Jobs that welcome newcomers with onboarding support to help you transition into crypto and blockchain.",
+      },
+    };
+    return texts[filterName] ?? null;
   }
 
   private formatDisplayName(slug: string): string {
@@ -1902,6 +1923,23 @@ export class SearchService {
           clause: `size([(sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(:Organization)-[:HAS_FUNDING_ROUND]->(fr:FundingRound) WHERE toLower(replace(replace(replace(fr.roundName, ' ', ''), '_', ''), '-', '')) = $filterValue | fr]) > 0`,
           params: { filterValue: value.toLowerCase().replace(/-/g, "") },
         };
+
+      case "booleans": {
+        const booleanFilterClauses: Record<
+          string,
+          { clause: string; params: Record<string, unknown> }
+        > = {
+          expertJobs: {
+            clause: `COALESCE(sj.access, 'public') = 'protected'`,
+            params: {},
+          },
+          onboardIntoWeb3: {
+            clause: `COALESCE(sj.onboardIntoWeb3, false) = true`,
+            params: {},
+          },
+        };
+        return booleanFilterClauses[value] ?? { clause: "true", params: {} };
+      }
 
       default:
         return { clause: "true", params: {} };

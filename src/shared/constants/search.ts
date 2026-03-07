@@ -364,5 +364,6 @@ export const NAV_PILLAR_SLUG_PREFIX_MAPPINGS: Record<
     organizations: "o",
     investors: "i",
     fundingRounds: "fr",
+    booleans: "b",
   },
 };
