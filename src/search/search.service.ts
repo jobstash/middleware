@@ -2074,7 +2074,7 @@ export class SearchService {
           tags: [t IN tags WHERE t.name IS NOT NULL | t]
         } as job
         ORDER BY job.featured DESC, job.timestamp DESC
-        LIMIT 20
+        LIMIT 60
       `;
 
       const queryParams = {
