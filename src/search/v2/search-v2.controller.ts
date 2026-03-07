@@ -1,17 +1,15 @@
 import {
   Controller,
   Get,
-  Headers,
   UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
-import { ApiHeader, ApiOperation } from "@nestjs/swagger";
+import { ApiOperation } from "@nestjs/swagger";
 import { SearchService } from "../search.service";
 import { PBACGuard } from "src/auth/pbac.guard";
 import {
   CACHE_DURATION_15_MINUTES,
   CACHE_DURATION_1_HOUR,
-  ECOSYSTEM_HEADER,
 } from "src/shared/constants";
 import { ResponseWithOptionalData } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -48,21 +46,10 @@ export class SearchV2Controller {
     description:
       "Returns minimal job data (shortUUID, title, organizationName, timestamp) for all active/published jobs. Optimized for sitemap XML generation.",
   })
-  @ApiHeader({
-    name: ECOSYSTEM_HEADER,
-    required: false,
-    description:
-      "Optional header to tailor the response for a specific ecosystem",
-  })
   @UseGuards(PBACGuard)
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
-  async getSitemapJobs(
-    @Headers(ECOSYSTEM_HEADER)
-    ecosystem: string | undefined,
-  ): Promise<ResponseWithOptionalData<SitemapJob[]>> {
-    this.logger.log(
-      `/v2/search/sitemap/jobs ${JSON.stringify({ ecosystem: ecosystem ?? null })}`,
-    );
-    return this.searchService.getSitemapJobs(ecosystem);
+  async getSitemapJobs(): Promise<ResponseWithOptionalData<SitemapJob[]>> {
+    this.logger.log("/v2/search/sitemap/jobs");
+    return this.searchService.getSitemapJobs();
   }
 }

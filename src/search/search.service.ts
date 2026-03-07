@@ -3419,19 +3419,12 @@ export class SearchService {
     }
   }
 
-  async getSitemapJobs(
-    ecosystem?: string,
-  ): Promise<ResponseWithOptionalData<SitemapJob[]>> {
+  async getSitemapJobs(): Promise<ResponseWithOptionalData<SitemapJob[]>> {
     try {
-      const ecosystemFilter = ecosystem
-        ? `AND EXISTS((sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem}))`
-        : "";
-
       const query = `
         CYPHER runtime = parallel
         MATCH (sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-        ${ecosystemFilter}
         OPTIONAL MATCH (sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(org:Organization)
         RETURN {
           shortUUID: sj.shortUUID,
@@ -3441,9 +3434,7 @@ export class SearchService {
         } AS job
       `;
 
-      const result = await this.neogma.queryRunner.run(query, {
-        ecosystem: ecosystem ?? null,
-      });
+      const result = await this.neogma.queryRunner.run(query);
 
       const jobs: SitemapJob[] =
         result.records?.map(record => {
