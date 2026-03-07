@@ -100,3 +100,10 @@ export interface ParsedPillarSlug {
   value: string;
   prefix: string;
 }
+
+export interface SitemapJob {
+  shortUUID: string;
+  title: string | null;
+  organizationName: string | null;
+  timestamp: number;
+}

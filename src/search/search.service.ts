@@ -17,6 +17,7 @@ import {
   PillarJob,
   ParsedPillarSlug,
   SuggestedPillar,
+  SitemapJob,
 } from "./dto/pillar-page.output";
 import {
   SuggestionItem,
@@ -1428,6 +1429,177 @@ export class SearchService {
         ),
       );
     } else {
+      return [];
+    }
+  }
+
+  async searchJobPillarSlugs(): Promise<string[]> {
+    const baseMatch = `
+      CYPHER runtime = pipelined
+      MATCH (sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+      WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+    `;
+
+    // 6 parallel queries (consolidated from 9):
+    // 1. Properties: locations + seniority (no relationship hops from sj)
+    // 2-5. One-hop relationships: tags, commitments, locationTypes, classifications
+    // 6. Org-dependent: organizations + investors + fundingRounds (share 3-hop traversal)
+    const [propsResult, tagsResult, commitmentsResult, locationTypesResult, classificationsResult, orgResult] =
+      await Promise.all([
+        this.neogma.queryRunner.run(
+          `${baseMatch}
+          RETURN
+            [x IN collect(DISTINCT sj.location) WHERE x IS NOT NULL] AS locations,
+            [x IN collect(DISTINCT CASE sj.seniority
+              WHEN '1' THEN 'intern'
+              WHEN '2' THEN 'junior'
+              WHEN '3' THEN 'senior'
+              WHEN '4' THEN 'lead'
+              WHEN '5' THEN 'head'
+              ELSE sj.seniority
+            END) WHERE x IS NOT NULL] AS seniority`,
+        ),
+        this.neogma.queryRunner.run(
+          `${baseMatch}
+          MATCH (sj)-[:HAS_TAG]->(tag:Tag)
+          WHERE NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+          AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
+          RETURN DISTINCT tag.name as item`,
+        ),
+        this.neogma.queryRunner.run(
+          `${baseMatch}
+          MATCH (sj)-[:HAS_COMMITMENT]->(co:JobpostCommitment)
+          RETURN DISTINCT co.name as item`,
+        ),
+        this.neogma.queryRunner.run(
+          `${baseMatch}
+          MATCH (sj)-[:HAS_LOCATION_TYPE]->(lt:JobpostLocationType)
+          RETURN DISTINCT lt.name as item`,
+        ),
+        this.neogma.queryRunner.run(
+          `${baseMatch}
+          MATCH (sj)-[:HAS_CLASSIFICATION]->(cl:JobpostClassification)
+          RETURN DISTINCT cl.name as item`,
+        ),
+        this.neogma.queryRunner.run(
+          `${baseMatch}
+          MATCH (sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(org:Organization)
+          WITH DISTINCT org
+          OPTIONAL MATCH (org)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)
+          OPTIONAL MATCH (fr)-[:HAS_INVESTOR]->(investor:Investor)
+          RETURN
+            [x IN collect(DISTINCT org.name) WHERE x IS NOT NULL] AS organizations,
+            [x IN collect(DISTINCT fr.roundName) WHERE x IS NOT NULL] AS fundingRounds,
+            [x IN collect(DISTINCT investor.name) WHERE x IS NOT NULL] AS investors`,
+        ),
+      ]);
+
+    const toSlugs = (items: string[], prefix: string): string[] =>
+      items.filter(Boolean).map(item => `${prefix}-${slugify(item)}`);
+
+    const extractItems = (result: { records: { get: (key: string) => unknown }[] }): string[] =>
+      result.records.map(r => r.get("item") as string);
+
+    const extractList = (result: { records: { get: (key: string) => unknown }[] }, key: string): string[] =>
+      (result.records[0]?.get(key) as string[]) ?? [];
+
+    return [
+      ...toSlugs(extractItems(tagsResult), "t"),
+      ...toSlugs(extractList(propsResult, "locations"), "l"),
+      ...toSlugs(extractItems(commitmentsResult), "co"),
+      ...toSlugs(extractItems(locationTypesResult), "lt"),
+      ...toSlugs(extractItems(classificationsResult), "cl"),
+      ...toSlugs(extractList(propsResult, "seniority"), "s"),
+      ...toSlugs(extractList(orgResult, "organizations"), "o"),
+      ...toSlugs(extractList(orgResult, "investors"), "i"),
+      ...toSlugs(extractList(orgResult, "fundingRounds"), "fr"),
+      "b-expertJobs",
+      "b-onboardIntoWeb3",
+    ];
+  }
+
+  async searchPillarSitemapSlugs(): Promise<
+    { slug: string; lastModified: string }[]
+  > {
+    try {
+      const jobLevelQuery = `
+        CYPHER runtime = pipelined
+        MATCH (sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        WITH sj, COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) AS ts
+
+        WITH sj, ts,
+          [x IN [(sj)-[:HAS_TAG]->(tag:Tag)
+            WHERE NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+            AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
+            | {type: 'tags', item: tag.name}] WHERE x.item IS NOT NULL | x] AS tagEntries,
+          [x IN [(sj)-[:HAS_COMMITMENT]->(co:JobpostCommitment) | {type: 'commitments', item: co.name}] WHERE x.item IS NOT NULL | x] AS commitmentEntries,
+          [x IN [(sj)-[:HAS_LOCATION_TYPE]->(lt:JobpostLocationType) | {type: 'locationTypes', item: lt.name}] WHERE x.item IS NOT NULL | x] AS ltEntries,
+          [x IN [(sj)-[:HAS_CLASSIFICATION]->(cl:JobpostClassification) | {type: 'classifications', item: cl.name}] WHERE x.item IS NOT NULL | x] AS clEntries,
+          CASE WHEN sj.location IS NOT NULL THEN [{type: 'locations', item: sj.location}] ELSE [] END AS locEntries,
+          CASE WHEN sj.seniority IS NOT NULL THEN [{type: 'seniority', item:
+            CASE sj.seniority WHEN '1' THEN 'intern' WHEN '2' THEN 'junior' WHEN '3' THEN 'senior'
+              WHEN '4' THEN 'lead' WHEN '5' THEN 'head' ELSE sj.seniority END}] ELSE [] END AS senEntries,
+          CASE WHEN COALESCE(sj.access, 'public') = 'protected' THEN [{type: 'booleans', item: 'expertJobs'}] ELSE [] END +
+          CASE WHEN COALESCE(sj.onboardIntoWeb3, false) = true THEN [{type: 'booleans', item: 'onboardIntoWeb3'}] ELSE [] END AS boolEntries
+
+        UNWIND (tagEntries + commitmentEntries + ltEntries + clEntries + locEntries + senEntries + boolEntries) AS entry
+        WITH entry.type AS type, entry.item AS item, MAX(ts) AS maxTs
+        RETURN type, item, maxTs
+      `;
+
+      const orgLevelQuery = `
+        CYPHER runtime = pipelined
+        MATCH (sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        MATCH (sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(org:Organization)
+        WITH org, MAX(COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp)) AS orgTs
+
+        WITH org, orgTs,
+          [{type: 'organizations', item: org.name}] AS orgEntries,
+          [x IN [(org)-[:HAS_FUNDING_ROUND]->(:FundingRound)-[:HAS_INVESTOR]->(inv:Investor) | {type: 'investors', item: inv.name}] WHERE x.item IS NOT NULL | x] AS invEntries,
+          [x IN [(org)-[:HAS_FUNDING_ROUND]->(fr:FundingRound) | {type: 'fundingRounds', item: fr.roundName}] WHERE x.item IS NOT NULL | x] AS frEntries
+
+        UNWIND (orgEntries + invEntries + frEntries) AS entry
+        WITH entry.type AS type, entry.item AS item, MAX(orgTs) AS maxTs
+        RETURN type, item, maxTs
+      `;
+
+      const prefixMap = NAV_PILLAR_SLUG_PREFIX_MAPPINGS["jobs"];
+
+      const [jobResults, orgResults] = await Promise.all([
+        this.neogma.queryRunner.run(jobLevelQuery),
+        this.neogma.queryRunner.run(orgLevelQuery),
+      ]);
+
+      const allRecords = [...jobResults.records, ...orgResults.records];
+      return allRecords
+        .map(record => {
+          const type = record.get("type") as string;
+          const item = record.get("item") as string;
+          const maxTs = intConverter(record.get("maxTs"));
+          if (!item || !type || !maxTs) return null;
+          const prefix = prefixMap[type];
+          if (!prefix) return null;
+          return {
+            slug: `${prefix}-${type === "booleans" ? item : slugify(item)}`,
+            lastModified: new Date(maxTs).toISOString(),
+          };
+        })
+        .filter(
+          (x): x is { slug: string; lastModified: string } => x !== null,
+        );
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "search.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `SearchService::searchPillarSitemapSlugs ${err.message}`,
+      );
       return [];
     }
   }
@@ -3243,6 +3415,64 @@ export class SearchService {
         items: [],
         page: params.page || 1,
         hasMore: false,
+      };
+    }
+  }
+
+  async getSitemapJobs(
+    ecosystem?: string,
+  ): Promise<ResponseWithOptionalData<SitemapJob[]>> {
+    try {
+      const ecosystemFilter = ecosystem
+        ? `AND EXISTS((sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem}))`
+        : "";
+
+      const query = `
+        CYPHER runtime = parallel
+        MATCH (sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        ${ecosystemFilter}
+        OPTIONAL MATCH (sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(org:Organization)
+        RETURN {
+          shortUUID: sj.shortUUID,
+          title: sj.title,
+          organizationName: org.name,
+          timestamp: COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp)
+        } AS job
+      `;
+
+      const result = await this.neogma.queryRunner.run(query, {
+        ecosystem: ecosystem ?? null,
+      });
+
+      const jobs: SitemapJob[] =
+        result.records?.map(record => {
+          const job = record.get("job");
+          return {
+            shortUUID: job.shortUUID,
+            title: job.title,
+            organizationName: job.organizationName ?? null,
+            timestamp: intConverter(job.timestamp),
+          };
+        }) ?? [];
+
+      return {
+        success: true,
+        message: `Found ${jobs.length} jobs for sitemap`,
+        data: jobs,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "search.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`SearchService::getSitemapJobs ${err.message}`);
+      return {
+        success: false,
+        message: "Error fetching sitemap jobs",
       };
     }
   }
