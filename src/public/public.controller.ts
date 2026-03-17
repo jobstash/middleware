@@ -24,6 +24,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { CACHE_DURATION_1_HOUR, ECOSYSTEM_HEADER } from "src/shared/constants";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { JobListParams } from "src/jobs/dto/job-list.input";
+import { ApiKeyGuard } from "src/auth/api-key.guard";
 
 @Controller("public")
 export class PublicController {
@@ -95,6 +96,22 @@ export class PublicController {
   ): Promise<PaginatedData<JobListResult>> {
     this.logger.log(`/public/jobs/list ${JSON.stringify(params)}`);
     return await this.publicService.getAllJobsList(params, false);
+  }
+
+  @Get("jobs/archive")
+  @UseGuards(ApiKeyGuard)
+  @ApiBearerAuth()
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  @ApiOkResponse({
+    description:
+      "Returns a paginated list of all jobs (online and offline) with their status",
+  })
+  async getAllJobsArchive(
+    @Query(new ValidationPipe({ transform: true }))
+    params: JobListParams,
+  ): Promise<PaginatedData<JobListResult & { online: boolean }>> {
+    this.logger.log(`/public/jobs/archive ${JSON.stringify(params)}`);
+    return this.publicService.getAllJobsArchive(params);
   }
 
   @Get("jobs/filters")
