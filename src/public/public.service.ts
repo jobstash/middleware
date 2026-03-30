@@ -88,6 +88,7 @@ export class PublicService {
           featureEndDate: structured_jobpost.featureEndDate,
           timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+          publishedTimestampIsVerified: structured_jobpost.publishedTimestampIsVerified,
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
           commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
           locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
@@ -171,9 +172,20 @@ export class PublicService {
     try {
       const resultSet = (
         await this.neogma.queryRunner.run(generatedQuery, { authenticated })
-      ).records.map(record => record.get("result") as JobListResult);
+      ).records.map(record => record.get("result"));
       for (const result of resultSet) {
-        results.push(new JobListResultEntity(result).getProperties());
+        const { publishedTimestampIsVerified, ...jobData } = result;
+        results.push(
+          Object.assign(
+            new JobListResultEntity(
+              jobData as JobListResult,
+            ).getProperties(),
+            {
+              publishedTimestampIsVerified:
+                publishedTimestampIsVerified ?? false,
+            },
+          ),
+        );
       }
     } catch (err) {
       Sentry.withScope(scope => {
@@ -533,9 +545,9 @@ export class PublicService {
   }
 
   getAllJobsArchiveResults = async (): Promise<
-    (JobListResult & { online: boolean })[]
+    (JobListResult & { online: boolean; publishedTimestampIsVerified: boolean })[]
   > => {
-    const results: (JobListResult & { online: boolean })[] = [];
+    const results: (JobListResult & { online: boolean; publishedTimestampIsVerified: boolean })[] = [];
     const generatedQuery = `
       CYPHER runtime = parallel
       MATCH (structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(status)
@@ -576,6 +588,7 @@ export class PublicService {
           featureEndDate: structured_jobpost.featureEndDate,
           timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+          publishedTimestampIsVerified: structured_jobpost.publishedTimestampIsVerified,
           online: CASE WHEN status:JobpostOnlineStatus THEN true ELSE false END,
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
           commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -662,12 +675,13 @@ export class PublicService {
         await this.neogma.queryRunner.run(generatedQuery, {})
       ).records.map(record => record.get("result"));
       for (const result of resultSet) {
-        const { online, ...jobData } = result;
+        const { online, publishedTimestampIsVerified, ...jobData } = result;
         results.push({
           ...new JobListResultEntity(
             jobData as JobListResult,
           ).getProperties(),
           online,
+          publishedTimestampIsVerified: publishedTimestampIsVerified ?? false,
         });
       }
     } catch (err) {
@@ -688,14 +702,14 @@ export class PublicService {
 
   async getAllJobsArchive(
     params: JobListParams,
-  ): Promise<PaginatedData<JobListResult & { online: boolean }>> {
+  ): Promise<PaginatedData<JobListResult & { online: boolean; publishedTimestampIsVerified: boolean }>> {
     const page = params.page ?? 1;
     const limit = params.limit ?? 10;
 
     try {
       const results = await this.getAllJobsArchiveResults();
       const sorted = sort(results).desc(j => j.timestamp);
-      return paginate<JobListResult & { online: boolean }>(
+      return paginate<JobListResult & { online: boolean; publishedTimestampIsVerified: boolean }>(
         page,
         limit,
         sorted,

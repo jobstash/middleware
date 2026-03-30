@@ -109,7 +109,7 @@ export class PublicController {
   async getAllJobsArchive(
     @Query(new ValidationPipe({ transform: true }))
     params: JobListParams,
-  ): Promise<PaginatedData<JobListResult & { online: boolean }>> {
+  ): Promise<PaginatedData<JobListResult & { online: boolean; publishedTimestampIsVerified: boolean }>> {
     this.logger.log(`/public/jobs/archive ${JSON.stringify(params)}`);
     return this.publicService.getAllJobsArchive(params);
   }
