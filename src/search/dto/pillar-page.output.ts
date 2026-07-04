@@ -85,18 +85,39 @@ export interface SuggestedPillar {
 /**
  * Response data for a pillar page
  */
+export interface PillarPageOrgProject {
+  id: string;
+  name: string | null;
+  logo: string | null;
+  logoUrl: string | null;
+  website: string | null;
+  category: string | null;
+}
+
 /**
- * Slim organization payload for o-* pillar pages: the real org copy shown
+ * Organization payload for o-* pillar pages: the real org metadata shown
  * instead of the templated pillar descriptor.
  */
 export interface PillarPageOrg {
+  id: string | null;
+  orgId: string | null;
   name: string;
   normalizedName: string;
   summary: string | null;
   description: string | null;
   logoUrl: string | null;
   location: string | null;
+  headcountEstimate: number | null;
   website: string | null;
+  discord: string | null;
+  telegram: string | null;
+  github: string | null;
+  twitter: string | null;
+  docs: string | null;
+  aliases: string[];
+  projects: PillarPageOrgProject[];
+  fundingRounds: PillarFundingRound[];
+  investors: PillarInvestor[];
 }
 
 export interface PillarPageData {

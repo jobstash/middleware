@@ -2145,13 +2145,41 @@ export class SearchService {
       `
         MATCH (org:Organization {normalizedName: $normalizedName})
         RETURN {
+          id: org.id,
+          orgId: org.orgId,
           name: org.name,
           normalizedName: org.normalizedName,
           summary: org.summary,
           description: org.description,
           logoUrl: org.logoUrl,
           location: org.location,
-          website: [(org)-[:HAS_WEBSITE]->(website) | website.url][0]
+          headcountEstimate: org.headcountEstimate,
+          website: [(org)-[:HAS_WEBSITE]->(website) | website.url][0],
+          discord: [(org)-[:HAS_DISCORD]->(discord) | discord.invite][0],
+          telegram: [(org)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
+          github: [(org)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+          twitter: [(org)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
+          docs: [(org)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
+          aliases: [(org)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
+          projects: [(org)-[:HAS_PROJECT]->(project) | project {
+            id: project.id,
+            name: project.name,
+            logo: project.logo,
+            logoUrl: project.logoUrl,
+            website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
+            category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0]
+          }],
+          fundingRounds: [(org)-[:HAS_FUNDING_ROUND]->(fr:FundingRound) WHERE fr.id IS NOT NULL | {
+            id: fr.id,
+            date: fr.date,
+            roundName: fr.roundName,
+            raisedAmount: fr.raisedAmount
+          }],
+          investors: [(org)-[:HAS_FUNDING_ROUND]->(:FundingRound)-[:HAS_INVESTOR]->(inv:Investor) | {
+            id: inv.id,
+            name: inv.name,
+            normalizedName: inv.normalizedName
+          }]
         } AS organization
         LIMIT 1
       `,
@@ -2160,13 +2188,35 @@ export class SearchService {
     const org = result.records[0]?.get("organization");
     if (!org) return null;
     return {
+      id: org.id ?? null,
+      orgId: org.orgId ?? null,
       name: org.name,
       normalizedName: org.normalizedName,
       summary: org.summary ?? null,
       description: org.description ?? null,
       logoUrl: org.logoUrl ?? null,
       location: org.location ?? null,
+      headcountEstimate: intConverter(org.headcountEstimate) || null,
       website: org.website ?? null,
+      discord: org.discord ?? null,
+      telegram: org.telegram ?? null,
+      github: org.github ?? null,
+      twitter: org.twitter ?? null,
+      docs: org.docs ?? null,
+      aliases: org.aliases ?? [],
+      projects: (org.projects ?? []).map(
+        (project: Record<string, unknown>) => ({
+          ...project,
+        }),
+      ),
+      fundingRounds: (org.fundingRounds ?? []).map(
+        (fr: Record<string, unknown>) => ({
+          ...fr,
+          date: intConverter(fr.date as number),
+          raisedAmount: intConverter(fr.raisedAmount as number) || null,
+        }),
+      ),
+      investors: org.investors ?? [],
     };
   }
 
