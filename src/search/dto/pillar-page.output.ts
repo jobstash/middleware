@@ -85,10 +85,25 @@ export interface SuggestedPillar {
 /**
  * Response data for a pillar page
  */
+/**
+ * Slim organization payload for o-* pillar pages: the real org copy shown
+ * instead of the templated pillar descriptor.
+ */
+export interface PillarPageOrg {
+  name: string;
+  normalizedName: string;
+  summary: string | null;
+  description: string | null;
+  logoUrl: string | null;
+  location: string | null;
+  website: string | null;
+}
+
 export interface PillarPageData {
   title: string;
   description: string;
   jobs: PillarJob[];
+  organization?: PillarPageOrg | null;
   suggestedPillars: SuggestedPillar[];
 }
 
