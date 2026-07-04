@@ -14,6 +14,7 @@ import {
 import { subDays, startOfDay, endOfDay } from "date-fns";
 import {
   PillarPageData,
+  PillarPageOrg,
   PillarJob,
   ParsedPillarSlug,
   SuggestedPillar,
@@ -1444,10 +1445,16 @@ export class SearchService {
     // 1. Properties: locations + seniority (no relationship hops from sj)
     // 2-5. One-hop relationships: tags, commitments, locationTypes, classifications
     // 6. Org-dependent: organizations + investors + fundingRounds (share 3-hop traversal)
-    const [propsResult, tagsResult, commitmentsResult, locationTypesResult, classificationsResult, orgResult] =
-      await Promise.all([
-        this.neogma.queryRunner.run(
-          `${baseMatch}
+    const [
+      propsResult,
+      tagsResult,
+      commitmentsResult,
+      locationTypesResult,
+      classificationsResult,
+      orgResult,
+    ] = await Promise.all([
+      this.neogma.queryRunner.run(
+        `${baseMatch}
           RETURN
             [x IN collect(DISTINCT sj.location) WHERE x IS NOT NULL] AS locations,
             [x IN collect(DISTINCT CASE sj.seniority
@@ -1458,31 +1465,31 @@ export class SearchService {
               WHEN '5' THEN 'head'
               ELSE sj.seniority
             END) WHERE x IS NOT NULL] AS seniority`,
-        ),
-        this.neogma.queryRunner.run(
-          `${baseMatch}
+      ),
+      this.neogma.queryRunner.run(
+        `${baseMatch}
           MATCH (sj)-[:HAS_TAG]->(tag:Tag)
           WHERE NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
           AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
           RETURN DISTINCT tag.name as item`,
-        ),
-        this.neogma.queryRunner.run(
-          `${baseMatch}
+      ),
+      this.neogma.queryRunner.run(
+        `${baseMatch}
           MATCH (sj)-[:HAS_COMMITMENT]->(co:JobpostCommitment)
           RETURN DISTINCT co.name as item`,
-        ),
-        this.neogma.queryRunner.run(
-          `${baseMatch}
+      ),
+      this.neogma.queryRunner.run(
+        `${baseMatch}
           MATCH (sj)-[:HAS_LOCATION_TYPE]->(lt:JobpostLocationType)
           RETURN DISTINCT lt.name as item`,
-        ),
-        this.neogma.queryRunner.run(
-          `${baseMatch}
+      ),
+      this.neogma.queryRunner.run(
+        `${baseMatch}
           MATCH (sj)-[:HAS_CLASSIFICATION]->(cl:JobpostClassification)
           RETURN DISTINCT cl.name as item`,
-        ),
-        this.neogma.queryRunner.run(
-          `${baseMatch}
+      ),
+      this.neogma.queryRunner.run(
+        `${baseMatch}
           MATCH (sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(org:Organization)
           WITH DISTINCT org
           OPTIONAL MATCH (org)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)
@@ -1491,17 +1498,20 @@ export class SearchService {
             [x IN collect(DISTINCT org.name) WHERE x IS NOT NULL] AS organizations,
             [x IN collect(DISTINCT fr.roundName) WHERE x IS NOT NULL] AS fundingRounds,
             [x IN collect(DISTINCT investor.name) WHERE x IS NOT NULL] AS investors`,
-        ),
-      ]);
+      ),
+    ]);
 
     const toSlugs = (items: string[], prefix: string): string[] =>
       items.filter(Boolean).map(item => `${prefix}-${slugify(item)}`);
 
-    const extractItems = (result: { records: { get: (key: string) => unknown }[] }): string[] =>
-      result.records.map(r => r.get("item") as string);
+    const extractItems = (result: {
+      records: { get: (key: string) => unknown }[];
+    }): string[] => result.records.map(r => r.get("item") as string);
 
-    const extractList = (result: { records: { get: (key: string) => unknown }[] }, key: string): string[] =>
-      (result.records[0]?.get(key) as string[]) ?? [];
+    const extractList = (
+      result: { records: { get: (key: string) => unknown }[] },
+      key: string,
+    ): string[] => (result.records[0]?.get(key) as string[]) ?? [];
 
     return [
       ...toSlugs(extractItems(tagsResult), "t"),
@@ -1519,7 +1529,7 @@ export class SearchService {
   }
 
   async searchPillarSitemapSlugs(): Promise<
-    { slug: string; lastModified: string }[]
+    { slug: string; lastModified: string; jobCount: number }[]
   > {
     try {
       const jobLevelQuery = `
@@ -1544,8 +1554,8 @@ export class SearchService {
           CASE WHEN COALESCE(sj.onboardIntoWeb3, false) = true THEN [{type: 'booleans', item: 'onboardIntoWeb3'}] ELSE [] END AS boolEntries
 
         UNWIND (tagEntries + commitmentEntries + ltEntries + clEntries + locEntries + senEntries + boolEntries) AS entry
-        WITH entry.type AS type, entry.item AS item, MAX(ts) AS maxTs
-        RETURN type, item, maxTs
+        WITH entry.type AS type, entry.item AS item, MAX(ts) AS maxTs, COUNT(DISTINCT sj) AS jobCount
+        RETURN type, item, maxTs, jobCount
       `;
 
       const orgLevelQuery = `
@@ -1553,16 +1563,16 @@ export class SearchService {
         MATCH (sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
         MATCH (sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(org:Organization)
-        WITH org, MAX(COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp)) AS orgTs
+        WITH org, MAX(COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp)) AS orgTs, COUNT(DISTINCT sj) AS orgJobCount
 
-        WITH org, orgTs,
+        WITH org, orgTs, orgJobCount,
           [{type: 'organizations', item: org.name}] AS orgEntries,
           [x IN [(org)-[:HAS_FUNDING_ROUND]->(:FundingRound)-[:HAS_INVESTOR]->(inv:Investor) | {type: 'investors', item: inv.name}] WHERE x.item IS NOT NULL | x] AS invEntries,
           [x IN [(org)-[:HAS_FUNDING_ROUND]->(fr:FundingRound) | {type: 'fundingRounds', item: fr.roundName}] WHERE x.item IS NOT NULL | x] AS frEntries
 
         UNWIND (orgEntries + invEntries + frEntries) AS entry
-        WITH entry.type AS type, entry.item AS item, MAX(orgTs) AS maxTs
-        RETURN type, item, maxTs
+        WITH entry.type AS type, entry.item AS item, MAX(orgTs) AS maxTs, SUM(orgJobCount) AS jobCount
+        RETURN type, item, maxTs, jobCount
       `;
 
       const prefixMap = NAV_PILLAR_SLUG_PREFIX_MAPPINGS["jobs"];
@@ -1578,16 +1588,19 @@ export class SearchService {
           const type = record.get("type") as string;
           const item = record.get("item") as string;
           const maxTs = intConverter(record.get("maxTs"));
+          const jobCount = intConverter(record.get("jobCount")) ?? 0;
           if (!item || !type || !maxTs) return null;
           const prefix = prefixMap[type];
           if (!prefix) return null;
           return {
             slug: `${prefix}-${type === "booleans" ? item : slugify(item)}`,
             lastModified: new Date(maxTs).toISOString(),
+            jobCount,
           };
         })
         .filter(
-          (x): x is { slug: string; lastModified: string } => x !== null,
+          (x): x is { slug: string; lastModified: string; jobCount: number } =>
+            x !== null,
         );
     } catch (err) {
       Sentry.withScope(scope => {
@@ -2125,6 +2138,38 @@ export class SearchService {
    * @param ecosystem - Optional ecosystem filter
    * @returns ResponseWithOptionalData containing title, description, and filtered jobs
    */
+  private async getPillarPageOrganization(
+    normalizedName: string,
+  ): Promise<PillarPageOrg | null> {
+    const result = await this.neogma.queryRunner.run(
+      `
+        MATCH (org:Organization {normalizedName: $normalizedName})
+        RETURN {
+          name: org.name,
+          normalizedName: org.normalizedName,
+          summary: org.summary,
+          description: org.description,
+          logoUrl: org.logoUrl,
+          location: org.location,
+          website: [(org)-[:HAS_WEBSITE]->(website) | website.url][0]
+        } AS organization
+        LIMIT 1
+      `,
+      { normalizedName },
+    );
+    const org = result.records[0]?.get("organization");
+    if (!org) return null;
+    return {
+      name: org.name,
+      normalizedName: org.normalizedName,
+      summary: org.summary ?? null,
+      description: org.description ?? null,
+      logoUrl: org.logoUrl ?? null,
+      location: org.location ?? null,
+      website: org.website ?? null,
+    };
+  }
+
   async getPillarPageData(
     slug: string,
     ecosystem?: string,
@@ -2140,6 +2185,13 @@ export class SearchService {
       }
 
       const { pillarType, value } = parsed;
+
+      // Org pillars carry the real org copy so the frontend can render it
+      // instead of the templated descriptor (and still render at 0 jobs)
+      const organization =
+        pillarType === "organizations"
+          ? await this.getPillarPageOrganization(value)
+          : null;
 
       // Get title and description
       const headerText = await this.fetchHeaderText("jobs", pillarType, value);
@@ -2211,6 +2263,7 @@ export class SearchService {
             ELSE sj.seniority
           END,
           timestamp: COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp),
+          publishedTimestampIsVerified: sj.publishedTimestampIsVerified,
           commitment: [(sj)-[:HAS_COMMITMENT]->(c:JobpostCommitment) | c.name][0],
           locationType: [(sj)-[:HAS_LOCATION_TYPE]->(lt:JobpostLocationType) | lt.name][0],
           classification: [(sj)-[:HAS_CLASSIFICATION]->(cl:JobpostClassification) | cl.name][0],
@@ -2364,6 +2417,7 @@ export class SearchService {
                 title: headerText.title,
                 description: headerText.description,
                 jobs: fallbackJobs,
+                organization,
                 suggestedPillars: this.deriveSuggestedPillars(
                   fallbackJobs,
                   pillarType,
@@ -2375,8 +2429,22 @@ export class SearchService {
         }
       }
 
-      // No jobs found after all attempts
+      // No jobs found after all attempts. Org pillars still return the org
+      // data so their pages keep rendering real content instead of 404ing.
       if (jobs.length === 0) {
+        if (organization) {
+          return {
+            success: true,
+            message: "Retrieved pillar page data",
+            data: {
+              title: headerText.title,
+              description: headerText.description,
+              jobs: [],
+              organization,
+              suggestedPillars: [],
+            },
+          };
+        }
         return {
           success: true,
           message: "No jobs found for this pillar",
@@ -2391,6 +2459,7 @@ export class SearchService {
           title: headerText.title,
           description: headerText.description,
           jobs,
+          organization,
           suggestedPillars: this.deriveSuggestedPillars(
             jobs,
             pillarType,

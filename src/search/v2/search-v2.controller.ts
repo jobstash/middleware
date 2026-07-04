@@ -1,9 +1,4 @@
-import {
-  Controller,
-  Get,
-  UseGuards,
-  UseInterceptors,
-} from "@nestjs/common";
+import { Controller, Get, UseGuards, UseInterceptors } from "@nestjs/common";
 import { ApiOperation } from "@nestjs/swagger";
 import { SearchService } from "../search.service";
 import { PBACGuard } from "src/auth/pbac.guard";
@@ -33,7 +28,7 @@ export class SearchV2Controller {
   @UseGuards(PBACGuard)
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   async searchSitemapPillars(): Promise<{
-    data: { slug: string; lastModified: string }[];
+    data: { slug: string; lastModified: string; jobCount: number }[];
   }> {
     this.logger.log("/v2/search/sitemap/pillars");
     const data = await this.searchService.searchPillarSitemapSlugs();
