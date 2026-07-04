@@ -124,6 +124,7 @@ export class JobsService {
           featureStartDate: structured_jobpost.featureStartDate,
           featureEndDate: structured_jobpost.featureEndDate,
           timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+          publishedTimestampIsVerified: structured_jobpost.publishedTimestampIsVerified,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
           commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -544,6 +545,7 @@ export class JobsService {
               isBlocked: CASE WHEN (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation) THEN true ELSE false END,
               isOnline: CASE WHEN (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) THEN true ELSE false END,
               timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+              publishedTimestampIsVerified: structured_jobpost.publishedTimestampIsVerified,
               classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
               commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
               locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
@@ -1262,6 +1264,7 @@ export class JobsService {
           featureStartDate: structured_jobpost.featureStartDate,
           featureEndDate: structured_jobpost.featureEndDate,
           timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+          publishedTimestampIsVerified: structured_jobpost.publishedTimestampIsVerified,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
           commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -4922,7 +4925,10 @@ export class JobsService {
     }
 
     const minOverlapRatio = isExpert ? 0.15 : 0.25;
-    const minMatchCount = Math.min(5, Math.max(1, Math.ceil(skills.length / 3)));
+    const minMatchCount = Math.min(
+      5,
+      Math.max(1, Math.ceil(skills.length / 3)),
+    );
     const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
     const skip = (page - 1) * limit;
 
@@ -5064,8 +5070,7 @@ export class JobsService {
           organization: org
             ? {
                 ...org,
-                headcountEstimate:
-                  intConverter(org.headcountEstimate) || null,
+                headcountEstimate: intConverter(org.headcountEstimate) || null,
                 fundingRounds: (org.fundingRounds ?? []).map(
                   (fr: Record<string, unknown>) => ({
                     ...fr,

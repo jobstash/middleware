@@ -30,6 +30,9 @@ export class StructuredJobpost {
     salaryCurrency: t.union([t.string, t.null]),
     timestamp: t.union([t.number, t.null]),
     offersTokenAllocation: t.union([t.boolean, t.null]),
+    // optional: not every projection returns it; true = publish date is
+    // verified (ATS/explicit), not inferred from first crawl
+    publishedTimestampIsVerified: t.union([t.boolean, t.null, t.undefined]),
   });
 
   @ApiProperty()
@@ -107,6 +110,9 @@ export class StructuredJobpost {
   @ApiProperty()
   timestamp: number | null;
 
+  @ApiPropertyOptional()
+  publishedTimestampIsVerified?: boolean | null;
+
   constructor(raw: StructuredJobpost) {
     const {
       id,
@@ -134,6 +140,7 @@ export class StructuredJobpost {
       responsibilities,
       timestamp,
       offersTokenAllocation,
+      publishedTimestampIsVerified,
     } = raw;
 
     const result = StructuredJobpost.StructuredJobpostType.decode(raw);
@@ -163,6 +170,7 @@ export class StructuredJobpost {
     this.responsibilities = responsibilities;
     this.timestamp = timestamp;
     this.offersTokenAllocation = offersTokenAllocation;
+    this.publishedTimestampIsVerified = publishedTimestampIsVerified ?? null;
 
     if (isLeft(result)) {
       report(result).forEach(x => {
