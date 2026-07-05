@@ -1536,7 +1536,7 @@ export class SearchService {
         CYPHER runtime = pipelined
         MATCH (sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-        WITH sj, COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) AS ts
+        WITH sj, CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END AS ts
 
         WITH sj, ts,
           [x IN [(sj)-[:HAS_TAG]->(tag:Tag)
@@ -1563,7 +1563,7 @@ export class SearchService {
         MATCH (sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
         MATCH (sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(org:Organization)
-        WITH org, MAX(COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp)) AS orgTs, COUNT(DISTINCT sj) AS orgJobCount
+        WITH org, MAX(CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END) AS orgTs, COUNT(DISTINCT sj) AS orgJobCount
 
         WITH org, orgTs, orgJobCount,
           [{type: 'organizations', item: org.name}] AS orgEntries,
@@ -2272,8 +2272,8 @@ export class SearchService {
         CYPHER runtime = parallel
         MATCH (sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
         ${ecosystem ? `AND EXISTS((sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem}))` : ""}
         AND ${filterClause}
 
@@ -2312,7 +2312,7 @@ export class SearchService {
             WHEN '5' THEN 'Head'
             ELSE sj.seniority
           END,
-          timestamp: COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp),
+          timestamp: CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END,
           publishedTimestampIsVerified: sj.publishedTimestampIsVerified,
           commitment: [(sj)-[:HAS_COMMITMENT]->(c:JobpostCommitment) | c.name][0],
           locationType: [(sj)-[:HAS_LOCATION_TYPE]->(lt:JobpostLocationType) | lt.name][0],
@@ -2761,8 +2761,8 @@ export class SearchService {
         CYPHER runtime = pipelined
         MATCH (sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
         AND ALL(word IN split(toLower(replace(replace($query, ' ', ''), '-', '')), ' ')
           WHERE toLower(replace(replace(sj.title, ' ', ''), '-', '')) CONTAINS word)
         RETURN true as hasResults
@@ -2771,16 +2771,16 @@ export class SearchService {
       organizations: `
         CALL db.index.fulltext.queryNodes("organizations", $fulltextQuery) YIELD node as org, score
         MATCH (org)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
-        WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        WHERE CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
         RETURN true as hasResults
         LIMIT 1
       `,
       tags: `
         CALL db.index.fulltext.queryNodes("tagNames", $fulltextQuery) YIELD node as tag, score
         MATCH (sj:StructuredJobpost)-[:HAS_TAG]->(tag)
-        WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        WHERE CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
         AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
         AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
         RETURN true as hasResults
@@ -2790,8 +2790,8 @@ export class SearchService {
         CYPHER runtime = pipelined
         MATCH (cl:JobpostClassification)<-[:HAS_CLASSIFICATION]-(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
         AND toLower(cl.name) CONTAINS toLower($query)
         RETURN true as hasResults
         LIMIT 1
@@ -2800,8 +2800,8 @@ export class SearchService {
         CYPHER runtime = pipelined
         MATCH (sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
         AND sj.location IS NOT NULL
         AND ALL(word IN split(toLower($query), ' ') WHERE toLower(sj.location) CONTAINS word)
         RETURN true as hasResults
@@ -2811,8 +2811,8 @@ export class SearchService {
         CALL db.index.fulltext.queryNodes("investors", $fulltextQuery) YIELD node as investor, score
         MATCH (org:Organization)-[:HAS_FUNDING_ROUND]->(:FundingRound)-[:HAS_INVESTOR]->(investor)
         MATCH (org)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
-        WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        WHERE CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
         RETURN true as hasResults
         LIMIT 1
       `,
@@ -2820,8 +2820,8 @@ export class SearchService {
         CALL db.index.fulltext.queryNodes("rounds", $fulltextQuery) YIELD node as fr, score
         MATCH (org:Organization)-[:HAS_FUNDING_ROUND]->(fr)
         MATCH (org)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
-        WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        WHERE CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
         RETURN true as hasResults
         LIMIT 1
       `,
@@ -2952,8 +2952,8 @@ export class SearchService {
         CYPHER runtime = pipelined
         MATCH (org:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
         RETURN DISTINCT sj.shortUUID as id, sj.title as title, org.name as orgName, sj.timestamp as timestamp
         ORDER BY timestamp DESC
         SKIP $skip
@@ -2975,8 +2975,8 @@ export class SearchService {
       CYPHER runtime = pipelined
       MATCH (org:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
       WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+      AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+      AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
       AND ALL(word IN split(toLower(replace(replace($query, ' ', ''), '-', '')), ' ')
         WHERE toLower(replace(replace(sj.title, ' ', ''), '-', '')) CONTAINS word)
       RETURN DISTINCT sj.shortUUID as id, sj.title as title, org.name as orgName
@@ -3008,8 +3008,8 @@ export class SearchService {
         `
         CYPHER runtime = pipelined
         MATCH (org:Organization)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
-        WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        WHERE CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
         RETURN DISTINCT org.normalizedName as id, org.name as label
         ORDER BY label
         SKIP $skip
@@ -3030,8 +3030,8 @@ export class SearchService {
       `
       CALL db.index.fulltext.queryNodes("organizations", $query) YIELD node as org, score
       MATCH (org)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
-      WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+      WHERE CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+      AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
       RETURN DISTINCT org.normalizedName as id, org.name as label, score
       ORDER BY score DESC
       SKIP $skip
@@ -3068,8 +3068,8 @@ export class SearchService {
         `
         CYPHER runtime = pipelined
         MATCH (tag:Tag)<-[:HAS_TAG]-(sj:StructuredJobpost)
-        WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        WHERE CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
         AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
         AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
         RETURN DISTINCT tag.normalizedName as id, tag.name as label
@@ -3092,8 +3092,8 @@ export class SearchService {
       `
       CALL db.index.fulltext.queryNodes("tagNames", $query) YIELD node as tag, score
       MATCH (sj:StructuredJobpost)-[:HAS_TAG]->(tag)
-      WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+      WHERE CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+      AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
       AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
       AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
       RETURN DISTINCT tag.normalizedName as id, tag.name as label, score
@@ -3133,8 +3133,8 @@ export class SearchService {
         CYPHER runtime = pipelined
         MATCH (cl:JobpostClassification)<-[:HAS_CLASSIFICATION]-(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
         RETURN DISTINCT cl.name as label
         ORDER BY label
         SKIP $skip
@@ -3158,8 +3158,8 @@ export class SearchService {
       CYPHER runtime = pipelined
       MATCH (cl:JobpostClassification)<-[:HAS_CLASSIFICATION]-(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
       WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+      AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+      AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
       AND toLower(cl.name) CONTAINS toLower($query)
       RETURN DISTINCT cl.name as label
       ORDER BY label
@@ -3195,8 +3195,8 @@ export class SearchService {
         CYPHER runtime = pipelined
         MATCH (sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
         AND sj.location IS NOT NULL
         RETURN DISTINCT sj.location as label
         ORDER BY label
@@ -3221,8 +3221,8 @@ export class SearchService {
       CYPHER runtime = pipelined
       MATCH (sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
       WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+      AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+      AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
       AND sj.location IS NOT NULL
       AND ALL(word IN split(toLower($query), ' ') WHERE toLower(sj.location) CONTAINS word)
       RETURN DISTINCT sj.location as label
@@ -3259,8 +3259,8 @@ export class SearchService {
         CYPHER runtime = pipelined
         MATCH (org:Organization)-[:HAS_FUNDING_ROUND]->(:FundingRound)-[:HAS_INVESTOR]->(investor:Investor)
         MATCH (org)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
-        WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        WHERE CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
         RETURN DISTINCT investor.normalizedName as id, investor.name as label
         ORDER BY label
         SKIP $skip
@@ -3282,8 +3282,8 @@ export class SearchService {
       CALL db.index.fulltext.queryNodes("investors", $query) YIELD node as investor, score
       MATCH (org:Organization)-[:HAS_FUNDING_ROUND]->(:FundingRound)-[:HAS_INVESTOR]->(investor)
       MATCH (org)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
-      WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+      WHERE CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+      AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
       RETURN DISTINCT investor.normalizedName as id, investor.name as label, score
       ORDER BY score DESC
       SKIP $skip
@@ -3321,8 +3321,8 @@ export class SearchService {
         CYPHER runtime = pipelined
         MATCH (org:Organization)-[:HAS_FUNDING_ROUND]->(fr:FundingRound)
         MATCH (org)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
-        WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        WHERE CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
         RETURN DISTINCT fr.roundName as label
         ORDER BY label
         SKIP $skip
@@ -3347,8 +3347,8 @@ export class SearchService {
       CALL db.index.fulltext.queryNodes("rounds", $query) YIELD node as fr, score
       MATCH (org:Organization)-[:HAS_FUNDING_ROUND]->(fr)
       MATCH (org)-[:HAS_JOBSITE]->(:Jobsite)-[:HAS_JOBPOST]->(:Jobpost)-[:HAS_STRUCTURED_JOBPOST]->(sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
-      WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+      WHERE CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+      AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
       RETURN DISTINCT fr.roundName as label, score
       ORDER BY score DESC
       SKIP $skip
@@ -3431,8 +3431,8 @@ export class SearchService {
         `
         CYPHER runtime = pipelined
         MATCH (tag:Tag)<-[:HAS_TAG]-(sj:StructuredJobpost)
-        WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-        AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+        WHERE CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+        AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
         AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
         AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
         WITH tag.id as id, tag.name as name, tag.normalizedName as normalizedName, count(DISTINCT sj) as popularity
@@ -3455,8 +3455,8 @@ export class SearchService {
       `
       CALL db.index.fulltext.queryNodes("tagNames", $query) YIELD node as tag, score
       MATCH (sj:StructuredJobpost)-[:HAS_TAG]->(tag)
-      WHERE COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $startDate
-      AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) <= $endDate
+      WHERE CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $startDate
+      AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END <= $endDate
       AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
       AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
       RETURN DISTINCT tag.id as id, tag.name as name, tag.normalizedName as normalizedName, score
@@ -3545,11 +3545,12 @@ export class SearchService {
         MATCH (sj:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
         WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
         OPTIONAL MATCH (sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(org:Organization)
+        WITH sj, head(collect(DISTINCT org.name)) AS orgName
         RETURN {
           shortUUID: sj.shortUUID,
           title: sj.title,
-          organizationName: org.name,
-          timestamp: COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp)
+          organizationName: orgName,
+          timestamp: CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END
         } AS job
       `;
 
@@ -3562,7 +3563,8 @@ export class SearchService {
             shortUUID: job.shortUUID,
             title: job.title,
             organizationName: job.organizationName ?? null,
-            timestamp: intConverter(job.timestamp),
+            // never emit epoch-0: a missing date must be absent, not 1970
+            timestamp: intConverter(job.timestamp) || null,
           };
         }) ?? [];
 
