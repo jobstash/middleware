@@ -92,8 +92,10 @@ export class AccountService {
             fromOrgLogo: coalesce(org.logoUrl, [(org)-[:HAS_WEBSITE]->(website) | website.url][0]),
             toOrgId: toOrg.orgId,
             toOrgName: toOrg.name,
+            authToken: r.authToken,
             toOrgLogo: coalesce(toOrg.logoUrl, [(toOrg)-[:HAS_WEBSITE]->(website) | website.url][0])
           }
+          ORDER BY r.createdTimestamp DESC
         `,
         { orgId },
       );
@@ -103,7 +105,14 @@ export class AccountService {
       return {
         success: true,
         message: "Retrieved delegate access requests",
-        data: requests,
+        data: requests.map(x => ({
+          ...x,
+          authToken: x.status === "pending" ? x.authToken : null,
+          link:
+            x.status === "pending"
+              ? `${this.configService.get("ORG_ADMIN_DOMAIN")}/delegate-access?fromOrgId=${x.fromOrgId}&toOrgId=${x.toOrgId}&authToken=${x.authToken}`
+              : null,
+        })),
       };
     } catch (error) {
       Sentry.withScope(scope => {
@@ -196,18 +205,18 @@ export class AccountService {
         await this.userService.findOrgOwnerProfileByOrgId(toOrgId),
       );
 
-      const targetEmail = data(
-        await this.profileService.getUserVerifications(
-          targetOwner.wallet,
-          false,
-          false,
-        ),
-      ).find(
-        verification =>
-          verification.credential === "email" && verification.id === toOrgId,
-      ).account;
+      if (targetOwner) {
+        const targetEmail = data(
+          await this.profileService.getUserVerifications(
+            targetOwner.wallet,
+            false,
+            false,
+          ),
+        ).find(
+          verification =>
+            verification.credential === "email" && verification.id === toOrgId,
+        ).account;
 
-      if (targetEmail) {
         try {
           const email = emailBuilder({
             from: this.configService.get("EMAIL"),
@@ -243,7 +252,7 @@ export class AccountService {
 
       return {
         success: true,
-        message: targetEmail
+        message: targetOwner
           ? "Delegate access request sent"
           : "Delegate access request created",
         data: delegateAccessLink,
@@ -289,7 +298,7 @@ export class AccountService {
 
       const result = await this.neogma.queryRunner.run(
         `
-          MATCH (fromOrg:Organization {orgId: $toOrgId})-[r:HAS_DELEGATE_ACCESS {authToken: $authToken, status: 'pending'}]->(toOrg:Organization {orgId: $fromOrgId})
+          MATCH (fromOrg:Organization {orgId: $fromOrgId})-[r:HAS_DELEGATE_ACCESS {authToken: $authToken, status: 'pending'}]->(toOrg:Organization {orgId: $toOrgId})
           WHERE r.expiryTimestamp > timestamp()
           SET r.updatedTimestamp = timestamp(), r.grantorAddress = $grantorAddress, r.status = 'accepted'
           REMOVE r.authToken

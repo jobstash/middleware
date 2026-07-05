@@ -1,12 +1,20 @@
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
 import { ProjectWithBaseRelations, ProjectWithRelations } from "../interfaces";
 import { Node } from "neo4j-driver";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 
 export class ProjectWithBaseRelationsEntity {
+  private readonly logger = new CustomLogger(
+    ProjectWithBaseRelationsEntity.name,
+  );
+
   constructor(private readonly raw: ProjectWithBaseRelations) {}
 
   getProperties(): ProjectWithBaseRelations {
     const project = this.raw;
+    this.logger.debug(
+      `Getting properties for project: ${project?.name} (${project?.id})`,
+    );
     return new ProjectWithBaseRelations({
       ...project,
       orgIds: project?.orgIds ?? [],

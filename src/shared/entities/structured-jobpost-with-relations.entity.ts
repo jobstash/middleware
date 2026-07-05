@@ -41,7 +41,12 @@ export class StructuredJobpostWithRelationsEntity {
         ? nonZeroOrNull(jobpost?.featureEndDate)
         : null,
       featured: isStillFeatured,
-      tags: jobpost.tags ?? [],
+      tags:
+        jobpost.tags.map(tag => ({
+          name: tag.name,
+          normalizedName: tag.normalizedName,
+          createdTimestamp: nonZeroOrNull(tag.createdTimestamp),
+        })) ?? [],
     });
   }
 }

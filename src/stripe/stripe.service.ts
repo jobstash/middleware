@@ -142,7 +142,7 @@ export class StripeService {
         Sentry.captureException(error);
       });
       this.logger.error(
-        `StripeService::getCustomerByEmail Failed to get customer ${error.message}`,
+        `StripeService::getCustomerById Failed to get customer ${error.message}`,
       );
       return {
         success: false,
@@ -177,7 +177,7 @@ export class StripeService {
         Sentry.captureException(error);
       });
       this.logger.error(
-        `StripeService::getCustomerByEmail Failed to get customer ${error.message}`,
+        `StripeService::getCustomerBySubscriptionId Failed to get customer ${error.message}`,
       );
       return {
         success: false,
@@ -201,6 +201,23 @@ export class StripeService {
     }>
   > {
     try {
+      if (currentSubscription.tier === "starter") {
+        return {
+          success: true,
+          message: "Subscription is starter",
+          data: {
+            jobstash: null,
+            extraSeats: null,
+            veri: null,
+            stashAlert: null,
+            stashPool: null,
+            atsIntegration: null,
+            jobPromotions: null,
+            cancellationDate: null,
+          },
+        };
+      }
+
       const subscription = await this.stripe.subscriptions.retrieve(
         currentSubscription.externalId,
       );
@@ -609,10 +626,30 @@ export class StripeService {
 
         case "new-subscription":
           this.logger.log("Handling new subscription webhook event");
-          await this.subscriptionsService.createNewSubscription(
-            JSON.parse(metadata.calldata) as unknown as SubscriptionMetadata,
-            session.subscription as string,
+          const calldata = JSON.parse(
+            metadata.calldata,
+          ) as unknown as SubscriptionMetadata;
+          const existing = data(
+            await this.subscriptionsService.getSubscriptionInfoByOrgId(
+              calldata.orgId,
+            ),
           );
+          if (existing && existing.tier === "starter") {
+            const invoice = session.invoice as string;
+            const subscription = await this.stripe.subscriptions.retrieve(
+              session.subscription as string,
+            );
+            await this.subscriptionsService.changeSubscription(
+              calldata,
+              invoice,
+              subscription,
+            );
+          } else {
+            await this.subscriptionsService.createNewSubscription(
+              calldata,
+              session.subscription as string,
+            );
+          }
           break;
 
         default:
@@ -848,7 +885,6 @@ export class StripeService {
       }
 
       const { externalId } = existing;
-
       const sub = (await this.stripe.subscriptions.retrieve(externalId, {
         expand: ["latest_invoice.payment_intent"],
       })) as Stripe.Subscription;
@@ -1068,6 +1104,7 @@ export class StripeService {
 
   async initiateSubscriptionChange(
     wallet: string,
+    email: string,
     orgId: string,
     dto: ChangeSubscriptionInput,
   ): Promise<ResponseWithNoData> {
@@ -1110,6 +1147,20 @@ export class StripeService {
         currentPayg === dto.paygOptIn
       ) {
         return { success: true, message: "No change required" };
+      }
+
+      if (currentTier === "starter") {
+        return this.initiateNewSubscription({
+          wallet,
+          email,
+          dto: {
+            jobstash: dto.jobstash,
+            veri: dto.veri,
+            stashAlert: dto.stashAlert,
+            extraSeats: dto.extraSeats,
+            orgId,
+          },
+        });
       }
 
       const prices = await this.getProductPrices();

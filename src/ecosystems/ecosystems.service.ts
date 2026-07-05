@@ -19,6 +19,7 @@ import { Neogma } from "neogma";
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import {
+  dropPublicJobsFromOrgsWithOnlineExpertJobs,
   generateOrgAggregateRating,
   generateOrgAggregateRatings,
   nonZeroOrNull,
@@ -941,7 +942,7 @@ export class EcosystemsService {
             online: EXISTS((structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)),
             applications: apoc.coll.sum([(structured_jobpost)<-[:APPLIED_TO]-(:User) | 1]),
             views: apoc.coll.sum([(structured_jobpost)<-[:VIEWED_DETAILS]-(:User) | 1]),
-            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -1131,7 +1132,7 @@ export class EcosystemsService {
       commitments: commitmentFilterList,
       token,
       onboardIntoWeb3,
-      ethSeasonOfInternships,
+      expertJobs,
       query,
       order,
       orderBy,
@@ -1340,8 +1341,8 @@ export class EcosystemsService {
         (!commitmentFilterList ||
           commitmentFilterList.includes(slugify(commitment))) &&
         (onboardIntoWeb3 === null || jlr.onboardIntoWeb3 === onboardIntoWeb3) &&
-        (ethSeasonOfInternships === null ||
-          jlr.ethSeasonOfInternships === ethSeasonOfInternships) &&
+        (expertJobs === null ||
+          (jlr.access === "protected") === expertJobs) &&
         (!query || matchesQuery) &&
         (!tagFilterList ||
           tags.filter(tag => tagFilterList.includes(slugify(tag.name))).length >
@@ -1354,6 +1355,12 @@ export class EcosystemsService {
     const filtered = results
       .filter(jobFilters)
       .map(x => new EcosystemJobListResultEntity(x).getProperties());
+
+    // Drop public jobs from orgs that have online expert jobs
+    const filteredWithExpertRule = dropPublicJobsFromOrgsWithOnlineExpertJobs(
+      filtered,
+      job => job.online,
+    );
 
     const getSortParam = (jlr: EcosystemJobListResult): number => {
       const p1 =
@@ -1394,7 +1401,7 @@ export class EcosystemsService {
 
     let final = [];
     if (!order || order === "desc") {
-      final = sort<EcosystemJobListResult>(filtered).by([
+      final = sort<EcosystemJobListResult>(filteredWithExpertRule).by([
         { desc: (job): boolean => job.featured },
         { asc: (job): number => job.featureStartDate },
         {
@@ -1404,7 +1411,7 @@ export class EcosystemsService {
         { desc: (job): number => getSortParam(job) },
       ]);
     } else {
-      final = sort<EcosystemJobListResult>(filtered).by([
+      final = sort<EcosystemJobListResult>(filteredWithExpertRule).by([
         { desc: (job): boolean => job.featured },
         { asc: (job): number => job.featureStartDate },
         {
@@ -1422,9 +1429,14 @@ export class EcosystemsService {
 
   async getEcosystemJobs(ecosystem: string): Promise<JobListResult[]> {
     const jobs = await this.getJobsListResults([ecosystem]);
+    const onlineJobs = jobs.filter(z => z.online);
+    // Drop public jobs from orgs that have online expert jobs
+    const filteredJobs = dropPublicJobsFromOrgsWithOnlineExpertJobs(
+      onlineJobs,
+      () => true, // All jobs in this array are already online
+    );
     return sort(
-      jobs
-        .filter(z => z.online)
+      filteredJobs
         .map(x => new JobListResultEntity(x).getProperties()),
     ).desc(x => x.timestamp);
   }

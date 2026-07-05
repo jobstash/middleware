@@ -13,9 +13,14 @@ import {
   EcosystemJobListResultEntity,
   JobApplicantEntity,
   JobDetailsEntity,
+  JobMatchCategory,
+  JobMatchResult,
   JobpostFolderEntity,
 } from "src/shared/entities";
 import {
+  dropPublicJobsFromOrgsWithOnlineExpertJobs,
+  intConverter,
+  nonZeroOrNull,
   notStringOrNull,
   paginate,
   publicationDateRangeGenerator,
@@ -57,6 +62,8 @@ import { UpdateJobApplicantListInput } from "./dto/update-job-applicant-list.inp
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
 import { ChangeJobProjectInput } from "./dto/update-job-project.input";
+import { SimilarJob } from "./dto/similar-jobs.output";
+import { PillarJob } from "./dto/suggested-jobs.output";
 import { TagsService } from "src/tags/tags.service";
 import { uniq } from "lodash";
 import { go } from "fuzzysort";
@@ -116,8 +123,10 @@ export class JobsService {
           featured: structured_jobpost.featured,
           featureStartDate: structured_jobpost.featureStartDate,
           featureEndDate: structured_jobpost.featureEndDate,
-          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
+          publishedTimestampIsVerified: structured_jobpost.publishedTimestampIsVerified,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+          hiringProcess: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST]-(:Jobpost)<-[:HAS_JOBPOST]-(jobsite:Jobsite) | jobsite.hiringProcess][0],
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
           commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
           locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
@@ -243,15 +252,53 @@ export class JobsService {
       } AS result
     `;
 
+    this.logger.log("Starting getJobsListResults");
+
     try {
+      this.logger.log(
+        `Generating jobs list for ecosystem: ${ecosystem ?? "all"}`,
+      );
       const queryResult = await this.neogma.queryRunner.run(generatedQuery, {
         ecosystem: ecosystem ?? null,
       });
+      this.logger.log(`Executed query for ecosystem: ${ecosystem ?? "all"}`);
+      this.logger.log(`Query returned ${queryResult.records.length} records`);
       const resultSet = queryResult.records.map(
         record => record.get("result") as JobListResult,
       );
-      for (const result of resultSet) {
-        results.push(new JobListResultEntity(result).getProperties());
+      this.logger.log(`Mapping results to JobListResultEntity`);
+
+      for (const [i, result] of resultSet.entries()) {
+        try {
+          const entity = new JobListResultEntity(result).getProperties();
+          results.push(entity);
+        } catch (err) {
+          const info = {
+            index: i,
+            id: (result as any)?.id,
+            shortUUID: (result as any)?.shortUUID,
+            url: (result as any)?.url,
+            title: (result as any)?.title,
+          };
+
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "entity-mapping",
+              source: "jobs.service",
+            });
+            scope.setExtra("failed_result", info);
+            // If you want, you can also attach the raw result, but it can be huge:
+            // scope.setExtra("raw_result", result);
+            Sentry.captureException(err);
+          });
+
+          const msg = err instanceof Error ? err.message : String(err);
+          this.logger.error(
+            `JobsService::getJobsListResults mapping failed ${msg} - info: ${JSON.stringify(info)}`,
+          );
+
+          continue;
+        }
       }
       this.logger.log(`Found ${results.length} jobs`);
     } catch (err) {
@@ -312,8 +359,9 @@ export class JobsService {
           online: CASE WHEN EXISTS((structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)) THEN true ELSE EXISTS((structured_jobpost)-[:HAS_STATUS]->(:JobpostOfflineStatus)) END,
           applications: apoc.coll.sum([(structured_jobpost)<-[:APPLIED_TO]-(:User) | 1]),
           views: apoc.coll.sum([(structured_jobpost)<-[:VIEWED_DETAILS]-(:User) | 1]),
-          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+          hiringProcess: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST]-(:Jobpost)<-[:HAS_JOBPOST]-(jobsite:Jobsite) | jobsite.hiringProcess][0],
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
           commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
           locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
@@ -498,7 +546,8 @@ export class JobsService {
               offersTokenAllocation: structured_jobpost.offersTokenAllocation,
               isBlocked: CASE WHEN (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation) THEN true ELSE false END,
               isOnline: CASE WHEN (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) THEN true ELSE false END,
-              timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+              timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
+              publishedTimestampIsVerified: structured_jobpost.publishedTimestampIsVerified,
               classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
               commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
               locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
@@ -579,7 +628,7 @@ export class JobsService {
       ecosystems: ecosystemFilterList,
       token,
       onboardIntoWeb3,
-      ethSeasonOfInternships,
+      expertJobs,
       query,
       order,
       orderBy,
@@ -790,8 +839,7 @@ export class JobsService {
         (!commitmentFilterList ||
           commitmentFilterList.includes(slugify(commitment))) &&
         (onboardIntoWeb3 === null || jlr.onboardIntoWeb3 === onboardIntoWeb3) &&
-        (ethSeasonOfInternships === null ||
-          jlr.ethSeasonOfInternships === ethSeasonOfInternships) &&
+        (expertJobs === null || (jlr.access === "protected") === expertJobs) &&
         (!query || matchesQuery) &&
         (!tagFilterList ||
           tags.filter(tag => tagFilterList.includes(slugify(tag.name))).length >
@@ -802,6 +850,10 @@ export class JobsService {
     const filtered = results
       .filter(jobFilters)
       .map(x => new JobListResultEntity(x).getProperties());
+
+    // Drop public jobs from orgs that have online expert jobs
+    const filteredWithExpertRule =
+      dropPublicJobsFromOrgsWithOnlineExpertJobs(filtered);
 
     const getSortParam = (jlr: JobListResult): number => {
       const p1 =
@@ -842,7 +894,7 @@ export class JobsService {
 
     let final = [];
     if (!order || order === "desc") {
-      final = sort<JobListResult>(filtered).by([
+      final = sort<JobListResult>(filteredWithExpertRule).by([
         { desc: (job): boolean => job.featured },
         { asc: (job): number => job.featureStartDate },
         {
@@ -852,7 +904,7 @@ export class JobsService {
         { desc: (job): number => getSortParam(job) },
       ]);
     } else {
-      final = sort<JobListResult>(filtered).by([
+      final = sort<JobListResult>(filteredWithExpertRule).by([
         { desc: (job): boolean => job.featured },
         { asc: (job): number => job.featureStartDate },
         {
@@ -1213,8 +1265,10 @@ export class JobsService {
           featured: structured_jobpost.featured,
           featureStartDate: structured_jobpost.featureStartDate,
           featureEndDate: structured_jobpost.featureEndDate,
-          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
+          publishedTimestampIsVerified: structured_jobpost.publishedTimestampIsVerified,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+          hiringProcess: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST]-(:Jobpost)<-[:HAS_JOBPOST]-(jobsite:Jobsite) | jobsite.hiringProcess][0],
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
           commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
           locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
@@ -1399,8 +1453,9 @@ export class JobsService {
           online: EXISTS((structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)),
           applications: apoc.coll.sum([(structured_jobpost)<-[:APPLIED_TO]-(:User) | 1]),
           views: apoc.coll.sum([(structured_jobpost)<-[:VIEWED_DETAILS]-(:User) | 1]),
-          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
+          hiringProcess: [(structured_jobpost)<-[:HAS_STRUCTURED_JOBPOST]-(:Jobpost)<-[:HAS_JOBPOST]-(jobsite:Jobsite) | jobsite.hiringProcess][0],
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
           commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
           locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
@@ -1870,7 +1925,7 @@ export class JobsService {
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
             featureEndDate: structured_jobpost.featureEndDate,
-            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -2149,7 +2204,7 @@ export class JobsService {
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
             featureEndDate: structured_jobpost.featureEndDate,
-            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -2481,7 +2536,7 @@ export class JobsService {
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
             featureEndDate: structured_jobpost.featureEndDate,
-            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -2679,7 +2734,7 @@ export class JobsService {
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
             featureEndDate: structured_jobpost.featureEndDate,
-            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -2886,7 +2941,7 @@ export class JobsService {
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
             featureEndDate: structured_jobpost.featureEndDate,
-            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -3092,7 +3147,7 @@ export class JobsService {
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
             featureEndDate: structured_jobpost.featureEndDate,
-            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -3304,7 +3359,7 @@ export class JobsService {
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
             featureEndDate: structured_jobpost.featureEndDate,
-            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -3516,7 +3571,7 @@ export class JobsService {
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
             featureEndDate: structured_jobpost.featureEndDate,
-            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -3729,7 +3784,7 @@ export class JobsService {
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
             featureEndDate: structured_jobpost.featureEndDate,
-            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -4612,6 +4667,453 @@ export class JobsService {
       this.logger.error(
         `Job ${shortUUID} could not be promoted because it does not exist`,
       );
+    }
+  }
+
+  async getSimilarJobs(
+    uuid: string,
+    ecosystem: string | undefined,
+  ): Promise<ResponseWithOptionalData<SimilarJob[]>> {
+    try {
+      const generatedQuery = `
+        CYPHER runtime = pipelined
+        MATCH (sourceOrg)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(source:StructuredJobpost {shortUUID: $shortUUID})-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((sourceOrg)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+        AND NOT (source)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        MATCH (source)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+        WITH DISTINCT tag, source, sourceOrg
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+        WITH tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others, source, sourceOrg
+        WITH CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag, source, sourceOrg
+        WITH collect(DISTINCT canonicalTag) AS sourceTags, source, sourceOrg
+        WITH sourceTags, toFloat(size(sourceTags)) AS sourceTagCount, source, sourceOrg,
+          [(source)-[:HAS_CLASSIFICATION]->(c:JobpostClassification) | c.name][0] AS sourceClassName
+        UNWIND sourceTags AS sTag
+        WITH source, sourceOrg, sTag, sourceClassName, sourceTagCount,
+          [sTag] + [(sTag)-[:IS_SYNONYM_OF|IS_PAIR_OF]-(related:Tag) | related] AS expandedTags
+        UNWIND expandedTags AS matchableTag
+        MATCH (other:StructuredJobpost)-[:HAS_TAG]->(matchableTag)
+        WHERE other <> source
+          AND CASE WHEN other.publishedTimestamp IS :: INTEGER NOT NULL THEN other.publishedTimestamp ELSE other.firstSeenTimestamp END >= $now - $decayMs
+          AND (other)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+          AND NOT (other)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+          AND CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((other)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+        MATCH (otherOrg)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(other)
+        WHERE otherOrg <> sourceOrg
+        WITH other, count(DISTINCT sTag) AS sharedTags, sourceClassName, sourceTagCount, collect(otherOrg)[0] AS otherOrg
+        WITH other, otherOrg,
+          toFloat(sharedTags) / sourceTagCount AS tagRatio,
+          CASE WHEN sourceClassName IS NOT NULL AND [(other)-[:HAS_CLASSIFICATION]->(c:JobpostClassification) | c.name][0] = sourceClassName THEN 1.0 ELSE 0.0 END AS classMatch,
+          1.0 / (1.0 + toFloat($now - CASE WHEN other.publishedTimestamp IS :: INTEGER NOT NULL THEN other.publishedTimestamp ELSE other.firstSeenTimestamp END) / $decayMs) AS recencyScore
+        WITH other, otherOrg,
+          0.4 * tagRatio + 0.3 * recencyScore + 0.3 * classMatch AS score
+        ORDER BY score DESC
+        LIMIT 5
+        RETURN other {
+          .shortUUID, .title,
+          timestamp: CASE WHEN other.publishedTimestamp IS :: INTEGER NOT NULL
+            THEN other.publishedTimestamp ELSE other.firstSeenTimestamp END,
+          organization: otherOrg { .name, .logoUrl, .normalizedName, website: [(otherOrg)-[:HAS_WEBSITE]->(w) | w.url][0] }
+        } AS result
+      `;
+      const queryResult = await this.neogma.queryRunner.run(generatedQuery, {
+        shortUUID: uuid,
+        ecosystem: ecosystem ?? null,
+        now: Date.now(),
+        decayMs: 30 * 24 * 60 * 60 * 1000, // 30-day half-life
+      });
+      const data = queryResult.records
+        .map(record => {
+          const result = record.get("result") as SimilarJob;
+          return { ...result, timestamp: nonZeroOrNull(result.timestamp) };
+        })
+        .sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
+      return {
+        success: true,
+        message: "Similar jobs retrieved successfully",
+        data,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        scope.setExtra("input", uuid);
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getSimilarJobs ${err.message}`);
+      return {
+        success: false,
+        message: "Failed to retrieve similar jobs",
+      };
+    }
+  }
+
+  async getJobMatchScore(
+    shortUuid: string,
+    skills: string[],
+    isExpert: boolean,
+  ): Promise<ResponseWithOptionalData<JobMatchResult>> {
+    try {
+      const generatedQuery = `
+        CYPHER runtime = parallel
+        MATCH (sj:StructuredJobpost {shortUUID: $shortUUID})-[:HAS_STATUS]->(:JobpostOnlineStatus)
+        WHERE NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+        MATCH (sj)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE NOT (tag)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        WITH COLLECT(DISTINCT tag) AS directTags
+        UNWIND directTags AS tag
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)
+          WHERE NOT (synonym)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        OPTIONAL MATCH (tag)-[:IS_PAIR_OF]-(pair:Tag)
+          WHERE NOT (pair)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        WITH tag,
+             tag.normalizedName AS tagName,
+             COLLECT(DISTINCT synonym) AS synonymNodes,
+             COLLECT(DISTINCT pair) AS pairNodes
+        WITH tag, tagName,
+             [s IN synonymNodes WHERE s IS NOT NULL] AS synonyms,
+             [p IN pairNodes WHERE p IS NOT NULL] AS pairs
+        WITH tag, tagName,
+             apoc.coll.toSet(
+               [tagName] + [s IN synonyms | s.normalizedName] + [p IN pairs | p.normalizedName]
+             ) AS expanded,
+             synonyms, pairs
+        WITH COLLECT({
+               id: tag.id,
+               name: tag.name,
+               normalizedName: tag.normalizedName,
+               expanded: expanded
+             }) AS tagMappings,
+             apoc.coll.toSet(apoc.coll.flatten(COLLECT(expanded))) AS jobTags,
+             COLLECT(tag {.id, .name, .normalizedName})
+               + apoc.coll.flatten(COLLECT([s IN synonyms | s {.id, .name, .normalizedName}]))
+               + apoc.coll.flatten(COLLECT([p IN pairs | p {.id, .name, .normalizedName}])) AS allTags
+        RETURN jobTags, tagMappings, allTags
+      `;
+      const queryResult = await this.neogma.queryRunner.run(generatedQuery, {
+        shortUUID: shortUuid,
+      });
+
+      if (queryResult.records.length === 0) {
+        return {
+          success: false,
+          message: "Job not found",
+        };
+      }
+
+      const jobTags: string[] = queryResult.records[0].get("jobTags");
+      const tagMappings: Array<{
+        id: string;
+        name: string;
+        normalizedName: string;
+        expanded: string[];
+      }> = queryResult.records[0].get("tagMappings");
+      const allTags: Array<{
+        id: string;
+        name: string;
+        normalizedName: string;
+      }> = queryResult.records[0].get("allTags");
+      const jobTagSet = new Set(jobTags);
+
+      if (jobTagSet.size === 0 || skills.length === 0) {
+        return {
+          success: true,
+          message: "Job match score calculated successfully",
+          data: {
+            score: 0,
+            category: JobMatchCategory.UNLIKELY_FIT,
+            matchedSkills: [],
+            recommendedSkills: [],
+          },
+        };
+      }
+
+      const matchResult = this.calculateMatchScore(
+        skills,
+        jobTagSet,
+        tagMappings,
+        allTags,
+        isExpert,
+      );
+
+      return {
+        success: true,
+        message: "Job match score calculated successfully",
+        data: matchResult,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        scope.setExtra("input", { shortUuid, skills, isExpert });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getJobMatchScore ${err.message}`);
+      return {
+        success: false,
+        message: "Failed to calculate job match score",
+      };
+    }
+  }
+
+  private calculateMatchScore(
+    userSkills: string[],
+    jobTagSet: Set<string>,
+    tagMappings: Array<{
+      id: string;
+      name: string;
+      normalizedName: string;
+      expanded: string[];
+    }>,
+    allTags: Array<{ id: string; name: string; normalizedName: string }>,
+    isExpert: boolean,
+  ): JobMatchResult {
+    const tagLookup = new Map(allTags.map(t => [t.normalizedName, t]));
+    const userSkillSet = new Set(userSkills);
+    const matchedSkills = userSkills
+      .filter(s => jobTagSet.has(s))
+      .map(s => tagLookup.get(s))
+      .filter(
+        (t): t is { id: string; name: string; normalizedName: string } =>
+          t != null,
+      );
+    const matchedCount = matchedSkills.length;
+    const jobCoverage = matchedCount / jobTagSet.size;
+    const skillRelevance = matchedCount / userSkills.length;
+    const score =
+      jobCoverage === 0 || skillRelevance === 0
+        ? 0
+        : Math.sqrt(jobCoverage * skillRelevance);
+    const roundedScore = Math.round(score * 100) / 100;
+    const category =
+      roundedScore >= 0.55
+        ? JobMatchCategory.STRONG_FIT
+        : roundedScore >= 0.25
+          ? JobMatchCategory.PARTIAL_FIT
+          : JobMatchCategory.UNLIKELY_FIT;
+
+    const recommendedSkills = tagMappings
+      .filter(tm => !tm.expanded.some(name => userSkillSet.has(name)))
+      .map(tm => ({
+        id: tm.id,
+        name: tm.name,
+        normalizedName: tm.normalizedName,
+      }));
+
+    return {
+      score: roundedScore,
+      category,
+      matchedSkills,
+      recommendedSkills,
+    };
+  }
+
+  async getSuggestedJobs(
+    skills: string[],
+    isExpert: boolean,
+    limit: number,
+    page: number,
+  ): Promise<ResponseWithOptionalData<PaginatedData<PillarJob>>> {
+    if (!skills.length) {
+      return {
+        success: true,
+        message: "Suggested jobs retrieved successfully",
+        data: { page, count: 0, total: 0, data: [] },
+      };
+    }
+
+    const minOverlapRatio = isExpert ? 0.15 : 0.25;
+    const minMatchCount = Math.min(
+      5,
+      Math.max(1, Math.ceil(skills.length / 3)),
+    );
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const skip = (page - 1) * limit;
+
+    try {
+      const generatedQuery = `
+        CYPHER runtime = parallel
+
+        UNWIND $userSkills AS skillName
+        MATCH (tag:Tag {normalizedName: skillName})
+        WHERE NOT (tag)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)
+          WHERE NOT (synonym)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        OPTIONAL MATCH (tag)-[:IS_PAIR_OF]-(pair:Tag)
+          WHERE NOT (pair)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        WITH COLLECT(DISTINCT tag) + COLLECT(DISTINCT synonym) + COLLECT(DISTINCT pair) AS discoveryTags,
+             apoc.coll.toSet(
+               COLLECT(DISTINCT tag.normalizedName)
+               + [s IN COLLECT(DISTINCT synonym) WHERE s IS NOT NULL | s.normalizedName]
+             ) AS userScoringNames
+
+        UNWIND apoc.coll.toSet([t IN discoveryTags WHERE t IS NOT NULL]) AS userTag
+        MATCH (sj:StructuredJobpost)-[:HAS_TAG]->(userTag)
+        WHERE (sj)-[:HAS_STATUS]->(:JobpostOnlineStatus)
+          AND NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
+          AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $thirtyDaysAgo
+        WITH DISTINCT sj, userScoringNames
+
+        MATCH (sj)-[:HAS_TAG]->(jobTag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE NOT (jobTag)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        OPTIONAL MATCH (jobTag)-[:IS_SYNONYM_OF]-(synonym:Tag)
+          WHERE NOT (synonym)-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
+        WITH sj, userScoringNames,
+             apoc.coll.toSet(
+               COLLECT(DISTINCT jobTag.normalizedName)
+               + [s IN COLLECT(DISTINCT synonym) WHERE s IS NOT NULL | s.normalizedName]
+             ) AS jobScoringNames
+
+        WITH sj,
+             SIZE([name IN jobScoringNames WHERE name IN userScoringNames]) AS matchedCount,
+             SIZE(jobScoringNames) AS jobTagCount
+        WHERE matchedCount >= $minMatchCount
+        WITH sj, matchedCount, jobTagCount,
+             CASE WHEN jobTagCount = 0 OR $skillCount = 0 THEN 0.0
+                  ELSE sqrt(toFloat(matchedCount) / jobTagCount * toFloat(matchedCount) / $skillCount)
+             END AS overlapRatio
+
+        WHERE overlapRatio >= $minOverlapRatio
+        WITH COLLECT({node: sj, ratio: overlapRatio}) AS entries
+        WITH SIZE(entries) AS total, entries
+        UNWIND entries AS entry
+        WITH entry.node AS sj, entry.ratio AS overlapRatio, total
+        ORDER BY CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END DESC, overlapRatio DESC
+        SKIP toInteger($skip) LIMIT toInteger($limit)
+
+        OPTIONAL MATCH (sj)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
+        WHERE NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+          AND NOT (tag)<-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
+        WITH sj, total, overlapRatio, tag
+        OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(synonym:Tag)--(:PreferredDesignation)
+        OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(pair:Tag)
+        WITH sj, total, overlapRatio, tag, collect(DISTINCT synonym) + collect(DISTINCT pair) AS others
+        WITH sj, total, overlapRatio, CASE WHEN size(others) > 0 THEN head(others) ELSE tag END AS canonicalTag
+        WITH sj, total, overlapRatio, collect(DISTINCT {id: canonicalTag.id, name: canonicalTag.name, normalizedName: canonicalTag.normalizedName}) as tags
+
+        OPTIONAL MATCH (sj)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(org:Organization)
+        WITH sj, total, overlapRatio, tags, head(collect(DISTINCT org)) AS org
+
+        RETURN total, overlapRatio, {
+          id: sj.id,
+          shortUUID: sj.shortUUID,
+          title: sj.title,
+          url: sj.url,
+          summary: sj.summary,
+          salary: sj.salary,
+          minimumSalary: sj.minimumSalary,
+          maximumSalary: sj.maximumSalary,
+          salaryCurrency: sj.salaryCurrency,
+          paysInCrypto: sj.paysInCrypto,
+          offersTokenAllocation: sj.offersTokenAllocation,
+          seniority: CASE sj.seniority
+            WHEN '1' THEN 'Intern' WHEN '2' THEN 'Junior'
+            WHEN '3' THEN 'Senior' WHEN '4' THEN 'Lead'
+            WHEN '5' THEN 'Head' ELSE sj.seniority END,
+          timestamp: CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END,
+          commitment: [(sj)-[:HAS_COMMITMENT]->(c:JobpostCommitment) | c.name][0],
+          locationType: [(sj)-[:HAS_LOCATION_TYPE]->(lt:JobpostLocationType) | lt.name][0],
+          classification: [(sj)-[:HAS_CLASSIFICATION]->(cl:JobpostClassification) | cl.name][0],
+          location: sj.location,
+          access: COALESCE(sj.access, 'public'),
+          featured: COALESCE(sj.featured, false),
+          featureStartDate: sj.featureStartDate,
+          featureEndDate: sj.featureEndDate,
+          onboardIntoWeb3: COALESCE(sj.onboardIntoWeb3, false),
+          organization: CASE WHEN org IS NOT NULL THEN {
+            id: org.id, name: org.name, normalizedName: org.normalizedName,
+            orgId: org.orgId,
+            website: [(org)-[:HAS_WEBSITE]->(w) | w.url][0],
+            summary: org.summary, location: org.location,
+            description: org.description, logoUrl: org.logoUrl,
+            headcountEstimate: org.headcountEstimate,
+            fundingRounds: [(org)-[:HAS_FUNDING_ROUND]->(fr:FundingRound) WHERE fr.id IS NOT NULL | {
+              id: fr.id, date: fr.date, roundName: fr.roundName, raisedAmount: fr.raisedAmount
+            }],
+            investors: [(org)-[:HAS_FUNDING_ROUND]->(:FundingRound)-[:HAS_INVESTOR]->(inv:Investor) | {
+              id: inv.id, name: inv.name, normalizedName: inv.normalizedName
+            }]
+          } ELSE null END,
+          tags: [t IN tags WHERE t.name IS NOT NULL | t]
+        } AS job
+        ORDER BY job.timestamp DESC, overlapRatio DESC
+      `;
+
+      const queryResult = await this.neogma.queryRunner.run(generatedQuery, {
+        userSkills: skills,
+        minOverlapRatio,
+        minMatchCount,
+        skillCount: skills.length,
+        thirtyDaysAgo,
+        skip,
+        limit,
+      });
+
+      const records = queryResult.records;
+      const total = records.length > 0 ? records[0].get("total").toNumber() : 0;
+      const jobs: PillarJob[] = records.map(r => {
+        const job = r.get("job");
+        const org = job.organization;
+        return {
+          ...job,
+          salary: intConverter(job.salary) || null,
+          minimumSalary: intConverter(job.minimumSalary) || null,
+          maximumSalary: intConverter(job.maximumSalary) || null,
+          timestamp: intConverter(job.timestamp),
+          featureStartDate: intConverter(job.featureStartDate) || null,
+          featureEndDate: intConverter(job.featureEndDate) || null,
+          tags: (job.tags ?? []).filter(
+            (t: { name: string | null }) => t.name !== null,
+          ),
+          organization: org
+            ? {
+                ...org,
+                headcountEstimate: intConverter(org.headcountEstimate) || null,
+                fundingRounds: (org.fundingRounds ?? []).map(
+                  (fr: Record<string, unknown>) => ({
+                    ...fr,
+                    date: intConverter(fr.date as number),
+                    raisedAmount:
+                      intConverter(fr.raisedAmount as number) || null,
+                  }),
+                ),
+                investors: [
+                  ...new Map(
+                    (org.investors ?? []).map(
+                      (inv: { id: string }) => [inv.id, inv] as const,
+                    ),
+                  ).values(),
+                ],
+              }
+            : null,
+        };
+      });
+
+      return {
+        success: true,
+        message: "Suggested jobs retrieved successfully",
+        data: { page, count: jobs.length, total, data: jobs },
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "jobs.service",
+        });
+        scope.setExtra("input", { skills, isExpert, limit, page });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`JobsService::getSuggestedJobs ${err.message}`);
+      return {
+        success: false,
+        message: "Failed to retrieve suggested jobs",
+      };
     }
   }
 }

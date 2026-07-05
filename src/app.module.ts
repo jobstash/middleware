@@ -17,6 +17,7 @@ import { PublicModule } from "./public/public.module";
 import { ModelModule } from "./model/model.module";
 import { NeogmaModule, NeogmaModuleOptions } from "nestjs-neogma";
 import { ProfileModule } from "./auth/profile/profile.module";
+import { ProfileV2Module } from "./auth/profile/v2/profile-v2.module";
 import { MailModule } from "./mail/mail.module";
 import { HacksModule } from "./hacks/hacks.module";
 import { AuditsModule } from "./audits/audits.module";
@@ -85,6 +86,7 @@ import { AccountModule } from "./auth/account/account.module";
     PublicModule,
     ModelModule,
     ProfileModule,
+    ProfileV2Module,
     MailModule,
     HacksModule,
     AuditsModule,

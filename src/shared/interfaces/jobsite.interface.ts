@@ -10,6 +10,9 @@ export class Jobsite {
     type: t.string,
     createdTimestamp: t.union([t.number, t.null]),
     updatedTimestamp: t.union([t.number, t.null]),
+    // optional: hiring process described on the careers page (null when the
+    // page doesn't describe one); not every projection returns it
+    hiringProcess: t.union([t.string, t.null, t.undefined]),
   });
 
   @ApiProperty()
@@ -27,8 +30,12 @@ export class Jobsite {
   @ApiPropertyOptional()
   updatedTimestamp: number | null;
 
+  @ApiPropertyOptional()
+  hiringProcess?: string | null;
+
   constructor(raw: Jobsite) {
-    const { id, url, type, createdTimestamp, updatedTimestamp } = raw;
+    const { id, url, type, createdTimestamp, updatedTimestamp, hiringProcess } =
+      raw;
 
     const result = Jobsite.JobsiteType.decode(raw);
 
@@ -37,6 +44,7 @@ export class Jobsite {
     this.type = type;
     this.createdTimestamp = createdTimestamp;
     this.updatedTimestamp = updatedTimestamp;
+    this.hiringProcess = hiringProcess ?? null;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

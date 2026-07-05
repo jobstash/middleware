@@ -5,6 +5,7 @@ import {
   TagPreference,
   ResponseWithOptionalData,
 } from "src/shared/types";
+import { BatchMatchTagsResult } from "./dto/batch-match-tags.output";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { ModelService } from "src/model/model.service";
@@ -14,7 +15,7 @@ import { Neogma } from "neogma";
 import { UpdateTagDto } from "./dto/update-tag.dto";
 import { TagEntity } from "src/shared/entities/tag.entity";
 import NotFoundError from "src/shared/errors/not-found-error";
-import { instanceToNode, slugify } from "src/shared/helpers";
+import { instanceToNode, intConverter, slugify } from "src/shared/helpers";
 import { ConfigService } from "@nestjs/config";
 
 @Injectable()
@@ -738,6 +739,215 @@ export class TagsService {
       });
       this.logger.error(`TagsService::matchTags ${err.message}`);
       return [];
+    }
+  }
+
+  private sanitizeLucene(query: string): string {
+    return query.replace(/[+\-&|!(){}[\]^"~*?:\\/]/g, "\\$&");
+  }
+
+  private buildFuzzyTerms(input: string): string[] | null {
+    const parts = input
+      .split(/[\s/\-_,;|]+/)
+      .map(p => slugify(p))
+      .filter(w => w.length > 0);
+
+    if (parts.length === 0) return null;
+
+    const fuzzy = (w: string): string => {
+      const escaped = this.sanitizeLucene(w);
+      if (w.length <= 2) return `name:${escaped}`;
+      if (w.length <= 4) return `name:${escaped}~1`;
+      return `name:${escaped}~1`;
+    };
+
+    const terms: string[] = [];
+
+    // For multi-word inputs, prepend a concatenated slug so
+    // "React JS" can still match a tag named "reactjs"
+    if (parts.length > 1) {
+      terms.push(fuzzy(parts.join("")));
+    }
+
+    for (const w of parts) {
+      if (parts.length > 1 && w.length <= 2) continue;
+      terms.push(fuzzy(w));
+    }
+
+    return terms;
+  }
+
+  async batchMatchTags(
+    tags: string[],
+    scoreThreshold = 0.5,
+    maxResults = 15,
+  ): Promise<ResponseWithOptionalData<BatchMatchTagsResult[]>> {
+    try {
+      if (tags.length === 0) {
+        return {
+          success: true,
+          message: "Batch matched tags successfully",
+          data: [],
+        };
+      }
+
+      const seen = new Set<string>();
+      const queries: { input: string; terms: string[] }[] = [];
+      for (const tag of tags) {
+        const terms = this.buildFuzzyTerms(tag);
+        if (!terms) continue;
+        const key = terms.join("|");
+        if (seen.has(key)) continue;
+        seen.add(key);
+        queries.push({ input: tag, terms });
+      }
+
+      if (queries.length === 0) {
+        return {
+          success: true,
+          message: "Batch matched tags successfully",
+          data: [],
+        };
+      }
+
+      const result = await this.neogma.queryRunner.run(
+        `
+        UNWIND $queries AS q
+        UNWIND q.terms AS term
+        CALL {
+          WITH term
+          CALL db.index.fulltext.queryNodes("tagNames", term) YIELD node AS tag, score
+          WHERE score >= $scoreThreshold
+            AND NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
+            AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
+          WITH tag, score
+          ORDER BY score DESC
+          LIMIT 5
+          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
+          WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS resolved, score
+          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(resolved)-[:IS_PAIR_OF]->(paired:Tag)
+          WITH (CASE WHEN paired IS NULL THEN resolved ELSE paired END) AS node, score
+          WITH node, max(score) AS score
+          MATCH (sj:StructuredJobpost)-[:HAS_TAG]->(node)
+          WITH node, score, count(DISTINCT sj) AS jobCount
+          RETURN node.id AS id, node.name AS name, node.normalizedName AS normalizedName,
+                 score * log(toFloat(jobCount) + 2.0) AS score
+          ORDER BY score DESC
+          LIMIT 1
+        }
+        WITH q.input AS input, id, name, normalizedName, score
+        WHERE id IS NOT NULL
+        WITH input, id, name, normalizedName, max(score) AS score
+        ORDER BY input, score DESC
+        WITH input, collect({id: id, name: name, normalizedName: normalizedName, score: score}) AS matches
+        WITH input, matches, matches[0].score AS maxScore
+        UNWIND matches AS m
+        WITH input, m.id AS id, m.name AS name, m.normalizedName AS normalizedName, m.score AS score
+        WHERE score >= maxScore * 0.75
+        RETURN input, id, name, normalizedName, score
+        `,
+        { queries, scoreThreshold },
+      );
+
+      const tagMap = new Map<
+        string,
+        { id: string; name: string; normalizedName: string; score: number }
+      >();
+      for (const record of result.records) {
+        const id = record.get("id") as string;
+        if (!id) continue;
+        const score = record.get("score") as number;
+        const existing = tagMap.get(id);
+        if (!existing || score > existing.score) {
+          tagMap.set(id, {
+            id,
+            name: record.get("name") as string,
+            normalizedName: record.get("normalizedName") as string,
+            score,
+          });
+        }
+      }
+
+      let candidates = [...tagMap.values()];
+
+      // Co-occurrence filtering: only when 3+ candidates
+      if (candidates.length >= 3) {
+        const tagIds = candidates.map(c => c.id);
+
+        const coResult = await this.neogma.queryRunner.run(
+          `
+          UNWIND $tagIds AS tagId
+          MATCH (tag:Tag {id: tagId})<-[:HAS_TAG]-(sj:StructuredJobpost)-[:HAS_TAG]->(other:Tag)
+          WHERE other.id IN $tagIds AND other.id <> tagId
+          WITH tagId, count(DISTINCT other.id) AS cooccurringTags
+          RETURN tagId, cooccurringTags
+          `,
+          { tagIds },
+        );
+
+        const cooccurrenceMap = new Map<string, number>();
+        for (const record of coResult.records) {
+          cooccurrenceMap.set(
+            record.get("tagId") as string,
+            intConverter(record.get("cooccurringTags")),
+          );
+        }
+
+        // Snapshot before filtering for safety net
+        const preFilterTop = candidates
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 5);
+
+        // Drop tags with 0 co-occurrence
+        const filtered = candidates.filter(
+          c => (cooccurrenceMap.get(c.id) ?? 0) > 0,
+        );
+
+        if (filtered.length > 0) {
+          // Re-score with co-occurrence boost
+          const maxCooccur = Math.max(
+            ...filtered.map(c => cooccurrenceMap.get(c.id) ?? 0),
+          );
+          candidates = filtered.map(c => {
+            const cooccur = cooccurrenceMap.get(c.id) ?? 0;
+            const normalizedCooccurrence =
+              maxCooccur > 0 ? cooccur / maxCooccur : 0;
+            return {
+              ...c,
+              score: c.score * (0.4 + 0.6 * normalizedCooccurrence),
+            };
+          });
+        } else {
+          // Safety net: restore top 5 from pre-filter snapshot
+          candidates = preFilterTop;
+        }
+      }
+
+      const data: BatchMatchTagsResult[] = candidates
+        .sort((a, b) => b.score - a.score)
+        .slice(0, maxResults)
+        .map(({ id, name, normalizedName, score }) => ({
+          id,
+          name,
+          normalizedName,
+          score,
+        }));
+
+      return {
+        success: true,
+        message: "Batch matched tags successfully",
+        data,
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "tags.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(`TagsService::batchMatchTags ${err.message}`);
+      return { success: false, message: err.message };
     }
   }
 }

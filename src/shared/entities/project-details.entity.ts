@@ -191,6 +191,11 @@ export class ProjectDetailsEntity {
             featured: isStillFeatured,
             onboardIntoWeb3: jobpost?.onboardIntoWeb3 ?? false,
             ethSeasonOfInternships: jobpost?.ethSeasonOfInternships ?? false,
+            tags:
+              jobpost?.tags.map(tag => ({
+                ...tag,
+                createdTimestamp: nonZeroOrNull(tag?.createdTimestamp),
+              })) ?? [],
           };
         }) ?? [],
     });

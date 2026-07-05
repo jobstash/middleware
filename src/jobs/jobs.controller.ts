@@ -28,7 +28,10 @@ import * as Sentry from "@sentry/node";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { ProfileService } from "src/auth/profile/profile.service";
 import { CheckWalletPermissions, ECOSYSTEM_HEADER } from "src/shared/constants";
-import { CACHE_DURATION_1_HOUR } from "src/shared/constants/cache-control";
+import {
+  CACHE_DURATION_1_HOUR,
+  CACHE_DURATION_15_MINUTES,
+} from "src/shared/constants/cache-control";
 import { Session } from "src/shared/decorators";
 import { Permissions } from "src/shared/decorators/role.decorator";
 import { responseSchemaWrapper } from "src/shared/helpers";
@@ -41,6 +44,7 @@ import {
   JobDetailsResult,
   JobFilterConfigs,
   JobListResult,
+  JobMatchResult,
   JobpostFolder,
   PaginatedData,
   Response,
@@ -63,6 +67,10 @@ import { JobListParams } from "./dto/job-list.input";
 import { UpdateJobApplicantListInput } from "./dto/update-job-applicant-list.input";
 import { UpdateJobFolderInput } from "./dto/update-job-folder.input";
 import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
+import { JobMatchInput } from "./dto/job-match.input";
+import { SimilarJob } from "./dto/similar-jobs.output";
+import { SuggestedJobsInput } from "./dto/suggested-jobs.input";
+import { PillarJob } from "./dto/suggested-jobs.output";
 import { JobsService } from "./jobs.service";
 import { CacheInterceptor } from "@nestjs/cache-manager";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
@@ -208,6 +216,77 @@ export class JobsController {
     }
     const result = await this.jobsService.getJobDetailsByUuid(uuid, ecosystem);
     if (result === undefined) {
+      throw new NotFoundException({
+        success: false,
+        message: "Job not found",
+      });
+    }
+    return result;
+  }
+
+  @Get("similar/:uuid")
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  @ApiHeader({
+    name: ECOSYSTEM_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific ecosystem",
+  })
+  @ApiOkResponse({
+    description: "Returns a list of similar jobs based on shared tag overlap",
+    type: [SimilarJob],
+  })
+  async getSimilarJobs(
+    @Param("uuid") uuid: string,
+    @Headers(ECOSYSTEM_HEADER)
+    ecosystem: string | undefined,
+  ): Promise<ResponseWithOptionalData<SimilarJob[]>> {
+    this.logger.log(`/jobs/similar/${uuid}`);
+    return this.jobsService.getSimilarJobs(uuid, ecosystem);
+  }
+
+  @Get("suggested")
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
+  @ApiOkResponse({
+    description: "Returns a paginated list of jobs ranked by skill match relevance",
+  })
+  async getSuggestedJobs(
+    @Query(new ValidationPipe({ transform: true }))
+    query: SuggestedJobsInput,
+  ): Promise<ResponseWithOptionalData<PaginatedData<PillarJob>>> {
+    this.logger.log(`/jobs/suggested`);
+    return this.jobsService.getSuggestedJobs(
+      query.skills,
+      query.isExpert,
+      query.limit,
+      query.page,
+    );
+  }
+
+  @Get("match/:uuid")
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
+  @ApiOkResponse({
+    description:
+      "Returns a match score indicating how well user skills match a job's required tags",
+    type: JobMatchResult,
+  })
+  @ApiNotFoundResponse({
+    description: "Returns that no job was found for the specified uuid",
+    type: ResponseWithNoData,
+  })
+  async getJobMatchScore(
+    @Param("uuid") shortUuid: string,
+    @Query(new ValidationPipe({ transform: true }))
+    query: JobMatchInput,
+  ): Promise<ResponseWithOptionalData<JobMatchResult>> {
+    this.logger.log(`/jobs/match/${shortUuid}`);
+    const result = await this.jobsService.getJobMatchScore(
+      shortUuid,
+      query.skills,
+      query.isExpert,
+    );
+    if (!result.success) {
       throw new NotFoundException({
         success: false,
         message: "Job not found",
@@ -1296,14 +1375,25 @@ export class JobsController {
     }>
   > {
     this.logger.log(`/jobs/promote/${uuid}?flag=${flag}`);
+    this.logger.log(`Session data: ${JSON.stringify(session)}`);
     if (session) {
       const { address } = session;
       const userOrgId =
         await this.userService.findOrgIdByMemberUserWallet(address);
+      this.logger.log(`Found user org id: ${userOrgId}`);
       if (userOrgId) {
+        this.logger.log(
+          `User org id ${userOrgId} found, checking subscription`,
+        );
         const subscription = data(
           await this.subscriptionService.getSubscriptionInfoByOrgId(userOrgId),
         );
+        this.logger.log(`Subscription data: ${JSON.stringify(subscription)}`);
+
+        this.logger.log(
+          `Checking job promotion access: ${subscription?.canAccessService("jobPromotions")}`,
+        );
+
         if (subscription?.canAccessService("jobPromotions")) {
           await this.jobsService.handleJobPromotion(uuid);
           await this.subscriptionService.recordMeteredServiceUsage(
@@ -1318,6 +1408,9 @@ export class JobsController {
             message: "Job promoted successfully",
           };
         } else {
+          this.logger.log(
+            `User org id ${userOrgId} does not have quota left for job promotions, initiating payment`,
+          );
           return this.stripeService.initiateJobPromotionPayment(
             uuid,
             ecosystem,
@@ -1325,6 +1418,7 @@ export class JobsController {
           );
         }
       } else {
+        this.logger.log(`No user org id found, initiating payment`);
         return this.stripeService.initiateJobPromotionPayment(
           uuid,
           ecosystem,
@@ -1332,6 +1426,7 @@ export class JobsController {
         );
       }
     } else {
+      this.logger.log(`No session found, initiating payment`);
       return this.stripeService.initiateJobPromotionPayment(
         uuid,
         ecosystem,

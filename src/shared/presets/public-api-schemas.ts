@@ -1357,7 +1357,7 @@ export const PUBLIC_API_SCHEMAS = {
       onboardIntoWeb3: {
         $ref: getSchemaPath(SingleSelectFilter),
       },
-      ethSeasonOfInternships: {
+      expertJobs: {
         $ref: getSchemaPath(SingleSelectFilter),
       },
       order: {

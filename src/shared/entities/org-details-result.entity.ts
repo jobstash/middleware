@@ -26,6 +26,7 @@ import { OrgJobEntity } from "./structured-jobpost-with-relations.entity";
 class RawOrg extends OmitType(OrganizationWithRelations, ["reviews"] as const) {
   reviews: LeanOrgReview[] | OrgReview[] | null;
   tags: Tag[] | null;
+  category: string | null;
   constructor(raw: RawOrg) {
     const { tags, ...orgProperties } = raw;
     super(orgProperties);
@@ -88,6 +89,7 @@ export class OrgListResultEntity {
       location: notStringOrNull(organization?.location),
       headcountEstimate: nonZeroOrNull(organization?.headcountEstimate),
       github: notStringOrNull(organization?.github),
+      category: notStringOrNull(organization?.category),
       twitter: notStringOrNull(organization?.twitter),
       discord: notStringOrNull(organization?.discord),
       telegram: notStringOrNull(organization?.telegram),
@@ -266,6 +268,7 @@ export class OrgDetailsResultEntity {
       location: notStringOrNull(organization?.location),
       headcountEstimate: nonZeroOrNull(organization?.headcountEstimate),
       github: notStringOrNull(organization?.github),
+      category: notStringOrNull(organization?.category),
       twitter: notStringOrNull(organization?.twitter),
       discord: notStringOrNull(organization?.discord),
       telegram: notStringOrNull(organization?.telegram),

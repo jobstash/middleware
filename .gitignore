@@ -46,3 +46,5 @@ certs/localhost.pem
 swagger.yaml
 
 junit.xml
+
+*.local.*

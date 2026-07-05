@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Headers,
+  Param,
   Query,
   UseGuards,
   UseInterceptors,
@@ -23,6 +24,7 @@ import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
 import { PBACGuard } from "src/auth/pbac.guard";
 import {
   CACHE_DURATION_15_MINUTES,
+  CACHE_DURATION_1_HOUR,
   ECOSYSTEM_HEADER,
 } from "src/shared/constants";
 import { Session } from "src/shared/decorators";
@@ -31,7 +33,12 @@ import { ProfileService } from "src/auth/profile/profile.service";
 import { FetchPillarItemLabelsInput } from "./dto/fetch-pillar-item-labels.input";
 import { SearchParams } from "./dto/search.input";
 import { SearchPillarFiltersParams } from "./dto/search-pillar-filters-params.input";
-import { ApiHeader } from "@nestjs/swagger";
+import { PillarPageData } from "./dto/pillar-page.output";
+import { JobSuggestionsInput } from "./dto/job-suggestions.input";
+import { SuggestionsResponse } from "./dto/job-suggestions.output";
+import { SkillSuggestionsInput } from "./dto/skill-suggestions.input";
+import { SkillSuggestionsData } from "./dto/skill-suggestions.output";
+import { ApiHeader, ApiOperation } from "@nestjs/swagger";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 
 @Controller("search")
@@ -59,6 +66,44 @@ export class SearchController {
       }
     }
     return this.searchService.search(params);
+  }
+
+  @Get("jobs/suggestions")
+  @ApiOperation({
+    summary: "Get job search suggestions with pagination",
+    description:
+      "Returns paginated suggestions for jobs and job-related pillars. " +
+      "Supports group selection (jobs, organizations, tags, classifications, locations, investors, fundingRounds) " +
+      "and pagination. When a query is provided, only groups with matching results are returned.",
+  })
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
+  async getJobSuggestions(
+    @Query(new ValidationPipe({ transform: true })) params: JobSuggestionsInput,
+  ): Promise<SuggestionsResponse> {
+    this.logger.log(
+      `/search/jobs/suggestions q=${params.q} group=${params.group} page=${params.page} limit=${params.limit}`,
+    );
+    return this.searchService.getJobSuggestions(params);
+  }
+
+  @Get("tags/suggestions")
+  @ApiOperation({
+    summary: "Get skill suggestions ordered by job count",
+    description:
+      "Returns paginated skill/tag suggestions ordered by popularity (job count). " +
+      "When a query is provided, results are filtered by relevance using fulltext search.",
+  })
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
+  async getSkillSuggestions(
+    @Query(new ValidationPipe({ transform: true }))
+    params: SkillSuggestionsInput,
+  ): Promise<ResponseWithOptionalData<SkillSuggestionsData>> {
+    this.logger.log(
+      `/search/tags/suggestions q=${params.q} page=${params.page} limit=${params.limit}`,
+    );
+    return this.searchService.getSkillSuggestions(params);
   }
 
   @Get("pillar")
@@ -219,5 +264,36 @@ export class SearchController {
       await this.profileService.logSearchInteraction(address, query);
     }
     return this.searchService.fetchPillarItemLabels(params);
+  }
+
+  @Get("pillar/page/static/:slug")
+  @ApiOperation({
+    summary: "Get static pillar page data with filtered jobs",
+    description:
+      "Returns title, description, and all jobs from the past 30 days matching the pillar filter. Optimized for static site generation.",
+  })
+  @ApiHeader({
+    name: ECOSYSTEM_HEADER,
+    required: false,
+    description:
+      "Optional header to tailor the response for a specific ecosystem",
+  })
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  async getStaticPillarPage(
+    @Session() { address }: SessionObject,
+    @Param("slug") slug: string,
+    @Headers(ECOSYSTEM_HEADER)
+    ecosystem: string | undefined,
+  ): Promise<ResponseWithOptionalData<PillarPageData>> {
+    const query = JSON.stringify({
+      slug,
+      ecosystem: ecosystem ?? null,
+    });
+    this.logger.log(`/search/pillar/page/static/${slug} ${query}`);
+    if (address) {
+      await this.profileService.logSearchInteraction(address, query);
+    }
+    return this.searchService.getPillarPageData(slug, ecosystem);
   }
 }

@@ -231,7 +231,7 @@ export class JobListParams {
     value === "true" ? true : value === "false" ? false : value,
   )
   @IsBoolean()
-  ethSeasonOfInternships?: boolean | null = null;
+  expertJobs?: boolean | null = null;
 
   @ApiPropertyOptional({
     enum: ["asc", "desc"],

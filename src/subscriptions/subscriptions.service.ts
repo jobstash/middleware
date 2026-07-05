@@ -731,53 +731,42 @@ export class SubscriptionsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
+          WITH timestamp() AS now
           MATCH (org:Organization {orgId: $orgId})-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)
+          OPTIONAL MATCH (subscription)-[:HAS_SERVICE]->(svc)
+          WITH subscription,
+              CASE WHEN subscription.expiryTimestamp > now AND subscription.status = "active" THEN "active" ELSE "inactive" END AS status,
+              apoc.agg.maxItems(CASE WHEN svc:JobstashBundle THEN svc END, svc.expiryTimestamp, 1) AS bAgg,
+              apoc.agg.maxItems(CASE WHEN svc:JobPromotions  THEN svc END, svc.expiryTimestamp, 1) AS jpAgg,
+              apoc.agg.maxItems(CASE WHEN svc:VeriAddon     THEN svc END, svc.expiryTimestamp, 1) AS vAgg,
+              apoc.agg.maxItems(CASE WHEN svc:StashAlert    THEN svc END, svc.expiryTimestamp, 1) AS saAgg,
+              apoc.agg.maxItems(CASE WHEN svc:ExtraSeats    THEN svc END, svc.expiryTimestamp, 1) AS esAgg
+
+          WITH subscription,
+              status,
+              CASE WHEN coalesce(size(bAgg.items),0)=0  THEN NULL ELSE bAgg.items[0]  END AS b,
+              CASE WHEN coalesce(size(jpAgg.items),0)=0 THEN NULL ELSE jpAgg.items[0] END AS jp,
+              CASE WHEN coalesce(size(vAgg.items),0)=0  THEN NULL ELSE vAgg.items[0]  END AS v,
+              CASE WHEN coalesce(size(saAgg.items),0)=0 THEN NULL ELSE saAgg.items[0] END AS sa,
+              CASE WHEN coalesce(size(esAgg.items),0)=0 THEN NULL ELSE esAgg.items[0] END AS es
+
           RETURN subscription {
             .*,
-            tier: [
-              (subscription)-[:HAS_SERVICE]->(tier:JobstashBundle)
-              WHERE tier.createdTimestamp < timestamp() AND tier.expiryTimestamp > timestamp()
-              | tier.name
-            ][0],
-            stashPool: [
-              (subscription)-[:HAS_SERVICE]->(bundle:JobstashBundle)
-              WHERE bundle.createdTimestamp < timestamp() AND bundle.expiryTimestamp > timestamp()
-              | bundle.stashPool
-            ][0],
-            atsIntegration: [
-              (subscription)-[:HAS_SERVICE]->(bundle:JobstashBundle)
-              WHERE bundle.createdTimestamp < timestamp() AND bundle.expiryTimestamp > timestamp()
-              | bundle.atsIntegration
-            ][0],
-            jobPromotions: [
-              (subscription)-[:HAS_SERVICE]->(jobPromotions:JobPromotions)
-              WHERE jobPromotions.createdTimestamp < timestamp() AND jobPromotions.expiryTimestamp > timestamp()
-              | jobPromotions.value
-            ][0],
-            veri: [
-              (subscription)-[:HAS_SERVICE]->(veri:VeriAddon)
-              WHERE veri.createdTimestamp < timestamp() AND veri.expiryTimestamp > timestamp()
-              | veri.name
-            ][0],
-            stashAlert: [
-              (subscription)-[:HAS_SERVICE]->(stashAlert:StashAlert)
-              WHERE stashAlert.createdTimestamp < timestamp() AND stashAlert.expiryTimestamp > timestamp()
-              | stashAlert.active
-            ][0],
-            extraSeats: [
-              (subscription)-[:HAS_SERVICE]->(extraSeats:ExtraSeats)
-              WHERE extraSeats.createdTimestamp < timestamp() AND extraSeats.expiryTimestamp > timestamp()
-              | extraSeats.value
-            ][0],
+            status:         status,
+            tier:           b.name,
+            stashPool:      b.stashPool,
+            atsIntegration: b.atsIntegration,
+            jobPromotions:  jp.value,
+            veri:           v.name,
+            stashAlert:     sa.active,
+            extraSeats:     es.value,
             quota: [
-              (subscription)-[:HAS_QUOTA]->(quota:Quota) | quota {
+              (subscription)-[:HAS_QUOTA]->(q:Quota) | q {
                 .*,
-                usage: [
-                  (quota)-[:HAS_USAGE]->(usage:QuotaUsage) | usage { .* }
-                ]
+                usage: [ (q)-[:HAS_USAGE]->(u:QuotaUsage) | u { .* } ]
               }
             ]
-          } as subscription
+          } AS subscription;
         `,
         { orgId },
       );
@@ -870,53 +859,43 @@ export class SubscriptionsService {
     try {
       const result = await this.neogma.queryRunner.run(
         `
+          WITH timestamp() AS now
           MATCH (subscription:OrgSubscription {externalId: $externalId})
+          OPTIONAL MATCH (subscription)-[:HAS_SERVICE]->(svc)
+
+          WITH subscription,
+              CASE WHEN subscription.expiryTimestamp > now AND subscription.status = "active" THEN "active" ELSE "inactive" END AS status,
+              apoc.agg.maxItems(CASE WHEN svc:JobstashBundle THEN svc END, svc.expiryTimestamp, 1) AS bAgg,
+              apoc.agg.maxItems(CASE WHEN svc:JobPromotions  THEN svc END, svc.expiryTimestamp, 1) AS jpAgg,
+              apoc.agg.maxItems(CASE WHEN svc:VeriAddon     THEN svc END, svc.expiryTimestamp, 1) AS vAgg,
+              apoc.agg.maxItems(CASE WHEN svc:StashAlert    THEN svc END, svc.expiryTimestamp, 1) AS saAgg,
+              apoc.agg.maxItems(CASE WHEN svc:ExtraSeats    THEN svc END, svc.expiryTimestamp, 1) AS esAgg
+
+          WITH subscription,
+              status,
+              CASE WHEN coalesce(size(bAgg.items),0)=0  THEN NULL ELSE bAgg.items[0]  END AS b,
+              CASE WHEN coalesce(size(jpAgg.items),0)=0 THEN NULL ELSE jpAgg.items[0] END AS jp,
+              CASE WHEN coalesce(size(vAgg.items),0)=0  THEN NULL ELSE vAgg.items[0]  END AS v,
+              CASE WHEN coalesce(size(saAgg.items),0)=0 THEN NULL ELSE saAgg.items[0] END AS sa,
+              CASE WHEN coalesce(size(esAgg.items),0)=0 THEN NULL ELSE esAgg.items[0] END AS es
+
           RETURN subscription {
             .*,
-            tier: [
-              (subscription)-[:HAS_SERVICE]->(tier:JobstashBundle)
-              WHERE tier.createdTimestamp < timestamp() AND tier.expiryTimestamp > timestamp()
-              | tier.name
-            ][0],
-            stashPool: [
-              (subscription)-[:HAS_SERVICE]->(bundle:JobstashBundle)
-              WHERE bundle.createdTimestamp < timestamp() AND bundle.expiryTimestamp > timestamp()
-              | bundle.stashPool
-            ][0],
-            atsIntegration: [
-              (subscription)-[:HAS_SERVICE]->(bundle:JobstashBundle)
-              WHERE bundle.createdTimestamp < timestamp() AND bundle.expiryTimestamp > timestamp()
-              | bundle.atsIntegration
-            ][0],
-            jobPromotions: [
-              (subscription)-[:HAS_SERVICE]->(jobPromotions:JobPromotions)
-              WHERE jobPromotions.createdTimestamp < timestamp() AND jobPromotions.expiryTimestamp > timestamp()
-              | jobPromotions.value
-            ][0],
-            veri: [
-              (subscription)-[:HAS_SERVICE]->(veri:VeriAddon)
-              WHERE veri.createdTimestamp < timestamp() AND veri.expiryTimestamp > timestamp()
-              | veri.name
-            ][0],
-            stashAlert: [
-              (subscription)-[:HAS_SERVICE]->(stashAlert:StashAlert)
-              WHERE stashAlert.createdTimestamp < timestamp() AND stashAlert.expiryTimestamp > timestamp()
-              | stashAlert.active
-            ][0],
-            extraSeats: [
-              (subscription)-[:HAS_SERVICE]->(extraSeats:ExtraSeats)
-              WHERE extraSeats.createdTimestamp < timestamp() AND extraSeats.expiryTimestamp > timestamp()
-              | extraSeats.value
-            ][0],
+            status:         status,
+            tier:           b.name,
+            stashPool:      b.stashPool,
+            atsIntegration: b.atsIntegration,
+            jobPromotions:  jp.value,
+            veri:           v.name,
+            stashAlert:     sa.active,
+            extraSeats:     es.value,
             quota: [
-              (subscription)-[:HAS_QUOTA]->(quota:Quota) | quota {
+              (subscription)-[:HAS_QUOTA]->(q:Quota) | q {
                 .*,
-                usage: [
-                  (quota)-[:HAS_USAGE]->(usage:QuotaUsage) | usage { .* }
-                ]
+                usage: [ (q)-[:HAS_USAGE]->(u:QuotaUsage) | u { .* } ]
               }
             ]
-          } as subscription
+          } AS subscription;
         `,
         { externalId },
       );
@@ -988,6 +967,51 @@ export class SubscriptionsService {
       });
       this.logger.error(
         `SubscriptionsService::getSubscriptionOwnerInfoByExternalId ${err.message}`,
+      );
+      return {
+        success: false,
+        message: `Error retrieving subscription owner info`,
+      };
+    }
+  }
+
+  async getSubscriptionOwnerInfoByOrgId(
+    orgId: string,
+  ): Promise<ResponseWithOptionalData<{ orgId: string; wallet: string }>> {
+    try {
+      const result = await this.neogma.queryRunner.run(
+        `
+          MATCH (org:Organization {orgId: $orgId})-[:HAS_USER_SEAT]->(userSeat:OrgUserSeat { seatType: "owner" })<-[:OCCUPIES]-(user:User)
+          RETURN {
+            orgId: org.orgId,
+            wallet: user.wallet
+          } as info
+        `,
+        { orgId },
+      );
+      const info = result.records[0]?.get("info");
+      if (info) {
+        return {
+          success: true,
+          message: "Retrieved subscription owner info successfully",
+          data: info,
+        };
+      } else {
+        return {
+          success: false,
+          message: "Subscription not found",
+        };
+      }
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "service-call",
+          source: "subscriptions.service",
+        });
+        Sentry.captureException(err);
+      });
+      this.logger.error(
+        `SubscriptionsService::getSubscriptionOwnerInfoByOrgId ${err.message}`,
       );
       return {
         success: false,
@@ -1265,16 +1289,19 @@ export class SubscriptionsService {
   }
 
   async changeSubscription(
-    dto: Omit<SubscriptionMetadata, "orgId" | "wallet">,
+    dto: Omit<SubscriptionMetadata, "orgId" | "wallet"> & {
+      orgId?: string;
+      wallet?: string;
+    },
     invoiceId: string,
     subscription: Stripe.Subscription,
   ): Promise<ResponseWithNoData> {
     try {
       this.logger.log("Changing subscription");
       const subscriptionId = subscription.id;
-      const ownerInfo = data(
-        await this.getSubscriptionOwnerInfoByExternalId(subscriptionId),
-      );
+      const ownerInfo = dto.orgId
+        ? data(await this.getSubscriptionOwnerInfoByOrgId(dto.orgId))
+        : data(await this.getSubscriptionOwnerInfoByExternalId(subscriptionId));
 
       if (!ownerInfo) {
         this.logger.log("Subscription owner not found");
@@ -1298,7 +1325,9 @@ export class SubscriptionsService {
       }
 
       const existingSubscription = data(
-        await this.getSubscriptionInfoByExternalId(subscriptionId),
+        dto.orgId
+          ? await this.getSubscriptionInfoByOrgId(dto.orgId)
+          : await this.getSubscriptionInfoByExternalId(subscriptionId),
       );
       if (!existingSubscription) {
         this.logger.log("Subscription not found");
@@ -1374,9 +1403,11 @@ export class SubscriptionsService {
           `
             MATCH (subscription:OrgSubscription {id: $subscriptionId})
             SET subscription.status = "active"
+            SET subscription.externalId = $externalId
           `,
           {
             subscriptionId: existingSubscription.id,
+            externalId: subscriptionId,
           },
         );
 
@@ -1879,54 +1910,42 @@ export class SubscriptionsService {
     if (this.configService.get<string>("ENVIRONMENT") === "production") {
       const result = await this.neogma.queryRunner.run(
         `
+          WITH timestamp() AS now
           MATCH (org:Organization)-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)
           MATCH (org)-[:HAS_USER_SEAT]->(userSeat:OrgUserSeat { seatType: "owner" })<-[:OCCUPIES]-(user:User)
+          OPTIONAL MATCH (subscription)-[:HAS_SERVICE]->(svc)
+          WITH subscription,
+              CASE WHEN subscription.expiryTimestamp > now AND subscription.status = "active" THEN "active" ELSE "inactive" END AS status,
+              apoc.agg.maxItems(CASE WHEN svc:JobstashBundle THEN svc END, svc.expiryTimestamp, 1) AS bAgg,
+              apoc.agg.maxItems(CASE WHEN svc:JobPromotions  THEN svc END, svc.expiryTimestamp, 1) AS jpAgg,
+              apoc.agg.maxItems(CASE WHEN svc:VeriAddon     THEN svc END, svc.expiryTimestamp, 1) AS vAgg,
+              apoc.agg.maxItems(CASE WHEN svc:StashAlert    THEN svc END, svc.expiryTimestamp, 1) AS saAgg,
+              apoc.agg.maxItems(CASE WHEN svc:ExtraSeats    THEN svc END, svc.expiryTimestamp, 1) AS esAgg
+
+          WITH subscription, status,
+              CASE WHEN coalesce(size(bAgg.items),0)=0  THEN NULL ELSE bAgg.items[0]  END AS b,
+              CASE WHEN coalesce(size(jpAgg.items),0)=0 THEN NULL ELSE jpAgg.items[0] END AS jp,
+              CASE WHEN coalesce(size(vAgg.items),0)=0  THEN NULL ELSE vAgg.items[0]  END AS v,
+              CASE WHEN coalesce(size(saAgg.items),0)=0 THEN NULL ELSE saAgg.items[0] END AS sa,
+              CASE WHEN coalesce(size(esAgg.items),0)=0 THEN NULL ELSE esAgg.items[0] END AS es
+
           RETURN subscription {
             .*,
-            tier: [
-              (subscription)-[:HAS_SERVICE]->(tier:JobstashBundle)
-              WHERE tier.createdTimestamp < timestamp() AND tier.expiryTimestamp > timestamp()
-              | tier.name
-            ][0],
-            stashPool: [
-              (subscription)-[:HAS_SERVICE]->(bundle:JobstashBundle)
-              WHERE bundle.createdTimestamp < timestamp() AND bundle.expiryTimestamp > timestamp()
-              | bundle.stashPool
-            ][0],
-            atsIntegration: [
-              (subscription)-[:HAS_SERVICE]->(bundle:JobstashBundle)
-              WHERE bundle.createdTimestamp < timestamp() AND bundle.expiryTimestamp > timestamp()
-              | bundle.atsIntegration
-            ][0],
-            jobPromotions: [
-              (subscription)-[:HAS_SERVICE]->(bundle:JobstashBundle)
-              WHERE bundle.createdTimestamp < timestamp() AND bundle.expiryTimestamp > timestamp()
-              | bundle.jobPromotions
-            ][0],
-            veri: [
-              (subscription)-[:HAS_SERVICE]->(veri:VeriAddon)
-              WHERE veri.createdTimestamp < timestamp() AND veri.expiryTimestamp > timestamp()
-              | veri.name
-            ][0],
-            stashAlert: [
-              (subscription)-[:HAS_SERVICE]->(stashAlert:StashAlert)
-              WHERE stashAlert.createdTimestamp < timestamp() AND stashAlert.expiryTimestamp > timestamp()
-              | stashAlert.active
-            ][0],
-            extraSeats: [
-              (subscription)-[:HAS_SERVICE]->(extraSeats:ExtraSeats)
-              WHERE extraSeats.createdTimestamp < timestamp() AND extraSeats.expiryTimestamp > timestamp()
-              | extraSeats.value
-            ][0],
+            status:         status,
+            tier:           b.name,
+            stashPool:      b.stashPool,
+            atsIntegration: b.atsIntegration,
+            jobPromotions:  jp.value,
+            veri:           v.name,
+            stashAlert:     sa.active,
+            extraSeats:     es.value,
             quota: [
-              (subscription)-[:HAS_QUOTA]->(quota:Quota) | quota {
+              (subscription)-[:HAS_QUOTA]->(q:Quota) | q {
                 .*,
-                usage: [
-                  (quota)-[:HAS_USAGE]->(usage:QuotaUsage) | usage { .* }
-                ]
+                usage: [ (q)-[:HAS_USAGE]->(u:QuotaUsage) | u { .* } ]
               }
             ]
-          } as subscription, user.wallet as ownerWallet, org.orgId as orgId
+          } AS subscription, user.wallet as ownerWallet, org.orgId as orgId
         `,
       );
       const subscriptions = result.records.map(x => ({

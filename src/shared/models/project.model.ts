@@ -516,7 +516,7 @@ export const Projects = (
                   featured: structured_jobpost.featured,
                   featureStartDate: structured_jobpost.featureStartDate,
                   featureEndDate: structured_jobpost.featureEndDate,
-                  timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+                  timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
                   offersTokenAllocation: structured_jobpost.offersTokenAllocation,
                   classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
                   commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -566,7 +566,8 @@ export const Projects = (
                     (project)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
                       id: jobsite.id,
                       url: jobsite.url,
-                      type: jobsite.type
+                      type: jobsite.type,
+                      hiringProcess: jobsite.hiringProcess
                     }
                   ],
                   detectedJobsites: [
@@ -640,7 +641,7 @@ export const Projects = (
                   featured: structured_jobpost.featured,
                   featureStartDate: structured_jobpost.featureStartDate,
                   featureEndDate: structured_jobpost.featureEndDate,
-                  timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+                  timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
                   offersTokenAllocation: structured_jobpost.offersTokenAllocation,
                   classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
                   commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -748,7 +749,7 @@ export const Projects = (
                   featured: structured_jobpost.featured,
                   featureStartDate: structured_jobpost.featureStartDate,
                   featureEndDate: structured_jobpost.featureEndDate,
-                  timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+                  timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
                   offersTokenAllocation: structured_jobpost.offersTokenAllocation,
                   classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
                   commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -914,7 +915,7 @@ export const Projects = (
                   featured: structured_jobpost.featured,
                   featureStartDate: structured_jobpost.featureStartDate,
                   featureEndDate: structured_jobpost.featureEndDate,
-                  timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+                  timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
                   offersTokenAllocation: structured_jobpost.offersTokenAllocation,
                   classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
                   commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -1126,7 +1127,7 @@ export const Projects = (
                   featured: structured_jobpost.featured,
                   featureStartDate: structured_jobpost.featureStartDate,
                   featureEndDate: structured_jobpost.featureEndDate,
-                  timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+                  timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
                   offersTokenAllocation: structured_jobpost.offersTokenAllocation,
                   classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
                   commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -1230,7 +1231,8 @@ export const Projects = (
                     (project)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
                       id: jobsite.id,
                       url: jobsite.url,
-                      type: jobsite.type
+                      type: jobsite.type,
+                      hiringProcess: jobsite.hiringProcess
                     }
                   ],
                   detectedJobsites: [

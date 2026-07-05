@@ -270,7 +270,7 @@ export class TelemetryService {
               WITH mStartMs, mEndMs, orgId
               MATCH (org:Organization {orgId: orgId})
               OPTIONAL MATCH (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(job:StructuredJobpost)
-              WITH job.shortUUID as uuid, mStartMs, mEndMs, CASE WHEN job.publishedTimestamp IS NULL THEN job.firstSeenTimestamp ELSE job.publishedTimestamp END AS timestamp
+              WITH job.shortUUID as uuid, mStartMs, mEndMs, CASE WHEN job.publishedTimestamp IS :: INTEGER NOT NULL THEN job.publishedTimestamp ELSE job.firstSeenTimestamp END AS timestamp
               WHERE timestamp >= mStartMs
                 AND timestamp < mEndMs
               RETURN COUNT(DISTINCT uuid) AS cnt
@@ -296,7 +296,7 @@ export class TelemetryService {
               WITH mStartMs, mEndMs
               MATCH (org:Organization {orgId: $id})
               OPTIONAL MATCH (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(job:StructuredJobpost)
-              WITH job.shortUUID as uuid, mStartMs, mEndMs, CASE WHEN job.publishedTimestamp IS NULL THEN job.firstSeenTimestamp ELSE job.publishedTimestamp END AS timestamp
+              WITH job.shortUUID as uuid, mStartMs, mEndMs, CASE WHEN job.publishedTimestamp IS :: INTEGER NOT NULL THEN job.publishedTimestamp ELSE job.firstSeenTimestamp END AS timestamp
               WHERE timestamp >= mStartMs
                 AND timestamp < mEndMs
               RETURN COUNT(DISTINCT uuid) as cnt
