@@ -23,6 +23,7 @@ export class OrgFilterConfigs {
     investors: MultiSelectFilter.MultiSelectFilterType,
     ecosystems: MultiSelectFilter.MultiSelectFilterType,
     fundingRounds: MultiSelectFilter.MultiSelectFilterType,
+    categories: MultiSelectFilter.MultiSelectFilterType,
   });
 
   @ApiProperty()
@@ -35,6 +36,8 @@ export class OrgFilterConfigs {
   investors: MultiSelectFilter;
   @ApiProperty()
   ecosystems: MultiSelectFilter;
+  @ApiProperty()
+  categories: MultiSelectFilter;
   @ApiProperty()
   hasJobs: SingleSelectFilter;
   @ApiProperty()
@@ -53,6 +56,7 @@ export class OrgFilterConfigs {
       investors,
       ecosystems,
       fundingRounds,
+      categories,
       hasJobs,
       hasProjects,
     } = raw;
@@ -66,6 +70,7 @@ export class OrgFilterConfigs {
     this.investors = investors;
     this.ecosystems = ecosystems;
     this.fundingRounds = fundingRounds;
+    this.categories = categories;
     this.hasJobs = hasJobs;
     this.hasProjects = hasProjects;
 

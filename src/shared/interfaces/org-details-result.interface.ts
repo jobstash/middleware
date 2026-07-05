@@ -34,6 +34,7 @@ export class OrgListResult extends Organization {
       website: t.union([t.string, t.null]),
       telegram: t.union([t.string, t.null]),
       github: t.union([t.string, t.null]),
+      category: t.union([t.string, t.null]),
       aliases: t.array(t.string),
       twitter: t.union([t.string, t.null]),
       docs: t.union([t.string, t.null]),
@@ -67,6 +68,9 @@ export class OrgListResult extends Organization {
 
   @ApiPropertyOptional()
   github: string | null;
+
+  @ApiPropertyOptional()
+  category: string | null;
 
   @ApiPropertyOptional()
   aliases: string[];
@@ -124,6 +128,7 @@ export class OrgListResult extends Organization {
       website,
       telegram,
       github,
+      category,
       grants,
       twitter,
       docs,
@@ -146,6 +151,7 @@ export class OrgListResult extends Organization {
     this.website = website;
     this.telegram = telegram;
     this.github = github;
+    this.category = category;
     this.grants = grants;
     this.aliases = aliases;
     this.twitter = twitter;

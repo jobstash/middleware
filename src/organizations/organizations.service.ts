@@ -88,6 +88,7 @@ export class OrganizationsService {
           docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
           telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
           github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+          category: [(organization)-[:HAS_ORGANIZATION_CATEGORY]->(orgcat:OrganizationCategory) | orgcat.name][0],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
           twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
           fundingRounds: apoc.coll.toSet([
@@ -210,6 +211,7 @@ export class OrganizationsService {
       tags: tagFilterList,
       chains: chainFilterList,
       names: nameFilterList,
+      categories: categoryFilterList,
       hasProjects,
       query,
       order,
@@ -281,6 +283,7 @@ export class OrganizationsService {
         projectFilterList,
         tagFilterList,
         nameFilterList,
+        categoryFilterList,
         chainFilterList,
         ecosystemFilterList,
         hasProjects,
@@ -314,6 +317,9 @@ export class OrganizationsService {
         (!nameFilterList ||
           nameFilterList.includes(slugify(name)) ||
           nameFilterList.some(x => aliases.map(slugify).includes(x))) &&
+        (!categoryFilterList ||
+          (org.category !== null &&
+            categoryFilterList.includes(slugify(org.category)))) &&
         (!investorFilterList ||
           investors.some(investor =>
             investorFilterList.includes(slugify(investor.name)),
@@ -430,6 +436,12 @@ export class OrganizationsService {
                 AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
                 AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | investor.name
               ]),
+              categories: apoc.coll.toSet([
+                (org: Organization)-[:HAS_ORGANIZATION_CATEGORY]->(orgcat: OrganizationCategory)
+                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
+                AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
+                AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | orgcat.name
+              ]),
               ecosystems: apoc.coll.toSet([
                 (org: Organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem)
                 WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
@@ -484,6 +496,7 @@ export class OrganizationsService {
             docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
             telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
             github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+            category: [(organization)-[:HAS_ORGANIZATION_CATEGORY]->(orgcat:OrganizationCategory) | orgcat.name][0],
             aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
             twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
             fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
@@ -626,6 +639,7 @@ export class OrganizationsService {
             docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
             telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
             github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
+            category: [(organization)-[:HAS_ORGANIZATION_CATEGORY]->(orgcat:OrganizationCategory) | orgcat.name][0],
             aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
             twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
             fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
