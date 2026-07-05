@@ -33,6 +33,10 @@ export class StructuredJobpost {
     // optional: not every projection returns it; true = publish date is
     // verified (ATS/explicit), not inferred from first crawl
     publishedTimestampIsVerified: t.union([t.boolean, t.null, t.undefined]),
+    // optional: only the job-details projections return it; the hiring
+    // process described on the jobsite's careers page (null when the page
+    // doesn't describe one)
+    hiringProcess: t.union([t.string, t.null, t.undefined]),
   });
 
   @ApiProperty()
@@ -113,6 +117,9 @@ export class StructuredJobpost {
   @ApiPropertyOptional()
   publishedTimestampIsVerified?: boolean | null;
 
+  @ApiPropertyOptional()
+  hiringProcess?: string | null;
+
   constructor(raw: StructuredJobpost) {
     const {
       id,
@@ -141,6 +148,7 @@ export class StructuredJobpost {
       timestamp,
       offersTokenAllocation,
       publishedTimestampIsVerified,
+      hiringProcess,
     } = raw;
 
     const result = StructuredJobpost.StructuredJobpostType.decode(raw);
@@ -171,6 +179,7 @@ export class StructuredJobpost {
     this.timestamp = timestamp;
     this.offersTokenAllocation = offersTokenAllocation;
     this.publishedTimestampIsVerified = publishedTimestampIsVerified ?? null;
+    this.hiringProcess = hiringProcess ?? null;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

@@ -566,7 +566,8 @@ export const Projects = (
                     (project)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
                       id: jobsite.id,
                       url: jobsite.url,
-                      type: jobsite.type
+                      type: jobsite.type,
+                      hiringProcess: jobsite.hiringProcess
                     }
                   ],
                   detectedJobsites: [
@@ -1230,7 +1231,8 @@ export const Projects = (
                     (project)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
                       id: jobsite.id,
                       url: jobsite.url,
-                      type: jobsite.type
+                      type: jobsite.type,
+                      hiringProcess: jobsite.hiringProcess
                     }
                   ],
                   detectedJobsites: [

@@ -790,7 +790,8 @@ export class OrganizationsService {
             (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
               id: jobsite.id,
               url: jobsite.url,
-              type: jobsite.type
+              type: jobsite.type,
+              hiringProcess: jobsite.hiringProcess
             }
           ],
           detectedJobsites: [
@@ -1068,7 +1069,8 @@ export class OrganizationsService {
             (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
               id: jobsite.id,
               url: jobsite.url,
-              type: jobsite.type
+              type: jobsite.type,
+              hiringProcess: jobsite.hiringProcess
             }
           ],
           detectedJobsites: [
