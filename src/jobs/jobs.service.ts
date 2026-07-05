@@ -123,7 +123,7 @@ export class JobsService {
           featured: structured_jobpost.featured,
           featureStartDate: structured_jobpost.featureStartDate,
           featureEndDate: structured_jobpost.featureEndDate,
-          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
           publishedTimestampIsVerified: structured_jobpost.publishedTimestampIsVerified,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
@@ -358,7 +358,7 @@ export class JobsService {
           online: CASE WHEN EXISTS((structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)) THEN true ELSE EXISTS((structured_jobpost)-[:HAS_STATUS]->(:JobpostOfflineStatus)) END,
           applications: apoc.coll.sum([(structured_jobpost)<-[:APPLIED_TO]-(:User) | 1]),
           views: apoc.coll.sum([(structured_jobpost)<-[:VIEWED_DETAILS]-(:User) | 1]),
-          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
           commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -544,7 +544,7 @@ export class JobsService {
               offersTokenAllocation: structured_jobpost.offersTokenAllocation,
               isBlocked: CASE WHEN (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation) THEN true ELSE false END,
               isOnline: CASE WHEN (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) THEN true ELSE false END,
-              timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+              timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
               publishedTimestampIsVerified: structured_jobpost.publishedTimestampIsVerified,
               classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
               commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -1263,7 +1263,7 @@ export class JobsService {
           featured: structured_jobpost.featured,
           featureStartDate: structured_jobpost.featureStartDate,
           featureEndDate: structured_jobpost.featureEndDate,
-          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
           publishedTimestampIsVerified: structured_jobpost.publishedTimestampIsVerified,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
@@ -1450,7 +1450,7 @@ export class JobsService {
           online: EXISTS((structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)),
           applications: apoc.coll.sum([(structured_jobpost)<-[:APPLIED_TO]-(:User) | 1]),
           views: apoc.coll.sum([(structured_jobpost)<-[:VIEWED_DETAILS]-(:User) | 1]),
-          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
           commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -1921,7 +1921,7 @@ export class JobsService {
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
             featureEndDate: structured_jobpost.featureEndDate,
-            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -2200,7 +2200,7 @@ export class JobsService {
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
             featureEndDate: structured_jobpost.featureEndDate,
-            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -2532,7 +2532,7 @@ export class JobsService {
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
             featureEndDate: structured_jobpost.featureEndDate,
-            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -2730,7 +2730,7 @@ export class JobsService {
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
             featureEndDate: structured_jobpost.featureEndDate,
-            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -2937,7 +2937,7 @@ export class JobsService {
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
             featureEndDate: structured_jobpost.featureEndDate,
-            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -3143,7 +3143,7 @@ export class JobsService {
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
             featureEndDate: structured_jobpost.featureEndDate,
-            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -3355,7 +3355,7 @@ export class JobsService {
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
             featureEndDate: structured_jobpost.featureEndDate,
-            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -3567,7 +3567,7 @@ export class JobsService {
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
             featureEndDate: structured_jobpost.featureEndDate,
-            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -3780,7 +3780,7 @@ export class JobsService {
             featured: structured_jobpost.featured,
             featureStartDate: structured_jobpost.featureStartDate,
             featureEndDate: structured_jobpost.featureEndDate,
-            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+            timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
             offersTokenAllocation: structured_jobpost.offersTokenAllocation,
             classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
             commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
@@ -4692,7 +4692,7 @@ export class JobsService {
         UNWIND expandedTags AS matchableTag
         MATCH (other:StructuredJobpost)-[:HAS_TAG]->(matchableTag)
         WHERE other <> source
-          AND COALESCE(other.publishedTimestamp, other.firstSeenTimestamp) >= $now - $decayMs
+          AND CASE WHEN other.publishedTimestamp IS :: INTEGER NOT NULL THEN other.publishedTimestamp ELSE other.firstSeenTimestamp END >= $now - $decayMs
           AND (other)-[:HAS_STATUS]->(:JobpostOnlineStatus)
           AND NOT (other)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
           AND CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((other)<-[:HAS_STRUCTURED_JOBPOST|HAS_JOBPOST|HAS_JOBSITE*3]-(:Organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
@@ -4702,14 +4702,14 @@ export class JobsService {
         WITH other, otherOrg,
           toFloat(sharedTags) / sourceTagCount AS tagRatio,
           CASE WHEN sourceClassName IS NOT NULL AND [(other)-[:HAS_CLASSIFICATION]->(c:JobpostClassification) | c.name][0] = sourceClassName THEN 1.0 ELSE 0.0 END AS classMatch,
-          1.0 / (1.0 + toFloat($now - CASE WHEN other.publishedTimestamp IS NOT NULL THEN other.publishedTimestamp ELSE other.firstSeenTimestamp END) / $decayMs) AS recencyScore
+          1.0 / (1.0 + toFloat($now - CASE WHEN other.publishedTimestamp IS :: INTEGER NOT NULL THEN other.publishedTimestamp ELSE other.firstSeenTimestamp END) / $decayMs) AS recencyScore
         WITH other, otherOrg,
           0.4 * tagRatio + 0.3 * recencyScore + 0.3 * classMatch AS score
         ORDER BY score DESC
         LIMIT 5
         RETURN other {
           .shortUUID, .title,
-          timestamp: CASE WHEN other.publishedTimestamp IS NOT NULL
+          timestamp: CASE WHEN other.publishedTimestamp IS :: INTEGER NOT NULL
             THEN other.publishedTimestamp ELSE other.firstSeenTimestamp END,
           organization: otherOrg { .name, .logoUrl, .normalizedName, website: [(otherOrg)-[:HAS_WEBSITE]->(w) | w.url][0] }
         } AS result
@@ -4953,7 +4953,7 @@ export class JobsService {
         MATCH (sj:StructuredJobpost)-[:HAS_TAG]->(userTag)
         WHERE (sj)-[:HAS_STATUS]->(:JobpostOnlineStatus)
           AND NOT (sj)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-          AND COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) >= $thirtyDaysAgo
+          AND CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END >= $thirtyDaysAgo
         WITH DISTINCT sj, userScoringNames
 
         MATCH (sj)-[:HAS_TAG]->(jobTag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
@@ -4980,7 +4980,7 @@ export class JobsService {
         WITH SIZE(entries) AS total, entries
         UNWIND entries AS entry
         WITH entry.node AS sj, entry.ratio AS overlapRatio, total
-        ORDER BY COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp) DESC, overlapRatio DESC
+        ORDER BY CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END DESC, overlapRatio DESC
         SKIP toInteger($skip) LIMIT toInteger($limit)
 
         OPTIONAL MATCH (sj)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
@@ -5012,7 +5012,7 @@ export class JobsService {
             WHEN '1' THEN 'Intern' WHEN '2' THEN 'Junior'
             WHEN '3' THEN 'Senior' WHEN '4' THEN 'Lead'
             WHEN '5' THEN 'Head' ELSE sj.seniority END,
-          timestamp: COALESCE(sj.publishedTimestamp, sj.firstSeenTimestamp),
+          timestamp: CASE WHEN sj.publishedTimestamp IS :: INTEGER NOT NULL THEN sj.publishedTimestamp ELSE sj.firstSeenTimestamp END,
           commitment: [(sj)-[:HAS_COMMITMENT]->(c:JobpostCommitment) | c.name][0],
           locationType: [(sj)-[:HAS_LOCATION_TYPE]->(lt:JobpostLocationType) | lt.name][0],
           classification: [(sj)-[:HAS_CLASSIFICATION]->(cl:JobpostClassification) | cl.name][0],

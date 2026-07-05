@@ -52,7 +52,7 @@ export class PublicService {
       CYPHER runtime = parallel
       MATCH (structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus)
       WHERE NOT (structured_jobpost)-[:HAS_JOB_DESIGNATION]->(:BlockedDesignation)
-      AND (CASE WHEN $authenticated = true THEN structured_jobpost.publishedTimestamp <= 1746057600000 ELSE structured_jobpost.access = "public" END)
+      AND (CASE WHEN $authenticated = true THEN (CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END) <= 1746057600000 ELSE structured_jobpost.access = "public" END)
       MATCH (structured_jobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
       WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
       WITH DISTINCT tag, structured_jobpost
@@ -86,7 +86,7 @@ export class PublicService {
           featured: structured_jobpost.featured,
           featureStartDate: structured_jobpost.featureStartDate,
           featureEndDate: structured_jobpost.featureEndDate,
-          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
           publishedTimestampIsVerified: structured_jobpost.publishedTimestampIsVerified,
           classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
@@ -586,7 +586,7 @@ export class PublicService {
           featured: structured_jobpost.featured,
           featureStartDate: structured_jobpost.featureStartDate,
           featureEndDate: structured_jobpost.featureEndDate,
-          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS NULL THEN structured_jobpost.firstSeenTimestamp ELSE structured_jobpost.publishedTimestamp END,
+          timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
           offersTokenAllocation: structured_jobpost.offersTokenAllocation,
           publishedTimestampIsVerified: structured_jobpost.publishedTimestampIsVerified,
           online: CASE WHEN status:JobpostOnlineStatus THEN true ELSE false END,

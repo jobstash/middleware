@@ -141,5 +141,6 @@ export interface SitemapJob {
   shortUUID: string;
   title: string | null;
   organizationName: string | null;
-  timestamp: number;
+  /** epoch ms; null when no usable date exists (never 0) */
+  timestamp: number | null;
 }
