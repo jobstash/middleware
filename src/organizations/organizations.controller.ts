@@ -585,115 +585,139 @@ export class OrganizationsController {
         ...dto
       } = body;
 
-      const res1 = await this.updateOrgAliases(
-        { ...EMPTY_SESSION_OBJECT, address },
-        {
+      if (aliases !== undefined) {
+        const res1 = await this.updateOrgAliases(
+          { ...EMPTY_SESSION_OBJECT, address },
+          {
+            orgId: id,
+            aliases,
+          },
+        );
+
+        if (!res1.success) {
+          return res1;
+        }
+      }
+
+      if (websites !== undefined) {
+        const res3 = await this.organizationsService.updateOrgWebsites({
           orgId: id,
-          aliases: aliases ?? [],
-        },
-      );
+          websites,
+        });
 
-      if (!res1.success) {
-        return res1;
+        if (!res3.success) {
+          return res3;
+        }
       }
 
-      const res3 = await this.organizationsService.updateOrgWebsites({
-        orgId: id,
-        websites: websites ?? [],
-      });
+      if (twitters !== undefined) {
+        const res4 = await this.organizationsService.updateOrgTwitters({
+          orgId: id,
+          twitters,
+        });
 
-      if (!res3.success) {
-        return res3;
+        if (!res4.success) {
+          return res4;
+        }
       }
 
-      const res4 = await this.organizationsService.updateOrgTwitters({
-        orgId: id,
-        twitters: twitters ?? [],
-      });
+      if (githubs !== undefined) {
+        const res5 = await this.organizationsService.updateOrgGithubs({
+          orgId: id,
+          githubs,
+        });
 
-      if (!res4.success) {
-        return res4;
+        if (!res5.success) {
+          return res5;
+        }
       }
 
-      const res5 = await this.organizationsService.updateOrgGithubs({
-        orgId: id,
-        githubs: githubs ?? [],
-      });
+      if (discords !== undefined) {
+        const res6 = await this.organizationsService.updateOrgDiscords({
+          orgId: id,
+          discords,
+        });
 
-      if (!res5.success) {
-        return res5;
+        if (!res6.success) {
+          return res6;
+        }
       }
 
-      const res6 = await this.organizationsService.updateOrgDiscords({
-        orgId: id,
-        discords: discords ?? [],
-      });
+      if (docs !== undefined) {
+        const res7 = await this.organizationsService.updateOrgDocs({
+          orgId: id,
+          docsites: docs,
+        });
 
-      if (!res6.success) {
-        return res6;
+        if (!res7.success) {
+          return res7;
+        }
       }
 
-      const res7 = await this.organizationsService.updateOrgDocs({
-        orgId: id,
-        docsites: docs ?? [],
-      });
+      if (telegrams !== undefined) {
+        const res8 = await this.organizationsService.updateOrgTelegrams({
+          orgId: id,
+          telegrams,
+        });
 
-      if (!res7.success) {
-        return res7;
+        if (!res8.success) {
+          return res8;
+        }
       }
 
-      const res8 = await this.organizationsService.updateOrgTelegrams({
-        orgId: id,
-        telegrams: telegrams ?? [],
-      });
+      if (grants !== undefined) {
+        const res9 = await this.organizationsService.updateOrgGrants({
+          orgId: id,
+          grantsites: grants,
+        });
 
-      if (!res8.success) {
-        return res8;
+        if (!res9.success) {
+          return res9;
+        }
       }
 
-      const res9 = await this.organizationsService.updateOrgGrants({
-        orgId: id,
-        grantsites: grants ?? [],
-      });
+      if (projects !== undefined) {
+        const res10 = await this.organizationsService.updateOrgProjects(
+          id,
+          projects,
+        );
 
-      if (!res9.success) {
-        return res9;
+        if (!res10.success) {
+          return {
+            success: res10.success,
+            message: "Error updating org projects",
+          };
+        }
       }
 
-      const res10 = await this.organizationsService.updateOrgProjects(
-        id,
-        projects ?? [],
-      );
+      if (detectedJobsites !== undefined) {
+        const res11 = await this.organizationsService.updateOrgDetectedJobsites(
+          {
+            orgId: id,
+            detectedJobsites,
+          },
+        );
 
-      if (!res10.success) {
-        return {
-          success: res10.success,
-          message: "Error updating org projects",
-        };
+        if (!res11.success) {
+          return {
+            success: res11.success,
+            message: "Error updating org detected jobsites",
+          };
+        }
       }
 
-      const res11 = await this.organizationsService.updateOrgDetectedJobsites({
-        orgId: id,
-        detectedJobsites: detectedJobsites ?? [],
-      });
+      if (jobsites !== undefined) {
+        const res12 = await this.organizationsService.updateOrgJobsites({
+          orgId: id,
+          jobsites,
+        });
 
-      if (!res11.success) {
-        return {
-          success: res11.success,
-          message: "Error updating org detected jobsites",
-        };
-      }
-
-      const res12 = await this.organizationsService.updateOrgJobsites({
-        orgId: id,
-        jobsites: jobsites ?? [],
-      });
-
-      if (!res12.success) {
-        return {
-          success: res12.success,
-          message: "Error updating org jobsites",
-        };
+        if (!res12.success) {
+          return {
+            success: res12.success,
+            message: "Error updating org jobsites",
+          };
+        }
       }
 
       const result = await this.organizationsService.update(id, dto);

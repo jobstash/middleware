@@ -767,6 +767,7 @@ export class OrganizationsService {
           githubs: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
           twitters: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
+          grantSites: [(organization)-[:HAS_GRANTSITE]->(grantsite) | grantsite.url],
           ecosystems: [(organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
           grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
             .*,
@@ -1045,6 +1046,7 @@ export class OrganizationsService {
           githubs: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login],
           aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
           twitters: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
+          grantSites: [(organization)-[:HAS_GRANTSITE]->(grantsite) | grantsite.url],
           ecosystems: [(organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
           grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
             .*,

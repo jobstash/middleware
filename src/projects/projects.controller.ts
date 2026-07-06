@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Headers,
   HttpStatus,
@@ -37,6 +38,7 @@ import { Response as ExpressResponse } from "express";
 import { File, NFTStorage } from "nft.storage";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { OrganizationsService } from "src/organizations/organizations.service";
+import { UserService } from "src/user/user.service";
 import {
   CheckWalletPermissions,
   ECOSYSTEM_HEADER,
@@ -95,6 +97,7 @@ export class ProjectsController {
     private readonly projectCategoryService: ProjectCategoryService,
     private readonly organizationsService: OrganizationsService,
     private readonly configService: ConfigService,
+    private readonly userService: UserService,
   ) {
     this.NFT_STORAGE_API_KEY = this.configService.get<string>(
       "NFT_STORAGE_API_KEY",
@@ -900,8 +903,8 @@ export class ProjectsController {
   @Post("/update/:id")
   @UseGuards(PBACGuard)
   @Permissions(
-    CheckWalletPermissions.ADMIN,
-    CheckWalletPermissions.PROJECT_MANAGER,
+    [CheckWalletPermissions.USER, CheckWalletPermissions.ORG_OWNER],
+    [CheckWalletPermissions.ADMIN, CheckWalletPermissions.PROJECT_MANAGER],
   )
   @ApiOkResponse({
     description: "Updates an existing project",
@@ -915,13 +918,40 @@ export class ProjectsController {
     schema: responseSchemaWrapper({ type: "string" }),
   })
   async updateProject(
-    @Session() { address }: SessionObject,
+    @Session() { address, permissions }: SessionObject,
     @Param("id") id: string,
     @Body() dto: UpdateProjectInput,
   ): Promise<Response<ProjectMoreInfo> | ResponseWithNoData> {
     this.logger.log(
       `POST /projects/update ${JSON.stringify(dto)} from ${address}`,
     );
+
+    const isGlobalProjectEditor =
+      permissions.includes(CheckWalletPermissions.ADMIN) ||
+      permissions.includes(CheckWalletPermissions.PROJECT_MANAGER) ||
+      permissions.includes(CheckWalletPermissions.SUPER_ADMIN);
+
+    if (
+      permissions.includes(CheckWalletPermissions.ORG_OWNER) &&
+      !isGlobalProjectEditor
+    ) {
+      const project = await this.projectsService.getProjectById(id);
+      const orgIds = project?.orgIds ?? [];
+      let authorized = false;
+
+      for (const orgId of orgIds) {
+        authorized = await this.userService.isOrgOwner(address, orgId);
+        if (authorized) break;
+      }
+
+      if (!authorized) {
+        throw new ForbiddenException({
+          success: false,
+          message: "You are not authorized to access this resource",
+        });
+      }
+    }
+
     const { jobsites, detectedJobsites, ...body } = dto;
     const res1 = await this.projectsService.updateProjectDetectedJobsites({
       id: id,
