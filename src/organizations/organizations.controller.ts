@@ -97,6 +97,16 @@ export class OrganizationsController {
     });
   }
 
+  private hasGlobalOrgAdminAccess(
+    permissions: SessionObject["permissions"],
+  ): boolean {
+    return (
+      permissions.includes(CheckWalletPermissions.SUPER_ADMIN) ||
+      permissions.includes(CheckWalletPermissions.ADMIN) ||
+      permissions.includes(CheckWalletPermissions.ORG_MANAGER)
+    );
+  }
+
   @Get("/")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.ADMIN)
@@ -551,7 +561,10 @@ export class OrganizationsController {
       )} from ${address}`,
     );
 
-    if (permissions.includes(CheckWalletPermissions.ORG_OWNER)) {
+    if (
+      permissions.includes(CheckWalletPermissions.ORG_OWNER) &&
+      !this.hasGlobalOrgAdminAccess(permissions)
+    ) {
       const authorized = await this.userService.isOrgOwner(address, id);
       if (!authorized) {
         throw new ForbiddenException({
@@ -888,7 +901,10 @@ export class OrganizationsController {
       )} from ${address}`,
     );
 
-    if (permissions.includes(CheckWalletPermissions.ORG_OWNER)) {
+    if (
+      permissions.includes(CheckWalletPermissions.ORG_OWNER) &&
+      !this.hasGlobalOrgAdminAccess(permissions)
+    ) {
       const authorized = await this.userService.isOrgOwner(address, body.orgId);
       if (!authorized) {
         throw new ForbiddenException({
@@ -927,7 +943,10 @@ export class OrganizationsController {
       )} from ${address}`,
     );
 
-    if (permissions.includes(CheckWalletPermissions.ORG_OWNER)) {
+    if (
+      permissions.includes(CheckWalletPermissions.ORG_OWNER) &&
+      !this.hasGlobalOrgAdminAccess(permissions)
+    ) {
       const authorized = await this.userService.isOrgOwner(address, body.orgId);
       if (!authorized) {
         throw new ForbiddenException({
@@ -1052,7 +1071,10 @@ export class OrganizationsController {
   ): Promise<ResponseWithOptionalData<OrganizationWithLinks>> {
     this.logger.log(`GET /organizations/${id} from ${address}`);
 
-    if (permissions.includes(CheckWalletPermissions.ORG_MEMBER)) {
+    if (
+      permissions.includes(CheckWalletPermissions.ORG_MEMBER) &&
+      !this.hasGlobalOrgAdminAccess(permissions)
+    ) {
       const authorized = await this.userService.isOrgMember(address, id);
       if (!authorized) {
         throw new ForbiddenException({
