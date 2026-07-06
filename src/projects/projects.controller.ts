@@ -42,14 +42,12 @@ import { UserService } from "src/user/user.service";
 import {
   CheckWalletPermissions,
   ECOSYSTEM_HEADER,
-  EMPTY_SESSION_OBJECT,
 } from "src/shared/constants";
 import { CACHE_DURATION_1_HOUR } from "src/shared/constants/cache-control";
 import { Permissions, Session } from "src/shared/decorators";
-import { nonZeroOrNull, responseSchemaWrapper } from "src/shared/helpers";
+import { responseSchemaWrapper } from "src/shared/helpers";
 import { ProjectProps } from "src/shared/models";
 import {
-  data,
   DefiLlamaProject,
   DefiLlamaProjectPrefill,
   DexSummary,
@@ -952,30 +950,12 @@ export class ProjectsController {
       }
     }
 
-    const { jobsites, detectedJobsites, ...body } = dto;
-    const res1 = await this.projectsService.updateProjectDetectedJobsites({
-      id: id,
-      detectedJobsites: detectedJobsites ?? [],
-    });
-
-    if (!res1.success) {
-      return {
-        success: res1.success,
-        message: "Error updating project detected jobsites",
-      };
-    }
-
-    const res2 = await this.projectsService.updateProjectJobsites({
-      id: id,
-      jobsites: jobsites ?? [],
-    });
-
-    if (!res2.success) {
-      return {
-        success: res2.success,
-        message: "Error updating project jobsites",
-      };
-    }
+    const body: UpdateProjectInput & {
+      detectedJobsites?: unknown;
+      jobsites?: unknown;
+    } = { ...dto };
+    delete body.detectedJobsites;
+    delete body.jobsites;
 
     const result = await this.projectsService.update(id, body);
     if (result !== undefined) {
@@ -1018,7 +998,10 @@ export class ProjectsController {
         body,
       )} from ${address}`,
     );
-    return this.projectsService.activateProjectJobsites(body);
+    throw new BadRequestException({
+      success: false,
+      message: "Projects cannot have jobsites",
+    });
   }
 
   @Post("/jobsites/create")
@@ -1045,42 +1028,10 @@ export class ProjectsController {
     this.logger.log(
       `POST /projects/jobsites/create ${JSON.stringify(body)} from ${address}`,
     );
-    const { id, ...jobsite } = body;
-    const project = data(
-      await this.getProjectDetails({ ...EMPTY_SESSION_OBJECT, address }, id),
-    );
-    if (project) {
-      const id = randomUUID();
-      const result = await this.projectsService.updateProjectDetectedJobsites({
-        id: body.id,
-        detectedJobsites: [...project.detectedJobsites, { id, ...jobsite }],
-      });
-      if (result.success) {
-        const final = data(
-          await this.projectsService.activateProjectJobsites({
-            id: body.id,
-            jobsiteIds: [id],
-          }),
-        );
-        const result = final[0];
-        return {
-          success: true,
-          message: "Jobsite created successfully",
-          data: {
-            ...final[0],
-            createdTimestamp: nonZeroOrNull(result.createdTimestamp),
-            updatedTimestamp: nonZeroOrNull(result.updatedTimestamp),
-          },
-        };
-      } else {
-        return result;
-      }
-    } else {
-      throw new BadRequestException({
-        success: false,
-        message: "Project not found",
-      });
-    }
+    throw new BadRequestException({
+      success: false,
+      message: "Projects cannot have jobsites",
+    });
   }
 
   @Delete("/delete/:id")
