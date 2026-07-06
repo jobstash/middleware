@@ -750,6 +750,11 @@ export class SubscriptionsService {
               CASE WHEN coalesce(size(saAgg.items),0)=0 THEN NULL ELSE saAgg.items[0] END AS sa,
               CASE WHEN coalesce(size(esAgg.items),0)=0 THEN NULL ELSE esAgg.items[0] END AS es
 
+          WITH subscription, status, b, jp, v, sa, es,
+              CASE WHEN status = "active" THEN 1 ELSE 0 END AS activeRank
+          ORDER BY activeRank DESC, subscription.expiryTimestamp DESC, subscription.createdTimestamp DESC
+          LIMIT 1
+
           RETURN subscription {
             .*,
             status:         status,
