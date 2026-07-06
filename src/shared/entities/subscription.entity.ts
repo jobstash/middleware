@@ -22,18 +22,18 @@ export class SubscriptionEntity {
             ...x,
             veri: nonZeroOrNull(x.veri) ?? 0,
             jobPromotions: nonZeroOrNull(x.jobPromotions) ?? 0,
-            createdTimestamp: nonZeroOrNull(x.createdTimestamp),
-            expiryTimestamp: nonZeroOrNull(x.expiryTimestamp),
+            createdTimestamp: nonZeroOrNull(x.createdTimestamp) ?? 0,
+            expiryTimestamp: nonZeroOrNull(x.expiryTimestamp) ?? 0,
             usage:
               x.usage.map(y => ({
                 ...y,
-                amount: nonZeroOrNull(y.amount),
-                createdTimestamp: nonZeroOrNull(y.createdTimestamp),
+                amount: nonZeroOrNull(y.amount) ?? 0,
+                createdTimestamp: nonZeroOrNull(y.createdTimestamp) ?? 0,
               })) ?? [],
           }),
       ),
-      expiryTimestamp: nonZeroOrNull(this.raw.expiryTimestamp),
-      createdTimestamp: nonZeroOrNull(this.raw.createdTimestamp),
+      expiryTimestamp: nonZeroOrNull(this.raw.expiryTimestamp) ?? 0,
+      createdTimestamp: nonZeroOrNull(this.raw.createdTimestamp) ?? 0,
     });
   }
 }
