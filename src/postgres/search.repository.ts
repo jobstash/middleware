@@ -183,7 +183,6 @@ export class SearchRepository {
             AND (
               $1::text IS NULL
               OR lower(label) LIKE '%' || lower($1) || '%'
-              OR lower(label) % lower($1)
             )
           GROUP BY pillar, label
         ), ranked AS (
@@ -236,7 +235,7 @@ export class SearchRepository {
             'token', source.has_token
           ) AS config
           FROM project_search_documents source
-          WHERE $1::text IS NULL OR $1 = ANY(source.ecosystems)
+          WHERE $1::text IS NULL OR $1 = ANY(source.managed_ecosystems)
         `,
         [ecosystemSlug],
       );
@@ -261,7 +260,7 @@ export class SearchRepository {
             'hasJobs', source.recent_job_timestamp IS NOT NULL
           ) AS config
           FROM organization_search_documents source
-          WHERE $1::text IS NULL OR $1 = ANY(source.ecosystems)
+          WHERE $1::text IS NULL OR $1 = ANY(source.managed_ecosystems)
         `,
         [ecosystemSlug],
       );
@@ -294,7 +293,7 @@ export class SearchRepository {
           FROM job_search_documents source
           WHERE source.online
             AND NOT source.blocked
-            AND ($1::text IS NULL OR $1 = ANY(source.ecosystems))
+            AND ($1::text IS NULL OR $1 = ANY(source.managed_ecosystems))
         `,
         [ecosystemSlug],
       );
@@ -370,7 +369,7 @@ export class SearchRepository {
     ];
     if (options.ecosystem) {
       predicates.push(
-        `${bind(slugify(options.ecosystem))} = ANY(job.ecosystems)`,
+        `${bind(slugify(options.ecosystem))} = ANY(job.managed_ecosystems)`,
       );
     }
     const value = options.value;

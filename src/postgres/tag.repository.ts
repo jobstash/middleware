@@ -225,31 +225,40 @@ export class TagRepository {
     const rows = await queryRows<{ properties: Tag }>(
       this.postgres,
       `
-        WITH resolved AS MATERIALIZED (
+        WITH popularity AS MATERIALIZED (
           SELECT
-            COALESCE(preferred.id, paired.id, tag.id) AS canonical_id,
-            COALESCE(preferred.properties, paired.properties, tag.properties)
-              AS properties,
-            job.job_node_id
-          FROM graph_nodes tag
-          JOIN graph_relationships job_tag
-            ON job_tag.target_id = tag.id
-           AND job_tag.type = 'HAS_TAG'
-          JOIN job_search_documents job
-            ON job.job_node_id = job_tag.source_id
-           AND job.online
-           AND NOT job.blocked
-           AND job.organization_id IS NOT NULL
-          ${canonicalJoins("tag")}
-          WHERE tag.label = 'Tag'
-            AND ${unblockedPredicate("tag")}
+            tag_slug,
+            count(DISTINCT job.job_node_id) AS job_count
+          FROM job_search_documents job
+          CROSS JOIN LATERAL unnest(job.tags) tag_slug
+          WHERE job.online
+            AND NOT job.blocked
+            AND EXISTS (
+              SELECT 1
+              FROM job_search_owners owner
+              WHERE owner.job_node_id = job.job_node_id
+            )
+          GROUP BY tag_slug
+          HAVING count(DISTINCT job.job_node_id) >= 1
+            AND count(DISTINCT job.job_node_id) < $1
+        ), ranked AS MATERIALIZED (
+          SELECT
+            tag.id AS canonical_id,
+            tag.properties,
+            popularity.job_count
+          FROM popularity
+          JOIN LATERAL (
+            SELECT node.id, node.properties
+            FROM graph_nodes node
+            WHERE node.label = 'Tag'
+              AND node.properties ->> 'normalizedName' = popularity.tag_slug
+            ORDER BY node.id
+            LIMIT 1
+          ) tag ON true
         )
-        SELECT (array_agg(properties))[1] AS properties
-        FROM resolved
-        GROUP BY canonical_id
-        HAVING count(DISTINCT job_node_id) >= 1
-          AND count(DISTINCT job_node_id) < $1
-        ORDER BY count(DISTINCT job_node_id) DESC, canonical_id
+        SELECT properties
+        FROM ranked
+        ORDER BY job_count DESC, canonical_id
         LIMIT NULLIF($2, 0)
       `,
       [Math.max(2, upperBound || Number.MAX_SAFE_INTEGER), Math.max(0, limit)],

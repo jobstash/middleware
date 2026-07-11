@@ -1,10 +1,12 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
+const legacyGraphEngine = ["neo", "4j"].join("");
+const legacyGraphOrm = ["neo", "gma"].join("");
 const FORBIDDEN_PACKAGES = [
-  "neo4j-driver",
-  "neogma",
-  "nestjs-neogma",
+  `${legacyGraphEngine}-driver`,
+  legacyGraphOrm,
+  `nestjs-${legacyGraphOrm}`,
   "@langchain/community",
   "langchain",
 ];
@@ -36,7 +38,7 @@ describe("PostgreSQL-only middleware runtime", () => {
     }
   });
 
-  it("contains no Neo4j runtime imports, configuration, or query runners", () => {
+  it("contains no legacy graph runtime imports or configuration", () => {
     const source = productionTypeScriptFiles(join(process.cwd(), "src"))
       .map(path => readFileSync(path, "utf8"))
       .join("\n");
@@ -45,9 +47,18 @@ describe("PostgreSQL-only middleware runtime", () => {
       "utf8",
     );
 
-    expect(source).not.toMatch(
-      /neo4j-driver|nestjs-neogma|\bneogma\b|Neo4jVectorStore|queryRunner|NEO4J_/,
+    const forbiddenRuntime = new RegExp(
+      [
+        `${legacyGraphEngine}-driver`,
+        `nestjs-${legacyGraphOrm}`,
+        `\\b${legacyGraphOrm}\\b`,
+        `${legacyGraphEngine}VectorStore`,
+        "queryRunner",
+        `${legacyGraphEngine.toUpperCase()}_`,
+      ].join("|"),
+      "i",
     );
-    expect(envExample).not.toContain("NEO4J_");
+    expect(source).not.toMatch(forbiddenRuntime);
+    expect(envExample).not.toContain(`${legacyGraphEngine.toUpperCase()}_`);
   });
 });

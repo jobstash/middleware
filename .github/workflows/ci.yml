@@ -88,12 +88,6 @@ jobs:
       #     MAGIC_LINK_EXPIRES_IN: ${{ secrets.MAGIC_LINK_EXPIRES_IN }}
       #     MAGIC_LINK_SECRET: ${{ secrets.MAGIC_LINK_SECRET }}
       #     MW_DOMAIN: ${{ secrets.MW_DOMAIN }}
-      #     NEO4J_DATABASE_TEST: testdb
-      #     NEO4J_HOST_TEST: ${{ secrets.NEO4J_HOST_TEST }}
-      #     NEO4J_PASSWORD_TEST: ${{ secrets.NEO4J_PASSWORD_TEST }}
-      #     NEO4J_PORT_TEST: ${{ secrets.NEO4J_PORT_TEST }}
-      #     NEO4J_SCHEME_TEST: ${{ secrets.NEO4J_SCHEME_TEST }}
-      #     NEO4J_USERNAME_TEST: ${{ secrets.NEO4J_USERNAME_TEST }}
       #     NFT_STORAGE_API_KEY: ${{ secrets.NFT_STORAGE_API_KEY }}
       #     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       #     ORG_ADMIN_DOMAIN: ${{ secrets.ORG_ADMIN_DOMAIN }}

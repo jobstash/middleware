@@ -366,7 +366,7 @@ describePostgres("UserRepository PostgreSQL integration", () => {
     expect(rows.map(row => row.indexname).sort()).toEqual(names.sort());
   });
 
-  it("serves user identity and scoped email methods without Neo4j", async () => {
+  it("serves user identity and scoped email methods from PostgreSQL", async () => {
     await expect(service.findByWallet("0xUserOne")).resolves.toMatchObject({});
     await expect(service.findOrgIdByJobShortUUID("job-short")).resolves.toBe(
       "acme-org",

@@ -132,12 +132,11 @@ export class OrganizationsService {
     ecosystem: string | undefined,
   ): Promise<OrgDetailsResult | undefined> {
     try {
-      const payload = await this.searchDocuments.getOrganizationById(orgId);
-      if (
-        !payload ||
-        (ecosystem &&
-          !payload.ecosystems.map(slugify).includes(slugify(ecosystem)))
-      ) {
+      const payload = await this.searchDocuments.getOrganizationById(
+        orgId,
+        ecosystem,
+      );
+      if (!payload) {
         return undefined;
       }
       return new OrgDetailsResultEntity({
@@ -166,12 +165,11 @@ export class OrganizationsService {
     ecosystem: string | undefined,
   ): Promise<OrgListResult | undefined> {
     try {
-      const payload = await this.searchDocuments.getOrganizationBySlug(slug);
-      if (
-        !payload ||
-        (ecosystem &&
-          !payload.ecosystems.map(slugify).includes(slugify(ecosystem)))
-      ) {
+      const payload = await this.searchDocuments.getOrganizationBySlug(
+        slug,
+        ecosystem,
+      );
+      if (!payload) {
         return undefined;
       }
       return new OrgDetailsResultEntity({

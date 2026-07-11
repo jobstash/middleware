@@ -87,7 +87,7 @@ export class JobGraphRepository {
           AND lower(applicant.properties ->> 'wallet') = lower($1)
           AND job.online
           AND NOT job.blocked
-          AND ($3::text IS NULL OR $3 = ANY(job.ecosystems))
+          AND ($3::text IS NULL OR $3 = ANY(job.managed_ecosystems))
           AND (organization.payload IS NOT NULL OR project.payload IS NOT NULL)
         ORDER BY job.published_timestamp DESC NULLS LAST, job.job_node_id
       `,
@@ -526,7 +526,7 @@ export class JobGraphRepository {
             AND online
             AND NOT blocked
             AND organization_id IS NOT NULL
-            AND ($2::text IS NULL OR $2 = ANY(ecosystems))
+            AND ($2::text IS NULL OR $2 = ANY(managed_ecosystems))
           ORDER BY job_node_id
           LIMIT 1
         ), scored AS (
@@ -553,7 +553,7 @@ export class JobGraphRepository {
            AND candidate.organization_id <> source.organization_id
            AND candidate.published_timestamp >= $3::bigint - $4::bigint
            AND candidate.tags && source.tags
-           AND ($2::text IS NULL OR $2 = ANY(candidate.ecosystems))
+           AND ($2::text IS NULL OR $2 = ANY(candidate.managed_ecosystems))
           JOIN organization_search_documents organization
             ON organization.organization_id = candidate.organization_id
           CROSS JOIN LATERAL (

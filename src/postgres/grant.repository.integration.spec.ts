@@ -84,7 +84,7 @@ describePostgres("GrantRepository PostgreSQL integration", () => {
           categories: ["Infrastructure"],
           ecosystems: ["Ethereum"],
           organizations: ["Open Foundation"],
-          networks: ["Mainnet"],
+          networks: [],
           grantTypes: ["Direct"],
           tags: ["Open Source"],
           platformsUsed: ["Karma Gap"],

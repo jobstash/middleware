@@ -139,6 +139,27 @@ export const intConverter = (
   }
 };
 
+export const losslessInteger = (
+  value: { low: number; high: number } | number | null | undefined,
+): { low: number; high: number } | null | undefined => {
+  if (value === null || value === undefined) {
+    return value as null | undefined;
+  }
+  if (typeof value === "object") {
+    return value;
+  }
+  if (!Number.isSafeInteger(value)) {
+    throw new RangeError(`Expected a safe integer, received ${value}`);
+  }
+  const integer = BigInt(value);
+  const unsignedLow = Number(BigInt.asUintN(32, integer));
+  return {
+    low:
+      unsignedLow >= 2_147_483_648 ? unsignedLow - 4_294_967_296 : unsignedLow,
+    high: Number(BigInt.asIntN(32, integer >> 32n)),
+  };
+};
+
 export const notStringOrNull = (
   value: string | null | undefined,
   space: string[] = [""],

@@ -61,6 +61,38 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     expect(page.data[0].id).toBe("job-protected");
   });
 
+  it("keeps public jobs when the candidate set excludes expert jobs", async () => {
+    const page = await repository.searchJobs({
+      publicAccessOnly: true,
+      suppressPublicForExpertOrganizations: false,
+    });
+
+    expect(page.data.map(job => job.id).sort()).toEqual([
+      "job-public-acme",
+      "job-public-beta",
+    ]);
+  });
+
+  it("does not pin jobs with expired feature windows", async () => {
+    await postgres.query(`
+      UPDATE job_search_documents
+      SET featured = true,
+          feature_start_timestamp = 1,
+          feature_end_timestamp = 2
+      WHERE structured_jobpost_id = 'job-public-beta'
+    `);
+
+    const page = await repository.searchJobs({
+      publicAccessOnly: true,
+      suppressPublicForExpertOrganizations: false,
+    });
+
+    expect(page.data.slice(0, 2).map(job => job.id)).toEqual([
+      "job-public-acme",
+      "job-public-beta",
+    ]);
+  });
+
   it("uses projected full-text and trigram search", async () => {
     const fullText = await repository.searchJobs({
       query: "protocol engineer",
@@ -126,8 +158,8 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
   it("aggregates display labels and numeric filter bounds", async () => {
     const jobs = await repository.getJobFilterValues("ethereum");
     expect(jobs).toMatchObject({
-      minSalaryRange: "90000",
-      maxSalaryRange: "150000",
+      minSalaryRange: 90_000,
+      maxSalaryRange: 150_000,
     });
     expect(jobs.tags).toEqual(
       expect.arrayContaining(["Solidity", "TypeScript"]),
@@ -206,14 +238,15 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       `
         INSERT INTO organization_search_documents (
           organization_node_id, organization_id, slug, name, normalized_name,
-          location, headcount_estimate, ecosystems, project_ids, project_names,
+          location, headcount_estimate, ecosystems, managed_ecosystems,
+          project_ids, project_names,
           chains, investors, funding_rounds, tags, recent_funding_timestamp,
           recent_job_timestamp, aggregate_rating, has_projects, search_text,
           search_vector, names, filter_labels, payload
         ) VALUES
         (
           $1, 'org-acme', 'acme', 'Acme', 'acme', 'berlin', 120,
-          ARRAY['ethereum'], ARRAY['project-alpha'], ARRAY['alpha'],
+          ARRAY['ethereum'], ARRAY['ethereum'], ARRAY['project-alpha'], ARRAY['alpha'],
           ARRAY['ethereum'], ARRAY['paradigm'], ARRAY['series-a'],
           ARRAY['solidity'], 200, 300, 4.5, true, 'Acme Berlin Alpha',
           to_tsvector('simple', 'Acme Berlin Alpha'), ARRAY['acme', 'acme-labs'],
@@ -222,7 +255,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         ),
         (
           $2, 'org-beta', 'beta', 'Beta', 'beta', 'lisbon', 20,
-          ARRAY['ethereum'], ARRAY['project-beta'], ARRAY['beta'],
+          ARRAY['ethereum'], ARRAY['ethereum'], ARRAY['project-beta'], ARRAY['beta'],
           ARRAY['base'], ARRAY['variant'], ARRAY['seed'],
           ARRAY['typescript'], 100, 250, 4.0, true, 'Beta Lisbon',
           to_tsvector('simple', 'Beta Lisbon'), ARRAY['beta'],
@@ -237,14 +270,15 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       `
         INSERT INTO project_search_documents (
           project_node_id, project_id, slug, name, normalized_name,
-          organization_ids, organization_names, ecosystems, categories, chains,
+          organization_ids, organization_names, ecosystems, managed_ecosystems,
+          categories, chains,
           investors, tags, has_hacks, has_audits, has_token, tvl,
           monthly_volume, monthly_active_users, monthly_fees, monthly_revenue,
           search_text, search_vector, names, filter_labels, payload
         ) VALUES
         (
           $1, 'project-alpha', 'alpha', 'Alpha', 'alpha', ARRAY['org-acme'],
-          ARRAY['acme'], ARRAY['ethereum'], ARRAY['defi'], ARRAY['ethereum'],
+          ARRAY['acme'], ARRAY['ethereum'], ARRAY['ethereum'], ARRAY['defi'], ARRAY['ethereum'],
           ARRAY['paradigm'], ARRAY['solidity'], false, true, true, 1500000,
           500000, 1000, 5000, 2000, 'Alpha DeFi',
           to_tsvector('simple', 'Alpha DeFi'), ARRAY['alpha'],
@@ -253,7 +287,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         ),
         (
           $2, 'project-beta', 'beta', 'Beta', 'beta', ARRAY['org-beta'],
-          ARRAY['beta'], ARRAY['ethereum'], ARRAY['infrastructure'], ARRAY['base'],
+          ARRAY['beta'], ARRAY['ethereum'], ARRAY['ethereum'], ARRAY['infrastructure'], ARRAY['base'],
           ARRAY['variant'], ARRAY['typescript'], true, false, false, 500000,
           100000, 500, 1000, 500, 'Beta Infrastructure',
           to_tsvector('simple', 'Beta Infrastructure'), ARRAY['beta'],
@@ -313,6 +347,18 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       projectNames: ["beta"],
       online: false,
     });
+    await insertJob({
+      id: "job-tagless",
+      title: "Unclassified Engineer",
+      access: "public",
+      organizationId: "org-beta",
+      organizationName: "beta",
+      organizationHasExpertJobs: false,
+      salary: 70_000,
+      publishedTimestamp: 270,
+      tags: [],
+      projectNames: ["beta"],
+    });
   }
 
   async function insertJob(input: {
@@ -338,6 +384,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
           blocked, featured, organization_has_expert_jobs, published_timestamp,
           tags, project_names, investor_names, funding_round_names, chain_names,
           classifications, commitments, location_types, ecosystems, seniority,
+          managed_ecosystems,
           headcount_estimate, max_tvl, max_monthly_volume, max_monthly_fees,
           max_monthly_revenue, has_token, has_audits, has_hacks,
           onboard_into_web3, search_text, search_vector, filter_labels, payload
@@ -345,7 +392,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
           $1, $2, $2, $3, $4, $5, $6, $7, 'USD', $8, false, false, $9, $10,
           $11, $12, ARRAY['paradigm'], ARRAY['series-a'], ARRAY['ethereum'],
           ARRAY['engineering'], ARRAY['full-time'], ARRAY['remote'],
-          ARRAY['ethereum'], 'senior', 120, 1500000, 500000, 5000, 2000,
+          ARRAY['ethereum'], 'senior', ARRAY['ethereum'], 120, 1500000, 500000, 5000, 2000,
           true, true, false, true, $13::text, to_tsvector('simple', $13::text),
           '{"tags":{"solidity":"Solidity","typescript":"TypeScript"},"projects":{"alpha":"Alpha","beta":"Beta"},"organizations":{"acme":"Acme","beta":"Beta"},"investors":{"paradigm":"Paradigm"},"fundingRounds":{"series-a":"Series A"},"chains":{"ethereum":"Ethereum"},"ecosystems":{"ethereum":"Ethereum"},"classifications":{"engineering":"Engineering"},"commitments":{"full-time":"Full Time"},"locations":{"remote":"Remote"}}',
           jsonb_build_object(
@@ -378,6 +425,17 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         input.projectNames,
         searchText,
       ],
+    );
+    await postgres.query(
+      `
+        INSERT INTO job_search_owners (
+          job_node_id, organization_node_id, organization_id
+        )
+        SELECT $1, organization_node_id, organization_id
+        FROM organization_search_documents
+        WHERE organization_id = $2
+      `,
+      [nodeId, input.organizationId],
     );
   }
 

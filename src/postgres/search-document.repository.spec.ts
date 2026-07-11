@@ -28,7 +28,7 @@ describe("SearchDocumentRepository", () => {
     await repository.getJobPayloads("Ethereum Ecosystem");
 
     const [sql, parameters] = query.mock.calls[0];
-    expect(sql).toContain("$1 = ANY(job.ecosystems)");
+    expect(sql).toContain("$1 = ANY(job.managed_ecosystems)");
     expect(sql).not.toContain("ethereum-ecosystem");
     expect(parameters).toEqual(["ethereum-ecosystem"]);
   });
@@ -37,7 +37,7 @@ describe("SearchDocumentRepository", () => {
     await repository.getEcosystemJobPayloads(["Ethereum", "Optimism"]);
 
     const [sql, parameters] = query.mock.calls[0];
-    expect(sql).toContain("job.ecosystems && $1::text[]");
+    expect(sql).toContain("job.managed_ecosystems && $1::text[]");
     expect(sql).toContain("JOIN organization_search_documents");
     expect(parameters).toEqual([["ethereum", "optimism"]]);
   });
@@ -229,10 +229,12 @@ describe("SearchDocumentRepository", () => {
     await repository.getJobFilterValues("ethereum");
 
     const [sql, parameters] = query.mock.calls[0];
-    expect(sql).toContain("WITH docs AS MATERIALIZED");
+    expect(sql).toContain("WITH scoped_jobs AS MATERIALIZED");
+    expect(sql).toContain("organization_label_values AS MATERIALIZED");
     expect(sql).toContain("filter_labels -> 'tags'");
     expect(sql).toContain('AS "minSalaryRange"');
-    expect(sql).toContain("ecosystems && $1::text[]");
+    expect(sql).toContain("salary_currency ILIKE '%USD%'");
+    expect(sql).toContain("managed_ecosystems && $1::text[]");
     expect(parameters).toEqual([["ethereum"]]);
   });
 
@@ -350,14 +352,14 @@ describe("SearchDocumentRepository", () => {
     await repository.getOrganizationById("org-1' OR true --");
     expect(query.mock.calls[0]).toEqual([
       expect.stringContaining("organization_id = $1"),
-      ["org-1' OR true --"],
+      ["org-1' OR true --", null],
     ]);
 
     query.mockClear();
     await repository.getProjectBySlug("Project Alpha");
     expect(query.mock.calls[0]).toEqual([
       expect.stringContaining("slug = $1"),
-      ["project-alpha"],
+      ["project-alpha", null],
     ]);
   });
 
@@ -376,14 +378,16 @@ describe("SearchDocumentRepository", () => {
 
   it("builds organization and project filter aggregates in one query each", async () => {
     await repository.getOrganizationFilterValues();
+    expect(query.mock.calls[0][0]).toContain("FROM job_search_documents");
+    expect(query.mock.calls[0][0]).toContain("WHERE job.online");
     expect(query.mock.calls[0][0]).toContain(
-      "FROM organization_search_documents",
+      "owner_filter_labels -> 'investors'",
     );
-    expect(query.mock.calls[0][0]).toContain("filter_labels -> 'investors'");
 
     query.mockClear();
     await repository.getProjectFilterValues();
     expect(query.mock.calls[0][0]).toContain("FROM project_search_documents");
+    expect(query.mock.calls[0][0]).toContain("eligible_projects");
     expect(query.mock.calls[0][0]).toContain("filter_labels -> 'categories'");
   });
 });

@@ -599,13 +599,15 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
           title, organization_name, location, access, online, blocked, featured,
           published_timestamp, seniority, onboard_into_web3, tags,
           classifications, commitments, location_types, ecosystems,
+          managed_ecosystems,
           investor_names, funding_round_names, filter_labels, payload,
           detail_payload
         ) VALUES (
           $1, 'job-id', 'job-short', 'acme-org-id', 'TypeScript Engineer',
           'Acme', 'Amsterdam', 'protected', true, false, true, $2, '3', true,
           ARRAY['typescript'], ARRAY['engineering'], ARRAY['full-time'],
-          ARRAY['remote'], ARRAY['ethereum'], ARRAY['sequoia'], ARRAY['seed'],
+          ARRAY['remote'], ARRAY['ethereum'], ARRAY['ethereum'],
+          ARRAY['sequoia'], ARRAY['seed'],
           $3::jsonb, $4::jsonb, $4::jsonb
         )
       `,

@@ -69,6 +69,7 @@ import {
   ApplicantList,
   JobGraphRepository,
 } from "src/postgres/job-graph.repository";
+import { TagsService } from "src/tags/tags.service";
 
 @Injectable()
 export class JobsService {
@@ -80,6 +81,7 @@ export class JobsService {
     private readonly profileService: ProfileService,
     private readonly searchDocuments: SearchDocumentRepository,
     private readonly jobGraph: JobGraphRepository,
+    private readonly tagsService: TagsService,
   ) {}
 
   getJobsListResults = async (
@@ -159,10 +161,14 @@ export class JobsService {
   async getFilterConfigs(
     ecosystem: string | null = null,
   ): Promise<JobFilterConfigs> {
-    const values = await this.searchDocuments.getJobFilterValues(
-      ecosystem ?? undefined,
-    );
-    return new JobFilterConfigsEntity(values).getProperties();
+    const [values, popularTags] = await Promise.all([
+      this.searchDocuments.getJobFilterValues(ecosystem ?? undefined),
+      this.tagsService.getPopularTags(100),
+    ]);
+    return new JobFilterConfigsEntity({
+      ...values,
+      tags: popularTags.map(tag => tag.name),
+    }).getProperties();
   }
 
   async getFeaturedJobs(
@@ -219,7 +225,7 @@ export class JobsService {
     orgId: string,
   ): Promise<ResponseWithOptionalData<JobListResult[]>> {
     try {
-      const jobs = (await this.getJobsListResults()).filter(
+      const jobs = (await this.getJobsListResults(ecosystem)).filter(
         x => x?.organization?.orgId === orgId,
       );
       const now = new Date().getTime();
@@ -228,7 +234,6 @@ export class JobsService {
             .map(x => new JobListResultEntity(x).getProperties())
             .filter(
               job =>
-                job.organization.ecosystems.includes(ecosystem) &&
                 job.featured === true &&
                 job.featureStartDate <= now &&
                 now <= job.featureEndDate,

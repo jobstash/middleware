@@ -117,13 +117,13 @@ const main = async (): Promise<void> => {
     organizationId: string | null;
   }>(`
     SELECT tags[1] AS tag,
-           ecosystems[1] AS ecosystem,
+           managed_ecosystems[1] AS ecosystem,
            short_uuid AS "shortUuid",
            organization_id AS "organizationId"
     FROM job_search_documents
     WHERE online AND NOT blocked
       AND cardinality(tags) > 0
-      AND cardinality(ecosystems) > 0
+      AND cardinality(managed_ecosystems) > 0
     ORDER BY published_timestamp DESC NULLS LAST
     LIMIT 1
   `);
@@ -140,9 +140,10 @@ const main = async (): Promise<void> => {
     slug: string;
     ecosystem: string | null;
   }>(`
-    SELECT slug, ecosystems[1] AS ecosystem
+    SELECT slug, managed_ecosystems[1] AS ecosystem
     FROM organization_search_documents
     WHERE slug IS NOT NULL
+      AND cardinality(managed_ecosystems) > 0
     ORDER BY recent_job_timestamp DESC NULLS LAST
     LIMIT 1
   `);
@@ -151,9 +152,11 @@ const main = async (): Promise<void> => {
     ecosystem: string | null;
     category: string | null;
   }>(`
-    SELECT slug, ecosystems[1] AS ecosystem, categories[1] AS category
+    SELECT slug, managed_ecosystems[1] AS ecosystem, categories[1] AS category
     FROM project_search_documents
     WHERE slug IS NOT NULL
+      AND cardinality(managed_ecosystems) > 0
+      AND cardinality(categories) > 0
     ORDER BY project_node_id
     LIMIT 1
   `);
@@ -170,7 +173,7 @@ const main = async (): Promise<void> => {
         page: 1,
         limit: 20,
         tags: sample.tag ? [sample.tag] : undefined,
-        ecosystems: sample.ecosystem ? [sample.ecosystem] : undefined,
+        ecosystemHeader: sample.ecosystem ?? undefined,
         orderBy: "publicationDate",
       }),
     ),
@@ -186,9 +189,7 @@ const main = async (): Promise<void> => {
       repository.searchOrganizations({
         page: 1,
         limit: 20,
-        ecosystems: organization.ecosystem
-          ? [organization.ecosystem]
-          : undefined,
+        ecosystemHeader: organization.ecosystem ?? undefined,
         orderBy: "recentJobDate",
       }),
     ),
@@ -196,7 +197,7 @@ const main = async (): Promise<void> => {
       repository.searchProjects({
         page: 1,
         limit: 20,
-        ecosystems: project.ecosystem ? [project.ecosystem] : undefined,
+        ecosystemHeader: project.ecosystem ?? undefined,
         categories: project.category ? [project.category] : undefined,
       }),
     ),

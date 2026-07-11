@@ -85,12 +85,11 @@ export class ProjectsService {
     ecosystem: string | undefined,
   ): Promise<ProjectDetailsResult | null> {
     try {
-      const projected = await this.searchDocuments.getProjectById(id);
-      if (
-        !projected ||
-        (ecosystem &&
-          !projected.ecosystems.map(slugify).includes(slugify(ecosystem)))
-      ) {
+      const projected = await this.searchDocuments.getProjectById(
+        id,
+        ecosystem,
+      );
+      if (!projected) {
         return undefined;
       }
       return new ProjectDetailsEntity(
@@ -117,12 +116,11 @@ export class ProjectsService {
     ecosystem: string | undefined,
   ): Promise<ProjectDetailsResult | null> {
     try {
-      const projected = await this.searchDocuments.getProjectBySlug(slug);
-      if (
-        !projected ||
-        (ecosystem &&
-          !projected.ecosystems.map(slugify).includes(slugify(ecosystem)))
-      ) {
+      const projected = await this.searchDocuments.getProjectBySlug(
+        slug,
+        ecosystem,
+      );
+      if (!projected) {
         return undefined;
       }
       return new ProjectDetailsEntity(

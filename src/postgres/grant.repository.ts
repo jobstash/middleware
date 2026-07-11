@@ -86,7 +86,7 @@ const programPayload = `
         'categories', ${relatedNames("metadata.id", "HAS_CATEGORY")},
         'ecosystems', ${relatedNames("metadata.id", "HAS_ECOSYSTEM")},
         'organizations', ${relatedNames("metadata.id", "HAS_ORGANIZATION")},
-        'networks', ${relatedNames("metadata.id", "HAS_NETWORK")},
+        'networks', ${relatedNames("metadata.id", "HAS_NETWORKS")},
         'grantTypes', ${relatedNames("metadata.id", "HAS_GRANT_TYPE")},
         'tags', ${relatedNames("metadata.id", "HAS_TAG")},
         'platformsUsed', ${relatedNames("metadata.id", "HAS_PLATFORM_USED")}

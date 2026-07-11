@@ -53,6 +53,7 @@ export class PublicService {
         ...params,
         publicAccessOnly: !authenticated,
         publishedBeforeOrAt: authenticated ? 1_746_057_600_000 : undefined,
+        suppressPublicForExpertOrganizations: authenticated,
       });
       return {
         ...page,

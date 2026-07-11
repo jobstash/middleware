@@ -9,6 +9,7 @@ import {
   generateOrgAggregateRating,
   generateOrgAggregateRatings,
   getGoogleLogoUrl,
+  losslessInteger,
   nonZeroOrNull,
   notStringOrNull,
 } from "../helpers";
@@ -100,6 +101,18 @@ export class JobListResultEntity {
       organization: organization
         ? {
             ...organization,
+            categoryBackfilledTimestamp: losslessInteger(
+              organization["categoryBackfilledTimestamp"],
+            ),
+            lastCareerPageResearchTimestamp: losslessInteger(
+              organization["lastCareerPageResearchTimestamp"],
+            ),
+            lastGithubVerifiedTimestamp: losslessInteger(
+              organization["lastGithubVerifiedTimestamp"],
+            ),
+            relevanceCheckedTimestamp: losslessInteger(
+              organization["relevanceCheckedTimestamp"],
+            ),
             aggregateRating:
               reviews.length > 0
                 ? reviews.reduce((a, b) => a + b) / reviews.length
@@ -374,6 +387,18 @@ export class EcosystemJobListResultEntity {
       organization: organization
         ? {
             ...organization,
+            categoryBackfilledTimestamp: losslessInteger(
+              organization["categoryBackfilledTimestamp"],
+            ),
+            lastCareerPageResearchTimestamp: losslessInteger(
+              organization["lastCareerPageResearchTimestamp"],
+            ),
+            lastGithubVerifiedTimestamp: losslessInteger(
+              organization["lastGithubVerifiedTimestamp"],
+            ),
+            relevanceCheckedTimestamp: losslessInteger(
+              organization["relevanceCheckedTimestamp"],
+            ),
             aggregateRating:
               reviews.length > 0
                 ? reviews.reduce((a, b) => a + b) / reviews.length

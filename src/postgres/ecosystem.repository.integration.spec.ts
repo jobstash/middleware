@@ -197,6 +197,14 @@ describePostgres("EcosystemRepository PostgreSQL integration", () => {
       `,
       [jobNodeId],
     );
+    await postgres.query(
+      `
+        INSERT INTO job_search_owners (
+          job_node_id, organization_node_id, organization_id
+        ) VALUES ($1, $2, 'member-org')
+      `,
+      [jobNodeId, memberNodeId],
+    );
 
     const created = await repository.createEcosystem("owner-org", "Test Eco");
     if (created.status !== "created") throw new Error("ecosystem not created");
@@ -215,9 +223,9 @@ describePostgres("EcosystemRepository PostgreSQL integration", () => {
     }>(
       `
         SELECT
-          organization.ecosystems AS "organizationEcosystems",
-          project.ecosystems AS "projectEcosystems",
-          job.ecosystems AS "jobEcosystems",
+          organization.managed_ecosystems AS "organizationEcosystems",
+          project.managed_ecosystems AS "projectEcosystems",
+          job.managed_ecosystems AS "jobEcosystems",
           organization.payload AS "organizationPayload"
         FROM organization_search_documents organization
         CROSS JOIN project_search_documents project
@@ -230,7 +238,7 @@ describePostgres("EcosystemRepository PostgreSQL integration", () => {
     expect(projection.organizationEcosystems).toEqual(["test-eco"]);
     expect(projection.projectEcosystems).toEqual(["test-eco"]);
     expect(projection.jobEcosystems).toEqual(["test-eco"]);
-    expect(projection.organizationPayload.ecosystems).toEqual(["Test Eco"]);
+    expect(projection.organizationPayload.ecosystems).toEqual([]);
 
     await repository.replaceMemberOrganizations(
       "owner-org",
@@ -239,7 +247,7 @@ describePostgres("EcosystemRepository PostgreSQL integration", () => {
     );
     const [cleared] = await postgres.query<{ ecosystems: string[] }>(
       `
-        SELECT ecosystems
+        SELECT managed_ecosystems AS ecosystems
         FROM job_search_documents
         WHERE structured_jobpost_id = 'job-id'
       `,

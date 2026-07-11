@@ -76,17 +76,17 @@ describePostgres("TelemetryRepository PostgreSQL integration", () => {
         INSERT INTO job_search_documents (
           job_node_id, structured_jobpost_id, short_uuid, organization_id,
           title, access, online, featured, published_timestamp, ecosystems,
-          payload, detail_payload
+          managed_ecosystems, payload, detail_payload
         ) VALUES
         (
           $1, 'job-active', 'active-short', 'org-1', 'Engineer', 'protected',
-          true, true, $3, ARRAY['test-ecosystem'],
+          true, true, $3, ARRAY['test-ecosystem'], ARRAY['test-ecosystem'],
           '{"id":"job-active","classification":"Engineering"}',
           '{"id":"job-active","classification":"Engineering"}'
         ),
         (
           $2, 'job-inactive', 'inactive-short', 'org-1', 'Designer', 'public',
-          false, false, $3, ARRAY['test-ecosystem'],
+          false, false, $3, ARRAY['test-ecosystem'], ARRAY['test-ecosystem'],
           '{"id":"job-inactive","classification":"Design"}',
           '{"id":"job-inactive","classification":"Design"}'
         )

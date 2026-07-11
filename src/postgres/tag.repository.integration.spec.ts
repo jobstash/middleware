@@ -343,27 +343,54 @@ describePostgres("TagRepository PostgreSQL integration", () => {
     shortUuid: string,
     tagIds: string[],
   ): Promise<void> {
+    const organizationId = `test-organization-${id}`;
+    const organizationNodeId = await createNode(
+      "Organization",
+      `organization:${id}`,
+      { orgId: organizationId, name: `Organization ${id}` },
+    );
     const jobNodeId = await createNode("StructuredJobpost", `job:${id}`, {
       id,
       shortUUID: shortUuid,
       title: "Engineer",
     });
+    const tagRows = await postgres.query<{ id: string; normalizedName: string }>(
+      `
+        SELECT
+          properties ->> 'id' AS id,
+          properties ->> 'normalizedName' AS "normalizedName"
+        FROM graph_nodes
+        WHERE label = 'Tag'
+          AND properties ->> 'id' = ANY($1::text[])
+      `,
+      [tagIds],
+    );
     await postgres.query(
       `
         INSERT INTO job_search_documents (
           job_node_id, structured_jobpost_id, short_uuid, organization_id,
-          title, online, payload, detail_payload
+          title, online, tags, payload, detail_payload
         ) VALUES (
-          $1, $2, $3, 'test-organization', 'Engineer', true,
-          $4::jsonb, $4::jsonb
+          $1, $2, $3, $4, 'Engineer', true, $5::text[],
+          $6::jsonb, $6::jsonb
         )
       `,
       [
         jobNodeId,
         id,
         shortUuid,
+        organizationId,
+        tagRows.map(tag => tag.normalizedName),
         JSON.stringify({ id, shortUUID: shortUuid, title: "Engineer" }),
       ],
+    );
+    await postgres.query(
+      `
+        INSERT INTO job_search_owners (
+          job_node_id, organization_node_id, organization_id
+        ) VALUES ($1, $2, $3)
+      `,
+      [jobNodeId, organizationNodeId, organizationId],
     );
     for (const tagId of tagIds) {
       const [tag] = await postgres.query<{ id: string }>(

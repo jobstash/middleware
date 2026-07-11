@@ -1,4 +1,4 @@
-import { intConverter, paginate, slugify } from ".";
+import { intConverter, losslessInteger, paginate, slugify } from ".";
 
 describe("Helpers", () => {
   it("should paginate correctly", () => {
@@ -35,4 +35,14 @@ describe("Helpers", () => {
       expect(intConverter(value)).toBe(expected);
     },
   );
+
+  it.each([
+    [0, { low: 0, high: 0 }],
+    [1_783_713_133_315, { low: 1_301_705_475, high: 415 }],
+    [4_294_967_295, { low: -1, high: 0 }],
+    [4_294_967_296, { low: 0, high: 1 }],
+    [-1, { low: -1, high: -1 }],
+  ])("emits compatible lossless integer objects", (value, expected) => {
+    expect(losslessInteger(value)).toEqual(expected);
+  });
 });

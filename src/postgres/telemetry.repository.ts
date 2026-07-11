@@ -158,7 +158,7 @@ export class TelemetryRepository {
           SELECT *
           FROM job_search_documents job
           WHERE CASE
-            WHEN $1 = 'ecosystem' THEN $2 = ANY(job.ecosystems)
+            WHEN $1 = 'ecosystem' THEN $2 = ANY(job.managed_ecosystems)
             ELSE job.organization_id = $2
           END
         ), applications AS MATERIALIZED (
@@ -220,7 +220,7 @@ export class TelemetryRepository {
           SELECT organization_id, name
           FROM organization_search_documents
           WHERE CASE
-            WHEN $1 = 'ecosystem' THEN $2 = ANY(ecosystems)
+            WHEN $1 = 'ecosystem' THEN $2 = ANY(managed_ecosystems)
             ELSE organization_id = $2
           END
         ), months AS MATERIALIZED (

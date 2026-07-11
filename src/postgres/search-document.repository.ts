@@ -112,7 +112,9 @@ export class SearchDocumentRepository {
 
   async getJobPayloads(ecosystem?: string): Promise<JobListResult[]> {
     const params: unknown[] = [];
-    const ecosystemPredicate = ecosystem ? `AND $1 = ANY(job.ecosystems)` : "";
+    const ecosystemPredicate = ecosystem
+      ? `AND $1 = ANY(job.managed_ecosystems)`
+      : "";
     if (ecosystem) params.push(slugify(ecosystem));
 
     const rows = await this.postgres.query<{ payload: JobListResult }>(
@@ -120,7 +122,7 @@ export class SearchDocumentRepository {
         SELECT CASE
           WHEN organization.payload IS NULL THEN job.payload
           ELSE job.payload || jsonb_build_object(
-            'organization', organization.payload,
+            'organization', organization.payload - 'tags' - 'jobs',
             'project', NULL
           )
         END AS payload
@@ -129,6 +131,7 @@ export class SearchDocumentRepository {
           ON organization.organization_id = job.organization_id
         WHERE job.online
           AND NOT job.blocked
+          AND cardinality(job.tags) > 0
           AND (job.organization_id IS NOT NULL OR job.project_id IS NOT NULL)
           AND NOT (
             job.access = 'public'
@@ -151,7 +154,7 @@ export class SearchDocumentRepository {
       `
         SELECT
           job.payload || jsonb_build_object(
-            'organization', organization.payload,
+            'organization', organization.payload - 'tags' - 'jobs',
             'project', NULL,
             'online', job.online,
             'blocked', job.blocked
@@ -159,7 +162,8 @@ export class SearchDocumentRepository {
         FROM job_search_documents job
         JOIN organization_search_documents organization
           ON organization.organization_id = job.organization_id
-        WHERE job.ecosystems && $1::text[]
+        WHERE job.managed_ecosystems && $1::text[]
+          AND cardinality(job.tags) > 0
         ORDER BY job.published_timestamp DESC NULLS LAST, job.job_node_id
       `,
       [normalized],
@@ -174,7 +178,7 @@ export class SearchDocumentRepository {
         || CASE
           WHEN organization.payload IS NULL THEN '{}'::jsonb
           ELSE jsonb_build_object(
-            'organization', organization.payload,
+            'organization', organization.payload - 'tags' - 'jobs',
             'project', NULL
           )
         END
@@ -185,6 +189,7 @@ export class SearchDocumentRepository {
       FROM job_search_documents job
       LEFT JOIN organization_search_documents organization
         ON organization.organization_id = job.organization_id
+      WHERE cardinality(job.tags) > 0
       ORDER BY job.published_timestamp DESC NULLS LAST, job.job_node_id
     `);
     return rows.map(row => row.payload);
@@ -200,7 +205,7 @@ export class SearchDocumentRepository {
           || CASE
             WHEN organization.payload IS NULL THEN '{}'::jsonb
             ELSE jsonb_build_object(
-              'organization', organization.payload,
+              'organization', organization.payload - 'tags' - 'jobs',
               'project', NULL
             )
           END
@@ -224,6 +229,7 @@ export class SearchDocumentRepository {
         LEFT JOIN organization_search_documents organization
           ON organization.organization_id = job.organization_id
         WHERE job.organization_id = $1
+          AND cardinality(job.tags) > 0
         ORDER BY job.published_timestamp DESC NULLS LAST, job.job_node_id
       `,
       [organizationId],
@@ -242,6 +248,7 @@ export class SearchDocumentRepository {
       where.add("NOT blocked");
     }
     where.add("(organization_id IS NOT NULL OR project_id IS NOT NULL)");
+    where.add("cardinality(tags) > 0");
     if (params.suppressPublicForExpertOrganizations !== false) {
       where.add("NOT (access = 'public' AND organization_has_expert_jobs)");
     }
@@ -254,7 +261,7 @@ export class SearchDocumentRepository {
 
     if (params.ecosystemHeader) {
       where.add(
-        `${where.bind(slugify(params.ecosystemHeader))} = ANY(ecosystems)`,
+        `${where.bind(slugify(params.ecosystemHeader))} = ANY(managed_ecosystems)`,
       );
     }
     where.addArrayOverlap("ecosystems", params.ecosystems);
@@ -363,8 +370,12 @@ export class SearchDocumentRepository {
       const prefix = alias ? `${alias}.` : "";
       return `
         ${prefix}featured DESC,
-        ${prefix}feature_start_timestamp ASC NULLS LAST,
-        (${prefix}feature_end_timestamp - ${prefix}feature_start_timestamp) DESC NULLS LAST,
+        CASE WHEN ${prefix}featured
+          THEN ${prefix}feature_start_timestamp
+        END ASC NULLS LAST,
+        CASE WHEN ${prefix}featured
+          THEN ${prefix}feature_end_timestamp - ${prefix}feature_start_timestamp
+        END DESC NULLS LAST,
         ${prefix}sort_value ${direction} NULLS LAST,
         ${prefix}job_node_id
       `;
@@ -380,7 +391,15 @@ export class SearchDocumentRepository {
             job_node_id,
             organization_id,
             access,
-            featured,
+            (
+              featured
+              AND feature_start_timestamp IS NOT NULL
+              AND feature_end_timestamp IS NOT NULL
+              AND feature_start_timestamp <
+                (extract(epoch FROM statement_timestamp()) * 1000)::bigint
+              AND feature_end_timestamp >
+                (extract(epoch FROM statement_timestamp()) * 1000)::bigint
+            ) AS featured,
             feature_start_timestamp,
             feature_end_timestamp,
             ${sortExpression} AS sort_value,
@@ -408,7 +427,7 @@ export class SearchDocumentRepository {
         SELECT CASE
           WHEN organization.payload IS NULL THEN job.payload
           ELSE job.payload || jsonb_build_object(
-            'organization', organization.payload,
+            'organization', organization.payload - 'tags' - 'jobs',
             'project', NULL
           )
         END AS payload,
@@ -439,7 +458,7 @@ export class SearchDocumentRepository {
           || CASE
             WHEN organization.payload IS NULL THEN '{}'::jsonb
             ELSE jsonb_build_object(
-              'organization', organization.payload,
+              'organization', organization.payload - 'tags' - 'jobs',
               'project', NULL
             )
           END AS payload
@@ -448,10 +467,14 @@ export class SearchDocumentRepository {
           ON organization.organization_id = job.organization_id
         WHERE job.online
           AND NOT job.blocked
+          AND cardinality(job.tags) > 0
           AND (job.organization_id IS NOT NULL OR job.project_id IS NOT NULL)
-          AND NOT (
-            job.access = 'public'
-            AND job.organization_has_expert_jobs
+          AND (
+            NOT $1::boolean
+            OR NOT (
+              job.access = 'public'
+              AND job.organization_has_expert_jobs
+            )
           )
           AND CASE
             WHEN $1::boolean THEN job.published_timestamp <= $2
@@ -490,7 +513,7 @@ export class SearchDocumentRepository {
           || CASE
             WHEN organization.payload IS NULL THEN '{}'::jsonb
             ELSE jsonb_build_object(
-              'organization', organization.payload,
+              'organization', organization.payload - 'tags' - 'jobs',
               'project', NULL
             )
           END
@@ -506,6 +529,7 @@ export class SearchDocumentRepository {
         LEFT JOIN organization_search_documents organization
           ON organization.organization_id = job.organization_id
         WHERE NOT job.blocked
+          AND cardinality(job.tags) > 0
           AND (job.organization_id IS NOT NULL OR job.project_id IS NOT NULL)
         ORDER BY job.published_timestamp DESC NULLS LAST, job.job_node_id
         LIMIT $1 OFFSET $2
@@ -520,73 +544,157 @@ export class SearchDocumentRepository {
     organizationId?: string,
   ): Promise<Record<string, unknown>> {
     const parameters: unknown[] = [];
-    const predicates = ["online", "NOT blocked"];
+    const predicates = ["job.online", "cardinality(job.tags) > 0"];
     if (ecosystem) {
       const ecosystems = Array.isArray(ecosystem)
         ? (normalizeList(ecosystem) ?? [])
         : [slugify(ecosystem)];
       parameters.push(ecosystems);
-      predicates.push(`ecosystems && $${parameters.length}::text[]`);
+      predicates.push(
+        `organization.managed_ecosystems && $${parameters.length}::text[]`,
+      );
     }
     if (organizationId) {
       parameters.push(organizationId);
-      predicates.push(`organization_id = $${parameters.length}`);
+      predicates.push(`owner.organization_id = $${parameters.length}`);
     }
 
     const [row] = await this.postgres.query<Record<string, unknown>>(
       `
-        WITH docs AS MATERIALIZED (
-          SELECT filter_labels
-          FROM job_search_documents
-          WHERE ${predicates.join(" AND ")}
-        ),
-        metrics AS MATERIALIZED (
+        WITH scoped_jobs AS MATERIALIZED (
           SELECT
+            job.job_node_id,
+            job.salary,
+            job.salary_currency,
+            job.tags,
+            job.classifications,
+            job.commitments,
+            job.location_types,
+            job.seniority,
+            job.filter_labels,
+            owner.organization_id AS owner_organization_id,
+            organization.name AS owner_organization_name,
+            organization.headcount_estimate AS owner_headcount_estimate,
+            organization.project_names AS owner_project_names,
+            organization.investors AS owner_investor_names,
+            organization.funding_rounds AS owner_funding_round_names,
+            organization.chains AS owner_chain_names,
+            organization.ecosystems AS owner_ecosystems,
+            organization.filter_labels AS owner_filter_labels
+          FROM job_search_documents job
+          JOIN job_search_owners owner ON owner.job_node_id = job.job_node_id
+          JOIN organization_search_documents organization
+            ON organization.organization_node_id = owner.organization_node_id
+          WHERE ${predicates.join(" AND ")}
+        ), scoped_job_documents AS MATERIALIZED (
+          SELECT DISTINCT ON (job_node_id)
+            job_node_id,
             salary,
-            max_tvl,
-            max_monthly_volume,
-            max_monthly_fees,
-            max_monthly_revenue,
-            headcount_estimate,
+            salary_currency,
             tags,
-            project_names,
-            organization_name,
-            investor_names,
-            funding_round_names,
-            chain_names,
-            ecosystems,
             classifications,
             commitments,
             location_types,
-            seniority
-          FROM job_search_documents
-          WHERE ${predicates.join(" AND ")}
+            seniority,
+            filter_labels
+          FROM scoped_jobs
+          ORDER BY job_node_id
+        ), scoped_organizations AS MATERIALIZED (
+          SELECT DISTINCT ON (owner_organization_id)
+            owner_organization_id,
+            owner_organization_name,
+            owner_headcount_estimate,
+            owner_project_names,
+            owner_investor_names,
+            owner_funding_round_names,
+            owner_chain_names,
+            owner_ecosystems,
+            owner_filter_labels
+          FROM scoped_jobs
+          ORDER BY owner_organization_id
+        ), eligible_organizations AS MATERIALIZED (
+          SELECT scoped.*
+          FROM scoped_organizations scoped
+          WHERE NOT EXISTS (
+              SELECT 1
+              FROM job_search_owners blocked_owner
+              JOIN job_search_documents blocked_job
+                ON blocked_job.job_node_id = blocked_owner.job_node_id
+              WHERE blocked_owner.organization_id = scoped.owner_organization_id
+                AND blocked_job.blocked
+            )
+        ), eligible_projects AS MATERIALIZED (
+          SELECT project.*
+          FROM project_search_documents project
+          WHERE project.organization_ids && COALESCE((
+            SELECT array_agg(DISTINCT slugify_text(owner_organization_id))
+            FROM eligible_organizations
+          ), ARRAY[]::text[])
+        ), organization_label_values AS MATERIALIZED (
+          SELECT
+            section.category,
+            array_agg(DISTINCT label.value ORDER BY label.value) AS labels
+          FROM eligible_organizations organization
+          CROSS JOIN LATERAL jsonb_each(jsonb_build_object(
+            'projects', organization.owner_filter_labels -> 'projects',
+            'investors', organization.owner_filter_labels -> 'investors',
+            'fundingRounds',
+              organization.owner_filter_labels -> 'fundingRounds',
+            'chains', organization.owner_filter_labels -> 'chains',
+            'ecosystems', organization.owner_filter_labels -> 'ecosystems'
+          ))
+            section(category, labels_json)
+          CROSS JOIN LATERAL jsonb_each_text(
+            CASE
+              WHEN jsonb_typeof(section.labels_json) = 'object'
+                THEN section.labels_json
+              ELSE '{}'::jsonb
+            END
+          ) label
+          GROUP BY section.category
         )
         SELECT
-          min(salary) AS "minSalaryRange",
-          max(salary) AS "maxSalaryRange",
-          min(max_tvl) AS "minTvl",
-          max(max_tvl) AS "maxTvl",
-          min(max_monthly_volume) AS "minMonthlyVolume",
-          max(max_monthly_volume) AS "maxMonthlyVolume",
-          min(max_monthly_fees) AS "minMonthlyFees",
-          max(max_monthly_fees) AS "maxMonthlyFees",
-          min(max_monthly_revenue) AS "minMonthlyRevenue",
-          max(max_monthly_revenue) AS "maxMonthlyRevenue",
-          min(headcount_estimate) AS "minHeadCount",
-          max(headcount_estimate) AS "maxHeadCount",
-          ${filterLabels("tags", "tags", "metrics")} AS tags,
-          ${filterLabels("projects", "project_names", "metrics")} AS projects,
-          ${filterLabels("organizations", "ARRAY[organization_name]", "metrics")} AS organizations,
-          ${filterLabels("investors", "investor_names", "metrics")} AS investors,
-          ${filterLabels("fundingRounds", "funding_round_names", "metrics")} AS "fundingRounds",
-          ${filterLabels("chains", "chain_names", "metrics")} AS chains,
-          ${filterLabels("ecosystems", "ecosystems", "metrics")} AS ecosystems,
-          ${filterLabels("classifications", "classifications", "metrics")} AS classifications,
-          ${filterLabels("commitments", "commitments", "metrics")} AS commitments,
-          ${filterLabels("locations", "location_types", "metrics")} AS locations,
-          array_remove(array_agg(DISTINCT seniority), NULL) AS seniority
-        FROM metrics
+          (SELECT min(salary)::float8 FROM scoped_job_documents
+            WHERE salary_currency ILIKE '%USD%') AS "minSalaryRange",
+          (SELECT max(salary)::float8 FROM scoped_job_documents
+            WHERE salary_currency ILIKE '%USD%') AS "maxSalaryRange",
+          (SELECT min(tvl)::float8 FROM eligible_projects) AS "minTvl",
+          (SELECT max(tvl)::float8 FROM eligible_projects) AS "maxTvl",
+          (SELECT min(monthly_volume)::float8 FROM eligible_projects) AS "minMonthlyVolume",
+          (SELECT max(monthly_volume)::float8 FROM eligible_projects) AS "maxMonthlyVolume",
+          (SELECT max(monthly_fees)::float8 FROM eligible_projects) AS "minMonthlyFees",
+          (SELECT max(monthly_fees)::float8 FROM eligible_projects) AS "maxMonthlyFees",
+          (SELECT max(monthly_revenue)::float8 FROM eligible_projects) AS "minMonthlyRevenue",
+          (SELECT max(monthly_revenue)::float8 FROM eligible_projects) AS "maxMonthlyRevenue",
+          (SELECT min(owner_headcount_estimate) FROM scoped_organizations) AS "minHeadCount",
+          (SELECT max(owner_headcount_estimate) FROM scoped_organizations) AS "maxHeadCount",
+          ${filterLabels("tags", "tags", "scoped_job_documents", "scoped_job_documents")} AS tags,
+          COALESCE(
+            (SELECT labels FROM organization_label_values WHERE category = 'projects'),
+            ${fallbackLabels("owner_project_names", "eligible_organizations")}
+          ) AS projects,
+          ${filterLabels("organizations", "ARRAY[owner_organization_name]", "scoped_organizations", "scoped_organizations", "owner_filter_labels")} AS organizations,
+          COALESCE(
+            (SELECT labels FROM organization_label_values WHERE category = 'investors'),
+            ${fallbackLabels("owner_investor_names", "eligible_organizations")}
+          ) AS investors,
+          COALESCE(
+            (SELECT labels FROM organization_label_values WHERE category = 'fundingRounds'),
+            ${fallbackLabels("owner_funding_round_names", "eligible_organizations")}
+          ) AS "fundingRounds",
+          COALESCE(
+            (SELECT labels FROM organization_label_values WHERE category = 'chains'),
+            ${fallbackLabels("owner_chain_names", "eligible_organizations")}
+          ) AS chains,
+          COALESCE(
+            (SELECT labels FROM organization_label_values WHERE category = 'ecosystems'),
+            ${fallbackLabels("owner_ecosystems", "eligible_organizations")}
+          ) AS ecosystems,
+          ${filterLabels("classifications", "classifications", "scoped_job_documents", "scoped_job_documents")} AS classifications,
+          ${filterLabels("commitments", "commitments", "scoped_job_documents", "scoped_job_documents")} AS commitments,
+          ${filterLabels("locations", "location_types", "scoped_job_documents", "scoped_job_documents")} AS locations,
+          (SELECT array_remove(array_agg(DISTINCT seniority), NULL)
+            FROM scoped_job_documents) AS seniority
       `,
       parameters,
     );
@@ -615,7 +723,7 @@ export class SearchDocumentRepository {
           || CASE
             WHEN organization.payload IS NULL THEN '{}'::jsonb
             ELSE jsonb_build_object(
-              'organization', organization.payload,
+              'organization', organization.payload - 'tags' - 'jobs',
               'project', NULL
             )
           END
@@ -639,8 +747,9 @@ export class SearchDocumentRepository {
         LEFT JOIN organization_search_documents organization
           ON organization.organization_id = job.organization_id
         WHERE job.short_uuid = $1
+          AND cardinality(job.tags) > 0
           AND ($2::boolean OR (job.online AND NOT job.blocked))
-          AND ($3::text IS NULL OR $3 = ANY(job.ecosystems))
+          AND ($3::text IS NULL OR $3 = ANY(job.managed_ecosystems))
         ORDER BY job.online DESC, job.blocked ASC, job.job_node_id
         LIMIT 1
       `,
@@ -655,7 +764,9 @@ export class SearchDocumentRepository {
 
   async getOrganizationPayloads(ecosystem?: string): Promise<OrgListResult[]> {
     const params: unknown[] = [];
-    const ecosystemPredicate = ecosystem ? "WHERE $1 = ANY(ecosystems)" : "";
+    const ecosystemPredicate = ecosystem
+      ? "WHERE $1 = ANY(managed_ecosystems)"
+      : "";
     if (ecosystem) params.push(slugify(ecosystem));
     const rows = await this.postgres.query<{ payload: OrgListResult }>(
       `
@@ -746,7 +857,7 @@ export class SearchDocumentRepository {
     const where = new SqlPredicateBuilder();
     if (params.ecosystemHeader) {
       where.add(
-        `${where.bind(slugify(params.ecosystemHeader))} = ANY(ecosystems)`,
+        `${where.bind(slugify(params.ecosystemHeader))} = ANY(managed_ecosystems)`,
       );
     }
     where.addRange(
@@ -802,32 +913,38 @@ export class SearchDocumentRepository {
     return toPage(rows, paging.page);
   }
 
-  async getOrganizationById(id: string): Promise<OrgListResult | undefined> {
+  async getOrganizationById(
+    id: string,
+    ecosystem?: string,
+  ): Promise<OrgListResult | undefined> {
     const [row] = await this.postgres.query<{ payload: OrgListResult }>(
       `
         SELECT COALESCE(detail_payload, payload) AS payload
         FROM organization_search_documents
         WHERE organization_id = $1
+          AND ($2::text IS NULL OR $2 = ANY(managed_ecosystems))
         ORDER BY organization_node_id
         LIMIT 1
       `,
-      [id],
+      [id, ecosystem ? slugify(ecosystem) : null],
     );
     return row?.payload;
   }
 
   async getOrganizationBySlug(
     slug: string,
+    ecosystem?: string,
   ): Promise<OrgListResult | undefined> {
     const [row] = await this.postgres.query<{ payload: OrgListResult }>(
       `
         SELECT COALESCE(detail_payload, payload) AS payload
         FROM organization_search_documents
         WHERE slug = $1
+          AND ($2::text IS NULL OR $2 = ANY(managed_ecosystems))
         ORDER BY organization_node_id
         LIMIT 1
       `,
-      [slugify(slug)],
+      [slugify(slug), ecosystem ? slugify(ecosystem) : null],
     );
     return row?.payload;
   }
@@ -862,29 +979,65 @@ export class SearchDocumentRepository {
     ecosystem?: string,
   ): Promise<Record<string, unknown>> {
     const parameters: unknown[] = [];
-    const ecosystemSql = ecosystem ? "WHERE $1 = ANY(ecosystems)" : "";
+    const ecosystemSql = ecosystem
+      ? "AND $1 = ANY(organization.managed_ecosystems)"
+      : "";
     if (ecosystem) parameters.push(slugify(ecosystem));
     const [row] = await this.postgres.query<Record<string, unknown>>(
       `
-        WITH docs AS MATERIALIZED (
+        WITH scoped_jobs AS MATERIALIZED (
           SELECT
-            headcount_estimate,
-            filter_labels,
-            funding_rounds,
-            investors,
-            ecosystems,
-            location
-          FROM organization_search_documents
+            job.job_node_id,
+            owner.organization_id AS owner_organization_id,
+            organization.headcount_estimate,
+            organization.funding_rounds AS funding_round_names,
+            organization.investors AS investor_names,
+            organization.ecosystems,
+            organization.filter_labels AS owner_filter_labels,
+            job.location_types,
+            job.filter_labels AS job_filter_labels
+          FROM job_search_documents job
+          JOIN job_search_owners owner ON owner.job_node_id = job.job_node_id
+          JOIN organization_search_documents organization
+            ON organization.organization_node_id = owner.organization_node_id
+          WHERE job.online
           ${ecosystemSql}
+        ), scoped_job_documents AS MATERIALIZED (
+          SELECT DISTINCT ON (job_node_id)
+            job_node_id,
+            location_types,
+            job_filter_labels
+          FROM scoped_jobs
+          ORDER BY job_node_id
+        ), scoped_organizations AS MATERIALIZED (
+          SELECT DISTINCT ON (owner_organization_id)
+            owner_organization_id,
+            headcount_estimate,
+            funding_round_names,
+            investor_names,
+            ecosystems,
+            owner_filter_labels
+          FROM scoped_jobs
+          ORDER BY owner_organization_id
+        ), eligible_organizations AS MATERIALIZED (
+          SELECT scoped.*
+          FROM scoped_organizations scoped
+          WHERE NOT EXISTS (
+              SELECT 1
+              FROM job_search_owners blocked_owner
+              JOIN job_search_documents blocked_job
+                ON blocked_job.job_node_id = blocked_owner.job_node_id
+              WHERE blocked_owner.organization_id = scoped.owner_organization_id
+                AND blocked_job.blocked
+            )
         )
         SELECT
-          min(headcount_estimate) AS "minHeadCount",
-          max(headcount_estimate) AS "maxHeadCount",
-          ${filterLabels("fundingRounds", "funding_rounds")} AS "fundingRounds",
-          ${filterLabels("investors", "investors")} AS investors,
-          ${filterLabels("ecosystems", "ecosystems")} AS ecosystems,
-          ${filterLabels("locations", "ARRAY[location]")} AS locations
-        FROM docs
+          (SELECT min(headcount_estimate) FROM scoped_organizations) AS "minHeadCount",
+          (SELECT max(headcount_estimate) FROM scoped_organizations) AS "maxHeadCount",
+          ${filterLabels("fundingRounds", "funding_round_names", "eligible_organizations", "eligible_organizations", "owner_filter_labels")} AS "fundingRounds",
+          ${filterLabels("investors", "investor_names", "eligible_organizations", "eligible_organizations", "owner_filter_labels")} AS investors,
+          ${filterLabels("ecosystems", "ecosystems", "eligible_organizations", "eligible_organizations", "owner_filter_labels")} AS ecosystems,
+          ${filterLabels("locations", "location_types", "scoped_job_documents", "scoped_job_documents", "job_filter_labels")} AS locations
       `,
       parameters,
     );
@@ -897,7 +1050,7 @@ export class SearchDocumentRepository {
     const where = new SqlPredicateBuilder();
     if (params.ecosystemHeader) {
       where.add(
-        `${where.bind(slugify(params.ecosystemHeader))} = ANY(ecosystems)`,
+        `${where.bind(slugify(params.ecosystemHeader))} = ANY(managed_ecosystems)`,
       );
     }
     where.addRange("tvl", params.minTvl, params.maxTvl);
@@ -966,32 +1119,36 @@ export class SearchDocumentRepository {
 
   async getProjectById<T = ProjectListResult>(
     id: string,
+    ecosystem?: string,
   ): Promise<T | undefined> {
     const [row] = await this.postgres.query<{ payload: T }>(
       `
         SELECT COALESCE(detail_payload, payload) AS payload
         FROM project_search_documents
         WHERE project_id = $1
+          AND ($2::text IS NULL OR $2 = ANY(managed_ecosystems))
         ORDER BY project_node_id
         LIMIT 1
       `,
-      [id],
+      [id, ecosystem ? slugify(ecosystem) : null],
     );
     return row?.payload;
   }
 
   async getProjectBySlug<T = ProjectListResult>(
     slug: string,
+    ecosystem?: string,
   ): Promise<T | undefined> {
     const [row] = await this.postgres.query<{ payload: T }>(
       `
         SELECT COALESCE(detail_payload, payload) AS payload
         FROM project_search_documents
         WHERE slug = $1
+          AND ($2::text IS NULL OR $2 = ANY(managed_ecosystems))
         ORDER BY project_node_id
         LIMIT 1
       `,
-      [slugify(slug)],
+      [slugify(slug), ecosystem ? slugify(ecosystem) : null],
     );
     return row?.payload;
   }
@@ -1005,7 +1162,9 @@ export class SearchDocumentRepository {
   ): Promise<T[]> {
     const where = new SqlPredicateBuilder();
     if (options.ecosystem) {
-      where.add(`${where.bind(slugify(options.ecosystem))} = ANY(ecosystems)`);
+      where.add(
+        `${where.bind(slugify(options.ecosystem))} = ANY(managed_ecosystems)`,
+      );
     }
     if (options.organizationId) {
       where.add(
@@ -1052,7 +1211,9 @@ export class SearchDocumentRepository {
     ecosystem?: string,
   ): Promise<T[]> {
     const parameters: unknown[] = [projectId];
-    const ecosystemSql = ecosystem ? `AND $2 = ANY(candidate.ecosystems)` : "";
+    const ecosystemSql = ecosystem
+      ? `AND $2 = ANY(candidate.managed_ecosystems)`
+      : "";
     if (ecosystem) parameters.push(slugify(ecosystem));
     const rows = await this.postgres.query<{ payload: T }>(
       `
@@ -1098,40 +1259,73 @@ export class SearchDocumentRepository {
     ecosystem?: string,
   ): Promise<Record<string, unknown>> {
     const parameters: unknown[] = [];
-    const ecosystemSql = ecosystem ? "WHERE $1 = ANY(ecosystems)" : "";
+    const ecosystemSql = ecosystem
+      ? "AND $1 = ANY(organization.managed_ecosystems)"
+      : "";
     if (ecosystem) parameters.push(slugify(ecosystem));
     const [row] = await this.postgres.query<Record<string, unknown>>(
       `
-        WITH docs AS MATERIALIZED (
+        WITH scoped_jobs AS MATERIALIZED (
           SELECT
-            tvl,
-            monthly_volume,
-            monthly_fees,
-            monthly_revenue,
-            filter_labels,
-            organization_names,
-            chains,
-            ecosystems,
-            categories,
-            investors
-          FROM project_search_documents
+            job.job_node_id,
+            owner.organization_id AS owner_organization_id,
+            organization.name AS owner_organization_name,
+            organization.investors AS owner_investor_names,
+            organization.filter_labels AS owner_filter_labels
+          FROM job_search_documents job
+          JOIN job_search_owners owner ON owner.job_node_id = job.job_node_id
+          JOIN organization_search_documents organization
+            ON organization.organization_node_id = owner.organization_node_id
+          WHERE job.online
           ${ecosystemSql}
+        ), scoped_organizations AS MATERIALIZED (
+          SELECT DISTINCT ON (owner_organization_id)
+            owner_organization_id,
+            owner_organization_name,
+            owner_investor_names,
+            owner_filter_labels
+          FROM scoped_jobs
+          ORDER BY owner_organization_id
+        ), eligible_organizations AS MATERIALIZED (
+          SELECT scoped.*
+          FROM scoped_organizations scoped
+          WHERE NOT EXISTS (
+              SELECT 1
+              FROM job_search_owners blocked_owner
+              JOIN job_search_documents blocked_job
+                ON blocked_job.job_node_id = blocked_owner.job_node_id
+              WHERE blocked_owner.organization_id = scoped.owner_organization_id
+                AND blocked_job.blocked
+            )
+        ), active_projects AS MATERIALIZED (
+          SELECT project.*
+          FROM project_search_documents project
+          WHERE project.organization_ids && COALESCE((
+            SELECT array_agg(DISTINCT slugify_text(owner_organization_id))
+            FROM scoped_organizations
+          ), ARRAY[]::text[])
+        ), eligible_projects AS MATERIALIZED (
+          SELECT project.*
+          FROM project_search_documents project
+          WHERE project.organization_ids && COALESCE((
+            SELECT array_agg(DISTINCT slugify_text(owner_organization_id))
+            FROM eligible_organizations
+          ), ARRAY[]::text[])
         )
         SELECT
-          min(tvl) AS "minTvl",
-          max(tvl) AS "maxTvl",
-          min(monthly_volume) AS "minMonthlyVolume",
-          max(monthly_volume) AS "maxMonthlyVolume",
-          min(monthly_fees) AS "minMonthlyFees",
-          max(monthly_fees) AS "maxMonthlyFees",
-          min(monthly_revenue) AS "minMonthlyRevenue",
-          max(monthly_revenue) AS "maxMonthlyRevenue",
-          ${filterLabels("organizations", "organization_names")} AS organizations,
-          ${filterLabels("chains", "chains")} AS chains,
-          ${filterLabels("ecosystems", "ecosystems")} AS ecosystems,
-          ${filterLabels("categories", "categories")} AS categories,
-          ${filterLabels("investors", "investors")} AS investors
-        FROM docs
+          (SELECT min(tvl)::float8 FROM eligible_projects) AS "minTvl",
+          (SELECT max(tvl)::float8 FROM eligible_projects) AS "maxTvl",
+          (SELECT min(monthly_volume)::float8 FROM eligible_projects) AS "minMonthlyVolume",
+          (SELECT max(monthly_volume)::float8 FROM eligible_projects) AS "maxMonthlyVolume",
+          (SELECT max(monthly_fees)::float8 FROM eligible_projects) AS "minMonthlyFees",
+          (SELECT max(monthly_fees)::float8 FROM eligible_projects) AS "maxMonthlyFees",
+          (SELECT max(monthly_revenue)::float8 FROM eligible_projects) AS "minMonthlyRevenue",
+          (SELECT max(monthly_revenue)::float8 FROM eligible_projects) AS "maxMonthlyRevenue",
+          ${filterLabels("organizations", "ARRAY[owner_organization_name]", "scoped_organizations", "scoped_organizations", "owner_filter_labels")} AS organizations,
+          ${filterLabels("chains", "chains", "eligible_projects", "eligible_projects")} AS chains,
+          ${filterLabels("ecosystems", "ecosystems", "eligible_projects", "eligible_projects")} AS ecosystems,
+          ${filterLabels("categories", "categories", "active_projects", "active_projects")} AS categories,
+          ${filterLabels("investors", "owner_investor_names", "eligible_organizations", "eligible_organizations", "owner_filter_labels")} AS investors
       `,
       parameters,
     );
@@ -1139,17 +1333,31 @@ export class SearchDocumentRepository {
   }
 }
 
+const fallbackLabels = (expression: string, source: string): string => `
+  COALESCE(
+    (
+      SELECT array_agg(DISTINCT fallback ORDER BY fallback)
+      FROM ${source} fallback_doc
+      CROSS JOIN LATERAL unnest(${expression}) fallback
+      WHERE fallback IS NOT NULL AND fallback <> ''
+    ),
+    ARRAY[]::text[]
+  )
+`;
+
 const filterLabels = (
   category: string,
   fallbackExpression: string,
   fallbackSource = "docs",
+  labelSource = "docs",
+  labelColumn = "filter_labels",
 ): string => `
   COALESCE(
     (
       SELECT array_agg(DISTINCT label ORDER BY label)
-      FROM docs label_doc
+      FROM ${labelSource} label_doc
       CROSS JOIN LATERAL jsonb_each_text(
-        COALESCE(label_doc.filter_labels -> '${category}', '{}'::jsonb)
+        COALESCE(label_doc.${labelColumn} -> '${category}', '{}'::jsonb)
       ) labels(slug, label)
     ),
     (
