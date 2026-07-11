@@ -5,7 +5,6 @@ import { MagicAuthStrategy } from "./magic.strategy";
 import { MailModule } from "src/mail/mail.module";
 import { MailService } from "src/mail/mail.service";
 import { AuthModule } from "../auth.module";
-import { ModelService } from "src/model/model.service";
 import { UserModule } from "src/user/user.module";
 import { ProfileService } from "../profile/profile.service";
 import { HttpModule } from "@nestjs/axios";
@@ -38,13 +37,7 @@ import { BullModule } from "@nestjs/bull";
     ConfigModule,
     MailModule,
   ],
-  providers: [
-    MagicAuthStrategy,
-    UserService,
-    MailService,
-    ModelService,
-    ProfileService,
-  ],
+  providers: [MagicAuthStrategy, UserService, MailService, ProfileService],
   exports: [MagicAuthStrategy],
 })
 export class MagicAuthModule {}

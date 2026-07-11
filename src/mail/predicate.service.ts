@@ -1,28 +1,20 @@
-import { Neogma } from "neogma";
-import { InjectConnection } from "nestjs-neogma";
+import { GraphRepository } from "src/postgres/graph.repository";
 
 export class PredicateService {
-  constructor(
-    @InjectConnection()
-    private neogma: Neogma,
-  ) {}
+  constructor(private readonly graph: GraphRepository) {}
 
   async isPaymentReminderNeeded(data: {
     paymentReference: string;
     orgId: string;
   }): Promise<boolean> {
     const { paymentReference, orgId } = data;
-    const payment = (
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (payment:PendingPayment {reference: $paymentReference})<-[:HAS_PENDING_PAYMENT]-(:Organization {orgId: $orgId})
-        RETURN payment { .* } as payment
-      `,
-        { paymentReference, orgId },
-      )
-    ).records[0]?.get("payment");
-
-    return !!payment;
+    return this.graph.hasRelationship({
+      sourceLabel: "Organization",
+      sourceWhere: { orgId },
+      type: "HAS_PENDING_PAYMENT",
+      targetLabel: "PendingPayment",
+      targetWhere: { reference: paymentReference },
+    });
   }
 
   getPredicates(): Record<string, (data: object) => Promise<boolean>> {

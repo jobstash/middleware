@@ -3,22 +3,17 @@ import { ConfigService } from "@nestjs/config";
 import * as Sentry from "@sentry/node";
 import axios from "axios";
 import { omit } from "lodash";
-import { Neogma, Op } from "neogma";
-import { InjectConnection } from "nestjs-neogma";
+import { randomUUID } from "node:crypto";
 import { Auth0Service } from "src/auth0/auth0.service";
-import { ModelService } from "src/model/model.service";
 import {
   ensureProtocol,
-  instanceToNode,
   isValidUrl,
-  naturalSort,
   nonZeroOrNull,
   notStringOrNull,
   paginate,
   slugify,
   toAbsoluteURL,
 } from "src/shared/helpers";
-import { ProjectProps } from "src/shared/models";
 import {
   Investor,
   Jobsite,
@@ -34,6 +29,7 @@ import {
   ProjectListResult,
   ProjectListResultEntity,
   ProjectMoreInfoEntity,
+  ProjectMoreInfo,
   ProjectWithRelations,
   ProjectWithRelationsEntity,
   RawProjectWebsite,
@@ -52,296 +48,36 @@ import { UpdateProjectJobsitesInput } from "./dto/update-project-jobsites.input"
 import { UpdateProjectInput } from "./dto/update-project.input";
 import { SearchProjectsInput } from "./dto/search-projects.input";
 import { go } from "fuzzysort";
+import { SearchDocumentRepository } from "src/postgres/search-document.repository";
+import { GraphRepository } from "src/postgres/graph.repository";
 
 @Injectable()
 export class ProjectsService {
   private readonly logger = new CustomLogger(ProjectsService.name);
   constructor(
-    @InjectConnection()
-    private neogma: Neogma,
-    private models: ModelService,
     private readonly configService: ConfigService,
     private readonly auth0Service: Auth0Service,
+    private readonly searchDocuments: SearchDocumentRepository,
+    private readonly graph: GraphRepository,
   ) {}
 
   async getProjectsListWithSearch(
     params: ProjectListParams & { ecosystemHeader?: string },
   ): Promise<PaginatedData<ProjectListResult>> {
-    const paramsPassed = {
-      ...params,
-      limit: params.limit ?? 10,
-      page: params.page ?? 1,
+    const postgresPage = await this.searchDocuments.searchProjects(params);
+    return {
+      ...postgresPage,
+      data: postgresPage.data.map(payload =>
+        new ProjectListResultEntity(payload).getProperties(),
+      ),
     };
-
-    const {
-      minTvl,
-      maxTvl,
-      minMonthlyVolume,
-      maxMonthlyVolume,
-      minMonthlyFees,
-      maxMonthlyFees,
-      minMonthlyRevenue,
-      maxMonthlyRevenue,
-      audits: auditFilter,
-      hacks: hackFilter,
-      chains: chainFilterList,
-      organizations: organizationFilterList,
-      investors: investorFilterList,
-      categories: categoryFilterList,
-      tags: tagFilterList,
-      names: nameFilterList,
-      ecosystems: ecosystemFilterList,
-      token,
-      query,
-      order,
-      orderBy,
-      page,
-      limit,
-      ecosystemHeader,
-    } = paramsPassed;
-
-    const results: (ProjectWithRelations & {
-      orgNames: string[];
-      ecosystems: string[];
-    })[] = [];
-
-    try {
-      const projects =
-        await this.models.Projects.getProjectsData(ecosystemHeader);
-      for (const project of projects) {
-        results.push(project);
-      }
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "projects.service",
-        });
-        scope.setExtra("input", params);
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `ProjectsService::getProjectsListWithSearch ${err.message}`,
-      );
-      return {
-        page: -1,
-        count: 0,
-        total: 0,
-        data: [],
-      };
-    }
-
-    const projectFilters = (
-      project: ProjectWithRelations & {
-        orgNames: string[];
-        ecosystems: string[];
-        aliases: string[];
-        investors: Investor[];
-      },
-    ): boolean => {
-      const isValidSearchResult = query
-        ? go(query, [project.name, ...project.aliases], {
-            threshold: 0.3,
-          }).map(x => x.target).length > 0
-        : true;
-      return (
-        (!query || isValidSearchResult) &&
-        (!categoryFilterList ||
-          categoryFilterList.includes(slugify(project.category))) &&
-        (!organizationFilterList ||
-          organizationFilterList.some(x =>
-            project.orgNames.map(slugify).includes(x),
-          )) &&
-        (!ecosystemFilterList ||
-          ecosystemFilterList.some(x =>
-            project.ecosystems.map(slugify).includes(x),
-          )) &&
-        (!minTvl || (project?.tvl ?? 0) >= minTvl) &&
-        (!maxTvl || (project?.tvl ?? 0) < maxTvl) &&
-        (!minMonthlyVolume ||
-          (project?.monthlyVolume ?? 0) >= minMonthlyVolume) &&
-        (!maxMonthlyVolume ||
-          (project?.monthlyVolume ?? 0) < maxMonthlyVolume) &&
-        (!minMonthlyFees || (project?.monthlyFees ?? 0) >= minMonthlyFees) &&
-        (!maxMonthlyFees || (project?.monthlyFees ?? 0) < maxMonthlyFees) &&
-        (!minMonthlyRevenue ||
-          (project?.monthlyRevenue ?? 0) >= minMonthlyRevenue) &&
-        (!maxMonthlyRevenue ||
-          (project?.monthlyRevenue ?? 0) < maxMonthlyRevenue) &&
-        (auditFilter === null ||
-          (project?.audits?.length ?? 0) > 0 === auditFilter) &&
-        (hackFilter === null ||
-          (project?.hacks?.length ?? 0) > 0 === hackFilter) &&
-        (!chainFilterList ||
-          (chainFilterList.find(x =>
-            project.chains.map(x => slugify(x.name)).includes(x),
-          ) ??
-            false)) &&
-        (!investorFilterList ||
-          project.investors.filter(investor =>
-            investorFilterList.includes(slugify(investor.name)),
-          ).length > 0) &&
-        (!tagFilterList ||
-          (tagFilterList.find(x =>
-            project.jobs
-              .flatMap(x => x.tags)
-              .map(x => x.normalizedName)
-              .includes(x),
-          ) ??
-            false)) &&
-        (!nameFilterList ||
-          nameFilterList.includes(project.normalizedName) ||
-          nameFilterList.some(x => project.aliases.map(slugify).includes(x))) &&
-        (token === null ||
-          (notStringOrNull(project.tokenAddress) !== null) === token)
-      );
-    };
-
-    const filtered = results
-      .filter(projectFilters)
-      .map(x => new ProjectListResultEntity(x).getProperties());
-
-    const getSortParam = (p1: ProjectListResult): number | null => {
-      switch (params.orderBy) {
-        case "audits":
-          return p1.audits.length;
-        case "hacks":
-          return p1.hacks.length;
-        case "chains":
-          return p1.chains.length;
-        case "monthlyVolume":
-          return p1.monthlyVolume ?? 0;
-        case "monthlyFees":
-          return p1.monthlyFees ?? 0;
-        case "monthlyRevenue":
-          return p1.monthlyRevenue ?? 0;
-        case "tvl":
-          return p1.tvl ?? 0;
-        default:
-          return null;
-      }
-    };
-
-    let final: ProjectListResult[] = [];
-    if (!order || order === "asc") {
-      final = naturalSort<ProjectListResult>(filtered).asc(x =>
-        orderBy ? getSortParam(x) : x.name,
-      );
-    } else {
-      final = naturalSort<ProjectListResult>(filtered).desc(x =>
-        orderBy ? getSortParam(x) : x.name,
-      );
-    }
-
-    return paginate<ProjectListResult>(page, limit, final);
   }
 
   async getFilterConfigs(
     ecosystem: string | undefined,
   ): Promise<ProjectFilterConfigs> {
-    try {
-      return await this.neogma.queryRunner
-        .run(
-          `
-            CYPHER runtime = pipelined
-            RETURN {
-                maxTvl: apoc.coll.max([
-                  (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.tvl
-                ]),
-                minTvl: apoc.coll.min([
-                  (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.tvl
-                ]),
-                minMonthlyVolume: apoc.coll.min([
-                  (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyVolume
-                ]),
-                maxMonthlyVolume: apoc.coll.max([
-                  (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyVolume
-                ]),
-                minMonthlyFees: apoc.coll.max([
-                  (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyFees
-                ]),
-                maxMonthlyFees: apoc.coll.max([
-                  (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyFees
-                ]),
-                minMonthlyRevenue: apoc.coll.max([
-                  (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyRevenue
-                ]),
-                maxMonthlyRevenue: apoc.coll.max([
-                  (org)-[:HAS_PROJECT]->(project:Project)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation) | project.monthlyRevenue
-                ]),
-                investors: apoc.coll.toSet([
-                  (org: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | investor.name
-                ]),
-                ecosystems: apoc.coll.toSet([
-                  (org: Organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | ecosystem.name
-                ]),
-                categories: apoc.coll.toSet([
-                  (org)-[:HAS_PROJECT|HAS_CATEGORY*2]->(category: ProjectCategory)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | category.name
-                ]),
-                chains: apoc.coll.toSet([
-                  (org)-[:HAS_PROJECT|IS_DEPLOYED_ON*2]->(chain: Chain)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                  AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
-                  AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | chain.name
-                ]),
-                organizations: apoc.coll.toSet([
-                  (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus)
-                  WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END | org.name
-                ])
-            } as res
-          `,
-          { ecosystem: ecosystem ?? null },
-        )
-        .then(res =>
-          res.records.length
-            ? new ProjectFilterConfigsEntity(
-                res.records[0].get("res"),
-              ).getProperties()
-            : undefined,
-        );
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "projects.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`ProjectsService::getFilterConfigs ${err.message}`);
-      return undefined;
-    }
+    const values = await this.searchDocuments.getProjectFilterValues(ecosystem);
+    return new ProjectFilterConfigsEntity(values).getProperties();
   }
 
   async getProjectDetailsById(
@@ -349,13 +85,17 @@ export class ProjectsService {
     ecosystem: string | undefined,
   ): Promise<ProjectDetailsResult | null> {
     try {
-      const details = await this.models.Projects.getProjectDetailsById(
-        id,
-        ecosystem,
-      );
-      return details
-        ? new ProjectDetailsEntity(details).getProperties()
-        : undefined;
+      const projected = await this.searchDocuments.getProjectById(id);
+      if (
+        !projected ||
+        (ecosystem &&
+          !projected.ecosystems.map(slugify).includes(slugify(ecosystem)))
+      ) {
+        return undefined;
+      }
+      return new ProjectDetailsEntity(
+        projected as ProjectDetailsResult,
+      ).getProperties();
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -377,13 +117,17 @@ export class ProjectsService {
     ecosystem: string | undefined,
   ): Promise<ProjectDetailsResult | null> {
     try {
-      const details = await this.models.Projects.getProjectDetailsBySlug(
-        slug,
-        ecosystem,
-      );
-      return details
-        ? new ProjectDetailsEntity(details).getProperties()
-        : undefined;
+      const projected = await this.searchDocuments.getProjectBySlug(slug);
+      if (
+        !projected ||
+        (ecosystem &&
+          !projected.ecosystems.map(slugify).includes(slugify(ecosystem)))
+      ) {
+        return undefined;
+      }
+      return new ProjectDetailsEntity(
+        projected as ProjectDetailsResult,
+      ).getProperties();
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -411,7 +155,9 @@ export class ProjectsService {
     >
   > {
     try {
-      const projects = await this.models.Projects.getAllProjectsData();
+      const projects = await this.searchDocuments.getProjectPayloads<
+        ProjectWithRelations & { rawWebsite?: RawProjectWebsite | null }
+      >();
       return paginate(
         page,
         limit,
@@ -491,23 +237,24 @@ export class ProjectsService {
 
   async getProjectsByOrgId(id: string): Promise<Project[] | null> {
     try {
-      const projects = await this.models.Projects.getProjectsData();
-      return projects
-        .filter(project => project.orgIds.includes(id))
-        .map(project => ({
-          id: project.id,
-          name: project.name,
-          orgIds: project.orgIds,
-          tvl: project.tvl,
-          logo: project.logo,
-          category: project.category,
-          tokenSymbol: project.tokenSymbol,
-          monthlyFees: project.monthlyFees,
-          monthlyVolume: project.monthlyVolume,
-          normalizedName: project.normalizedName,
-          monthlyRevenue: project.monthlyRevenue,
-          monthlyActiveUsers: project.monthlyActiveUsers,
-        }));
+      const projects =
+        await this.searchDocuments.getProjectPayloads<ProjectWithRelations>({
+          organizationId: id,
+        });
+      return projects.map(project => ({
+        id: project.id,
+        name: project.name,
+        orgIds: project.orgIds,
+        tvl: project.tvl,
+        logo: project.logo,
+        category: project.category,
+        tokenSymbol: project.tokenSymbol,
+        monthlyFees: project.monthlyFees,
+        monthlyVolume: project.monthlyVolume,
+        normalizedName: project.normalizedName,
+        monthlyRevenue: project.monthlyRevenue,
+        monthlyActiveUsers: project.monthlyActiveUsers,
+      }));
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -536,7 +283,8 @@ export class ProjectsService {
     >[]
   > {
     try {
-      const projects = await this.models.Projects.getProjectsData();
+      const projects =
+        await this.searchDocuments.getProjectPayloads<ProjectWithRelations>();
       return projects.map(x =>
         omit(
           {
@@ -573,9 +321,13 @@ export class ProjectsService {
     }
   }
 
-  async getProjectsByCategory(category: string): Promise<ProjectProps[]> {
+  async getProjectsByCategory(category: string): Promise<ProjectMoreInfo[]> {
     try {
-      return this.models.Projects.getProjectsByCategory(category);
+      return (
+        await this.searchDocuments.getProjectPayloads<ProjectMoreInfo>({
+          category,
+        })
+      ).map(project => new ProjectMoreInfoEntity(project).getProperties());
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -598,7 +350,10 @@ export class ProjectsService {
   ): Promise<ProjectCompetitorListResult[]> {
     try {
       return (
-        await this.models.Projects.getProjectCompetitors(id, ecosystem)
+        await this.searchDocuments.getProjectCompetitorPayloads<ProjectCompetitorListResult>(
+          id,
+          ecosystem,
+        )
       ).map(project =>
         new ProjectCompetitorListResultEntity(project).getProperties(),
       );
@@ -623,129 +378,19 @@ export class ProjectsService {
     ecosystem: string | undefined,
   ): Promise<PaginatedData<ProjectListResult>> {
     try {
-      const {
-        categories: categoryFilterList,
-        chains: chainFilterList,
-        investors: investorFilterList,
-        tags: tagFilterList,
-        names: nameFilterList,
-        ecosystems: ecosystemFilterList,
-        organizations: organizationFilterList,
-        minTvl,
-        maxTvl,
-        minMonthlyVolume,
-        maxMonthlyVolume,
-        minMonthlyFees,
-        maxMonthlyFees,
-        minMonthlyRevenue,
-        maxMonthlyRevenue,
-        hasAudits,
-        hasHacks,
-        hasToken,
-        page: page = 1,
-        limit: limit = 20,
-        query,
-        order,
-        orderBy,
-      } = params;
-      const all = await this.models.Projects.getProjectsData(ecosystem);
-
-      const projectFilters = (
-        project: ProjectWithRelations & {
-          orgNames: string[];
-          ecosystems: string[];
-          aliases: string[];
-          investors: Investor[];
-        },
-      ): boolean => {
-        return (
-          (!tagFilterList ||
-            (tagFilterList.find(x =>
-              project.jobs
-                .flatMap(x => x.tags)
-                .map(x => x.normalizedName)
-                .includes(x),
-            ) ??
-              false)) &&
-          (!query ||
-            go(query, [project.name, ...project.aliases], {
-              threshold: 0.3,
-            }).map(x => x.target).length > 0) &&
-          (!organizationFilterList ||
-            organizationFilterList.some(x =>
-              project.orgNames.map(slugify).includes(x),
-            )) &&
-          (!categoryFilterList ||
-            categoryFilterList.includes(slugify(project.category))) &&
-          (!chainFilterList ||
-            chainFilterList.some(x =>
-              project.chains.map(x => slugify(x.name)).includes(x),
-            )) &&
-          (!investorFilterList ||
-            project.investors.some(investor =>
-              investorFilterList.includes(slugify(investor.name)),
-            )) &&
-          (!nameFilterList ||
-            nameFilterList.includes(project.normalizedName) ||
-            project.aliases.some(x => nameFilterList.includes(slugify(x)))) &&
-          (!ecosystemFilterList ||
-            ecosystemFilterList.some(x =>
-              project.ecosystems.map(slugify).includes(x),
-            )) &&
-          (!minTvl || (project.tvl ?? 0) >= minTvl) &&
-          (!maxTvl || (project.tvl ?? 0) < maxTvl) &&
-          (!minMonthlyVolume ||
-            (project.monthlyVolume ?? 0) >= minMonthlyVolume) &&
-          (!maxMonthlyVolume ||
-            (project.monthlyVolume ?? 0) < maxMonthlyVolume) &&
-          (!minMonthlyFees || (project.monthlyFees ?? 0) >= minMonthlyFees) &&
-          (!maxMonthlyFees || (project.monthlyFees ?? 0) < maxMonthlyFees) &&
-          (!minMonthlyRevenue ||
-            (project.monthlyRevenue ?? 0) >= minMonthlyRevenue) &&
-          (!maxMonthlyRevenue ||
-            (project.monthlyRevenue ?? 0) < maxMonthlyRevenue) &&
-          (!hasAudits || project.audits.length > 0) &&
-          (!hasHacks || project.hacks.length > 0) &&
-          (!hasToken || project.tokenAddress !== null)
-        );
+      const page = await this.searchDocuments.searchProjects({
+        ...params,
+        audits: params.hasAudits,
+        hacks: params.hasHacks,
+        token: params.hasToken,
+        ecosystemHeader: ecosystem,
+      });
+      return {
+        ...page,
+        data: page.data.map(project =>
+          new ProjectListResultEntity(project).getProperties(),
+        ),
       };
-      const filtered = all
-        .filter(projectFilters)
-        .map(x => new ProjectListResultEntity(x).getProperties());
-
-      const getSortParam = (p1: ProjectListResult): number | null => {
-        switch (params.orderBy) {
-          case "audits":
-            return p1.audits.length;
-          case "hacks":
-            return p1.hacks.length;
-          case "chains":
-            return p1.chains.length;
-          case "monthlyVolume":
-            return p1.monthlyVolume ?? 0;
-          case "monthlyFees":
-            return p1.monthlyFees ?? 0;
-          case "monthlyRevenue":
-            return p1.monthlyRevenue ?? 0;
-          case "tvl":
-            return p1.tvl ?? 0;
-          default:
-            return null;
-        }
-      };
-
-      let final: ProjectListResult[] = [];
-      if (!order || order === "asc") {
-        final = naturalSort<ProjectListResult>(filtered).asc(x =>
-          orderBy ? getSortParam(x) : x.name,
-        );
-      } else {
-        final = naturalSort<ProjectListResult>(filtered).desc(x =>
-          orderBy ? getSortParam(x) : x.name,
-        );
-      }
-
-      return paginate<ProjectListResult>(page, limit, final);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -755,7 +400,7 @@ export class ProjectsService {
         scope.setExtra("input", params);
         Sentry.captureException(err);
       });
-      this.logger.error(`ProjectsService::searchProjects ${err.message}`);
+      this.logger.error("ProjectsService::searchProjects " + err.message);
       return {
         page: -1,
         count: 0,
@@ -765,9 +410,11 @@ export class ProjectsService {
     }
   }
 
-  async searchAllProjects(query: string): Promise<ProjectProps[]> {
+  async searchAllProjects(query: string): Promise<ProjectMoreInfo[]> {
     try {
-      return this.models.Projects.searchProjects(query);
+      return (
+        await this.searchDocuments.searchProjectPayloads<ProjectMoreInfo>(query)
+      ).map(project => new ProjectMoreInfoEntity(project).getProperties());
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -777,7 +424,7 @@ export class ProjectsService {
         scope.setExtra("input", query);
         Sentry.captureException(err);
       });
-      this.logger.error(`ProjectsService::searchProjects ${err.message}`);
+      this.logger.error("ProjectsService::searchProjects " + err.message);
       return undefined;
     }
   }
@@ -797,34 +444,32 @@ export class ProjectsService {
     >
   > {
     try {
-      const res = await this.models.Projects.getProjectById(id);
-      if (res) {
-        return omit(
-          {
-            ...res,
-            logoUrl: notStringOrNull(res.logo),
-            category: notStringOrNull(res.category),
-            description: notStringOrNull(res.description),
-            tokenAddress: notStringOrNull(res.tokenAddress),
-            defiLlamaId: notStringOrNull(res.defiLlamaId),
-            defiLlamaSlug: notStringOrNull(res.defiLlamaSlug),
-            defiLlamaParent: notStringOrNull(res.defiLlamaParent),
-            createdTimestamp: nonZeroOrNull(res.createdTimestamp),
-            updatedTimestamp: nonZeroOrNull(res.updatedTimestamp),
-          },
-          [
-            "hacks",
-            "audits",
-            "chains",
-            "ecosystems",
-            "jobs",
-            "repos",
-            "ecosystems",
-          ],
-        );
-      } else {
-        return undefined;
-      }
+      const project =
+        await this.searchDocuments.getProjectById<ProjectWithRelations>(id);
+      if (!project) return undefined;
+      return omit(
+        {
+          ...project,
+          logoUrl: notStringOrNull(project.logo),
+          category: notStringOrNull(project.category),
+          description: notStringOrNull(project.description),
+          tokenAddress: notStringOrNull(project.tokenAddress),
+          defiLlamaId: notStringOrNull(project.defiLlamaId),
+          defiLlamaSlug: notStringOrNull(project.defiLlamaSlug),
+          defiLlamaParent: notStringOrNull(project.defiLlamaParent),
+          createdTimestamp: nonZeroOrNull(project.createdTimestamp),
+          updatedTimestamp: nonZeroOrNull(project.updatedTimestamp),
+        },
+        [
+          "hacks",
+          "audits",
+          "chains",
+          "ecosystems",
+          "jobs",
+          "repos",
+          "ecosystems",
+        ],
+      );
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -834,65 +479,90 @@ export class ProjectsService {
         scope.setExtra("input", id);
         Sentry.captureException(err);
       });
-      this.logger.error(`ProjectsService::getProjectById ${err.message}`);
+      this.logger.error("ProjectsService::getProjectById " + err.message);
       return undefined;
     }
   }
 
   async find(name: string): Promise<ProjectEntity | null> {
-    return this.models.Projects.findOne({
-      where: {
-        name: name,
-      },
-    }).then(res => (res ? new ProjectEntity(instanceToNode(res)) : null));
+    const project = await this.graph.findNode<Record<string, unknown>>(
+      "Project",
+      { name },
+    );
+    return project ? new ProjectEntity(project.properties) : null;
   }
 
   async create(project: CreateProjectInput): Promise<ProjectMoreInfoEntity> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          CREATE (project:Project {
-            id: randomUUID(),
-            name: $name,
-            normalizedName: $normalizedName,
-            tvl: $tvl,
-            monthlyFees: $monthlyFees,
-            monthlyVolume: $monthlyVolume,
-            monthlyRevenue: $monthlyRevenue,
-            monthlyActiveUsers: $monthlyActiveUsers,
-            description: $description,
-            logo: $logo,
-            tokenAddress: $tokenAddress,
-            tokenSymbol: $tokenSymbol,
-            defiLlamaId: $defiLlamaId,
-            defiLlamaSlug: $defiLlamaSlug,
-            defiLlamaParent: $defiLlamaParent,
-            createdTimestamp: timestamp()
-          })
-
-          WITH project
-          MATCH (cat:ProjectCategory {name: $category})
-          CREATE (project)-[:HAS_CATEGORY]->(cat)
-          CREATE (project)-[:HAS_DISCORD]->(discord:Discord {id: randomUUID(), invite: $discord}) 
-          CREATE (project)-[:HAS_WEBSITE]->(website:Website {id: randomUUID(), url: $website}) 
-          CREATE (project)-[:HAS_DOCSITE]->(docsite:DocSite {id: randomUUID(), url: $docs}) 
-          CREATE (project)-[:HAS_TELEGRAM]->(telegram:Telegram {id: randomUUID(), username: $telegram}) 
-          CREATE (project)-[:HAS_TWITTER]->(twitter: Twitter {id: randomUUID(), username: $twitter}) 
-          CREATE (project)-[:HAS_GITHUB]->(github: Github {id: randomUUID(), login: $github})
-
-          RETURN project { .* } as project
-        `,
-        {
-          ...project,
-          tvl: project.tvl ?? null,
-          monthlyFees: project.monthlyFees ?? null,
-          monthlyVolume: project.monthlyVolume ?? null,
-          monthlyRevenue: project.monthlyRevenue ?? null,
-          monthlyActiveUsers: project.monthlyActiveUsers ?? null,
-          normalizedName: slugify(project.name),
-        },
-      );
-      return new ProjectMoreInfoEntity(result?.records[0]?.get("project"));
+      const id = randomUUID();
+      const {
+        orgId: _orgId,
+        category: _category,
+        website,
+        discord,
+        docs,
+        telegram,
+        github,
+        twitter,
+        ...base
+      } = project;
+      const properties = {
+        ...base,
+        id,
+        normalizedName: slugify(project.name),
+        summary: "",
+        tvl: project.tvl ?? null,
+        monthlyFees: project.monthlyFees ?? null,
+        monthlyVolume: project.monthlyVolume ?? null,
+        monthlyRevenue: project.monthlyRevenue ?? null,
+        monthlyActiveUsers: project.monthlyActiveUsers ?? null,
+        logo: project.logo ?? null,
+        tokenAddress: project.tokenAddress ?? null,
+        tokenSymbol: project.tokenSymbol ?? null,
+        defiLlamaId: project.defiLlamaId ?? null,
+        defiLlamaSlug: project.defiLlamaSlug ?? null,
+        defiLlamaParent: project.defiLlamaParent ?? null,
+        createdTimestamp: Date.now(),
+        updatedTimestamp: null,
+      };
+      const created = await this.graph.createNode("Project", properties, id);
+      await this.setProjectCategory(id, project.category);
+      await Promise.all([
+        this.replaceProjectLink(id, website, "HAS_WEBSITE", "Website", "url"),
+        this.replaceProjectLink(
+          id,
+          discord,
+          "HAS_DISCORD",
+          "Discord",
+          "invite",
+        ),
+        this.replaceProjectLink(id, docs, "HAS_DOCSITE", "DocSite", "url"),
+        this.replaceProjectLink(
+          id,
+          telegram,
+          "HAS_TELEGRAM",
+          "Telegram",
+          "username",
+        ),
+        this.replaceProjectLink(
+          id,
+          github,
+          "HAS_GITHUB",
+          "GithubOrganization",
+          "login",
+        ),
+        this.replaceProjectLink(
+          id,
+          twitter,
+          "HAS_TWITTER",
+          "Twitter",
+          "username",
+        ),
+      ]);
+      return new ProjectMoreInfoEntity({
+        ...created.properties,
+        orgIds: [],
+      } as ProjectMoreInfo);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -902,7 +572,7 @@ export class ProjectsService {
         scope.setExtra("input", project);
         Sentry.captureException(err);
       });
-      this.logger.error(`ProjectsService::create ${err.message}`);
+      this.logger.error("ProjectsService::create " + err.message);
       return undefined;
     }
   }
@@ -957,45 +627,25 @@ export class ProjectsService {
     domain: string,
   ): Promise<ResponseWithOptionalData<string>> {
     try {
-      if (ensureProtocol(domain).every(isValidUrl)) {
-        try {
-          ensureProtocol(domain).map(x => new URL(toAbsoluteURL(x)));
-        } catch (err) {
-          this.logger.error(`ProjectsService::findIdByWebsite ${err.message}`);
-          return {
-            success: false,
-            message: "Invalid url",
-          };
-        }
-        const projects = await this.neogma.queryRunner.run(
-          `
-            MATCH (project:Project)-[:HAS_WEBSITE]->(website:Website)
-            UNWIND $domains as domain
-            WITH project, domain, website
-            WHERE apoc.data.url(website.url).host CONTAINS domain OR website.url CONTAINS domain OR domain CONTAINS website.url
-            RETURN project.id as id
-          `,
-          {
-            domains: ensureProtocol(domain).map(x => toAbsoluteURL(x)),
-          },
-        );
-        const result = projects.records.length
-          ? (projects?.records[0]?.get("id") as string)
-          : undefined;
-
-        return {
-          success: result ? true : false,
-          message: result
-            ? "Retrieved project id successfully"
-            : "No project found",
-          data: result,
-        };
-      } else {
-        return {
-          success: false,
-          message: "Invalid url",
-        };
+      if (!ensureProtocol(domain).every(isValidUrl)) {
+        return { success: false, message: "Invalid url" };
       }
+      try {
+        ensureProtocol(domain).map(value => new URL(toAbsoluteURL(value)));
+      } catch (err) {
+        this.logger.error("ProjectsService::findIdByWebsite " + err.message);
+        return { success: false, message: "Invalid url" };
+      }
+      const result = await this.searchDocuments.findProjectIdByWebsite(
+        ensureProtocol(domain).map(value => toAbsoluteURL(value)),
+      );
+      return {
+        success: Boolean(result),
+        message: result
+          ? "Retrieved project id successfully"
+          : "No project found",
+        data: result,
+      };
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -1004,7 +654,7 @@ export class ProjectsService {
         });
         Sentry.captureException(err);
       });
-      this.logger.error(`ProjectsService::findIdByWebsite ${err.message}`);
+      this.logger.error("ProjectsService::findIdByWebsite " + err.message);
       return {
         success: false,
         message: "Error finding project id by website",
@@ -1017,171 +667,84 @@ export class ProjectsService {
     project: Omit<UpdateProjectInput, "jobsites" | "detectedJobsites">,
   ): Promise<ProjectMoreInfoEntity> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          MATCH (project:Project {id: $id})
-          
-          SET project.name = $name
-          SET project.normalizedName = $normalizedName
-          SET project.tvl = $tvl
-          SET project.monthlyFees = $monthlyFees
-          SET project.monthlyVolume = $monthlyVolume
-          SET project.monthlyRevenue = $monthlyRevenue
-          SET project.monthlyActiveUsers = $monthlyActiveUsers
-          SET project.description = $description
-          SET project.logo = $logo
-          SET project.tokenAddress = $tokenAddress
-          SET project.tokenSymbol = $tokenSymbol
-          SET project.defiLlamaId = $defiLlamaId
-          SET project.defiLlamaSlug = $defiLlamaSlug
-          SET project.defiLlamaParent = $defiLlamaParent
-          SET project.updatedTimestamp = timestamp()
-
-          WITH project
-          OPTIONAL MATCH (project)-[r:HAS_CATEGORY]->(:ProjectCategory)
-          DETACH DELETE r
-          
-          WITH project
-          MERGE (project)-[:HAS_CATEGORY]->(:ProjectCategory {name: $category})
-
-          RETURN project { .* } as project
-        `,
+      const {
+        category,
+        website,
+        discord,
+        docs,
+        telegram,
+        github,
+        twitter,
+        ...base
+      } = project;
+      const [updated] = await this.graph.updateNodes<Record<string, unknown>>(
+        "Project",
+        { id },
         {
-          ...project,
-          id,
+          ...base,
           normalizedName: slugify(project.name),
+          tvl: project.tvl ?? null,
+          monthlyFees: project.monthlyFees ?? null,
+          monthlyVolume: project.monthlyVolume ?? null,
+          monthlyRevenue: project.monthlyRevenue ?? null,
+          monthlyActiveUsers: project.monthlyActiveUsers ?? null,
           description: project.description ?? null,
+          logo: project.logo ?? null,
+          tokenAddress: project.tokenAddress ?? null,
+          tokenSymbol: project.tokenSymbol ?? null,
+          defiLlamaId: project.defiLlamaId ?? null,
+          defiLlamaSlug: project.defiLlamaSlug ?? null,
+          defiLlamaParent: project.defiLlamaParent ?? null,
+          updatedTimestamp: Date.now(),
         },
       );
-
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (project:Project {id: $id})
-        OPTIONAL MATCH (project)-[:HAS_WEBSITE]->(website:Website)
-        OPTIONAL MATCH (project)-[:HAS_DISCORD]->(discord:Discord)
-        OPTIONAL MATCH (project)-[:HAS_DOCSITE]->(docsite:DocSite)
-        OPTIONAL MATCH (project)-[:HAS_TELEGRAM]->(telegram:Telegram)
-        OPTIONAL MATCH (project)-[r:HAS_GITHUB]->(github:GithubOrganization)
-        OPTIONAL MATCH (project)-[:HAS_TWITTER]->(twitter:Twitter)
-        DETACH DELETE website, discord, docsite, telegram, r, twitter
-      `,
-        { id },
-      );
-
-      if (project?.website) {
-        await this.neogma.queryRunner.run(
-          `
-          MATCH (project:Project {id: $id})
-          MERGE (project)-[:HAS_WEBSITE]->(website:Website { url: $website })
-          ON CREATE SET
-            website.id = randomUUID(),
-            website.createdTimestamp = timestamp()
-          ON MATCH SET
-            website.updatedTimestamp = timestamp()
-        `,
-          {
-            ...project,
-            id,
-            website: project?.website,
-          },
-        );
-      }
-
-      if (project.discord) {
-        await this.neogma.queryRunner.run(
-          `
-          MATCH (project:Project {id: $id})
-          MERGE (project)-[:HAS_DISCORD]->(discord:Discord { invite: $discord })
-          ON CREATE SET
-            discord.id = randomUUID(),
-            discord.createdTimestamp = timestamp()
-          ON MATCH SET
-            discord.updatedTimestamp = timestamp()
-        `,
-          {
-            ...project,
-            id,
-            discord: project.discord,
-          },
-        );
-      }
-
-      if (project.docs) {
-        await this.neogma.queryRunner.run(
-          `
-          MATCH (project:Project {id: $id})
-          MERGE (project)-[:HAS_DOCSITE]->(docsite:DocSite { url: $docs })
-          ON CREATE SET
-            docsite.id = randomUUID(),
-            docsite.createdTimestamp = timestamp()
-          ON MATCH SET
-            docsite.updatedTimestamp = timestamp()
-        `,
-          {
-            ...project,
-            id,
-            docs: project.docs,
-          },
-        );
-      }
-
-      if (project.telegram) {
-        await this.neogma.queryRunner.run(
-          `
-          MATCH (project:Project {id: $id})
-          MERGE (project)-[:HAS_TELEGRAM]->(telegram:Telegram { username: $telegram })
-          ON CREATE SET
-            telegram.id = randomUUID(),
-            telegram.createdTimestamp = timestamp()
-          ON MATCH SET
-            telegram.updatedTimestamp = timestamp()
-        `,
-          {
-            ...project,
-            id,
-            telegram: project.telegram,
-          },
-        );
-      }
-
-      if (project.github) {
-        await this.neogma.queryRunner.run(
-          `
-          MATCH (project:Project {id: $id})
-          MERGE (project)-[:HAS_GITHUB]->(github:GithubOrganization { login: $github })
-          ON CREATE SET
-            github.id = randomUUID(),
-            github.createdTimestamp = timestamp()
-          ON MATCH SET
-            github.updatedTimestamp = timestamp()
-        `,
-          {
-            ...project,
-            id,
-            github: project.github,
-          },
-        );
-      }
-
-      if (project.twitter) {
-        await this.neogma.queryRunner.run(
-          `
-          MATCH (project:Project {id: $id})
-          MERGE (project)-[:HAS_TWITTER]->(twitter:Twitter { username: $twitter })
-          ON CREATE SET
-            twitter.id = randomUUID(),
-            twitter.createdTimestamp = timestamp()
-          ON MATCH SET
-            twitter.updatedTimestamp = timestamp()
-        `,
-          {
-            ...project,
-            id,
-            twitter: project.twitter,
-          },
-        );
-      }
-      return new ProjectMoreInfoEntity(result?.records[0]?.get("project"));
+      if (!updated) return undefined;
+      await this.setProjectCategory(id, category);
+      await Promise.all([
+        this.replaceProjectLink(id, website, "HAS_WEBSITE", "Website", "url"),
+        this.replaceProjectLink(
+          id,
+          discord,
+          "HAS_DISCORD",
+          "Discord",
+          "invite",
+        ),
+        this.replaceProjectLink(id, docs, "HAS_DOCSITE", "DocSite", "url"),
+        this.replaceProjectLink(
+          id,
+          telegram,
+          "HAS_TELEGRAM",
+          "Telegram",
+          "username",
+        ),
+        this.replaceProjectLink(
+          id,
+          github,
+          "HAS_GITHUB",
+          "GithubOrganization",
+          "login",
+        ),
+        this.replaceProjectLink(
+          id,
+          twitter,
+          "HAS_TWITTER",
+          "Twitter",
+          "username",
+        ),
+      ]);
+      const projected = await this.searchDocuments.getProjectById<
+        ProjectWithRelations & ProjectMoreInfo
+      >(id);
+      return new ProjectMoreInfoEntity({
+        ...projected,
+        ...updated.properties,
+        orgIds: projected?.orgIds ?? [],
+        summary: projected?.summary ?? String(updated.properties.summary ?? ""),
+        description:
+          projected?.description ??
+          (updated.properties.description as string | null) ??
+          null,
+      } as unknown as ProjectMoreInfo);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -1191,7 +754,7 @@ export class ProjectsService {
         scope.setExtra("input", project);
         Sentry.captureException(err);
       });
-      this.logger.error(`ProjectsService::update ${err.message}`);
+      this.logger.error("ProjectsService::update " + err.message);
       return undefined;
     }
   }
@@ -1200,36 +763,26 @@ export class ProjectsService {
     dto: ActivateProjectJobsiteInput,
   ): Promise<ResponseWithOptionalData<Jobsite[]>> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          MATCH (:Project {id: $id})-[:HAS_JOBSITE]->(jobsite:DetectedJobsite WHERE jobsite.id IN $jobsiteIds)
-          REMOVE jobsite:DetectedJobsite
-          SET jobsite:Jobsite
-          RETURN jobsite { .* } as jobsite
-        `,
-        {
-          ...dto,
-        },
-      );
-      const jobsites = result.records.map(
-        record => record.get("jobsite") as Jobsite,
-      );
+      const jobsites = (
+        await this.graph.relabelRelatedNodes<Jobsite>({
+          sourceLabel: "Project",
+          sourceWhere: { id: dto.id },
+          relationshipType: "HAS_JOBSITE",
+          targetLabel: "DetectedJobsite",
+          targetProperty: "id",
+          targetValues: dto.jobsiteIds,
+          newLabel: "Jobsite",
+        })
+      ).map(jobsite => jobsite.properties);
       return {
         success: true,
         message: "Activated project jobsites successfully",
         data: jobsites,
       };
     } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "projects.service",
-        });
-        scope.setExtra("input", dto);
-        Sentry.captureException(err);
-      });
+      Sentry.captureException(err);
       this.logger.error(
-        `ProjectsService::activateProjectJobsites ${err.message}`,
+        "ProjectsService::activateProjectJobsites " + err.message,
       );
       return { success: false, message: "Failed to activate project jobsites" };
     }
@@ -1239,40 +792,33 @@ export class ProjectsService {
     dto: UpdateProjectJobsitesInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-          UNWIND $jobsites as jobsite
-          WITH jobsite
-          WHERE jobsite.id IS NOT NULL
-
-          OPTIONAL MATCH (j:Jobsite)
-          WHERE j.id = jobsite.id AND j IS NOT NULL
-          SET j.url = jobsite.url
-          SET j.type = jobsite.type
-        `,
-        { ...dto },
-      );
-
+      const related = await this.graph.findRelatedNodes<Jobsite>({
+        sourceLabel: "Project",
+        sourceWhere: { id: dto.id },
+        relationshipType: "HAS_JOBSITE",
+        targetLabel: "Jobsite",
+      });
+      const relatedIds = new Set(related.map(node => node.properties.id));
+      await this.graph.updateNodesFromPatches<Jobsite>({
+        label: "Jobsite",
+        identityProperty: "id",
+        patches: dto.jobsites
+          .filter(jobsite => relatedIds.has(jobsite.id))
+          .map(jobsite => ({
+            identity: jobsite.id,
+            patch: { url: jobsite.url, type: jobsite.type },
+          })),
+      });
       return {
         success: true,
         message: "Updated project jobsites successfully",
       };
     } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "projects.service",
-        });
-        scope.setExtra("input", dto);
-        Sentry.captureException(err);
-      });
+      Sentry.captureException(err);
       this.logger.error(
-        `ProjectsService::updateProjectJobsites ${err.message}`,
+        "ProjectsService::updateProjectJobsites " + err.message,
       );
-      return {
-        success: false,
-        message: "Failed to update project jobsites",
-      };
+      return { success: false, message: "Failed to update project jobsites" };
     }
   }
 
@@ -1281,39 +827,27 @@ export class ProjectsService {
     detectedJobsites: { id: string; url: string; type: string }[];
   }): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-          MATCH (project:Project {id: $id})
-          OPTIONAL MATCH (project)-[:HAS_JOBSITE]->(oldDetectedJobsite:DetectedJobsite)
-          DETACH DELETE oldDetectedJobsite
-
-          WITH project
-          UNWIND $detectedJobsites as detectedJobsite
-          WITH detectedJobsite, project
-          MERGE (project)-[:HAS_JOBSITE]->(dj: DetectedJobsite { url: detectedJobsite.url, type: detectedJobsite.type })
-          ON CREATE SET
-            dj.id = detectedJobsite.id,
-            dj.createdTimestamp = timestamp()
-          ON MATCH SET
-            dj.updatedTimestamp = timestamp()
-        `,
-        { ...dto },
-      );
+      const now = Date.now();
+      await this.graph.replaceOwnedRelatedNodes({
+        sourceLabel: "Project",
+        sourceWhere: { id: dto.id },
+        relationshipType: "HAS_JOBSITE",
+        targetLabel: "DetectedJobsite",
+        nodeKeyProperty: "id",
+        nodes: dto.detectedJobsites.map(jobsite => ({
+          ...jobsite,
+          createdTimestamp: now,
+          updatedTimestamp: now,
+        })),
+      });
       return {
         success: true,
         message: "Updated project detected jobsites successfully",
       };
     } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "projects.service",
-        });
-        scope.setExtra("input", dto);
-        Sentry.captureException(err);
-      });
+      Sentry.captureException(err);
       this.logger.error(
-        `ProjectsService::updateProjectDetectedJobsites ${err.message}`,
+        "ProjectsService::updateProjectDetectedJobsites " + err.message,
       );
       return {
         success: false,
@@ -1324,44 +858,46 @@ export class ProjectsService {
 
   async delete(id: string): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-            MATCH (project:Project { id: $id })
-            OPTIONAL MATCH (project)-[:HAS_AUDIT]->(audit)
-            OPTIONAL MATCH (project)-[:HAS_HACK]->(hack)
-            OPTIONAL MATCH (project)-[:HAS_DISCORD]->(discord)
-            OPTIONAL MATCH (project)-[:HAS_DOCSITE]->(docsite)
-            OPTIONAL MATCH (project)-[:HAS_GITHUB]->(github:GithubOrganization)
-            OPTIONAL MATCH (project)-[:HAS_TELEGRAM]->(telegram)
-            OPTIONAL MATCH (project)-[:HAS_TWITTER]->(twitter)
-            OPTIONAL MATCH (project)-[:HAS_WEBSITE]->(website)
-            OPTIONAL MATCH (project)-[:HAS_RAW_WEBSITE]->(rawWebsite)-[:HAS_RAW_WEBSITE_METADATA]->(metadata)
-            OPTIONAL MATCH (project)-[:HAS_JOBSITE]->(jobsite:Jobsite|DetectedJobsite)
-            DETACH DELETE audit, hack, discord, docsite,
-              github, telegram, twitter, website, project, rawWebsite, metadata, jobsite
-        `,
-        {
-          id,
-        },
-      );
+      await this.graph.deleteNodeWithOwnedDescendants({
+        rootLabel: "Project",
+        rootWhere: { id },
+        relationshipTypes: [
+          "HAS_AUDIT",
+          "HAS_HACK",
+          "HAS_DISCORD",
+          "HAS_DOCSITE",
+          "HAS_GITHUB",
+          "HAS_TELEGRAM",
+          "HAS_TWITTER",
+          "HAS_WEBSITE",
+          "HAS_RAW_WEBSITE",
+          "HAS_RAW_WEBSITE_METADATA",
+          "HAS_JOBSITE",
+        ],
+        ownedLabels: [
+          "Audit",
+          "Hack",
+          "Discord",
+          "DocSite",
+          "GithubOrganization",
+          "Github",
+          "Telegram",
+          "Twitter",
+          "Website",
+          "RawWebsite",
+          "RawWebsiteMetadata",
+          "Jobsite",
+          "DetectedJobsite",
+        ],
+      });
       return {
         success: true,
         message: "Project deleted successfully",
       };
     } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "projects.service",
-        });
-        scope.setExtra("input", id);
-        Sentry.captureException(err);
-      });
-      this.logger.error(`ProjectsService::delete ${err.message}`);
-      return {
-        success: false,
-        message: "Failed delete project",
-      };
+      Sentry.captureException(err);
+      this.logger.error("ProjectsService::delete " + err.message);
+      return { success: false, message: "Failed delete project" };
     }
   }
 
@@ -1369,59 +905,53 @@ export class ProjectsService {
     id: string,
     metrics: CreateProjectMetricsInput,
   ): Promise<ProjectMoreInfoEntity> {
-    const { monthlyFees, monthlyVolume, monthlyRevenue, monthlyActiveUsers } =
-      metrics;
     try {
-      const projectNode = await this.models.Projects.update(
-        {
-          monthlyFees,
-          monthlyVolume,
-          monthlyRevenue,
-          monthlyActiveUsers,
-          updatedTimestamp: new Date().getTime(),
-        },
-        { where: { id }, return: true },
+      const [updated] = await this.graph.updateNodes<Record<string, unknown>>(
+        "Project",
+        { id },
+        { ...metrics, updatedTimestamp: Date.now() },
       );
-      return new ProjectMoreInfoEntity(projectNode[0][0].getDataValues());
+      if (!updated) return undefined;
+      const projected = await this.searchDocuments.getProjectById<
+        ProjectWithRelations & ProjectMoreInfo
+      >(id);
+      return new ProjectMoreInfoEntity({
+        ...projected,
+        ...updated.properties,
+        orgIds: projected?.orgIds ?? [],
+        summary: projected?.summary ?? String(updated.properties.summary ?? ""),
+        description:
+          projected?.description ??
+          (updated.properties.description as string | null) ??
+          null,
+      } as unknown as ProjectMoreInfo);
     } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "projects.service",
-        });
-        scope.setExtra("input", metrics);
-        Sentry.captureException(err);
-      });
-      this.logger.error(`ProjectsService::updateMetrics ${err.message}`);
+      Sentry.captureException(err);
+      this.logger.error("ProjectsService::updateMetrics " + err.message);
       return undefined;
     }
   }
 
   async deleteMetrics(id: string): Promise<ResponseWithNoData> {
     try {
-      await this.models.Projects.update(
+      await this.graph.updateNodes<Record<string, unknown>>(
+        "Project",
+        { id },
         {
           monthlyFees: null,
           monthlyVolume: null,
           monthlyRevenue: null,
           monthlyActiveUsers: null,
-          updatedTimestamp: new Date().getTime(),
+          updatedTimestamp: Date.now(),
         },
-        { where: { id }, return: true },
       );
       return {
         success: true,
         message: "Project metrics deleted successfully",
       };
     } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "projects.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`ProjectsService::deleteMetrics ${err.message}`);
+      Sentry.captureException(err);
+      this.logger.error("ProjectsService::deleteMetrics " + err.message);
       return undefined;
     }
   }
@@ -1430,77 +960,49 @@ export class ProjectsService {
     projectId: string,
     projectCategoryId: string,
   ): Promise<boolean> {
-    return (
-      (
-        await this.models.Projects.findRelationships({
-          alias: "category",
-          limit: 1,
-          where: {
-            source: {
-              id: projectId,
-            },
-            target: {
-              id: projectCategoryId,
-            },
-          },
-        })
-      ).length === 1
-    );
+    return this.graph.hasRelationship({
+      sourceLabel: "Project",
+      sourceWhere: { id: projectId },
+      type: "HAS_CATEGORY",
+      targetLabel: "ProjectCategory",
+      targetWhere: { id: projectCategoryId },
+    });
   }
 
   async relateToCategory(
     projectId: string,
     projectCategoryId: string,
   ): Promise<boolean> {
-    const result = await this.models.Projects.relateTo({
-      alias: "category",
-      where: {
-        source: {
-          id: projectId,
-        },
-        target: {
-          id: projectCategoryId,
-        },
-      },
+    const related = await this.graph.setRelationshipsToNodes({
+      sourceLabel: "Project",
+      sourceWhere: { id: projectId },
+      type: "HAS_CATEGORY",
+      targetLabel: "ProjectCategory",
+      targetProperty: "id",
+      targetValues: [projectCategoryId],
+      replace: false,
     });
-    return result === 1;
+    return related.length === 1;
   }
 
   async linkJobsToProject(
     dto: LinkJobsToProjectInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.models.Projects.relateTo({
-        alias: "jobs",
-        where: {
-          source: {
-            id: dto.projectId,
-          },
-          target: {
-            shortUUID: {
-              [Op.in]: dto.jobs,
-            },
-          },
-        },
+      await this.graph.setRelationshipsToNodes({
+        sourceLabel: "Project",
+        sourceWhere: { id: dto.projectId },
+        type: "HAS_JOB",
+        targetLabel: "StructuredJobpost",
+        targetProperty: "shortUUID",
+        targetValues: dto.jobs,
+        replace: false,
       });
-      return {
-        success: true,
-        message: "Jobs linked to project successfully",
-      };
+      return { success: true, message: "Jobs linked to project successfully" };
     } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "projects.service",
-        });
-        scope.setExtra("input", dto);
-        Sentry.captureException(err);
-      });
-      this.logger.error(`ProjectsService::linkJobsToProject ${err.message}`);
-      return {
-        success: false,
-        message: "Failed to link jobs to project",
-      };
+      Sentry.captureException(err);
+      this.logger.error("ProjectsService::linkJobsToProject " + err.message);
+      return { success: false, message: "Failed to link jobs to project" };
     }
   }
 
@@ -1508,37 +1010,20 @@ export class ProjectsService {
     dto: LinkReposToProjectInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.models.Projects.relateTo({
-        alias: "repos",
-        where: {
-          source: {
-            id: dto.projectId,
-          },
-          target: {
-            fullName: {
-              [Op.in]: dto.repos,
-            },
-          },
-        },
+      await this.graph.setRelationshipsToNodes({
+        sourceLabel: "Project",
+        sourceWhere: { id: dto.projectId },
+        type: "HAS_REPOSITORY",
+        targetLabel: "Repository",
+        targetProperty: "fullName",
+        targetValues: dto.repos,
+        replace: false,
       });
-      return {
-        success: true,
-        message: "Repos linked to project successfully",
-      };
+      return { success: true, message: "Repos linked to project successfully" };
     } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "projects.service",
-        });
-        scope.setExtra("input", dto);
-        Sentry.captureException(err);
-      });
-      this.logger.error(`ProjectsService::linkReposToProject ${err.message}`);
-      return {
-        success: false,
-        message: "Failed to link repos to project",
-      };
+      Sentry.captureException(err);
+      this.logger.error("ProjectsService::linkReposToProject " + err.message);
+      return { success: false, message: "Failed to link repos to project" };
     }
   }
 
@@ -1546,39 +1031,24 @@ export class ProjectsService {
     dto: LinkJobsToProjectInput,
   ): Promise<ResponseWithNoData> {
     try {
-      for (const job of dto.jobs) {
-        await this.models.Projects.deleteRelationships({
-          alias: "jobs",
-          where: {
-            source: {
-              id: dto.projectId,
-            },
-            target: {
-              shortUUID: job,
-            },
-          },
-        });
-      }
+      await this.graph.deleteRelationshipsToNodes({
+        sourceLabel: "Project",
+        sourceWhere: { id: dto.projectId },
+        type: "HAS_JOB",
+        targetLabel: "StructuredJobpost",
+        targetProperty: "shortUUID",
+        targetValues: dto.jobs,
+      });
       return {
         success: true,
         message: "Jobs unlinked from project successfully",
       };
     } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "projects.service",
-        });
-        scope.setExtra("input", dto);
-        Sentry.captureException(err);
-      });
+      Sentry.captureException(err);
       this.logger.error(
-        `ProjectsService::unlinkJobsFromProject ${err.message}`,
+        "ProjectsService::unlinkJobsFromProject " + err.message,
       );
-      return {
-        success: false,
-        message: "Failed to unlink jobs from project",
-      };
+      return { success: false, message: "Failed to unlink jobs from project" };
     }
   }
 
@@ -1586,39 +1056,68 @@ export class ProjectsService {
     dto: LinkReposToProjectInput,
   ): Promise<ResponseWithNoData> {
     try {
-      for (const repo of dto.repos) {
-        await this.models.Projects.deleteRelationships({
-          alias: "repos",
-          where: {
-            source: {
-              id: dto.projectId,
-            },
-            target: {
-              fullName: repo,
-            },
-          },
-        });
-      }
+      await this.graph.deleteRelationshipsToNodes({
+        sourceLabel: "Project",
+        sourceWhere: { id: dto.projectId },
+        type: "HAS_REPOSITORY",
+        targetLabel: "Repository",
+        targetProperty: "fullName",
+        targetValues: dto.repos,
+      });
       return {
         success: true,
         message: "Repos unlinked from project successfully",
       };
     } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "projects.service",
-        });
-        scope.setExtra("input", dto);
-        Sentry.captureException(err);
-      });
+      Sentry.captureException(err);
       this.logger.error(
-        `ProjectsService::unlinkReposFromProject ${err.message}`,
+        "ProjectsService::unlinkReposFromProject " + err.message,
       );
-      return {
-        success: false,
-        message: "Failed to unlink repos from project",
-      };
+      return { success: false, message: "Failed to unlink repos from project" };
     }
+  }
+
+  private async setProjectCategory(
+    projectId: string,
+    categoryName: string,
+  ): Promise<void> {
+    let category = await this.graph.findNode<Record<string, unknown>>(
+      "ProjectCategory",
+      { name: categoryName },
+    );
+    if (!category) {
+      const categoryId = randomUUID();
+      category = await this.graph.createNode(
+        "ProjectCategory",
+        { id: categoryId, name: categoryName },
+        `runtime:category:${slugify(categoryName)}`,
+      );
+    }
+    await this.graph.setRelationshipsToNodes({
+      sourceLabel: "Project",
+      sourceWhere: { id: projectId },
+      type: "HAS_CATEGORY",
+      targetLabel: "ProjectCategory",
+      targetProperty: "id",
+      targetValues: [String(category.properties.id)],
+      replace: true,
+    });
+  }
+
+  private async replaceProjectLink(
+    projectId: string,
+    value: string | undefined,
+    relationshipType: string,
+    targetLabel: string,
+    targetProperty: string,
+  ): Promise<void> {
+    await this.graph.replaceRelatedValueNodes({
+      sourceLabel: "Project",
+      sourceWhere: { id: projectId },
+      type: relationshipType,
+      targetLabel,
+      targetProperty,
+      values: value ? [value] : [],
+    });
   }
 }

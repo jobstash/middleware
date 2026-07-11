@@ -1,39 +1,30 @@
 import { Injectable } from "@nestjs/common";
-import { Neogma } from "neogma";
-import { InjectConnection } from "nestjs-neogma";
 import { Chain, PaginatedData } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
 import { paginate } from "src/shared/helpers";
 import { sort } from "fast-sort";
+import { GraphRepository } from "src/postgres/graph.repository";
 
 @Injectable()
 export class ChainsService {
   private readonly logger = new CustomLogger(ChainsService.name);
-  constructor(
-    @InjectConnection()
-    private neogma: Neogma,
-  ) {}
+  constructor(private readonly graph: GraphRepository) {}
 
   async getChainList(
     page: number,
     limit: number,
   ): Promise<PaginatedData<Chain>> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        CYPHER runtime = pipelined
-        MATCH (chain:Chain)
-        RETURN chain { .* } as chain
-        `,
-      );
+      const chains =
+        await this.graph.findNodes<Record<string, unknown>>("Chain");
 
       return paginate(
         page,
         limit,
-        sort<Chain>(result.records.map(res => new Chain(res.get("chain")))).asc(
-          x => x.name,
-        ),
+        sort<Chain>(
+          chains.map(chain => new Chain(chain.properties as unknown as Chain)),
+        ).asc(x => x.name),
       );
     } catch (err) {
       Sentry.withScope(scope => {
@@ -56,17 +47,15 @@ export class ChainsService {
 
   async getChainDetailsBySlug(slug: string): Promise<Chain | undefined> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          CYPHER runtime = pipelined
-          MATCH (chain:Chain)
-          WHERE chain.normalizedName = $slug
-          RETURN chain { .* } as chain
-        `,
-        { slug },
+      const chain = await this.graph.findNode<Record<string, unknown>>(
+        "Chain",
+        {
+          normalizedName: slug,
+        },
       );
-
-      return new Chain(result.records[0].get("chain"));
+      return chain
+        ? new Chain(chain.properties as unknown as Chain)
+        : undefined;
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({

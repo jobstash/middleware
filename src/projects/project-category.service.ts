@@ -1,62 +1,45 @@
 import { Injectable } from "@nestjs/common";
-import { Neogma } from "neogma";
-import { InjectConnection } from "nestjs-neogma";
+import { randomUUID } from "node:crypto";
+import { GraphRepository } from "src/postgres/graph.repository";
 import { ProjectCategoryEntity } from "src/shared/entities";
 import { CreateProjectCategoryDto } from "./dto/create-project-category.dto";
 import { UpdateProjectCategoryDto } from "./dto/update-project-category.dto";
 
 @Injectable()
 export class ProjectCategoryService {
-  constructor(
-    @InjectConnection()
-    private neogma: Neogma,
-  ) {}
+  constructor(private readonly graph: GraphRepository) {}
 
   async find(name: string): Promise<ProjectCategoryEntity | undefined> {
-    const res = await this.neogma.queryRunner.run(
-      `
-            MATCH (c:ProjectCategory {name: $name})
-            RETURN c
-        `,
+    const category = await this.graph.findNode<Record<string, unknown>>(
+      "ProjectCategory",
       { name },
     );
-    return res.records.length
-      ? new ProjectCategoryEntity(res.records[0].get("c"))
+    return category
+      ? new ProjectCategoryEntity(category.properties)
       : undefined;
   }
 
   async create(
     projectCategory: CreateProjectCategoryDto,
   ): Promise<ProjectCategoryEntity> {
-    return this.neogma.queryRunner
-      .run(
-        `
-            CREATE (c:ProjectCategory { id: randomUUID() })
-            SET c += $properties
-            RETURN c
-        `,
-        {
-          properties: {
-            ...projectCategory,
-          },
-        },
-      )
-      .then(res => new ProjectCategoryEntity(res.records[0].get("c")));
+    const id = randomUUID();
+    const category = await this.graph.createNode(
+      "ProjectCategory",
+      { id, ...projectCategory },
+      id,
+    );
+    return new ProjectCategoryEntity(category.properties);
   }
 
   async update(
     id: string,
     properties: UpdateProjectCategoryDto,
   ): Promise<ProjectCategoryEntity> {
-    return this.neogma.queryRunner
-      .run(
-        `
-            MATCH (c:ProjectCategory { id: $id })
-            SET c += $properties
-            RETURN c
-        `,
-        { id, properties },
-      )
-      .then(res => new ProjectCategoryEntity(res.records[0].get("p")));
+    const [category] = await this.graph.updateNodes<{
+      id: string;
+      name?: string;
+    }>("ProjectCategory", { id }, properties);
+    if (!category) throw new Error(`Project category ${id} not found`);
+    return new ProjectCategoryEntity(category.properties);
   }
 }

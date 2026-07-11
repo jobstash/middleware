@@ -7,7 +7,6 @@ import { UserModule } from "../user/user.module";
 import { MailModule } from "src/mail/mail.module";
 import { MagicAuthModule } from "./magic/magic.module";
 import { ProfileModule } from "./profile/profile.module";
-import { ModelService } from "src/model/model.service";
 import { AccountModule } from "./account/account.module";
 
 @Module({
@@ -30,7 +29,7 @@ import { AccountModule } from "./account/account.module";
     AccountModule,
   ],
   controllers: [AuthController],
-  providers: [JwtService, ConfigService, AuthService, ModelService],
+  providers: [JwtService, ConfigService, AuthService],
   exports: [AuthService],
 })
 export class AuthModule {}

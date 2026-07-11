@@ -5,16 +5,14 @@ import { Request, Response } from "express";
 import { SessionObject } from "src/shared/interfaces";
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "src/shared/utils/custom-logger";
-import { InjectConnection } from "nestjs-neogma";
-import { Neogma } from "neogma";
+import { GraphRepository } from "src/postgres/graph.repository";
 
 @Injectable()
 export class AuthService {
   private readonly logger = new CustomLogger(AuthService.name);
   private readonly jwtConfig: object;
   constructor(
-    @InjectConnection()
-    private neogma: Neogma,
+    private readonly graph: GraphRepository,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
   ) {
@@ -33,22 +31,27 @@ export class AuthService {
     if (token) {
       const decoded = this.decodeToken(token);
       if (decoded) {
+        if (!decoded.address) {
+          return { address: null, cryptoNative: false, permissions: [] };
+        }
         try {
-          const result = await this.neogma.queryRunner.run(
-            `
-              MATCH (u:User {wallet: $address})
-              RETURN {
-                cryptoNative: u.cryptoNative,
-                permissions: [(u)-[:HAS_PERMISSION]->(up:UserPermission) | up.name]
-              } as user
-            `,
-            { address: decoded.address },
-          );
-          const user = result.records[0]?.get("user") ?? [];
+          const [user, permissions] = await Promise.all([
+            this.graph.findNode<Record<string, unknown>>("User", {
+              wallet: decoded.address,
+            }),
+            this.graph.findRelatedNodes<Record<string, unknown>>({
+              sourceLabel: "User",
+              sourceWhere: { wallet: decoded.address },
+              relationshipType: "HAS_PERMISSION",
+              targetLabel: "UserPermission",
+            }),
+          ]);
           return {
             address: decoded.address ?? null,
-            cryptoNative: user?.cryptoNative ?? false,
-            permissions: user.permissions ?? [],
+            cryptoNative: (user?.properties.cryptoNative as boolean) ?? false,
+            permissions: permissions
+              .map(permission => permission.properties.name as string)
+              .filter(Boolean),
           };
         } catch (error) {
           Sentry.withScope(scope => {

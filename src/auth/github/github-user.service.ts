@@ -1,50 +1,42 @@
+import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
-import { CustomLogger } from "../../shared/utils/custom-logger";
+import * as Sentry from "@sentry/node";
+import { GraphRepository } from "src/postgres/graph.repository";
 import {
+  GithubUser,
   GithubUserEntity,
   GithubUserEntity as GithubUserNode,
-  GithubUser,
   Response,
   ResponseWithNoData,
   User,
   UserEntity,
-} from "../../shared/types";
+} from "src/shared/types";
+import { CustomLogger } from "src/shared/utils/custom-logger";
+import { GithubInfo } from "./dto/github-info.input";
 import { CreateGithubUserDto } from "./dto/user/create-github-user.dto";
 import { UpdateGithubUserDto } from "./dto/user/update-github-user.dto";
-import { Neogma } from "neogma";
-import { InjectConnection } from "nestjs-neogma";
-import { instanceToNode, propertiesMatch } from "src/shared/helpers";
-import * as Sentry from "@sentry/node";
-import { GithubInfo } from "./dto/github-info.input";
-import { ModelService } from "src/model/model.service";
 
 @Injectable()
 export class GithubUserService {
   private readonly logger = new CustomLogger(GithubUserService.name);
 
-  constructor(
-    @InjectConnection()
-    private neogma: Neogma,
-    private models: ModelService,
-  ) {}
+  constructor(private readonly graph: GraphRepository) {}
 
   async unsafe__linkGithubUser(
     wallet: string,
     githubLogin: string,
   ): Promise<GithubUser | undefined> {
     this.logger.log(`Linking github user to wallet ${wallet}`);
-    const res = await this.neogma.queryRunner.run(
-      `
-      MATCH (u:User {wallet: $wallet}), (gu:GithubUser {login: $githubLogin})
-      MERGE (u)-[:HAS_GITHUB_USER]->(gu)
-      RETURN gu
-      `,
-      { wallet, githubLogin },
-    );
-
-    return res.records.length
-      ? new GithubUserEntity(res.records[0].get("gu")).getProperties()
-      : undefined;
+    const [githubUser] = await this.graph.setRelationshipsToNodes({
+      sourceLabel: "User",
+      sourceWhere: { wallet },
+      type: "HAS_GITHUB_USER",
+      targetLabel: "GithubUser",
+      targetProperty: "login",
+      targetValues: [githubLogin],
+      replace: false,
+    });
+    return githubUser?.properties as unknown as GithubUser | undefined;
   }
 
   async addGithubInfoToUser(
@@ -58,69 +50,56 @@ export class GithubUserService {
     this.logger.log(
       `/user/addGithubInfoToUser: Assigning github account to wallet ${args.wallet}`,
     );
-
-    const { wallet, ...updateObject } = args;
-
     try {
-      const storedUserNode = new UserEntity(
-        instanceToNode(
-          await this.models.Users.findOne({
-            where: {
-              wallet: wallet,
-            },
-          }),
-        ),
+      const storedUser = await this.graph.findNode<Record<string, unknown>>(
+        "User",
+        { wallet: args.wallet },
       );
-      if (!storedUserNode) {
-        return { success: false, message: "User not found" };
-      }
-      const githubUserNode = await this.findByLogin(updateObject.githubLogin);
+      if (!storedUser) return { success: false, message: "User not found" };
 
       const payload = {
-        login: updateObject.githubLogin,
-        avatarUrl: updateObject.githubAvatarUrl,
+        login: args.githubLogin,
+        avatarUrl: args.githubAvatarUrl,
       };
-
-      if (githubUserNode) {
-        this.logger.log("debug - GH User node found");
-        const githubUserNodeData: GithubUser = githubUserNode.getProperties();
-        if (propertiesMatch(githubUserNodeData, updateObject)) {
+      const githubUser = await this.findByLogin(args.githubLogin);
+      if (
+        githubUser?.getLogin() === payload.login &&
+        githubUser.getAvatarUrl() === payload.avatarUrl
+      ) {
+        const alreadyLinked = await this.graph.hasRelationship({
+          sourceLabel: "User",
+          sourceWhere: { wallet: args.wallet },
+          type: "HAS_GITHUB_USER",
+          targetLabel: "GithubUser",
+          targetWhere: { login: args.githubLogin },
+        });
+        if (alreadyLinked) {
           return { success: false, message: "Github data is identical" };
         }
-
-        await this.update(payload);
-        await this.unsafe__linkGithubUser(wallet, updateObject.githubLogin);
-        return {
-          success: true,
-          message: "Github data persisted successfully",
-          data: storedUserNode.getProperties(),
-        };
-      } else {
-        this.logger.log("debug - GH User node not found, creating...");
-        await this.create(payload);
-        await this.unsafe__linkGithubUser(wallet, updateObject.githubLogin);
-        return {
-          success: true,
-          message: "Github data persisted successfully",
-          data: storedUserNode.getProperties(),
-        };
       }
-    } catch (err) {
+
+      if (githubUser) await this.update(payload);
+      else await this.create(payload);
+      await this.unsafe__linkGithubUser(args.wallet, args.githubLogin);
+      return {
+        success: true,
+        message: "Github data persisted successfully",
+        data: new UserEntity(
+          storedUser.properties as unknown as User,
+        ).getProperties(),
+      };
+    } catch (error) {
       Sentry.withScope(scope => {
         scope.setTags({
           action: "service-request-pipeline",
           source: "github-user.service",
         });
         scope.setExtra("input", logInfo);
-        Sentry.captureException(err);
+        Sentry.captureException(error);
       });
-      this.logger.error(
-        `GithubUserService::addGithubInfoToUser ${err.message}`,
-      );
-      return {
-        success: false,
-        message: "Error adding github info to user",
-      };
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`GithubUserService::addGithubInfoToUser ${message}`);
+      return { success: false, message: "Error adding github info to user" };
     }
   }
 
@@ -129,88 +108,82 @@ export class GithubUserService {
     login: string = null,
   ): Promise<void> {
     if (login) {
-      await this.neogma.queryRunner.run(
-        `
-      MATCH (u:User {wallet: $wallet})-[r:HAS_GITHUB_USER]->(gu:GithubUser {login: $githubLogin})
-      DELETE r
-      `,
-        { wallet, githubLogin: login },
-      );
-    } else {
-      await this.neogma.queryRunner.run(
-        `
-      MATCH (u:User {wallet: $wallet})-[r:HAS_GITHUB_USER]->(:GithubUser)
-      DELETE r
-      `,
-        { wallet },
-      );
+      await this.graph.deleteRelationshipBetween({
+        sourceLabel: "User",
+        sourceWhere: { wallet },
+        type: "HAS_GITHUB_USER",
+        targetLabel: "GithubUser",
+        targetWhere: { login },
+      });
+      return;
     }
+    await this.graph.setRelationshipsToNodes({
+      sourceLabel: "User",
+      sourceWhere: { wallet },
+      type: "HAS_GITHUB_USER",
+      targetLabel: "GithubUser",
+      targetProperty: "login",
+      targetValues: [],
+      replace: true,
+    });
   }
 
   async findById(id: string): Promise<GithubUserNode | undefined> {
-    const githubNode = await this.models.GithubUsers.findOne({
-      where: { id: id },
-    });
-
-    return githubNode
-      ? new GithubUserNode(instanceToNode(githubNode))
+    const githubUser = await this.graph.findNode<Record<string, unknown>>(
+      "GithubUser",
+      { id },
+    );
+    return githubUser
+      ? new GithubUserNode(githubUser.properties as unknown as GithubUser)
       : undefined;
   }
 
   async findByLogin(login: string): Promise<GithubUserNode | undefined> {
-    const githubNode = await this.models.GithubUsers.findOne({
-      where: { login: login },
-    });
-
-    return githubNode
-      ? new GithubUserNode(instanceToNode(githubNode))
+    const githubUser = await this.graph.findNode<Record<string, unknown>>(
+      "GithubUser",
+      { login },
+    );
+    return githubUser
+      ? new GithubUserNode(githubUser.properties as unknown as GithubUser)
       : undefined;
   }
 
-  async create(
-    createGithubUserDto: CreateGithubUserDto,
-  ): Promise<GithubUserNode> {
-    const result = await this.neogma.queryRunner.run(
-      `
-      MERGE (ghu:GithubUser {login: $login})
-      ON CREATE SET
-        ghu.id = randomUUID(),
-        ghu.avatarUrl = $avatarUrl,
-        ghu.createdTimestamp = timestamp()
-      ON MATCH SET
-        ghu.avatarUrl = $avatarUrl,
-        ghu.updatedTimestamp = timestamp()
-      RETURN ghu
-      `,
+  async create(input: CreateGithubUserDto): Promise<GithubUserNode> {
+    if (!input.login) throw new Error("GitHub login is required");
+    const existing = await this.findByLogin(input.login);
+    if (existing) {
+      return (await this.update(input)) ?? existing;
+    }
+    const id = randomUUID();
+    const githubUser = await this.graph.createNode(
+      "GithubUser",
       {
-        login: createGithubUserDto.login,
-        avatarUrl: createGithubUserDto.avatarUrl,
+        id,
+        login: input.login,
+        avatarUrl: input.avatarUrl,
+        createdTimestamp: Date.now(),
       },
+      `runtime:${id}`,
     );
-    return new GithubUserNode(result.records[0].get("ghu"));
+    return new GithubUserNode(githubUser.properties as unknown as GithubUser);
   }
 
   async update(
-    updateGithubUserDto: UpdateGithubUserDto,
+    input: UpdateGithubUserDto,
   ): Promise<GithubUserNode | undefined> {
-    const oldNode = await this.findByLogin(updateGithubUserDto.login);
-    if (oldNode) {
-      const result = await this.neogma.queryRunner.run(
-        `
-        MATCH (ghu:GithubUser {login: $login})
-        SET
-          ghu.avatarUrl = $avatarUrl,
-          ghu.updatedTimestamp = timestamp()
-        RETURN ghu
-        `,
-        {
-          ...updateGithubUserDto,
-        },
-      );
-      return new GithubUserNode(result.records[0].get("ghu"));
-    } else {
-      this.logger.error(`GithubUserService::update node not found`);
+    if (!input.login) {
+      this.logger.error("GithubUserService::update login is required");
       return undefined;
     }
+    const [githubUser] = await this.graph.updateNodes<Record<string, unknown>>(
+      "GithubUser",
+      { login: input.login },
+      { avatarUrl: input.avatarUrl, updatedTimestamp: Date.now() },
+    );
+    if (!githubUser) {
+      this.logger.error("GithubUserService::update node not found");
+      return undefined;
+    }
+    return new GithubUserNode(githubUser.properties as unknown as GithubUser);
   }
 }

@@ -1,6 +1,10 @@
-import { Node } from "neo4j-driver";
 import { intConverter, nonZeroOrNull, notStringOrNull } from "../helpers";
-import { ShortOrg, Organization, ShortOrgWithSummary } from "../interfaces";
+import {
+  GraphNode,
+  ShortOrg,
+  Organization,
+  ShortOrgWithSummary,
+} from "../interfaces";
 
 export class ShortOrgEntity {
   constructor(private readonly raw: ShortOrg) {}
@@ -70,79 +74,86 @@ export class ShortOrgWithSummaryEntity {
 }
 
 export class OrganizationEntity {
-  constructor(private readonly node: Node) {}
+  private readonly properties: Record<string, unknown>;
+
+  constructor(raw: GraphNode | Organization) {
+    this.properties =
+      "properties" in raw
+        ? (raw.properties as Record<string, unknown>)
+        : (raw as unknown as Record<string, unknown>);
+  }
 
   getId(): string {
-    return (<Record<string, string>>this.node.properties).id;
+    return (<Record<string, string>>this.properties).id;
   }
 
   getOrgId(): string {
-    return (<Record<string, string>>this.node.properties).orgId;
+    return (<Record<string, string>>this.properties).orgId;
   }
 
   getLogoUrl(): string {
-    return (<Record<string, string>>this.node.properties).logoUrl;
+    return (<Record<string, string>>this.properties).logoUrl;
   }
 
   getName(): string {
-    return (<Record<string, string>>this.node.properties).name;
+    return (<Record<string, string>>this.properties).name;
   }
 
   getAltName(): string {
-    return (<Record<string, string>>this.node.properties).altName;
+    return (<Record<string, string>>this.properties).altName;
   }
 
   getLocation(): string {
-    return (<Record<string, string>>this.node.properties).location;
+    return (<Record<string, string>>this.properties).location;
   }
 
   getSummary(): string {
-    return (<Record<string, string>>this.node.properties).summary;
+    return (<Record<string, string>>this.properties).summary;
   }
 
   getDescription(): string {
-    return (<Record<string, string>>this.node.properties).description;
+    return (<Record<string, string>>this.properties).description;
   }
 
   getUrl(): string {
-    return (<Record<string, string>>this.node.properties).url;
+    return (<Record<string, string>>this.properties).url;
   }
 
   getGithubOrganization(): string | undefined {
-    return (<Record<string, string>>this.node.properties).githubOrganization;
+    return (<Record<string, string>>this.properties).githubOrganization;
   }
 
   getHeadCount(): string | undefined {
-    return (<Record<string, string>>this.node.properties).headcountEstimate;
+    return (<Record<string, string>>this.properties).headcountEstimate;
   }
 
   getTwitter(): string | undefined {
-    return (<Record<string, string>>this.node.properties).twitter;
+    return (<Record<string, string>>this.properties).twitter;
   }
 
   getDiscord(): string | undefined {
-    return (<Record<string, string>>this.node.properties).discord;
+    return (<Record<string, string>>this.properties).discord;
   }
 
   getDocs(): string | undefined {
-    return (<Record<string, string>>this.node.properties).docs;
+    return (<Record<string, string>>this.properties).docs;
   }
 
   getTelegram(): string | undefined {
-    return (<Record<string, string>>this.node.properties).telegram;
+    return (<Record<string, string>>this.properties).telegram;
   }
 
   getCreatedTimestamp(): number {
-    return (<Record<string, number>>this.node.properties).createdTimestamp;
+    return (<Record<string, number>>this.properties).createdTimestamp;
   }
 
   getUpdatedTimestamp(): number | undefined {
-    return (<Record<string, number>>this.node.properties).updatedTimestamp;
+    return (<Record<string, number>>this.properties).updatedTimestamp;
   }
 
   getProperties(): Organization {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const properties = <Record<string, any>>this.node.properties;
+    const properties = <Record<string, any>>this.properties;
     return {
       ...properties,
       logoUrl: notStringOrNull(properties?.logoUrl),

@@ -3,13 +3,12 @@ import { TagsService } from "./tags.service";
 import { TagsController } from "./tags.controller";
 import { AuthService } from "src/auth/auth.service";
 import { JwtService } from "@nestjs/jwt";
-import { ModelService } from "src/model/model.service";
 import { UserModule } from "src/user/user.module";
 
 @Module({
   imports: [forwardRef(() => UserModule)],
   controllers: [TagsController],
-  providers: [TagsService, AuthService, JwtService, ModelService],
+  providers: [TagsService, AuthService, JwtService],
   exports: [TagsService],
 })
 export class TagsModule {}

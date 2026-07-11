@@ -1,6 +1,5 @@
 import { Injectable } from "@nestjs/common";
 import { ResponseWithNoData } from "src/shared/types";
-import { Integer } from "neo4j-driver";
 import { ConfigService } from "@nestjs/config";
 import { JobsService } from "./jobs/jobs.service";
 import * as Sentry from "@sentry/node";
@@ -34,7 +33,7 @@ export class AppService {
       const result = await this.jobsService.getJobsListWithSearch({
         ...new JobListParams(),
         page: 1,
-        limit: Integer.MAX_SAFE_VALUE.toNumber(),
+        limit: Number.MAX_SAFE_INTEGER,
       });
       const jobs = result.data;
       return `<?xml version="1.0" encoding="UTF-8"?>
@@ -104,25 +103,25 @@ export class AppService {
       {
         ...new OrgListParams(),
         page: 1,
-        limit: Integer.MAX_SAFE_VALUE.toNumber(),
+        limit: Number.MAX_SAFE_INTEGER,
       },
     );
 
     const projects = await this.projectsService.getProjectsListWithSearch({
       ...new ProjectListParams(),
       page: 1,
-      limit: Integer.MAX_SAFE_VALUE.toNumber(),
+      limit: Number.MAX_SAFE_INTEGER,
     });
 
     const grants = await this.grantsService.getGrantsList(
       1,
-      Integer.MAX_SAFE_VALUE.toNumber(),
+      Number.MAX_SAFE_INTEGER,
       "active",
     );
 
     const impact = await this.grantsService.getGrantsList(
       1,
-      Integer.MAX_SAFE_VALUE.toNumber(),
+      Number.MAX_SAFE_INTEGER,
       "inactive",
     );
 

@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
 import {
   ShortOrg,
   Repository,
@@ -22,7 +23,6 @@ import * as Sentry from "@sentry/node";
 import { OrgListParams } from "./dto/org-list.input";
 import {
   ensureProtocol,
-  instanceToNode,
   isValidUrl,
   slugify,
   paginate,
@@ -37,9 +37,6 @@ import {
   OrgListResultEntity,
   RepositoryEntity,
 } from "src/shared/entities";
-import { ModelService } from "src/model/model.service";
-import { Neogma } from "neogma";
-import { InjectConnection } from "nestjs-neogma";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
 import { UpdateOrgAliasesInput } from "./dto/update-organization-aliases.input";
@@ -61,318 +58,39 @@ import { ImportOrgJobsiteInput } from "./dto/import-organization-jobsites.input"
 import { SearchOrganizationsInput } from "./dto/search-organizations.input";
 import { uniq } from "lodash";
 import { go } from "fuzzysort";
+import { SearchDocumentRepository } from "src/postgres/search-document.repository";
+import { GraphRepository } from "src/postgres/graph.repository";
 
 @Injectable()
 export class OrganizationsService {
   private readonly logger = new CustomLogger(OrganizationsService.name);
   constructor(
-    @InjectConnection()
-    private neogma: Neogma,
-    private models: ModelService,
     private configService: ConfigService,
     private readonly auth0Service: Auth0Service,
+    private readonly searchDocuments: SearchDocumentRepository,
+    private readonly graph: GraphRepository,
   ) {}
 
   getOrgListResults = async (
     ecosystem?: string | undefined,
   ): Promise<OrgListResult[]> => {
-    const results: OrgListResult[] = [];
-    const generatedQuery = `
-        CYPHER runtime = parallel
-        MATCH (organization:Organization)
-        WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-        RETURN organization {
-          .*,
-          discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-          website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-          docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-          telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-          github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
-          aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-          twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-          fundingRounds: apoc.coll.toSet([
-            (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round {.*}
-          ]),
-          grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
-            .*,
-            programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
-          }],
-          investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
-          ecosystems: [(organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
-          projects: [
-            (organization)-[:HAS_PROJECT]->(project) | project {
-              .*,
-              orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
-              discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-              website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
-              docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-              telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-              github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
-              category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-              twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-              hacks: [
-                (project)-[:HAS_HACK]->(hack) | hack { .* }
-              ],
-              audits: [
-                (project)-[:HAS_AUDIT]->(audit) | audit { .* }
-              ],
-              chains: [
-                (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
-              ],
-              ecosystems: [
-                (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ],
-              investors: [(project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) | investor { .* }],
-              fundingRounds: [
-                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
-              ],
-              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
-                .*,
-                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
-              }]
-            }
-          ],
-          tags: apoc.coll.toSet([
-            (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-            WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag { .* }
-          ]),
-          reviews: [
-            (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
-              compensation: {
-                salary: review.salary,
-                currency: review.currency,
-                offersTokenAllocation: review.offersTokenAllocation
-              },
-              rating: {
-                onboarding: review.onboarding,
-                careerGrowth: review.careerGrowth,
-                benefits: review.benefits,
-                workLifeBalance: review.workLifeBalance,
-                diversityInclusion: review.diversityInclusion,
-                management: review.management,
-                product: review.product,
-                compensation: review.compensation
-              },
-              review: {
-                title: review.title,
-                location: review.location,
-                timezone: review.timezone,
-                pros: review.pros,
-                cons: review.cons
-              },
-              reviewedTimestamp: review.reviewedTimestamp
-            }
-          ]
-        } as res
-        `;
-
-    try {
-      const resultSet = (
-        await this.neogma.queryRunner.run(generatedQuery, {
-          ecosystem: ecosystem ?? null,
-        })
-      ).records?.map(record => record?.get("res") as OrgListResult);
-      for (const result of resultSet) {
-        results.push(new OrgListResultEntity(result).getProperties());
-      }
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "jobs.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `OrganizationsService::getOrgsListResults ${err.message}`,
-      );
-    }
-
-    return results;
+    const payloads =
+      await this.searchDocuments.getOrganizationPayloads(ecosystem);
+    return payloads.map(payload =>
+      new OrgListResultEntity(payload).getProperties(),
+    );
   };
 
   async getOrgsListWithSearch(
     params: OrgListParams & { ecosystemHeader?: string },
   ): Promise<PaginatedData<ShortOrgWithSummary>> {
-    const paramsPassed = {
-      ...params,
-      limit: params.limit ?? 10,
-      page: params.page ?? 1,
+    const postgresPage = await this.searchDocuments.searchOrganizations(params);
+    return {
+      ...postgresPage,
+      data: postgresPage.data.map(payload =>
+        toShortOrgWithSummary(new OrgListResultEntity(payload).getProperties()),
+      ),
     };
-    const {
-      minHeadCount,
-      maxHeadCount,
-      locations: locationFilterList,
-      investors: investorFilterList,
-      fundingRounds: fundingRoundFilterList,
-      ecosystems: ecosystemFilterList,
-      projects: projectFilterList,
-      tags: tagFilterList,
-      chains: chainFilterList,
-      names: nameFilterList,
-      hasProjects,
-      query,
-      order,
-      orderBy,
-      page,
-      limit,
-      ecosystemHeader,
-    } = paramsPassed;
-
-    const results: OrgListResult[] = [];
-
-    try {
-      const result = await this.getOrgListResults(ecosystemHeader);
-      results.push(...result);
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "organizations.service",
-        });
-        scope.setExtra("input", params);
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `OrganizationsService::getOrgsListWithSearch ${err.message}`,
-      );
-      return {
-        page: -1,
-        count: 0,
-        total: 0,
-        data: [],
-      };
-    }
-
-    const projectBasedFilters = (projects: OrgProject[]): boolean => {
-      const filters = [
-        projectFilterList,
-        chainFilterList,
-        ecosystemFilterList,
-        hasProjects,
-      ].filter(Boolean);
-      const filtersApplied = filters.length > 0;
-
-      if (!filtersApplied) return true;
-      return (
-        (!projectFilterList ||
-          projects.filter(x => projectFilterList.includes(slugify(x.name)))
-            .length > 0) &&
-        (!chainFilterList ||
-          uniq(projects.flatMap(x => x.chains)).filter(x =>
-            chainFilterList.includes(slugify(x.name)),
-          ).length > 0) &&
-        (!ecosystemFilterList ||
-          ecosystemFilterList.some(x =>
-            uniq(projects.flatMap(x => x.ecosystems)).includes(x),
-          )) &&
-        (!hasProjects === null || projects.length > 0)
-      );
-    };
-
-    const orgBasedFilters = (org: OrgListResult): boolean => {
-      const filters = [
-        minHeadCount,
-        maxHeadCount,
-        locationFilterList,
-        investorFilterList,
-        fundingRoundFilterList,
-        ecosystemFilterList,
-        projectFilterList,
-        tagFilterList,
-        nameFilterList,
-        chainFilterList,
-        ecosystemFilterList,
-        hasProjects,
-        query,
-      ].filter(Boolean);
-      const filtersApplied = filters.length > 0;
-
-      if (!filtersApplied) return true;
-
-      const {
-        fundingRounds,
-        investors,
-        ecosystems,
-        aliases,
-        headcountEstimate,
-        location,
-        name,
-        tags,
-      } = org;
-      const isValidSearchResult = query
-        ? go(query, [name, ...aliases], { threshold: 0.3 }).map(x => x.target)
-            .length > 0
-        : true;
-      return (
-        (!query || isValidSearchResult) &&
-        projectBasedFilters(org.projects) &&
-        (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
-        (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
-        (!locationFilterList ||
-          locationFilterList.includes(slugify(location))) &&
-        (!nameFilterList ||
-          nameFilterList.includes(slugify(name)) ||
-          nameFilterList.some(x => aliases.map(slugify).includes(x))) &&
-        (!investorFilterList ||
-          investors.some(investor =>
-            investorFilterList.includes(slugify(investor.name)),
-          )) &&
-        (!tagFilterList ||
-          tagFilterList.some(x =>
-            tags.map(x => x.normalizedName).includes(x),
-          )) &&
-        (!ecosystemFilterList ||
-          ecosystems.some(ecosystem =>
-            ecosystemFilterList.includes(slugify(ecosystem)),
-          )) &&
-        (!fundingRoundFilterList ||
-          fundingRoundFilterList.some(x =>
-            fundingRounds.map(x => slugify(x.roundName)).includes(x),
-          ))
-      );
-    };
-
-    const filtered = results.filter(orgBasedFilters);
-
-    const getSortParam = (org: OrgListResult): number | null => {
-      switch (orderBy) {
-        case "recentFundingDate":
-          return org.lastFundingDate() ?? 0;
-        case "headcountEstimate":
-          return org?.headcountEstimate ?? 0;
-        case "rating":
-          return org?.aggregateRating ?? 0;
-        default:
-          return null;
-      }
-    };
-
-    let final: OrgListResult[] = [];
-
-    if (!order || order === "desc") {
-      final = naturalSort<OrgListResult>(filtered).by([
-        {
-          desc: (x): number =>
-            params.orderBy ? getSortParam(x) : x.lastFundingDate(),
-        },
-        { asc: (x): string => x.name },
-      ]);
-    } else {
-      final = naturalSort<OrgListResult>(filtered).by([
-        {
-          asc: (x): number =>
-            params.orderBy ? getSortParam(x) : x.lastFundingDate(),
-        },
-        { asc: (x): string => x.name },
-      ]);
-    }
-
-    return paginate<ShortOrgWithSummary>(
-      page,
-      limit,
-      final.map(x => toShortOrgWithSummary(x)),
-    );
   }
 
   async getAllOrgsList(): Promise<Array<TinyOrg>> {
@@ -404,67 +122,9 @@ export class OrganizationsService {
   async getFilterConfigs(
     ecosystem: string | undefined,
   ): Promise<OrgFilterConfigs> {
-    try {
-      return await this.neogma.queryRunner
-        .run(
-          `
-          CYPHER runtime = pipelined
-          RETURN {
-              minHeadCount: apoc.coll.min([
-                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) 
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END | org.headcountEstimate
-              ]),
-              maxHeadCount: apoc.coll.max([
-                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) 
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END | org.headcountEstimate
-              ]),
-              fundingRounds: apoc.coll.toSet([
-                (org: Organization)-[:HAS_FUNDING_ROUND]->(round: FundingRound)
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
-                AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | round.roundName
-              ]),
-              investors: apoc.coll.toSet([
-                (org: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor)
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
-                AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | investor.name
-              ]),
-              ecosystems: apoc.coll.toSet([
-                (org: Organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem: Ecosystem)
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                AND NOT (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_JOB_DESIGNATION*4]->(:BlockedDesignation)
-                AND (org)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_STATUS*4]->(:JobpostOnlineStatus) | ecosystem.name
-              ]),
-              locations: apoc.coll.toSet([
-                (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(j:StructuredJobpost)-[:HAS_LOCATION_TYPE]->(location: JobpostLocationType)
-                WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((org)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-                AND (j)-[:HAS_STATUS]->(:JobpostOnlineStatus) | location.name
-              ])
-          } AS res
-      `,
-          { ecosystem: ecosystem ?? null },
-        )
-        .then(res =>
-          res.records.length
-            ? new OrgFilterConfigsEntity(
-                res.records[0].get("res"),
-              ).getProperties()
-            : undefined,
-        );
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "jobs.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `OrganizationsService::getFilterConfigs ${err.message}`,
-      );
-      return undefined;
-    }
+    const values =
+      await this.searchDocuments.getOrganizationFilterValues(ecosystem);
+    return new OrgFilterConfigsEntity(values).getProperties();
   }
 
   async getOrgDetailsById(
@@ -472,127 +132,19 @@ export class OrganizationsService {
     ecosystem: string | undefined,
   ): Promise<OrgDetailsResult | undefined> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        CYPHER runtime = pipelined
-        MATCH (organization:Organization {orgId: $orgId})
-        WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-        RETURN organization {
-            .*,
-            discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-            website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-            docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-            telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-            github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
-            aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-            twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-            fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
-            investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
-            ecosystems: [(organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
-            grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
-              .*,
-              programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
-            }],
-            jobs: [
-              (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | structured_jobpost {
-                id: structured_jobpost.id,
-                title: structured_jobpost.title,
-                access: structured_jobpost.access,
-                salary: structured_jobpost.salary,
-                location: structured_jobpost.location,
-                summary: structured_jobpost.summary,
-                shortUUID: structured_jobpost.shortUUID,
-                seniority: structured_jobpost.seniority,
-                paysInCrypto: structured_jobpost.paysInCrypto,
-                minimumSalary: structured_jobpost.minimumSalary,
-                maximumSalary: structured_jobpost.maximumSalary,
-                salaryCurrency: structured_jobpost.salaryCurrency,
-                featured: structured_jobpost.featured,
-                featureStartDate: structured_jobpost.featureStartDate,
-                featureEndDate: structured_jobpost.featureEndDate,
-                offersTokenAllocation: structured_jobpost.offersTokenAllocation,
-                classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
-                commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
-                locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
-                timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
-                tags: [(structured_jobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag.name ]
-              }
-            ],
-            projects: [
-              (organization)-[:HAS_PROJECT]->(project) | project {
-                .*,
-                orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
-                discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-                website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
-                docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-                telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
-                category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-                hacks: [
-                  (project)-[:HAS_HACK]->(hack) | hack { .* }
-                ],
-                audits: [
-                  (project)-[:HAS_AUDIT]->(audit) | audit { .* }
-                ],
-                chains: [
-                  (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
-                ],
-                ecosystems: [
-                  (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                ],
-                investors: [(project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) | investor { .* }],
-                fundingRounds: [
-                  (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
-                ],
-                grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
-                  .*,
-                  programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
-                }]
-              }
-            ],
-            reviews: [
-              (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
-                compensation: {
-                  salary: review.salary,
-                  currency: review.currency,
-                  offersTokenAllocation: review.offersTokenAllocation
-                },
-                rating: {
-                  onboarding: review.onboarding,
-                  careerGrowth: review.careerGrowth,
-                  benefits: review.benefits,
-                  workLifeBalance: review.workLifeBalance,
-                  diversityInclusion: review.diversityInclusion,
-                  management: review.management,
-                  product: review.product,
-                  compensation: review.compensation
-                },
-                review: {
-                  title: review.title,
-                  location: review.location,
-                  timezone: review.timezone,
-                  pros: review.pros,
-                  cons: review.cons
-                },
-                reviewedTimestamp: review.reviewedTimestamp
-              }
-            ],
-            tags: apoc.coll.toSet([
-              (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-              WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag { .* }
-            ])
-          } as res
-        `,
-        { orgId, ecosystem: ecosystem ?? null },
-      );
-      return result.records[0]?.get("res")
-        ? new OrgDetailsResultEntity({
-            ...result.records[0]?.get("res"),
-            jobs: result.records[0]?.get("res")?.jobs ?? [],
-            tags: result.records[0]?.get("res")?.tags ?? [],
-          }).getProperties()
-        : undefined;
+      const payload = await this.searchDocuments.getOrganizationById(orgId);
+      if (
+        !payload ||
+        (ecosystem &&
+          !payload.ecosystems.map(slugify).includes(slugify(ecosystem)))
+      ) {
+        return undefined;
+      }
+      return new OrgDetailsResultEntity({
+        ...payload,
+        jobs: (payload as OrgDetailsResult).jobs ?? [],
+        tags: payload.tags ?? [],
+      }).getProperties();
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -614,127 +166,19 @@ export class OrganizationsService {
     ecosystem: string | undefined,
   ): Promise<OrgListResult | undefined> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        CYPHER runtime = pipelined
-        MATCH (organization:Organization {normalizedName: $slug})
-        WHERE CASE WHEN $ecosystem IS NULL THEN true ELSE EXISTS((organization)-[:IS_MEMBER_OF_ECOSYSTEM]->(:OrganizationEcosystem {normalizedName: $ecosystem})) END
-        RETURN organization {
-            .*,
-            discord: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-            website: [(organization)-[:HAS_WEBSITE]->(website) | website.url][0],
-            docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-            telegram: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-            github: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
-            aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-            twitter: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-            fundingRounds: [(organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) | funding_round { .* }],
-            investors: [(organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor) | investor { .* }],
-            ecosystems: [(organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
-            grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
-              .*,
-              programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
-            }],
-            jobs: [
-              (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | structured_jobpost {
-                id: structured_jobpost.id,
-                title: structured_jobpost.title,
-                access: structured_jobpost.access,
-                salary: structured_jobpost.salary,
-                location: structured_jobpost.location,
-                summary: structured_jobpost.summary,
-                shortUUID: structured_jobpost.shortUUID,
-                seniority: structured_jobpost.seniority,
-                paysInCrypto: structured_jobpost.paysInCrypto,
-                minimumSalary: structured_jobpost.minimumSalary,
-                maximumSalary: structured_jobpost.maximumSalary,
-                salaryCurrency: structured_jobpost.salaryCurrency,
-                featured: structured_jobpost.featured,
-                featureStartDate: structured_jobpost.featureStartDate,
-                featureEndDate: structured_jobpost.featureEndDate,
-                offersTokenAllocation: structured_jobpost.offersTokenAllocation,
-                classification: [(structured_jobpost)-[:HAS_CLASSIFICATION]->(classification) | classification.name ][0],
-                commitment: [(structured_jobpost)-[:HAS_COMMITMENT]->(commitment) | commitment.name ][0],
-                locationType: [(structured_jobpost)-[:HAS_LOCATION_TYPE]->(locationType) | locationType.name ][0],
-                timestamp: CASE WHEN structured_jobpost.publishedTimestamp IS :: INTEGER NOT NULL THEN structured_jobpost.publishedTimestamp ELSE structured_jobpost.firstSeenTimestamp END,
-                tags: [(structured_jobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation) | tag.name ]
-              }
-            ],
-            projects: [
-              (organization)-[:HAS_PROJECT]->(project) | project {
-                .*,
-                orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
-                discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-                website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
-                docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-                telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-                github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
-                category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-                twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-                hacks: [
-                  (project)-[:HAS_HACK]->(hack) | hack { .* }
-                ],
-                audits: [
-                  (project)-[:HAS_AUDIT]->(audit) | audit { .* }
-                ],
-                chains: [
-                  (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
-                ],
-                ecosystems: [
-                  (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-                ],
-                investors: [(project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) | investor { .* }],
-                fundingRounds: [
-                  (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
-                ],
-                grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
-                  .*,
-                  programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
-                }]
-              }
-            ],
-            reviews: [
-              (organization)-[:HAS_REVIEW]->(review:OrgReview) | review {
-                compensation: {
-                  salary: review.salary,
-                  currency: review.currency,
-                  offersTokenAllocation: review.offersTokenAllocation
-                },
-                rating: {
-                  onboarding: review.onboarding,
-                  careerGrowth: review.careerGrowth,
-                  benefits: review.benefits,
-                  workLifeBalance: review.workLifeBalance,
-                  diversityInclusion: review.diversityInclusion,
-                  management: review.management,
-                  product: review.product,
-                  compensation: review.compensation
-                },
-                review: {
-                  title: review.title,
-                  location: review.location,
-                  timezone: review.timezone,
-                  pros: review.pros,
-                  cons: review.cons
-                },
-                reviewedTimestamp: review.reviewedTimestamp
-              }
-            ],
-            tags: apoc.coll.toSet([
-              (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(structured_jobpost:StructuredJobpost)-[:HAS_TAG]->(tag:Tag)-[:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-              WHERE (structured_jobpost)-[:HAS_STATUS]->(:JobpostOnlineStatus) | tag { .* }
-            ])
-          } as res
-        `,
-        { slug, ecosystem: ecosystem ?? null },
-      );
-      return result.records[0]?.get("res")
-        ? new OrgDetailsResultEntity({
-            ...result.records[0]?.get("res"),
-            jobs: result.records[0]?.get("res")?.jobs ?? [],
-            tags: result.records[0]?.get("res")?.tags ?? [],
-          }).getProperties()
-        : undefined;
+      const payload = await this.searchDocuments.getOrganizationBySlug(slug);
+      if (
+        !payload ||
+        (ecosystem &&
+          !payload.ecosystems.map(slugify).includes(slugify(ecosystem)))
+      ) {
+        return undefined;
+      }
+      return new OrgDetailsResultEntity({
+        ...payload,
+        jobs: (payload as OrgDetailsResult).jobs ?? [],
+        tags: payload.tags ?? [],
+      }).getProperties();
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -752,91 +196,12 @@ export class OrganizationsService {
   }
 
   async getAllWithLinks(): Promise<OrganizationWithLinks[]> {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        CYPHER runtime = parallel
-        MATCH (organization:Organization)
-        RETURN organization {
-          .*,
-          discords: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite],
-          websites: [(organization)-[:HAS_WEBSITE]->(website) | website.url],
-          rawWebsites: [(organization)-[:HAS_RAW_WEBSITE]->(website) | website.url],
-          docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url],
-          telegrams: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username],
-          githubs: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login],
-          aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-          twitters: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
-          grantSites: [(organization)-[:HAS_GRANTSITE]->(grantsite) | grantsite.url],
-          ecosystems: [(organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
-          grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
-            .*,
-            programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
-          }],
-          jobsites: [
-            (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
-              id: jobsite.id,
-              url: jobsite.url,
-              type: jobsite.type
-            }
-          ],
-          detectedJobsites: [
-            (organization)-[:HAS_JOBSITE]->(jobsite:DetectedJobsite) | jobsite {
-              id: jobsite.id,
-              url: jobsite.url,
-              type: jobsite.type
-            }
-          ],
-          projects: [
-            (organization)-[:HAS_PROJECT]->(project) | project {
-              .*,
-              orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
-              discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-              website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
-              docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-              telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-              github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
-              category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-              twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-              hacks: [
-                (project)-[:HAS_HACK]->(hack) | hack { .* }
-              ],
-              audits: [
-                (project)-[:HAS_AUDIT]->(audit) | audit { .* }
-              ],
-              chains: [
-                (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
-              ],
-              ecosystems: [
-                (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ],
-              investors: [(project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) | investor { .* }],
-              fundingRounds: [
-                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
-              ],
-              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
-                .*,
-                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
-              }]
-            }
-          ]
-        } as org
-        `,
-      );
-      return result.records.map(org =>
-        new OrganizationWithLinksEntity(org.get("org")).getProperties(),
-      );
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "organizations.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`OrganizationsService::getAllWithLinks ${err.message}`);
-      return undefined;
-    }
+    const payloads = await this.searchDocuments.getOrganizationsWithLinks();
+    return payloads.map(payload =>
+      new OrganizationWithLinksEntity(
+        payload as unknown as OrganizationWithLinks,
+      ).getProperties(),
+    );
   }
 
   async getAll(): Promise<ShortOrg[]> {
@@ -859,385 +224,95 @@ export class OrganizationsService {
     params: SearchOrganizationsInput,
     ecosystem: string | undefined,
   ): Promise<PaginatedData<ShortOrgWithSummary>> {
-    try {
-      const {
-        minHeadCount,
-        maxHeadCount,
-        locations: locationFilterList,
-        investors: investorFilterList,
-        fundingRounds: fundingRoundFilterList,
-        ecosystems: ecosystemFilterList,
-        projects: projectFilterList,
-        tags: tagFilterList,
-        chains: chainFilterList,
-        names: nameFilterList,
-        hasProjects,
-        page: page = 1,
-        limit: limit = 20,
-        query,
-        order,
-        orderBy,
-      } = params;
-
-      const fullEcosystemFilterList = ecosystem
-        ? [ecosystem, ...ecosystemFilterList]
-        : ecosystemFilterList;
-
-      const all = await this.getOrgListResults(ecosystem);
-
-      const projectBasedFilters = (projects: OrgProject[]): boolean => {
-        const filters = [
-          projectFilterList,
-          chainFilterList,
-          ecosystemFilterList,
-          hasProjects,
-        ].filter(Boolean);
-        const filtersApplied = filters.length > 0;
-
-        if (!filtersApplied) return true;
-
-        return (
-          (!projectFilterList ||
-            projects.some(x => projectFilterList.includes(slugify(x.name)))) &&
-          (!chainFilterList ||
-            uniq(projects.flatMap(x => x.chains)).some(x =>
-              chainFilterList.includes(slugify(x.name)),
-            )) &&
-          (!ecosystemFilterList ||
-            ecosystemFilterList.some(x =>
-              uniq(projects.flatMap(x => x.ecosystems)).includes(x),
-            )) &&
-          (!hasProjects === null || projects.length > 0)
-        );
-      };
-
-      const orgBasedFilters = (org: OrgListResult): boolean => {
-        const filters = [
-          minHeadCount,
-          maxHeadCount,
-          locationFilterList,
-          investorFilterList,
-          fundingRoundFilterList,
-          fullEcosystemFilterList,
-          projectFilterList,
-          tagFilterList,
-          nameFilterList,
-          chainFilterList,
-          ecosystemFilterList,
-          hasProjects,
-          query,
-        ].filter(Boolean);
-        const filtersApplied = filters.length > 0;
-
-        if (!filtersApplied) return true;
-
-        const {
-          fundingRounds,
-          investors,
-          ecosystems,
-          aliases,
-          headcountEstimate,
-          location,
-          normalizedName,
-          tags,
-        } = org;
-
-        return (
-          projectBasedFilters(org.projects) &&
-          (!minHeadCount || (headcountEstimate ?? 0) >= minHeadCount) &&
-          (!maxHeadCount || (headcountEstimate ?? 0) < maxHeadCount) &&
-          (!query ||
-            go(query, [org.name, ...org.aliases], {
-              threshold: 0.3,
-            }).map(x => x.target).length > 0) &&
-          (!locationFilterList ||
-            locationFilterList.includes(slugify(location))) &&
-          (!nameFilterList ||
-            nameFilterList.includes(normalizedName) ||
-            nameFilterList.some(x => aliases.map(slugify).includes(x))) &&
-          (!investorFilterList ||
-            investors.some(investor =>
-              investorFilterList.includes(slugify(investor.name)),
-            )) &&
-          (!tagFilterList ||
-            tagFilterList.some(x =>
-              tags.map(x => x.normalizedName).includes(x),
-            )) &&
-          (!fullEcosystemFilterList ||
-            ecosystems.some(ecosystem =>
-              fullEcosystemFilterList.includes(slugify(ecosystem)),
-            )) &&
-          (!fundingRoundFilterList ||
-            fundingRoundFilterList.some(x =>
-              fundingRounds.map(x => slugify(x.roundName)).includes(x),
-            ))
-        );
-      };
-
-      const filtered = all.filter(orgBasedFilters);
-
-      const getSortParam = (org: OrgListResult): number | null => {
-        switch (orderBy) {
-          case "recentFundingDate":
-            return org.lastFundingDate() ?? 0;
-          case "headcountEstimate":
-            return org?.headcountEstimate ?? 0;
-          case "rating":
-            return org?.aggregateRating ?? 0;
-          default:
-            return null;
-        }
-      };
-
-      let final = [];
-
-      if (!order || order === "desc") {
-        final = naturalSort<OrgListResult>(filtered).by([
-          {
-            desc: (x): number =>
-              params.orderBy ? getSortParam(x) : x.lastFundingDate(),
-          },
-          { asc: (x): string => x.name },
-        ]);
-      } else {
-        final = naturalSort<OrgListResult>(filtered).by([
-          {
-            asc: (x): number =>
-              params.orderBy ? getSortParam(x) : x.lastFundingDate(),
-          },
-          { asc: (x): string => x.name },
-        ]);
-      }
-
-      return paginate<ShortOrgWithSummary>(
-        page,
-        limit,
-        final.map(toShortOrgWithSummary),
-      );
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "organizations.service",
-        });
-        scope.setExtra("input", params);
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `OrganizationsService::searchOrganizations ${err.message}`,
-      );
-      return undefined;
-    }
+    return this.getOrgsListWithSearch({
+      ...params,
+      ecosystemHeader: ecosystem,
+    } as OrgListParams & { ecosystemHeader?: string });
   }
 
   async getOrgById(id: string): Promise<OrganizationWithLinks | undefined> {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        CYPHER runtime = pipelined
-        MATCH (organization:Organization {orgId: $id})
-        RETURN organization {
-          .*,
-          discords: [(organization)-[:HAS_DISCORD]->(discord) | discord.invite],
-          websites: [(organization)-[:HAS_WEBSITE]->(website) | website.url],
-          rawWebsites: [(organization)-[:HAS_RAW_WEBSITE]->(website) | website.url],
-          docs: [(organization)-[:HAS_DOCSITE]->(docsite) | docsite.url],
-          telegrams: [(organization)-[:HAS_TELEGRAM]->(telegram) | telegram.username],
-          githubs: [(organization)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login],
-          aliases: [(organization)-[:HAS_ORGANIZATION_ALIAS]->(alias) | alias.name],
-          twitters: [(organization)-[:HAS_TWITTER]->(twitter) | twitter.username],
-          grantSites: [(organization)-[:HAS_GRANTSITE]->(grantsite) | grantsite.url],
-          ecosystems: [(organization)-[:HAS_PROJECT|IS_DEPLOYED_ON|HAS_ECOSYSTEM*3]->(ecosystem) | ecosystem.name],
-          grants: [(organization)-[:HAS_PROJECT|HAS_GRANT_FUNDING*2]->(funding: GrantFunding) | funding {
-            .*,
-            programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
-          }],
-          jobsites: [
-            (organization)-[:HAS_JOBSITE]->(jobsite:Jobsite) | jobsite {
-              id: jobsite.id,
-              url: jobsite.url,
-              type: jobsite.type
-            }
-          ],
-          detectedJobsites: [
-            (organization)-[:HAS_JOBSITE]->(jobsite:DetectedJobsite) | jobsite {
-              id: jobsite.id,
-              url: jobsite.url,
-              type: jobsite.type
-            }
-          ],
-          projects: [
-            (organization)-[:HAS_PROJECT]->(project) | project {
-              .*,
-              orgIds: [(org: Organization)-[:HAS_PROJECT]->(project) | org.orgId],
-              discord: [(project)-[:HAS_DISCORD]->(discord) | discord.invite][0],
-              website: [(project)-[:HAS_WEBSITE]->(website) | website.url][0],
-              docs: [(project)-[:HAS_DOCSITE]->(docsite) | docsite.url][0],
-              telegram: [(project)-[:HAS_TELEGRAM]->(telegram) | telegram.username][0],
-              github: [(project)-[:HAS_GITHUB]->(github:GithubOrganization) | github.login][0],
-              category: [(project)-[:HAS_CATEGORY]->(category) | category.name][0],
-              twitter: [(project)-[:HAS_TWITTER]->(twitter) | twitter.username][0],
-              hacks: [
-                (project)-[:HAS_HACK]->(hack) | hack { .* }
-              ],
-              audits: [
-                (project)-[:HAS_AUDIT]->(audit) | audit { .* }
-              ],
-              chains: [
-                (project)-[:IS_DEPLOYED_ON]->(chain) | chain { .* }
-              ],
-              ecosystems: [
-                (project)-[:IS_DEPLOYED_ON|HAS_ECOSYSTEM*2]->(ecosystem) | ecosystem.name
-              ],
-              investors: [(project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND|HAS_INVESTOR*2]->(investor: Investor) | investor { .* }],
-              fundingRounds: [
-                (project)<-[:HAS_PROJECT]-(organization: Organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
-              ],
-              grants: [(project)-[:HAS_GRANT_FUNDING]->(funding: GrantFunding) | funding {
-                .*,
-                programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
-              }]
-            }
-          ]
-        } as org
-        `,
-        { id },
-      );
-      return result.records.length > 0
-        ? new OrganizationWithLinksEntity(
-            result.records[0].get("org"),
-          ).getProperties()
-        : undefined;
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "organizations.service",
-        });
-        scope.setExtra("input", id);
-        Sentry.captureException(err);
-      });
-      this.logger.error(`OrganizationsService::getOrgById ${err.message}`);
-      return undefined;
-    }
+    const payloads = await this.searchDocuments.getOrganizationsWithLinks(id);
+    return payloads[0]
+      ? new OrganizationWithLinksEntity(
+          payloads[0] as unknown as OrganizationWithLinks,
+        ).getProperties()
+      : undefined;
   }
 
   async getRepositories(id: string): Promise<Repository[]> {
-    return this.models.Organizations.findRelationships({
-      alias: "repositories",
-      limit: 1,
-      maxHops: 1,
-      where: {
-        source: {
-          id,
-        },
-      },
-    })
-      .then(res =>
-        res.map(repo =>
-          new RepositoryEntity(instanceToNode(repo.target)).getProperties(),
-        ),
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "organizations.service",
-          });
-          scope.setExtra("input", id);
-          Sentry.captureException(err);
-        });
-        this.logger.error(
-          `OrganizationsService::getRepositories ${err.message}`,
-        );
-        return undefined;
-      });
+    const repositories = await this.graph.findRelatedNodes<Repository>({
+      sourceLabel: "Organization",
+      sourceWhere: { id },
+      relationshipType: "HAS_REPOSITORY",
+      targetLabel: "GithubRepository",
+    });
+    return repositories.map(repository =>
+      new RepositoryEntity(repository.properties as Repository).getProperties(),
+    );
   }
 
   async find(name: string): Promise<OrganizationEntity | undefined> {
-    return this.models.Organizations.findOne({
-      where: { name: name },
-    }).then(res =>
-      res ? new OrganizationEntity(instanceToNode(res)) : undefined,
+    const organization = await this.graph.findNode<Organization>(
+      "Organization",
+      { name },
     );
+    return organization
+      ? new OrganizationEntity(organization.properties)
+      : undefined;
   }
 
   async findById(id: string): Promise<OrganizationEntity | undefined> {
-    return this.models.Organizations.findOne({
-      where: { id: id },
-    }).then(res =>
-      res ? new OrganizationEntity(instanceToNode(res)) : undefined,
+    const organization = await this.graph.findNode<Organization>(
+      "Organization",
+      { id },
     );
+    return organization
+      ? new OrganizationEntity(organization.properties)
+      : undefined;
   }
 
   async findAll(): Promise<OrganizationEntity[] | undefined> {
-    return this.models.Organizations.findMany().then(res =>
-      res.map(org => new OrganizationEntity(instanceToNode(org))),
+    const organizations =
+      await this.graph.findNodes<Organization>("Organization");
+    return organizations.map(
+      organization => new OrganizationEntity(organization.properties),
     );
   }
 
   async findByOrgId(orgId: string): Promise<OrganizationEntity | undefined> {
-    return this.models.Organizations.findOne({
-      where: { orgId: orgId },
-    }).then(res =>
-      res ? new OrganizationEntity(instanceToNode(res)) : undefined,
+    const organization = await this.graph.findNode<Organization>(
+      "Organization",
+      { orgId },
     );
+    return organization
+      ? new OrganizationEntity(organization.properties)
+      : undefined;
   }
 
   async findOrgIdByWebsite(
     domain: string,
   ): Promise<ResponseWithOptionalData<string>> {
     try {
-      if (ensureProtocol(domain).every(isValidUrl)) {
-        try {
-          ensureProtocol(domain).map(x => new URL(toAbsoluteURL(x)));
-        } catch (err) {
-          this.logger.error(
-            `OrganizationsService::findOrgIdByWebsite ${err.message}`,
-          );
-          return {
-            success: false,
-            message: "Invalid url",
-          };
-        }
-        const orgs = await this.neogma.queryRunner.run(
-          `
-            CYPHER runtime = parallel
-            MATCH (organization:Organization)-[:HAS_WEBSITE]->(website:Website)
-            UNWIND $domains as domain
-            WITH organization, domain, website
-            WHERE apoc.data.url(website.url).host CONTAINS domain OR website.url CONTAINS domain OR domain CONTAINS website.url
-            RETURN organization.orgId as orgId
-          `,
-          {
-            domains: ensureProtocol(domain).map(x => toAbsoluteURL(x)),
-          },
-        );
-        const result = orgs.records.length
-          ? (orgs?.records[0]?.get("orgId") as string)
-          : undefined;
-
-        return {
-          success: result ? true : false,
-          message: result ? "Retrieved org id successfully" : "No org found",
-          data: result,
-        };
-      } else {
-        return {
-          success: false,
-          message: "Invalid url",
-        };
+      const candidates = ensureProtocol(domain);
+      if (!candidates.every(isValidUrl)) {
+        return { success: false, message: "Invalid url" };
       }
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "organizations.service",
-        });
-        Sentry.captureException(err);
+      const domains = candidates.map(candidate => {
+        const absolute = toAbsoluteURL(candidate);
+        new URL(absolute);
+        return absolute;
       });
+      const result =
+        await this.searchDocuments.findOrganizationIdByWebsite(domains);
+      return {
+        success: Boolean(result),
+        message: result ? "Retrieved org id successfully" : "No org found",
+        data: result,
+      };
+    } catch (err) {
+      Sentry.captureException(err);
       this.logger.error(
-        `OrganizationsService::findOrgIdByWebsite ${err.message}`,
+        "OrganizationsService::findOrgIdByWebsite " + err.message,
       );
       return {
         success: false,
@@ -1249,64 +324,57 @@ export class OrganizationsService {
   async create(
     organization: CreateOrganizationInput,
   ): Promise<OrganizationEntity> {
-    const res = await this.neogma.queryRunner.run(
-      `
-        CREATE (org: Organization {
-          id: randomUUID(),
-          orgId: $orgId, 
-          logoUrl: $logoUrl, 
-          name: $name, 
-          altName: $altName, 
-          description: $description, 
-          summary: $summary, 
-          location: $location, 
-          headcountEstimate: $headcountEstimate,
-          normalizedName: $normalizedName,
-          createdTimestamp: timestamp(),
-          updatedTimestamp: timestamp()
-        })
-
-        RETURN org
-      `,
-      { ...organization, normalizedName: slugify(organization.name) },
+    const now = Date.now();
+    const properties = {
+      id: randomUUID(),
+      orgId: organization.orgId,
+      logoUrl: organization.logoUrl,
+      name: organization.name,
+      altName: organization.altName,
+      description: organization.description,
+      summary: organization.summary,
+      location: organization.location,
+      headcountEstimate: organization.headcountEstimate,
+      normalizedName: slugify(organization.name),
+      createdTimestamp: now,
+      updatedTimestamp: now,
+    };
+    const created = await this.graph.createNode(
+      "Organization",
+      properties,
+      properties.id,
     );
-
-    await this.updateOrgWebsites({
-      orgId: organization.orgId,
-      websites: organization.websites,
-    });
-
-    await this.updateOrgTwitters({
-      orgId: organization.orgId,
-      twitters: organization.twitters,
-    });
-
-    await this.updateOrgGithubs({
-      orgId: organization.orgId,
-      githubs: organization.githubs,
-    });
-
-    await this.updateOrgDiscords({
-      orgId: organization.orgId,
-      discords: organization.discords,
-    });
-
-    await this.updateOrgDocs({
-      orgId: organization.orgId,
-      docsites: organization.docs,
-    });
-
-    await this.updateOrgTelegrams({
-      orgId: organization.orgId,
-      telegrams: organization.telegrams,
-    });
-
-    await this.updateOrgAliases({
-      orgId: organization.orgId,
-      aliases: organization.aliases,
-    });
-
-    return new OrganizationEntity(res.records[0]?.get("org"));
+    await Promise.all([
+      this.updateOrgWebsites({
+        orgId: organization.orgId,
+        websites: organization.websites ?? [],
+      }),
+      this.updateOrgTwitters({
+        orgId: organization.orgId,
+        twitters: organization.twitters ?? [],
+      }),
+      this.updateOrgGithubs({
+        orgId: organization.orgId,
+        githubs: organization.githubs ?? [],
+      }),
+      this.updateOrgDiscords({
+        orgId: organization.orgId,
+        discords: organization.discords ?? [],
+      }),
+      this.updateOrgDocs({
+        orgId: organization.orgId,
+        docsites: organization.docs ?? [],
+      }),
+      this.updateOrgTelegrams({
+        orgId: organization.orgId,
+        telegrams: organization.telegrams ?? [],
+      }),
+      this.updateOrgAliases({
+        orgId: organization.orgId,
+        aliases: organization.aliases ?? [],
+      }),
+    ]);
+    return new OrganizationEntity(created.properties);
   }
 
   async addOrganizationByUrl(
@@ -1373,64 +441,69 @@ export class OrganizationsService {
       | "detectedJobsites"
     >,
   ): Promise<OrganizationEntity> {
-    const res = await this.neogma.queryRunner.run(
-      `
-        MATCH (org: Organization {orgId: $id})
-        SET org.logoUrl = $logoUrl
-        SET org.name = $name
-        SET org.altName = $altName
-        SET org.description = $description
-        SET org.summary = $summary
-        SET org.location = $location
-        SET org.headcountEstimate = $headcountEstimate
-        SET org.updatedTimestamp = timestamp()
-
-        RETURN org
-      `,
-      { ...properties, id },
+    const [updated] = await this.graph.updateNodes<Organization>(
+      "Organization",
+      { orgId: id },
+      {
+        ...properties,
+        normalizedName: slugify(properties.name),
+        updatedTimestamp: Date.now(),
+      } as Partial<Organization>,
     );
-
-    return new OrganizationEntity(res.records[0]?.get("org"));
+    if (!updated) {
+      throw new Error("Organization " + id + " not found");
+    }
+    return new OrganizationEntity(updated.properties);
   }
 
   async delete(id: string): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-            MATCH (organization:Organization { orgId: $id })
-            OPTIONAL MATCH (organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST|HAS_TAG*4]->(tag)
-            OPTIONAL MATCH (organization)-[:HAS_JOBSITE]->(jobsite)-[:HAS_JOBPOST]->(jobpost)-[:HAS_STRUCTURED_JOBPOST]->(structured_jobpost)
-            OPTIONAL MATCH (organization)-[:HAS_DISCORD]->(discord)
-            OPTIONAL MATCH (organization)-[:HAS_WEBSITE]->(website)
-            OPTIONAL MATCH (organization)-[:HAS_RAW_WEBSITE]->(rawWebsite)-[:HAS_RAW_WEBSITE_METADATA]-(metadata)
-            OPTIONAL MATCH (organization)-[:HAS_GRANTSITE]->(grantsite)
-            OPTIONAL MATCH (organization)-[:HAS_DOCSITE]->(docsite)
-            OPTIONAL MATCH (organization)-[:HAS_TELEGRAM]->(telegram)
-            OPTIONAL MATCH (organization)-[:HAS_GITHUB]->(github:GithubOrganization)
-            OPTIONAL MATCH (organization)-[:HAS_ORGANIZATION_ALIAS]->(alias)
-            OPTIONAL MATCH (organization)-[:HAS_TWITTER]->(twitter)
-            DETACH DELETE jobsite, jobpost, structured_jobpost,
-              discord, website, docsite, telegram, github, alias, twitter, tag, rawWebsite, metadata, grantsite
-
-            WITH organization
-            OPTIONAL MATCH (organization)-[:HAS_PROJECT]->(project)
-            WITH COUNT([(org)-[:HAS_PROJECT]->(project) | org.orgId]) = 1 AS shouldDelete, organization, project
-            WHERE shouldDelete
-            OPTIONAL MATCH (project)-[:HAS_AUDIT]->(audit)
-            OPTIONAL MATCH (project)-[:HAS_HACK]->(hack)
-            OPTIONAL MATCH (project)-[:HAS_DISCORD]->(discord2)
-            OPTIONAL MATCH (project)-[:HAS_DOCSITE]->(docsite2)
-            OPTIONAL MATCH (project)-[:HAS_GITHUB]->(github2)
-            OPTIONAL MATCH (project)-[:HAS_TELEGRAM]->(telegram2)
-            OPTIONAL MATCH (project)-[:HAS_TWITTER]->(twitter2)
-            OPTIONAL MATCH (project)-[:HAS_WEBSITE]->(website2)
-            DETACH DELETE audit, hack, discord2, docsite2,
-              github2, telegram2, twitter2, website2, organization, project
-        `,
-        {
-          id,
-        },
-      );
+      await this.graph.deleteNodeWithOwnedDescendants({
+        rootLabel: "Organization",
+        rootWhere: { orgId: id },
+        relationshipTypes: [
+          "HAS_JOBSITE",
+          "HAS_JOBPOST",
+          "HAS_STRUCTURED_JOBPOST",
+          "HAS_TAG",
+          "HAS_DISCORD",
+          "HAS_WEBSITE",
+          "HAS_RAW_WEBSITE",
+          "HAS_RAW_WEBSITE_METADATA",
+          "HAS_GRANTSITE",
+          "HAS_DOCSITE",
+          "HAS_TELEGRAM",
+          "HAS_GITHUB",
+          "HAS_ORGANIZATION_ALIAS",
+          "HAS_TWITTER",
+          "HAS_PROJECT",
+          "HAS_AUDIT",
+          "HAS_HACK",
+          "HAS_REVIEW",
+        ],
+        ownedLabels: [
+          "Jobsite",
+          "DetectedJobsite",
+          "Jobpost",
+          "StructuredJobpost",
+          "Tag",
+          "Discord",
+          "Website",
+          "RawWebsite",
+          "RawWebsiteMetadata",
+          "GrantSite",
+          "DocSite",
+          "Telegram",
+          "GithubOrganization",
+          "Github",
+          "OrganizationAlias",
+          "Twitter",
+          "Project",
+          "Audit",
+          "Hack",
+          "OrgReview",
+        ],
+      });
       return {
         success: true,
         message: "Organization deleted successfully",
@@ -1456,15 +529,14 @@ export class OrganizationsService {
     dto: ImportOrgJobsiteInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const jobsite = (
-        await this.neogma.queryRunner.run(
-          `
-        MATCH (:Organization {orgId: $orgId})-[:HAS_JOBSITE]->(jobsite:DetectedJobsite WHERE jobsite.id = $jobsiteId)
-        RETURN jobsite { .* } as jobsite
-      `,
-          dto,
-        )
-      ).records[0]?.get("jobsite") as Jobsite;
+      const [jobsiteNode] = await this.graph.findRelatedNodes<Jobsite>({
+        sourceLabel: "Organization",
+        sourceWhere: { orgId: dto.orgId },
+        relationshipType: "HAS_JOBSITE",
+        targetLabel: "DetectedJobsite",
+        targetWhere: { id: dto.jobsiteId },
+      });
+      const jobsite = jobsiteNode?.properties;
       if (jobsite) {
         const url = this.configService.get<string>("ETL_DOMAIN");
         const authToken = await this.auth0Service.getETLToken();
@@ -1518,21 +590,13 @@ export class OrganizationsService {
     orgId: string,
     projectId: string,
   ): Promise<boolean> {
-    const res = await this.models.Organizations.findRelationships({
-      alias: "projects",
-      limit: 1,
-      maxHops: 1,
-      where: {
-        source: {
-          id: orgId,
-        },
-        target: {
-          id: projectId,
-        },
-      },
+    return this.graph.hasRelationship({
+      sourceLabel: "Organization",
+      sourceWhere: { orgId },
+      type: "HAS_PROJECT",
+      targetLabel: "Project",
+      targetWhere: { id: projectId },
     });
-
-    return res.length !== 0;
   }
 
   async relateToProjects(
@@ -1540,27 +604,18 @@ export class OrganizationsService {
     projectIds: string[],
   ): Promise<boolean> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (org:Organization {orgId: $orgId})
-        MATCH (project:Project WHERE project.id IN $projectIds)
-        MERGE (org)-[:HAS_PROJECT]->(project)
-        `,
-        { orgId, projectIds },
-      );
-      return true;
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "organizations.service",
-        });
-        scope.setExtra("input", { orgId, projectIds });
-        Sentry.captureException(err);
+      await this.graph.setRelationshipsToNodes({
+        sourceLabel: "Organization",
+        sourceWhere: { orgId },
+        type: "HAS_PROJECT",
+        targetLabel: "Project",
+        targetProperty: "id",
+        targetValues: projectIds,
+        replace: false,
       });
-      this.logger.error(
-        `OrganizationsService::relateToProjects ${err.message}`,
-      );
+      return true;
+    } catch (error) {
+      Sentry.captureException(error);
       return false;
     }
   }
@@ -1568,71 +623,29 @@ export class OrganizationsService {
   async updateOrgAliases(
     dto: UpdateOrgAliasesInput,
   ): Promise<ResponseWithOptionalData<string[]>> {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          CALL {
-            MATCH (org:Organization {orgId: $orgId})-[:HAS_ORGANIZATION_ALIAS]->(alias:OrganizationAlias)
-            DETACH DELETE alias
-          }
-          
-          CALL {
-            UNWIND $aliases as name
-            OPTIONAL MATCH (alias:OrganizationAlias WHERE alias.name = name)
-            WITH alias IS NOT NULL AS aliasFound, name
-            WHERE NOT aliasFound
-            CREATE (alias:OrganizationAlias {id: randomUUID(), name: name})
-          }
-
-          MATCH (alias:OrganizationAlias WHERE alias.name IN $aliases), (org:Organization {orgId: $orgId})
-          MERGE (org)-[:HAS_ORGANIZATION_ALIAS]->(alias)
-          
-          RETURN alias.name as name
-        `,
-        { ...dto },
-      );
-      const aliases = result.records.map(
-        record => record.get("name") as string,
-      );
-      return {
-        success: true,
-        message: "Updated organization aliases successfully",
-        data: aliases,
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "organizations.service",
-        });
-        scope.setExtra("input", dto);
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `OrganizationsService::updateOrgAliases ${err.message}`,
-      );
-      return { success: false, message: "Failed to update org aliases" };
-    }
+    return this.replaceOrgLinks(dto.orgId, dto.aliases, {
+      relationshipType: "HAS_ORGANIZATION_ALIAS",
+      targetLabel: "OrganizationAlias",
+      targetProperty: "name",
+      resourceName: "aliases",
+    });
   }
 
   async activateOrgJobsites(
     dto: ActivateOrgJobsiteInput,
   ): Promise<ResponseWithOptionalData<Jobsite[]>> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          MATCH (:Organization {orgId: $orgId})-[:HAS_JOBSITE]->(jobsite:DetectedJobsite WHERE jobsite.id IN $jobsiteIds)
-          REMOVE jobsite:DetectedJobsite
-          SET jobsite:Jobsite
-          RETURN jobsite { .* } as jobsite
-        `,
-        {
-          ...dto,
-        },
-      );
-      const jobsites = result.records.map(
-        record => record.get("jobsite") as Jobsite,
-      );
+      const jobsites = (
+        await this.graph.relabelRelatedNodes<Jobsite>({
+          sourceLabel: "Organization",
+          sourceWhere: { orgId: dto.orgId },
+          relationshipType: "HAS_JOBSITE",
+          targetLabel: "DetectedJobsite",
+          targetProperty: "id",
+          targetValues: dto.jobsiteIds,
+          newLabel: "Jobsite",
+        })
+      ).map(jobsite => jobsite.properties);
       return {
         success: true,
         message: "Activated organization jobsites successfully",
@@ -1659,40 +672,22 @@ export class OrganizationsService {
     projectIds: string[],
   ): Promise<ResponseWithOptionalData<string[]>> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          CALL {
-            MATCH (org:Organization {orgId: $orgId})-[r:HAS_PROJECT]->(:Project)
-            DELETE r
-          }
-
-          MATCH (project:Project WHERE project.id IN $projects), (org:Organization {orgId: $orgId})
-          MERGE (org)-[:HAS_PROJECT]->(project)
-          
-          RETURN project.name as name
-        `,
-        { orgId, projects: projectIds },
-      );
-      const projects = result.records.map(
-        record => record.get("name") as string,
-      );
+      const projects = await this.graph.setRelationshipsToNodes({
+        sourceLabel: "Organization",
+        sourceWhere: { orgId },
+        type: "HAS_PROJECT",
+        targetLabel: "Project",
+        targetProperty: "id",
+        targetValues: projectIds,
+        replace: true,
+      });
       return {
         success: true,
         message: "Updated organization projects successfully",
-        data: projects,
+        data: projects.map(project => String(project.properties.name)),
       };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "organizations.service",
-        });
-        scope.setExtra("input", { orgId, projectIds });
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `OrganizationsService::updateOrgProjects ${err.message}`,
-      );
+    } catch (error) {
+      Sentry.captureException(error);
       return { success: false, message: "Failed to update org projects" };
     }
   }
@@ -1700,70 +695,35 @@ export class OrganizationsService {
   async updateOrgWebsites(
     dto: UpdateOrgWebsitesInput,
   ): Promise<ResponseWithOptionalData<string[]>> {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          CALL {
-            MATCH (org:Organization {orgId: $orgId})-[:HAS_WEBSITE]->(website:Website)
-            DETACH DELETE website
-          }
-          
-          CALL {
-            UNWIND $websites as url
-            OPTIONAL MATCH (website:Website WHERE website.url = url)
-            WITH website IS NOT NULL AS siteFound, url
-            WHERE NOT siteFound
-            CREATE (website:Website {id: randomUUID(), url: url})
-          }
-
-          MATCH (website:Website WHERE website.url IN $websites), (org:Organization {orgId: $orgId})
-          MERGE (org)-[:HAS_WEBSITE]->(website)
-          
-          RETURN website.url as url
-        `,
-        { ...dto },
-      );
-      const websites = result.records.map(
-        record => record.get("url") as string,
-      );
-      return {
-        success: true,
-        message: "Updated organization websites successfully",
-        data: websites,
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "organizations.service",
-        });
-        scope.setExtra("input", dto);
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `OrganizationsService::updateOrgWebsites ${err.message}`,
-      );
-      return { success: false, message: "Failed to update org websites" };
-    }
+    return this.replaceOrgLinks(dto.orgId, dto.websites, {
+      relationshipType: "HAS_WEBSITE",
+      targetLabel: "Website",
+      targetProperty: "url",
+      resourceName: "websites",
+    });
   }
 
   async updateOrgJobsites(
     dto: UpdateOrgJobsitesInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-          UNWIND $jobsites as jobsite
-          WITH jobsite
-          WHERE jobsite.id IS NOT NULL
-
-          OPTIONAL MATCH (j:Jobsite)
-          WHERE j.id = jobsite.id AND j IS NOT NULL
-          SET j.url = jobsite.url
-          SET j.type = jobsite.type
-        `,
-        { ...dto },
-      );
+      const related = await this.graph.findRelatedNodes<Jobsite>({
+        sourceLabel: "Organization",
+        sourceWhere: { orgId: dto.orgId },
+        relationshipType: "HAS_JOBSITE",
+        targetLabel: "Jobsite",
+      });
+      const relatedIds = new Set(related.map(node => node.properties.id));
+      await this.graph.updateNodesFromPatches<Jobsite>({
+        label: "Jobsite",
+        identityProperty: "id",
+        patches: dto.jobsites
+          .filter(jobsite => jobsite.id && relatedIds.has(jobsite.id))
+          .map(jobsite => ({
+            identity: jobsite.id,
+            patch: { url: jobsite.url, type: jobsite.type },
+          })),
+      });
 
       return {
         success: true,
@@ -1793,24 +753,19 @@ export class OrganizationsService {
     detectedJobsites: { id: string; url: string; type: string }[];
   }): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-          MATCH (org:Organization {orgId: $orgId})
-          OPTIONAL MATCH (org)-[:HAS_JOBSITE]->(oldDetectedJobsite:DetectedJobsite)
-          DETACH DELETE oldDetectedJobsite
-
-          WITH org
-          UNWIND $detectedJobsites as detectedJobsite
-          WITH detectedJobsite, org
-          MERGE (org)-[:HAS_JOBSITE]->(dj: DetectedJobsite { url: detectedJobsite.url, type: detectedJobsite.type })
-          ON CREATE SET
-            dj.id = detectedJobsite.id,
-            dj.createdTimestamp = timestamp()
-          ON MATCH SET
-            dj.updatedTimestamp = timestamp()
-        `,
-        { ...dto },
-      );
+      const now = Date.now();
+      await this.graph.replaceOwnedRelatedNodes({
+        sourceLabel: "Organization",
+        sourceWhere: { orgId: dto.orgId },
+        relationshipType: "HAS_JOBSITE",
+        targetLabel: "DetectedJobsite",
+        nodeKeyProperty: "id",
+        nodes: dto.detectedJobsites.map(jobsite => ({
+          ...jobsite,
+          createdTimestamp: now,
+          updatedTimestamp: now,
+        })),
+      });
       return {
         success: true,
         message: "Updated organization detected jobsites successfully",
@@ -1837,296 +792,102 @@ export class OrganizationsService {
   async updateOrgTwitters(
     dto: UpdateOrgTwittersInput,
   ): Promise<ResponseWithOptionalData<string[]>> {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          CALL {
-            MATCH (org:Organization {orgId: $orgId})-[:HAS_TWITTER]->(twitter:Twitter)
-            DETACH DELETE twitter
-          }
-          
-          CALL {
-            UNWIND $twitters as username
-            OPTIONAL MATCH (twitter:Twitter WHERE twitter.username = username)
-            WITH twitter IS NOT NULL AS found, username
-            WHERE NOT found
-            CREATE (twitter:Twitter {id: randomUUID(), username: username})
-          }
-
-          MATCH (twitter:Twitter WHERE twitter.username IN $twitters), (org:Organization {orgId: $orgId})
-          MERGE (org)-[:HAS_TWITTER]->(twitter)
-          
-          RETURN twitter.username as username
-        `,
-        { ...dto },
-      );
-      const twitters = result.records.map(
-        record => record.get("username") as string,
-      );
-      return {
-        success: true,
-        message: "Updated organization twitters successfully",
-        data: twitters,
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "organizations.service",
-        });
-        scope.setExtra("input", dto);
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `OrganizationsService::updateOrgTwitters ${err.message}`,
-      );
-      return { success: false, message: "Failed to update org twitters" };
-    }
+    return this.replaceOrgLinks(dto.orgId, dto.twitters, {
+      relationshipType: "HAS_TWITTER",
+      targetLabel: "Twitter",
+      targetProperty: "username",
+      resourceName: "twitters",
+    });
   }
 
   async updateOrgGithubs(
     dto: UpdateOrgGithubsInput,
   ): Promise<ResponseWithOptionalData<string[]>> {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          CALL {
-            MATCH (org:Organization {orgId: $orgId})-[:HAS_GITHUB]->(github:GithubOrganization)
-            DETACH DELETE github
-          }
-          
-          CALL {
-            UNWIND $githubs as login
-            OPTIONAL MATCH (github:GithubOrganization WHERE github.login = login)
-            WITH github IS NOT NULL AS found, login
-            WHERE NOT found
-            CREATE (github:GithubOrganization {id: randomUUID(), login: login})
-          }
-
-          MATCH (github:GithubOrganization WHERE github.login IN $githubs), (org:Organization {orgId: $orgId})
-          MERGE (org)-[:HAS_GITHUB]->(github)
-          
-          RETURN github.login as login
-        `,
-        { ...dto },
-      );
-      const githubs = result.records.map(
-        record => record.get("login") as string,
-      );
-      return {
-        success: true,
-        message: "Updated organization githubs successfully",
-        data: githubs,
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "organizations.service",
-        });
-        scope.setExtra("input", dto);
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `OrganizationsService::updateOrgGithubs ${err.message}`,
-      );
-      return { success: false, message: "Failed to update org githubs" };
-    }
+    return this.replaceOrgLinks(dto.orgId, dto.githubs, {
+      relationshipType: "HAS_GITHUB",
+      targetLabel: "GithubOrganization",
+      targetProperty: "login",
+      resourceName: "githubs",
+    });
   }
 
   async updateOrgDiscords(
     dto: UpdateOrgDiscordsInput,
   ): Promise<ResponseWithOptionalData<string[]>> {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          CALL {
-            MATCH (org:Organization {orgId: $orgId})-[:HAS_DISCORD]->(discord:Discord)
-            DETACH DELETE discord
-          }
-          
-          CALL {
-            UNWIND $discords as invite
-            OPTIONAL MATCH (discord:Discord WHERE discord.invite = invite)
-            WITH discord IS NOT NULL AS found, invite
-            WHERE NOT found
-            CREATE (discord:Discord {id: randomUUID(), invite: invite})
-          }
-
-          MATCH (discord:Discord WHERE discord.invite IN $discords), (org:Organization {orgId: $orgId})
-          MERGE (org)-[:HAS_DISCORD]->(discord)
-          
-          RETURN discord.invite as invite
-        `,
-        { ...dto },
-      );
-      const discords = result.records.map(
-        record => record.get("invite") as string,
-      );
-      return {
-        success: true,
-        message: "Updated organization discords successfully",
-        data: discords,
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "organizations.service",
-        });
-        scope.setExtra("input", dto);
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `OrganizationsService::updateOrgDiscords ${err.message}`,
-      );
-      return { success: false, message: "Failed to update org discords" };
-    }
+    return this.replaceOrgLinks(dto.orgId, dto.discords, {
+      relationshipType: "HAS_DISCORD",
+      targetLabel: "Discord",
+      targetProperty: "invite",
+      resourceName: "discords",
+    });
   }
 
   async updateOrgDocs(
     dto: UpdateOrgDocsInput,
   ): Promise<ResponseWithOptionalData<string[]>> {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          CALL {
-            MATCH (org:Organization {orgId: $orgId})-[:HAS_DOCSITE]->(docsite:DocSite)
-            DETACH DELETE docsite
-          }
-          
-          CALL {
-            UNWIND $docsites as url
-            OPTIONAL MATCH (docsite:DocSite WHERE docsite.url = url)
-            WITH docsite IS NOT NULL AS siteFound, url
-            WHERE NOT siteFound
-            CREATE (docsite:DocSite {id: randomUUID(), url: url})
-          }
-
-          MATCH (docsite:DocSite WHERE docsite.url IN $docsites), (org:Organization {orgId: $orgId})
-          MERGE (org)-[:HAS_DOCSITE]->(docsite)
-          
-          RETURN docsite.url as url
-        `,
-        { ...dto },
-      );
-      const docsites = result.records.map(
-        record => record.get("url") as string,
-      );
-      return {
-        success: true,
-        message: "Updated organization docsites successfully",
-        data: docsites,
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "organizations.service",
-        });
-        scope.setExtra("input", dto);
-        Sentry.captureException(err);
-      });
-      this.logger.error(`OrganizationsService::updateOrgDocs ${err.message}`);
-      return { success: false, message: "Failed to update org docsites" };
-    }
+    return this.replaceOrgLinks(dto.orgId, dto.docsites, {
+      relationshipType: "HAS_DOCSITE",
+      targetLabel: "DocSite",
+      targetProperty: "url",
+      resourceName: "docsites",
+    });
   }
 
   async updateOrgTelegrams(
     dto: UpdateOrgTelegramsInput,
   ): Promise<ResponseWithOptionalData<string[]>> {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          CALL {
-            MATCH (org:Organization {orgId: $orgId})-[:HAS_TELEGRAM]->(telegram:Telegram)
-            DETACH DELETE telegram
-          }
-          
-          CALL {
-            UNWIND $telegrams as username
-            OPTIONAL MATCH (telegram:Telegram WHERE telegram.username = username)
-            WITH telegram IS NOT NULL AS found, username
-            WHERE NOT found
-            CREATE (telegram:Telegram {id: randomUUID(), username: username})
-          }
-
-          MATCH (telegram:Telegram WHERE telegram.username IN $telegrams), (org:Organization {orgId: $orgId})
-          MERGE (org)-[:HAS_TELEGRAM]->(telegram)
-          
-          RETURN telegram.username as username
-        `,
-        { ...dto },
-      );
-      const telegrams = result.records.map(
-        record => record.get("username") as string,
-      );
-      return {
-        success: true,
-        message: "Updated organization telegrams successfully",
-        data: telegrams,
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "organizations.service",
-        });
-        scope.setExtra("input", dto);
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `OrganizationsService::updateOrgTelegrams ${err.message}`,
-      );
-      return { success: false, message: "Failed to update org telegrams" };
-    }
+    return this.replaceOrgLinks(dto.orgId, dto.telegrams, {
+      relationshipType: "HAS_TELEGRAM",
+      targetLabel: "Telegram",
+      targetProperty: "username",
+      resourceName: "telegrams",
+    });
   }
 
   async updateOrgGrants(
     dto: UpdateOrgGrantsInput,
   ): Promise<ResponseWithOptionalData<string[]>> {
-    try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          CALL {
-            MATCH (org:Organization {orgId: $orgId})-[:HAS_GRANTSITE]->(grantsite:GrantSite)
-            DETACH DELETE grantsite
-          }
-          
-          CALL {
-            UNWIND $grantsites as url
-            OPTIONAL MATCH (grantsite:GrantSite WHERE grantsite.url = url)
-            WITH grantsite IS NOT NULL AS siteFound, url
-            WHERE NOT siteFound
-            CREATE (grantsite:GrantSite {id: randomUUID(), url: url})
-          }
+    return this.replaceOrgLinks(dto.orgId, dto.grantsites, {
+      relationshipType: "HAS_GRANTSITE",
+      targetLabel: "GrantSite",
+      targetProperty: "url",
+      resourceName: "grantsites",
+    });
+  }
 
-          MATCH (grantsite:GrantSite WHERE grantsite.url IN $grantsites), (org:Organization {orgId: $orgId})
-          MERGE (org)-[:HAS_GRANTSITE]->(grantsite)
-          
-          RETURN grantsite.url as url
-        `,
-        { ...dto },
-      );
-      const grantsites = result.records.map(
-        record => record.get("url") as string,
-      );
+  private async replaceOrgLinks(
+    orgId: string,
+    values: string[],
+    config: {
+      relationshipType: string;
+      targetLabel: string;
+      targetProperty: string;
+      resourceName: string;
+    },
+  ): Promise<ResponseWithOptionalData<string[]>> {
+    try {
+      const data = await this.graph.replaceRelatedValueNodes({
+        sourceLabel: "Organization",
+        sourceWhere: { orgId },
+        type: config.relationshipType,
+        targetLabel: config.targetLabel,
+        targetProperty: config.targetProperty,
+        values,
+      });
       return {
         success: true,
-        message: "Updated organization grantsites successfully",
-        data: grantsites,
+        message: `Updated organization ${config.resourceName} successfully`,
+        data,
       };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "organizations.service",
-        });
-        scope.setExtra("input", dto);
-        Sentry.captureException(err);
-      });
-      this.logger.error(`OrganizationsService::updateOrgDocs ${err.message}`);
-      return { success: false, message: "Failed to update org grantsites" };
+    } catch (error) {
+      Sentry.captureException(error);
+      this.logger.error(
+        `OrganizationsService::replaceOrgLinks ${(error as Error).message}`,
+      );
+      return {
+        success: false,
+        message: `Failed to update organization ${config.resourceName}`,
+      };
     }
   }
 
@@ -2134,36 +895,35 @@ export class OrganizationsService {
     id: string,
   ): Promise<ResponseWithOptionalData<Omit<Organization, "orgId">>> {
     try {
-      const checkExists = await this.neogma.queryRunner.run(
-        `
-        MATCH (org:Organization {orgId: $id})
-        MATCH (project:Project {name: org.name})
-        RETURN COUNT(project) > 0 as exists
-      `,
-        { id: id },
+      const organization = await this.graph.findNode<Organization>(
+        "Organization",
+        { orgId: id },
       );
-
-      if (checkExists.records[0]?.get("exists") as boolean) {
+      if (!organization) {
+        return { success: false, message: "Organization not found" };
+      }
+      const transformed = await this.graph.changeNodeLabel<
+        Omit<Organization, "orgId">
+      >({
+        sourceLabel: "Organization",
+        sourceWhere: { orgId: id },
+        newLabel: "Project",
+        conflictWhere: { name: organization.properties.name },
+        removeProperties: ["orgId", "headcountEstimate"],
+      });
+      if (transformed.status === "conflict") {
         return {
           success: false,
           message: "Project already exists",
         };
       }
-
-      const result = await this.neogma.queryRunner.run(
-        `
-        MATCH (org:Organization {orgId: $id})
-        REMOVE org:Organization
-        SET org:Project
-        REMOVE org.orgId, org.headcountEstimate
-        RETURN org
-      `,
-        { id },
-      );
+      if (transformed.status !== "updated") {
+        return { success: false, message: "Organization not found" };
+      }
       return {
         success: true,
         message: "Organization transformed successfully",
-        data: result.records[0].get("org").properties,
+        data: transformed.node.properties,
       };
     } catch (err) {
       Sentry.withScope(scope => {
@@ -2187,26 +947,21 @@ export class OrganizationsService {
     dto: UpdateOrgProjectInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (org:Organization {orgId: $orgId}), (project:Project {id: $projectId})
-        MERGE (org)-[:HAS_PROJECT]->(project)
-      `,
-        { ...dto },
-      );
+      await this.graph.setRelationshipsToNodes({
+        sourceLabel: "Organization",
+        sourceWhere: { orgId: dto.orgId },
+        type: "HAS_PROJECT",
+        targetLabel: "Project",
+        targetProperty: "id",
+        targetValues: [dto.projectId],
+        replace: false,
+      });
       return {
         success: true,
         message: "Project added to organization successfully",
       };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "organizations.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`OrganizationsService::addProjectToOrg ${err.message}`);
+    } catch (error) {
+      Sentry.captureException(error);
       return {
         success: false,
         message: "Failed to add project to organization",
@@ -2218,28 +973,19 @@ export class OrganizationsService {
     dto: UpdateOrgProjectInput,
   ): Promise<ResponseWithNoData> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (:Organization {orgId: $orgId})-[r:HAS_PROJECT]->(:Project {id: $projectId})
-        DELETE r
-      `,
-        { ...dto },
-      );
+      await this.graph.deleteRelationshipBetween({
+        sourceLabel: "Organization",
+        sourceWhere: { orgId: dto.orgId },
+        type: "HAS_PROJECT",
+        targetLabel: "Project",
+        targetWhere: { id: dto.projectId },
+      });
       return {
         success: true,
         message: "Project removed from organization successfully",
       };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "organizations.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(
-        `OrganizationsService::removeProjectFromOrg ${err.message}`,
-      );
+    } catch (error) {
+      Sentry.captureException(error);
       return {
         success: false,
         message: "Failed to remove project from organization",

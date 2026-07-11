@@ -6,7 +6,6 @@ import { REALLY_LONG_TIME } from "src/shared/constants";
 import { ScorerController } from "./scorer.controller";
 import * as https from "https";
 import { UserService } from "src/user/user.service";
-import { ModelService } from "src/model/model.service";
 import { AuthService } from "src/auth/auth.service";
 import { JwtService } from "@nestjs/jwt";
 import { ProfileService } from "src/auth/profile/profile.service";
@@ -42,7 +41,6 @@ import { StripeModule } from "src/stripe/stripe.module";
   providers: [
     ScorerService,
     UserService,
-    ModelService,
     AuthService,
     JwtService,
     ProfileService,

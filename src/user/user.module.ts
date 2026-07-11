@@ -2,7 +2,6 @@ import { Module, forwardRef } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { UserService } from "./user.service";
 import { GithubModule } from "../auth/github/github.module";
-import { ModelService } from "src/model/model.service";
 import { JwtService } from "@nestjs/jwt";
 import { MailModule } from "src/mail/mail.module";
 import { MailService } from "src/mail/mail.service";
@@ -65,7 +64,6 @@ import { StripeModule } from "src/stripe/stripe.module";
   controllers: [UserController],
   providers: [
     UserService,
-    ModelService,
     JwtService,
     MailService,
     AuthService,
@@ -78,6 +76,6 @@ import { StripeModule } from "src/stripe/stripe.module";
     PermissionService,
     TagsService,
   ],
-  exports: [UserService, ModelService, RpcService, PermissionService],
+  exports: [UserService, RpcService, PermissionService],
 })
 export class UserModule {}
