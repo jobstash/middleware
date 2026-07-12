@@ -1,4 +1,10 @@
-import { intConverter, losslessInteger, paginate, slugify } from ".";
+import {
+  intConverter,
+  losslessInteger,
+  paginate,
+  slugify,
+  sprinkleProtectedJobs,
+} from ".";
 
 describe("Helpers", () => {
   it("should paginate correctly", () => {
@@ -44,5 +50,36 @@ describe("Helpers", () => {
     [-1, { low: -1, high: -1 }],
   ])("emits compatible lossless integer objects", (value, expected) => {
     expect(losslessInteger(value)).toEqual(expected);
+  });
+
+  it("sprinkles protected jobs across the legacy priority window", () => {
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+    const publicJobs = Array.from({ length: 2_579 }, (_, index) => ({
+      id: `public-${index}`,
+      access: "public" as const,
+    }));
+    const protectedJobs = Array.from({ length: 45 }, (_, index) => ({
+      id: `protected-${index}`,
+      access: "protected" as const,
+    }));
+
+    const sprinkled = sprinkleProtectedJobs([
+      publicJobs[0],
+      protectedJobs[0],
+      ...publicJobs.slice(1),
+      ...protectedJobs.slice(1),
+    ]);
+
+    expect(sprinkled).toHaveLength(2_624);
+    expect(
+      sprinkled.slice(0, 20).filter(job => job.access === "protected"),
+    ).toHaveLength(4);
+    expect(
+      sprinkled.filter(job => job.access === "public").map(job => job.id),
+    ).toEqual(publicJobs.map(job => job.id));
+    expect(
+      sprinkled.filter(job => job.access === "protected").map(job => job.id),
+    ).toEqual(protectedJobs.map(job => job.id));
+    random.mockRestore();
   });
 });

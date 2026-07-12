@@ -28,13 +28,15 @@ type ExplainResult = {
 
 class BenchmarkPostgresService extends PostgresService {
   capture = false;
-  captured?: CapturedQuery;
+  captured: CapturedQuery[] = [];
 
   override query<T extends Record<string, unknown> = Record<string, unknown>>(
     sql: string,
     parameters: unknown[] = [],
   ): Promise<T[]> {
-    if (this.capture) this.captured = { sql, parameters };
+    if (this.capture) {
+      this.captured.push({ sql, parameters: [...parameters] });
+    }
     return super.query<T>(sql, parameters);
   }
 }
@@ -73,11 +75,12 @@ const benchmark = async (
   explainMs: number;
   indexes: string[];
 }> => {
+  postgres.captured = [];
   postgres.capture = true;
   await operation();
   postgres.capture = false;
-  const captured = postgres.captured;
-  if (!captured) throw new Error(`${name} did not issue a SQL query`);
+  const captured = [...postgres.captured];
+  if (!captured.length) throw new Error(`${name} did not issue a SQL query`);
 
   const timings: number[] = [];
   for (let iteration = 0; iteration < ITERATIONS; iteration++) {
@@ -85,21 +88,37 @@ const benchmark = async (
     await operation();
     timings.push(performance.now() - startedAt);
   }
-  const [row] = await postgres.query<{ "QUERY PLAN": ExplainResult[] }>(
-    `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${captured.sql}`,
-    captured.parameters,
-  );
-  const explain = row["QUERY PLAN"][0];
+  const explains: ExplainResult[] = [];
+  for (const query of captured) {
+    const [row] = await postgres.query<{ "QUERY PLAN": ExplainResult[] }>(
+      `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${query.sql}`,
+      query.parameters,
+    );
+    explains.push(row["QUERY PLAN"][0]);
+  }
   const result = {
     name,
     p50Ms: percentile(timings, 0.5),
     p95Ms: percentile(timings, 0.95),
-    explainMs: explain["Execution Time"],
-    indexes: [...collectIndexes(explain.Plan)].sort(),
+    explainMs: explains.reduce(
+      (total, explain) => total + explain["Execution Time"],
+      0,
+    ),
+    indexes: [
+      ...explains.reduce(
+        (indexes, explain) => collectIndexes(explain.Plan, indexes),
+        new Set<string>(),
+      ),
+    ].sort(),
   };
   console.log(JSON.stringify(result));
   if (process.env.POSTGRES_BENCHMARK_VERBOSE === "1") {
-    console.log(JSON.stringify({ name, plan: explain.Plan }));
+    console.log(
+      JSON.stringify({
+        name,
+        plans: explains.map(explain => explain.Plan),
+      }),
+    );
   }
   return result;
 };

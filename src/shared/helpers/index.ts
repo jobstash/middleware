@@ -22,7 +22,6 @@ import ShortUniqueId from "short-unique-id";
 import { TEST_EMAIL } from "../constants";
 import { DateRange, JobListOrderBy } from "../enums";
 import {
-  JobListResult,
   OrgListResult,
   OrgRating,
   PaginatedData,
@@ -699,7 +698,7 @@ interface MixOptions {
  * - Preserves internal order of A and of B.
  * - After the first N, remaining items are appended A-then-B (preserving each list's order).
  */
-function interleaveSemiRandom<A extends JobListResult, B extends JobListResult>(
+function interleaveSemiRandom<A, B>(
   A: A[],
   B: B[],
   opts: MixOptions = {},
@@ -772,7 +771,9 @@ function interleaveSemiRandom<A extends JobListResult, B extends JobListResult>(
   return firstWindow.concat(rest);
 }
 
-export function sprinkleProtectedJobs(jobs: JobListResult[]): JobListResult[] {
+export function sprinkleProtectedJobs<
+  T extends { access: "public" | "protected" },
+>(jobs: T[]): T[] {
   const protectedJobs = jobs.filter(job => job.access === "protected");
   const publicJobs = jobs.filter(job => job.access === "public");
 

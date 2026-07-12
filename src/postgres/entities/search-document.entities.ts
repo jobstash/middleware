@@ -31,6 +31,9 @@ abstract class SearchDocumentBase {
   @Column({ name: "search_vector", type: "tsvector", select: false })
   searchVector!: string;
 
+  @Column({ name: "search_values", type: "text", array: true, default: "{}" })
+  searchValues!: string[];
+
   @Column({ type: "jsonb" })
   payload!: Record<string, unknown>;
 
@@ -48,8 +51,8 @@ export class JobSearchDocumentEntity {
   @Column({ name: "structured_jobpost_id", type: "text", unique: true })
   structuredJobpostId!: string;
 
-  @Column({ name: "short_uuid", type: "text", unique: true })
-  shortUuid!: string;
+  @Column({ name: "short_uuid", type: "text", nullable: true })
+  shortUuid!: string | null;
 
   @Column({ name: "organization_id", type: "text", nullable: true })
   organizationId!: string | null;
@@ -165,6 +168,13 @@ export class ProjectSearchDocumentEntity extends SearchDocumentBase {
 
   @Column({ name: "has_audits", type: "boolean", default: false })
   hasAudits!: boolean;
+
+  @Column({
+    name: "token_address_not_explicit_null",
+    type: "boolean",
+    default: true,
+  })
+  tokenAddressNotExplicitNull!: boolean;
 
   @Column({ type: "numeric", nullable: true })
   tvl!: string | null;

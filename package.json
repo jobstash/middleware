@@ -24,7 +24,8 @@
     "test:postgres": "RUN_POSTGRES_INTEGRATION=1 DATABASE_TEST_URL=postgresql://jobstash:jobstash@127.0.0.1:5434/jobstash_test jest --runInBand src/postgres",
     "db:validate:postgres": "node -r ts-node/register -r tsconfig-paths/register scripts/validate-postgres-projections.ts",
     "db:benchmark:postgres": "node -r ts-node/register -r tsconfig-paths/register scripts/benchmark-postgres-search.ts",
-    "db:parity:postgres": "node -r ts-node/register -r tsconfig-paths/register scripts/compare-production-parity.ts"
+    "db:parity:postgres": "node -r ts-node/register -r tsconfig-paths/register scripts/compare-production-parity.ts",
+    "db:parity:filters": "node -r ts-node/register -r tsconfig-paths/register scripts/compare-production-filter-parity.ts"
   },
   "dependencies": {
     "@google-cloud/bigquery": "^7.9.1",

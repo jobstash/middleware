@@ -1,8 +1,9 @@
 import { Injectable } from "@nestjs/common";
+import { go } from "fuzzysort";
 import { JobListParams } from "src/jobs/dto/job-list.input";
 import { OrgListParams } from "src/organizations/dto/org-list.input";
 import { ProjectListParams } from "src/projects/dto/project-list.input";
-import { slugify } from "src/shared/helpers";
+import { slugify, sprinkleProtectedJobs } from "src/shared/helpers";
 import {
   JobListResult,
   OrgListResult,
@@ -13,6 +14,29 @@ import { PostgresService } from "./postgres.service";
 type SearchRow<T> = {
   payload: T;
   total_count: string;
+};
+
+type JobSearchCandidate = {
+  job_node_id: string;
+  access: "public" | "protected";
+  featured: boolean;
+  feature_start_timestamp: string | null;
+  feature_end_timestamp: string | null;
+  sort_value: string | number | null;
+  search_values: string[] | null;
+};
+
+type NamedSearchCandidate = {
+  node_id: string;
+  search_values: string[];
+};
+
+type LegacySqlPage = {
+  page: number;
+  limit: number;
+  offset: number;
+  total?: number;
+  empty: boolean;
 };
 
 export type SearchPage<T> = {
@@ -52,6 +76,15 @@ type JobSearchParams = Partial<JobListParams> & {
   includeBlocked?: boolean;
   suppressPublicForExpertOrganizations?: boolean;
 };
+
+type ProjectSearchParams = Partial<ProjectListParams> & {
+  ecosystemHeader?: string;
+  hasAudits?: boolean | null;
+  hasHacks?: boolean | null;
+  hasToken?: boolean | null;
+};
+
+const NATURAL_NAME_SQL = "name COLLATE jobstash_natural";
 
 class SqlPredicateBuilder {
   readonly predicates: string[] = [];
@@ -100,6 +133,9 @@ class SqlPredicateBuilder {
 const normalizeList = (values?: string[] | null): string[] | null =>
   values?.map(value => slugify(value)).filter(Boolean) ?? null;
 
+const activeRangeBound = (value?: number | null): boolean =>
+  value !== null && value !== undefined && value !== 0;
+
 const pageValues = (
   page: number | null | undefined,
   limit: number | null | undefined,
@@ -111,6 +147,19 @@ const pageValues = (
     limit: validLimit,
     offset: (validPage - 1) * validLimit,
   };
+};
+
+const legacyPageValues = (
+  page: number | null | undefined,
+  limit: number | null | undefined,
+): { page: number; limit: number } => ({
+  page: Number(page ?? 1),
+  limit: Number(limit ?? 10),
+});
+
+const legacyPageSlice = <T>(values: T[], page: number, limit: number): T[] => {
+  const maxPage = Math.ceil(values.length / limit);
+  return page > maxPage ? [] : values.slice((page - 1) * limit, page * limit);
 };
 
 @Injectable()
@@ -346,10 +395,18 @@ export class SearchDocumentRepository {
     where.addArrayOverlap("tags", params.tags);
     where.addArrayOverlap("project_names", params.projects);
     where.addArrayOverlap("investor_names", params.investors);
-    where.addArrayOverlap("funding_round_names", params.fundingRounds);
+    const fundingRounds = normalizeList(params.fundingRounds);
+    if (fundingRounds?.length) {
+      where.add(
+        `latest_funding_round_name = ANY(${where.bind(fundingRounds)}::text[])`,
+      );
+    }
     where.addArrayOverlap("chain_names", params.chains);
     where.addArrayOverlap("classifications", params.classifications);
-    where.addArrayOverlap("commitments", params.commitments);
+    const commitments = normalizeList(params.commitments)?.map(value =>
+      value.replaceAll("-", ""),
+    );
+    where.addArrayOverlap("commitments", commitments);
     where.addArrayOverlap("location_types", params.locations);
 
     const organizations = normalizeList(params.organizations);
@@ -364,30 +421,45 @@ export class SearchDocumentRepository {
     }
 
     where.addRange("salary", params.minSalaryRange, params.maxSalaryRange);
+    if (
+      activeRangeBound(params.minSalaryRange) ||
+      activeRangeBound(params.maxSalaryRange)
+    ) {
+      where.add("salary_currency = 'USD'");
+    }
     where.addRange(
       "headcount_estimate",
       params.minHeadCount,
       params.maxHeadCount,
     );
-    where.addRange("max_tvl", params.minTvl, params.maxTvl);
-    where.addRange(
+    this.addProjectMetricRange(
+      where,
+      "max_tvl",
+      "min_tvl",
+      params.minTvl,
+      params.maxTvl,
+    );
+    this.addProjectMetricRange(
+      where,
       "max_monthly_volume",
+      "min_monthly_volume",
       params.minMonthlyVolume,
       params.maxMonthlyVolume,
     );
-    where.addRange(
+    this.addProjectMetricRange(
+      where,
       "max_monthly_fees",
+      "min_monthly_fees",
       params.minMonthlyFees,
       params.maxMonthlyFees,
     );
-    where.addRange(
+    this.addProjectMetricRange(
+      where,
       "max_monthly_revenue",
+      "min_monthly_revenue",
       params.minMonthlyRevenue,
       params.maxMonthlyRevenue,
     );
-    where.addEqual("has_audits", params.audits);
-    where.addEqual("has_hacks", params.hacks);
-    where.addEqual("has_token", params.token);
     where.addEqual("onboard_into_web3", params.onboardIntoWeb3);
 
     if (params.expertJobs !== null && params.expertJobs !== undefined) {
@@ -399,44 +471,65 @@ export class SearchDocumentRepository {
     if (params.endDate) {
       where.add(`published_timestamp < ${where.bind(params.endDate)}`);
     }
-    const searchQuery = params.query?.trim();
-    if (searchQuery) {
-      const [match] = await this.postgres.query<{ hasExactMatch: boolean }>(
-        `
-          SELECT EXISTS (
-            SELECT 1
-            FROM job_search_documents
-            WHERE search_vector @@ websearch_to_tsquery('simple', $1)
-          ) AS "hasExactMatch"
-        `,
-        [searchQuery],
-      );
-      const queryParam = where.bind(searchQuery);
+    const organizationProjectFiltersApplied = [
+      params.minHeadCount,
+      params.maxHeadCount,
+      params.organizations,
+      params.investors,
+      params.fundingRounds,
+      params.ecosystems,
+      params.projects,
+      params.token,
+      params.minTvl,
+      params.maxTvl,
+      params.minMonthlyVolume,
+      params.maxMonthlyVolume,
+      params.minMonthlyFees,
+      params.maxMonthlyFees,
+      params.minMonthlyRevenue,
+      params.maxMonthlyRevenue,
+      params.audits,
+      params.hacks,
+      params.chains,
+    ].some(Boolean);
+    if (params.audits === false) {
       where.add(
-        match?.hasExactMatch
-          ? `search_vector @@ websearch_to_tsquery('simple', ${queryParam})`
-          : `job_node_id IN (
-              SELECT fuzzy.job_node_id
-              FROM job_search_documents fuzzy
-              WHERE fuzzy.search_text % ${queryParam}
-              ORDER BY similarity(fuzzy.search_text, ${queryParam}) DESC,
-                       fuzzy.job_node_id
-              LIMIT 1000
-            )`,
+        organizationProjectFiltersApplied
+          ? "NOT has_audits"
+          : "(organization_id IS NOT NULL OR NOT has_audits)",
       );
+    } else {
+      where.addEqual("has_audits", params.audits);
     }
-
+    if (params.hacks === false) {
+      where.add(
+        organizationProjectFiltersApplied
+          ? "NOT has_hacks"
+          : "(organization_id IS NOT NULL OR NOT has_hacks)",
+      );
+    } else {
+      where.addEqual("has_hacks", params.hacks);
+    }
+    if (params.token === false) {
+      where.add(
+        organizationProjectFiltersApplied
+          ? "has_token"
+          : "(organization_id IS NOT NULL OR has_token)",
+      );
+    } else {
+      where.addEqual("has_token", params.token);
+    }
     const sortExpressions: Record<string, string> = {
-      audits: "has_audits::int",
-      hacks: "has_hacks::int",
-      chains: "cardinality(chain_names)",
-      tvl: "max_tvl",
-      monthlyVolume: "max_monthly_volume",
-      monthlyFees: "max_monthly_fees",
-      monthlyRevenue: "max_monthly_revenue",
-      fundingDate: "latest_funding_timestamp",
-      headcountEstimate: "headcount_estimate",
-      teamSize: "headcount_estimate",
+      audits: "COALESCE(sort_project_audit_count, 0)",
+      hacks: "COALESCE(sort_project_hack_count, 0)",
+      chains: "COALESCE(sort_project_chain_count, 0)",
+      tvl: "COALESCE(sort_project_tvl, 0)",
+      monthlyVolume: "COALESCE(sort_project_monthly_volume, 0)",
+      monthlyFees: "COALESCE(sort_project_monthly_fees, 0)",
+      monthlyRevenue: "COALESCE(sort_project_monthly_revenue, 0)",
+      fundingDate: "COALESCE(latest_funding_timestamp, 0)",
+      headcountEstimate: "COALESCE(headcount_estimate, 0)",
+      teamSize: "published_timestamp",
       publicationDate: "published_timestamp",
       salary: "salary",
     };
@@ -444,6 +537,9 @@ export class SearchDocumentRepository {
       sortExpressions[params.orderBy ?? "publicationDate"] ??
       sortExpressions.publicationDate;
     const direction = params.order === "asc" ? "ASC" : "DESC";
+    const candidateSearchValues = params.query
+      ? "search_values"
+      : "NULL::text[] AS search_values";
     const baseOrder = (alias = ""): string => {
       const prefix = alias ? `${alias}.` : "";
       return `
@@ -458,16 +554,12 @@ export class SearchDocumentRepository {
         ${prefix}job_node_id
       `;
     };
-    const paging = pageValues(params.page, params.limit);
-    const limitParam = where.bind(paging.limit);
-    const offsetParam = where.bind(paging.offset);
-
-    const rows = await this.postgres.query<SearchRow<JobListResult>>(
+    const paging = legacyPageValues(params.page, params.limit);
+    const unsearchedCandidates = await this.postgres.query<JobSearchCandidate>(
       `
         WITH filtered AS (
           SELECT
             job_node_id,
-            organization_id,
             access,
             (
               featured
@@ -481,26 +573,40 @@ export class SearchDocumentRepository {
             feature_start_timestamp,
             feature_end_timestamp,
             ${sortExpression} AS sort_value,
-            count(*) OVER () AS total_count
+            ${candidateSearchValues}
           FROM job_search_documents
           ${where.toSql()}
-        ), ranked AS (
-          SELECT *, row_number() OVER (
-            PARTITION BY (access = 'protected')
-            ORDER BY ${baseOrder()}
-          ) AS access_rank
-          FROM filtered
-        ), page AS (
-          SELECT *
-          FROM ranked
-          ORDER BY
-            CASE
-              WHEN access = 'protected' THEN access_rank * 2 - 1
-              ELSE access_rank * 2
-            END,
-            ${baseOrder()}
-          LIMIT ${limitParam}
-          OFFSET ${offsetParam}
+        )
+        SELECT *
+        FROM filtered
+        ORDER BY ${baseOrder()}
+      `,
+      where.parameters,
+    );
+    const candidates = params.query
+      ? unsearchedCandidates.filter(
+          candidate =>
+            go(params.query, candidate.search_values ?? [], { threshold: 0.3 })
+              .length > 0,
+        )
+      : unsearchedCandidates;
+    const sprinkled = sprinkleProtectedJobs(candidates);
+    const page = legacyPageSlice(sprinkled, paging.page, paging.limit);
+    if (!page.length) {
+      return {
+        page: paging.page,
+        count: 0,
+        total: sprinkled.length,
+        data: [],
+      };
+    }
+
+    const rows = await this.postgres.query<{ payload: JobListResult }>(
+      `
+        WITH page AS (
+          SELECT job_node_id, ordinality
+          FROM unnest($1::bigint[]) WITH ORDINALITY
+            AS requested(job_node_id, ordinality)
         )
         SELECT CASE
           WHEN organization.payload IS NULL THEN job.payload
@@ -508,23 +614,37 @@ export class SearchDocumentRepository {
             'organization', organization.payload - 'tags' - 'jobs',
             'project', NULL
           )
-        END AS payload,
-        page.total_count
+        END AS payload
         FROM page
         JOIN job_search_documents job ON job.job_node_id = page.job_node_id
         LEFT JOIN organization_search_documents organization
-          ON organization.organization_id = page.organization_id
-        ORDER BY
-          CASE
-            WHEN page.access = 'protected' THEN page.access_rank * 2 - 1
-            ELSE page.access_rank * 2
-          END,
-          ${baseOrder("page")}
+          ON organization.organization_id = job.organization_id
+        ORDER BY page.ordinality
       `,
-      where.parameters,
+      [page.map(candidate => candidate.job_node_id)],
     );
 
-    return toPage(rows, paging.page);
+    return {
+      page: paging.page,
+      count: rows.length,
+      total: sprinkled.length,
+      data: rows.map(row => row.payload),
+    };
+  }
+
+  private addProjectMetricRange(
+    where: SqlPredicateBuilder,
+    lowerColumn: string,
+    upperColumn: string,
+    minimum?: number | null,
+    maximum?: number | null,
+  ): void {
+    where.addRange(lowerColumn, minimum, null);
+    if (activeRangeBound(maximum)) {
+      where.add(
+        `${upperColumn} IS NOT NULL AND ${upperColumn} < ${where.bind(maximum)}`,
+      );
+    }
   }
 
   async getPublicJobPayloads(authenticated: boolean): Promise<JobListResult[]> {
@@ -960,26 +1080,52 @@ export class SearchDocumentRepository {
     if (locations?.length) {
       where.add(`location = ANY(${where.bind(locations)}::text[])`);
     }
-    where.addEqual("has_projects", params.hasProjects);
-    if (params.query?.trim()) {
-      const queryParam = where.bind(params.query.trim());
-      where.add(
-        `(search_vector @@ websearch_to_tsquery('simple', ${queryParam}) OR search_text % ${queryParam})`,
-      );
-    }
-
+    if (params.hasProjects === true) where.add("has_projects");
     const sortExpressions: Record<string, string> = {
       recentFundingDate: "recent_funding_timestamp",
       recentJobDate: "recent_job_timestamp",
       headcountEstimate: "headcount_estimate",
       rating: "aggregate_rating",
-      name: "name",
     };
     const sortExpression =
-      sortExpressions[params.orderBy ?? "recentFundingDate"] ??
-      sortExpressions.recentFundingDate;
+      params.orderBy === "name"
+        ? null
+        : (sortExpressions[params.orderBy ?? "recentFundingDate"] ??
+          sortExpressions.recentFundingDate);
     const direction = params.order === "asc" ? "ASC" : "DESC";
-    const paging = pageValues(params.page, params.limit);
+    const orderSql = sortExpression
+      ? `${sortExpression} ${direction} NULLS LAST, ${NATURAL_NAME_SQL} ASC, organization_node_id ASC`
+      : `${NATURAL_NAME_SQL} ASC, organization_node_id ASC`;
+    const requestedPage = legacyPageValues(params.page, params.limit);
+    const filterSql = where.toSql();
+    const filterParameters = [...where.parameters];
+    if (params.query) {
+      return this.searchNamedDocuments(
+        "organization_search_documents",
+        "organization_node_id",
+        filterSql,
+        filterParameters,
+        orderSql,
+        params.query,
+        requestedPage.page,
+        requestedPage.limit,
+      );
+    }
+    const paging = await this.resolveLegacySqlPage(
+      "organization_search_documents",
+      filterSql,
+      filterParameters,
+      requestedPage.page,
+      requestedPage.limit,
+    );
+    if (paging.empty) {
+      return {
+        page: paging.page,
+        count: 0,
+        total: paging.total ?? 0,
+        data: [],
+      };
+    }
     const limitParam = where.bind(paging.limit);
     const offsetParam = where.bind(paging.offset);
 
@@ -987,13 +1133,21 @@ export class SearchDocumentRepository {
       `
         SELECT payload, count(*) OVER () AS total_count
         FROM organization_search_documents
-        ${where.toSql()}
-        ORDER BY ${sortExpression} ${direction} NULLS LAST, name ASC
+        ${filterSql}
+        ORDER BY ${orderSql}
         LIMIT ${limitParam}
         OFFSET ${offsetParam}
       `,
       where.parameters,
     );
+    if (!rows.length && paging.offset > 0) {
+      return this.emptyPageWithTotal(
+        "organization_search_documents",
+        filterSql,
+        filterParameters,
+        paging.page,
+      );
+    }
     return toPage(rows, paging.page);
   }
 
@@ -1129,7 +1283,7 @@ export class SearchDocumentRepository {
   }
 
   async searchProjects(
-    params: Partial<ProjectListParams> & { ecosystemHeader?: string },
+    params: ProjectSearchParams,
   ): Promise<SearchPage<ProjectListResult>> {
     const where = new SqlPredicateBuilder();
     if (params.ecosystemHeader) {
@@ -1153,9 +1307,21 @@ export class SearchDocumentRepository {
       params.minMonthlyRevenue,
       params.maxMonthlyRevenue,
     );
-    where.addEqual("has_audits", params.audits);
-    where.addEqual("has_hacks", params.hacks);
-    where.addEqual("has_token", params.token);
+    if (params.hasAudits !== null && params.hasAudits !== undefined) {
+      if (params.hasAudits) where.add("has_audits");
+    } else {
+      where.addEqual("has_audits", params.audits);
+    }
+    if (params.hasHacks !== null && params.hasHacks !== undefined) {
+      if (params.hasHacks) where.add("has_hacks");
+    } else {
+      where.addEqual("has_hacks", params.hacks);
+    }
+    if (params.hasToken !== null && params.hasToken !== undefined) {
+      if (params.hasToken) where.add("token_address_not_explicit_null");
+    } else {
+      where.addEqual("has_token", params.token);
+    }
     where.addArrayOverlap("organization_names", params.organizations);
     where.addArrayOverlap("investors", params.investors);
     where.addArrayOverlap("chains", params.chains);
@@ -1163,27 +1329,53 @@ export class SearchDocumentRepository {
     where.addArrayOverlap("ecosystems", params.ecosystems);
     where.addArrayOverlap("tags", params.tags);
     where.addArrayOverlap("names", params.names);
-    if (params.query?.trim()) {
-      const queryParam = where.bind(params.query.trim());
-      where.add(
-        `(search_vector @@ websearch_to_tsquery('simple', ${queryParam}) OR search_text % ${queryParam})`,
-      );
-    }
-
     const sortExpressions: Record<string, string> = {
-      audits: "has_audits::int",
-      hacks: "has_hacks::int",
-      chains: "cardinality(chains)",
+      audits: "audit_count",
+      hacks: "hack_count",
+      chains: "chain_count",
       tvl: "tvl",
       monthlyVolume: "monthly_volume",
       monthlyFees: "monthly_fees",
       monthlyRevenue: "monthly_revenue",
     };
     const sortExpression = params.orderBy
-      ? (sortExpressions[params.orderBy] ?? "name")
-      : "name";
+      ? (sortExpressions[params.orderBy] ?? NATURAL_NAME_SQL)
+      : NATURAL_NAME_SQL;
     const direction = params.order === "desc" ? "DESC" : "ASC";
-    const paging = pageValues(params.page, params.limit);
+    const orderSql =
+      sortExpression === NATURAL_NAME_SQL
+        ? `${NATURAL_NAME_SQL} ${direction} NULLS LAST, project_node_id ASC`
+        : `${sortExpression} ${direction} NULLS LAST, ${NATURAL_NAME_SQL} ASC, project_node_id ASC`;
+    const requestedPage = legacyPageValues(params.page, params.limit);
+    const filterSql = where.toSql();
+    const filterParameters = [...where.parameters];
+    if (params.query) {
+      return this.searchNamedDocuments(
+        "project_search_documents",
+        "project_node_id",
+        filterSql,
+        filterParameters,
+        orderSql,
+        params.query,
+        requestedPage.page,
+        requestedPage.limit,
+      );
+    }
+    const paging = await this.resolveLegacySqlPage(
+      "project_search_documents",
+      filterSql,
+      filterParameters,
+      requestedPage.page,
+      requestedPage.limit,
+    );
+    if (paging.empty) {
+      return {
+        page: paging.page,
+        count: 0,
+        total: paging.total ?? 0,
+        data: [],
+      };
+    }
     const limitParam = where.bind(paging.limit);
     const offsetParam = where.bind(paging.offset);
 
@@ -1191,14 +1383,129 @@ export class SearchDocumentRepository {
       `
         SELECT payload, count(*) OVER () AS total_count
         FROM project_search_documents
-        ${where.toSql()}
-        ORDER BY ${sortExpression} ${direction} NULLS LAST, name ASC
+        ${filterSql}
+        ORDER BY ${orderSql}
         LIMIT ${limitParam}
         OFFSET ${offsetParam}
       `,
       where.parameters,
     );
+    if (!rows.length && paging.offset > 0) {
+      return this.emptyPageWithTotal(
+        "project_search_documents",
+        filterSql,
+        filterParameters,
+        paging.page,
+      );
+    }
     return toPage(rows, paging.page);
+  }
+
+  private async searchNamedDocuments<T>(
+    table: "organization_search_documents" | "project_search_documents",
+    idColumn: "organization_node_id" | "project_node_id",
+    filterSql: string,
+    parameters: unknown[],
+    orderSql: string,
+    query: string,
+    page: number,
+    limit: number,
+  ): Promise<SearchPage<T>> {
+    const candidates = await this.postgres.query<NamedSearchCandidate>(
+      `
+        SELECT ${idColumn}::text AS node_id, search_values
+        FROM ${table}
+        ${filterSql}
+        ORDER BY ${orderSql}
+      `,
+      parameters,
+    );
+    const matches = candidates.filter(
+      candidate =>
+        go(query, candidate.search_values ?? [], { threshold: 0.3 }).length > 0,
+    );
+    const selected = legacyPageSlice(matches, page, limit);
+    if (!selected.length) {
+      return { page, count: 0, total: matches.length, data: [] };
+    }
+
+    const rows = await this.postgres.query<{ payload: T }>(
+      `
+        WITH page AS (
+          SELECT node_id, ordinality
+          FROM unnest($1::bigint[]) WITH ORDINALITY
+            AS requested(node_id, ordinality)
+        )
+        SELECT document.payload
+        FROM page
+        JOIN ${table} document ON document.${idColumn} = page.node_id
+        ORDER BY page.ordinality
+      `,
+      [selected.map(candidate => candidate.node_id)],
+    );
+    return {
+      page,
+      count: rows.length,
+      total: matches.length,
+      data: rows.map(row => row.payload),
+    };
+  }
+
+  private async emptyPageWithTotal<T>(
+    table: "organization_search_documents" | "project_search_documents",
+    filterSql: string,
+    parameters: unknown[],
+    page: number,
+  ): Promise<SearchPage<T>> {
+    const [row] = await this.postgres.query<{ total_count: string }>(
+      `SELECT count(*)::text AS total_count FROM ${table} ${filterSql}`,
+      parameters,
+    );
+    return {
+      page,
+      count: 0,
+      total: Number(row?.total_count ?? 0),
+      data: [],
+    };
+  }
+
+  private async resolveLegacySqlPage(
+    table: "organization_search_documents" | "project_search_documents",
+    filterSql: string,
+    parameters: unknown[],
+    page: number,
+    limit: number,
+  ): Promise<LegacySqlPage> {
+    if (page >= 1 && limit > 0) {
+      return {
+        page,
+        limit,
+        offset: (page - 1) * limit,
+        empty: false,
+      };
+    }
+
+    const [row] = await this.postgres.query<{ total_count: string }>(
+      `SELECT count(*)::text AS total_count FROM ${table} ${filterSql}`,
+      parameters,
+    );
+    const total = Number(row?.total_count ?? 0);
+    const maxPage = Math.ceil(total / limit);
+    if (page > maxPage) {
+      return { page, limit: 0, offset: 0, total, empty: true };
+    }
+
+    const normalizeIndex = (index: number): number =>
+      index < 0 ? Math.max(total + index, 0) : Math.min(index, total);
+    const offset = normalizeIndex((page - 1) * limit);
+    const end = normalizeIndex(page * limit);
+    return {
+      page,
+      limit: Math.max(0, end - offset),
+      offset,
+      total,
+      empty: end <= offset,
+    };
   }
 
   async getProjectById<T = ProjectListResult>(

@@ -119,7 +119,6 @@ describe("SearchDocumentRepository", () => {
       "tags",
       "project_names",
       "investor_names",
-      "funding_round_names",
       "chain_names",
       "classifications",
       "commitments",
@@ -127,6 +126,7 @@ describe("SearchDocumentRepository", () => {
     ]) {
       expect(sql).toContain(`${column} &&`);
     }
+    expect(sql).toContain("latest_funding_round_name = ANY(");
     expect(parameters).toEqual(
       expect.arrayContaining([
         ["solidity"],
@@ -135,7 +135,7 @@ describe("SearchDocumentRepository", () => {
         ["series-a"],
         ["ethereum"],
         ["engineering"],
-        ["full-time"],
+        ["fulltime"],
         ["remote"],
       ]),
     );
@@ -163,10 +163,12 @@ describe("SearchDocumentRepository", () => {
 
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain("COALESCE(salary, 0) >=");
+    expect(sql).toContain("salary_currency = 'USD'");
     expect(sql).toContain("COALESCE(headcount_estimate, 0) <");
     expect(sql).toContain("COALESCE(max_tvl, 0) >=");
+    expect(sql).toContain("min_tvl IS NOT NULL AND min_tvl <");
     expect(sql).toContain("has_audits =");
-    expect(sql).toContain("has_hacks =");
+    expect(sql).toContain("NOT has_hacks");
     expect(sql).toContain("has_token =");
     expect(sql).toContain("onboard_into_web3 =");
     expect(parameters).toEqual(
@@ -174,37 +176,77 @@ describe("SearchDocumentRepository", () => {
     );
   });
 
-  it("binds free-text job search instead of interpolating it", async () => {
-    const malicious = "x'); DROP TABLE graph_nodes; --";
-    query
-      .mockResolvedValueOnce([{ hasExactMatch: false }])
-      .mockResolvedValueOnce([]);
-    await repository.searchJobs({ query: malicious });
+  it("preserves legacy false project booleans for organization jobs", async () => {
+    await repository.searchJobs({
+      audits: false,
+      hacks: false,
+      token: false,
+    });
 
-    expect(query).toHaveBeenCalledTimes(2);
-    const [probeSql, probeParameters] = query.mock.calls[0];
-    const [sql, parameters] = query.mock.calls[1];
-    expect(probeSql).toContain("websearch_to_tsquery('simple', $1)");
-    expect(probeSql).not.toContain(malicious);
-    expect(probeParameters).toEqual([malicious]);
-    expect(sql).toContain("search_text %");
-    expect(sql).not.toContain(malicious);
-    expect(parameters).toContain(malicious);
+    const [sql] = query.mock.calls[0];
+    expect(sql).toContain("(organization_id IS NOT NULL OR NOT has_audits)");
+    expect(sql).toContain("(organization_id IS NOT NULL OR NOT has_hacks)");
+    expect(sql).toContain("(organization_id IS NOT NULL OR has_token)");
   });
 
-  it("uses direct full-text filtering when the exact probe matches", async () => {
+  it("activates false project booleans when another organization filter is truthy", async () => {
+    await repository.searchJobs({
+      minHeadCount: 10,
+      audits: false,
+      hacks: false,
+      token: false,
+    });
+
+    const [sql] = query.mock.calls[0];
+    expect(sql).toContain("AND NOT has_audits");
+    expect(sql).toContain("AND NOT has_hacks");
+    expect(sql).toContain("AND has_token");
+    expect(sql).not.toContain("organization_id IS NOT NULL OR NOT has_audits");
+    expect(sql).not.toContain("organization_id IS NOT NULL OR NOT has_hacks");
+    expect(sql).not.toContain("organization_id IS NOT NULL OR has_token");
+  });
+
+  it("keeps free-text job search out of generated SQL", async () => {
+    const malicious = "x'); DROP TABLE graph_nodes; --";
+    query.mockResolvedValueOnce([
+      {
+        job_node_id: "1",
+        access: "public",
+        search_values: ["Protocol Engineer"],
+      },
+    ]);
+    await repository.searchJobs({ query: malicious });
+
+    expect(query).toHaveBeenCalledTimes(1);
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).not.toContain(malicious);
+    expect(parameters ?? []).not.toContain(malicious);
+  });
+
+  it("does not transfer fuzzy targets when job text search is inactive", async () => {
+    await repository.searchJobs({ tags: ["Solidity"] });
+
+    const [sql] = query.mock.calls[0];
+    expect(sql).toContain("NULL::text[] AS search_values");
+  });
+
+  it("uses the projected legacy fuzzysort targets", async () => {
     query
-      .mockResolvedValueOnce([{ hasExactMatch: true }])
-      .mockResolvedValueOnce([]);
+      .mockResolvedValueOnce([
+        {
+          job_node_id: "1",
+          access: "public",
+          search_values: ["Protocol Engineer"],
+        },
+      ])
+      .mockResolvedValueOnce([{ payload: { id: "job-1" } }]);
 
     await repository.searchJobs({ query: "protocol engineer" });
 
-    const [sql, parameters] = query.mock.calls[1];
-    expect(sql).toContain(
-      "search_vector @@ websearch_to_tsquery('simple', $1)",
-    );
-    expect(sql).not.toContain("search_text %");
-    expect(parameters).toContain("protocol engineer");
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(query.mock.calls[0][0]).toContain("search_values");
+    expect(query.mock.calls[0][1] ?? []).not.toContain("protocol engineer");
+    expect(query.mock.calls[1][1]).toEqual([["1"]]);
   });
 
   it("uses an allow-listed fallback for an invalid job sort", async () => {
@@ -219,19 +261,47 @@ describe("SearchDocumentRepository", () => {
     expect(sql).not.toContain("DROP TABLE");
   });
 
-  it("clamps job pagination and reports totals from the window count", async () => {
-    query.mockResolvedValue([{ payload: { id: "job-1" }, total_count: "123" }]);
+  it("preserves legacy job limits before hydrating selected IDs", async () => {
+    const candidates = Array.from({ length: 123 }, (_, index) => ({
+      job_node_id: String(index + 1),
+      access: "public",
+      search_values: [],
+    }));
+    query.mockResolvedValueOnce(candidates).mockResolvedValueOnce(
+      candidates.map(candidate => ({
+        payload: { id: `job-${candidate.job_node_id}` },
+      })),
+    );
 
-    const result = await repository.searchJobs({ page: -10, limit: 5000 });
+    const result = await repository.searchJobs({ page: 1, limit: 5000 });
 
-    expect(result).toEqual({
-      page: 1,
-      count: 1,
-      total: 123,
-      data: [{ id: "job-1" }],
-    });
-    const parameters = query.mock.calls[0][1];
-    expect(parameters.slice(-2)).toEqual([100, 0]);
+    expect(result).toMatchObject({ page: 1, count: 123, total: 123 });
+    expect(result.data[0]).toEqual({ id: "job-1" });
+    expect(result.data.at(-1)).toEqual({ id: "job-123" });
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(query.mock.calls[0][0]).not.toContain("LIMIT");
+    expect(query.mock.calls[1][1]).toEqual([
+      candidates.map(candidate => candidate.job_node_id),
+    ]);
+  });
+
+  it("preserves legacy negative-page slicing", async () => {
+    const candidates = Array.from({ length: 5 }, (_, index) => ({
+      job_node_id: String(index + 1),
+      access: "public",
+      search_values: [],
+    }));
+    query
+      .mockResolvedValueOnce(candidates)
+      .mockResolvedValueOnce([
+        { payload: { id: "job-2" } },
+        { payload: { id: "job-3" } },
+      ]);
+
+    const result = await repository.searchJobs({ page: -1, limit: 2 });
+
+    expect(result).toMatchObject({ page: -1, count: 2, total: 5 });
+    expect(query.mock.calls[1][1]).toEqual([["2", "3"]]);
   });
 
   it("supports explicit public-only and expert-only job filters", async () => {
@@ -241,6 +311,7 @@ describe("SearchDocumentRepository", () => {
     query.mockClear();
     await repository.searchJobs({ expertJobs: false });
     expect(query.mock.calls[0][0]).toContain("access <> 'protected'");
+    expect(query.mock.calls[0][0]).toContain("organization_has_expert_jobs");
   });
 
   it("supports moderation-state searches used by managed ecosystems", async () => {
@@ -325,7 +396,7 @@ describe("SearchDocumentRepository", () => {
     expect(parameters).toEqual(["job-1' OR true --", true, "ethereum"]);
   });
 
-  it("pushes organization filters, search, and ordering into SQL", async () => {
+  it("pushes organization filters and ordering into SQL before fuzzy matching", async () => {
     await repository.searchOrganizations({
       minHeadCount: 5,
       maxHeadCount: 100,
@@ -347,9 +418,16 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("FROM organization_search_documents");
     expect(sql).toContain("investors &&");
     expect(sql).toContain("funding_rounds &&");
-    expect(sql).toContain("has_projects =");
+    expect(sql).toContain("AND has_projects");
     expect(sql).toContain("recent_job_timestamp ASC");
-    expect(parameters).toContain("acme");
+    expect(sql).toContain("search_values");
+    expect(sql).not.toContain("acme");
+    expect(parameters).not.toContain("acme");
+
+    query.mockClear();
+    await repository.searchOrganizations({ hasProjects: false });
+    expect(query.mock.calls[0][0]).not.toContain("has_projects =");
+    expect(query.mock.calls[0][0]).not.toContain("WHERE has_projects");
   });
 
   it("projects organization link collections in one parameterized query", async () => {
@@ -371,7 +449,17 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("recent_funding_timestamp DESC");
   });
 
-  it("pushes project filters and metric ordering into SQL", async () => {
+  it("uses legacy natural name ordering for organizations", async () => {
+    await repository.searchOrganizations({ orderBy: "name", order: "desc" });
+
+    const [sql] = query.mock.calls[0];
+    expect(sql).toContain(
+      "ORDER BY name COLLATE jobstash_natural ASC, organization_node_id ASC",
+    );
+    expect(sql).not.toContain("name COLLATE jobstash_natural DESC");
+  });
+
+  it("pushes project filters and metric ordering into SQL before fuzzy matching", async () => {
     await repository.searchProjects({
       minTvl: 10,
       maxTvl: 100,
@@ -390,11 +478,95 @@ describe("SearchDocumentRepository", () => {
       order: "desc",
     });
 
-    const [sql] = query.mock.calls[0];
+    const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain("FROM project_search_documents");
     expect(sql).toContain("organization_names &&");
     expect(sql).toContain("has_token =");
     expect(sql).toContain("monthly_volume DESC");
+    expect(sql).toContain("search_values");
+    expect(sql).not.toContain("alpha");
+    expect(parameters).not.toContain("alpha");
+  });
+
+  it("preserves project-search boolean alias semantics", async () => {
+    await repository.searchProjects({
+      hasAudits: true,
+      hasHacks: true,
+      hasToken: true,
+      audits: false,
+      hacks: false,
+      token: false,
+    });
+
+    const [enabledSql, enabledParameters] = query.mock.calls[0];
+    expect(enabledSql).toContain("WHERE has_audits");
+    expect(enabledSql).toContain("AND has_hacks");
+    expect(enabledSql).toContain("AND token_address_not_explicit_null");
+    expect(enabledSql).not.toContain("has_token =");
+    expect(enabledParameters).toEqual([10, 0]);
+
+    query.mockClear();
+    await repository.searchProjects({
+      hasAudits: false,
+      hasHacks: false,
+      hasToken: false,
+      audits: true,
+      hacks: true,
+      token: true,
+    });
+
+    const [disabledSql, disabledParameters] = query.mock.calls[0];
+    expect(disabledSql).not.toContain("has_audits");
+    expect(disabledSql).not.toContain("has_hacks");
+    expect(disabledSql).not.toContain("has_token");
+    expect(disabledSql).not.toContain("token_address_not_explicit_null");
+    expect(disabledParameters).toEqual([10, 0]);
+  });
+
+  it("keeps strict project-list booleans separate from search aliases", async () => {
+    await repository.searchProjects({
+      audits: false,
+      hacks: true,
+      token: false,
+    });
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("has_audits = $1");
+    expect(sql).toContain("has_hacks = $2");
+    expect(sql).toContain("has_token = $3");
+    expect(sql).not.toContain("token_address_not_explicit_null");
+    expect(parameters).toEqual([false, true, false, 10, 0]);
+  });
+
+  it("orders projects with the JavaScript-compatible natural collation", async () => {
+    await repository.searchProjects({ order: "desc" });
+
+    const [sql] = query.mock.calls[0];
+    expect(sql).toContain(
+      "ORDER BY name COLLATE jobstash_natural DESC NULLS LAST, project_node_id ASC",
+    );
+  });
+
+  it("hydrates exact fuzzysort matches by projected identity order", async () => {
+    query
+      .mockResolvedValueOnce([
+        { node_id: "2", search_values: ["Beta", "Acme Labs"] },
+        { node_id: "1", search_values: ["Acme"] },
+      ])
+      .mockResolvedValueOnce([
+        { payload: { orgId: "org-beta" } },
+        { payload: { orgId: "org-acme" } },
+      ]);
+
+    await expect(
+      repository.searchOrganizations({ query: "acme", limit: 20 }),
+    ).resolves.toEqual({
+      page: 1,
+      count: 2,
+      total: 2,
+      data: [{ orgId: "org-beta" }, { orgId: "org-acme" }],
+    });
+    expect(query.mock.calls[1][1]).toEqual([["2", "1"]]);
   });
 
   it("parameterizes organization and project detail keys", async () => {

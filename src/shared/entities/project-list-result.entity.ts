@@ -55,7 +55,12 @@ export class ProjectListResultEntity {
             isBefore(now, nonZeroOrNull(jobpost?.featureEndDate) ?? now);
 
           return {
-            ...jobpost,
+            id: jobpost.id,
+            shortUUID: jobpost.shortUUID,
+            access: jobpost.access,
+            benefits: jobpost.benefits,
+            requirements: jobpost.requirements,
+            responsibilities: jobpost.responsibilities,
             salary: nonZeroOrNull(jobpost?.salary),
             minimumSalary: nonZeroOrNull(jobpost?.minimumSalary),
             maximumSalary: nonZeroOrNull(jobpost?.maximumSalary),
@@ -64,6 +69,7 @@ export class ProjectListResultEntity {
             salaryCurrency: notStringOrNull(jobpost?.salaryCurrency),
             paysInCrypto: jobpost?.paysInCrypto ?? null,
             offersTokenAllocation: jobpost?.offersTokenAllocation ?? null,
+            location: jobpost.location,
             url:
               jobpost?.access === "protected"
                 ? null
@@ -71,7 +77,9 @@ export class ProjectListResultEntity {
             title: notStringOrNull(jobpost?.title),
             summary: notStringOrNull(jobpost?.summary),
             description: notStringOrNull(jobpost?.description),
+            classification: jobpost.classification,
             commitment: notStringOrNull(jobpost?.commitment),
+            locationType: jobpost.locationType,
             timestamp: nonZeroOrNull(jobpost?.timestamp),
             featureStartDate: isStillFeatured
               ? nonZeroOrNull(jobpost?.featureStartDate)

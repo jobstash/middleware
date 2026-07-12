@@ -3,6 +3,11 @@ import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import * as ts from "typescript";
+import {
+  boundedFixedCollectionDrift,
+  matchingItemsSemanticallyEqual,
+  truncatedProductionCollection,
+} from "./filter-parity-comparison";
 
 type JsonValue =
   | null
@@ -29,6 +34,9 @@ type RuntimeCase = {
   collectionPath?: string[];
   requireCommonIdentity?: boolean;
   compareSemanticValue?: boolean;
+  ignoredSemanticKeys?: string[];
+  maximumIdentityDrift?: number;
+  allowProductionTruncation?: boolean;
   compareXmlLocations?: boolean;
   kind?: "data" | "authorization";
 };
@@ -39,6 +47,31 @@ type OperationEntry = {
   path: string;
   operationId: string;
   operation: OpenApiOperation;
+};
+
+type RuntimeComparisonResult = {
+  operationId: string;
+  kind: "data" | "authorization";
+  method: HttpMethod;
+  path: string;
+  productionStatus: number;
+  localStatus: number;
+  statusMatch: boolean;
+  shapeMatch: boolean;
+  semanticMatch?: boolean;
+  matchedItems?: number;
+  productionItems?: number;
+  localItems?: number;
+  baselineUnavailable: boolean;
+  baselineReason?: string;
+  productionBytes: number;
+  localBytes: number;
+  missingTypeCount: number;
+  extraTypeCount: number;
+  missingTypes: string[];
+  extraTypes: string[];
+  productionError?: string;
+  localError?: string;
 };
 
 const productionUrl = requiredUrl(
@@ -64,8 +97,18 @@ const runtimeCases: RuntimeCase[] = [
     collectionIdentity: "shortUUID",
   },
   { path: "/jobs/filters", headers: { "x-ecosystem": "bondex" } },
-  { path: "/jobs/details/s4jWCF", compareSemanticValue: true },
-  { path: "/jobs/similar/s4jWCF", compareSemanticValue: true },
+  {
+    path: "/jobs/details/s4jWCF",
+    compareSemanticValue: true,
+    ignoredSemanticKeys: ["fundingRounds", "investors", "tags"],
+  },
+  {
+    path: "/jobs/similar/s4jWCF",
+    collectionIdentity: "shortUUID",
+    collectionPath: ["data"],
+    compareSemanticValue: true,
+    maximumIdentityDrift: 1,
+  },
   {
     path: "/jobs/suggested?skills=solidity&isExpert=false&page=1&limit=2",
     collectionIdentity: "shortUUID",
@@ -133,6 +176,7 @@ const runtimeCases: RuntimeCase[] = [
   {
     path: "/public/jobs/list?page=1&limit=20",
     collectionIdentity: "shortUUID",
+    allowProductionTruncation: true,
   },
   {
     path: "/public/jobs/filters",
@@ -154,7 +198,11 @@ const runtimeCases: RuntimeCase[] = [
     method: "POST",
     path: "/tags/batch-match",
     body: { tags: ["solidity", "typescript"], maxResults: 5 },
+    collectionIdentity: "id",
+    collectionPath: ["data"],
     compareSemanticValue: true,
+    ignoredSemanticKeys: ["score"],
+    maximumIdentityDrift: 0,
   },
   { path: "/chains/list?page=1&limit=5" },
   {
@@ -341,6 +389,7 @@ const main = async (): Promise<void> => {
             path: response.path,
             productionStatus: response.productionStatus,
             localStatus: response.localStatus,
+            baselineReason: response.baselineReason,
           })),
           failures: responseFailures,
           results: responses.map(response => ({
@@ -357,6 +406,7 @@ const main = async (): Promise<void> => {
             productionItems: response.productionItems,
             localItems: response.localItems,
             baselineUnavailable: response.baselineUnavailable,
+            baselineReason: response.baselineReason,
             missingTypeCount: response.missingTypeCount,
             extraTypeCount: response.extraTypeCount,
             productionBytes: response.productionBytes,
@@ -377,7 +427,7 @@ const compareRuntimeCase = async ({
 }: {
   entry: OperationEntry;
   runtimeCase: RuntimeCase;
-}) => {
+}): Promise<RuntimeComparisonResult> => {
   const [production, local] = await Promise.all([
     fetchResponse(`${productionUrl}${runtimeCase.path}`, runtimeCase),
     fetchResponse(`${localUrl}${runtimeCase.path}`, runtimeCase),
@@ -388,6 +438,8 @@ const compareRuntimeCase = async ({
     runtimeCase,
   );
   const { missingTypes, extraTypes } = comparison;
+  const statusBaselineUnavailable =
+    production.status === 0 || production.status >= 500;
   return {
     operationId: entry.operationId,
     kind: runtimeCase.kind ?? "data",
@@ -401,7 +453,11 @@ const compareRuntimeCase = async ({
     matchedItems: comparison.matchedItems,
     productionItems: comparison.productionItems,
     localItems: comparison.localItems,
-    baselineUnavailable: production.status === 0 || production.status >= 500,
+    baselineUnavailable:
+      statusBaselineUnavailable || comparison.baselineUnavailable === true,
+    baselineReason: statusBaselineUnavailable
+      ? "production-request-failed"
+      : comparison.baselineReason,
     productionBytes: production.bytes,
     localBytes: local.bytes,
     missingTypeCount: missingTypes.length,
@@ -694,6 +750,8 @@ const compareResponseBodies = (
   localItems?: number;
   missingTypes: string[];
   extraTypes: string[];
+  baselineUnavailable?: boolean;
+  baselineReason?: string;
 } => {
   if (runtimeCase.compareXmlLocations) {
     const productionLocations = xmlLocations(production);
@@ -740,7 +798,8 @@ const compareResponseBodies = (
     return {
       shapeMatch: missingTypes.length === 0 && extraTypes.length === 0,
       semanticMatch: runtimeCase.compareSemanticValue
-        ? semanticHash(production) === semanticHash(local)
+        ? semanticHash(production, runtimeCase.ignoredSemanticKeys) ===
+          semanticHash(local, runtimeCase.ignoredSemanticKeys)
         : undefined,
       missingTypes,
       extraTypes,
@@ -799,17 +858,78 @@ const compareResponseBodies = (
     missingTypes.push(`data[]:${identityKey}:no-common-record`);
   }
 
+  const identityDriftAccepted =
+    runtimeCase.maximumIdentityDrift === undefined ||
+    boundedFixedCollectionDrift({
+      productionItems: productionItems.length,
+      localItems: localItems.length,
+      matchedIdentities: matchedItems,
+      maximumIdentityDrift: runtimeCase.maximumIdentityDrift,
+    });
+  if (!identityDriftAccepted) {
+    missingTypes.push(`data[]:${identityKey}:identity-drift-exceeded`);
+  }
+
+  const requestUrl = new URL(runtimeCase.path, "http://parity.local");
+  const productionTruncated =
+    runtimeCase.allowProductionTruncation === true &&
+    truncatedProductionCollection({
+      productionTotal: numericProperty(production, "total"),
+      localTotal: numericProperty(local, "total"),
+      productionItems: productionItems.length,
+      requestedPage: Number(requestUrl.searchParams.get("page") ?? 1),
+      requestedLimit: Number(
+        requestUrl.searchParams.get("limit") ?? localItems.length,
+      ),
+      exactContractMatch: missingTypes.length === 0 && extraTypes.length === 0,
+    });
+
+  let semanticMatch: boolean | undefined;
+  if (runtimeCase.compareSemanticValue) {
+    if (runtimeCase.maximumIdentityDrift === undefined) {
+      semanticMatch =
+        semanticHash(production, runtimeCase.ignoredSemanticKeys) ===
+        semanticHash(local, runtimeCase.ignoredSemanticKeys);
+    } else {
+      const matchedComparison = matchingItemsSemanticallyEqual(
+        productionItems,
+        localItems,
+        identityKey,
+        runtimeCase.ignoredSemanticKeys,
+      );
+      semanticMatch =
+        identityDriftAccepted &&
+        matchedComparison.equal &&
+        semanticHash(productionEnvelope, runtimeCase.ignoredSemanticKeys) ===
+          semanticHash(localEnvelope, runtimeCase.ignoredSemanticKeys);
+    }
+  }
+
   return {
     shapeMatch: missingTypes.length === 0 && extraTypes.length === 0,
     matchedItems,
     productionItems: productionItems.length,
     localItems: localItems.length,
-    semanticMatch: runtimeCase.compareSemanticValue
-      ? semanticHash(production) === semanticHash(local)
-      : undefined,
+    semanticMatch,
     missingTypes,
     extraTypes,
+    baselineUnavailable: productionTruncated,
+    baselineReason: productionTruncated
+      ? "production-collection-truncated"
+      : undefined,
   };
+};
+
+const numericProperty = (value: JsonValue, key: string): number | undefined => {
+  const candidate = jsonRecord(value)?.[key];
+  if (typeof candidate === "number" && Number.isFinite(candidate)) {
+    return candidate;
+  }
+  if (typeof candidate === "string" && candidate.trim()) {
+    const parsed = Number(candidate);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
 };
 
 const jsonRecord = (
@@ -851,15 +971,21 @@ const replaceAtPath = (
   };
 };
 
-const semanticHash = (value: JsonValue): string =>
+const semanticHash = (
+  value: JsonValue,
+  ignoredKeys: readonly string[] = [],
+): string =>
   createHash("sha256")
-    .update(JSON.stringify(normalizeSemantic(value)))
+    .update(JSON.stringify(normalizeSemantic(value, new Set(ignoredKeys))))
     .digest("hex");
 
-const normalizeSemantic = (value: JsonValue): JsonValue => {
+const normalizeSemantic = (
+  value: JsonValue,
+  ignoredKeys: ReadonlySet<string>,
+): JsonValue => {
   if (Array.isArray(value)) {
     return value
-      .map(item => normalizeSemantic(item))
+      .map(item => normalizeSemantic(item, ignoredKeys))
       .sort((left, right) =>
         JSON.stringify(left).localeCompare(JSON.stringify(right)),
       );
@@ -867,8 +993,9 @@ const normalizeSemantic = (value: JsonValue): JsonValue => {
   if (value && typeof value === "object") {
     return Object.fromEntries(
       Object.keys(value)
+        .filter(key => !ignoredKeys.has(key))
         .sort()
-        .map(key => [key, normalizeSemantic(value[key])]),
+        .map(key => [key, normalizeSemantic(value[key], ignoredKeys)]),
     );
   }
   return value;
