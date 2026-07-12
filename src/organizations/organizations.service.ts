@@ -58,7 +58,10 @@ import { ImportOrgJobsiteInput } from "./dto/import-organization-jobsites.input"
 import { SearchOrganizationsInput } from "./dto/search-organizations.input";
 import { uniq } from "lodash";
 import { go } from "fuzzysort";
-import { SearchDocumentRepository } from "src/postgres/search-document.repository";
+import {
+  EvSitemapOrganization,
+  SearchDocumentRepository,
+} from "src/postgres/search-document.repository";
 import { GraphRepository } from "src/postgres/graph.repository";
 
 @Injectable()
@@ -80,6 +83,10 @@ export class OrganizationsService {
       new OrgListResultEntity(payload).getProperties(),
     );
   };
+
+  getEvSitemapOrganizations(): Promise<EvSitemapOrganization[]> {
+    return this.searchDocuments.getEvSitemapOrganizations();
+  }
 
   async getOrgsListWithSearch(
     params: OrgListParams & { ecosystemHeader?: string },

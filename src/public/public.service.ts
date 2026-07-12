@@ -16,6 +16,27 @@ import { DateRange } from "src/shared/enums";
 import { TagsService } from "src/tags/tags.service";
 import { SearchDocumentRepository } from "src/postgres/search-document.repository";
 
+export const shapeLegacyPublicJobPayload = (
+  payload: JobListResult,
+): JobListResult => ({
+  ...payload,
+  organization: payload.organization
+    ? {
+        ...payload.organization,
+        hasUser: false,
+        atsClient: null,
+        projects: payload.organization.projects.map(project => ({
+          ...project,
+          jobs: [],
+          repos: [],
+          grants: [],
+          investors: [],
+          fundingRounds: [],
+        })),
+      }
+    : null,
+});
+
 @Injectable()
 export class PublicService {
   private readonly logger = new CustomLogger(PublicService.name);
@@ -34,9 +55,14 @@ export class PublicService {
         payload as JobListResult & {
           publishedTimestampIsVerified?: boolean;
         };
-      return Object.assign(new JobListResultEntity(job).getProperties(), {
-        publishedTimestampIsVerified: publishedTimestampIsVerified ?? false,
-      });
+      return Object.assign(
+        new JobListResultEntity(
+          shapeLegacyPublicJobPayload(job),
+        ).getProperties(),
+        {
+          publishedTimestampIsVerified: publishedTimestampIsVerified ?? false,
+        },
+      );
     });
   };
 
@@ -62,9 +88,15 @@ export class PublicService {
             payload as JobListResult & {
               publishedTimestampIsVerified?: boolean;
             };
-          return Object.assign(new JobListResultEntity(job).getProperties(), {
-            publishedTimestampIsVerified: publishedTimestampIsVerified ?? false,
-          });
+          return Object.assign(
+            new JobListResultEntity(
+              shapeLegacyPublicJobPayload(job),
+            ).getProperties(),
+            {
+              publishedTimestampIsVerified:
+                publishedTimestampIsVerified ?? false,
+            },
+          );
         }),
       };
     } catch (err) {
@@ -91,7 +123,9 @@ export class PublicService {
       result.data.map(payload => {
         const { online, publishedTimestampIsVerified, ...job } = payload;
         return {
-          ...new JobListResultEntity(job).getProperties(),
+          ...new JobListResultEntity(
+            shapeLegacyPublicJobPayload(job),
+          ).getProperties(),
           online,
           publishedTimestampIsVerified: publishedTimestampIsVerified ?? false,
         };
@@ -117,7 +151,9 @@ export class PublicService {
         data: page.data.map(payload => {
           const { online, publishedTimestampIsVerified, ...job } = payload;
           return {
-            ...new JobListResultEntity(job).getProperties(),
+            ...new JobListResultEntity(
+              shapeLegacyPublicJobPayload(job),
+            ).getProperties(),
             online,
             publishedTimestampIsVerified: publishedTimestampIsVerified ?? false,
           };

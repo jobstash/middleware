@@ -48,7 +48,10 @@ import { UpdateProjectJobsitesInput } from "./dto/update-project-jobsites.input"
 import { UpdateProjectInput } from "./dto/update-project.input";
 import { SearchProjectsInput } from "./dto/search-projects.input";
 import { go } from "fuzzysort";
-import { SearchDocumentRepository } from "src/postgres/search-document.repository";
+import {
+  EvSitemapProject,
+  SearchDocumentRepository,
+} from "src/postgres/search-document.repository";
 import { GraphRepository } from "src/postgres/graph.repository";
 
 @Injectable()
@@ -60,6 +63,10 @@ export class ProjectsService {
     private readonly searchDocuments: SearchDocumentRepository,
     private readonly graph: GraphRepository,
   ) {}
+
+  getEvSitemapProjects(): Promise<EvSitemapProject[]> {
+    return this.searchDocuments.getEvSitemapProjects();
+  }
 
   async getProjectsListWithSearch(
     params: ProjectListParams & { ecosystemHeader?: string },

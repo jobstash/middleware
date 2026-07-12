@@ -44,6 +44,67 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       "job-protected",
       "job-public-beta",
     ]);
+
+    await expect(repository.getFrontendSitemapJobs()).resolves.toEqual([
+      expect.objectContaining({
+        shortUUID: "job-protected",
+        organizationName: "Acme",
+        hasProjects: true,
+      }),
+      expect.objectContaining({
+        shortUUID: "job-public-beta",
+        organizationName: "Beta",
+        hasProjects: true,
+      }),
+    ]);
+
+    await expect(repository.getEvSitemapOrganizations()).resolves.toEqual([
+      expect.objectContaining({
+        normalizedName: "acme",
+        projectCount: 1,
+      }),
+      expect.objectContaining({
+        normalizedName: "beta",
+        projectCount: 1,
+      }),
+    ]);
+    await expect(repository.getEvSitemapProjects()).resolves.toEqual([
+      expect.objectContaining({
+        normalizedName: "alpha",
+        orgIds: ["org-acme"],
+      }),
+      expect.objectContaining({
+        normalizedName: "beta",
+        orgIds: ["org-beta"],
+      }),
+    ]);
+  });
+
+  it("retains legacy-invalid jobs without exposing them through list contracts", async () => {
+    const [stored] = await postgres.query<{ count: string }>(`
+      SELECT count(*)::text AS count
+      FROM job_search_documents
+      WHERE structured_jobpost_id = 'job-invalid-legacy'
+    `);
+    expect(stored.count).toBe("1");
+
+    const listed = await repository.getJobPayloads();
+    const searched = await repository.searchJobs({
+      suppressPublicForExpertOrganizations: false,
+    });
+    const sitemap = await repository.getFrontendSitemapJobs();
+    const archive = await repository.getArchiveJobPayloads(1, 100);
+    const all = await repository.getAllJobPayloads();
+
+    expect(listed.map(job => job.id)).not.toContain("job-invalid-legacy");
+    expect(searched.data.map(job => job.id)).not.toContain(
+      "job-invalid-legacy",
+    );
+    expect(sitemap.map(job => job.shortUUID)).not.toContain(
+      "job-invalid-legacy",
+    );
+    expect(archive.data.map(job => job.id)).not.toContain("job-invalid-legacy");
+    expect(all.map(job => job.id)).toContain("job-invalid-legacy");
   });
 
   it("filters, sorts, counts, and paginates jobs in PostgreSQL", async () => {
@@ -359,6 +420,19 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       tags: [],
       projectNames: ["beta"],
     });
+    await insertJob({
+      id: "job-invalid-legacy",
+      title: "Preserved Invalid Legacy Job",
+      access: "public",
+      organizationId: "org-beta",
+      organizationName: "beta",
+      organizationHasExpertJobs: false,
+      legacyListEligible: false,
+      salary: 75_000,
+      publishedTimestamp: 500,
+      tags: ["solidity"],
+      projectNames: ["beta"],
+    });
   }
 
   async function insertJob(input: {
@@ -368,6 +442,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     organizationId: string;
     organizationName: string;
     organizationHasExpertJobs: boolean;
+    legacyListEligible?: boolean;
     salary: number;
     publishedTimestamp: number;
     tags: string[];
@@ -382,6 +457,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
           job_node_id, structured_jobpost_id, short_uuid, organization_id,
           organization_name, title, access, salary, salary_currency, online,
           blocked, featured, organization_has_expert_jobs, published_timestamp,
+          legacy_list_eligible,
           tags, project_names, investor_names, funding_round_names, chain_names,
           classifications, commitments, location_types, ecosystems, seniority,
           managed_ecosystems,
@@ -390,10 +466,10 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
           onboard_into_web3, search_text, search_vector, filter_labels, payload
         ) VALUES (
           $1, $2, $2, $3, $4, $5, $6, $7, 'USD', $8, false, false, $9, $10,
-          $11, $12, ARRAY['paradigm'], ARRAY['series-a'], ARRAY['ethereum'],
+          $11, $12, $13, ARRAY['paradigm'], ARRAY['series-a'], ARRAY['ethereum'],
           ARRAY['engineering'], ARRAY['full-time'], ARRAY['remote'],
           ARRAY['ethereum'], 'senior', ARRAY['ethereum'], 120, 1500000, 500000, 5000, 2000,
-          true, true, false, true, $13::text, to_tsvector('simple', $13::text),
+          true, true, false, true, $14::text, to_tsvector('simple', $14::text),
           '{"tags":{"solidity":"Solidity","typescript":"TypeScript"},"projects":{"alpha":"Alpha","beta":"Beta"},"organizations":{"acme":"Acme","beta":"Beta"},"investors":{"paradigm":"Paradigm"},"fundingRounds":{"series-a":"Series A"},"chains":{"ethereum":"Ethereum"},"ecosystems":{"ethereum":"Ethereum"},"classifications":{"engineering":"Engineering"},"commitments":{"full-time":"Full Time"},"locations":{"remote":"Remote"}}',
           jsonb_build_object(
             'id', $2::text,
@@ -421,6 +497,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         input.online ?? true,
         input.organizationHasExpertJobs,
         input.publishedTimestamp,
+        input.legacyListEligible ?? true,
         input.tags,
         input.projectNames,
         searchText,

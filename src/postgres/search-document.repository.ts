@@ -22,6 +22,24 @@ export type SearchPage<T> = {
   data: T[];
 };
 
+export type FrontendSitemapJob = {
+  shortUUID: string;
+  title: string;
+  organizationName: string;
+  hasProjects: boolean;
+};
+
+export type EvSitemapOrganization = {
+  normalizedName: string;
+  lastFundingAmount: number;
+  projectCount: number;
+};
+
+export type EvSitemapProject = {
+  normalizedName: string;
+  orgIds: string[];
+};
+
 type JobSearchParams = Partial<JobListParams> & {
   ecosystemHeader?: string;
   startDate?: number | null;
@@ -131,6 +149,7 @@ export class SearchDocumentRepository {
           ON organization.organization_id = job.organization_id
         WHERE job.online
           AND NOT job.blocked
+          AND job.legacy_list_eligible
           AND cardinality(job.tags) > 0
           AND (job.organization_id IS NOT NULL OR job.project_id IS NOT NULL)
           AND NOT (
@@ -143,6 +162,63 @@ export class SearchDocumentRepository {
       params,
     );
     return rows.map(row => row.payload);
+  }
+
+  async getFrontendSitemapJobs(): Promise<FrontendSitemapJob[]> {
+    return this.postgres.query<FrontendSitemapJob>(`
+      SELECT
+        job.short_uuid AS "shortUUID",
+        job.title,
+        organization.name AS "organizationName",
+        cardinality(organization.project_ids) > 0 AS "hasProjects"
+      FROM job_search_documents job
+      JOIN organization_search_documents organization
+        ON organization.organization_id = job.organization_id
+      WHERE job.online
+        AND NOT job.blocked
+        AND job.legacy_list_eligible
+        AND cardinality(job.tags) > 0
+        AND NOT (
+          job.access = 'public'
+          AND job.organization_has_expert_jobs
+        )
+      ORDER BY job.published_timestamp DESC NULLS LAST, job.job_node_id
+    `);
+  }
+
+  async getEvSitemapOrganizations(): Promise<EvSitemapOrganization[]> {
+    return this.postgres.query<EvSitemapOrganization>(`
+      SELECT
+        organization.normalized_name AS "normalizedName",
+        COALESCE(latest_funding.raised_amount, 0)::float8
+          AS "lastFundingAmount",
+        cardinality(organization.project_ids)::integer AS "projectCount"
+      FROM organization_search_documents organization
+      LEFT JOIN LATERAL (
+        SELECT jsonb_numeric_value(funding_round.value, 'raisedAmount')
+          AS raised_amount
+        FROM jsonb_array_elements(
+          COALESCE(
+            organization.payload -> 'fundingRounds',
+            '[]'::jsonb
+          )
+        ) AS funding_round(value)
+        ORDER BY jsonb_numeric_value(funding_round.value, 'date')
+          DESC NULLS LAST
+        LIMIT 1
+      ) latest_funding ON true
+      ORDER BY organization.name, organization.organization_node_id
+    `);
+  }
+
+  async getEvSitemapProjects(): Promise<EvSitemapProject[]> {
+    return this.postgres.query<EvSitemapProject>(`
+      SELECT
+        normalized_name AS "normalizedName",
+        organization_ids AS "orgIds"
+      FROM project_search_documents
+      ORDER BY name, project_node_id
+    `);
   }
 
   async getEcosystemJobPayloads(
@@ -163,6 +239,7 @@ export class SearchDocumentRepository {
         JOIN organization_search_documents organization
           ON organization.organization_id = job.organization_id
         WHERE job.managed_ecosystems && $1::text[]
+          AND job.legacy_list_eligible
           AND cardinality(job.tags) > 0
         ORDER BY job.published_timestamp DESC NULLS LAST, job.job_node_id
       `,
@@ -247,6 +324,7 @@ export class SearchDocumentRepository {
     } else if (!params.includeBlocked) {
       where.add("NOT blocked");
     }
+    where.add("legacy_list_eligible");
     where.add("(organization_id IS NOT NULL OR project_id IS NOT NULL)");
     where.add("cardinality(tags) > 0");
     if (params.suppressPublicForExpertOrganizations !== false) {
@@ -467,6 +545,7 @@ export class SearchDocumentRepository {
           ON organization.organization_id = job.organization_id
         WHERE job.online
           AND NOT job.blocked
+          AND job.legacy_list_eligible
           AND cardinality(job.tags) > 0
           AND (job.organization_id IS NOT NULL OR job.project_id IS NOT NULL)
           AND (
@@ -529,6 +608,7 @@ export class SearchDocumentRepository {
         LEFT JOIN organization_search_documents organization
           ON organization.organization_id = job.organization_id
         WHERE NOT job.blocked
+          AND job.legacy_list_eligible
           AND cardinality(job.tags) > 0
           AND (job.organization_id IS NOT NULL OR job.project_id IS NOT NULL)
         ORDER BY job.published_timestamp DESC NULLS LAST, job.job_node_id
@@ -544,7 +624,11 @@ export class SearchDocumentRepository {
     organizationId?: string,
   ): Promise<Record<string, unknown>> {
     const parameters: unknown[] = [];
-    const predicates = ["job.online", "cardinality(job.tags) > 0"];
+    const predicates = [
+      "job.online",
+      "job.legacy_list_eligible",
+      "cardinality(job.tags) > 0",
+    ];
     if (ecosystem) {
       const ecosystems = Array.isArray(ecosystem)
         ? (normalizeList(ecosystem) ?? [])
@@ -1172,7 +1256,11 @@ export class SearchDocumentRepository {
       );
     }
     if (options.category) {
-      where.add(`${where.bind(slugify(options.category))} = ANY(categories)`);
+      const category = where.bind(slugify(options.category));
+      const categoryLabel = where.bind(options.category);
+      where.add(
+        `(${category} = ANY(categories) AND filter_labels -> 'categories' ->> ${category} = ${categoryLabel})`,
+      );
     }
     const rows = await this.postgres.query<{ payload: T }>(
       `

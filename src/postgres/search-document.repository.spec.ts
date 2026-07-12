@@ -20,8 +20,46 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("FROM job_search_documents");
     expect(sql).toContain("WHERE job.online");
     expect(sql).toContain("AND NOT job.blocked");
+    expect(sql).toContain("AND job.legacy_list_eligible");
     expect(sql).toContain("organization_has_expert_jobs");
     expect(parameters).toEqual([]);
+  });
+
+  it("loads every sitemap job through one minimal indexed projection", async () => {
+    await repository.getFrontendSitemapJobs();
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain('job.short_uuid AS "shortUUID"');
+    expect(sql).toContain('organization.name AS "organizationName"');
+    expect(sql).toContain("cardinality(organization.project_ids) > 0");
+    expect(sql).toContain("WHERE job.online");
+    expect(sql).toContain("job.legacy_list_eligible");
+    expect(sql).not.toContain("LIMIT");
+    expect(sql).not.toContain("job.payload");
+    expect(parameters).toBeUndefined();
+  });
+
+  it("loads complete EV sitemap facets without detail payload hydration", async () => {
+    await repository.getEvSitemapOrganizations();
+    const [organizationSql, organizationParameters] = query.mock.calls[0];
+    expect(organizationSql).toContain(
+      'organization.normalized_name AS "normalizedName"',
+    );
+    expect(organizationSql).toContain("jsonb_numeric_value");
+    expect(organizationSql).toContain(
+      'cardinality(organization.project_ids)::integer AS "projectCount"',
+    );
+    expect(organizationSql).not.toContain("LIMIT 100");
+    expect(organizationParameters).toBeUndefined();
+
+    query.mockClear();
+    await repository.getEvSitemapProjects();
+    const [projectSql, projectParameters] = query.mock.calls[0];
+    expect(projectSql).toContain('normalized_name AS "normalizedName"');
+    expect(projectSql).toContain('organization_ids AS "orgIds"');
+    expect(projectSql).not.toContain("payload");
+    expect(projectSql).not.toContain("LIMIT");
+    expect(projectParameters).toBeUndefined();
   });
 
   it("parameterizes the ecosystem job-list constraint", async () => {
@@ -76,6 +114,7 @@ describe("SearchDocumentRepository", () => {
     });
 
     const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("legacy_list_eligible");
     for (const column of [
       "tags",
       "project_names",
@@ -213,6 +252,7 @@ describe("SearchDocumentRepository", () => {
     });
     expect(query.mock.calls[0][0]).not.toContain("WHERE online");
     expect(query.mock.calls[0][0]).not.toContain("NOT blocked");
+    expect(query.mock.calls[0][0]).toContain("legacy_list_eligible");
 
     query.mockClear();
     await repository.searchJobs({
@@ -257,6 +297,15 @@ describe("SearchDocumentRepository", () => {
       organizations: ["Acme"],
     });
     expect(query).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves exact category-name matching for the category endpoint", async () => {
+    await repository.getProjectPayloads({ category: "DEXes" });
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("$1 = ANY(categories)");
+    expect(sql).toContain("filter_labels -> 'categories' ->> $1 = $2");
+    expect(parameters).toEqual(["dexes", "DEXes"]);
   });
 
   it("parameterizes deterministic job detail reads", async () => {

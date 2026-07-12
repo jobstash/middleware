@@ -64,7 +64,10 @@ import { SimilarJob } from "./dto/similar-jobs.output";
 import { PillarJob } from "./dto/suggested-jobs.output";
 import { uniq } from "lodash";
 import { go } from "fuzzysort";
-import { SearchDocumentRepository } from "src/postgres/search-document.repository";
+import {
+  FrontendSitemapJob,
+  SearchDocumentRepository,
+} from "src/postgres/search-document.repository";
 import {
   ApplicantList,
   JobGraphRepository,
@@ -107,6 +110,10 @@ export class JobsService {
       }
     });
   };
+
+  getFrontendSitemapJobs(): Promise<FrontendSitemapJob[]> {
+    return this.searchDocuments.getFrontendSitemapJobs();
+  }
 
   getAllOrgJobsListResults = async (
     orgId: string,

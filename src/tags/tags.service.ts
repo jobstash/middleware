@@ -16,6 +16,38 @@ import { BatchMatchTagsResult } from "./dto/batch-match-tags.output";
 import { CreateTagDto } from "./dto/create-tag.dto";
 import { UpdateTagDto } from "./dto/update-tag.dto";
 
+// Preserve the exact-term boost emitted by the retired full-text index.
+const LEGACY_TAG_SCORE_MULTIPLIER = 5.205623149871826;
+
+const isLegacyFuzzyMatch = (
+  input: string,
+  candidate: string,
+  maximumDistance: number,
+): boolean => {
+  const left = slugify(input);
+  const right = slugify(candidate);
+  if (Math.abs(left.length - right.length) > maximumDistance) return false;
+
+  let previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex++) {
+    const current = [leftIndex];
+    let rowMinimum = leftIndex;
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex++) {
+      const value = Math.min(
+        current[rightIndex - 1] + 1,
+        previous[rightIndex] + 1,
+        previous[rightIndex - 1] +
+          (left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1),
+      );
+      current.push(value);
+      rowMinimum = Math.min(rowMinimum, value);
+    }
+    if (rowMinimum > maximumDistance) return false;
+    previous = current;
+  }
+  return previous[right.length] <= maximumDistance;
+};
+
 @Injectable()
 export class TagsService {
   private readonly logger = new CustomLogger(TagsService.name);
@@ -342,6 +374,9 @@ export class TagsService {
       const matches = await this.tags.fuzzyMatches(tags, 5, false);
       const bestByInput = new Map<string, (typeof matches)[number]>();
       for (const match of matches) {
+        if (!isLegacyFuzzyMatch(match.input, match.normalizedName, 2)) {
+          continue;
+        }
         const current = bestByInput.get(match.input);
         if (!current || match.score > current.score) {
           bestByInput.set(match.input, match);
@@ -408,6 +443,9 @@ export class TagsService {
       const matches = await this.tags.fuzzyMatches(searchInputs, 5, true);
       const candidates = new Map<string, BatchMatchTagsResult>();
       for (const match of matches) {
+        if (!isLegacyFuzzyMatch(match.input, match.normalizedName, 1)) {
+          continue;
+        }
         if (match.score < scoreThreshold) continue;
         const current = candidates.get(match.id);
         if (!current || match.score > current.score) {
@@ -415,7 +453,7 @@ export class TagsService {
             id: match.id,
             name: match.name,
             normalizedName: match.normalizedName,
-            score: match.score,
+            score: match.score * LEGACY_TAG_SCORE_MULTIPLIER,
           });
         }
       }

@@ -211,6 +211,59 @@ describePostgres("JobGraphRepository PostgreSQL integration", () => {
     });
     expect(suggestions.total).toBe(2);
     expect(suggestions.rows).toHaveLength(2);
+    expect(Object.keys(suggestions.rows[0]).sort()).toEqual(
+      [
+        "access",
+        "classification",
+        "commitment",
+        "featureEndDate",
+        "featureStartDate",
+        "featured",
+        "id",
+        "location",
+        "locationType",
+        "maximumSalary",
+        "minimumSalary",
+        "offersTokenAllocation",
+        "onboardIntoWeb3",
+        "organization",
+        "paysInCrypto",
+        "salary",
+        "salaryCurrency",
+        "seniority",
+        "shortUUID",
+        "summary",
+        "tags",
+        "timestamp",
+        "title",
+        "url",
+      ].sort(),
+    );
+    expect(suggestions.rows[0]).not.toHaveProperty("description");
+    expect(suggestions.rows[0]).not.toHaveProperty("project");
+    expect(
+      Object.keys(
+        (suggestions.rows[0].tags as Record<string, unknown>[])[0],
+      ).sort(),
+    ).toEqual(["id", "name", "normalizedName"]);
+    expect(
+      Object.keys(suggestions.rows[0].organization as object).sort(),
+    ).toEqual(
+      [
+        "description",
+        "fundingRounds",
+        "headcountEstimate",
+        "id",
+        "investors",
+        "location",
+        "logoUrl",
+        "name",
+        "normalizedName",
+        "orgId",
+        "summary",
+        "website",
+      ].sort(),
+    );
     await expect(
       repository.getJobTagMatchData("source"),
     ).resolves.toMatchObject({ jobTags: ["typescript"] });

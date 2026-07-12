@@ -756,11 +756,97 @@ export class JobGraphRepository {
         )
         SELECT
           count(*) OVER ()::text AS total_count,
-          COALESCE(job.detail_payload, job.payload)
-            || jsonb_build_object(
-              'organization', organization.payload,
-              'project', NULL
-            ) AS payload
+          jsonb_build_object(
+            'id', job.payload -> 'id',
+            'shortUUID', job.payload -> 'shortUUID',
+            'title', job.payload -> 'title',
+            'url', job.payload -> 'url',
+            'summary', job.payload -> 'summary',
+            'salary', job.payload -> 'salary',
+            'minimumSalary', job.payload -> 'minimumSalary',
+            'maximumSalary', job.payload -> 'maximumSalary',
+            'salaryCurrency', job.payload -> 'salaryCurrency',
+            'paysInCrypto', job.payload -> 'paysInCrypto',
+            'offersTokenAllocation', job.payload -> 'offersTokenAllocation',
+            'seniority', job.payload -> 'seniority',
+            'timestamp', to_jsonb(job.published_timestamp),
+            'commitment', job.payload -> 'commitment',
+            'locationType', job.payload -> 'locationType',
+            'classification', job.payload -> 'classification',
+            'location', job.payload -> 'location',
+            'access', to_jsonb(COALESCE(job.access, 'public')),
+            'featured', to_jsonb(COALESCE(job.featured, false)),
+            'featureStartDate', job.payload -> 'featureStartDate',
+            'featureEndDate', job.payload -> 'featureEndDate',
+            'onboardIntoWeb3',
+              to_jsonb(COALESCE(job.onboard_into_web3, false)),
+            'organization', CASE
+              WHEN organization.payload IS NULL THEN NULL
+              ELSE jsonb_build_object(
+                'id', organization.payload -> 'id',
+                'name', organization.payload -> 'name',
+                'normalizedName', organization.payload -> 'normalizedName',
+                'orgId', organization.payload -> 'orgId',
+                'website', organization.payload -> 'website',
+                'summary', organization.payload -> 'summary',
+                'location', organization.payload -> 'location',
+                'description', organization.payload -> 'description',
+                'logoUrl', organization.payload -> 'logoUrl',
+                'headcountEstimate',
+                  organization.payload -> 'headcountEstimate',
+                'fundingRounds', COALESCE((
+                  SELECT jsonb_agg(
+                    jsonb_build_object(
+                      'id', funding_round.value -> 'id',
+                      'date', funding_round.value -> 'date',
+                      'roundName', funding_round.value -> 'roundName',
+                      'raisedAmount', funding_round.value -> 'raisedAmount'
+                    )
+                    ORDER BY funding_round.ordinality
+                  )
+                  FROM jsonb_array_elements(
+                    COALESCE(
+                      organization.payload -> 'fundingRounds',
+                      '[]'::jsonb
+                    )
+                  ) WITH ORDINALITY AS funding_round(value, ordinality)
+                  WHERE funding_round.value -> 'id' IS NOT NULL
+                    AND funding_round.value -> 'id' <> 'null'::jsonb
+                ), '[]'::jsonb),
+                'investors', COALESCE((
+                  SELECT jsonb_agg(
+                    jsonb_build_object(
+                      'id', investor.value -> 'id',
+                      'name', investor.value -> 'name',
+                      'normalizedName', investor.value -> 'normalizedName'
+                    )
+                    ORDER BY investor.ordinality
+                  )
+                  FROM jsonb_array_elements(
+                    COALESCE(
+                      organization.payload -> 'investors',
+                      '[]'::jsonb
+                    )
+                  ) WITH ORDINALITY AS investor(value, ordinality)
+                ), '[]'::jsonb)
+              )
+            END,
+            'tags', COALESCE((
+              SELECT jsonb_agg(
+                jsonb_build_object(
+                  'id', tag.value -> 'id',
+                  'name', tag.value -> 'name',
+                  'normalizedName', tag.value -> 'normalizedName'
+                )
+                ORDER BY tag.ordinality
+              )
+              FROM jsonb_array_elements(
+                COALESCE(job.payload -> 'tags', '[]'::jsonb)
+              ) WITH ORDINALITY AS tag(value, ordinality)
+              WHERE tag.value -> 'name' IS NOT NULL
+                AND tag.value -> 'name' <> 'null'::jsonb
+            ), '[]'::jsonb)
+          ) AS payload
         FROM filtered job
         LEFT JOIN organization_search_documents organization
           ON organization.organization_id = job.organization_id

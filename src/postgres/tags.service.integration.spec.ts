@@ -84,18 +84,39 @@ describePostgres("TagsService PostgreSQL integration", () => {
   it("matches unused tags without requiring a job and reports misses", async () => {
     await createTag("TypeScript", "typescript");
     await createTag("Java", "java");
+    await createTag("Skill", "skill");
     await service.blockTag("java", "0xmoderator");
 
     await expect(
-      service.matchTags(["typescrpt", "java", "unknown"]),
+      service.matchTags(["typescrpt", "java", "unknown", "not-a-real-skill"]),
     ).resolves.toEqual({
       success: true,
       message: "Matched tags successfully",
       data: {
         recognized_tags: ["TypeScript"],
-        unrecognized_tags: ["java", "unknown"],
+        unrecognized_tags: ["java", "unknown", "not-a-real-skill"],
       },
     });
+  });
+
+  it("uses legacy fuzzy distance and exact-match scoring for batch matches", async () => {
+    const solidity = await createTag("Solidity", "solidity");
+    const solid = await createTag("SOLID", "solid");
+    await seedSearchJob("job-one", [solidity.getId(), solid.getId()]);
+
+    const result = await service.batchMatchTags(["solidity"], 0.5, 5);
+
+    expect(result.success).toBe(true);
+    if (!("data" in result)) throw new Error("batch response has no data");
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]).toMatchObject({
+      id: solidity.getId(),
+      normalizedName: "solidity",
+    });
+    expect(result.data[0].score).toBeCloseTo(
+      Math.log(3) * 5.205623149871826,
+      12,
+    );
   });
 
   it("searches and batch-ranks job-backed tags with co-occurrence", async () => {
