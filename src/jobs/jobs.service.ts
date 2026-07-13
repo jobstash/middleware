@@ -16,14 +16,11 @@ import {
   JobpostFolderEntity,
 } from "src/shared/entities";
 import {
-  dropPublicJobsFromOrgsWithOnlineExpertJobs,
   intConverter,
   nonZeroOrNull,
-  notStringOrNull,
   paginate,
   publicationDateRangeGenerator,
   slugify,
-  sprinkleProtectedJobs,
 } from "src/shared/helpers";
 import {
   AllJobsFilterConfigs,
@@ -31,7 +28,6 @@ import {
   data,
   DateRange,
   EcosystemJobListResult,
-  FundingRound,
   JobApplicant,
   JobDetailsResult,
   JobFilterConfigs,
@@ -40,7 +36,6 @@ import {
   JobListResultEntity,
   JobpostFolder,
   PaginatedData,
-  ProjectWithBaseRelations,
   Response,
   ResponseWithNoData,
   ResponseWithOptionalData,
@@ -62,8 +57,6 @@ import { UpdateJobMetadataInput } from "./dto/update-job-metadata.input";
 import { ChangeJobProjectInput } from "./dto/update-job-project.input";
 import { SimilarJob } from "./dto/similar-jobs.output";
 import { PillarJob } from "./dto/suggested-jobs.output";
-import { uniq } from "lodash";
-import { go } from "fuzzysort";
 import {
   FrontendSitemapJob,
   SearchDocumentRepository,
@@ -343,10 +336,9 @@ export class JobsService {
     ecosystem: string | undefined,
   ): Promise<JobListResult[] | undefined> {
     try {
+      const payloads = await this.searchDocuments.getJobPayloads(ecosystem, id);
       return sort(
-        (await this.getJobsListResults(ecosystem))
-          .filter(x => x?.organization?.orgId === id)
-          .map(orgJob => new JobListResultEntity(orgJob).getProperties()),
+        payloads.map(orgJob => new JobListResultEntity(orgJob).getProperties()),
       ).desc(x => x.timestamp);
     } catch (err) {
       Sentry.withScope(scope => {
@@ -1227,6 +1219,8 @@ export class JobsService {
     skills: string[],
     isExpert: boolean,
   ): Promise<ResponseWithOptionalData<JobMatchResult>> {
+    // Expert mode is part of the API contract but does not alter legacy scoring.
+    void isExpert;
     try {
       const matchData = await this.jobGraph.getJobTagMatchData(shortUuid);
       if (!matchData) {
@@ -1253,7 +1247,6 @@ export class JobsService {
           jobTagSet,
           matchData.tagMappings,
           matchData.allTags,
-          isExpert,
         ),
       };
     } catch (err) {
@@ -1273,7 +1266,6 @@ export class JobsService {
       expanded: string[];
     }>,
     allTags: Array<{ id: string; name: string; normalizedName: string }>,
-    isExpert: boolean,
   ): JobMatchResult {
     const tagLookup = new Map(allTags.map(t => [t.normalizedName, t]));
     const userSkillSet = new Set(userSkills);
@@ -1341,7 +1333,7 @@ export class JobsService {
         offset: (page - 1) * limit,
       });
       const jobs = result.rows.map(raw => {
-        const job = raw as Record<string, any>;
+        const job = raw as unknown as PillarJob;
         const organization = job.organization;
         const seniorityLabels: Record<string, string> = {
           "1": "Intern",
@@ -1368,11 +1360,10 @@ export class JobsService {
                 headcountEstimate:
                   intConverter(organization.headcountEstimate) || null,
                 fundingRounds: (organization.fundingRounds ?? []).map(
-                  (round: Record<string, unknown>) => ({
+                  round => ({
                     ...round,
-                    date: intConverter(round.date as number),
-                    raisedAmount:
-                      intConverter(round.raisedAmount as number) || null,
+                    date: intConverter(round.date),
+                    raisedAmount: intConverter(round.raisedAmount) || null,
                   }),
                 ),
                 investors: [

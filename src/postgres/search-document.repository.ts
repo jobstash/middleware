@@ -177,12 +177,17 @@ export class SearchDocumentRepository {
     return Number(row?.refreshed ?? 0);
   }
 
-  async getJobPayloads(ecosystem?: string): Promise<JobListResult[]> {
+  async getJobPayloads(
+    ecosystem?: string,
+    organizationId?: string,
+  ): Promise<JobListResult[]> {
     const params: unknown[] = [];
     const ecosystemPredicate = ecosystem
-      ? `AND $1 = ANY(job.managed_ecosystems)`
+      ? `AND $${params.push(slugify(ecosystem))} = ANY(job.managed_ecosystems)`
       : "";
-    if (ecosystem) params.push(slugify(ecosystem));
+    const organizationPredicate = organizationId
+      ? `AND job.organization_id = $${params.push(organizationId)}`
+      : "";
 
     const rows = await this.postgres.query<{ payload: JobListResult }>(
       `
@@ -206,6 +211,7 @@ export class SearchDocumentRepository {
             AND job.organization_has_expert_jobs
           )
           ${ecosystemPredicate}
+          ${organizationPredicate}
         ORDER BY job.published_timestamp DESC NULLS LAST, job.job_node_id
       `,
       params,

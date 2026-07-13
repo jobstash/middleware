@@ -71,6 +71,16 @@ describe("SearchDocumentRepository", () => {
     expect(parameters).toEqual(["ethereum-ecosystem"]);
   });
 
+  it("pushes organization and ecosystem job-list scopes into PostgreSQL", async () => {
+    await repository.getJobPayloads("Ethereum Ecosystem", "org-1' OR true --");
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("$1 = ANY(job.managed_ecosystems)");
+    expect(sql).toContain("job.organization_id = $2");
+    expect(sql).not.toContain("org-1' OR true --");
+    expect(parameters).toEqual(["ethereum-ecosystem", "org-1' OR true --"]);
+  });
+
   it("reads multiple managed ecosystems with one indexed overlap predicate", async () => {
     await repository.getEcosystemJobPayloads(["Ethereum", "Optimism"]);
 

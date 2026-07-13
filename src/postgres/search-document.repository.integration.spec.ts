@@ -47,6 +47,10 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
 
   it("returns online jobs and enforces expert-job organization suppression", async () => {
     const jobs = await repository.getJobPayloads("Ethereum");
+    const organizationJobs = await repository.getJobPayloads(
+      "Ethereum",
+      "org-acme",
+    );
     const explicitPublicJobs = await repository.searchJobs({
       expertJobs: false,
       limit: 100,
@@ -56,6 +60,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       "job-protected",
       "job-public-beta",
     ]);
+    expect(organizationJobs.map(job => job.id)).toEqual(["job-protected"]);
     expect(explicitPublicJobs.data.map(job => job.id).sort()).toEqual([
       "job-public-beta",
     ]);

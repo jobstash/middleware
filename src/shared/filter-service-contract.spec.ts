@@ -81,6 +81,23 @@ describe("filter service contracts", () => {
     });
   });
 
+  it("scopes organization job lists in PostgreSQL", async () => {
+    const getJobPayloads = jest.fn().mockResolvedValue([]);
+    const service = new JobsService(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { getJobPayloads } as never,
+      {} as never,
+      {} as never,
+    );
+
+    await service.getJobsByOrgId("org-1", "ethereum");
+
+    expect(getJobPayloads).toHaveBeenCalledWith("ethereum", "org-1");
+  });
+
   it("forwards every organization search argument and ecosystem header", async () => {
     const searchOrganizations = jest.fn().mockResolvedValue(emptyPage);
     const service = new OrganizationsService(
