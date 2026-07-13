@@ -141,6 +141,7 @@ const main = async (): Promise<void> => {
            organization_id AS "organizationId"
     FROM job_search_documents
     WHERE online AND NOT blocked
+      AND organization_id IS NOT NULL
       AND cardinality(tags) > 0
       AND cardinality(managed_ecosystems) > 0
     ORDER BY published_timestamp DESC NULLS LAST
@@ -179,7 +180,7 @@ const main = async (): Promise<void> => {
     ORDER BY project_node_id
     LIMIT 1
   `);
-  if (!sample || !organization || !project) {
+  if (!sample?.organizationId || !organization || !project) {
     throw new Error("Search projections do not contain benchmark fixtures");
   }
 
@@ -202,6 +203,12 @@ const main = async (): Promise<void> => {
         limit: 20,
         query: word?.value ?? "engineer",
       }),
+    ),
+    await benchmark("organization-jobs", () =>
+      repository.getJobPayloads(
+        sample.ecosystem ?? undefined,
+        sample.organizationId,
+      ),
     ),
     await benchmark("jobs-filters", () => repository.getJobFilterValues()),
     await benchmark("organizations-filtered", () =>
