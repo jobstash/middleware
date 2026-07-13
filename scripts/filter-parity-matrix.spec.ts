@@ -19,6 +19,15 @@ describe("filter parity matrix manifest", () => {
     expect(new Set(operationIds).size).toBe(operationIds.length);
   });
 
+  it("bounds known live-source drift without relaxing ordinary filters", () => {
+    const jobs = findSpec("JobsController_getJobsListWithSearch");
+    const investors = findSpec("InvestorsController_getInvestorList");
+
+    expect(jobs.mutableNestedKeys).toEqual(["projects"]);
+    expect(jobs.mutableSortFields).toEqual(["tvl"]);
+    expect(investors.productionSourceMayDrift).toBe(true);
+  });
+
   it.each([
     ["JobsController_getJobsListWithSearch", new JobListParams()],
     ["PublicController_getAllJobs", new JobListParams()],

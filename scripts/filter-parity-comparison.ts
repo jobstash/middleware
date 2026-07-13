@@ -175,6 +175,10 @@ export const boundedMutableCollectionDrift = ({
   const allowedDifference = Math.max(5, Math.ceil(maximumTotal * 0.02));
   if (totalDifference > allowedDifference) return false;
 
+  if (productionItems === localItems && matchedIdentities === productionItems) {
+    return true;
+  }
+
   const completeCollections =
     productionItems === productionTotal && localItems === localTotal;
   if (completeCollections) {
@@ -189,6 +193,39 @@ export const boundedMutableCollectionDrift = ({
   const boundaryDrift =
     maximumTotal <= 100 ? Math.max(2, Math.min(3, totalDifference)) : 2;
   return matchedIdentities >= Math.max(1, requestedLimit - boundaryDrift);
+};
+
+export const boundedMutableSortDrift = ({
+  productionTotal,
+  localTotal,
+  productionItems,
+  localItems,
+  requestedLimit,
+  matchedIdentities,
+}: {
+  productionTotal?: number;
+  localTotal?: number;
+  productionItems: number;
+  localItems: number;
+  requestedLimit: number;
+  matchedIdentities: number;
+}): boolean => {
+  if (
+    productionTotal === undefined ||
+    localTotal === undefined ||
+    productionItems !== localItems
+  ) {
+    return false;
+  }
+  const maximumTotal = Math.max(productionTotal, localTotal);
+  const totalDifference = Math.abs(productionTotal - localTotal);
+  if (totalDifference > Math.max(5, Math.ceil(maximumTotal * 0.02))) {
+    return false;
+  }
+  if (productionItems < requestedLimit) {
+    return matchedIdentities === productionItems;
+  }
+  return matchedIdentities >= Math.ceil(productionItems * 0.45);
 };
 
 export const boundedFixedCollectionDrift = ({

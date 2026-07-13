@@ -34,6 +34,7 @@ export type FilterEndpointSpec = {
   productionEmptySuccessMayFail?: boolean;
   productionSourceMayDrift?: boolean;
   mutableNestedKeys?: string[];
+  mutableSortFields?: string[];
   legacyJobOrdering?: boolean;
 };
 
@@ -309,6 +310,8 @@ export const FILTER_ENDPOINT_SPECS: FilterEndpointSpec[] = [
     productionSourceMayDrift: true,
     productionEmptySuccessMayFail: true,
     legacyJobOrdering: true,
+    mutableNestedKeys: ["projects"],
+    mutableSortFields: ["tvl"],
   },
   {
     operationId: "PublicController_getAllJobs",
@@ -432,6 +435,7 @@ export const FILTER_ENDPOINT_SPECS: FilterEndpointSpec[] = [
     path: "/investors/list",
     identityKey: "id",
     parameters: paginationParameters(),
+    productionSourceMayDrift: true,
   },
 ];
 

@@ -1,5 +1,6 @@
 import {
   boundedMutableCollectionDrift,
+  boundedMutableSortDrift,
   boundedFixedCollectionDrift,
   canonicalize,
   compatibleSampledContracts,
@@ -245,6 +246,50 @@ describe("filter parity semantic comparison", () => {
         matchedIdentities: 19,
       }),
     ).toBe(false);
+  });
+
+  it("accepts bounded total drift when legacy pages are otherwise exact", () => {
+    expect(
+      boundedMutableCollectionDrift({
+        productionTotal: 11_585,
+        localTotal: 11_433,
+        productionItems: 101,
+        localItems: 101,
+        requestedLimit: 100,
+        matchedIdentities: 101,
+      }),
+    ).toBe(true);
+    expect(
+      boundedMutableCollectionDrift({
+        productionTotal: 11_585,
+        localTotal: 11_433,
+        productionItems: 0,
+        localItems: 0,
+        requestedLimit: 1,
+        matchedIdentities: 0,
+      }),
+    ).toBe(true);
+  });
+
+  it("bounds equal-total page drift for explicitly mutable sort metrics", () => {
+    const baseline = {
+      productionTotal: 2_965,
+      localTotal: 2_965,
+      productionItems: 20,
+      localItems: 20,
+      requestedLimit: 20,
+      matchedIdentities: 9,
+    };
+    expect(boundedMutableSortDrift(baseline)).toBe(true);
+    expect(boundedMutableSortDrift({ ...baseline, matchedIdentities: 8 })).toBe(
+      false,
+    );
+    expect(boundedMutableSortDrift({ ...baseline, localTotal: 2_962 })).toBe(
+      true,
+    );
+    expect(boundedMutableSortDrift({ ...baseline, localTotal: 2_800 })).toBe(
+      false,
+    );
   });
 
   it("bounds drift in fixed-size recommendation collections", () => {

@@ -8,6 +8,7 @@ import {
 } from "./filter-parity-matrix";
 import {
   boundedMutableCollectionDrift,
+  boundedMutableSortDrift,
   canonicalize,
   compatibleSampledContracts,
   JsonValue,
@@ -487,8 +488,24 @@ const compareCase = async (
       matchedIdentities: matchingItems.matched,
       sortSignaturesMatch,
     });
+  const mutableSortDriftTolerated =
+    spec.productionSourceMayDrift === true &&
+    spec.mutableSortFields?.includes(
+      String(matrixCase.query.orderBy ?? "publicationDate"),
+    ) === true &&
+    matchingItems.equal &&
+    boundedMutableSortDrift({
+      productionTotal,
+      localTotal,
+      productionItems: productionItems.length,
+      localItems: localItems.length,
+      requestedLimit,
+      matchedIdentities: matchingItems.matched,
+    });
   const sourceDriftTolerated =
-    mutablePayloadDriftTolerated || mutableCollectionDriftTolerated;
+    mutablePayloadDriftTolerated ||
+    mutableCollectionDriftTolerated ||
+    mutableSortDriftTolerated;
   if (sourceDriftTolerated) {
     const retainedFailures = failureReasons.filter(
       reason =>
