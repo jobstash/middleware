@@ -1036,7 +1036,8 @@ export class SearchDocumentRepository {
             COALESCE(jsonb_agg(jsonb_build_object(
               'id', related.properties -> 'id',
               'url', related.properties -> 'url',
-              'type', related.properties -> 'type'
+              'type', related.properties -> 'type',
+              'hiringProcess', related.properties -> 'hiringProcess'
             )) FILTER (
               WHERE relationship.type = 'HAS_JOBSITE'
                 AND related.label = 'Jobsite'
@@ -1079,6 +1080,7 @@ export class SearchDocumentRepository {
     where.addArrayOverlap("funding_rounds", params.fundingRounds);
     where.addArrayOverlap("ecosystems", params.ecosystems);
     where.addArrayOverlap("project_names", params.projects);
+    where.addArrayOverlap("categories", params.categories);
     where.addArrayOverlap("tags", params.tags);
     where.addArrayOverlap("chains", params.chains);
     where.addArrayOverlap("names", params.names);
@@ -1237,6 +1239,7 @@ export class SearchDocumentRepository {
             organization.funding_rounds AS funding_round_names,
             organization.investors AS investor_names,
             organization.ecosystems,
+            organization.categories,
             organization.filter_labels AS owner_filter_labels,
             job.location_types,
             job.filter_labels AS job_filter_labels
@@ -1260,6 +1263,7 @@ export class SearchDocumentRepository {
             funding_round_names,
             investor_names,
             ecosystems,
+            categories,
             owner_filter_labels
           FROM scoped_jobs
           ORDER BY owner_organization_id
@@ -1281,6 +1285,7 @@ export class SearchDocumentRepository {
           ${filterLabels("fundingRounds", "funding_round_names", "eligible_organizations", "eligible_organizations", "owner_filter_labels")} AS "fundingRounds",
           ${filterLabels("investors", "investor_names", "eligible_organizations", "eligible_organizations", "owner_filter_labels")} AS investors,
           ${filterLabels("ecosystems", "ecosystems", "eligible_organizations", "eligible_organizations", "owner_filter_labels")} AS ecosystems,
+          ${filterLabels("categories", "categories", "eligible_organizations", "eligible_organizations", "owner_filter_labels")} AS categories,
           ${filterLabels("locations", "location_types", "scoped_job_documents", "scoped_job_documents", "job_filter_labels")} AS locations
       `,
       parameters,

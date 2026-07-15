@@ -78,6 +78,12 @@ export class OrgListParams {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  categories?: string[] | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @Transform(({ value }) =>
     value === "true" ? true : value === "false" ? false : value,
   )

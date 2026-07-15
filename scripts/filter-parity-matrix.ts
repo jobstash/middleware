@@ -239,6 +239,9 @@ const organizationParameters = (includeHasJobs: boolean): MatrixParameter[] => [
   arrayParameter("fundingRounds", "series-a", "seed"),
   arrayParameter("investors", "paradigm", "coinbase-ventures"),
   arrayParameter("locations", "berlin", "lisbon"),
+  ...(includeHasJobs
+    ? []
+    : [arrayParameter("categories", "company", "protocol")]),
   arrayParameter("ecosystems", "ethereum", "solana"),
   arrayParameter("projects", "ethereum", "uniswap"),
   arrayParameter("tags", "solidity", "typescript"),

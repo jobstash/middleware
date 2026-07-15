@@ -96,6 +96,14 @@ export const FILTER_CONFIG_PRESETS = {
     kind: FilterKind.SINGLE_SELECT,
     options: SINGLE_SELECT_OPTIONS.orderBy,
   },
+  // Appended (position 10) so existing filter positions stay stable.
+  categories: {
+    position: 10,
+    label: "Categories",
+    show: true,
+    googleAnalyticsEventName: "filter_orglist_categories",
+    kind: FilterKind.MULTI_SELECT,
+  },
 };
 
 export const FILTER_PARAM_KEY_PRESETS = {
@@ -111,4 +119,5 @@ export const FILTER_PARAM_KEY_PRESETS = {
   hasProjects: "hasProjects",
   order: "order",
   orderBy: "orderBy",
+  categories: "categories",
 };

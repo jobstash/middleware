@@ -721,6 +721,11 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         params: { projects: ["Alpha"] },
         expected: ["org-acme"],
       },
+      {
+        name: "category",
+        params: { categories: ["Company"] },
+        expected: ["org-acme"],
+      },
       { name: "tag", params: { tags: ["Solidity"] }, expected: ["org-acme"] },
       {
         name: "chain",
@@ -1236,6 +1241,43 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     });
   });
 
+  it("exposes the careers-page hiring process on organization jobsites", async () => {
+    const jobsiteNodeId = await createNode("Jobsite", "jobsite-acme");
+    await postgres.query(
+      `
+        UPDATE graph_nodes
+        SET properties = properties || jsonb_build_object(
+          'url', 'https://acme.example/jobs',
+          'type', 'custom',
+          'hiringProcess', 'Screen, technical interview, offer'
+        )
+        WHERE id = $1
+      `,
+      [jobsiteNodeId],
+    );
+    await postgres.query(
+      `
+        INSERT INTO graph_relationships (
+          source_id, target_id, type, relationship_key
+        )
+        SELECT organization_node_id, $1, 'HAS_JOBSITE', ''
+        FROM organization_search_documents
+        WHERE organization_id = 'org-acme'
+      `,
+      [jobsiteNodeId],
+    );
+
+    const [organization] =
+      await repository.getOrganizationsWithLinks("org-acme");
+
+    expect(organization.jobsites).toEqual([
+      expect.objectContaining({
+        id: "jobsite-acme",
+        hiringProcess: "Screen, technical interview, offer",
+      }),
+    ]);
+  });
+
   it("aggregates display labels and numeric filter bounds", async () => {
     const jobs = await repository.getJobFilterValues("ethereum");
     expect(jobs).toMatchObject({
@@ -1249,6 +1291,9 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     const organizations = await repository.getOrganizationFilterValues();
     expect(organizations.investors).toEqual(
       expect.arrayContaining(["Paradigm", "Variant"]),
+    );
+    expect(organizations.categories).toEqual(
+      expect.arrayContaining(["Company", "Protocol"]),
     );
 
     const projects = await repository.getProjectFilterValues();
@@ -1320,29 +1365,29 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         INSERT INTO organization_search_documents (
           organization_node_id, organization_id, slug, name, normalized_name,
           location, headcount_estimate, ecosystems, managed_ecosystems,
-          project_ids, project_names,
+          project_ids, project_names, categories,
           chains, investors, funding_rounds, tags, recent_funding_timestamp,
           recent_job_timestamp, aggregate_rating, has_projects, search_text,
           search_vector, search_values, names, filter_labels, payload
         ) VALUES
         (
           $1, 'org-acme', 'acme', 'Acme', 'acme', 'berlin', 120,
-          ARRAY['ethereum'], ARRAY['ethereum'], ARRAY['project-alpha'], ARRAY['alpha'],
+          ARRAY['ethereum'], ARRAY['ethereum'], ARRAY['project-alpha'], ARRAY['alpha'], ARRAY['company'],
           ARRAY['ethereum'], ARRAY['paradigm'], ARRAY['series-a'],
           ARRAY['solidity'], 200, 300, 4.5, true, 'Acme Berlin Alpha',
           to_tsvector('simple', 'Acme Berlin Alpha'), ARRAY['Acme', 'Acme Labs'],
           ARRAY['acme', 'acme-labs'],
-          '{"investors":{"paradigm":"Paradigm"},"fundingRounds":{"series-a":"Series A"},"ecosystems":{"ethereum":"Ethereum"},"locations":{"berlin":"Berlin"}}',
-          '{"orgId":"org-acme","name":"Acme","projects":[],"investors":[],"fundingRounds":[],"ecosystems":["Ethereum"],"aliases":[],"tags":[],"location":"Berlin"}'
+          '{"investors":{"paradigm":"Paradigm"},"fundingRounds":{"series-a":"Series A"},"ecosystems":{"ethereum":"Ethereum"},"categories":{"company":"Company"},"locations":{"berlin":"Berlin"}}',
+          '{"orgId":"org-acme","name":"Acme","category":"Company","projects":[],"investors":[],"fundingRounds":[],"ecosystems":["Ethereum"],"aliases":[],"tags":[],"location":"Berlin"}'
         ),
         (
           $2, 'org-beta', 'beta', 'Beta', 'beta', 'lisbon', 20,
-          ARRAY['ethereum'], ARRAY['ethereum'], ARRAY['project-beta'], ARRAY['beta'],
+          ARRAY['ethereum'], ARRAY['ethereum'], ARRAY['project-beta'], ARRAY['beta'], ARRAY['protocol'],
           ARRAY['base'], ARRAY['variant'], ARRAY['seed'],
           ARRAY['typescript'], 100, 250, 4.0, true, 'Beta Lisbon',
           to_tsvector('simple', 'Beta Lisbon'), ARRAY['Beta', 'Beta Systems'], ARRAY['beta'],
-          '{"investors":{"variant":"Variant"},"fundingRounds":{"seed":"Seed"},"ecosystems":{"ethereum":"Ethereum"},"locations":{"lisbon":"Lisbon"}}',
-          '{"orgId":"org-beta","name":"Beta","projects":[],"investors":[],"fundingRounds":[],"ecosystems":["Ethereum"],"aliases":[],"tags":[],"location":"Lisbon"}'
+          '{"investors":{"variant":"Variant"},"fundingRounds":{"seed":"Seed"},"ecosystems":{"ethereum":"Ethereum"},"categories":{"protocol":"Protocol"},"locations":{"lisbon":"Lisbon"}}',
+          '{"orgId":"org-beta","name":"Beta","category":"Protocol","projects":[],"investors":[],"fundingRounds":[],"ecosystems":["Ethereum"],"aliases":[],"tags":[],"location":"Lisbon"}'
         )
       `,
       [acmeNodeId, betaNodeId],

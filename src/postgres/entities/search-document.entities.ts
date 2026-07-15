@@ -139,6 +139,9 @@ export class OrganizationSearchDocumentEntity extends SearchDocumentBase {
   @Column({ name: "project_names", type: "text", array: true, default: "{}" })
   projectNames!: string[];
 
+  @Column({ type: "text", array: true, default: "{}" })
+  categories!: string[];
+
   @Column({ name: "funding_rounds", type: "text", array: true, default: "{}" })
   fundingRounds!: string[];
 }
