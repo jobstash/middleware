@@ -11,43 +11,57 @@ import {
 } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
-import { Neogma } from "neogma";
 import { randomToken } from "src/shared/helpers";
 import { BaseClient } from "src/shared/interfaces/client.interface";
+import { GraphRepository } from "src/postgres/graph.repository";
+import { randomUUID } from "node:crypto";
 
 @Injectable()
 export class ScorerService {
   private logger = new CustomLogger(ScorerService.name);
 
   constructor(
-    private neogma: Neogma,
+    private readonly graph: GraphRepository,
     private readonly httpService: HttpService,
   ) {}
 
   generateEphemeralTokenForOrg = async (orgId: string): Promise<string> => {
     const token = randomToken();
-    const result = await this.neogma.queryRunner.run(
-      `
-        CREATE (token:EphemeralToken {id: randomUUID(), token: $token})
-        WITH token
-        MATCH (org:Organization {orgId: $orgId})
-        MERGE (org)-[:HAS_EPHEMERAL_TOKEN]->(token)
-        RETURN token.token as token
-      `,
-      { orgId, token },
-    );
-    return result.records[0]?.get("token");
+    return this.graph.transaction(async manager => {
+      const organization = await this.graph.findNode<Record<string, unknown>>(
+        "Organization",
+        { orgId },
+        manager,
+      );
+      if (!organization) {
+        throw new Error(`Organization ${orgId} was not found`);
+      }
+      const id = randomUUID();
+      const tokenNode = await this.graph.createNode(
+        "EphemeralToken",
+        { id, token },
+        `runtime:${id}`,
+        manager,
+      );
+      await this.graph.upsertRelationship({
+        sourceNodeId: organization.nodeId,
+        targetNodeId: tokenNode.nodeId,
+        type: "HAS_EPHEMERAL_TOKEN",
+        executor: manager,
+      });
+      return token;
+    });
   };
 
   getAtsClientIdByOrgId = async (orgId: string): Promise<string> => {
-    const result = await this.neogma.queryRunner.run(
-      `
-        MATCH (:Organization {orgId: $orgId})-[:HAS_ATS_CLIENT]->(client:LeverClient|WorkableClient|GreenhouseClient)
-        RETURN client.id as id
-      `,
-      { orgId },
+    const [client] = await this.graph.findRelatedNodes<Record<string, unknown>>(
+      {
+        sourceLabel: "Organization",
+        sourceWhere: { orgId },
+        relationshipType: "HAS_ATS_CLIENT",
+      },
     );
-    return result.records[0]?.get("id");
+    return client?.properties.id as string | undefined;
   };
 
   getAtsClientInfoByOrgId = async (
@@ -56,24 +70,23 @@ export class ScorerService {
     id: string;
     platform: "lever" | "workable" | "greenhouse" | "jobstash";
   }> => {
-    const result = await this.neogma.queryRunner.run(
-      `
-        MATCH (:Organization {orgId: $orgId})-[:HAS_ATS_CLIENT]->(client)
-        RETURN {
-          id: client.id,
-          platform: client.name
-        } as info
-      `,
-      { orgId },
+    const [client] = await this.graph.findRelatedNodes<Record<string, unknown>>(
+      {
+        sourceLabel: "Organization",
+        sourceWhere: { orgId },
+        relationshipType: "HAS_ATS_CLIENT",
+      },
     );
-    const info = result.records[0]?.get("info") as {
-      id: string;
-      platform: "lever" | "workable" | "greenhouse" | "jobstash";
-    };
 
     return {
-      id: info?.id ?? null,
-      platform: info?.platform ?? null,
+      id: (client?.properties.id as string | undefined) ?? null,
+      platform:
+        (client?.properties.name as
+          | "lever"
+          | "workable"
+          | "greenhouse"
+          | "jobstash"
+          | undefined) ?? null,
     };
   };
 

@@ -1,21 +1,27 @@
-import { Node } from "neo4j-driver";
+import { GraphNode } from "../interfaces";
 import { ProjectCategory } from "../interfaces/project-category.interface";
 
 export class ProjectCategoryEntity {
-  constructor(private readonly node: Node) {}
+  private readonly properties: Record<string, unknown>;
+
+  constructor(node: GraphNode | Record<string, unknown>) {
+    this.properties =
+      "properties" in node
+        ? (node.properties as Record<string, unknown>)
+        : node;
+  }
 
   getId(): string {
-    return (<Record<string, string>>this.node.properties).id;
+    return this.properties.id as string;
   }
 
   getName(): string {
-    return (<Record<string, string>>this.node.properties).name;
+    return this.properties.name as string;
   }
 
   toJson(): ProjectCategory {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { ...properties } = <Record<string, any>>this.node.properties;
+    const { ...properties } = this.properties;
 
-    return properties as ProjectCategory;
+    return properties as unknown as ProjectCategory;
   }
 }

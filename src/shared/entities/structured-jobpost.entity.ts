@@ -1,8 +1,7 @@
-import { Node } from "neo4j-driver";
-import { StructuredJobpost } from "../interfaces";
+import { GraphNode, StructuredJobpost } from "../interfaces";
 
 export class StructuredJobpostEntity {
-  constructor(private readonly node: Node) {}
+  constructor(private readonly node: GraphNode) {}
 
   getId(): string {
     // eslint-disable-next-line

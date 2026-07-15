@@ -1,6 +1,9 @@
 import { nonZeroOrNull, notStringOrNull } from "../helpers";
-import { ProjectWithBaseRelations, ProjectWithRelations } from "../interfaces";
-import { Node } from "neo4j-driver";
+import {
+  GraphNode,
+  ProjectWithBaseRelations,
+  ProjectWithRelations,
+} from "../interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 
 export class ProjectWithBaseRelationsEntity {
@@ -187,75 +190,81 @@ export class ProjectWithRelationsEntity {
 }
 
 export class ProjectEntity {
-  constructor(private readonly node: Node) {}
+  private readonly properties: Record<string, unknown>;
+
+  constructor(node: GraphNode | Record<string, unknown>) {
+    this.properties =
+      "properties" in node
+        ? (node.properties as Record<string, unknown>)
+        : node;
+  }
 
   getId(): string {
-    return (<Record<string, string>>this.node.properties).id;
+    return this.properties.id as string;
   }
 
   getDefiLlamaId(): string | undefined {
-    return (<Record<string, string>>this.node.properties).defiLlamaId;
+    return this.properties.defiLlamaId as string | undefined;
   }
 
   getDefiLlamaSlug(): string | undefined {
-    return (<Record<string, string>>this.node.properties).defiLlamaSlug;
+    return this.properties.defiLlamaSlug as string | undefined;
   }
 
   getDefiLlamaParent(): string | undefined {
-    return (<Record<string, string>>this.node.properties).defiLlamaParent;
+    return this.properties.defiLlamaParent as string | undefined;
   }
 
   getName(): string {
-    return (<Record<string, string>>this.node.properties).name;
+    return this.properties.name as string;
   }
 
   getDescription(): string {
-    return (<Record<string, string>>this.node.properties).description;
+    return this.properties.description as string;
   }
 
   getAltName(): string | undefined {
-    return (<Record<string, string>>this.node.properties).altName;
+    return this.properties.altName as string | undefined;
   }
 
   getTokenAddress(): string | undefined {
-    return (<Record<string, string>>this.node.properties).tokenAddress;
+    return this.properties.tokenAddress as string | undefined;
   }
 
   getTokenSymbol(): string | undefined {
-    return (<Record<string, string>>this.node.properties).tokenSymbol;
+    return this.properties.tokenSymbol as string | undefined;
   }
 
   getTvl(): number | undefined {
-    return (<Record<string, number>>this.node.properties).tvl;
+    return this.properties.tvl as number | undefined;
   }
 
   getMonthlyVolume(): number | undefined {
-    return (<Record<string, number>>this.node.properties).monthlyVolume;
+    return this.properties.monthlyVolume as number | undefined;
   }
 
   getMonthlyFees(): number | undefined {
-    return (<Record<string, number>>this.node.properties).monthlyFees;
+    return this.properties.monthlyFees as number | undefined;
   }
 
   getMonthlyActiveUsers(): number | undefined {
-    return (<Record<string, number>>this.node.properties).monthlyActiveUsers;
+    return this.properties.monthlyActiveUsers as number | undefined;
   }
 
   getMonthlyRevenue(): number | undefined {
-    return (<Record<string, number>>this.node.properties).monthlyRevenue;
+    return this.properties.monthlyRevenue as number | undefined;
   }
 
   getCreatedTimestamp(): number {
-    return (<Record<string, number>>this.node.properties).createdTimestamp;
+    return this.properties.createdTimestamp as number;
   }
 
   getUpdatedTimestamp(): number | undefined {
-    return (<Record<string, number>>this.node.properties).updatedTimestamp;
+    return this.properties.updatedTimestamp as number | undefined;
   }
 
   getProperties(): ProjectWithRelations {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { ...properties } = <Record<string, any>>this.node.properties;
-    return properties as ProjectWithRelations;
+    const { ...properties } = this.properties;
+    return properties as unknown as ProjectWithRelations;
   }
 }

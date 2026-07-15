@@ -192,9 +192,7 @@ export class ProfileController {
       ),
     }),
   })
-  async getUserSkills(
-    @Session() { address }: SessionObject,
-  ): Promise<
+  async getUserSkills(@Session() { address }: SessionObject): Promise<
     ResponseWithOptionalData<
       {
         id: string;

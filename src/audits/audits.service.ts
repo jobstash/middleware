@@ -1,120 +1,104 @@
+import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
+import * as Sentry from "@sentry/node";
+import {
+  GraphNodeRecord,
+  GraphRepository,
+} from "src/postgres/graph.repository";
+import { SearchDocumentRepository } from "src/postgres/search-document.repository";
+import { AuditEntity } from "src/shared/entities";
+import { Audit, Response, ResponseWithNoData } from "src/shared/interfaces";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 import { CreateAuditDto } from "./dto/create-audit.dto";
 import { UpdateAuditDto } from "./dto/update-audit.dto";
-import { Audit, Response, ResponseWithNoData } from "src/shared/interfaces";
-import { ModelService } from "src/model/model.service";
-import { CustomLogger } from "src/shared/utils/custom-logger";
-import { randomUUID } from "crypto";
-import * as Sentry from "@sentry/node";
-import { AuditEntity } from "src/shared/entities";
 
 @Injectable()
 export class AuditsService {
   private readonly logger = new CustomLogger(AuditsService.name);
 
-  constructor(private models: ModelService) {}
+  constructor(
+    private readonly graph: GraphRepository,
+    private readonly searchDocuments: SearchDocumentRepository,
+  ) {}
+
   async create(
     wallet: string,
     dto: CreateAuditDto,
   ): Promise<Response<Audit> | ResponseWithNoData> {
-    const { projectId, ...props } = dto;
+    const { projectId, ...input } = dto;
     try {
-      const auditId = randomUUID();
-      const auditNode = await this.models.Audits.createOne({
-        id: auditId,
-        link: props.link,
-        name: props.name,
-        defiId: props.defiId,
-        date: props.date,
-        techIssues: props.techIssues,
+      const created = await this.graph.transaction(async manager => {
+        const project = await this.graph.findNode<Record<string, unknown>>(
+          "Project",
+          { id: projectId },
+          manager,
+        );
+        if (!project) throw new Error(`Project ${projectId} was not found`);
+        const id = randomUUID();
+        const properties = { id, ...input };
+        const audit = await this.graph.createNode(
+          "Audit",
+          properties,
+          `runtime:${id}`,
+          manager,
+        );
+        await this.graph.upsertRelationship({
+          sourceNodeId: project.nodeId,
+          targetNodeId: audit.nodeId,
+          type: "HAS_AUDIT",
+          properties: { creator: wallet },
+          executor: manager,
+        });
+        return { properties, projectNodeId: project.nodeId };
       });
-      const projectNode = await this.models.Projects.findOne({
-        where: {
-          id: projectId,
-        },
-      });
-
-      await projectNode.relateTo({
-        alias: "audits",
-        where: {
-          id: auditId,
-        },
-        properties: {
-          creator: wallet,
-        },
-      });
+      await this.searchDocuments.refreshProjectDocuments([
+        created.projectNodeId,
+      ]);
       return {
         success: true,
-        data: auditNode.getDataValues(),
+        data: new AuditEntity(created.properties).getProperties(),
         message: "Audit created successfully",
       };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "projects.service",
-        });
-        scope.setExtra("input", { wallet, ...dto });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`AuditsService::create ${err.message}`);
+    } catch (error) {
+      this.capture("create", error, { wallet, ...dto });
       return { success: false, message: "Error creating audit" };
     }
   }
 
   async findAll(): Promise<Response<Audit[]> | ResponseWithNoData> {
     try {
-      const audits = await this.models.Audits.findMany({
-        plain: true,
-      });
+      const audits =
+        await this.graph.findNodes<Record<string, unknown>>("Audit");
       return {
         success: true,
         message: "Retrieved all audits successfully",
-        data: audits.map(audit => new AuditEntity(audit).getProperties()),
+        data: audits.map(audit =>
+          new AuditEntity(audit.properties as unknown as Audit).getProperties(),
+        ),
       };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "projects.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`AuditsService::findAll ${err.message}`);
+    } catch (error) {
+      this.capture("findAll", error);
       return { success: false, message: "Error fetching audits" };
     }
   }
 
   async findOne(id: string): Promise<Response<Audit> | ResponseWithNoData> {
     try {
-      const audit = await this.models.Audits.findOne({
-        where: {
-          id: id,
-        },
-      });
-
-      if (audit) {
-        return {
-          success: true,
-          message: "Retrieved audit successfully",
-          data: new Audit(audit.getDataValues()),
-        };
-      } else {
-        return {
-          success: false,
-          message: "Audit not found",
-        };
-      }
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "projects.service",
-        });
-        scope.setExtra("input", id);
-        Sentry.captureException(err);
-      });
-      this.logger.error(`AuditsService::findOne ${err.message}`);
+      const audit = await this.graph.findNode<Record<string, unknown>>(
+        "Audit",
+        { id },
+      );
+      return audit
+        ? {
+            success: true,
+            message: "Retrieved audit successfully",
+            data: new AuditEntity(
+              audit.properties as unknown as Audit,
+            ).getProperties(),
+          }
+        : { success: false, message: "Audit not found" };
+    } catch (error) {
+      this.capture("findOne", error, id);
       return { success: false, message: "Error fetching audit" };
     }
   }
@@ -124,50 +108,63 @@ export class AuditsService {
     props: UpdateAuditDto,
   ): Promise<Response<Audit> | ResponseWithNoData> {
     try {
-      const audit = await this.models.Audits.update(props, {
-        where: { id },
-        return: true,
-      });
+      const projects = await this.relatedProjects(id);
+      const [audit] = await this.graph.updateNodes<Record<string, unknown>>(
+        "Audit",
+        { id },
+        props as unknown as Record<string, unknown>,
+      );
+      if (!audit) return { success: false, message: "Audit not found" };
+      await this.searchDocuments.refreshProjectDocuments(
+        projects.map(project => project.nodeId),
+      );
       return {
         success: true,
         message: "Updated audit successfully",
-        data: new Audit(audit[0][0]),
+        data: new AuditEntity(
+          audit.properties as unknown as Audit,
+        ).getProperties(),
       };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "projects.service",
-        });
-        scope.setExtra("input", { id, ...props });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`AuditsService::update ${err.message}`);
+    } catch (error) {
+      this.capture("update", error, { id, ...props });
       return { success: false, message: "Error updating audit" };
     }
   }
 
   async remove(id: string): Promise<ResponseWithNoData> {
     try {
-      await this.models.Audits.delete({
-        where: { id },
-        detach: true,
-      });
-      return {
-        success: true,
-        message: "Deleted audit successfully",
-      };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "projects.service",
-        });
-        scope.setExtra("input", id);
-        Sentry.captureException(err);
-      });
-      this.logger.error(`AuditsService::delete ${err.message}`);
+      const projects = await this.relatedProjects(id);
+      const deleted = await this.graph.deleteNodes("Audit", { id });
+      if (!deleted) return { success: false, message: "Audit not found" };
+      await this.searchDocuments.refreshProjectDocuments(
+        projects.map(project => project.nodeId),
+      );
+      return { success: true, message: "Deleted audit successfully" };
+    } catch (error) {
+      this.capture("delete", error, id);
       return { success: false, message: "Error deleting audit" };
     }
+  }
+
+  private relatedProjects(
+    id: string,
+  ): Promise<GraphNodeRecord<Record<string, unknown>>[]> {
+    return this.graph.findRelatedNodes<Record<string, unknown>>({
+      sourceLabel: "Audit",
+      sourceWhere: { id },
+      relationshipType: "HAS_AUDIT",
+      targetLabel: "Project",
+      direction: "incoming",
+    });
+  }
+
+  private capture(action: string, error: unknown, input?: unknown): void {
+    Sentry.withScope(scope => {
+      scope.setTags({ action: "db-call", source: "audits.service" });
+      if (input !== undefined) scope.setExtra("input", input);
+      Sentry.captureException(error);
+    });
+    const message = error instanceof Error ? error.message : String(error);
+    this.logger.error(`AuditsService::${action} ${message}`);
   }
 }

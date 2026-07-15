@@ -1,7 +1,6 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { ProjectsService } from "./projects.service";
 import { ProjectsController } from "./projects.controller";
-import { ModelService } from "src/model/model.service";
 import { ProjectCategoryService } from "./project-category.service";
 import { OrganizationsService } from "src/organizations/organizations.service";
 import { AuthModule } from "src/auth/auth.module";
@@ -11,12 +10,7 @@ import { UserModule } from "src/user/user.module";
 @Module({
   imports: [AuthModule, Auth0Module, forwardRef(() => UserModule)],
   controllers: [ProjectsController],
-  providers: [
-    ProjectsService,
-    ProjectCategoryService,
-    OrganizationsService,
-    ModelService,
-  ],
+  providers: [ProjectsService, ProjectCategoryService, OrganizationsService],
   exports: [ProjectsService],
 })
 export class ProjectsModule {}

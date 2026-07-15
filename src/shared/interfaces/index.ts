@@ -68,3 +68,4 @@ export * from "./search-filter-configs.interface";
 export * from "./talent-list.interface";
 export * from "./dashboard-job-stats.interface";
 export * from "./dashboard-talent-stats.interface";
+export * from "./graph-node.interface";

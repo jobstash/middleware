@@ -25,6 +25,9 @@ RUN rm -rf node_modules && yarn install --frozen-lockfile --production
 FROM node:22-alpine3.22 AS runtime
 WORKDIR /usr/src/app
 
+# Coolify's Dockerfile health checks require curl or wget in the runtime image.
+RUN apk add --no-cache curl
+
 # Only copy what you need to run
 COPY --from=build /usr/src/app/package.json ./
 COPY --from=build /usr/src/app/node_modules ./node_modules

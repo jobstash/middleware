@@ -5,6 +5,9 @@
   "author": "Obafemi Teminife",
   "private": true,
   "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22 <26"
+  },
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\"",
@@ -17,11 +20,15 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:postgres": "RUN_POSTGRES_INTEGRATION=1 jest --runInBand src/postgres",
+    "db:validate:postgres": "node -r ts-node/register -r tsconfig-paths/register scripts/validate-postgres-projections.ts",
+    "db:benchmark:postgres": "node -r ts-node/register -r tsconfig-paths/register scripts/benchmark-postgres-search.ts",
+    "db:parity:postgres": "node -r ts-node/register -r tsconfig-paths/register scripts/compare-production-parity.ts",
+    "db:parity:filters": "node -r ts-node/register -r tsconfig-paths/register scripts/compare-production-filter-parity.ts"
   },
   "dependencies": {
     "@google-cloud/bigquery": "^7.9.1",
-    "@langchain/community": "^0.2.33",
     "@langchain/openai": "^0.2.11",
     "@nestjs/axios": "^3.1.3",
     "@nestjs/bull": "^11.0.2",
@@ -71,16 +78,13 @@
     "joi": "^17.13.3",
     "js-convert-case": "^4.2.0",
     "js-yaml": "^4.1.0",
-    "langchain": "^0.3.9",
     "lodash": "^4.17.21",
     "mime": "^4.0.6",
-    "neo4j-driver": "^5.27.0",
-    "neogma": "^1.14.1",
-    "nestjs-neogma": "^1.0.0",
     "nft.storage": "^7.2.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-magic-login": "^1.2.2",
+    "pg": "^8.13.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "short-unique-id": "^5.2.0",
@@ -89,6 +93,7 @@
     "stripe": "^18.1.0",
     "transliteration": "^2.3.5",
     "ts-morph": "^25.0.0",
+    "typeorm": "^0.3.21",
     "uuid": "^11.0.4",
     "viem": "^2.22.2"
   },
@@ -112,6 +117,7 @@
     "@types/lodash": "^4.17.14",
     "@types/multer": "^1.4.12",
     "@types/node": "22.10.5",
+    "@types/pg": "^8.11.10",
     "@types/psl": "^1.1.3",
     "@types/supertest": "^6.0.2",
     "@types/uuid": "^10.0.0",
@@ -158,6 +164,9 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
+    "setupFiles": [
+      "<rootDir>/test/jest.setup.cjs"
+    ],
     "roots": [
       "<rootDir>"
     ],

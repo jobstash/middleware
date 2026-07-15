@@ -1,4 +1,4 @@
-import { DynamicModule, forwardRef, Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { StripeController } from "./stripe.controller";
 import { StripeService } from "./stripe.service";
@@ -23,19 +23,23 @@ import { UserModule } from "src/user/user.module";
     StripeService,
     {
       provide: "STRIPE_CLIENT",
-      useFactory: async (configService: ConfigService) =>
+      useFactory: async (configService: ConfigService): Promise<Stripe> =>
         new Stripe(configService.get<string>("STRIPE_API_KEY")),
       inject: [ConfigService],
     },
     {
       provide: "STRIPE_WEBHOOK_SECRET",
-      useFactory: async (configService: ConfigService) =>
+      useFactory: async (
+        configService: ConfigService,
+      ): Promise<string | undefined> =>
         configService.get<string>("STRIPE_WEBHOOK_SECRET"),
       inject: [ConfigService],
     },
     {
       provide: "DOMAIN",
-      useFactory: async (configService: ConfigService) =>
+      useFactory: async (
+        configService: ConfigService,
+      ): Promise<string | undefined> =>
         configService.get<string>("ORG_ADMIN_DOMAIN"),
       inject: [ConfigService],
     },

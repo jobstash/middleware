@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform, Type } from "class-transformer";
 import {
   IsArray,
@@ -20,14 +20,14 @@ export class SuggestedJobsInput {
   @Type(() => String)
   @Transform(toList)
   @Transform(({ value }) =>
-    Array.isArray(value) ? value.slice(0, 30) : value ?? [],
+    Array.isArray(value) ? value.slice(0, 30) : (value ?? []),
   )
   skills: string[] = [];
 
   @ApiPropertyOptional({ default: false })
   @IsOptional()
   @Transform(({ value }) =>
-    value === "true" ? true : value === "false" ? false : value ?? false,
+    value === "true" ? true : value === "false" ? false : (value ?? false),
   )
   @IsBoolean()
   isExpert: boolean = false;

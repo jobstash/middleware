@@ -2,12 +2,13 @@ import { OrganizationWithRelations, Tag } from "../interfaces";
 import {
   generateOrgAggregateRating,
   generateOrgAggregateRatings,
+  losslessInteger,
   nonZeroOrNull,
   notStringOrNull,
 } from "../helpers";
 import { ProjectDetailsResult } from "../interfaces/project-details-result.interface";
 import { OrgReviewEntity } from "./org-review.entity";
-import { uniqBy } from "lodash";
+import { omit, uniqBy } from "lodash";
 import { isAfter, isBefore } from "date-fns";
 
 type RawProject = ProjectDetailsResult & {
@@ -71,7 +72,24 @@ export class ProjectDetailsEntity {
         })) ?? [],
       ecosystems: project.ecosystems ?? [],
       organizations: project?.organizations?.map(organization => ({
-        ...organization,
+        ...(omit(organization, [
+          "atsClient",
+          "hasUser",
+        ]) as typeof organization),
+        ...({
+          categoryBackfilledTimestamp: losslessInteger(
+            organization["categoryBackfilledTimestamp"],
+          ),
+          lastCareerPageResearchTimestamp: losslessInteger(
+            organization["lastCareerPageResearchTimestamp"],
+          ),
+          lastGithubVerifiedTimestamp: losslessInteger(
+            organization["lastGithubVerifiedTimestamp"],
+          ),
+          relevanceCheckedTimestamp: losslessInteger(
+            organization["relevanceCheckedTimestamp"],
+          ),
+        } as Record<string, unknown>),
         aggregateRating:
           reviews.length > 0
             ? reviews.reduce((a, b) => a + b) / reviews.length

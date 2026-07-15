@@ -2,7 +2,6 @@ import { forwardRef, Module } from "@nestjs/common";
 import { ProfileService } from "./profile.service";
 import { ProfileController } from "./profile.controller";
 import { JwtService } from "@nestjs/jwt";
-import { ModelService } from "src/model/model.service";
 import { OrganizationsService } from "src/organizations/organizations.service";
 import { MailModule } from "src/mail/mail.module";
 import { MailService } from "src/mail/mail.service";
@@ -64,7 +63,6 @@ import { StripeModule } from "src/stripe/stripe.module";
   providers: [
     ProfileService,
     JwtService,
-    ModelService,
     MailService,
     OrganizationsService,
     RpcService,

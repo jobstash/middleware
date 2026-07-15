@@ -1,17 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { ResponseWithNoData } from "src/shared/types";
-import { Integer } from "neo4j-driver";
 import { ConfigService } from "@nestjs/config";
 import { JobsService } from "./jobs/jobs.service";
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "./shared/utils/custom-logger";
-import { JobListParams } from "./jobs/dto/job-list.input";
 import { slugify } from "./shared/helpers";
 import { OrganizationsService } from "./organizations/organizations.service";
 import { GrantsService } from "./grants/grants.service";
 import { ProjectsService } from "./projects/projects.service";
-import { OrgListParams } from "./organizations/dto/org-list.input";
-import { ProjectListParams } from "./projects/dto/project-list.input";
 
 @Injectable()
 export class AppService {
@@ -31,12 +27,7 @@ export class AppService {
     const FE_DOMAIN = this.configService.get<string>("FE_DOMAIN");
     const recentTimestamp = new Date().getTime();
     try {
-      const result = await this.jobsService.getJobsListWithSearch({
-        ...new JobListParams(),
-        page: 1,
-        limit: Integer.MAX_SAFE_VALUE.toNumber(),
-      });
-      const jobs = result.data;
+      const jobs = await this.jobsService.getFrontendSitemapJobs();
       return `<?xml version="1.0" encoding="UTF-8"?>
         <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
           <url>
@@ -55,7 +46,7 @@ export class AppService {
             .map(job => {
               const path = "jobs";
               const slug = slugify(
-                `${job.organization.name} ${job.title} ${job.shortUUID}`,
+                `${job.organizationName} ${job.title} ${job.shortUUID}`,
               );
               return `<url>
               <loc>${FE_DOMAIN}/${path}/${slug}/details</loc>
@@ -70,7 +61,7 @@ export class AppService {
               <priority>1.0</priority>
             </url>
             ${
-              job.organization.projects.length > 0
+              job.hasProjects
                 ? `<url>
                       <loc>${FE_DOMAIN}/${path}/${slug}/projects</loc>
                       <lastmod>${recentTimestamp}</lastmod>
@@ -100,29 +91,20 @@ export class AppService {
     const EV_DOMAIN = this.configService.get<string>("EV_DOMAIN");
     const recentTimestamp = new Date().getTime();
 
-    const organizations = await this.organizationsService.getOrgsListWithSearch(
-      {
-        ...new OrgListParams(),
-        page: 1,
-        limit: Integer.MAX_SAFE_VALUE.toNumber(),
-      },
-    );
+    const organizations =
+      await this.organizationsService.getEvSitemapOrganizations();
 
-    const projects = await this.projectsService.getProjectsListWithSearch({
-      ...new ProjectListParams(),
-      page: 1,
-      limit: Integer.MAX_SAFE_VALUE.toNumber(),
-    });
+    const projects = await this.projectsService.getEvSitemapProjects();
 
     const grants = await this.grantsService.getGrantsList(
       1,
-      Integer.MAX_SAFE_VALUE.toNumber(),
+      Number.MAX_SAFE_INTEGER,
       "active",
     );
 
     const impact = await this.grantsService.getGrantsList(
       1,
-      Integer.MAX_SAFE_VALUE.toNumber(),
+      Number.MAX_SAFE_INTEGER,
       "inactive",
     );
 
@@ -141,7 +123,7 @@ export class AppService {
             <changefreq>daily</changefreq>
             <priority>1.0</priority>
           </url>
-          ${organizations.data
+          ${organizations
             .map(org => {
               return `<url>
               <loc>${EV_DOMAIN}/organizations/info/${org.normalizedName}</loc>
@@ -183,7 +165,7 @@ export class AppService {
             <changefreq>daily</changefreq>
             <priority>1.0</priority>
           </url>
-          ${projects.data
+          ${projects
             .map(project => {
               return `<url>
               <loc>${EV_DOMAIN}/organizations/info/${project.normalizedName}</loc>

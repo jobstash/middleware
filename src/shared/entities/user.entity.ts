@@ -1,24 +1,30 @@
-import { Node } from "neo4j-driver";
+import { GraphNode } from "../interfaces";
 import { User } from "../interfaces/user/user.interface";
 export class UserEntity {
-  constructor(private readonly node: Node) {}
+  private readonly properties: Record<string, unknown>;
+
+  constructor(node: GraphNode | User) {
+    this.properties =
+      "properties" in node
+        ? (node.properties as Record<string, unknown>)
+        : (node as unknown as Record<string, unknown>);
+  }
 
   getId(): string {
-    return (<Record<string, string>>this.node.properties).id;
+    return this.properties.id as string;
   }
 
   getPrivyd(): string {
-    return (<Record<string, string>>this.node.properties).privyd;
+    return this.properties.privyd as string;
   }
 
   getWallet(): string | undefined {
-    return (<Record<string, string>>this.node.properties).wallet;
+    return this.properties.wallet as string | undefined;
   }
 
   getProperties(): User {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { ...properties } = <Record<string, any>>this.node.properties;
+    const { ...properties } = this.properties;
 
-    return properties as User;
+    return properties as unknown as User;
   }
 }

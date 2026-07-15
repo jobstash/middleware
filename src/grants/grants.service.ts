@@ -1,11 +1,8 @@
-import { Neo4jVectorStore } from "@langchain/community/vectorstores/neo4j_vector";
 import { OpenAIEmbeddings } from "@langchain/openai";
-import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
+import { Injectable } from "@nestjs/common";
 import * as Sentry from "@sentry/node";
-import { Neogma } from "neogma";
-import { InjectConnection } from "nestjs-neogma";
 import { GoogleBigQueryService } from "src/google-bigquery/google-bigquery.service";
+import { GrantRepository } from "src/postgres/grant.repository";
 import { KARMAGAP_PROGRAM_MAPPINGS } from "src/shared/constants/daoip-karmagap-program-mappings";
 import {
   nonZeroOrNull,
@@ -34,42 +31,14 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 import { enumApplicationStatus } from "./generated";
 
 @Injectable()
-export class GrantsService implements OnModuleInit, OnModuleDestroy {
+export class GrantsService {
   private readonly logger = new CustomLogger(GrantsService.name);
-  private readonly embeddings = new OpenAIEmbeddings();
-  private vectorStore: Neo4jVectorStore;
+  private embeddings?: OpenAIEmbeddings;
 
   constructor(
-    @InjectConnection()
-    private readonly neogma: Neogma,
-    private readonly configService: ConfigService,
+    private readonly grants: GrantRepository,
     private readonly googleBigQueryService: GoogleBigQueryService,
   ) {}
-
-  async onModuleInit(): Promise<void> {
-    this.vectorStore = await Neo4jVectorStore.fromExistingIndex(
-      this.embeddings,
-      {
-        url: `${this.configService.getOrThrow(
-          "NEO4J_SCHEME",
-        )}://${this.configService.getOrThrow(
-          "NEO4J_HOST",
-        )}:${this.configService.getOrThrow("NEO4J_PORT")}`,
-        username: this.configService.getOrThrow("NEO4J_USERNAME"),
-        password: this.configService.getOrThrow("NEO4J_PASSWORD"),
-        database: this.configService.getOrThrow("NEO4J_DATABASE"),
-        indexName: "grants-vector",
-        searchType: "vector",
-        nodeLabel: "GrantSiteChunk",
-        textNodeProperty: "text",
-        embeddingNodeProperty: "embedding",
-      },
-    );
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.vectorStore.close();
-  }
 
   query = async (
     query: string,
@@ -77,11 +46,8 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
     limit = 10,
   ): Promise<PaginatedData<GrantListResult>> => {
     try {
-      const result = await this.vectorStore.similaritySearchWithScore(
-        query,
-        10,
-      );
-      const ids = result.map(x => x[0].metadata.programId);
+      const embedding = await this.getEmbeddings().embedQuery(query);
+      const ids = await this.grants.searchProgramIds(embedding, 10);
       const programs = await this.getGrantsListResults();
       const results = programs.filter(x => ids.includes(x.programId));
       return paginate<GrantListResult>(
@@ -141,53 +107,16 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
     }
   };
 
+  private getEmbeddings(): OpenAIEmbeddings {
+    this.embeddings ??= new OpenAIEmbeddings();
+    return this.embeddings;
+  }
+
   getGrantsListResults = async (
     status: "active" | "inactive" | null = null,
   ): Promise<KarmaGapGrantProgram[]> => {
-    const result = await this.neogma.queryRunner.run(
-      `
-        CYPHER runtime = parallel
-        MATCH (program:KarmaGapProgram)
-        RETURN program {
-          .*,
-          status: [(program)-[:HAS_STATUS]->(status:KarmaGapStatus) | status.name][0],
-          eligibility: [(program)-[:HAS_ELIGIBILITY]->(eligibility:KarmaGapEligibility) | eligibility {
-            .*,
-            requirements: apoc.coll.toSet([(eligibility)-[:HAS_REQUIREMENT]->(requirement:KarmaGapRequirement) | requirement.description])
-          }][0],
-          socialLinks: [
-            (program)-[:HAS_SOCIAL_LINKS]->(socialLink:KarmaGapSocials) | socialLink {
-              .*
-            }
-          ][0],
-          quadraticFundingConfig: [
-            (program)-[:HAS_QUADRATIC_FUNDING_CONFIG]->(quadraticFundingConfig:KarmaGapQuadraticFundingConfig) | quadraticFundingConfig {
-              .*
-            }
-          ][0],
-          support: [
-            (program)-[:HAS_SUPPORT]->(support:KarmaGapSupport) | support {
-              .*
-            }
-          ][0],
-          metadata: [
-            (program)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata) | metadata {
-              .*,
-              categories: apoc.coll.toSet([(metadata)-[:HAS_CATEGORY]->(category) | category.name]),
-              ecosystems: apoc.coll.toSet([(metadata)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
-              organizations: apoc.coll.toSet([(metadata)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
-              networks: apoc.coll.toSet([(metadata)-[:HAS_NETWORKS]->(network) | network.name]),
-              grantTypes: apoc.coll.toSet([(metadata)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
-              tags: apoc.coll.toSet([(metadata)-[:HAS_TAG]->(tag) | tag.name]),
-              platformsUsed: apoc.coll.toSet([(metadata)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
-            }
-          ][0]
-        } as program
-      `,
-    );
-
-    const programs = result.records
-      .map(record => record.get("program") as KarmaGapGrantProgram)
+    const programs = (await this.grants.getPrograms())
+      .map(program => program as unknown as KarmaGapGrantProgram)
       .filter(x => {
         if (status === "active") {
           return (x.status ?? "Inactive") === "Active";
@@ -209,51 +138,8 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
     slug: string,
   ): Promise<GrantListResult | undefined> => {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        CYPHER runtime = parallel
-        MATCH (program:KarmaGapProgram {slug: $slug})
-        RETURN program {
-          .*,
-          status: [(program)-[:HAS_STATUS]->(status:KarmaGapStatus) | status.name][0],
-          eligibility: [(program)-[:HAS_ELIGIBILITY]->(eligibility:KarmaGapEligibility) | eligibility {
-            .*,
-            requirements: apoc.coll.toSet([(eligibility)-[:HAS_REQUIREMENT]->(requirement:KarmaGapRequirement) | requirement.description])
-          }][0],
-          socialLinks: [
-            (program)-[:HAS_SOCIAL_LINKS]->(socialLink:KarmaGapSocials) | socialLink {
-              .*
-            }
-          ][0],
-          quadraticFundingConfig: [
-            (program)-[:HAS_QUADRATIC_FUNDING_CONFIG]->(quadraticFundingConfig:KarmaGapQuadraticFundingConfig) | quadraticFundingConfig {
-              .*
-            }
-          ][0],
-          support: [
-            (program)-[:HAS_SUPPORT]->(support:KarmaGapSupport) | support {
-              .*
-            }
-          ][0],
-          metadata: [
-            (program)-[:HAS_METADATA]->(metadata:KarmaGapProgramMetadata) | metadata {
-              .*,
-              categories: apoc.coll.toSet([(metadata)-[:HAS_CATEGORY]->(category) | category.name]),
-              ecosystems: apoc.coll.toSet([(metadata)-[:HAS_ECOSYSTEM]->(ecosystem) | ecosystem.name]),
-              organizations: apoc.coll.toSet([(metadata)-[:HAS_ORGANIZATION]->(organization) | organization.name]),
-              networks: apoc.coll.toSet([(metadata)-[:HAS_NETWORKS]->(network) | network.name]),
-              grantTypes: apoc.coll.toSet([(metadata)-[:HAS_GRANT_TYPE]->(grantType) | grantType.name]),
-              tags: apoc.coll.toSet([(metadata)-[:HAS_TAG]->(tag) | tag.name]),
-              platformsUsed: apoc.coll.toSet([(metadata)-[:HAS_PLATFORM_USED]->(platform) | platform.name])
-            }
-          ][0]
-        } as program
-      `,
-        { slug },
-      );
-
-      const programs = result.records.map(
-        record => record.get("program") as KarmaGapGrantProgram,
+      const programs = (await this.grants.getPrograms(slug)).map(
+        program => program as unknown as KarmaGapGrantProgram,
       );
 
       if (programs.length > 0) {
@@ -317,36 +203,9 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
 
   getGranteesBySlug = async (slug: string): Promise<Grantee[]> => {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        CYPHER runtime = parallel
-        MATCH (program:KarmaGapProgram {slug: $slug})
-        MATCH (project:Project)-[:HAS_GRANT_FUNDING|FUNDED_BY*2]->(program)
-        OPTIONAL MATCH (organization:Organization)-[:HAS_PROJECT]->(project)
-
-        RETURN {
-          id: project.id,
-          name: project.name,
-          website: [(project)-[:HAS_WEBSITE]->(website:Website) | website.url][0],
-          slug: project.normalizedName,
-          logoUrl: project.logoUrl,
-          grantFundingData: [
-            (project)-[:HAS_GRANT_FUNDING]->(funding:GrantFunding) | funding {
-              .*,
-              programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
-            }
-          ],
-          vcFundingData: apoc.coll.toSet([
-            (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
-          ])
-        } as project
-      `,
-        { slug },
-      );
-
-      const grantees = result.records.map(
-        record =>
-          record.get("project") as {
+      const grantees = (await this.grants.getGrantees(slug)).map(
+        project =>
+          project as unknown as {
             id: string;
             name: string;
             slug: string;
@@ -388,35 +247,9 @@ export class GrantsService implements OnModuleInit, OnModuleDestroy {
     granteeSlug: string,
   ): Promise<ResponseWithOptionalData<GranteeDetails>> => {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        CYPHER runtime = parallel
-        MATCH (program:KarmaGapProgram {slug: $programSlug})
-        MATCH (project:Project {normalizedName: $granteeSlug})-[:HAS_GRANT_FUNDING|FUNDED_BY*2]->(program)
-        OPTIONAL MATCH (organization:Organization)-[:HAS_PROJECT]->(project)
-
-        RETURN {
-          id: project.id,
-          name: project.name,
-          description: project.description,
-          website: [(project)-[:HAS_WEBSITE]->(website:Website) | website.url][0],
-          slug: project.normalizedName,
-          logoUrl: project.logoUrl,
-          grantFundingData: [
-            (project)-[:HAS_GRANT_FUNDING]->(funding:GrantFunding) | funding {
-              .*,
-              programName: [(funding)-[:FUNDED_BY]->(prog) | prog.name][0]
-            }
-          ],
-          vcFundingData: apoc.coll.toSet([
-            (organization)-[:HAS_FUNDING_ROUND]->(funding_round:FundingRound) WHERE funding_round.id IS NOT NULL | funding_round { .* }
-          ])
-        } as project
-      `,
-        { programSlug, granteeSlug },
-      );
-
-      const grantee = result.records[0]?.get("project") as {
+      const grantee = (
+        await this.grants.getGrantees(programSlug, granteeSlug)
+      )[0] as unknown as {
         id: string;
         name: string;
         slug: string;

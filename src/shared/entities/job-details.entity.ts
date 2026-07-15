@@ -7,6 +7,7 @@ import {
 import {
   generateOrgAggregateRating,
   generateOrgAggregateRatings,
+  losslessInteger,
   nonZeroOrNull,
   notStringOrNull,
 } from "../helpers";
@@ -80,6 +81,20 @@ export class JobDetailsEntity {
       organization: organization
         ? {
             ...organization,
+            ...({
+              categoryBackfilledTimestamp: losslessInteger(
+                organization["categoryBackfilledTimestamp"],
+              ),
+              lastCareerPageResearchTimestamp: losslessInteger(
+                organization["lastCareerPageResearchTimestamp"],
+              ),
+              lastGithubVerifiedTimestamp: losslessInteger(
+                organization["lastGithubVerifiedTimestamp"],
+              ),
+              relevanceCheckedTimestamp: losslessInteger(
+                organization["relevanceCheckedTimestamp"],
+              ),
+            } as Record<string, unknown>),
             aggregateRating:
               reviews.length > 0
                 ? reviews.reduce((a, b) => a + b) / reviews.length

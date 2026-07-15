@@ -24,27 +24,17 @@ const envSchema = Joi.object({
   MAGIC_LINK_EXPIRES_IN: Joi.string().required(),
   MAGIC_LINK_SECRET: Joi.string().required(),
   MW_DOMAIN: Joi.string().required(),
-  NEO4J_HOST: Joi.string().required(),
-  NEO4J_PASSWORD: Joi.string().required(),
-  NEO4J_PORT: Joi.number().required(),
-  NEO4J_SCHEME: Joi.string()
-    .valid("bolt", "bolt+s", "bolt+scc", "neo4j", "neo4j+s", "neo4j+scc")
+  DATABASE_URL: Joi.string()
+    .uri({ scheme: ["postgres", "postgresql"] })
     .required(),
-  NEO4J_USERNAME: Joi.string().required(),
-  NEO4J_DATABASE: Joi.string().required(),
-  NEO4J_HOST_TEST: Joi.string(),
-  NEO4J_PASSWORD_TEST: Joi.string(),
-  NEO4J_PORT_TEST: Joi.number(),
-  NEO4J_SCHEME_TEST: Joi.string().valid(
-    "bolt",
-    "bolt+s",
-    "bolt+scc",
-    "neo4j",
-    "neo4j+s",
-    "neo4j+scc",
-  ),
-  NEO4J_USERNAME_TEST: Joi.string(),
-  NEO4J_DATABASE_TEST: Joi.string(),
+  DATABASE_TEST_URL: Joi.string()
+    .uri({ scheme: ["postgres", "postgresql"] })
+    .optional(),
+  DATABASE_POOL_SIZE: Joi.number().integer().positive().default(30),
+  DATABASE_STATEMENT_TIMEOUT_MS: Joi.number()
+    .integer()
+    .positive()
+    .default(30000),
   NFT_STORAGE_API_KEY: Joi.string(),
   NODE_ENV: Joi.string()
     .valid("development", "production", "test", "staging")
@@ -55,6 +45,7 @@ const envSchema = Joi.object({
   PRIVY_APP_SECRET: Joi.string().required(),
   PRIVY_WEBHOOK_KEY: Joi.string().required(),
   REDIS_HOST: Joi.string().required(),
+  REDIS_PASSWORD: Joi.string().allow("").optional(),
   REDIS_PORT: Joi.number().required(),
   REPORT_CONTENT_TO_EMAIL: Joi.string().required(),
   SCORER_API_KEY: Joi.string().required(),

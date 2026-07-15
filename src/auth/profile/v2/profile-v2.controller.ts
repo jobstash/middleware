@@ -76,9 +76,7 @@ export class ProfileV2Controller {
   private async getEligibilityMissing(address: string): Promise<string[]> {
     const missing: string[] = [];
 
-    const showcase = data(
-      await this.profileService.getUserShowCase(address),
-    );
+    const showcase = data(await this.profileService.getUserShowCase(address));
 
     // Resume check
     const hasResume = showcase?.some(item => item.label === "CV");

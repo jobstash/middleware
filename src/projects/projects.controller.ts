@@ -39,14 +39,10 @@ import { File, NFTStorage } from "nft.storage";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { OrganizationsService } from "src/organizations/organizations.service";
 import { UserService } from "src/user/user.service";
-import {
-  CheckWalletPermissions,
-  ECOSYSTEM_HEADER,
-} from "src/shared/constants";
+import { CheckWalletPermissions, ECOSYSTEM_HEADER } from "src/shared/constants";
 import { CACHE_DURATION_1_HOUR } from "src/shared/constants/cache-control";
 import { Permissions, Session } from "src/shared/decorators";
 import { responseSchemaWrapper } from "src/shared/helpers";
-import { ProjectProps } from "src/shared/models";
 import {
   DefiLlamaProject,
   DefiLlamaProjectPrefill,
@@ -357,7 +353,7 @@ export class ProjectsController {
   })
   async getProjectsByCategory(
     @Param("category") category: string,
-  ): Promise<ResponseWithOptionalData<ProjectProps[]>> {
+  ): Promise<ResponseWithOptionalData<ProjectMoreInfo[]>> {
     this.logger.log(`/projects/category/${category}`);
     return this.projectsService
       .getProjectsByCategory(category)
@@ -393,7 +389,7 @@ export class ProjectsController {
   async getProjectCompetitors(
     @Param("id") id: string,
     @Headers(ECOSYSTEM_HEADER) ecosystem: string | undefined,
-  ): Promise<Response<ProjectProps[]> | ResponseWithNoData> {
+  ): Promise<Response<ProjectMoreInfo[]> | ResponseWithNoData> {
     this.logger.log(`/projects/competitors/${id}`);
     return this.projectsService
       .getProjectCompetitors(id, ecosystem)
@@ -571,7 +567,7 @@ export class ProjectsController {
   async searchAllProjects(
     @Session() { address }: SessionObject,
     @Query("query") query: string,
-  ): Promise<ResponseWithOptionalData<ProjectProps[]>> {
+  ): Promise<ResponseWithOptionalData<ProjectMoreInfo[]>> {
     this.logger.log(`GET /projects/search?query=${query} from ${address}`);
     return this.projectsService
       .searchAllProjects(query)
@@ -1153,7 +1149,7 @@ export class ProjectsController {
   async linkReposToProject(
     @Session() { address }: SessionObject,
     @Body() body: LinkReposToProjectInput,
-  ): Promise<Response<ProjectProps> | ResponseWithNoData> {
+  ): Promise<Response<ProjectMoreInfo> | ResponseWithNoData> {
     this.logger.log(
       `POST /projects/link-repos ${JSON.stringify(body)} from ${address}`,
     );
@@ -1197,7 +1193,7 @@ export class ProjectsController {
   async unlinkReposFromProject(
     @Session() { address }: SessionObject,
     @Body() body: LinkReposToProjectInput,
-  ): Promise<Response<ProjectProps> | ResponseWithNoData> {
+  ): Promise<Response<ProjectMoreInfo> | ResponseWithNoData> {
     this.logger.log(
       `POST /projects/unlink-repos ${JSON.stringify(body)} from ${address}`,
     );

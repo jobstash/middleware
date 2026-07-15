@@ -7,3 +7,8 @@ node_modules
 tunnel.sh
 .env.example
 .github
+.env
+.env.*
+dist
+coverage
+*.log

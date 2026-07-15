@@ -249,7 +249,8 @@ export class JobsController {
   @Get("suggested")
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
   @ApiOkResponse({
-    description: "Returns a paginated list of jobs ranked by skill match relevance",
+    description:
+      "Returns a paginated list of jobs ranked by skill match relevance",
   })
   async getSuggestedJobs(
     @Query(new ValidationPipe({ transform: true }))

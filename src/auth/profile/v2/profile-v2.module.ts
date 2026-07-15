@@ -1,7 +1,6 @@
 import { forwardRef, Module } from "@nestjs/common";
 import { ProfileV2Controller } from "./profile-v2.controller";
 import { JwtService } from "@nestjs/jwt";
-import { ModelService } from "src/model/model.service";
 import { MailModule } from "src/mail/mail.module";
 import { MailService } from "src/mail/mail.service";
 import { RpcService } from "../../../user/rpc.service";
@@ -57,7 +56,6 @@ import { BullModule } from "@nestjs/bull";
   controllers: [ProfileV2Controller],
   providers: [
     JwtService,
-    ModelService,
     MailService,
     RpcService,
     ScorerService,

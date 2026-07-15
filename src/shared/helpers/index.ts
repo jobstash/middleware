@@ -7,7 +7,6 @@ import {
 } from "@nestjs/swagger/dist/interfaces/open-api-spec.interface";
 import { AxiosError } from "axios";
 import { TransformFnParams } from "class-transformer";
-import { randomUUID } from "crypto";
 import {
   endOfDay,
   endOfMonth,
@@ -18,14 +17,11 @@ import {
   subWeeks,
 } from "date-fns";
 import { createNewSortInstance, sort } from "fast-sort";
-import { Integer, Node } from "neo4j-driver";
-import { Neo4jSupportedProperties, NeogmaInstance } from "neogma";
 import { catchError, firstValueFrom } from "rxjs";
 import ShortUniqueId from "short-unique-id";
 import { TEST_EMAIL } from "../constants";
 import { DateRange, JobListOrderBy } from "../enums";
 import {
-  JobListResult,
   OrgListResult,
   OrgRating,
   PaginatedData,
@@ -45,10 +41,7 @@ import { transliterate } from "transliteration";
 
 export * from "./email";
 
-/* 
-    optionalMinMaxFilter is a function that conditionally applies a filter to a cypher query if min or max numeric values are set.
-    It accepts args for the values to filter with and the cypher filter to apply based on the various combinations of value existence possible
-*/
+// Selects the prebuilt range predicate matching the supplied bounds.
 export const optionalMinMaxFilter = (
   vals: { min?: number | undefined; max?: number | undefined },
   both: string,
@@ -138,9 +131,32 @@ export const intConverter = (
     if (typeof value === "number") {
       return value;
     } else {
-      return new Integer(value.low, value.high).toNumber();
+      return Number(
+        BigInt(value.high) * 4_294_967_296n + BigInt(value.low >>> 0),
+      );
     }
   }
+};
+
+export const losslessInteger = (
+  value: { low: number; high: number } | number | null | undefined,
+): { low: number; high: number } | null | undefined => {
+  if (value === null || value === undefined) {
+    return value as null | undefined;
+  }
+  if (typeof value === "object") {
+    return value;
+  }
+  if (!Number.isSafeInteger(value)) {
+    throw new RangeError(`Expected a safe integer, received ${value}`);
+  }
+  const integer = BigInt(value);
+  const unsignedLow = Number(BigInt.asUintN(32, integer));
+  return {
+    low:
+      unsignedLow >= 2_147_483_648 ? unsignedLow - 4_294_967_296 : unsignedLow,
+    high: Number(BigInt.asIntN(32, integer >> 32n)),
+  };
 };
 
 export const notStringOrNull = (
@@ -501,17 +517,6 @@ export const paginate = <T>(
   };
 };
 
-export const instanceToNode = <M extends Neo4jSupportedProperties, V, K>(
-  instance: NeogmaInstance<M, V, K>,
-): Node => {
-  return {
-    labels: instance.labels,
-    properties: instance.getDataValues(),
-    identity: Integer.MAX_VALUE,
-    elementId: randomUUID(),
-  };
-};
-
 export const resetTestDB = async (
   httpService: HttpService,
   logger: CustomLogger,
@@ -693,7 +698,7 @@ interface MixOptions {
  * - Preserves internal order of A and of B.
  * - After the first N, remaining items are appended A-then-B (preserving each list's order).
  */
-function interleaveSemiRandom<A extends JobListResult, B extends JobListResult>(
+function interleaveSemiRandom<A, B>(
   A: A[],
   B: B[],
   opts: MixOptions = {},
@@ -766,7 +771,9 @@ function interleaveSemiRandom<A extends JobListResult, B extends JobListResult>(
   return firstWindow.concat(rest);
 }
 
-export function sprinkleProtectedJobs(jobs: JobListResult[]): JobListResult[] {
+export function sprinkleProtectedJobs<
+  T extends { access: "public" | "protected" },
+>(jobs: T[]): T[] {
   const protectedJobs = jobs.filter(job => job.access === "protected");
   const publicJobs = jobs.filter(job => job.access === "public");
 
@@ -795,7 +802,7 @@ export function dropPublicJobsFromOrgsWithOnlineExpertJobs<
   T extends {
     access: "public" | "protected";
     organization: { orgId: string } | null;
-  }
+  },
 >(jobs: T[], isJobOnline: (job: T) => boolean = () => true): T[] {
   // Step 1: Identify orgs with at least one ONLINE expert job
   const orgsWithOnlineExpertJobs = new Set<string>();

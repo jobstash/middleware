@@ -20,14 +20,14 @@ export type ProjectListOrderBy =
   | "monthlyRevenue"
   | "audits"
   | "hacks"
-  | "chains"
-  | "teamSize";
+  | "chains";
 
 export type OrgListOrderBy =
   | "recentFundingDate"
   | "headcountEstimate"
   | "recentJobDate"
-  | "rating";
+  | "rating"
+  | "name";
 export type DateRange =
   | "today"
   | "this-week"

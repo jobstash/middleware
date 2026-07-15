@@ -14,8 +14,6 @@ import envSchema from "./env-schema";
 import { ProjectsModule } from "./projects/projects.module";
 import { CacheModule } from "@nestjs/cache-manager";
 import { PublicModule } from "./public/public.module";
-import { ModelModule } from "./model/model.module";
-import { NeogmaModule, NeogmaModuleOptions } from "nestjs-neogma";
 import { ProfileModule } from "./auth/profile/profile.module";
 import { ProfileV2Module } from "./auth/profile/v2/profile-v2.module";
 import { MailModule } from "./mail/mail.module";
@@ -38,6 +36,7 @@ import { EcosystemsModule } from "./ecosystems/ecosystems.module";
 import { StripeModule } from "./stripe/stripe.module";
 import { WhiteLabelBoardsModule } from "./white-label-boards/white-label-boards.module";
 import { AccountModule } from "./auth/account/account.module";
+import { PostgresModule } from "./postgres/postgres.module";
 
 @Module({
   imports: [
@@ -49,19 +48,17 @@ import { AccountModule } from "./auth/account/account.module";
         abortEarly: false,
       },
     }),
-    NeogmaModule.forRootAsync({
+    PostgresModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => {
-        return {
-          host: configService.get<string>("NEO4J_HOST"),
-          password: configService.get<string>("NEO4J_PASSWORD"),
-          port: configService.get<string>("NEO4J_PORT"),
-          scheme: configService.get<string>("NEO4J_SCHEME"),
-          username: configService.get<string>("NEO4J_USERNAME"),
-          database: configService.get<string>("NEO4J_DATABASE"),
-        } as NeogmaModuleOptions;
-      },
+      useFactory: (configService: ConfigService) => ({
+        url: configService.getOrThrow<string>("DATABASE_URL"),
+        maxConnections: configService.getOrThrow<number>("DATABASE_POOL_SIZE"),
+        statementTimeoutMs: configService.getOrThrow<number>(
+          "DATABASE_STATEMENT_TIMEOUT_MS",
+        ),
+        applicationName: "jobstash-middleware",
+      }),
     }),
     BullModule.forRootAsync({
       imports: [ConfigModule],
@@ -70,6 +67,7 @@ import { AccountModule } from "./auth/account/account.module";
         redis: {
           host: configService.get<string>("REDIS_HOST"),
           port: configService.get<number>("REDIS_PORT"),
+          password: configService.get<string>("REDIS_PASSWORD"),
         },
       }),
     }),
@@ -84,7 +82,6 @@ import { AccountModule } from "./auth/account/account.module";
     OrganizationsModule,
     ProjectsModule,
     PublicModule,
-    ModelModule,
     ProfileModule,
     ProfileV2Module,
     MailModule,

@@ -1,30 +1,37 @@
-import { Node } from "neo4j-driver";
-import { Tag } from "../interfaces";
+import { GraphNode, Tag } from "../interfaces";
 import { nonZeroOrNull } from "../helpers";
 
 export class TagEntity {
-  constructor(private readonly node: Node) {}
+  private readonly properties: Record<string, unknown>;
+
+  constructor(node: GraphNode | Tag) {
+    this.properties =
+      "properties" in node
+        ? (node.properties as Record<string, unknown>)
+        : (node as unknown as Record<string, unknown>);
+  }
 
   getId(): string {
-    return (<Record<string, string>>this.node.properties).id;
+    return this.properties.id as string;
   }
 
   getNormalizedName(): string {
-    return (<Record<string, string>>this.node.properties).normalizedName;
+    return this.properties.normalizedName as string;
   }
 
   getName(): string {
-    return (<Record<string, string>>this.node.properties).name;
+    return this.properties.name as string;
   }
   getProperties(): Tag {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { ...properties } = <Record<string, any>>this.node.properties;
+    const { ...properties } = this.properties;
 
     return {
-      id: properties.id,
-      name: properties.name,
-      normalizedName: properties.normalizedName,
-      createdTimestamp: nonZeroOrNull(properties.createdTimestamp),
+      id: properties.id as string,
+      name: properties.name as string,
+      normalizedName: properties.normalizedName as string,
+      createdTimestamp: nonZeroOrNull(
+        properties.createdTimestamp as number | string,
+      ),
     };
   }
 }

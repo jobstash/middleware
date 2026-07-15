@@ -1,30 +1,29 @@
 import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import * as Sentry from "@sentry/node";
-import { Neogma } from "neogma";
-import { InjectConnection } from "nestjs-neogma";
 import { MailService } from "src/mail/mail.service";
+import { DelegateAccessRepository } from "src/postgres/delegate-access.repository";
+import { DelegateAccessRequestEntity } from "src/shared/entities/delegate-access-request.entity";
 import { button, emailBuilder, randomToken, text } from "src/shared/helpers";
 import {
   data,
   ResponseWithNoData,
   ResponseWithOptionalData,
 } from "src/shared/interfaces";
+import { DelegateAccessRequest } from "src/shared/interfaces/org";
 import { CustomLogger } from "src/shared/utils/custom-logger";
+import { UserService } from "src/user/user.service";
 import { ProfileService } from "../profile/profile.service";
 import { AcceptDelegateAccessInput } from "./dto/accept-delegate-access.input";
 import { DelegateAccessInput } from "./dto/delegate-access.input";
 import { RevokeDelegateAccessInput } from "./dto/revoke-delegate-access.input";
-import { UserService } from "src/user/user.service";
-import { ConfigService } from "@nestjs/config";
-import { DelegateAccessRequest } from "src/shared/interfaces/org";
-import { DelegateAccessRequestEntity } from "src/shared/entities/delegate-access-request.entity";
 
 @Injectable()
 export class AccountService {
   private readonly logger = new CustomLogger(AccountService.name);
+
   constructor(
-    @InjectConnection()
-    private neogma: Neogma,
+    private readonly delegateAccess: DelegateAccessRepository,
     private readonly mailService: MailService,
     private readonly userService: UserService,
     private readonly configService: ConfigService,
@@ -36,36 +35,16 @@ export class AccountService {
     toOrgId: string,
   ): Promise<ResponseWithOptionalData<"accepted" | "pending" | "revoked">> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          MATCH (fromOrg:Organization {orgId: $fromOrgId})-[r:HAS_DELEGATE_ACCESS]->(toOrg:Organization {orgId: $toOrgId})
-          RETURN r
-        `,
-        { fromOrgId, toOrgId },
-      );
-
-      if (result.records.length === 0) {
-        return {
-          success: false,
-          message: "Delegate access not found",
-          data: null,
-        };
-      }
-
-      return {
-        success: true,
-        message: "Delegate access found",
-        data: result.records[0].get("r").properties.status,
-      };
+      const status = await this.delegateAccess.getStatus(fromOrgId, toOrgId);
+      return status
+        ? { success: true, message: "Delegate access found", data: status }
+        : {
+            success: false,
+            message: "Delegate access not found",
+            data: null,
+          };
     } catch (error) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "account.service",
-        });
-        Sentry.captureException(error);
-      });
-      this.logger.error(`AccountService::getDelegateAccess ${error.message}`);
+      this.capture("getDelegateAccess", error);
       return {
         success: false,
         message: "Error getting delegate access",
@@ -78,53 +57,23 @@ export class AccountService {
     orgId: string,
   ): Promise<ResponseWithOptionalData<DelegateAccessRequest[]>> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          MATCH (org:Organization)-[r:HAS_DELEGATE_ACCESS]->(toOrg:Organization)
-          WHERE org.orgId = $orgId OR toOrg.orgId = $orgId
-          RETURN r {
-            .*,
-            requestor: coalesce([(:User {wallet: r.requestorAddress})-[ru:VERIFIED_FOR_ORG {credential: "email"}]->(org) | ru.account][0], r.requestorAddress),
-            grantor: coalesce([(:User {wallet: r.grantorAddress})-[ru:VERIFIED_FOR_ORG {credential: "email"}]->(toOrg) | ru.account][0], r.grantorAddress),
-            revoker: coalesce([(:User {wallet: r.revokerAddress})-[ru:VERIFIED_FOR_ORG {credential: "email"}]->(toOrg) | ru.account][0], r.revokerAddress),
-            fromOrgId: org.orgId,
-            fromOrgName: org.name,
-            fromOrgLogo: coalesce(org.logoUrl, [(org)-[:HAS_WEBSITE]->(website) | website.url][0]),
-            toOrgId: toOrg.orgId,
-            toOrgName: toOrg.name,
-            authToken: r.authToken,
-            toOrgLogo: coalesce(toOrg.logoUrl, [(toOrg)-[:HAS_WEBSITE]->(website) | website.url][0])
-          }
-          ORDER BY r.createdTimestamp DESC
-        `,
-        { orgId },
+      const requests = (await this.delegateAccess.getRequests(orgId)).map(
+        request => new DelegateAccessRequestEntity(request).getProperties(),
       );
-      const requests = result.records.map(record => {
-        return new DelegateAccessRequestEntity(record.get("r")).getProperties();
-      });
       return {
         success: true,
         message: "Retrieved delegate access requests",
-        data: requests.map(x => ({
-          ...x,
-          authToken: x.status === "pending" ? x.authToken : null,
+        data: requests.map(request => ({
+          ...request,
+          authToken: request.status === "pending" ? request.authToken : null,
           link:
-            x.status === "pending"
-              ? `${this.configService.get("ORG_ADMIN_DOMAIN")}/delegate-access?fromOrgId=${x.fromOrgId}&toOrgId=${x.toOrgId}&authToken=${x.authToken}`
+            request.status === "pending"
+              ? `${this.configService.get("ORG_ADMIN_DOMAIN")}/delegate-access?fromOrgId=${request.fromOrgId}&toOrgId=${request.toOrgId}&authToken=${request.authToken}`
               : null,
         })),
       };
     } catch (error) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "account.service",
-        });
-        Sentry.captureException(error);
-      });
-      this.logger.error(
-        `AccountService::getDelegateAccessRequests ${error.message}`,
-      );
+      this.capture("getDelegateAccessRequests", error);
       return {
         success: false,
         message: "Error getting delegate access requests",
@@ -139,8 +88,6 @@ export class AccountService {
     body: DelegateAccessInput,
   ): Promise<ResponseWithOptionalData<string>> {
     try {
-      const { toOrgId } = body;
-
       const requestorEmail = data(
         await this.profileService.getUserVerifications(
           requestorAddress,
@@ -150,8 +97,7 @@ export class AccountService {
       ).find(
         verification =>
           verification.credential === "email" && verification.id === fromOrgId,
-      ).account;
-
+      )?.account;
       if (!requestorEmail) {
         return {
           success: false,
@@ -159,16 +105,7 @@ export class AccountService {
           data: null,
         };
       }
-
-      const toOrg = await this.neogma.queryRunner.run(
-        `
-          MATCH (org:Organization {orgId: $toOrgId})
-          RETURN org
-        `,
-        { toOrgId },
-      );
-
-      if (!toOrg) {
+      if (!(await this.delegateAccess.organizationExists(body.toOrgId))) {
         return {
           success: false,
           message: "Grantor organization not found",
@@ -177,19 +114,14 @@ export class AccountService {
       }
 
       const authToken = randomToken();
-      const expiryDurationMs = 7 * 24 * 60 * 60 * 1000; // one week
-
-      const result = await this.neogma.queryRunner.run(
-        `
-          MATCH (fromOrg:Organization {orgId: $fromOrgId}),(toOrg:Organization {orgId: $toOrgId})
-          MERGE (fromOrg)-[r:HAS_DELEGATE_ACCESS]->(toOrg)
-          ON CREATE SET r.id = randomUUID(), r.createdTimestamp = timestamp(), r.expiryTimestamp = timestamp() + $expiryDurationMs, r.requestorAddress = $requestorAddress, r.status = 'pending', r.authToken = $authToken
-          RETURN r
-        `,
-        { fromOrgId, toOrgId, requestorAddress, authToken, expiryDurationMs },
-      );
-
-      if (result.records.length === 0) {
+      const created = await this.delegateAccess.request({
+        fromOrganizationId: fromOrgId,
+        toOrganizationId: body.toOrgId,
+        requestorAddress,
+        authToken,
+        expiryDurationMs: 7 * 24 * 60 * 60 * 1000,
+      });
+      if (!created) {
         return {
           success: false,
           message: "Delegate access request not created",
@@ -197,14 +129,12 @@ export class AccountService {
         };
       }
 
-      const domain = this.configService.get("ORG_ADMIN_DOMAIN");
-
-      const delegateAccessLink = `${domain}/delegate-access?fromOrgId=${fromOrgId}&toOrgId=${toOrgId}&authToken=${authToken}`;
-
+      const delegateAccessLink = `${this.configService.get(
+        "ORG_ADMIN_DOMAIN",
+      )}/delegate-access?fromOrgId=${fromOrgId}&toOrgId=${body.toOrgId}&authToken=${authToken}`;
       const targetOwner = data(
-        await this.userService.findOrgOwnerProfileByOrgId(toOrgId),
+        await this.userService.findOrgOwnerProfileByOrgId(body.toOrgId),
       );
-
       if (targetOwner) {
         const targetEmail = data(
           await this.profileService.getUserVerifications(
@@ -214,42 +144,34 @@ export class AccountService {
           ),
         ).find(
           verification =>
-            verification.credential === "email" && verification.id === toOrgId,
-        ).account;
-
-        try {
-          const email = emailBuilder({
-            from: this.configService.get("EMAIL"),
-            to: targetEmail,
-            subject: "Delegate Access Request",
-            previewText: `You have received a delegate access request from ${requestorEmail}. Please click the link to accept the request: ${delegateAccessLink}`,
-            title: "Hey there,",
-            bodySections: [
-              text(
-                `You have received a delegate access request from ${requestorEmail}. Please click the link to accept the request:`,
-              ),
-              button("Accept Delegate Access", delegateAccessLink),
-              text(
-                "If you do not want to accept the request, please ignore this email.",
-              ),
-            ],
-          });
-
-          await this.mailService.sendEmail(email);
-        } catch (error) {
-          Sentry.withScope(scope => {
-            scope.setTags({
-              action: "mail-send",
-              source: "account.service",
-            });
-            Sentry.captureException(error);
-          });
-          this.logger.error(
-            `AccountService::requestDelegateAccess::sendEmail ${error.message}`,
-          );
+            verification.credential === "email" &&
+            verification.id === body.toOrgId,
+        )?.account;
+        if (targetEmail) {
+          try {
+            await this.mailService.sendEmail(
+              emailBuilder({
+                from: this.configService.get("EMAIL"),
+                to: targetEmail,
+                subject: "Delegate Access Request",
+                previewText: `You have received a delegate access request from ${requestorEmail}.`,
+                title: "Hey there,",
+                bodySections: [
+                  text(
+                    `You have received a delegate access request from ${requestorEmail}. Please click the link to accept the request:`,
+                  ),
+                  button("Accept Delegate Access", delegateAccessLink),
+                  text(
+                    "If you do not want to accept the request, please ignore this email.",
+                  ),
+                ],
+              }),
+            );
+          } catch (error) {
+            this.capture("requestDelegateAccess::sendEmail", error);
+          }
         }
       }
-
       return {
         success: true,
         message: targetOwner
@@ -258,14 +180,7 @@ export class AccountService {
         data: delegateAccessLink,
       };
     } catch (error) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "account.service",
-        });
-        Sentry.captureException(error);
-      });
-      this.logger.error(`AccountService::delegateAccess ${error.message}`);
+      this.capture("requestDelegateAccess", error);
       return {
         success: false,
         message: "Error requesting delegate access",
@@ -276,59 +191,29 @@ export class AccountService {
 
   async acceptDelegateAccessRequest(
     grantorAddress: string,
-    data: AcceptDelegateAccessInput,
+    input: AcceptDelegateAccessInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const { fromOrgId, toOrgId, authToken } = data;
-
-      const toOrg = await this.neogma.queryRunner.run(
-        `
-          MATCH (org:Organization {orgId: $toOrgId})
-          RETURN org
-        `,
-        { toOrgId },
-      );
-
-      if (!toOrg) {
-        return {
-          success: false,
-          message: "Grantee organization not found",
-        };
+      if (!(await this.delegateAccess.organizationExists(input.toOrgId))) {
+        return { success: false, message: "Grantee organization not found" };
       }
-
-      const result = await this.neogma.queryRunner.run(
-        `
-          MATCH (fromOrg:Organization {orgId: $fromOrgId})-[r:HAS_DELEGATE_ACCESS {authToken: $authToken, status: 'pending'}]->(toOrg:Organization {orgId: $toOrgId})
-          WHERE r.expiryTimestamp > timestamp()
-          SET r.updatedTimestamp = timestamp(), r.grantorAddress = $grantorAddress, r.status = 'accepted'
-          REMOVE r.authToken
-          RETURN r
-        `,
-        { toOrgId, fromOrgId, grantorAddress, authToken },
-      );
-
-      if (result.records.length === 0) {
-        return {
-          success: false,
-          message: "Delegate access request not found or expired",
-        };
-      }
-
-      return {
-        success: true,
-        message: "Delegate access request accepted",
-      };
-    } catch (error) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "account.service",
-        });
-        Sentry.captureException(error);
+      const accepted = await this.delegateAccess.accept({
+        fromOrganizationId: input.fromOrgId,
+        toOrganizationId: input.toOrgId,
+        grantorAddress,
+        authToken: input.authToken,
       });
-      this.logger.error(
-        `AccountService::acceptDelegateAccessRequest ${error.message}`,
-      );
+      return accepted
+        ? {
+            success: true,
+            message: "Delegate access request accepted",
+          }
+        : {
+            success: false,
+            message: "Delegate access request not found or expired",
+          };
+    } catch (error) {
+      this.capture("acceptDelegateAccessRequest", error);
       return {
         success: false,
         message: "Error accepting delegate access request",
@@ -338,47 +223,35 @@ export class AccountService {
 
   async revokeDelegateAccess(
     actorAddress: string,
-    body: RevokeDelegateAccessInput,
+    input: RevokeDelegateAccessInput,
   ): Promise<ResponseWithNoData> {
     try {
-      const { fromOrgId, toOrgId } = body;
-
-      const result = await this.neogma.queryRunner.run(
-        `
-          MATCH (fromOrg:Organization {orgId: $fromOrgId})-[r:HAS_DELEGATE_ACCESS]->(toOrg:Organization {orgId: $toOrgId})
-          WHERE r.status = 'accepted'
-          SET r.status = 'revoked', r.updatedTimestamp = timestamp(), r.revokerAddress = $actorAddress
-          RETURN r
-        `,
-        { fromOrgId, toOrgId, actorAddress },
-      );
-
-      if (result.records.length === 0) {
-        return {
-          success: false,
-          message: "Delegate access not found or not active",
-        };
-      }
-
-      return {
-        success: true,
-        message: "Delegate access revoked",
-      };
-    } catch (error) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "account.service",
-        });
-        Sentry.captureException(error);
+      const revoked = await this.delegateAccess.revoke({
+        fromOrganizationId: input.fromOrgId,
+        toOrganizationId: input.toOrgId,
+        actorAddress,
       });
-      this.logger.error(
-        `AccountService::revokeDelegateAccess ${error.message}`,
-      );
+      return revoked
+        ? { success: true, message: "Delegate access revoked" }
+        : {
+            success: false,
+            message: "Delegate access not found or not active",
+          };
+    } catch (error) {
+      this.capture("revokeDelegateAccess", error);
       return {
         success: false,
         message: "Error revoking delegate access",
       };
     }
+  }
+
+  private capture(action: string, error: unknown): void {
+    Sentry.withScope(scope => {
+      scope.setTags({ action: "db-call", source: "account.service" });
+      Sentry.captureException(error);
+    });
+    const message = error instanceof Error ? error.message : String(error);
+    this.logger.error(`AccountService::${action} ${message}`);
   }
 }

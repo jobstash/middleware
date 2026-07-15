@@ -1,37 +1,43 @@
-import { Node } from "neo4j-driver";
+import { GraphNode } from "../interfaces";
 import { GithubUser } from "../interfaces/github-user.interface";
 
 export class GithubUserEntity {
-  constructor(private readonly node: Node) {}
+  private readonly properties: Record<string, unknown>;
+
+  constructor(node: GraphNode | GithubUser) {
+    this.properties =
+      "properties" in node
+        ? (node.properties as Record<string, unknown>)
+        : (node as unknown as Record<string, unknown>);
+  }
 
   getId(): string {
-    return (<Record<string, string>>this.node.properties).id;
+    return this.properties.id as string;
   }
 
   getLogin(): string | undefined {
-    return (<Record<string, string>>this.node.properties).login;
+    return this.properties.login as string | undefined;
   }
 
   getNodeId(): string | undefined {
-    return (<Record<string, string>>this.node.properties).nodeId;
+    return this.properties.nodeId as string | undefined;
   }
 
   getAvatarUrl(): string | undefined {
-    return (<Record<string, string>>this.node.properties).avatarUrl;
+    return this.properties.avatarUrl as string | undefined;
   }
 
   getAccessToken(): string | undefined {
-    return (<Record<string, string>>this.node.properties).accessToken;
+    return this.properties.accessToken as string | undefined;
   }
 
   getRefreshToken(): string | undefined {
-    return (<Record<string, string>>this.node.properties).refreshToken;
+    return this.properties.refreshToken as string | undefined;
   }
 
   getProperties(): GithubUser {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { ...properties } = <Record<string, any>>this.node.properties;
+    const { ...properties } = this.properties;
 
-    return properties as GithubUser;
+    return properties as unknown as GithubUser;
   }
 }

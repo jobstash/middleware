@@ -1,399 +1,253 @@
 import { Injectable } from "@nestjs/common";
-import {
-  TagPair,
-  Tag,
-  TagPreference,
-  ResponseWithOptionalData,
-} from "src/shared/types";
-import { BatchMatchTagsResult } from "./dto/batch-match-tags.output";
-import { CustomLogger } from "src/shared/utils/custom-logger";
+import { ConfigService } from "@nestjs/config";
 import * as Sentry from "@sentry/node";
-import { ModelService } from "src/model/model.service";
-import { CreateTagDto } from "./dto/create-tag.dto";
-import { InjectConnection } from "nestjs-neogma";
-import { Neogma } from "neogma";
-import { UpdateTagDto } from "./dto/update-tag.dto";
+import { TagRepository } from "src/postgres/tag.repository";
 import { TagEntity } from "src/shared/entities/tag.entity";
 import NotFoundError from "src/shared/errors/not-found-error";
-import { instanceToNode, intConverter, slugify } from "src/shared/helpers";
-import { ConfigService } from "@nestjs/config";
+import { slugify } from "src/shared/helpers";
+import {
+  ResponseWithOptionalData,
+  Tag,
+  TagPair,
+  TagPreference,
+} from "src/shared/types";
+import { CustomLogger } from "src/shared/utils/custom-logger";
+import { BatchMatchTagsResult } from "./dto/batch-match-tags.output";
+import { CreateTagDto } from "./dto/create-tag.dto";
+import { UpdateTagDto } from "./dto/update-tag.dto";
+
+// Preserve the exact-term boost emitted by the retired full-text index.
+const LEGACY_TAG_SCORE_MULTIPLIER = 5.205623149871826;
+
+const isLegacyFuzzyMatch = (
+  input: string,
+  candidate: string,
+  maximumDistance: number,
+): boolean => {
+  const left = slugify(input);
+  const right = slugify(candidate);
+  if (Math.abs(left.length - right.length) > maximumDistance) return false;
+
+  let previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex++) {
+    const current = [leftIndex];
+    let rowMinimum = leftIndex;
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex++) {
+      const value = Math.min(
+        current[rightIndex - 1] + 1,
+        previous[rightIndex] + 1,
+        previous[rightIndex - 1] +
+          (left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1),
+      );
+      current.push(value);
+      rowMinimum = Math.min(rowMinimum, value);
+    }
+    if (rowMinimum > maximumDistance) return false;
+    previous = current;
+  }
+  return previous[right.length] <= maximumDistance;
+};
 
 @Injectable()
 export class TagsService {
   private readonly logger = new CustomLogger(TagsService.name);
+
   constructor(
-    @InjectConnection()
-    private neogma: Neogma,
-    private models: ModelService,
+    private readonly tags: TagRepository,
     private readonly configService: ConfigService,
   ) {}
 
   async findAll(): Promise<Tag[]> {
-    return this.models.Tags.findMany().then(res =>
-      res.map(tag => new TagEntity(instanceToNode(tag)).getProperties()),
-    );
+    return this.tags.findAll();
   }
 
   async findById(id: string): Promise<TagEntity | undefined> {
-    return this.models.Tags.findOne({
-      where: {
-        id,
-      },
-    }).then(res => (res ? new TagEntity(instanceToNode(res)) : undefined));
+    const tag = await this.tags.findById(id);
+    return tag ? new TagEntity(tag) : undefined;
   }
 
   async findByNormalizedName(
     normalizedName: string,
   ): Promise<TagEntity | null> {
-    return this.models.Tags.findOne({
-      where: {
-        normalizedName,
-      },
-    }).then(res => (res ? new TagEntity(instanceToNode(res)) : undefined));
+    const tag = await this.tags.findByNormalizedName(normalizedName);
+    return tag ? new TagEntity(tag) : undefined;
   }
 
   async findPreferredTagByNormalizedName(
     normalizedPreferredName: string,
   ): Promise<TagPreference | null> {
-    const res = await this.neogma.queryRunner.run(
-      `
-        CYPHER runtime = parallel
-        MATCH (pt:Tag {normalizedName: $normalizedPreferredName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
-        RETURN {
-          tag: pt { .* },
-          synonyms: apoc.coll.toSet([(pt)-[:IS_SYNONYM_OF]-(synonym:Tag) | synonym { .* }])
-        } as res
-      `,
-      { normalizedPreferredName },
+    const preference = await this.tags.findPreferredTag(
+      normalizedPreferredName,
     );
-
-    return res.records[0].get("res")
-      ? new TagPreference(res.records[0].get("res") as TagPreference)
-      : null;
+    return preference ? new TagPreference(preference) : null;
   }
 
   async findBlockedTagByNormalizedName(
     normalizedName: string,
   ): Promise<TagEntity | null> {
-    const res = await this.neogma.queryRunner.run(
-      `
-        CYPHER runtime = parallel
-        MATCH (bt:Tag {normalizedName: $normalizedName})-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
-        RETURN bt
-      `,
-      { normalizedName },
-    );
-    return res.records.length ? new TagEntity(res.records[0].get("bt")) : null;
+    const tag = await this.tags.findBlockedTag(normalizedName);
+    return tag ? new TagEntity(tag) : null;
   }
 
   async getAllUnblockedTags(): Promise<Tag[]> {
     try {
-      return this.models.Tags.getUnblockedTags();
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "tags.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`TagsService::getAllUnblockedTags ${err.message}`);
+      return await this.tags.getUnblockedTags();
+    } catch (error) {
+      this.captureDatabaseError("getAllUnblockedTags", error);
       return undefined;
     }
   }
 
   async getPopularTags(limit: number): Promise<Tag[]> {
     try {
-      return this.models.Tags.getPopularTags(
+      return await this.tags.getPopularTags(
         limit,
-        this.configService.get<number>("SKILL_THRESHOLD"),
+        this.configService.get<number>("SKILL_THRESHOLD") ??
+          Number.MAX_SAFE_INTEGER,
       );
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "tags.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`TagsService::getPopularTags ${err.message}`);
+    } catch (error) {
+      this.captureDatabaseError("getPopularTags", error);
       return undefined;
     }
   }
 
   async getBlockedTags(): Promise<Tag[]> {
     try {
-      return this.models.Tags.getBlockedTags();
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "tags.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`TagsService::getBlockedTags ${err.message}`);
+      return await this.tags.getTagsByDesignation("BlockedDesignation");
+    } catch (error) {
+      this.captureDatabaseError("getBlockedTags", error);
       return undefined;
     }
   }
 
   async getPreferredTags(): Promise<TagPreference[]> {
     try {
-      return this.models.Tags.getPreferredTags();
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "tags.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`TagsService::getPreferredTags ${err.message}`);
+      return (await this.tags.getPreferredTags()).map(
+        preference => new TagPreference(preference),
+      );
+    } catch (error) {
+      this.captureDatabaseError("getPreferredTags", error);
       return undefined;
     }
   }
 
   async getPairedTags(): Promise<TagPair[]> {
     try {
-      return this.models.Tags.getPairedTags();
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "tags.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`TagsService::getPairedTags ${err.message}`);
+      return await this.tags.getPairedTags();
+    } catch (error) {
+      this.captureDatabaseError("getPairedTags", error);
       return undefined;
     }
   }
 
   async create(dto: CreateTagDto, creatorWallet: string): Promise<TagEntity> {
-    return this.neogma.queryRunner
-      .run(
-        `
-          CYPHER runtime = pipelined
-          MERGE (dd:DefaultDesignation {name: "DefaultDesignation"})
-          CREATE (t:Tag { id: randomUUID() })-[r:HAS_TAG_DESIGNATION]->(dd)
-          SET t += $properties
-          SET r.creator = $creatorWallet
-          SET r.createdTimestamp = timestamp()
-          RETURN t
-        `,
-        {
-          properties: {
-            ...dto,
-          },
-          creatorWallet,
-        },
-      )
-      .then(res => new TagEntity(res.records[0].get("t")));
+    return new TagEntity(await this.tags.createTag(dto, creatorWallet));
   }
 
   async blockTag(
     normalizedName: string,
     creatorWallet: string,
   ): Promise<TagEntity> {
-    return this.neogma.queryRunner
-      .run(
-        `
-          CYPHER runtime = pipelined
-          MERGE (bd:BlockedDesignation {name: "BlockedDesignation"})
-          WITH bd
-          MATCH (bt:Tag {normalizedName: $normalizedName})-[r1:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-          OPTIONAL MATCH (bt)-[:IS_SYNONYM_OF]-(st:Tag)-[r2:HAS_TAG_DESIGNATION]->(:AllowedDesignation|DefaultDesignation)
-          DETACH DELETE r1, r2
-
-          WITH bt, st, bd
-          MERGE (bt)-[r3:HAS_TAG_DESIGNATION]->(bd)
-          MERGE (st)-[r4:HAS_TAG_DESIGNATION]->(bd)
-          SET r3.creator = $creatorWallet
-          SET r3.createdTimestamp = timestamp()
-          SET r4.creator = $creatorWallet
-          SET r4.createdTimestamp = timestamp()
-          RETURN bt
-          `,
-        {
-          normalizedName,
-          creatorWallet,
-        },
-      )
-      .then(res => new TagEntity(res.records[0].get("bt")));
+    const tag = await this.tags.setDesignation({
+      normalizedName,
+      designation: "BlockedDesignation",
+      creatorWallet,
+      includeSynonyms: true,
+      replaceAllowed: true,
+    });
+    if (!tag) throw new NotFoundError("Tag not found");
+    return new TagEntity(tag);
   }
 
   async preferTag(
     normalizedName: string,
     creatorWallet: string,
   ): Promise<TagEntity> {
-    return this.neogma.queryRunner
-      .run(
-        `
-          CYPHER runtime = pipelined
-          MERGE (pd:PreferredDesignation {name: "PreferredDesignation"})
-          WITH pd
-          MATCH (pt:Tag {normalizedName: $normalizedName})
-          MERGE (pt)-[r:HAS_TAG_DESIGNATION]->(pd)
-          SET r.creator = $creatorWallet
-          SET r.createdTimestamp = timestamp()
-          WITH pt
-          RETURN pt
-          `,
-        {
-          normalizedName,
-          creatorWallet,
-        },
-      )
-      .then(res => new TagEntity(res.records[0].get("pt")));
+    const tag = await this.tags.setDesignation({
+      normalizedName,
+      designation: "PreferredDesignation",
+      creatorWallet,
+    });
+    if (!tag) throw new NotFoundError("Tag not found");
+    return new TagEntity(tag);
   }
 
   async unpreferTag(normalizedName: string): Promise<boolean> {
-    await this.neogma.queryRunner.run(
-      `
-          CYPHER runtime = pipelined
-          MATCH (pt:Tag {normalizedName: $normalizedName})-[r:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
-          DELETE r
-          `,
-      {
-        normalizedName,
-      },
-    );
+    await this.tags.removeDesignation(normalizedName, "PreferredDesignation");
     return true;
   }
 
   async hasBlockedRelation(normalizedName: string): Promise<boolean> {
-    const res = await this.neogma.queryRunner.run(
-      `
-        RETURN EXISTS( (:Tag {normalizedName: $normalizedName})-[:HAS_TAG_DESIGNATION]->(:BlockedDesignation) ) AS result
-        `,
-      { normalizedName },
-    );
-
-    return (res.records[0]?.get("result") as boolean) ?? false;
+    return this.tags.hasDesignation(normalizedName, "BlockedDesignation");
   }
 
   async hasPreferredRelation(normalizedName: string): Promise<boolean> {
-    const res = await this.neogma.queryRunner.run(
-      `
-        RETURN EXISTS( (:Tag {normalizedName: $normalizedName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation) ) AS result
-        `,
-      { normalizedName },
-    );
-
-    return (res.records[0]?.get("result") as boolean) ?? false;
+    return this.tags.hasDesignation(normalizedName, "PreferredDesignation");
   }
 
   async hasRelationToPreferredTag(
     preferredNormalizedName: string,
     synonymNormalizedName: string,
   ): Promise<boolean> {
-    const res = await this.neogma.queryRunner.run(
-      `
-        CYPHER runtime = parallel
-        MATCH (pt:Tag {normalizedName: $preferredNormalizedName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation), (st:Tag {normalizedName: $synonymNormalizedName})
-        RETURN EXISTS( (pt)-[:IS_SYNONYM_OF*]-(st) ) AS result
-        `,
-      { preferredNormalizedName, synonymNormalizedName },
+    if (
+      !(await this.tags.hasDesignation(
+        preferredNormalizedName,
+        "PreferredDesignation",
+      ))
+    ) {
+      return false;
+    }
+    return this.tags.areSynonymConnected(
+      preferredNormalizedName,
+      synonymNormalizedName,
     );
-
-    return (res.records[0]?.get("result") as boolean) ?? false;
   }
 
   async hasPreferredTagCreatorRelationship(
     preferredNormalizedName: string,
     wallet: string,
   ): Promise<boolean> {
-    const res = await this.neogma.queryRunner.run(
-      `
-        CYPHER runtime = parallel
-        MATCH (:Tag {normalizedName: $preferredNormalizedName})-[r:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
-        RETURN r.creator = $wallet AS result
-        `,
-      { preferredNormalizedName, wallet },
+    return this.tags.hasDesignation(
+      preferredNormalizedName,
+      "PreferredDesignation",
+      wallet,
     );
-
-    return (res.records[0]?.get("result") as boolean) ?? false;
   }
 
   async hasBlockedTagCreatorRelationship(
     blockedNormalizedName: string,
     wallet: string,
   ): Promise<boolean> {
-    const res = await this.neogma.queryRunner.run(
-      `
-        CYPHER runtime = parallel
-        MATCH (:Tag {normalizedName: $blockedNormalizedName})-[r:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
-        RETURN r.creator = $wallet AS result
-        `,
-      { blockedNormalizedName, wallet },
+    return this.tags.hasDesignation(
+      blockedNormalizedName,
+      "BlockedDesignation",
+      wallet,
     );
-
-    return (res.records[0]?.get("result") as boolean) ?? false;
   }
 
   async relatePreferredTagToTag(
     preferredNormalizedName: string,
     synonymNormalizedName: string,
   ): Promise<boolean> {
-    const res = await this.neogma.queryRunner.run(
-      `
-        CYPHER runtime = pipelined
-        MATCH (pt:Tag {normalizedName: $preferredNormalizedName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation), (t:Tag {normalizedName: $synonymNormalizedName})
-        MERGE (pt)<-[r1:IS_SYNONYM_OF]-(t)
-        SET r1.createdTimestamp = timestamp()
-
-        WITH pt, t
-        OPTIONAL MATCH (st:Tag)-[:IS_SYNONYM_OF]-(t)
-        WHERE st.id <> pt.id AND NOT (st)<-[:IS_SYNONYM_OF]-(pt)
-        MERGE (pt)<-[r2:IS_SYNONYM_OF]-(st)
-        SET r2.createdTimestamp = timestamp()
-
-        WITH pt, t
-        OPTIONAL MATCH (st:Tag)-[:IS_SYNONYM_OF]-(pt)
-        WHERE st.id <> t.id AND NOT (st)-[:IS_SYNONYM_OF]->(t)
-        MERGE (t)<-[r3:IS_SYNONYM_OF]-(st)
-        SET r3.createdTimestamp = timestamp()
-
-        WITH pt, t
-        MERGE (t)<-[r4:IS_SYNONYM_OF]-(pt)
-        SET r4.createdTimestamp = timestamp()
-
-        RETURN true as result;
-        `,
-      { preferredNormalizedName, synonymNormalizedName },
+    const linked = await this.tags.connectSynonyms(
+      preferredNormalizedName,
+      synonymNormalizedName,
+      undefined,
+      true,
     );
-
-    return res.records[0]?.get("result") as boolean;
+    return linked.length === 2;
   }
 
   async getSynonymPreferredTag(
     synonymNormalizedName: string,
   ): Promise<TagPreference | undefined> {
     try {
-      const res = await this.neogma.queryRunner.run(
-        `
-        CYPHER runtime = parallel
-        MATCH (:Tag {normalizedName: $synonymNormalizedName})-[:IS_SYNONYM_OF]->(pt:Tag)-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
-        RETURN {
-          tag: pt { .* },
-          synonyms: apoc.coll.toSet([(pt)-[:IS_SYNONYM_OF]-(t2) | t2 { .* }])
-        } as res
-        `,
-        { synonymNormalizedName },
+      const preference = await this.tags.getPreferredForSynonym(
+        synonymNormalizedName,
       );
-
-      return res.records[0]?.get("res")
-        ? new TagPreference(res.records[0]?.get("res") as TagPreference)
-        : undefined;
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "tags.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`TagsService::getSynonymPreferredTag ${err.message}`);
+      return preference ? new TagPreference(preference) : undefined;
+    } catch (error) {
+      this.captureDatabaseError("getSynonymPreferredTag", error);
       return undefined;
     }
   }
@@ -404,44 +258,13 @@ export class TagsService {
     creatorWallet: string,
   ): Promise<boolean> {
     try {
-      await this.neogma.queryRunner.run(
-        `
-          CYPHER runtime = pipelined
-          MERGE (pd:PairedDesignation {name: "PairedDesignation"})
-          WITH pd
-          MATCH (t1:Tag {normalizedName: $normalizedOriginTagName})
-          MERGE (t1)-[:HAS_TAG_DESIGNATION]->(pd)
-
-          WITH t1
-
-          OPTIONAL MATCH (t1)-[r:IS_PAIR_OF]->(t2)
-          DETACH DELETE r
-
-          WITH t1
-          
-          UNWIND $normalizedPairTagNameList AS pairTagNormalizedName
-          MATCH (t2:Tag {normalizedName: pairTagNormalizedName})
-
-          CREATE (t1)-[p:IS_PAIR_OF]->(t2)
-          SET p.createdTimestamp = timestamp()
-          SET p.creator = $creatorWallet
-        `,
-        {
-          normalizedOriginTagName,
-          normalizedPairTagNameList,
-          creatorWallet,
-        },
+      return await this.tags.replacePairings(
+        normalizedOriginTagName,
+        normalizedPairTagNameList,
+        creatorWallet,
       );
-      return true;
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "tags.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`TagsService::relatePairedTags ${err.message}`);
+    } catch (error) {
+      this.captureDatabaseError("relatePairedTags", error);
       return false;
     }
   }
@@ -450,114 +273,42 @@ export class TagsService {
     tagId: string,
     structuredJobpostId: string,
   ): Promise<Tag> {
-    const tag = await this.neogma.queryRunner.run(
-      `
-            MATCH (t:Tag { id: $tagId })
-            RETURN t
-        `,
-      { tagId },
-    );
-    if (!tag.records.length) {
+    if (!(await this.tags.findById(tagId))) {
       throw new NotFoundError("Tag not found");
     }
-    const structuredJobpost = await this.neogma.queryRunner.run(
-      `
-            MATCH (sj:StructuredJobpost { id: $structuredJobpostId })
-            RETURN sj
-        `,
-      { structuredJobpostId },
-    );
-    if (!structuredJobpost.records.length) {
+    const tag = await this.tags.linkTagToJob(tagId, structuredJobpostId);
+    if (!tag) {
       throw new NotFoundError("StructuredJobpost not found");
     }
-    const res = await this.neogma.queryRunner.run(
-      `
-          CYPHER runtime = pipelined
-          MATCH (t:Tag { id: $tagId })
-          MATCH (sj:StructuredJobpost { id: $structuredJobpostId })
-          
-          CREATE (sj)-[r:HAS_TAG]->(t)
-          
-          SET r.createdTimestamp = timestamp()
-          SET r.originatingJobpostId = $structuredJobpostId
-
-          RETURN t {
-            .*,
-          } AS Tag
-      `,
-      { tagId, structuredJobpostId },
-    );
-
-    if (res.records.length === 0) {
-      throw new NotFoundError(
-        `Could not create relationship between StructuredJobpost ${structuredJobpostId} to Tag ${tagId}`,
-      );
-    }
-
-    const [first] = res.records;
-    const tagData = first.get("Tag");
-    return new Tag(tagData);
+    return new Tag(tag);
   }
 
   async unrelatePreferredTagToTag(
     preferredNormalizedName: string,
     synonymNormalizedName: string,
   ): Promise<void> {
-    await this.neogma.queryRunner.run(
-      `
-      CYPHER runtime = pipelined
-      MATCH (pt:Tag {normalizedName: $preferredNormalizedName})-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation), (t:Tag {normalizedName: $synonymNormalizedName})
-      MATCH (pt)<-[r1:IS_SYNONYM_OF]-(t)
-      DELETE r1
-
-      WITH pt, t
-      OPTIONAL MATCH (st:Tag)-[:IS_SYNONYM_OF]-(t)
-      WHERE st.id <> pt.id AND NOT (st)<-[:IS_SYNONYM_OF]-(pt)
-      MATCH (pt)<-[r2:IS_SYNONYM_OF]-(st)
-      DELETE r2
-
-      WITH pt, t
-      OPTIONAL MATCH (st:Tag)-[:IS_SYNONYM_OF]-(pt)
-      MATCH (t)-[r3:IS_SYNONYM_OF]-(st)
-      DELETE r3
-
-      WITH pt, t
-      MERGE (t)-[r4:IS_SYNONYM_OF]-(pt)
-      DELETE r4
-
-      RETURN true as result;
-      `,
-      { preferredNormalizedName, synonymNormalizedName },
+    await this.tags.disconnectSynonyms(
+      preferredNormalizedName,
+      synonymNormalizedName,
     );
-
-    return;
   }
 
   async unblockTag(normalizedName: string, wallet: string): Promise<boolean> {
-    await this.neogma.queryRunner.run(
-      `
-        CYPHER runtime = pipelined
-        MATCH (tag:Tag {normalizedName: $normalizedName})-[r1:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
-        OPTIONAL MATCH (st:Tag)<-[:IS_SYNONYM_OF]-(tag)
-        OPTIONAL MATCH (st)-[r2:HAS_TAG_DESIGNATION]->(:BlockedDesignation)
-        DETACH DELETE r1, r2
-
-        MERGE (ad:AllowedDesignation {name: "AllowedDesignation"})
-        WITH ad, tag
-        CREATE (tag)-[nr1:HAS_TAG_DESIGNATION]->(ad)
-        SET nr1.creator = $wallet
-        SET nr1.createdTimestamp = timestamp()
-        
-        WITH ad, tag
-        OPTIONAL MATCH (st:Tag)<-[:IS_SYNONYM_OF]-(tag)
-        CREATE (st)-[nr2:HAS_TAG_DESIGNATION]->(ad)
-        SET nr2.creator = $wallet
-        SET nr2.createdTimestamp = timestamp()
-      `,
-      { normalizedName, wallet },
+    if (!(await this.tags.findByNormalizedName(normalizedName))) {
+      throw new NotFoundError("Tag not found");
+    }
+    await this.tags.removeDesignation(
+      normalizedName,
+      "BlockedDesignation",
+      true,
     );
-
-    return;
+    await this.tags.setDesignation({
+      normalizedName,
+      designation: "AllowedDesignation",
+      creatorWallet: wallet,
+      includeSynonyms: true,
+    });
+    return true;
   }
 
   async linkSynonyms(
@@ -565,41 +316,17 @@ export class TagsService {
     synonymNormalizedName: string,
     synonymSuggesterWallet: string,
   ): Promise<Tag[]> {
-    const res = await this.neogma.queryRunner.run(
-      `
-      CYPHER runtime = pipelined
-      MERGE (t1:Tag {normalizedName: $originTagNormalizedName})<-[ts:IS_SYNONYM_OF]-(t2:Tag {normalizedName: $synonymNormalizedName})
-
-      SET ts.createdTimestamp = timestamp()
-      SET ts.creator = $synonymSuggesterWallet
-
-      WITH t1,t2
-      OPTIONAL MATCH (ty)-[:IS_SYNONYM_OF]-(t2)
-
-      WHERE ty.id <> t1.id AND ty.id <> t2.id
-
-      MERGE (ty)-[:IS_SYNONYM_OF]->(t1)
-
-      RETURN t1, t2
-      `,
-      {
-        originTagNormalizedName,
-        synonymNormalizedName,
-        synonymSuggesterWallet,
-      },
+    const tags = await this.tags.connectSynonyms(
+      originTagNormalizedName,
+      synonymNormalizedName,
+      synonymSuggesterWallet,
     );
-
-    if (res.records.length === 0) {
+    if (!tags.length) {
       throw new NotFoundError(
         `Could not link synonym Tags ${originTagNormalizedName} and ${synonymNormalizedName}`,
       );
     }
-
-    const result = res.records[0];
-    const firstNode = new TagEntity(result.get("t1")).getProperties();
-    const secondNode = new TagEntity(result.get("t2")).getProperties();
-
-    return [firstNode, secondNode];
+    return tags;
   }
 
   async unlinkSynonyms(
@@ -607,48 +334,29 @@ export class TagsService {
     synonymNormalizedName: string,
     synonymSuggesterWallet: string,
   ): Promise<Tag[]> {
-    await this.neogma.queryRunner.run(
-      `
-        CYPHER runtime = pipelined
-        MATCH (t1:Tag {normalizedName: $originTagNormalizedName})-[syn:IS_SYNONYM_OF]-(t2:Tag {normalizedName: $synonymNormalizedName})
-        DETACH DELETE syn
-      `,
-      {
-        originTagNormalizedName,
-        synonymNormalizedName,
-        synonymSuggesterWallet,
-      },
-    );
-
-    return;
+    void synonymSuggesterWallet;
+    const first = await this.tags.findByNormalizedName(originTagNormalizedName);
+    const second = await this.tags.findByNormalizedName(synonymNormalizedName);
+    if (!first || !second) return [];
+    return (await this.tags.disconnectSynonyms(
+      originTagNormalizedName,
+      synonymNormalizedName,
+    ))
+      ? [first, second]
+      : [];
   }
 
   async update(id: string, properties: UpdateTagDto): Promise<Tag> {
-    return this.models.Tags.update(properties, {
-      where: {
-        id: id,
-      },
-      return: true,
-    }).then(res => new TagEntity(instanceToNode(res[0][0])).getProperties());
+    const tag = await this.tags.updateTag(id, { ...properties });
+    if (!tag) throw new NotFoundError("Tag not found");
+    return new TagEntity(tag).getProperties();
   }
 
   async deleteById(id: string): Promise<boolean> {
     try {
-      await this.models.Tags.delete({
-        where: {
-          id: id,
-        },
-      });
-      return true;
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "tags.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`TagsService::deleteById ${err.message}`);
+      return await this.tags.deleteTag(id);
+    } catch (error) {
+      this.captureDatabaseError("deleteById", error);
       return false;
     }
   }
@@ -664,29 +372,23 @@ export class TagsService {
     }>
   > {
     try {
-      const recognizedTags = [];
-      const unrecognizedTags = [];
-      for (const tag of tags) {
-        const result = await this.neogma.queryRunner.run(
-          `
-          CALL db.index.fulltext.queryNodes("tagNames", $query) YIELD node as tag, score
-          WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-          WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, score
-          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
-          WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS node, score
-          RETURN node.name as name, score
-          ORDER BY score DESC
-
-          `,
-          { query: `name:${slugify(tag)}~` },
-        );
-        const mostMatching = result.records[0]?.get("name");
-        if (mostMatching) {
-          recognizedTags.push(mostMatching);
-        } else {
-          unrecognizedTags.push(tag);
+      const matches = await this.tags.fuzzyMatches(tags, 5, false);
+      const bestByInput = new Map<string, (typeof matches)[number]>();
+      for (const match of matches) {
+        if (!isLegacyFuzzyMatch(match.input, match.normalizedName, 2)) {
+          continue;
         }
+        const current = bestByInput.get(match.input);
+        if (!current || match.score > current.score) {
+          bestByInput.set(match.input, match);
+        }
+      }
+      const recognizedTags: string[] = [];
+      const unrecognizedTags: string[] = [];
+      for (const input of tags) {
+        const match = bestByInput.get(input);
+        if (match) recognizedTags.push(match.name);
+        else unrecognizedTags.push(input);
       }
       return {
         success: true,
@@ -696,85 +398,22 @@ export class TagsService {
           unrecognized_tags: unrecognizedTags,
         },
       };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "tags.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`TagsService::matchTags ${err.message}`);
-      return { success: false, message: err.message };
+    } catch (error) {
+      this.captureDatabaseError("matchTags", error);
+      return { success: false, message: this.errorMessage(error) };
     }
   }
 
   async searchTags(query: string): Promise<Tag[]> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          CALL db.index.fulltext.queryNodes("tagNames", $query) YIELD node as tag, score
-          WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation) AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-          WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS tag, score
-          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(tag)-[:IS_PAIR_OF]->(other:Tag)
-          WITH DISTINCT (CASE WHEN other IS NULL THEN tag ELSE other END) AS node, score
-          WHERE (:StructuredJobpost)-[:HAS_TAG]->(node)
-          RETURN node as tag, score
-          ORDER BY score DESC
-
-          `,
-        { query: `name:${slugify(query)}~` },
-      );
-      return result.records.map(record =>
-        new TagEntity(record.get("tag")).getProperties(),
-      );
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "tags.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`TagsService::matchTags ${err.message}`);
+      const matches = await this.tags.fuzzyMatches([query], 20, true);
+      return [...matches]
+        .sort((first, second) => second.score - first.score)
+        .map(match => new Tag(match));
+    } catch (error) {
+      this.captureDatabaseError("searchTags", error);
       return [];
     }
-  }
-
-  private sanitizeLucene(query: string): string {
-    return query.replace(/[+\-&|!(){}[\]^"~*?:\\/]/g, "\\$&");
-  }
-
-  private buildFuzzyTerms(input: string): string[] | null {
-    const parts = input
-      .split(/[\s/\-_,;|]+/)
-      .map(p => slugify(p))
-      .filter(w => w.length > 0);
-
-    if (parts.length === 0) return null;
-
-    const fuzzy = (w: string): string => {
-      const escaped = this.sanitizeLucene(w);
-      if (w.length <= 2) return `name:${escaped}`;
-      if (w.length <= 4) return `name:${escaped}~1`;
-      return `name:${escaped}~1`;
-    };
-
-    const terms: string[] = [];
-
-    // For multi-word inputs, prepend a concatenated slug so
-    // "React JS" can still match a tag named "reactjs"
-    if (parts.length > 1) {
-      terms.push(fuzzy(parts.join("")));
-    }
-
-    for (const w of parts) {
-      if (parts.length > 1 && w.length <= 2) continue;
-      terms.push(fuzzy(w));
-    }
-
-    return terms;
   }
 
   async batchMatchTags(
@@ -783,171 +422,98 @@ export class TagsService {
     maxResults = 15,
   ): Promise<ResponseWithOptionalData<BatchMatchTagsResult[]>> {
     try {
-      if (tags.length === 0) {
-        return {
-          success: true,
-          message: "Batch matched tags successfully",
-          data: [],
-        };
-      }
+      if (!tags.length) return this.emptyBatchResult();
 
-      const seen = new Set<string>();
-      const queries: { input: string; terms: string[] }[] = [];
-      for (const tag of tags) {
-        const terms = this.buildFuzzyTerms(tag);
-        if (!terms) continue;
-        const key = terms.join("|");
-        if (seen.has(key)) continue;
-        seen.add(key);
-        queries.push({ input: tag, terms });
-      }
+      const searchInputs = [
+        ...new Set(
+          tags.flatMap(tag => {
+            const parts = tag
+              .split(/[\s/\-_,;|]+/)
+              .map(part => slugify(part))
+              .filter(Boolean);
+            if (!parts.length) return [];
+            return parts.length > 1 ? [tag, parts.join("")] : [tag];
+          }),
+        ),
+      ];
+      if (!searchInputs.length) return this.emptyBatchResult();
 
-      if (queries.length === 0) {
-        return {
-          success: true,
-          message: "Batch matched tags successfully",
-          data: [],
-        };
-      }
-
-      const result = await this.neogma.queryRunner.run(
-        `
-        UNWIND $queries AS q
-        UNWIND q.terms AS term
-        CALL {
-          WITH term
-          CALL db.index.fulltext.queryNodes("tagNames", term) YIELD node AS tag, score
-          WHERE score >= $scoreThreshold
-            AND NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
-            AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-          WITH tag, score
-          ORDER BY score DESC
-          LIMIT 5
-          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(other:Tag)--(:PreferredDesignation)
-          WITH (CASE WHEN other IS NULL THEN tag ELSE other END) AS resolved, score
-          OPTIONAL MATCH (:PairedDesignation)<-[:HAS_TAG_DESIGNATION]-(resolved)-[:IS_PAIR_OF]->(paired:Tag)
-          WITH (CASE WHEN paired IS NULL THEN resolved ELSE paired END) AS node, score
-          WITH node, max(score) AS score
-          MATCH (sj:StructuredJobpost)-[:HAS_TAG]->(node)
-          WITH node, score, count(DISTINCT sj) AS jobCount
-          RETURN node.id AS id, node.name AS name, node.normalizedName AS normalizedName,
-                 score * log(toFloat(jobCount) + 2.0) AS score
-          ORDER BY score DESC
-          LIMIT 1
+      const matches = await this.tags.fuzzyMatches(searchInputs, 5, true);
+      const candidates = new Map<string, BatchMatchTagsResult>();
+      for (const match of matches) {
+        if (!isLegacyFuzzyMatch(match.input, match.normalizedName, 1)) {
+          continue;
         }
-        WITH q.input AS input, id, name, normalizedName, score
-        WHERE id IS NOT NULL
-        WITH input, id, name, normalizedName, max(score) AS score
-        ORDER BY input, score DESC
-        WITH input, collect({id: id, name: name, normalizedName: normalizedName, score: score}) AS matches
-        WITH input, matches, matches[0].score AS maxScore
-        UNWIND matches AS m
-        WITH input, m.id AS id, m.name AS name, m.normalizedName AS normalizedName, m.score AS score
-        WHERE score >= maxScore * 0.75
-        RETURN input, id, name, normalizedName, score
-        `,
-        { queries, scoreThreshold },
-      );
-
-      const tagMap = new Map<
-        string,
-        { id: string; name: string; normalizedName: string; score: number }
-      >();
-      for (const record of result.records) {
-        const id = record.get("id") as string;
-        if (!id) continue;
-        const score = record.get("score") as number;
-        const existing = tagMap.get(id);
-        if (!existing || score > existing.score) {
-          tagMap.set(id, {
-            id,
-            name: record.get("name") as string,
-            normalizedName: record.get("normalizedName") as string,
-            score,
+        if (match.score < scoreThreshold) continue;
+        const current = candidates.get(match.id);
+        if (!current || match.score > current.score) {
+          candidates.set(match.id, {
+            id: match.id,
+            name: match.name,
+            normalizedName: match.normalizedName,
+            score: match.score * LEGACY_TAG_SCORE_MULTIPLIER,
           });
         }
       }
 
-      let candidates = [...tagMap.values()];
-
-      // Co-occurrence filtering: only when 3+ candidates
-      if (candidates.length >= 3) {
-        const tagIds = candidates.map(c => c.id);
-
-        const coResult = await this.neogma.queryRunner.run(
-          `
-          UNWIND $tagIds AS tagId
-          MATCH (tag:Tag {id: tagId})<-[:HAS_TAG]-(sj:StructuredJobpost)-[:HAS_TAG]->(other:Tag)
-          WHERE other.id IN $tagIds AND other.id <> tagId
-          WITH tagId, count(DISTINCT other.id) AS cooccurringTags
-          RETURN tagId, cooccurringTags
-          `,
-          { tagIds },
+      let ranked = [...candidates.values()];
+      if (ranked.length >= 3) {
+        const cooccurrence = await this.tags.getCooccurrence(
+          ranked.map(candidate => candidate.id),
         );
-
-        const cooccurrenceMap = new Map<string, number>();
-        for (const record of coResult.records) {
-          cooccurrenceMap.set(
-            record.get("tagId") as string,
-            intConverter(record.get("cooccurringTags")),
-          );
-        }
-
-        // Snapshot before filtering for safety net
-        const preFilterTop = candidates
-          .sort((a, b) => b.score - a.score)
+        const fallback = [...ranked]
+          .sort((first, second) => second.score - first.score)
           .slice(0, 5);
-
-        // Drop tags with 0 co-occurrence
-        const filtered = candidates.filter(
-          c => (cooccurrenceMap.get(c.id) ?? 0) > 0,
+        const connected = ranked.filter(
+          candidate => (cooccurrence.get(candidate.id) ?? 0) > 0,
         );
-
-        if (filtered.length > 0) {
-          // Re-score with co-occurrence boost
-          const maxCooccur = Math.max(
-            ...filtered.map(c => cooccurrenceMap.get(c.id) ?? 0),
+        if (connected.length) {
+          const maxCooccurrence = Math.max(
+            ...connected.map(candidate => cooccurrence.get(candidate.id) ?? 0),
           );
-          candidates = filtered.map(c => {
-            const cooccur = cooccurrenceMap.get(c.id) ?? 0;
-            const normalizedCooccurrence =
-              maxCooccur > 0 ? cooccur / maxCooccur : 0;
-            return {
-              ...c,
-              score: c.score * (0.4 + 0.6 * normalizedCooccurrence),
-            };
-          });
+          ranked = connected.map(candidate => ({
+            ...candidate,
+            score:
+              candidate.score *
+              (0.4 +
+                (0.6 * (cooccurrence.get(candidate.id) ?? 0)) /
+                  maxCooccurrence),
+          }));
         } else {
-          // Safety net: restore top 5 from pre-filter snapshot
-          candidates = preFilterTop;
+          ranked = fallback;
         }
       }
-
-      const data: BatchMatchTagsResult[] = candidates
-        .sort((a, b) => b.score - a.score)
-        .slice(0, maxResults)
-        .map(({ id, name, normalizedName, score }) => ({
-          id,
-          name,
-          normalizedName,
-          score,
-        }));
 
       return {
         success: true,
         message: "Batch matched tags successfully",
-        data,
+        data: ranked
+          .sort((first, second) => second.score - first.score)
+          .slice(0, Math.max(0, maxResults)),
       };
-    } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "tags.service",
-        });
-        Sentry.captureException(err);
-      });
-      this.logger.error(`TagsService::batchMatchTags ${err.message}`);
-      return { success: false, message: err.message };
+    } catch (error) {
+      this.captureDatabaseError("batchMatchTags", error);
+      return { success: false, message: this.errorMessage(error) };
     }
+  }
+
+  private emptyBatchResult(): ResponseWithOptionalData<BatchMatchTagsResult[]> {
+    return {
+      success: true,
+      message: "Batch matched tags successfully",
+      data: [],
+    };
+  }
+
+  private captureDatabaseError(method: string, error: unknown): void {
+    Sentry.withScope(scope => {
+      scope.setTags({ action: "db-call", source: "tags.service" });
+      Sentry.captureException(error);
+    });
+    this.logger.error(`TagsService::${method} ${this.errorMessage(error)}`);
+  }
+
+  private errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
   }
 }

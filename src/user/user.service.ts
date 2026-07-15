@@ -19,12 +19,8 @@ import {
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
-import { Neogma } from "neogma";
-import { InjectConnection } from "nestjs-neogma";
 import { CreateUserDto } from "./dto/create-user.dto";
-import { ModelService } from "src/model/model.service";
-import { instanceToNode, randomToken, slugify } from "src/shared/helpers";
-import { randomUUID } from "crypto";
+import { randomToken, slugify } from "src/shared/helpers";
 import { GetAvailableUsersInput } from "./dto/get-available-users.input";
 import { ConfigService } from "@nestjs/config";
 import { ProfileService } from "src/auth/profile/profile.service";
@@ -48,14 +44,13 @@ import { CreateTalentListInput } from "./dto/create-talent-list.input";
 import { TalentList, TalentListEntity } from "src/shared/types";
 import { UpdateTalentListNameInput } from "./dto/update-talent-list-name.input";
 import { sort } from "fast-sort";
+import { UserRepository } from "src/postgres/user.repository";
 
 @Injectable()
 export class UserService {
   private readonly logger = new CustomLogger(UserService.name);
   constructor(
-    @InjectConnection()
-    private neogma: Neogma,
-    private models: ModelService,
+    private readonly users: UserRepository,
     readonly configService: ConfigService,
     private readonly profileService: ProfileService,
     private readonly privyService: PrivyService,
@@ -63,8 +58,11 @@ export class UserService {
   ) {}
 
   async findByWallet(wallet: string): Promise<UserEntity | undefined> {
-    return this.models.Users.findOne({ where: { wallet } })
-      .then(res => (res ? new UserEntity(instanceToNode(res)) : undefined))
+    return this.users
+      .findUserByWallet(wallet)
+      .then(user =>
+        user ? new UserEntity(user as unknown as User) : undefined,
+      )
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -95,14 +93,7 @@ export class UserService {
   async findOrgOwnerProfileByOrgId(
     orgId: string,
   ): Promise<ResponseWithOptionalData<UserProfile>> {
-    const result = await this.neogma.queryRunner.run(
-      `
-          MATCH (user:User)-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(:Organization {orgId: $orgId})
-          RETURN user.wallet as wallet
-        `,
-      { orgId },
-    );
-    const wallet = result.records[0]?.get("wallet");
+    const wallet = await this.users.findOwnerWallet(orgId);
     return this.profileService.getUserProfile(wallet).catch(err => {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -117,15 +108,10 @@ export class UserService {
   }
 
   async findByGithubNodeId(nodeId: string): Promise<UserEntity | undefined> {
-    return this.models.Users.findRelationships({
-      where: { target: { nodeId } },
-      alias: "githubUser",
-      limit: 1,
-    })
-      .then(res =>
-        res[0]?.source
-          ? new UserEntity(instanceToNode(res[0].source))
-          : undefined,
+    return this.users
+      .findUserByGithubNodeId(nodeId)
+      .then(user =>
+        user ? new UserEntity(user as unknown as User) : undefined,
       )
       .catch(err => {
         Sentry.withScope(scope => {
@@ -141,28 +127,12 @@ export class UserService {
   }
 
   async findOrgIdByMemberUserWallet(wallet: string): Promise<string | null> {
-    const result = await this.neogma.queryRunner.run(
-      `
-        MATCH (:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat)<-[:HAS_USER_SEAT]-(org:Organization)
-        RETURN org.orgId as orgId
-      `,
-      { wallet },
-    );
-
-    return result.records[0]?.get("orgId") as string;
+    return this.users.findOrganizationIdForMember(wallet);
   }
 
   async findOrgIdByJobShortUUID(shortUUID: string): Promise<string | null> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        MATCH (org:Organization)-[:HAS_JOBSITE|HAS_JOBPOST|HAS_STRUCTURED_JOBPOST*3]->(:StructuredJobpost {shortUUID: $shortUUID})
-        RETURN org.orgId as orgId
-      `,
-        { shortUUID },
-      );
-
-      return result.records[0]?.get("orgId") as string;
+      return await this.users.findOrganizationIdForJob(shortUUID);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -179,43 +149,18 @@ export class UserService {
   async getUserEmails(
     wallet: string,
   ): Promise<{ email: string; main: boolean }[]> {
-    const result = await this.neogma.queryRunner.run(
-      `
-        MATCH (user:User {wallet: $wallet})-[:HAS_EMAIL]->(email:UserEmail)
-        RETURN email { .* } as email
-      `,
-      { wallet },
-    );
-
-    return result.records.map(record => ({
-      email: record.get("email").email,
-      main: record.get("email").main ?? false,
-    }));
+    return this.users.getUserEmails(wallet);
   }
 
   async userHasEmail(email: string): Promise<boolean> {
     const normalizedEmail = this.normalizeEmail(email);
 
-    const result = await this.neogma.queryRunner.run(
-      `
-        RETURN EXISTS((:User)-[:HAS_EMAIL]->(:UserEmail {normalized: $normalizedEmail})) AS hasEmail
-      `,
-      { normalizedEmail },
-    );
-
-    return result.records[0]?.get("hasEmail") as boolean;
+    return this.users.emailExists(normalizedEmail);
   }
 
   async isOrgMember(wallet: string, orgId: string): Promise<boolean> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        RETURN EXISTS((:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat)<-[:HAS_USER_SEAT]-(:Organization {orgId: $orgId})) AS hasOrgAuthorization
-      `,
-        { wallet, orgId },
-      );
-
-      return result.records[0]?.get("hasOrgAuthorization") as boolean;
+      return await this.users.hasOrganizationSeat(wallet, orgId);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -231,14 +176,7 @@ export class UserService {
 
   async isOrgOwner(wallet: string, orgId: string): Promise<boolean> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        RETURN EXISTS((:User {wallet: $wallet})-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(:Organization {orgId: $orgId})) AS hasOrgAuthorization
-      `,
-        { wallet, orgId },
-      );
-
-      return result.records[0]?.get("hasOrgAuthorization") as boolean;
+      return await this.users.hasOrganizationSeat(wallet, orgId, true);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -253,28 +191,14 @@ export class UserService {
   }
 
   async orgHasOwner(orgId: string): Promise<boolean> {
-    const result = await this.neogma.queryRunner.run(
-      `
-        RETURN EXISTS((:User)-[:OCCUPIES]->(:OrgUserSeat { seatType: "owner" })<-[:HAS_USER_SEAT]-(:Organization {orgId: $orgId})) AS hasOrgAuthorization
-      `,
-      { orgId },
-    );
-
-    return result.records[0]?.get("hasOrgAuthorization") as boolean;
+    return this.users.organizationHasOwner(orgId);
   }
 
   async userAuthorizedForJobFolder(
     wallet: string,
     id: string,
   ): Promise<boolean> {
-    const result = await this.neogma.queryRunner.run(
-      `
-        RETURN EXISTS((:User {wallet: $wallet})-[:CREATED_FOLDER]->(:JobpostFolder {id: $id})) AS hasFolderAuthorization
-      `,
-      { wallet, id },
-    );
-
-    return result.records[0]?.get("hasFolderAuthorization") as boolean;
+    return this.users.ownsJobFolder(wallet, id);
   }
 
   normalizeEmail(original: string | null): string | null {
@@ -306,25 +230,14 @@ export class UserService {
       };
     } else {
       const normalizedEmail = this.normalizeEmail(email);
-      const result = await this.neogma.queryRunner
-        .run(
-          `
-          MATCH (u:User {wallet: $wallet})
-          MERGE (u)-[:HAS_EMAIL]->(email:UserUnverifiedEmail {email: $email, normalized: $normalizedEmail})
-          RETURN u
-        `,
-          {
-            wallet,
-            email,
-            normalizedEmail,
-          },
-        )
-        .then(res =>
-          res.records.length
+      const result = await this.users
+        .addUserEmail(wallet, email, normalizedEmail)
+        .then(user =>
+          user
             ? {
                 success: true,
                 message: "User email added successfully",
-                data: new UserEntity(res.records[0].get("u")),
+                data: new UserEntity(user as unknown as User),
               }
             : {
                 success: false,
@@ -353,66 +266,32 @@ export class UserService {
     wallet: string,
     email: string,
   ): Promise<ResponseWithOptionalData<UserEntity>> {
-    if (!(await this.userHasEmail(email))) {
+    const normalizedEmail = this.normalizeEmail(email);
+    const userEmails = await this.getUserEmails(wallet);
+    const targetEmail = userEmails.find(
+      userEmail => this.normalizeEmail(userEmail.email) === normalizedEmail,
+    );
+    if (!targetEmail) {
       return {
         success: false,
         message: "Email is not associated with this user",
       };
     } else {
-      const normalizedEmail = this.normalizeEmail(email);
-
-      const userEmails = await this.getUserEmails(wallet);
-
-      if (userEmails.find(x => x.email === email && x.main === true)) {
+      if (targetEmail.main) {
         return {
           success: false,
           message: "Email is already associated with this user as main",
         };
       }
 
-      const oldMainEmail = userEmails.find(x => x.main === true);
-
-      const normalizedOldMainEmail = this.normalizeEmail(oldMainEmail?.email);
-
-      await this.neogma.queryRunner
-        .run(
-          `
-        MATCH (u:User {wallet: $wallet})-[:HAS_EMAIL]->(oldMain:UserEmail {email: $email, normalized: $normalizedEmail})
-        SET oldMain.main = false
-        `,
-          {
-            wallet,
-            email: oldMainEmail?.email,
-            normalizedEmail: normalizedOldMainEmail,
-          },
-        )
-        .catch(err => {
-          Sentry.withScope(scope => {
-            scope.setTags({
-              action: "db-call",
-              source: "user.service",
-            });
-            Sentry.captureException(err);
-          });
-          this.logger.error(`UserService::updateUserMainEmail ${err.message}`);
-          return undefined;
-        });
-
-      return this.neogma.queryRunner
-        .run(
-          `
-          MATCH (u:User {wallet: $wallet})-[:HAS_EMAIL]->(email:UserEmail {email: $email, normalized: $normalizedEmail})
-          SET email.main = true
-          RETURN u
-        `,
-          { wallet, email, normalizedEmail },
-        )
-        .then(res =>
-          res.records.length
+      return this.users
+        .setMainEmail(wallet, normalizedEmail)
+        .then(user =>
+          user
             ? {
                 success: true,
                 message: "User main email updated successfully",
-                data: new UserEntity(res.records[0].get("u")),
+                data: new UserEntity(user as unknown as User),
               }
             : {
                 success: false,
@@ -440,29 +319,24 @@ export class UserService {
     wallet: string,
     email: string,
   ): Promise<ResponseWithOptionalData<UserEntity>> {
-    if (!(await this.userHasEmail(email))) {
+    const normalizedEmail = this.normalizeEmail(email);
+    const belongsToUser = (await this.getUserEmails(wallet)).some(
+      userEmail => this.normalizeEmail(userEmail.email) === normalizedEmail,
+    );
+    if (!belongsToUser) {
       return {
         success: false,
         message: "Email is not associated with this user",
       };
     } else {
-      const normalizedEmail = this.normalizeEmail(email);
-      const result = await this.neogma.queryRunner
-        .run(
-          `
-          MATCH (u:User {wallet: $wallet})
-          MATCH (u)-[:HAS_EMAIL]->(email:UserEmail {email: $email, normalized: $normalizedEmail})
-          DETACH DELETE email
-          RETURN u
-        `,
-          { wallet, email, normalizedEmail },
-        )
-        .then(res =>
-          res.records.length
+      const result = await this.users
+        .removeUserEmail(wallet, normalizedEmail)
+        .then(user =>
+          user
             ? {
                 success: true,
                 message: "User email removed successfully",
-                data: new UserEntity(res.records[0].get("u")),
+                data: new UserEntity(user as unknown as User),
               }
             : {
                 success: false,
@@ -492,17 +366,8 @@ export class UserService {
 
   async getUserWallet(email: string): Promise<string | undefined> {
     const normalizedEmail = this.normalizeEmail(email);
-    const result = await this.neogma.queryRunner
-      .run(
-        `
-          MATCH (u:User)-[r:HAS_EMAIL]->(email:UserUnverifiedEmail {normalized: $normalizedEmail})
-          RETURN u.wallet as wallet
-        `,
-        { normalizedEmail },
-      )
-      .then(res =>
-        res.records.length ? res.records[0].get("wallet") : undefined,
-      )
+    const result = await this.users
+      .findWalletByEmail(normalizedEmail)
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -520,17 +385,8 @@ export class UserService {
   async getEmbeddedWalletByLinkedWallet(
     linkedWallet: string,
   ): Promise<string | undefined> {
-    const result = await this.neogma.queryRunner
-      .run(
-        `
-          MATCH (u:User)-[r:HAS_LINKED_WALLET]->(:LinkedWallet {address: $linkedWallet})
-          RETURN u.wallet as wallet
-        `,
-        { linkedWallet },
-      )
-      .then(res =>
-        res.records.length ? res.records[0].get("wallet") : undefined,
-      )
+    const result = await this.users
+      .findWalletByLinkedWallet(linkedWallet)
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -548,72 +404,40 @@ export class UserService {
   }
 
   async getPrivyId(wallet: string): Promise<string | undefined> {
-    return this.neogma.queryRunner
-      .run(
-        `
-          MATCH (u:User {wallet:$wallet})
-          RETURN u.privyId as privyId
-        `,
-        { wallet },
-      )
-      .then(res =>
-        res.records.length ? res.records[0].get("privyId") : undefined,
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
-          });
-          Sentry.captureException(err);
+    return this.users.findPrivyId(wallet).catch(err => {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
         });
-        this.logger.error(`UserService::getPrivyId ${err.message}`);
-        return undefined;
+        Sentry.captureException(err);
       });
+      this.logger.error(`UserService::getPrivyId ${err.message}`);
+      return undefined;
+    });
   }
 
   async getEmbeddedWallet(privyId: string): Promise<string | undefined> {
-    return this.neogma.queryRunner
-      .run(
-        `
-          MATCH (u:User {privyId:$privyId})
-          RETURN u.wallet as wallet
-        `,
-        { privyId },
-      )
-      .then(res =>
-        res.records.length ? res.records[0].get("wallet") : undefined,
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
-          });
-          Sentry.captureException(err);
+    return this.users.findWalletByPrivyId(privyId).catch(err => {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
         });
-        this.logger.error(`UserService::getEmbeddedWallet ${err.message}`);
-        return undefined;
+        Sentry.captureException(err);
       });
+      this.logger.error(`UserService::getEmbeddedWallet ${err.message}`);
+      return undefined;
+    });
   }
 
   async verifyUserEmail(email: string): Promise<UserEntity | undefined> {
     const normalizedEmail = this.normalizeEmail(email);
 
-    const result = await this.neogma.queryRunner
-      .run(
-        `
-          MATCH (u:User)-[r:HAS_EMAIL]->(email:UserUnverifiedEmail {normalized: $normalizedEmail})
-          CREATE (u)-[:HAS_EMAIL]->(:UserEmail {email: $email, normalized: $normalizedEmail})
-          DELETE r, email
-          RETURN u
-        `,
-        { email, normalizedEmail },
-      )
-      .then(res =>
-        res.records.length
-          ? new UserEntity(res.records[0].get("u"))
-          : undefined,
+    const result = await this.users
+      .verifyEmail(normalizedEmail, email)
+      .then(user =>
+        user ? new UserEntity(user as unknown as User) : undefined,
       )
       .catch(err => {
         Sentry.withScope(scope => {
@@ -638,20 +462,7 @@ export class UserService {
         privyUser?.linkedAccounts
           ?.filter(x => x.type === "wallet" && x.walletClientType !== "privy")
           ?.map(x => (x as WalletWithMetadata).address) ?? [];
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $wallet})
-        UNWIND $wallets as wallet
-        MERGE (user)-[:HAS_LINKED_WALLET]->(newWallet:LinkedWallet {address: wallet})
-        ON CREATE
-          SET newWallet.id = randomUUID(),
-            newWallet.createdTimestamp = timestamp()
-        ON MATCH
-          SET newWallet.updatedTimestamp = timestamp()
-        RETURN user
-        `,
-        { wallet, wallets },
-      );
+      await this.users.syncLinkedWallets(wallet, wallets);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -665,21 +476,18 @@ export class UserService {
   }
 
   private async create(dto: CreateUserDto): Promise<UserEntity> {
-    return this.models.Users.createOne(
-      {
-        id: randomUUID(),
+    return this.users
+      .createUser({
         privyId: dto.privyId ?? null,
         name: dto.name ?? null,
         available: false,
         wallet: dto.wallet,
         createdTimestamp: new Date().getTime(),
         updatedTimestamp: new Date().getTime(),
-      },
-      {
-        validate: false,
-      },
-    )
-      .then(res => (res ? new UserEntity(instanceToNode(res)) : undefined))
+      })
+      .then(user =>
+        user ? new UserEntity(user as unknown as User) : undefined,
+      )
       .catch(err => {
         Sentry.withScope(scope => {
           scope.setTags({
@@ -764,15 +572,7 @@ export class UserService {
   }
 
   async getActiveSubscriptions(wallet: string): Promise<string[]> {
-    const result = await this.neogma.queryRunner.run(
-      `
-        MATCH (user:User {wallet: $wallet})-[:OCCUPIES]->(seat:OrgUserSeat {seatType: "owner"})<-[:HAS_USER_SEAT]-(org:Organization)-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)
-        WHERE subscription.status = "active"
-        RETURN org.orgId as orgId
-      `,
-      { wallet },
-    );
-    return result.records.map(x => x.get("orgId"));
+    return this.users.getActiveSubscriptionOrganizationIds(wallet);
   }
 
   async deletePrivyUser(wallet: string): Promise<ResponseWithNoData> {
@@ -780,31 +580,7 @@ export class UserService {
       const userId = await this.getPrivyId(wallet);
       this.logger.log(`/user/deletePrivyUser ${userId}`);
       this.privyService.deletePrivyUser(userId);
-      await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $wallet})
-        OPTIONAL MATCH (user)-[:OCCUPIES]->(seat:OrgUserSeat {seatType: "owner"})<-[:HAS_USER_SEAT]-(:Organization)-[:HAS_SUBSCRIPTION]->(subscription:OrgSubscription)-[:HAS_QUOTA|HAS_PAYMENT|HAS_SERVICE]->(node)
-        OPTIONAL MATCH (user)-[:HAS_PENDING_PAYMENT|MADE_SUBSCRIPTION_PAYMENT|USED_QUOTA]->(nodes)
-        OPTIONAL MATCH (user)-[cr:HAS_CONTACT_INFO]->(contact: UserContactInfo)
-        OPTIONAL MATCH (user)-[lw:HAS_LINKED_WALLET]->(wallet:LinkedWallet)
-        OPTIONAL MATCH (user)-[pcr:HAS_PREFERRED_CONTACT_INFO]->(preferred: UserPreferredContactInfo)
-        OPTIONAL MATCH (user)-[rr:LEFT_REVIEW]->(:OrgReview)
-        OPTIONAL MATCH (user)-[gr:HAS_GITHUB_USER]->(:GithubUser)
-        OPTIONAL MATCH (user)-[scr:HAS_SHOWCASE]->(showcase:UserShowCase)
-        OPTIONAL MATCH (user)-[ul:HAS_LOCATION]->(location:UserLocation)
-        OPTIONAL MATCH (user)-[sr:HAS_SKILL]->(:Tag)
-        OPTIONAL MATCH (user)-[er:HAS_EMAIL]->(email:UserEmail|UserUnverifiedEmail)
-        OPTIONAL MATCH (user)-[ja:APPLIED_TO|BOOKMARKED|VIEWED_DETAILS]->()
-        OPTIONAL MATCH (user)-[ds:DID_SEARCH]->(search:SearchHistory)
-        OPTIONAL MATCH (user)-[cl:HAS_CACHE_LOCK]->(lock:UserCacheLock)
-        OPTIONAL MATCH (user)-[oa:OCCUPIES]->()
-        OPTIONAL MATCH (user)-[:HAS_ADJACENT_REPO]->(adjacentRepo: UserAdjacentRepo)
-        OPTIONAL MATCH (user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount)
-        OPTIONAL MATCH (user)-[:HAS_WORK_HISTORY]->(wh:UserWorkHistory)-[:WORKED_ON_REPO]->(whr:UserWorkHistoryRepo)
-        DETACH DELETE user, lw, wallet, pcr, cr, preferred, contact, rr, gr, scr, showcase, ul, location, sr, er, email, ja, ds, cl, search, lock, oa, wh, whr, adjacentRepo, account, seat, subscription, node, nodes
-      `,
-        { wallet },
-      );
+      await this.users.deleteUser(wallet);
       return {
         success: true,
         message: "User account deleted successfully",
@@ -828,14 +604,7 @@ export class UserService {
 
   async getOrgUserCount(orgId: string): Promise<number> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-          MATCH (u:User)-[:OCCUPIES|HAS_USER_SEAT]->(:Organization {orgId: $orgId})
-          RETURN COUNT(u) AS count
-        `,
-        { orgId },
-      );
-      return Number(result.records[0]?.get("count") ?? 0);
+      return await this.users.countOrganizationUsers(orgId);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -874,24 +643,11 @@ export class UserService {
           if (org) {
             if (org.credential === "email") {
               this.logger.log("User is verified for org by email");
-              await this.neogma.queryRunner.run(
-                `
-                  CREATE (seat: OrgUserSeat {id: randomUUID(), seatType: $seatType, seatId: $seatId})
-
-                  WITH seat
-                  MATCH (org:Organization {orgId: $orgId}), (user:User {wallet: $wallet})
-                  MERGE (user)-[:OCCUPIES]->(seat)<-[:HAS_USER_SEAT]-(org)
-                  ON CREATE SET
-                    seat.createdTimestamp = timestamp()
-                  ON MATCH SET
-                    seat.updatedTimestamp = timestamp()
-                `,
-                {
-                  seatType: isOwner ? "owner" : "member",
-                  seatId,
-                  orgId,
-                  wallet,
-                },
+              await this.users.addOrganizationSeat(
+                orgId,
+                wallet,
+                isOwner ? "owner" : "member",
+                seatId,
               );
               const userPermissions =
                 await this.permissionService.getPermissionsForWallet(wallet);
@@ -957,13 +713,7 @@ export class UserService {
   }
 
   async removeOrgUser(orgId: string, wallet: string): Promise<void> {
-    await this.neogma.queryRunner.run(
-      `
-        MATCH (user:User {wallet: $wallet})-[r:OCCUPIES]->(:OrgUserSeat)-[:HAS_USER_SEAT]->(:Organization {orgId: $orgId})
-        DELETE r
-      `,
-      { orgId, wallet },
-    );
+    await this.users.removeOrganizationSeat(orgId, wallet);
   }
 
   async transferOrgSeat(
@@ -972,19 +722,11 @@ export class UserService {
     toWallet: string,
   ): Promise<void> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        MATCH (user:User {wallet: $fromWallet})-[r:OCCUPIES]->(seat:OrgUserSeat)-[:HAS_USER_SEAT]->(:Organization {orgId: $orgId})
-        DELETE r
-
-        WITH seat
-        MATCH (user2:User {wallet: $toWallet})
-        MERGE (user2)-[:OCCUPIES]->(seat)
-        RETURN seat
-      `,
-        { orgId, fromWallet, toWallet },
+      const seat = await this.users.transferOrganizationSeat(
+        orgId,
+        fromWallet,
+        toWallet,
       );
-      const seat = result.records[0]?.get("seat");
       if (seat) {
         const fromPermissions = (await this.getUserPermissions(fromWallet))
           .map(x => x.name)
@@ -1026,30 +768,17 @@ export class UserService {
   }
 
   async getCryptoNativeStatus(wallet: string): Promise<boolean | undefined> {
-    const initial = await this.neogma.queryRunner
-      .run(
-        `
-          MATCH (u:User {wallet: $wallet})
-          RETURN u.cryptoNative as cryptoNative
-        `,
-        { wallet },
-      )
-      .then(res =>
-        res.records.length
-          ? (res.records[0].get("cryptoNative") as boolean)
-          : undefined,
-      )
-      .catch(err => {
-        Sentry.withScope(scope => {
-          scope.setTags({
-            action: "db-call",
-            source: "user.service",
-          });
-          Sentry.captureException(err);
+    const initial = await this.users.getCryptoNative(wallet).catch(err => {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "db-call",
+          source: "user.service",
         });
-        this.logger.error(`UserService::getCryptoNativeStatus ${err.message}`);
-        return undefined;
+        Sentry.captureException(err);
       });
+      this.logger.error(`UserService::getCryptoNativeStatus ${err.message}`);
+      return undefined;
+    });
 
     if (initial === undefined) {
       await this.profileService.getUserWorkHistory(wallet);
@@ -1074,18 +803,12 @@ export class UserService {
     orgId: string,
   ): Promise<ResponseWithOptionalData<TalentList[]>> {
     try {
-      const result = await this.neogma.queryRunner.run(
-        `
-        MATCH (org:Organization {orgId: $orgId})-[:HAS_TALENT_LIST]->(list:TalentList)
-        RETURN list { .* } as list
-      `,
-        { orgId },
-      );
+      const lists = await this.users.getTalentLists(orgId);
       return {
         success: true,
         message: "Talent lists retrieved successfully",
-        data: result.records.map(record =>
-          new TalentListEntity(record.get("list")).getProperties(),
+        data: lists.map(list =>
+          new TalentListEntity(list as unknown as TalentList).getProperties(),
         ),
       };
     } catch (error) {
@@ -1112,43 +835,27 @@ export class UserService {
     const normalizedName = slugify(name);
 
     try {
-      const existing = await this.neogma.queryRunner.run(
-        `
-        MATCH (:Organization {orgId: $orgId})-[:HAS_TALENT_LIST]->(list:TalentList {normalizedName: $normalizedName})
-        RETURN list
-      `,
-        { orgId, normalizedName },
+      const created = await this.users.createTalentList(
+        orgId,
+        name,
+        body.description,
       );
-
-      if (existing.records.length > 0) {
+      if (created.status === "conflict") {
         throw new BadRequestException({
           success: false,
           message: "A talent list with that name already exists",
         });
       }
 
-      const result = await this.neogma.queryRunner.run(
-        `
-        MATCH (org:Organization {orgId: $orgId})
-        MERGE (list:TalentList {normalizedName: $normalizedName})
-        ON CREATE SET
-          list.id = randomUUID(),
-          list.name = $name,
-          list.description = $description,
-          list.createdTimestamp = timestamp()
-        ON MATCH SET
-          list.updatedTimestamp = timestamp()
-        MERGE (org)-[:HAS_TALENT_LIST]->(list)
-        RETURN list { .* } as list
-      `,
-        { orgId, ...body, normalizedName },
-      );
+      if (created.status !== "created" || !created.properties) {
+        throw new NotFoundException("Organization not found");
+      }
 
       return {
         success: true,
         message: "Talent list created successfully",
         data: new TalentListEntity(
-          result.records[0].get("list"),
+          created.properties as unknown as TalentList,
         ).getProperties(),
       };
     } catch (error) {
@@ -1172,115 +879,15 @@ export class UserService {
     orgId: string,
     normalizedName: string,
   ): Promise<ResponseWithOptionalData<TalentListWithUsers>> {
-    const result = await this.neogma.queryRunner.run(
-      `
-        MATCH (org:Organization {orgId: $orgId})-[:HAS_TALENT_LIST]->(list:TalentList {normalizedName: $normalizedName})
-            
-        OPTIONAL MATCH (list)-[:HAS_TALENT]->(user:User)
-        WHERE user.available
-          AND NOT EXISTS { (user)-[:VERIFIED_FOR_ORG]->(org) }
-            
-        WITH list, org, user
-            
-        OPTIONAL MATCH (user)-[app:APPLIED_TO]->(job:StructuredJobpost)
-        WITH list, org,
-            collect(DISTINCT user) AS users,
-            collect(DISTINCT job) AS jobs,
-            max(app.createdTimestamp) AS lastAppliedTimestamp
-            
-        CALL {
-          WITH jobs
-          UNWIND jobs AS j
-          OPTIONAL MATCH (j)-[:HAS_CLASSIFICATION]->(c:JobpostClassification)
-          WITH collect(c.name) AS names
-          RETURN apoc.map.fromPairs(
-            [n IN apoc.coll.toSet(names) |
-              [n, size([x IN names WHERE x = n])]]
-            ) AS classFreq
-        }
-
-        CALL {
-          WITH jobs
-          UNWIND jobs AS j
-          OPTIONAL MATCH (j)-[:HAS_TAG]->(tag:Tag)
-          OPTIONAL MATCH (tag)-[:HAS_TAG_DESIGNATION]->(d:TagDesignation)
-          OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(syn:Tag)-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
-          OPTIONAL MATCH (tag)-[:IS_PAIR_OF]->(pair:Tag)-[:HAS_TAG_DESIGNATION]->(:PairedDesignation)
-          WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
-            AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-            AND (d:AllowedDesignation OR d:DefaultDesignation)
-          WITH collect(
-            CASE
-              WHEN syn  IS NOT NULL THEN syn.name
-              WHEN pair IS NOT NULL THEN pair.name
-              ELSE tag.name
-            END) AS names
-          RETURN apoc.map.fromPairs(
-                [n IN apoc.coll.toSet(names) |
-                  [n, size([x IN names WHERE x = n])]]
-              ) AS tagFreq
-        }
-
-        CALL {
-          WITH users, lastAppliedTimestamp, classFreq, tagFreq
-          UNWIND users AS user
-          RETURN collect({
-              id: user.id,
-              wallet: user.wallet,
-              cryptoNative: user.cryptoNative,
-              cryptoAdjacent: user.cryptoAdjacent,
-              attestations: {upvotes: null, downvotes: null},
-              note: [
-                (user)-[:HAS_RECRUITER_NOTE]->(n:RecruiterNote)
-                <-[:HAS_TALENT_NOTE]-(org) | n.note
-              ][0],
-              availableForWork: user.available,
-              name: user.name,
-              githubAvatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-              alternateEmails: [(user)-[:HAS_EMAIL]->(e:UserEmail) | e.email],
-              linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(a) | a { .* }][0],
-              wallets: [(user)-[:HAS_LINKED_WALLET]->(w) | w.address],
-              location: [(user)-[:HAS_LOCATION]->(loc:UserLocation) | loc { .* }][0],
-              skills: apoc.coll.toSet([
-                (user)-[r:HAS_SKILL]->(t:Tag) |
-                  t { .*, canTeach: r.canTeach }
-              ]),
-              showcases: apoc.coll.toSet([
-                (user)-[:HAS_SHOWCASE]->(s) | s { .* }
-              ]),
-              workHistory: apoc.coll.toSet([
-                (user)-[:HAS_WORK_HISTORY]->(wh:UserWorkHistory) |
-                  wh {
-                    .*, 
-                    repositories: apoc.coll.toSet([
-                      (wh)-[:WORKED_ON_REPO]->(r:UserWorkHistoryRepo) | r { .* }
-                    ])
-                  }
-              ]),
-              jobCategoryInterests: [
-                k IN keys(classFreq) |
-                  {classification: k, frequency: classFreq[k]}
-              ],
-              tags: [
-                k IN keys(tagFreq) |
-                  {tag: k, frequency: tagFreq[k]}
-              ],
-              lastAppliedTimestamp: lastAppliedTimestamp
-            }) AS parsedUsers
-        }
-        WITH list, parsedUsers
-        RETURN list { .*, users: parsedUsers }
-      `,
-      { orgId, normalizedName },
-    );
-
-    const list = result.records[0]?.get("list");
+    const list = await this.users.getTalentList(orgId, normalizedName);
 
     if (list) {
       return {
         success: true,
         message: "Talent list retrieved successfully",
-        data: new TalentListWithUsersEntity(list).getProperties(),
+        data: new TalentListWithUsersEntity(
+          list as unknown as TalentListWithUsers,
+        ).getProperties(),
       };
     } else {
       throw new NotFoundException({
@@ -1296,33 +903,21 @@ export class UserService {
     body: UpdateTalentListNameInput,
   ): Promise<ResponseWithOptionalData<TalentList>> {
     const { name, description } = body;
-    const newNormalizedName = slugify(name);
 
-    const existing = await this.neogma.queryRunner.run(
-      `
-        MATCH (:Organization {orgId: $orgId})-[:HAS_TALENT_LIST]->(list:TalentList {normalizedName: $normalizedName})
-        RETURN list
-      `,
-      { orgId, normalizedName: newNormalizedName },
+    const updated = await this.users.updateTalentList(
+      orgId,
+      normalizedName,
+      name,
+      description,
     );
-
-    if (existing.records.length > 0 && normalizedName !== newNormalizedName) {
+    if (updated.status === "conflict") {
       return {
         success: false,
         message: "A talent list with that name already exists",
       };
     }
 
-    const result = await this.neogma.queryRunner.run(
-      `
-        MATCH (:Organization {orgId: $orgId})-[:HAS_TALENT_LIST]->(list:TalentList {normalizedName: $normalizedName})
-        SET list.name = $name, list.normalizedName = $newNormalizedName, list.description = $description, list.updatedTimestamp = timestamp()
-        RETURN list { .* } as list
-      `,
-      { orgId, normalizedName, name, newNormalizedName, description },
-    );
-
-    if (result.records.length === 0) {
+    if (updated.status === "not_found" || !updated.properties) {
       throw new NotFoundException({
         success: false,
         message: "Talent list not found",
@@ -1332,7 +927,9 @@ export class UserService {
     return {
       success: true,
       message: "Talent list updated successfully",
-      data: new TalentListEntity(result.records[0].get("list")).getProperties(),
+      data: new TalentListEntity(
+        updated.properties as unknown as TalentList,
+      ).getProperties(),
     };
   }
 
@@ -1340,13 +937,7 @@ export class UserService {
     orgId: string,
     normalizedName: string,
   ): Promise<ResponseWithNoData> {
-    await this.neogma.queryRunner.run(
-      `
-        MATCH (:Organization {orgId: $orgId})-[:HAS_TALENT_LIST]->(list:TalentList {normalizedName: $normalizedName})
-        DETACH DELETE list
-      `,
-      { orgId, normalizedName },
-    );
+    await this.users.deleteTalentList(orgId, normalizedName);
 
     return {
       success: true,
@@ -1361,19 +952,7 @@ export class UserService {
   ): Promise<ResponseWithOptionalData<TalentListWithUsers>> {
     const { wallets } = body;
     try {
-      await this.neogma.queryRunner.run(
-        `
-          MATCH (org:Organization {orgId: $orgId})-[:HAS_TALENT_LIST]->(list:TalentList {normalizedName: $normalizedName})
-          OPTIONAL MATCH (list)-[r:HAS_TALENT]->(user:User)
-          DELETE r
-
-          WITH list
-          UNWIND $wallets AS wallet
-          MATCH (user:User {wallet: wallet, available: true})
-          MERGE (list)-[:HAS_TALENT]->(user)
-        `,
-        { orgId, wallets, normalizedName },
-      );
+      await this.users.replaceTalentListUsers(orgId, normalizedName, wallets);
       const updated = await this.getTalentList(orgId, normalizedName);
       return {
         success: updated.success,
@@ -1399,31 +978,14 @@ export class UserService {
   }
 
   async findAll(): Promise<UserProfile[]> {
-    return this.neogma.queryRunner
-      .run(
-        `
-          MATCH (user:User)
-          RETURN user {
-            .*,
-            githubAvatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-            alternateEmails: [(user)-[:HAS_EMAIL]->(email:UserEmail) | email.email],
-            location: [(user)-[:HAS_LOCATION]->(location: UserLocation) | location { .* }][0],
-            linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(account: LinkedAccount) | account { .* }][0],
-            wallets: [(user)-[:HAS_LINKED_WALLET]->(wallet:LinkedWallet) | wallet.address]
-          } as user
-        `,
-      )
-      .then(res =>
-        res.records.map(record => {
-          const user = record.get("user");
-          return new UserProfileEntity({
-            ...user,
-            linkedAccounts: {
-              ...user.linkedAccounts,
-              wallets: user.wallets,
-            },
-          }).getProperties();
-        }),
+    return this.users
+      .getAllProfiles()
+      .then(profiles =>
+        profiles.map(profile =>
+          new UserProfileEntity(
+            profile as unknown as UserProfile,
+          ).getProperties(),
+        ),
       )
       .catch(err => {
         Sentry.withScope(scope => {
@@ -1444,8 +1006,8 @@ export class UserService {
   ): Promise<ResponseWithOptionalData<UserAvailableForWork[]>> {
     try {
       const paramsPassed = {
-        city: params.city ? new RegExp(params.city, "gi") : null,
-        country: params.country ? new RegExp(params.country, "gi") : null,
+        city: params.city ? new RegExp(params.city, "i") : null,
+        country: params.country ? new RegExp(params.country, "i") : null,
       };
 
       const { city, country } = paramsPassed;
@@ -1458,100 +1020,18 @@ export class UserService {
         return cityMatch && countryMatch;
       };
 
-      const users = await this.neogma.queryRunner
-        .run(
-          `
-            MATCH (user:User)
-            WHERE user.available = true
-              AND (
-                $orgId IS NULL
-                OR NOT EXISTS { (user)-[:VERIFIED_FOR_ORG]->(:Organization {orgId:$orgId}) }
-              )
-            OPTIONAL MATCH (user)-[app:APPLIED_TO]->(job:StructuredJobpost)
-            WITH DISTINCT user,
-                coalesce(collect(DISTINCT job), []) AS jobs,
-                max(app.createdTimestamp) AS lastAppliedTimestamp
-            CALL {
-              WITH jobs
-              WITH CASE WHEN size(jobs) = 0 THEN [NULL] ELSE jobs END AS jlist
-              UNWIND jlist AS job
-              OPTIONAL MATCH (job)-[:HAS_CLASSIFICATION]->(c:JobpostClassification)
-              WITH collect(c.name) AS names
-              RETURN apoc.map.fromPairs(
-                [n IN apoc.coll.toSet(names) |
-                  [n, size([x IN names WHERE x = n])]]
-              ) AS classificationFrequencies
-            }
-            CALL {
-              WITH jobs
-              WITH CASE WHEN size(jobs) = 0 THEN [NULL] ELSE jobs END AS jlist
-              UNWIND jlist AS job
-              OPTIONAL MATCH (job)-[:HAS_TAG]->(tag:Tag)
-              OPTIONAL MATCH (tag)-[:HAS_TAG_DESIGNATION]->(d:TagDesignation)
-              OPTIONAL MATCH (tag)-[:IS_SYNONYM_OF]-(syn:Tag)-[:HAS_TAG_DESIGNATION]->(:PreferredDesignation)
-              OPTIONAL MATCH (tag)-[:IS_PAIR_OF]->(pair:Tag)-[:HAS_TAG_DESIGNATION]->(:PairedDesignation)
-              WHERE NOT (tag)-[:IS_PAIR_OF|IS_SYNONYM_OF]-(:Tag)--(:BlockedDesignation)
-                AND NOT (tag)-[:HAS_TAG_DESIGNATION]-(:BlockedDesignation)
-                AND (d:AllowedDesignation OR d:DefaultDesignation)
-              WITH collect(
-                CASE
-                  WHEN syn IS NOT NULL THEN syn.name
-                  WHEN pair IS NOT NULL THEN pair.name
-                  ELSE tag.name
-                END
-              ) AS names
-              RETURN apoc.map.fromPairs(
-                [n IN apoc.coll.toSet(names) |
-                  [n, size([x IN names WHERE x = n])]]
-              ) AS tagFrequencies
-            }
-            WITH DISTINCT user, lastAppliedTimestamp, classificationFrequencies, tagFrequencies
-            RETURN {
-              wallet: user.wallet,
-              cryptoNative: user.cryptoNative,
-              cryptoAdjacent: user.cryptoAdjacent,
-              attestations: { upvotes: null, downvotes: null },
-              note: [
-                (user)-[:HAS_RECRUITER_NOTE]->(n:RecruiterNote)
-                <-[:HAS_TALENT_NOTE]-(:Organization {orgId:$orgId}) | n.note
-              ][0],
-              availableForWork: user.available,
-              name: user.name,
-              githubAvatar: [(user)-[:HAS_GITHUB_USER]->(gu:GithubUser) | gu.avatarUrl][0],
-              alternateEmails: [(user)-[:HAS_EMAIL]->(e:UserEmail) | e.email],
-              linkedAccounts: [(user)-[:HAS_LINKED_ACCOUNT]->(a) | a { .* }][0],
-              wallets: [(user)-[:HAS_LINKED_WALLET]->(w) | w.address],
-              location: [(user)-[:HAS_LOCATION]->(loc:UserLocation) | loc { .* }][0],
-              skills: apoc.coll.toSet([
-                (user)-[r:HAS_SKILL]->(t:Tag) |
-                  t { .*, canTeach: r.canTeach }
-              ]),
-              showcases: apoc.coll.toSet([
-                (user)-[:HAS_SHOWCASE]->(s) | s { .* }
-              ]),
-              workHistory: apoc.coll.toSet([
-                (user)-[:HAS_WORK_HISTORY]->(wh:UserWorkHistory) |
-                  wh {
-                    .*, 
-                    repositories: apoc.coll.toSet([
-                      (wh)-[:WORKED_ON_REPO]->(r:UserWorkHistoryRepo) | r { .* }
-                    ])
-                  }
-              ]),
-              jobCategoryInterests: [
-                k IN keys(classificationFrequencies) |
-                  { classification: k, frequency: classificationFrequencies[k] }
-              ],
-              tags: [
-                k IN keys(tagFrequencies) |
-                  { tag: k, frequency: tagFrequencies[k] }
-              ],
-              lastAppliedTimestamp: lastAppliedTimestamp
-            } AS user
-          `,
-          { orgId: orgId ?? null },
+      const users = await this.users
+        .getAvailableUsers(orgId)
+        .then(profiles =>
+          profiles
+            .map(profile =>
+              new UserAvailableForWorkEntity({
+                ...(profile as unknown as UserAvailableForWork),
+                ecosystemActivations: [],
+              }).getProperties(),
+            )
+            .filter(locationFilter),
         )
-        .then(res => res.records.map(x => x.get("user")).filter(locationFilter))
         .catch(err => {
           Sentry.withScope(scope => {
             scope.setTags({
@@ -1569,18 +1049,7 @@ export class UserService {
       return {
         success: true,
         message: "Users available for work retrieved successfully",
-        data: sort(
-          users.map(user =>
-            new UserAvailableForWorkEntity({
-              ...user,
-              linkedAccounts: {
-                ...user.linkedAccounts,
-                wallets: user.wallets,
-              },
-              ecosystemActivations: [],
-            }).getProperties(),
-          ),
-        ).by([
+        data: sort(users).by([
           { desc: (user): boolean => user.cryptoNative },
           { desc: (user): boolean => user.cryptoAdjacent },
           { desc: (user): number => user.workHistory.length ?? 0 },
@@ -1654,45 +1123,31 @@ export class UserService {
     note: string,
     orgId: string,
   ): Promise<ResponseWithNoData> {
-    return (
-      this.neogma.queryRunner
-        .run(
-          `
-          MATCH (u:User {wallet: $wallet}), (org:Organization {orgId: $orgId})
-          MERGE (u)-[:HAS_RECRUITER_NOTE]->(note:RecruiterNote)<-[:HAS_TALENT_NOTE]-(org)
-          ON CREATE SET
-            note.id = randomUUID(),
-            note.note = $note,
-            note.createdTimestamp = timestamp()
-          ON MATCH SET
-            note.note = $note,
-            note.updatedTimestamp = timestamp()
-
-        `,
-          { wallet, note, orgId },
-        )
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .then(_ => {
+    return this.users
+      .setRecruiterNote(wallet, note, orgId)
+      .then(updated => {
+        if (updated) {
           return {
             success: true,
             message: "Set user note successfully",
           };
-        })
-        .catch(err => {
-          Sentry.withScope(scope => {
-            scope.setTags({
-              action: "db-call",
-              source: "user.service",
-            });
-            Sentry.captureException(err);
+        }
+        return { success: false, message: "Setting user note failed" };
+      })
+      .catch(err => {
+        Sentry.withScope(scope => {
+          scope.setTags({
+            action: "db-call",
+            source: "user.service",
           });
-          this.logger.error(`UserService::addUserNote ${err.message}`);
-          return {
-            success: false,
-            message: "Setting user note failed",
-          };
-        })
-    );
+          Sentry.captureException(err);
+        });
+        this.logger.error(`UserService::addUserNote ${err.message}`);
+        return {
+          success: false,
+          message: "Setting user note failed",
+        };
+      });
   }
 
   async updateLinkedAccounts(
