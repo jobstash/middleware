@@ -264,7 +264,6 @@ export class ProjectEntity {
   }
 
   getProperties(): ProjectWithRelations {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { ...properties } = this.properties;
     return properties as unknown as ProjectWithRelations;
   }

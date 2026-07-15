@@ -160,7 +160,10 @@ describePostgres("TagsService PostgreSQL integration", () => {
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  async function createTag(name: string, normalizedName: string) {
+  async function createTag(
+    name: string,
+    normalizedName: string,
+  ): ReturnType<TagsService["create"]> {
     return service.create({ name, normalizedName }, "0xtest");
   }
 

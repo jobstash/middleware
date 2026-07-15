@@ -15,7 +15,6 @@ import {
   toAbsoluteURL,
 } from "src/shared/helpers";
 import {
-  Investor,
   Jobsite,
   PaginatedData,
   Project,
@@ -47,7 +46,6 @@ import { ProjectListParams } from "./dto/project-list.input";
 import { UpdateProjectJobsitesInput } from "./dto/update-project-jobsites.input";
 import { UpdateProjectInput } from "./dto/update-project.input";
 import { SearchProjectsInput } from "./dto/search-projects.input";
-import { go } from "fuzzysort";
 import {
   EvSitemapProject,
   SearchDocumentRepository,
@@ -500,17 +498,17 @@ export class ProjectsService {
   async create(project: CreateProjectInput): Promise<ProjectMoreInfoEntity> {
     try {
       const id = randomUUID();
-      const {
-        orgId: _orgId,
-        category: _category,
-        website,
-        discord,
-        docs,
-        telegram,
-        github,
-        twitter,
-        ...base
-      } = project;
+      const { website, discord, docs, telegram, github, twitter } = project;
+      const base = omit(project, [
+        "orgId",
+        "category",
+        "website",
+        "discord",
+        "docs",
+        "telegram",
+        "github",
+        "twitter",
+      ]);
       const properties = {
         ...base,
         id,

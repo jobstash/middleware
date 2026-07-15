@@ -332,8 +332,9 @@ export class TagsService {
   async unlinkSynonyms(
     originTagNormalizedName: string,
     synonymNormalizedName: string,
-    _synonymSuggesterWallet: string,
+    synonymSuggesterWallet: string,
   ): Promise<Tag[]> {
+    void synonymSuggesterWallet;
     const first = await this.tags.findByNormalizedName(originTagNormalizedName);
     const second = await this.tags.findByNormalizedName(synonymNormalizedName);
     if (!first || !second) return [];
@@ -408,10 +409,7 @@ export class TagsService {
       const matches = await this.tags.fuzzyMatches([query], 20, true);
       return [...matches]
         .sort((first, second) => second.score - first.score)
-        .map(
-          ({ input: _input, score: _score, jobCount: _jobCount, ...tag }) =>
-            new Tag(tag),
-        );
+        .map(match => new Tag(match));
     } catch (error) {
       this.captureDatabaseError("searchTags", error);
       return [];

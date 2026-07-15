@@ -140,9 +140,7 @@ export class JobFilterConfigsEntity {
       ),
       token: this.getSingleSelectPresets("token"),
       onboardIntoWeb3: this.getSingleSelectPresets("onboardIntoWeb3"),
-      expertJobs: this.getSingleSelectPresets(
-        "expertJobs",
-      ),
+      expertJobs: this.getSingleSelectPresets("expertJobs"),
       order: this.getSingleSelectPresets("order"),
       orderBy: this.getSingleSelectPresets("orderBy"),
     });

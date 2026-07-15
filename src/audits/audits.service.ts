@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import * as Sentry from "@sentry/node";
-import { GraphRepository } from "src/postgres/graph.repository";
+import {
+  GraphNodeRecord,
+  GraphRepository,
+} from "src/postgres/graph.repository";
 import { SearchDocumentRepository } from "src/postgres/search-document.repository";
 import { AuditEntity } from "src/shared/entities";
 import { Audit, Response, ResponseWithNoData } from "src/shared/interfaces";
@@ -143,7 +146,9 @@ export class AuditsService {
     }
   }
 
-  private relatedProjects(id: string) {
+  private relatedProjects(
+    id: string,
+  ): Promise<GraphNodeRecord<Record<string, unknown>>[]> {
     return this.graph.findRelatedNodes<Record<string, unknown>>({
       sourceLabel: "Audit",
       sourceWhere: { id },

@@ -302,7 +302,10 @@ describePostgres("TagRepository PostgreSQL integration", () => {
     );
   });
 
-  async function createTag(name: string, normalizedName: string) {
+  async function createTag(
+    name: string,
+    normalizedName: string,
+  ): ReturnType<TagRepository["createTag"]> {
     return repository.createTag({ name, normalizedName }, "0xtest");
   }
 
@@ -354,7 +357,10 @@ describePostgres("TagRepository PostgreSQL integration", () => {
       shortUUID: shortUuid,
       title: "Engineer",
     });
-    const tagRows = await postgres.query<{ id: string; normalizedName: string }>(
+    const tagRows = await postgres.query<{
+      id: string;
+      normalizedName: string;
+    }>(
       `
         SELECT
           properties ->> 'id' AS id,

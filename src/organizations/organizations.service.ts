@@ -16,7 +16,6 @@ import {
   Organization,
   ShortOrgWithSummary,
   OrgDetailsResult,
-  OrgProject,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -25,11 +24,9 @@ import {
   ensureProtocol,
   isValidUrl,
   slugify,
-  paginate,
   toAbsoluteURL,
   toShortOrg,
   toShortOrgWithSummary,
-  naturalSort,
 } from "src/shared/helpers";
 import {
   OrganizationEntity,
@@ -56,8 +53,6 @@ import axios from "axios";
 import { Auth0Service } from "src/auth0/auth0.service";
 import { ImportOrgJobsiteInput } from "./dto/import-organization-jobsites.input";
 import { SearchOrganizationsInput } from "./dto/search-organizations.input";
-import { uniq } from "lodash";
-import { go } from "fuzzysort";
 import {
   EvSitemapOrganization,
   SearchDocumentRepository,

@@ -121,7 +121,7 @@ describePostgres("HacksService PostgreSQL integration", () => {
     expect(row.count).toBe("0");
   });
 
-  const createHack = () =>
+  const createHack = (): ReturnType<HacksService["create"]> =>
     service.create("0xcreator", {
       projectId: "project-1",
       defiId: "hack-defi",

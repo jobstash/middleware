@@ -25,7 +25,6 @@ describePostgres("UserRepository PostgreSQL integration", () => {
   };
   let privyService: { deletePrivyUser: jest.Mock };
   let userOneId: string;
-  let userTwoId: string;
   let organizationId: string;
   let jobId: string;
   let now: number;
@@ -77,7 +76,7 @@ describePostgres("UserRepository PostgreSQL integration", () => {
       cryptoAdjacent: false,
       createdTimestamp: now,
     });
-    userTwoId = await createNode("User", "user:two", {
+    await createNode("User", "user:two", {
       id: "user-two-id",
       wallet: "0xUserTwo",
       privyId: "privy-two",

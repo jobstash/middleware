@@ -129,7 +129,7 @@ describePostgres("AuditsService PostgreSQL integration", () => {
     expect(row.count).toBe("0");
   });
 
-  const createAudit = () =>
+  const createAudit = (): ReturnType<AuditsService["create"]> =>
     service.create("0xcreator", {
       projectId: "project-1",
       name: "Security Review",

@@ -998,17 +998,18 @@ export class SearchService {
     const totalBudget = 9;
     const totalJobs = jobs.length;
     const usePenalty = totalJobs > 3;
+    type ExtractedPillar = { label: string; key: string };
     const configs = [
       {
         pillarType: "tags",
         prefix: "/t-",
-        extract: (job: PillarJob) =>
+        extract: (job: PillarJob): ExtractedPillar[] =>
           job.tags.map(tag => ({ label: tag.name, key: tag.normalizedName })),
       },
       {
         pillarType: "organizations",
         prefix: "/o-",
-        extract: (job: PillarJob) =>
+        extract: (job: PillarJob): ExtractedPillar[] =>
           job.organization
             ? [
                 {
@@ -1021,7 +1022,7 @@ export class SearchService {
       {
         pillarType: "classifications",
         prefix: "/cl-",
-        extract: (job: PillarJob) =>
+        extract: (job: PillarJob): ExtractedPillar[] =>
           job.classification
             ? [{ label: job.classification, key: slugify(job.classification) }]
             : [],
@@ -1029,7 +1030,7 @@ export class SearchService {
       {
         pillarType: "locations",
         prefix: "/l-",
-        extract: (job: PillarJob) =>
+        extract: (job: PillarJob): ExtractedPillar[] =>
           job.location
             ? [{ label: job.location, key: slugify(job.location) }]
             : [],
@@ -1037,7 +1038,7 @@ export class SearchService {
       {
         pillarType: "investors",
         prefix: "/i-",
-        extract: (job: PillarJob) =>
+        extract: (job: PillarJob): ExtractedPillar[] =>
           (job.organization?.investors ?? []).map(investor => ({
             label: investor.name,
             key: investor.normalizedName,
@@ -1046,7 +1047,7 @@ export class SearchService {
       {
         pillarType: "fundingRounds",
         prefix: "/fr-",
-        extract: (job: PillarJob) =>
+        extract: (job: PillarJob): ExtractedPillar[] =>
           (job.organization?.fundingRounds ?? []).flatMap(round =>
             round.roundName
               ? [{ label: round.roundName, key: slugify(round.roundName) }]

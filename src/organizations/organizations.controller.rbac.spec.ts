@@ -4,8 +4,21 @@ import { OrganizationsController } from "./organizations.controller";
 import { CheckWalletPermissions } from "src/shared/constants";
 import { data, SessionObject } from "src/shared/types";
 
+type OrganizationsControllerFixture = {
+  controller: OrganizationsController;
+  organizationsService: {
+    findByOrgId: jest.Mock;
+    getOrgById: jest.Mock;
+    update: jest.Mock;
+  };
+  userService: {
+    isOrgMember: jest.Mock;
+    isOrgOwner: jest.Mock;
+  };
+};
+
 describe("OrganizationsController RBAC", () => {
-  const buildController = () => {
+  const buildController = (): OrganizationsControllerFixture => {
     const userService = {
       isOrgMember: jest.fn(),
       isOrgOwner: jest.fn(),

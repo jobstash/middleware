@@ -15,10 +15,12 @@ import Stripe from "stripe";
 import { GraphRepository } from "./graph.repository";
 import { PostgresService } from "./postgres.service";
 import {
+  SubscriptionPaymentWrite,
   SubscriptionQuotaWrite,
   SubscriptionRepository,
   SubscriptionServiceWrite,
 } from "./subscription.repository";
+import { SubscriptionMetadata } from "src/stripe/dto/webhook-data.dto";
 
 const describePostgres =
   process.env.RUN_POSTGRES_INTEGRATION === "1" ? describe : describe.skip;
@@ -535,7 +537,9 @@ describePostgres("SubscriptionRepository PostgreSQL integration", () => {
     });
   }
 
-  async function createPendingPayment() {
+  async function createPendingPayment(): ReturnType<
+    SubscriptionRepository["getPendingPayment"]
+  > {
     await repository.createPendingPayment({
       wallet: "0xSubscriber",
       orgId: "subscription-org",
@@ -559,7 +563,7 @@ describePostgres("SubscriptionRepository PostgreSQL integration", () => {
     await service.createNewSubscription(paidDto(), "sub_service");
   }
 
-  function paidDto() {
+  function paidDto(): SubscriptionMetadata {
     return {
       wallet: "0xSubscriber",
       orgId: "subscription-org",
@@ -624,7 +628,10 @@ describePostgres("SubscriptionRepository PostgreSQL integration", () => {
     };
   }
 
-  function payment(action: string, externalRefCode: string) {
+  function payment(
+    action: string,
+    externalRefCode: string,
+  ): SubscriptionPaymentWrite {
     return {
       amount: 2500,
       action,

@@ -4,7 +4,6 @@ import * as Sentry from "@sentry/node";
 import { GraphRepository } from "src/postgres/graph.repository";
 import {
   GithubUser,
-  GithubUserEntity,
   GithubUserEntity as GithubUserNode,
   Response,
   ResponseWithNoData,

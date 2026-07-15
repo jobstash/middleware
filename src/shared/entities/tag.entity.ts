@@ -23,7 +23,6 @@ export class TagEntity {
     return this.properties.name as string;
   }
   getProperties(): Tag {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { ...properties } = this.properties;
 
     return {
