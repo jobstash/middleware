@@ -12,7 +12,7 @@ RUN corepack enable && corepack prepare yarn@1.22.22 --activate
 
 # 1) Install (with dev) to build
 COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
+RUN yarn install --frozen-lockfile --production=false
 
 # 2) Build
 COPY . .
