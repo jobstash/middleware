@@ -67,6 +67,7 @@ import { PostgresModule } from "./postgres/postgres.module";
         redis: {
           host: configService.get<string>("REDIS_HOST"),
           port: configService.get<number>("REDIS_PORT"),
+          password: configService.get<string>("REDIS_PASSWORD"),
         },
       }),
     }),

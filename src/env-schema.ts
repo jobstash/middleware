@@ -45,6 +45,7 @@ const envSchema = Joi.object({
   PRIVY_APP_SECRET: Joi.string().required(),
   PRIVY_WEBHOOK_KEY: Joi.string().required(),
   REDIS_HOST: Joi.string().required(),
+  REDIS_PASSWORD: Joi.string().allow("").optional(),
   REDIS_PORT: Joi.number().required(),
   REPORT_CONTENT_TO_EMAIL: Joi.string().required(),
   SCORER_API_KEY: Joi.string().required(),
