@@ -573,7 +573,7 @@ const resolveOperation = (
   runtimeCase: RuntimeCase,
 ): OperationEntry => {
   const method = runtimeCase.method ?? "GET";
-  const path = new URL(runtimeCase.path, "http://parity.local").pathname;
+  const path = new URL(runtimeCase.path, "https://parity.invalid").pathname;
   const exactMatches = entries.filter(
     entry => entry.method === method && entry.path === path,
   );
@@ -870,7 +870,7 @@ const compareResponseBodies = (
     missingTypes.push(`data[]:${identityKey}:identity-drift-exceeded`);
   }
 
-  const requestUrl = new URL(runtimeCase.path, "http://parity.local");
+  const requestUrl = new URL(runtimeCase.path, "https://parity.invalid");
   const productionTruncated =
     runtimeCase.allowProductionTruncation === true &&
     truncatedProductionCollection({
@@ -994,7 +994,7 @@ const normalizeSemantic = (
     return Object.fromEntries(
       Object.keys(value)
         .filter(key => !ignoredKeys.has(key))
-        .sort()
+        .sort((left, right) => left.localeCompare(right))
         .map(key => [key, normalizeSemantic(value[key], ignoredKeys)]),
     );
   }
@@ -1025,13 +1025,15 @@ const typePaths = (value: JsonValue): string[] => {
     const type = typeof item;
     output.add(`${path}:${type}`);
     if (type === "object") {
-      for (const key of Object.keys(item).sort()) {
+      for (const key of Object.keys(item).sort((left, right) =>
+        left.localeCompare(right),
+      )) {
         walk(item[key], path === "$" ? `$.${key}` : `${path}.${key}`);
       }
     }
   };
   walk(value, "$");
-  return [...output].sort();
+  return [...output].sort((left, right) => left.localeCompare(right));
 };
 
 const hash = (value: JsonValue | OpenApiOperation): string =>
@@ -1044,7 +1046,7 @@ const sort = (value: JsonValue | OpenApiOperation): JsonValue => {
   if (value && typeof value === "object") {
     return Object.fromEntries(
       Object.keys(value)
-        .sort()
+        .sort((left, right) => left.localeCompare(right))
         .map(key => [key, sort(value[key] as JsonValue)]),
     );
   }

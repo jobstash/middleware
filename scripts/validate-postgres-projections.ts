@@ -9,13 +9,15 @@ import {
   ProjectListResultEntity,
 } from "../src/shared/entities";
 
-const DEFAULT_DATABASE_URL =
-  "postgresql://jobstash:jobstash@127.0.0.1:5434/jobstash";
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL must be set for projection validation");
+}
 
 type PayloadRow = { payload: Record<string, unknown> };
 
 const postgres = new Pool({
-  connectionString: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
+  connectionString: databaseUrl,
   max: 1,
   application_name: "middleware-projection-validator",
 });

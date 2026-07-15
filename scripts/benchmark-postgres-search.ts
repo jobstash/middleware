@@ -3,8 +3,10 @@ import { performance } from "node:perf_hooks";
 import { SearchDocumentRepository } from "../src/postgres/search-document.repository";
 import { PostgresService } from "../src/postgres/postgres.service";
 
-const DEFAULT_DATABASE_URL =
-  "postgresql://jobstash:jobstash@127.0.0.1:5434/jobstash";
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL must be set for the PostgreSQL benchmark");
+}
 const ITERATIONS = Math.max(
   1,
   Math.floor(Number(process.env.POSTGRES_BENCHMARK_ITERATIONS ?? 5)),
@@ -42,7 +44,7 @@ class BenchmarkPostgresService extends PostgresService {
 }
 
 const postgres = new BenchmarkPostgresService({
-  url: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
+  url: databaseUrl,
   maxConnections: 4,
   statementTimeoutMs: 30_000,
   applicationName: "middleware-postgres-search-benchmark",
@@ -109,7 +111,7 @@ const benchmark = async (
         (indexes, explain) => collectIndexes(explain.Plan, indexes),
         new Set<string>(),
       ),
-    ].sort(),
+    ].sort((left, right) => left.localeCompare(right)),
   };
   console.log(JSON.stringify(result));
   if (process.env.POSTGRES_BENCHMARK_VERBOSE === "1") {

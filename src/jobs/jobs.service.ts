@@ -177,23 +177,14 @@ export class JobsService {
     try {
       const jobs = await this.getJobsListResults(ecosystem);
       const now = new Date().getTime();
-      const featured = ecosystem
-        ? jobs
-            .map(x => new JobListResultEntity(x).getProperties())
-            .filter(
-              job =>
-                job.featured === true &&
-                job.featureStartDate <= now &&
-                now <= job.featureEndDate,
-            )
-        : jobs
-            .map(x => new JobListResultEntity(x).getProperties())
-            .filter(
-              job =>
-                job.featured === true &&
-                job.featureStartDate <= now &&
-                now <= job.featureEndDate,
-            );
+      const featured = jobs
+        .map(x => new JobListResultEntity(x).getProperties())
+        .filter(
+          job =>
+            job.featured === true &&
+            job.featureStartDate <= now &&
+            now <= job.featureEndDate,
+        );
       const result = sort<JobListResult>(featured).by([
         { desc: (job): boolean => job.featured },
         {

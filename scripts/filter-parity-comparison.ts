@@ -47,7 +47,7 @@ export const canonicalize = (
   if (value && typeof value === "object") {
     return Object.fromEntries(
       Object.keys(value)
-        .sort()
+        .sort((left, right) => left.localeCompare(right))
         .map(key => [key, canonicalize(value[key], key)]),
     );
   }
@@ -374,7 +374,7 @@ const topLevelKeys = (items: JsonValue[]): string[] =>
         return itemRecord ? Object.keys(itemRecord) : [];
       }),
     ),
-  ].sort();
+  ].sort((left, right) => left.localeCompare(right));
 
 const typeMap = (
   items: JsonValue[],

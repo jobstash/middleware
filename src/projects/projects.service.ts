@@ -634,7 +634,7 @@ export class ProjectsService {
         return { success: false, message: "Invalid url" };
       }
       try {
-        ensureProtocol(domain).map(value => new URL(toAbsoluteURL(value)));
+        ensureProtocol(domain).forEach(value => new URL(toAbsoluteURL(value)));
       } catch (err) {
         this.logger.error("ProjectsService::findIdByWebsite " + err.message);
         return { success: false, message: "Invalid url" };

@@ -1114,7 +1114,7 @@ export class ProfileService {
 
   private async getUserCacheLock(wallet: string): Promise<number | null> {
     try {
-      return this.profiles.getCacheLock(wallet);
+      return await this.profiles.getCacheLock(wallet);
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -1302,7 +1302,11 @@ export class ProfileService {
     shortUUID: string,
   ): Promise<boolean> {
     try {
-      return this.profiles.hasJobInteraction(wallet, shortUUID, "APPLIED_TO");
+      return await this.profiles.hasJobInteraction(
+        wallet,
+        shortUUID,
+        "APPLIED_TO",
+      );
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -1359,7 +1363,11 @@ export class ProfileService {
     shortUUID: string,
   ): Promise<boolean> {
     try {
-      return this.profiles.hasJobInteraction(wallet, shortUUID, "BOOKMARKED");
+      return await this.profiles.hasJobInteraction(
+        wallet,
+        shortUUID,
+        "BOOKMARKED",
+      );
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({

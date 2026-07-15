@@ -21,7 +21,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "test:postgres": "RUN_POSTGRES_INTEGRATION=1 DATABASE_TEST_URL=postgresql://jobstash:jobstash@127.0.0.1:5434/jobstash_test jest --runInBand src/postgres",
+    "test:postgres": "RUN_POSTGRES_INTEGRATION=1 jest --runInBand src/postgres",
     "db:validate:postgres": "node -r ts-node/register -r tsconfig-paths/register scripts/validate-postgres-projections.ts",
     "db:benchmark:postgres": "node -r ts-node/register -r tsconfig-paths/register scripts/benchmark-postgres-search.ts",
     "db:parity:postgres": "node -r ts-node/register -r tsconfig-paths/register scripts/compare-production-parity.ts",

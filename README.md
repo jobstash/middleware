@@ -44,7 +44,9 @@ Automatic deploy workflows are setup to deploy the code to the server under spec
 
 ```bash
 yarn build
+export DATABASE_TEST_URL='<postgresql-test-url>'
 yarn test:postgres
+export DATABASE_URL='<populated-postgresql-url>'
 yarn db:validate:postgres
 yarn db:benchmark:postgres
 ```

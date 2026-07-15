@@ -803,7 +803,9 @@ const collectDifferences = (
       ...Object.keys(productionRecord),
       ...Object.keys(localRecord),
     ]);
-    for (const key of [...keys].sort()) {
+    for (const key of [...keys].sort((left, right) =>
+      left.localeCompare(right),
+    )) {
       collectDifferences(
         productionRecord[key],
         localRecord[key],
@@ -855,7 +857,9 @@ const typePaths = (value: JsonValue): string[] => {
     }
     if (typeof current === "object") {
       paths.push(`${path}:object`);
-      for (const key of Object.keys(current).sort()) {
+      for (const key of Object.keys(current).sort((left, right) =>
+        left.localeCompare(right),
+      )) {
         visit(current[key], `${path}.${key}`);
       }
       return;
@@ -863,7 +867,7 @@ const typePaths = (value: JsonValue): string[] => {
     paths.push(`${path}:${typeof current}`);
   };
   visit(value, "$");
-  return [...new Set(paths)].sort();
+  return [...new Set(paths)].sort((left, right) => left.localeCompare(right));
 };
 
 const sameStrings = (left: string[], right: string[]): boolean =>
