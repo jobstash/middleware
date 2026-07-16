@@ -456,71 +456,43 @@ export class OrganizationsService {
     return new OrganizationEntity(updated.properties);
   }
 
-  async delete(id: string): Promise<ResponseWithNoData> {
+  async delete(id: string, actor?: string): Promise<ResponseWithNoData> {
+    return this.setBanned(
+      id,
+      true,
+      "permanently banned through the legacy delete endpoint",
+      actor,
+    );
+  }
+
+  async setBanned(
+    id: string,
+    banned: boolean,
+    reason?: string,
+    actor?: string,
+  ): Promise<ResponseWithNoData> {
     try {
-      await this.graph.deleteNodeWithOwnedDescendants({
-        rootLabel: "Organization",
-        rootWhere: { orgId: id },
-        relationshipTypes: [
-          "HAS_JOBSITE",
-          "HAS_JOBPOST",
-          "HAS_STRUCTURED_JOBPOST",
-          "HAS_TAG",
-          "HAS_DISCORD",
-          "HAS_WEBSITE",
-          "HAS_RAW_WEBSITE",
-          "HAS_RAW_WEBSITE_METADATA",
-          "HAS_GRANTSITE",
-          "HAS_DOCSITE",
-          "HAS_TELEGRAM",
-          "HAS_GITHUB",
-          "HAS_ORGANIZATION_ALIAS",
-          "HAS_TWITTER",
-          "HAS_PROJECT",
-          "HAS_AUDIT",
-          "HAS_HACK",
-          "HAS_REVIEW",
-        ],
-        ownedLabels: [
-          "Jobsite",
-          "DetectedJobsite",
-          "Jobpost",
-          "StructuredJobpost",
-          "Tag",
-          "Discord",
-          "Website",
-          "RawWebsite",
-          "RawWebsiteMetadata",
-          "GrantSite",
-          "DocSite",
-          "Telegram",
-          "GithubOrganization",
-          "Github",
-          "OrganizationAlias",
-          "Twitter",
-          "Project",
-          "Audit",
-          "Hack",
-          "OrgReview",
-        ],
+      await this.graph.setEntityBanned({
+        label: "Organization",
+        publicId: id,
+        banned,
+        reason,
+        actor,
       });
       return {
         success: true,
-        message: "Organization deleted successfully",
+        message: banned
+          ? "Organization banned successfully"
+          : "Organization unbanned successfully",
       };
     } catch (err) {
-      Sentry.withScope(scope => {
-        scope.setTags({
-          action: "db-call",
-          source: "organizations.service",
-        });
-        scope.setExtra("input", id);
-        Sentry.captureException(err);
-      });
-      this.logger.error(`OrganizationsService::delete ${err.message}`);
+      Sentry.captureException(err);
+      this.logger.error(`OrganizationsService::setBanned ${err.message}`);
       return {
         success: false,
-        message: "Failed to delete organization",
+        message: banned
+          ? "Failed to ban organization"
+          : "Failed to unban organization",
       };
     }
   }

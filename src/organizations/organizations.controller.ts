@@ -76,6 +76,7 @@ import { UserService } from "src/user/user.service";
 import { ImportOrgJobsiteInput } from "./dto/import-organization-jobsites.input";
 import { SearchOrganizationsInput } from "./dto/search-organizations.input";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
+import { SetOrganizationBannedInput } from "./dto/set-organization-banned.input";
 
 @Controller("organizations")
 @ApiExtraModels(ShortOrg, TinyOrg, Organization)
@@ -767,10 +768,9 @@ export class OrganizationsController {
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
   @ApiOkResponse({
-    description: "Deletes an existing organization",
-    schema: responseSchemaWrapper({
-      $ref: getSchemaPath(Organization),
-    }),
+    description:
+      "Compatibility endpoint: permanently bans an organization without deleting its graph or jobposts",
+    schema: { $ref: getSchemaPath(ResponseWithNoData) },
   })
   @ApiUnprocessableEntityResponse({
     description:
@@ -782,7 +782,31 @@ export class OrganizationsController {
     @Param("id") id: string,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`DELETE /organizations/delete/${id} from ${address}`);
-    return this.organizationsService.delete(id);
+    return this.organizationsService.delete(id, address);
+  }
+
+  @Post("/ban/:id")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
+  @ApiOkResponse({
+    description: "Sets or clears the durable organization ban flag",
+    schema: { $ref: getSchemaPath(ResponseWithNoData) },
+  })
+  async setOrganizationBanned(
+    @Session() { address }: SessionObject,
+    @Param("id") id: string,
+    @Body(new ValidationPipe({ transform: true }))
+    body: SetOrganizationBannedInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(
+      `POST /organizations/ban/${id} banned=${body.banned} from ${address}`,
+    );
+    return this.organizationsService.setBanned(
+      id,
+      body.banned,
+      body.reason,
+      address,
+    );
   }
 
   @Post("/add-alias")

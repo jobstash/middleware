@@ -35,6 +35,32 @@ const executeQuery = async <T>(
 export class GraphRepository {
   constructor(private readonly postgres: PostgresService) {}
 
+  async setEntityBanned(options: {
+    label: "Organization" | "Project";
+    publicId: string;
+    banned: boolean;
+    reason?: string;
+    actor?: string;
+  }): Promise<Record<string, unknown>> {
+    const [row] = await executeQuery<{ properties: Record<string, unknown> }>(
+      this.postgres,
+      `
+        SELECT set_entity_banned($1, $2, $3, $4, $5) AS properties
+      `,
+      [
+        options.label,
+        options.publicId,
+        options.banned,
+        options.reason ?? null,
+        options.actor ?? null,
+      ],
+    );
+    if (!row?.properties) {
+      throw new Error(`${options.label} ${options.publicId} was not found`);
+    }
+    return row.properties;
+  }
+
   async findNode<T extends object>(
     label: string,
     where: Partial<T>,

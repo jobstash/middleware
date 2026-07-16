@@ -28,6 +28,30 @@ describe("GraphRepository", () => {
     ]);
   });
 
+  it("parameterizes durable entity ban changes", async () => {
+    query.mockResolvedValue([{ properties: { banned: true } }]);
+
+    await expect(
+      repository.setEntityBanned({
+        label: "Organization",
+        publicId: "org-1",
+        banned: true,
+        reason: "out of scope",
+        actor: "0xadmin",
+      }),
+    ).resolves.toEqual({ banned: true });
+    expect(query.mock.calls[0][0]).toContain(
+      "SELECT set_entity_banned($1, $2, $3, $4, $5)",
+    );
+    expect(query.mock.calls[0][1]).toEqual([
+      "Organization",
+      "org-1",
+      true,
+      "out of scope",
+      "0xadmin",
+    ]);
+  });
+
   it("supports indexed outgoing and incoming relationship reads", async () => {
     await repository.findRelatedNodes({
       sourceLabel: "Organization",

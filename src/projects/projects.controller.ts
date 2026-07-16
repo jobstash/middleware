@@ -77,6 +77,7 @@ import { AddProjectByUrlInput } from "./dto/add-project-by-url.input";
 import { ActivateProjectJobsiteInput } from "./dto/activate-project-jobsites.input";
 import { CreateProjectJobsiteInput } from "./dto/create-project-jobsites.input";
 import { SearchProjectsInput } from "./dto/search-projects.input";
+import { SetProjectBannedInput } from "./dto/set-project-banned.input";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 
 @Controller("projects")
@@ -1037,17 +1038,42 @@ export class ProjectsController {
     CheckWalletPermissions.PROJECT_MANAGER,
   )
   @ApiOkResponse({
-    description: "Deletes an existing project",
-    schema: {
-      $ref: getSchemaPath(ResponseWithNoData),
-    },
+    description:
+      "Compatibility endpoint: permanently bans a project without deleting its graph",
+    schema: { $ref: getSchemaPath(ResponseWithNoData) },
   })
   async deleteProject(
     @Session() { address }: SessionObject,
     @Param("id") id: string,
   ): Promise<ResponseWithNoData> {
     this.logger.log(`DELETE /projects/delete/${id} from ${address}`);
-    return this.projectsService.delete(id);
+    return this.projectsService.delete(id, address);
+  }
+
+  @Post("/ban/:id")
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
+  @ApiOkResponse({
+    description: "Sets or clears the durable project ban flag",
+    schema: { $ref: getSchemaPath(ResponseWithNoData) },
+  })
+  async setProjectBanned(
+    @Session() { address }: SessionObject,
+    @Param("id") id: string,
+    @Body(new ValidationPipe({ transform: true })) body: SetProjectBannedInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(
+      `POST /projects/ban/${id} banned=${body.banned} from ${address}`,
+    );
+    return this.projectsService.setBanned(
+      id,
+      body.banned,
+      body.reason,
+      address,
+    );
   }
 
   @Post("/metrics/update/:id")

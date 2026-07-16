@@ -1207,6 +1207,7 @@ export class SearchDocumentRepository {
          AND relationship.type = 'HAS_WEBSITE'
         JOIN graph_nodes website ON website.id = relationship.target_id
         WHERE organization.label = 'Organization'
+          AND NOT entity_property_is_banned(organization.properties)
           AND EXISTS (
             SELECT 1
             FROM unnest($1::text[]) domain
@@ -1647,6 +1648,7 @@ export class SearchDocumentRepository {
          AND relationship.type = 'HAS_WEBSITE'
         JOIN graph_nodes website ON website.id = relationship.target_id
         WHERE project.label = 'Project'
+          AND NOT entity_property_is_banned(project.properties)
           AND EXISTS (
             SELECT 1
             FROM unnest($1::text[]) domain

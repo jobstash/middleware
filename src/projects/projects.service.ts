@@ -859,48 +859,42 @@ export class ProjectsService {
     }
   }
 
-  async delete(id: string): Promise<ResponseWithNoData> {
+  async delete(id: string, actor?: string): Promise<ResponseWithNoData> {
+    return this.setBanned(
+      id,
+      true,
+      "permanently banned through the legacy delete endpoint",
+      actor,
+    );
+  }
+
+  async setBanned(
+    id: string,
+    banned: boolean,
+    reason?: string,
+    actor?: string,
+  ): Promise<ResponseWithNoData> {
     try {
-      await this.graph.deleteNodeWithOwnedDescendants({
-        rootLabel: "Project",
-        rootWhere: { id },
-        relationshipTypes: [
-          "HAS_AUDIT",
-          "HAS_HACK",
-          "HAS_DISCORD",
-          "HAS_DOCSITE",
-          "HAS_GITHUB",
-          "HAS_TELEGRAM",
-          "HAS_TWITTER",
-          "HAS_WEBSITE",
-          "HAS_RAW_WEBSITE",
-          "HAS_RAW_WEBSITE_METADATA",
-          "HAS_JOBSITE",
-        ],
-        ownedLabels: [
-          "Audit",
-          "Hack",
-          "Discord",
-          "DocSite",
-          "GithubOrganization",
-          "Github",
-          "Telegram",
-          "Twitter",
-          "Website",
-          "RawWebsite",
-          "RawWebsiteMetadata",
-          "Jobsite",
-          "DetectedJobsite",
-        ],
+      await this.graph.setEntityBanned({
+        label: "Project",
+        publicId: id,
+        banned,
+        reason,
+        actor,
       });
       return {
         success: true,
-        message: "Project deleted successfully",
+        message: banned
+          ? "Project banned successfully"
+          : "Project unbanned successfully",
       };
     } catch (err) {
       Sentry.captureException(err);
-      this.logger.error("ProjectsService::delete " + err.message);
-      return { success: false, message: "Failed delete project" };
+      this.logger.error(`ProjectsService::setBanned ${err.message}`);
+      return {
+        success: false,
+        message: banned ? "Failed to ban project" : "Failed to unban project",
+      };
     }
   }
 

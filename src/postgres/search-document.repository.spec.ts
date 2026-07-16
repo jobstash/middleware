@@ -603,8 +603,22 @@ describe("SearchDocumentRepository", () => {
     ).resolves.toBe("org-1");
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain("unnest($1::text[])");
+    expect(sql).toContain(
+      "NOT entity_property_is_banned(organization.properties)",
+    );
     expect(sql).not.toContain(malicious);
     expect(parameters).toEqual([[malicious]]);
+  });
+
+  it("excludes banned projects from website identity lookups", async () => {
+    query.mockResolvedValue([{ project_id: "project-1" }]);
+
+    await expect(
+      repository.findProjectIdByWebsite(["project.example"]),
+    ).resolves.toBe("project-1");
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("NOT entity_property_is_banned(project.properties)");
+    expect(parameters).toEqual([["project.example"]]);
   });
 
   it("builds organization and project filter aggregates in one query each", async () => {

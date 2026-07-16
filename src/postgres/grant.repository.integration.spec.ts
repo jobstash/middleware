@@ -127,6 +127,18 @@ describePostgres("GrantRepository PostgreSQL integration", () => {
     ).resolves.toEqual([]);
   });
 
+  it("does not expose permanently banned grantees", async () => {
+    await postgres.query(
+      `SELECT set_entity_banned('Project', 'project-1', true, $1, $2)`,
+      ["manual review", "integration-test"],
+    );
+
+    await expect(repository.getGrantees("open-builders")).resolves.toEqual([]);
+    await expect(
+      repository.getGrantees("open-builders", "useful-project"),
+    ).resolves.toEqual([]);
+  });
+
   it("uses pgvector cosine search for grant chunks", async () => {
     const otherProgram = await graph.createNode("KarmaGapProgram", {
       programId: "program-2",

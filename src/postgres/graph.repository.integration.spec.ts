@@ -77,6 +77,47 @@ describePostgres("GraphRepository PostgreSQL integration", () => {
     ).resolves.toBe(1);
   });
 
+  it("sets and clears a durable ban without deleting the entity", async () => {
+    await graph.createNode(
+      "Organization",
+      {
+        id: "org-1-stable",
+        orgId: "org-1",
+        name: "Blocked Organization",
+        normalizedName: "blocked-organization",
+      },
+      "org-1",
+    );
+
+    await expect(
+      graph.setEntityBanned({
+        label: "Organization",
+        publicId: "org-1",
+        banned: true,
+        reason: "manual review",
+        actor: "integration-test",
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        banned: true,
+        bannedReason: "manual review",
+        bannedBy: "integration-test",
+      }),
+    );
+    await expect(
+      graph.findNode("Organization", { orgId: "org-1" }),
+    ).resolves.toMatchObject({ properties: { banned: true } });
+
+    await expect(
+      graph.setEntityBanned({
+        label: "Organization",
+        publicId: "org-1",
+        banned: false,
+        actor: "integration-test",
+      }),
+    ).resolves.toEqual(expect.objectContaining({ banned: false }));
+  });
+
   it("preserves shared value nodes until their final relationship is removed", async () => {
     await graph.createNode("Organization", { orgId: "org-1" }, "org-1");
     await graph.createNode("Organization", { orgId: "org-2" }, "org-2");

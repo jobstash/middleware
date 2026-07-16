@@ -172,6 +172,7 @@ export class GrantRepository {
             JOIN graph_nodes organization
               ON organization.id = organization_project.source_id
              AND organization.label = 'Organization'
+             AND NOT entity_property_is_banned(organization.properties)
             JOIN graph_relationships organization_funding
               ON organization_funding.source_id = organization.id
              AND organization_funding.type = 'HAS_FUNDING_ROUND'
@@ -185,6 +186,7 @@ export class GrantRepository {
         ) AS project
         FROM graph_nodes project
         WHERE project.label = 'Project'
+          AND NOT entity_property_is_banned(project.properties)
           ${granteePredicate}
           AND EXISTS (
             SELECT 1
