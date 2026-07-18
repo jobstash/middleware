@@ -45,14 +45,20 @@ export class GraphRepository {
     return this.postgres.transaction(async manager => {
       const [entity] = await executeQuery<{
         nodeId: string;
+        label: "Organization" | "Project" | "ChildProjectCandidate";
         properties: Record<string, unknown>;
       }>(
         manager,
         `
-          SELECT id::text AS "nodeId", properties
+          SELECT id::text AS "nodeId", label, properties
           FROM graph_nodes
-          WHERE label = $1 AND properties ->> $2 = $3
-          ORDER BY id
+          WHERE (label = $1 AND properties ->> $2 = $3)
+             OR (
+               $1 = 'Project'
+               AND label = 'ChildProjectCandidate'
+               AND properties ->> 'id' = $3
+             )
+          ORDER BY CASE WHEN label = $1 THEN 0 ELSE 1 END, id
           LIMIT 1
           FOR UPDATE
         `,
@@ -113,13 +119,13 @@ export class GraphRepository {
         [entity.nodeId, options.note ?? null, options.actor ?? null, timestamp],
       );
 
-      if (options.label === "Organization") {
+      if (entity.label === "Organization") {
         await executeQuery(
           manager,
           "SELECT refresh_organization_search_documents(ARRAY[$1::bigint])",
           [entity.nodeId],
         );
-      } else {
+      } else if (entity.label === "Project") {
         await executeQuery(
           manager,
           "SELECT refresh_project_search_document_ids(ARRAY[$1::bigint])",

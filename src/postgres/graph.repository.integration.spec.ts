@@ -184,6 +184,60 @@ describePostgres("GraphRepository PostgreSQL integration", () => {
     });
   });
 
+  it("resolves a child-project candidate through the Project admin surface", async () => {
+    await graph.createNode(
+      "ChildProjectCandidate",
+      {
+        id: "candidate-review-id",
+        name: "Delicate Candidate",
+        needsManualReview: true,
+        manualReviewStatus: "open",
+        manualReviewReason: "Conflicting project identity evidence",
+      },
+      "candidate-review-id",
+    );
+    await graph.createNode(
+      "EntityReview",
+      {
+        id: "candidate-entity-review",
+        entityLabel: "ProjectCandidate",
+        entityId: "candidate-review-id",
+        status: "open",
+      },
+      "candidate-entity-review",
+    );
+    await graph.setRelationshipsToNodes({
+      sourceLabel: "ChildProjectCandidate",
+      sourceWhere: { id: "candidate-review-id" },
+      type: "HAS_ENTITY_REVIEW",
+      targetLabel: "EntityReview",
+      targetProperty: "id",
+      targetValues: ["candidate-entity-review"],
+    });
+
+    await expect(
+      graph.resolveEntityManualReview({
+        label: "Project",
+        publicId: "candidate-review-id",
+        note: "Reviewed as delicate",
+        actor: "0xadmin",
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        needsManualReview: false,
+        manualReviewStatus: "resolved",
+      }),
+    );
+    await expect(
+      graph.findNode("EntityReview", { id: "candidate-entity-review" }),
+    ).resolves.toMatchObject({
+      properties: {
+        status: "resolved",
+        resolutionNote: "Reviewed as delicate",
+      },
+    });
+  });
+
   it("preserves shared value nodes until their final relationship is removed", async () => {
     await graph.createNode("Organization", { orgId: "org-1" }, "org-1");
     await graph.createNode("Organization", { orgId: "org-2" }, "org-2");

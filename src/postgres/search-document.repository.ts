@@ -1639,6 +1639,115 @@ export class SearchDocumentRepository {
     return rows.map(row => row.payload);
   }
 
+  /**
+   * Project discovery candidates are deliberately not inserted into the
+   * canonical Project inventory until an investigation can prove their
+   * identity. Admins still need a durable queue for the ambiguous cases, so
+   * expose only open, explicitly flagged candidates through the authenticated
+   * project-grid path.
+   */
+  async getProjectCandidateReviewPayloads<T>(): Promise<T[]> {
+    const rows = await this.postgres.query<{ payload: T }>(
+      `
+        SELECT jsonb_build_object(
+          'id', candidate.properties ->> 'id',
+          'name', candidate.properties ->> 'name',
+          'normalizedName', NULL,
+          'summary', '',
+          'description', candidate.properties ->> 'manualReviewReason',
+          'logo', NULL,
+          'category', 'Review Candidate',
+          'website', candidate.properties ->> 'url',
+          'docs', NULL,
+          'twitter', NULL,
+          'discord', NULL,
+          'github', NULL,
+          'telegram', NULL,
+          'tokenAddress', NULL,
+          'tokenSymbol', NULL,
+          'defiLlamaId', NULL,
+          'defiLlamaSlug', NULL,
+          'defiLlamaParent', NULL,
+          'tvl', NULL,
+          'monthlyFees', NULL,
+          'monthlyVolume', NULL,
+          'monthlyRevenue', NULL,
+          'monthlyActiveUsers', NULL,
+          'createdTimestamp', jsonb_numeric_value(
+            candidate.properties,
+            'createdTimestamp'
+          ),
+          'updatedTimestamp', COALESCE(
+            jsonb_numeric_value(candidate.properties, 'updatedTimestamp'),
+            jsonb_numeric_value(
+              candidate.properties,
+              'manualReviewUpdatedTimestamp'
+            )
+          ),
+          'orgIds', jsonb_build_array(
+            organization.properties ->> 'orgId'
+          ),
+          'orgNames', jsonb_build_array(
+            organization.properties ->> 'name'
+          ),
+          'aliases', '[]'::jsonb,
+          'hacks', '[]'::jsonb,
+          'audits', '[]'::jsonb,
+          'chains', '[]'::jsonb,
+          'ecosystems', '[]'::jsonb,
+          'jobs', '[]'::jsonb,
+          'investors', '[]'::jsonb,
+          'grants', '[]'::jsonb,
+          'fundingRounds', '[]'::jsonb,
+          'repos', '[]'::jsonb,
+          'jobsites', '[]'::jsonb,
+          'detectedJobsites', '[]'::jsonb,
+          'needsManualReview', true,
+          'manualReviewStatus', candidate.properties ->> 'manualReviewStatus',
+          'manualReviewReason', candidate.properties ->> 'manualReviewReason',
+          'manualReviewSeverity', candidate.properties ->> 'manualReviewSeverity',
+          'manualReviewEvidence', CASE
+            WHEN jsonb_typeof(
+              candidate.properties -> 'manualReviewEvidence'
+            ) = 'array'
+              THEN candidate.properties -> 'manualReviewEvidence'
+            ELSE '[]'::jsonb
+          END,
+          'manualReviewProposedActions', CASE
+            WHEN jsonb_typeof(
+              candidate.properties -> 'manualReviewProposedActions'
+            ) = 'array'
+              THEN candidate.properties -> 'manualReviewProposedActions'
+            ELSE '[]'::jsonb
+          END,
+          'manualReviewUpdatedTimestamp', jsonb_numeric_value(
+            candidate.properties,
+            'manualReviewUpdatedTimestamp'
+          ),
+          'reviewEntityKind', 'ProjectCandidate'
+        ) AS payload
+        FROM graph_nodes candidate
+        JOIN graph_relationships ownership
+          ON ownership.target_id = candidate.id
+         AND ownership.type = 'HAS_CHILD_PROJECT_CANDIDATE'
+        JOIN graph_nodes organization
+          ON organization.id = ownership.source_id
+         AND organization.label = 'Organization'
+        WHERE candidate.label = 'ChildProjectCandidate'
+          AND COALESCE(
+            (candidate.properties ->> 'needsManualReview')::boolean,
+            false
+          )
+          AND candidate.properties ->> 'manualReviewStatus' = 'open'
+          AND NOT entity_property_is_banned(organization.properties)
+        ORDER BY
+          candidate.properties ->> 'name',
+          candidate.id
+      `,
+    );
+    return rows.map(row => row.payload);
+  }
+
   async searchProjectPayloads<T = ProjectListResult>(
     query: string,
   ): Promise<T[]> {

@@ -1324,6 +1324,79 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     });
   });
 
+  it("serves ambiguous child-project candidates only through the admin review queue", async () => {
+    await postgres.query(`
+      UPDATE graph_nodes
+      SET properties = properties || jsonb_build_object(
+            'orgId', 'org-acme',
+            'name', 'Acme'
+          )
+      WHERE label = 'Organization' AND properties ->> 'id' = 'org-acme'
+    `);
+    const [organization] = await postgres.query<{ id: string }>(`
+      SELECT id::text AS id
+      FROM graph_nodes
+      WHERE label = 'Organization'
+        AND properties ->> 'orgId' = 'org-acme'
+    `);
+    const [candidate] = await postgres.query<{ id: string }>(`
+      INSERT INTO graph_nodes (label, labels, node_key, properties)
+      VALUES (
+        'ChildProjectCandidate',
+        ARRAY['ChildProjectCandidate']::text[],
+        'child-project-candidate:org-acme:review',
+        jsonb_build_object(
+          'id', 'candidate-review-id',
+          'name', 'Delicate Candidate',
+          'url', 'https://candidate.example',
+          'needsManualReview', true,
+          'manualReviewStatus', 'open',
+          'manualReviewReason', 'Two entity interpretations remain supported.',
+          'manualReviewSeverity', 'high',
+          'manualReviewEvidence', jsonb_build_array('Rendered evidence'),
+          'manualReviewProposedActions', '[]'::jsonb,
+          'manualReviewUpdatedTimestamp', 1780000000001::bigint
+        )
+      )
+      RETURNING id::text AS id
+    `);
+    await postgres.query(
+      `
+        INSERT INTO graph_relationships (
+          source_id, target_id, type, relationship_key
+        )
+        VALUES ($1::bigint, $2::bigint, 'HAS_CHILD_PROJECT_CANDIDATE', '')
+      `,
+      [organization.id, candidate.id],
+    );
+
+    const canonical = await repository.getProjectPayloads();
+    const review = await repository.getProjectCandidateReviewPayloads<{
+      id: string;
+      name: string;
+      website: string;
+      orgIds: string[];
+      orgNames: string[];
+      needsManualReview: boolean;
+      reviewEntityKind: string;
+    }>();
+
+    expect(canonical.map(project => project.id)).not.toContain(
+      "candidate-review-id",
+    );
+    expect(review).toEqual([
+      expect.objectContaining({
+        id: "candidate-review-id",
+        name: "Delicate Candidate",
+        website: "https://candidate.example",
+        orgIds: ["org-acme"],
+        orgNames: ["Acme"],
+        needsManualReview: true,
+        reviewEntityKind: "ProjectCandidate",
+      }),
+    ]);
+  });
+
   it("aggregates display labels and numeric filter bounds", async () => {
     const jobs = await repository.getJobFilterValues("ethereum");
     expect(jobs).toMatchObject({

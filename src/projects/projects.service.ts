@@ -286,9 +286,21 @@ export class ProjectsService {
     >[]
   > {
     try {
-      const projects =
-        await this.searchDocuments.getProjectPayloads<ProjectWithRelations>();
-      return projects.map(x =>
+      type AdminProjectGridRecord = ProjectWithRelations & {
+        reviewEntityKind?: "Project" | "ProjectCandidate";
+      };
+      const [projects, candidates] = await Promise.all([
+        this.searchDocuments.getProjectPayloads<AdminProjectGridRecord>(),
+        this.searchDocuments.getProjectCandidateReviewPayloads<AdminProjectGridRecord>(),
+      ]);
+      const adminRows = [
+        ...projects.map(project => ({
+          ...project,
+          reviewEntityKind: "Project" as const,
+        })),
+        ...candidates,
+      ];
+      return adminRows.map(x =>
         omit(
           {
             ...x,
