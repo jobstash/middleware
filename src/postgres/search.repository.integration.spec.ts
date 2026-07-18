@@ -287,6 +287,13 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
         timestamp: now,
       },
     ]);
+
+    // The public detail lookup excludes jobs without tags. Keep the sitemap
+    // on the same eligibility contract so it never submits a known 404 URL.
+    await postgres.query(
+      "UPDATE job_search_documents SET tags = ARRAY[]::text[]",
+    );
+    await expect(repository.getSitemapJobs()).resolves.toEqual([]);
   });
 
   it("has the projection indexes used by search paths", async () => {

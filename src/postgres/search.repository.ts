@@ -749,7 +749,9 @@ export class SearchRepository {
           organization_name AS "organizationName",
           published_timestamp::text AS timestamp
         FROM job_search_documents
-        WHERE online AND NOT blocked
+        WHERE online
+          AND NOT blocked
+          AND cardinality(tags) > 0
         ORDER BY published_timestamp DESC NULLS LAST, job_node_id
       `,
     );
