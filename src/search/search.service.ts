@@ -321,7 +321,9 @@ export class SearchService {
   }
 
   async searchJobPillarSlugs(): Promise<string[]> {
-    const entries = await this.searchRepository.getJobPillarSitemap();
+    const entries = await this.searchRepository.getJobPillarSitemap(
+      this.getPillarDateRange(),
+    );
     const slugs = entries.flatMap(entry => {
       const prefix = NAV_PILLAR_SLUG_PREFIX_MAPPINGS.jobs[entry.type];
       if (!prefix) return [];
@@ -336,7 +338,9 @@ export class SearchService {
     { slug: string; lastModified: string; jobCount: number }[]
   > {
     try {
-      const entries = await this.searchRepository.getJobPillarSitemap();
+      const entries = await this.searchRepository.getJobPillarSitemap(
+        this.getPillarDateRange(),
+      );
       return entries.flatMap(entry => {
         const prefix = NAV_PILLAR_SLUG_PREFIX_MAPPINGS.jobs[entry.type];
         if (!prefix || !entry.lastModified) return [];

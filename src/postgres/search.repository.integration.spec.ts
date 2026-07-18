@@ -157,7 +157,11 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
   });
 
   it("aggregates job pillar sitemap entries with counts and timestamps", async () => {
-    const entries = await repository.getJobPillarSitemap();
+    const range = {
+      startDate: now - 86_400_000,
+      endDate: now + 86_400_000,
+    };
+    const entries = await repository.getJobPillarSitemap(range);
     expect(entries).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -176,6 +180,12 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
         }),
       ]),
     );
+
+    await postgres.query(
+      "UPDATE job_search_documents SET published_timestamp = $1",
+      [range.startDate - 1],
+    );
+    await expect(repository.getJobPillarSitemap(range)).resolves.toEqual([]);
   });
 
   it("serves grouped and skill suggestions from recent job facets", async () => {
