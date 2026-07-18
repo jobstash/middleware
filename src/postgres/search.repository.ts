@@ -372,25 +372,27 @@ export class SearchRepository {
         `${bind(slugify(options.ecosystem))} = ANY(job.managed_ecosystems)`,
       );
     }
+    const hasFacetKey = (facet: string, key: string): string =>
+      `COALESCE(job.filter_labels -> '${facet}', '{}'::jsonb) ? ${bind(key)}`;
     const value = options.value;
     switch (options.pillarType) {
       case "tags":
-        predicates.push(`${bind(value)} = ANY(job.tags)`);
+        predicates.push(hasFacetKey("tags", value));
         break;
       case "classifications":
-        predicates.push(`${bind(value)} = ANY(job.classifications)`);
+        predicates.push(hasFacetKey("classifications", value));
         break;
       case "locations":
         predicates.push(`slugify_text(job.location) = ${bind(value)}`);
         break;
       case "commitments":
-        predicates.push(`${bind(value)} = ANY(job.commitments)`);
+        predicates.push(hasFacetKey("commitments", value));
         break;
       case "locationTypes":
-        predicates.push(`${bind(value)} = ANY(job.location_types)`);
+        predicates.push(hasFacetKey("locationTypes", value));
         break;
       case "organizations":
-        predicates.push(`organization.normalized_name = ${bind(value)}`);
+        predicates.push(hasFacetKey("organizations", value));
         break;
       case "seniority": {
         const seniority =
@@ -401,10 +403,10 @@ export class SearchRepository {
         break;
       }
       case "investors":
-        predicates.push(`${bind(value)} = ANY(job.investor_names)`);
+        predicates.push(hasFacetKey("investors", value));
         break;
       case "fundingRounds":
-        predicates.push(`${bind(value)} = ANY(job.funding_round_names)`);
+        predicates.push(hasFacetKey("fundingRounds", value));
         break;
       case "booleans":
         if (value === "expertJobs") predicates.push("job.access = 'protected'");

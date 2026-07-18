@@ -154,6 +154,41 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
         value: "rust",
       }),
     ).resolves.toEqual([]);
+
+    // Sitemap URLs are built from normalized filter-label keys. Legacy array
+    // values may still contain punctuation, so page lookup must use the same
+    // keys or valid sitemap URLs such as t-fp-a and i-11-11-media will 404.
+    await postgres.query(
+      `
+        UPDATE job_search_documents
+        SET tags = ARRAY['FP&A'],
+          investor_names = ARRAY['11/11 MEDIA (Eleven Eleven Media)'],
+          filter_labels = $1::jsonb
+      `,
+      [
+        JSON.stringify({
+          tags: { "fp-a": "FP&A" },
+          investors: {
+            "11-11-media-eleven-eleven-media":
+              "11/11 MEDIA (Eleven Eleven Media)",
+          },
+        }),
+      ],
+    );
+    await expect(
+      repository.getPillarJobs({
+        ...base,
+        pillarType: "tags",
+        value: "fp-a",
+      }),
+    ).resolves.toHaveLength(1);
+    await expect(
+      repository.getPillarJobs({
+        ...base,
+        pillarType: "investors",
+        value: "11-11-media-eleven-eleven-media",
+      }),
+    ).resolves.toHaveLength(1);
   });
 
   it("aggregates job pillar sitemap entries with counts and timestamps", async () => {
