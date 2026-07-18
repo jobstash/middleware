@@ -1009,31 +1009,52 @@ export class SearchDocumentRepository {
             'twitters', links.twitters,
             'grantSites', links.grant_sites,
             'jobsites', links.jobsites,
-            'detectedJobsites', links.detected_jobsites
+            'detectedJobsites', links.detected_jobsites,
+            'needsManualReview', COALESCE(
+              (node.properties ->> 'needsManualReview')::boolean,
+              false
+            ),
+            'manualReviewStatus', node.properties ->> 'manualReviewStatus',
+            'manualReviewReason', node.properties ->> 'manualReviewReason',
+            'manualReviewSeverity', node.properties ->> 'manualReviewSeverity',
+            'manualReviewEvidence', CASE
+              WHEN jsonb_typeof(node.properties -> 'manualReviewEvidence') = 'array'
+                THEN node.properties -> 'manualReviewEvidence'
+              ELSE '[]'::jsonb
+            END,
+            'manualReviewProposedActions', CASE
+              WHEN jsonb_typeof(node.properties -> 'manualReviewProposedActions') = 'array'
+                THEN node.properties -> 'manualReviewProposedActions'
+              ELSE '[]'::jsonb
+            END,
+            'manualReviewUpdatedTimestamp', jsonb_numeric_value(
+              node.properties,
+              'manualReviewUpdatedTimestamp'
+            )
           ) AS payload
         FROM organization_search_documents organization
         JOIN graph_nodes node ON node.id = organization.organization_node_id
         CROSS JOIN LATERAL (
           SELECT
-            COALESCE(to_jsonb(array_agg(related.properties ->> 'invite')
+            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'invite')
               FILTER (WHERE relationship.type = 'HAS_DISCORD')), '[]'::jsonb) AS discords,
-            COALESCE(to_jsonb(array_agg(related.properties ->> 'url')
+            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'url')
               FILTER (WHERE relationship.type = 'HAS_WEBSITE')), '[]'::jsonb) AS websites,
-            COALESCE(to_jsonb(array_agg(related.properties ->> 'url')
+            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'url')
               FILTER (WHERE relationship.type = 'HAS_RAW_WEBSITE')), '[]'::jsonb) AS raw_websites,
-            COALESCE(to_jsonb(array_agg(related.properties ->> 'url')
+            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'url')
               FILTER (WHERE relationship.type = 'HAS_DOCSITE')), '[]'::jsonb) AS docs,
-            COALESCE(to_jsonb(array_agg(related.properties ->> 'username')
+            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'username')
               FILTER (WHERE relationship.type = 'HAS_TELEGRAM')), '[]'::jsonb) AS telegrams,
-            COALESCE(to_jsonb(array_agg(related.properties ->> 'login')
+            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'login')
               FILTER (WHERE relationship.type = 'HAS_GITHUB')), '[]'::jsonb) AS githubs,
-            COALESCE(to_jsonb(array_agg(related.properties ->> 'name')
+            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'name')
               FILTER (WHERE relationship.type = 'HAS_ORGANIZATION_ALIAS')), '[]'::jsonb) AS aliases,
-            COALESCE(to_jsonb(array_agg(related.properties ->> 'username')
+            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'username')
               FILTER (WHERE relationship.type = 'HAS_TWITTER')), '[]'::jsonb) AS twitters,
-            COALESCE(to_jsonb(array_agg(related.properties ->> 'url')
+            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'url')
               FILTER (WHERE relationship.type = 'HAS_GRANTSITE')), '[]'::jsonb) AS grant_sites,
-            COALESCE(jsonb_agg(jsonb_build_object(
+            COALESCE(jsonb_agg(DISTINCT jsonb_build_object(
               'id', related.properties -> 'id',
               'url', related.properties -> 'url',
               'type', related.properties -> 'type',
@@ -1041,8 +1062,9 @@ export class SearchDocumentRepository {
             )) FILTER (
               WHERE relationship.type = 'HAS_JOBSITE'
                 AND related.label = 'Jobsite'
+                AND related.properties ->> 'type' IS DISTINCT FROM 'unavailable'
             ), '[]'::jsonb) AS jobsites,
-            COALESCE(jsonb_agg(jsonb_build_object(
+            COALESCE(jsonb_agg(DISTINCT jsonb_build_object(
               'id', related.properties -> 'id',
               'url', related.properties -> 'url',
               'type', related.properties -> 'type'
@@ -1583,10 +1605,34 @@ export class SearchDocumentRepository {
     }
     const rows = await this.postgres.query<{ payload: T }>(
       `
-        SELECT COALESCE(detail_payload, payload) AS payload
-        FROM project_search_documents
+        SELECT COALESCE(project.detail_payload, project.payload)
+          || jsonb_build_object(
+            'needsManualReview', COALESCE(
+              (node.properties ->> 'needsManualReview')::boolean,
+              false
+            ),
+            'manualReviewStatus', node.properties ->> 'manualReviewStatus',
+            'manualReviewReason', node.properties ->> 'manualReviewReason',
+            'manualReviewSeverity', node.properties ->> 'manualReviewSeverity',
+            'manualReviewEvidence', CASE
+              WHEN jsonb_typeof(node.properties -> 'manualReviewEvidence') = 'array'
+                THEN node.properties -> 'manualReviewEvidence'
+              ELSE '[]'::jsonb
+            END,
+            'manualReviewProposedActions', CASE
+              WHEN jsonb_typeof(node.properties -> 'manualReviewProposedActions') = 'array'
+                THEN node.properties -> 'manualReviewProposedActions'
+              ELSE '[]'::jsonb
+            END,
+            'manualReviewUpdatedTimestamp', jsonb_numeric_value(
+              node.properties,
+              'manualReviewUpdatedTimestamp'
+            )
+          ) AS payload
+        FROM project_search_documents project
+        JOIN graph_nodes node ON node.id = project.project_node_id
         ${where.toSql()}
-        ORDER BY name, project_node_id
+        ORDER BY project.name, project.project_node_id
       `,
       where.parameters,
     );

@@ -386,6 +386,9 @@ describe("SearchDocumentRepository", () => {
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain("$1 = ANY(categories)");
     expect(sql).toContain("filter_labels -> 'categories' ->> $1 = $2");
+    expect(sql).toContain("JOIN graph_nodes node");
+    expect(sql).toContain("'needsManualReview'");
+    expect(sql).toContain("'manualReviewProposedActions'");
     expect(parameters).toEqual(["dexes", "DEXes"]);
   });
 
@@ -446,6 +449,13 @@ describe("SearchDocumentRepository", () => {
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain("CROSS JOIN LATERAL");
     expect(sql).toContain("'detectedJobsites'");
+    expect(sql).toContain("'needsManualReview'");
+    expect(sql).toContain("'manualReviewEvidence'");
+    expect(sql).toContain("array_agg(DISTINCT related.properties");
+    expect(sql).toContain("jsonb_agg(DISTINCT jsonb_build_object");
+    expect(sql).toContain(
+      "related.properties ->> 'type' IS DISTINCT FROM 'unavailable'",
+    );
     expect(sql).toContain("organization.organization_id = $1");
     expect(sql).not.toContain("org-1' OR true --");
     expect(parameters).toEqual(["org-1' OR true --"]);

@@ -118,6 +118,72 @@ describePostgres("GraphRepository PostgreSQL integration", () => {
     ).resolves.toEqual(expect.objectContaining({ banned: false }));
   });
 
+  it("resolves an entity review without deleting its audit record", async () => {
+    await graph.createNode(
+      "Organization",
+      {
+        id: "org-review-id",
+        orgId: "org-review",
+        name: "Review Organization",
+        normalizedName: "review-organization",
+        summary: "Summary",
+        description: "Description",
+        location: "Distributed",
+        needsManualReview: true,
+        manualReviewStatus: "open",
+        manualReviewReason: "Conflicting ownership evidence",
+        manualReviewSeverity: "high",
+        manualReviewEvidence: ["Evidence"],
+        manualReviewProposedActions: [{ kind: "merge_organizations" }],
+      },
+      "org-review",
+    );
+    await graph.createNode(
+      "EntityReview",
+      {
+        id: "review-id",
+        entityLabel: "Organization",
+        entityId: "org-review",
+        status: "open",
+        source: "agentic_reconciliation",
+      },
+      "review-id",
+    );
+    await graph.setRelationshipsToNodes({
+      sourceLabel: "Organization",
+      sourceWhere: { orgId: "org-review" },
+      type: "HAS_ENTITY_REVIEW",
+      targetLabel: "EntityReview",
+      targetProperty: "id",
+      targetValues: ["review-id"],
+    });
+
+    await expect(
+      graph.resolveEntityManualReview({
+        label: "Organization",
+        publicId: "org-review",
+        note: "Reviewed in org-admin",
+        actor: "0xadmin",
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        needsManualReview: false,
+        manualReviewStatus: "resolved",
+        manualReviewResolutionNote: "Reviewed in org-admin",
+        manualReviewResolvedBy: "0xadmin",
+      }),
+    );
+    await expect(
+      graph.findNode("EntityReview", { id: "review-id" }),
+    ).resolves.toMatchObject({
+      properties: {
+        status: "resolved",
+        resolutionNote: "Reviewed in org-admin",
+        resolvedBy: "0xadmin",
+      },
+    });
+  });
+
   it("preserves shared value nodes until their final relationship is removed", async () => {
     await graph.createNode("Organization", { orgId: "org-1" }, "org-1");
     await graph.createNode("Organization", { orgId: "org-2" }, "org-2");

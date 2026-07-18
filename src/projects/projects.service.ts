@@ -898,6 +898,32 @@ export class ProjectsService {
     }
   }
 
+  async resolveManualReview(
+    id: string,
+    note?: string,
+    actor?: string,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.graph.resolveEntityManualReview({
+        label: "Project",
+        publicId: id,
+        note,
+        actor,
+      });
+      return {
+        success: true,
+        message: "Project manual review resolved successfully",
+      };
+    } catch (err) {
+      Sentry.captureException(err);
+      this.logger.error(`ProjectsService::resolveManualReview ${err.message}`);
+      return {
+        success: false,
+        message: "Failed to resolve project manual review",
+      };
+    }
+  }
+
   async updateMetrics(
     id: string,
     metrics: CreateProjectMetricsInput,

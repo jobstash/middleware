@@ -57,6 +57,13 @@ export class OrganizationWithLinks extends Organization {
     }),
     t.partial({
       grantSites: t.array(t.string),
+      needsManualReview: t.boolean,
+      manualReviewStatus: t.union([t.string, t.null]),
+      manualReviewReason: t.union([t.string, t.null]),
+      manualReviewSeverity: t.union([t.string, t.null]),
+      manualReviewEvidence: t.array(t.string),
+      manualReviewProposedActions: t.array(t.unknown),
+      manualReviewUpdatedTimestamp: t.union([t.number, t.null]),
     }),
   ]);
 
@@ -99,6 +106,27 @@ export class OrganizationWithLinks extends Organization {
   @ApiProperty()
   jobsites: { id: string; url: string; type: string }[];
 
+  @ApiProperty()
+  needsManualReview: boolean;
+
+  @ApiProperty()
+  manualReviewStatus: string | null;
+
+  @ApiProperty()
+  manualReviewReason: string | null;
+
+  @ApiProperty()
+  manualReviewSeverity: string | null;
+
+  @ApiProperty()
+  manualReviewEvidence: string[];
+
+  @ApiProperty()
+  manualReviewProposedActions: unknown[];
+
+  @ApiProperty()
+  manualReviewUpdatedTimestamp: number | null;
+
   constructor(raw: OrganizationWithLinks) {
     const {
       discords,
@@ -114,6 +142,13 @@ export class OrganizationWithLinks extends Organization {
       ecosystems,
       detectedJobsites,
       jobsites,
+      needsManualReview,
+      manualReviewStatus,
+      manualReviewReason,
+      manualReviewSeverity,
+      manualReviewEvidence,
+      manualReviewProposedActions,
+      manualReviewUpdatedTimestamp,
       ...orgProperties
     } = raw;
     super(orgProperties);
@@ -132,6 +167,13 @@ export class OrganizationWithLinks extends Organization {
     this.projects = projects;
     this.ecosystems = ecosystems;
     this.jobsites = jobsites;
+    this.needsManualReview = needsManualReview ?? false;
+    this.manualReviewStatus = manualReviewStatus ?? null;
+    this.manualReviewReason = manualReviewReason ?? null;
+    this.manualReviewSeverity = manualReviewSeverity ?? null;
+    this.manualReviewEvidence = manualReviewEvidence ?? [];
+    this.manualReviewProposedActions = manualReviewProposedActions ?? [];
+    this.manualReviewUpdatedTimestamp = manualReviewUpdatedTimestamp ?? null;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

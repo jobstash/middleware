@@ -35,6 +35,101 @@ const executeQuery = async <T>(
 export class GraphRepository {
   constructor(private readonly postgres: PostgresService) {}
 
+  async resolveEntityManualReview(options: {
+    label: "Organization" | "Project";
+    publicId: string;
+    note?: string;
+    actor?: string;
+  }): Promise<Record<string, unknown>> {
+    const idProperty = options.label === "Organization" ? "orgId" : "id";
+    return this.postgres.transaction(async manager => {
+      const [entity] = await executeQuery<{
+        nodeId: string;
+        properties: Record<string, unknown>;
+      }>(
+        manager,
+        `
+          SELECT id::text AS "nodeId", properties
+          FROM graph_nodes
+          WHERE label = $1 AND properties ->> $2 = $3
+          ORDER BY id
+          LIMIT 1
+          FOR UPDATE
+        `,
+        [options.label, idProperty, options.publicId],
+      );
+      if (!entity) {
+        throw new Error(`${options.label} ${options.publicId} was not found`);
+      }
+
+      const timestamp = Date.now();
+      await executeQuery(
+        manager,
+        `
+          UPDATE graph_nodes review
+          SET properties = review.properties || jsonb_strip_nulls(
+                jsonb_build_object(
+                  'status', 'resolved',
+                  'resolutionNote', $2::text,
+                  'resolvedBy', $3::text,
+                  'resolvedTimestamp', $4::bigint,
+                  'updatedTimestamp', $4::bigint
+                )
+              ),
+              updated_at = now()
+          FROM graph_relationships edge
+          WHERE edge.source_id = $1::bigint
+            AND edge.target_id = review.id
+            AND edge.type = 'HAS_ENTITY_REVIEW'
+            AND review.label = 'EntityReview'
+            AND review.properties ->> 'status' = 'open'
+        `,
+        [entity.nodeId, options.note ?? null, options.actor ?? null, timestamp],
+      );
+      const [updated] = await executeQuery<{
+        properties: Record<string, unknown>;
+      }>(
+        manager,
+        `
+          UPDATE graph_nodes
+          SET properties = (
+                properties
+                  - 'manualReviewReason'
+                  - 'manualReviewSeverity'
+                  - 'manualReviewEvidence'
+                  - 'manualReviewProposedActions'
+              ) || jsonb_strip_nulls(jsonb_build_object(
+                'needsManualReview', false,
+                'manualReviewStatus', 'resolved',
+                'manualReviewResolutionNote', $2::text,
+                'manualReviewResolvedBy', $3::text,
+                'manualReviewResolvedTimestamp', $4::bigint,
+                'manualReviewUpdatedTimestamp', $4::bigint
+              )),
+              updated_at = now()
+          WHERE id = $1::bigint
+          RETURNING properties
+        `,
+        [entity.nodeId, options.note ?? null, options.actor ?? null, timestamp],
+      );
+
+      if (options.label === "Organization") {
+        await executeQuery(
+          manager,
+          "SELECT refresh_organization_search_documents(ARRAY[$1::bigint])",
+          [entity.nodeId],
+        );
+      } else {
+        await executeQuery(
+          manager,
+          "SELECT refresh_project_search_document_ids(ARRAY[$1::bigint])",
+          [entity.nodeId],
+        );
+      }
+      return updated.properties;
+    });
+  }
+
   async setEntityBanned(options: {
     label: "Organization" | "Project";
     publicId: string;

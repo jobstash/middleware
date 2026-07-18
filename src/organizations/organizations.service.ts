@@ -497,6 +497,34 @@ export class OrganizationsService {
     }
   }
 
+  async resolveManualReview(
+    id: string,
+    note?: string,
+    actor?: string,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.graph.resolveEntityManualReview({
+        label: "Organization",
+        publicId: id,
+        note,
+        actor,
+      });
+      return {
+        success: true,
+        message: "Organization manual review resolved successfully",
+      };
+    } catch (err) {
+      Sentry.captureException(err);
+      this.logger.error(
+        `OrganizationsService::resolveManualReview ${err.message}`,
+      );
+      return {
+        success: false,
+        message: "Failed to resolve organization manual review",
+      };
+    }
+  }
+
   async importOrganizationJobsiteById(
     dto: ImportOrgJobsiteInput,
   ): Promise<ResponseWithNoData> {

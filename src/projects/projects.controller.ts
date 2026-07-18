@@ -78,6 +78,7 @@ import { ActivateProjectJobsiteInput } from "./dto/activate-project-jobsites.inp
 import { CreateProjectJobsiteInput } from "./dto/create-project-jobsites.input";
 import { SearchProjectsInput } from "./dto/search-projects.input";
 import { SetProjectBannedInput } from "./dto/set-project-banned.input";
+import { ResolveEntityReviewInput } from "src/shared/dto/resolve-entity-review.input";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 
 @Controller("projects")
@@ -1074,6 +1075,26 @@ export class ProjectsController {
       body.reason,
       address,
     );
+  }
+
+  @Post("/review/:id/resolve")
+  @UseGuards(PBACGuard)
+  @Permissions(
+    CheckWalletPermissions.ADMIN,
+    CheckWalletPermissions.PROJECT_MANAGER,
+  )
+  @ApiOkResponse({
+    description: "Marks a project manual-review queue item as resolved",
+    schema: { $ref: getSchemaPath(ResponseWithNoData) },
+  })
+  async resolveProjectManualReview(
+    @Session() { address }: SessionObject,
+    @Param("id") id: string,
+    @Body(new ValidationPipe({ transform: true }))
+    body: ResolveEntityReviewInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`POST /projects/review/${id}/resolve from ${address}`);
+    return this.projectsService.resolveManualReview(id, body.note, address);
   }
 
   @Post("/metrics/update/:id")

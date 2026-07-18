@@ -1278,6 +1278,52 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     ]);
   });
 
+  it("serves durable manual-review state to the admin organization and project lists", async () => {
+    await postgres.query(
+      `
+        UPDATE graph_nodes
+        SET properties = properties || jsonb_build_object(
+              'needsManualReview', true,
+              'manualReviewStatus', 'open',
+              'manualReviewReason', 'Conflicting authoritative evidence',
+              'manualReviewSeverity', 'high',
+              'manualReviewEvidence', jsonb_build_array('Evidence A'),
+              'manualReviewProposedActions', jsonb_build_array(
+                jsonb_build_object('actionId', 'review-1', 'kind', 'merge_projects')
+              ),
+              'manualReviewUpdatedTimestamp', 1780000000000::bigint
+            )
+        WHERE (label = 'Organization' AND node_key = 'org-acme')
+           OR (label = 'Project' AND node_key = 'project-alpha')
+      `,
+    );
+
+    const [organization] =
+      await repository.getOrganizationsWithLinks("org-acme");
+    const [project] = await repository.getProjectPayloads({
+      organizationId: "org-acme",
+    });
+
+    expect(organization).toMatchObject({
+      needsManualReview: true,
+      manualReviewStatus: "open",
+      manualReviewReason: "Conflicting authoritative evidence",
+      manualReviewSeverity: "high",
+      manualReviewEvidence: ["Evidence A"],
+      manualReviewProposedActions: [
+        expect.objectContaining({ kind: "merge_projects" }),
+      ],
+      manualReviewUpdatedTimestamp: 1780000000000,
+    });
+    expect(project).toMatchObject({
+      id: "project-alpha",
+      needsManualReview: true,
+      manualReviewStatus: "open",
+      manualReviewReason: "Conflicting authoritative evidence",
+      manualReviewSeverity: "high",
+    });
+  });
+
   it("aggregates display labels and numeric filter bounds", async () => {
     const jobs = await repository.getJobFilterValues("ethereum");
     expect(jobs).toMatchObject({

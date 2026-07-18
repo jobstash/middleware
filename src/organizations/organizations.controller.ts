@@ -77,6 +77,7 @@ import { ImportOrgJobsiteInput } from "./dto/import-organization-jobsites.input"
 import { SearchOrganizationsInput } from "./dto/search-organizations.input";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { SetOrganizationBannedInput } from "./dto/set-organization-banned.input";
+import { ResolveEntityReviewInput } from "src/shared/dto/resolve-entity-review.input";
 
 @Controller("organizations")
 @ApiExtraModels(ShortOrg, TinyOrg, Organization)
@@ -805,6 +806,27 @@ export class OrganizationsController {
       id,
       body.banned,
       body.reason,
+      address,
+    );
+  }
+
+  @Post("/review/:id/resolve")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN, CheckWalletPermissions.ORG_MANAGER)
+  @ApiOkResponse({
+    description: "Marks an organization manual-review queue item as resolved",
+    schema: { $ref: getSchemaPath(ResponseWithNoData) },
+  })
+  async resolveOrganizationManualReview(
+    @Session() { address }: SessionObject,
+    @Param("id") id: string,
+    @Body(new ValidationPipe({ transform: true }))
+    body: ResolveEntityReviewInput,
+  ): Promise<ResponseWithNoData> {
+    this.logger.log(`POST /organizations/review/${id}/resolve from ${address}`);
+    return this.organizationsService.resolveManualReview(
+      id,
+      body.note,
       address,
     );
   }
