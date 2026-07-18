@@ -442,7 +442,10 @@ export class SearchRepository {
     return rows.map(row => row.payload);
   }
 
-  async getJobPillarSitemap(): Promise<PillarSitemapEntry[]> {
+  async getJobPillarSitemap(options: {
+    startDate: number;
+    endDate: number;
+  }): Promise<PillarSitemapEntry[]> {
     const rows = await this.postgres.query<{
       type: string;
       key: string;
@@ -454,7 +457,10 @@ export class SearchRepository {
         WITH active AS MATERIALIZED (
           SELECT *
           FROM job_search_documents
-          WHERE online AND NOT blocked AND published_timestamp IS NOT NULL
+          WHERE online
+            AND NOT blocked
+            AND published_timestamp >= $1
+            AND published_timestamp <= $2
         ), facets AS (
           SELECT 'tags'::text AS type, entry.key, entry.value AS label,
             job_node_id, published_timestamp
@@ -534,6 +540,7 @@ export class SearchRepository {
         GROUP BY type, key
         ORDER BY type, key
       `,
+      [options.startDate, options.endDate],
     );
     return rows.map(row => ({
       type: row.type,
