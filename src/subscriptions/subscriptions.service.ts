@@ -1140,6 +1140,8 @@ export class SubscriptionsService {
     timeZone: "Europe/Berlin",
   })
   async sendSubscriptionRenewalEmails(): Promise<void> {
+    if (process.env.MIDDLEWARE_SCHEDULE_OWNER !== "1") return;
+
     if (this.configService.get<string>("ENVIRONMENT") === "production") {
       const subscriptions = await this.subscriptions.getRenewalSubscriptions();
       for (const job of subscriptions) {

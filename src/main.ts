@@ -1,3 +1,5 @@
+import cluster from "node:cluster";
+import { availableParallelism } from "node:os";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import "@sentry/tracing";
@@ -77,4 +79,30 @@ async function bootstrap(): Promise<void> {
 
   await app.listen(process.env.PORT ?? 8080);
 }
-bootstrap();
+
+const start = async (): Promise<void> => {
+  if (process.env.NODE_ENV !== "production" || !cluster.isPrimary) {
+    await bootstrap();
+    return;
+  }
+
+  const workerCount = Math.min(4, availableParallelism());
+  let scheduleOwnerId: number | undefined;
+  for (let index = 0; index < workerCount; index += 1) {
+    const ownsScheduledJobs = index === 0;
+    const worker = cluster.fork({
+      MIDDLEWARE_SCHEDULE_OWNER: ownsScheduledJobs ? "1" : "0",
+    });
+    if (ownsScheduledJobs) scheduleOwnerId = worker.id;
+  }
+
+  cluster.on("exit", worker => {
+    const ownsScheduledJobs = worker.id === scheduleOwnerId;
+    const replacement = cluster.fork({
+      MIDDLEWARE_SCHEDULE_OWNER: ownsScheduledJobs ? "1" : "0",
+    });
+    if (ownsScheduledJobs) scheduleOwnerId = replacement.id;
+  });
+};
+
+void start();

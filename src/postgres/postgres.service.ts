@@ -34,7 +34,10 @@ export class PostgresService implements OnModuleInit, OnModuleDestroy {
       logging: false,
       extra: {
         max: options.maxConnections,
-        connectionTimeoutMillis: 15_000,
+        connectionTimeoutMillis: 30_000,
+        idleTimeoutMillis: 120_000,
+        keepAlive: true,
+        keepAliveInitialDelayMillis: 10_000,
         statement_timeout: options.statementTimeoutMs,
         idle_in_transaction_session_timeout: options.statementTimeoutMs,
         options: "-c jit=off",

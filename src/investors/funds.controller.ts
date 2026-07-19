@@ -13,7 +13,11 @@ import { CACHE_DURATION_1_HOUR } from "src/shared/constants";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { PaginatedData } from "src/shared/interfaces";
 import { InvestorListParams } from "./dto/investor-list.input";
-import { FundListItem, InvestorsService } from "./investors.service";
+import {
+  FundDetails,
+  FundListItem,
+  InvestorsService,
+} from "./investors.service";
 
 @Controller("funds")
 export class FundsController {
@@ -31,10 +35,11 @@ export class FundsController {
   }
 
   @Get("details/slug/:slug")
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   async getFund(
     @Param("slug") slug: string,
     @Res({ passthrough: true }) response: ExpressResponse,
-  ): Promise<FundListItem | undefined> {
+  ): Promise<FundDetails | undefined> {
     const fund = await this.investorsService.getFundDetailsBySlug(slug);
     if (!fund) response.status(HttpStatus.NOT_FOUND);
     return fund;

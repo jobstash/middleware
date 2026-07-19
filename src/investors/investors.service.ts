@@ -18,6 +18,43 @@ export interface FundListItem {
   portfolioCount: number;
 }
 
+export interface FundTeamMember {
+  id: string;
+  name: string;
+  normalizedName: string;
+  jobTitle: string | null;
+  photoUrl: string | null;
+  linkedinUrl: string | null;
+  twitterUrl: string | null;
+}
+
+export interface FundInvestmentRound {
+  id: string;
+  roundName: string;
+  date: number;
+  raisedAmount: number;
+  sourceLink: string | null;
+}
+
+export interface FundInvestment {
+  organizationId: string;
+  name: string;
+  normalizedName: string;
+  summary: string | null;
+  logoUrl: string | null;
+  website: string | null;
+  vertical: string | null;
+  rounds: FundInvestmentRound[];
+}
+
+export interface FundDetails extends FundListItem {
+  summary: string | null;
+  description: string | null;
+  location: string | null;
+  team: FundTeamMember[];
+  investments: FundInvestment[];
+}
+
 @Injectable()
 export class InvestorsService {
   private readonly logger = new CustomLogger(InvestorsService.name);
@@ -86,46 +123,133 @@ export class InvestorsService {
     };
   }
 
-  async getFundDetailsBySlug(slug: string): Promise<FundListItem | undefined> {
-    const rows = await this.postgres.query<{ payload: FundListItem }>(
+  async getFundDetailsBySlug(slug: string): Promise<FundDetails | undefined> {
+    const rows = await this.postgres.query<{ payload: FundDetails }>(
       `
+        WITH selected_fund AS (
+          SELECT *
+          FROM graph_nodes
+          WHERE label = 'Investor'
+            AND properties ->> 'normalizedName' = $1
+            AND lower(COALESCE(properties ->> 'isFund', 'false'))
+                IN ('true', '1', 'yes', 'on')
+          ORDER BY id
+          LIMIT 1
+        )
         SELECT jsonb_build_object(
           'id', fund.properties ->> 'id',
           'name', fund.properties ->> 'name',
           'normalizedName', fund.properties ->> 'normalizedName',
           'logoUrl', fund.properties ->> 'logoUrl',
+          'summary', fund.properties ->> 'summary',
+          'description', fund.properties ->> 'description',
+          'location', fund.properties ->> 'location',
           'website', related.website,
           'twitter', related.twitter,
-          'staffCount', related.staff_count,
-          'portfolioCount', related.portfolio_count
+          'staffCount', jsonb_array_length(related.team),
+          'portfolioCount', jsonb_array_length(related.investments),
+          'team', related.team,
+          'investments', related.investments
         ) AS payload
-        FROM graph_nodes fund
+        FROM selected_fund fund
         CROSS JOIN LATERAL (
           SELECT
             min(node.properties ->> 'url')
               FILTER (WHERE edge.type = 'HAS_WEBSITE') AS website,
             min(node.properties ->> 'username')
               FILTER (WHERE edge.type = 'HAS_TWITTER') AS twitter,
-            count(*) FILTER (WHERE edge.type = 'HAS_STAFF')::int AS staff_count,
-            (
-              SELECT count(DISTINCT owner.source_id)::int
-              FROM graph_relationships investment
-              JOIN graph_relationships owner
-                ON owner.target_id = investment.source_id
-               AND owner.type = 'HAS_FUNDING_ROUND'
-              WHERE investment.target_id = fund.id
-                AND investment.type = 'HAS_INVESTOR'
-            ) AS portfolio_count
+            COALESCE((
+              SELECT jsonb_agg(team_member.payload ORDER BY team_member.sort_name)
+              FROM (
+                SELECT DISTINCT ON (staff.id)
+                  lower(COALESCE(staff.properties ->> 'name', '')) AS sort_name,
+                  jsonb_build_object(
+                    'id', staff.properties ->> 'id',
+                    'name', staff.properties ->> 'name',
+                    'normalizedName', staff.properties ->> 'normalizedName',
+                    'jobTitle', COALESCE(
+                      staff.properties ->> 'jobTitle',
+                      staff.properties ->> 'title',
+                      staff.properties ->> 'role'
+                    ),
+                    'photoUrl', staff.properties ->> 'photoUrl',
+                    'linkedinUrl', staff.properties ->> 'linkedinUrl',
+                    'twitterUrl', staff.properties ->> 'twitterUrl'
+                  ) AS payload
+                FROM graph_relationships staff_edge
+                JOIN graph_nodes staff ON staff.id = staff_edge.target_id
+                WHERE staff_edge.source_id = fund.id
+                  AND staff_edge.type = 'HAS_STAFF'
+                  AND staff.label = 'Staff'
+                ORDER BY staff.id, lower(COALESCE(staff.properties ->> 'name', ''))
+              ) team_member
+            ), '[]'::jsonb) AS team,
+            COALESCE((
+              SELECT jsonb_agg(
+                portfolio_company.payload
+                ORDER BY portfolio_company.sort_name
+              )
+              FROM (
+                SELECT
+                  lower(COALESCE(owner.properties ->> 'name', '')) AS sort_name,
+                  jsonb_build_object(
+                    'organizationId', owner.properties ->> 'orgId',
+                    'name', owner.properties ->> 'name',
+                    'normalizedName', owner.properties ->> 'normalizedName',
+                    'summary', owner.properties ->> 'summary',
+                    'logoUrl', owner.properties ->> 'logoUrl',
+                    'website', (
+                      SELECT min(website.properties ->> 'url')
+                      FROM graph_relationships website_edge
+                      JOIN graph_nodes website ON website.id = website_edge.target_id
+                      WHERE website_edge.source_id = owner.id
+                        AND website_edge.type = 'HAS_WEBSITE'
+                    ),
+                    'vertical', owner.properties ->> 'vertical',
+                    'rounds', jsonb_agg(
+                      DISTINCT jsonb_build_object(
+                        'id', funding_round.properties ->> 'id',
+                        'roundName', funding_round.properties ->> 'roundName',
+                        'date', COALESCE(
+                          (funding_round.properties ->> 'date')::numeric,
+                          0
+                        ),
+                        'raisedAmount', COALESCE(
+                          (funding_round.properties ->> 'raisedAmount')::numeric,
+                          0
+                        ),
+                        'sourceLink', funding_round.properties ->> 'sourceLink'
+                      )
+                    )
+                  ) AS payload
+                FROM graph_relationships investment
+                JOIN graph_nodes funding_round
+                  ON funding_round.id = investment.source_id
+                 AND funding_round.label = 'FundingRound'
+                JOIN graph_relationships ownership
+                  ON ownership.target_id = funding_round.id
+                 AND ownership.type = 'HAS_FUNDING_ROUND'
+                JOIN graph_nodes owner
+                  ON owner.id = ownership.source_id
+                 AND owner.label = 'Organization'
+                WHERE investment.target_id = fund.id
+                  AND investment.type = 'HAS_INVESTOR'
+                  AND lower(COALESCE(owner.properties ->> 'banned', 'false'))
+                      NOT IN ('true', '1', 'yes', 'on')
+                GROUP BY
+                  owner.id,
+                  owner.properties ->> 'orgId',
+                  owner.properties ->> 'name',
+                  owner.properties ->> 'normalizedName',
+                  owner.properties ->> 'summary',
+                  owner.properties ->> 'logoUrl',
+                  owner.properties ->> 'vertical'
+              ) portfolio_company
+            ), '[]'::jsonb) AS investments
           FROM graph_relationships edge
           JOIN graph_nodes node ON node.id = edge.target_id
           WHERE edge.source_id = fund.id
         ) related
-        WHERE fund.label = 'Investor'
-          AND fund.properties ->> 'normalizedName' = $1
-          AND lower(COALESCE(fund.properties ->> 'isFund', 'false'))
-              IN ('true', '1', 'yes', 'on')
-        ORDER BY fund.id
-        LIMIT 1
       `,
       [slug],
     );
