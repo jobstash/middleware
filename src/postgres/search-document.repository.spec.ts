@@ -431,7 +431,7 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("FROM organization_search_documents");
     expect(sql).toContain("investors &&");
     expect(sql).toContain("funding_rounds &&");
-    expect(sql).toContain("AND has_projects");
+    expect(sql).toContain("has_projects =");
     expect(sql).toContain("recent_job_timestamp ASC");
     expect(sql).toContain("search_values");
     expect(sql).not.toContain("acme");
@@ -439,8 +439,8 @@ describe("SearchDocumentRepository", () => {
 
     query.mockClear();
     await repository.searchOrganizations({ hasProjects: false });
-    expect(query.mock.calls[0][0]).not.toContain("has_projects =");
-    expect(query.mock.calls[0][0]).not.toContain("WHERE has_projects");
+    expect(query.mock.calls[0][0]).toContain("has_projects = $1");
+    expect(query.mock.calls[0][1]).toEqual([false, 10, 0]);
   });
 
   it("projects organization link collections in one parameterized query", async () => {
@@ -508,7 +508,7 @@ describe("SearchDocumentRepository", () => {
     expect(parameters).not.toContain("alpha");
   });
 
-  it("preserves project-search boolean alias semantics", async () => {
+  it("applies both true and false project-search boolean aliases", async () => {
     await repository.searchProjects({
       hasAudits: true,
       hasHacks: true,
@@ -519,11 +519,10 @@ describe("SearchDocumentRepository", () => {
     });
 
     const [enabledSql, enabledParameters] = query.mock.calls[0];
-    expect(enabledSql).toContain("WHERE has_audits");
-    expect(enabledSql).toContain("AND has_hacks");
-    expect(enabledSql).toContain("AND token_address_not_explicit_null");
-    expect(enabledSql).not.toContain("has_token =");
-    expect(enabledParameters).toEqual([10, 0]);
+    expect(enabledSql).toContain("has_audits = $1");
+    expect(enabledSql).toContain("has_hacks = $2");
+    expect(enabledSql).toContain("has_token = $3");
+    expect(enabledParameters).toEqual([true, true, true, 10, 0]);
 
     query.mockClear();
     await repository.searchProjects({
@@ -536,11 +535,10 @@ describe("SearchDocumentRepository", () => {
     });
 
     const [disabledSql, disabledParameters] = query.mock.calls[0];
-    expect(disabledSql).not.toContain("has_audits");
-    expect(disabledSql).not.toContain("has_hacks");
-    expect(disabledSql).not.toContain("has_token");
-    expect(disabledSql).not.toContain("token_address_not_explicit_null");
-    expect(disabledParameters).toEqual([10, 0]);
+    expect(disabledSql).toContain("has_audits = $1");
+    expect(disabledSql).toContain("has_hacks = $2");
+    expect(disabledSql).toContain("has_token = $3");
+    expect(disabledParameters).toEqual([false, false, false, 10, 0]);
   });
 
   it("keeps strict project-list booleans separate from search aliases", async () => {

@@ -71,6 +71,11 @@ export class SearchPillarFiltersParams {
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
+  seniority?: string[] | null = null;
+
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
   organizations?: string[] | null = null;
 
   @IsOptional()
@@ -175,27 +180,37 @@ export class SearchPillarFiltersParams {
   maxProgramBudget?: number | null = null;
 
   @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
   @IsBoolean()
-  @Type(() => Boolean)
   hasProjects?: boolean | null = null;
 
   @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
   @IsBoolean()
-  @Type(() => Boolean)
   hasJobs?: boolean | null = null;
 
   @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
   @IsBoolean()
-  @Type(() => Boolean)
   hasAudits?: boolean | null = null;
 
   @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
   @IsBoolean()
-  @Type(() => Boolean)
   hasHacks?: boolean | null = null;
 
   @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
   @IsBoolean()
-  @Type(() => Boolean)
   hasToken?: boolean | null = null;
 }

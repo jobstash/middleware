@@ -6,6 +6,7 @@ import { paginate } from "src/shared/helpers";
 import { sort } from "fast-sort";
 import { GraphRepository } from "src/postgres/graph.repository";
 import { PostgresService } from "src/postgres/postgres.service";
+import { FundListOrderBy, InvestorListParams } from "./dto/investor-list.input";
 
 export interface FundListItem {
   id: string;
@@ -16,6 +17,19 @@ export interface FundListItem {
   twitter: string | null;
   staffCount: number;
   portfolioCount: number;
+  totalInvestedCapital: number;
+  lastInvestmentDate: number | null;
+  jobCount: number;
+}
+
+export interface FundJob {
+  id: string;
+  title: string;
+  shortUUID: string;
+  organizationName: string;
+  location: string | null;
+  commitment: string | null;
+  publishedTimestamp: number | null;
 }
 
 export interface FundTeamMember {
@@ -54,6 +68,7 @@ export interface FundDetails extends FundListItem {
   location: string | null;
   team: FundTeamMember[];
   investments: FundInvestment[];
+  jobs: FundJob[];
 }
 
 @Injectable()
@@ -65,56 +80,153 @@ export class InvestorsService {
   ) {}
 
   async getFundList(
-    page: number,
-    limit: number,
+    params: InvestorListParams,
   ): Promise<PaginatedData<FundListItem>> {
-    const safePage = Math.max(1, Math.trunc(page));
-    const safeLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
+    const safePage = Math.max(1, Math.trunc(params.page ?? 1));
+    const safeLimit = Math.max(
+      1,
+      Math.min(100, Math.trunc(params.limit ?? 20)),
+    );
     const offset = (safePage - 1) * safeLimit;
+    const orderBy = params.orderBy ?? "lastInvestmentDate";
+    const orderExpressions: Record<FundListOrderBy, string> = {
+      lastInvestmentDate: '"lastInvestmentDate"',
+      totalInvestedCapital: '"totalInvestedCapital"',
+      portfolioCount: '"portfolioCount"',
+      staffCount: '"staffCount"',
+      name: 'lower("name")',
+    };
+    const direction = params.order === "asc" ? "ASC" : "DESC";
+    const orderExpression = orderExpressions[orderBy];
     const rows = await this.postgres.query<{
       payload: FundListItem;
       total: string;
     }>(
       `
-        SELECT jsonb_build_object(
-          'id', fund.properties ->> 'id',
-          'name', fund.properties ->> 'name',
-          'normalizedName', fund.properties ->> 'normalizedName',
-          'logoUrl', fund.properties ->> 'logoUrl',
-          'website', related.website,
-          'twitter', related.twitter,
-          'staffCount', related.staff_count,
-          'portfolioCount', related.portfolio_count
-        ) AS payload,
-        count(*) OVER ()::text AS total
-        FROM graph_nodes fund
-        CROSS JOIN LATERAL (
+        WITH fund_rows AS (
           SELECT
-            min(node.properties ->> 'url')
-              FILTER (WHERE edge.type = 'HAS_WEBSITE') AS website,
-            min(node.properties ->> 'username')
-              FILTER (WHERE edge.type = 'HAS_TWITTER') AS twitter,
-            count(*) FILTER (WHERE edge.type = 'HAS_STAFF')::int AS staff_count,
-            (
-              SELECT count(DISTINCT owner.source_id)::int
+            fund.properties ->> 'id' AS id,
+            fund.properties ->> 'name' AS name,
+            fund.properties ->> 'normalizedName' AS "normalizedName",
+            fund.properties ->> 'logoUrl' AS "logoUrl",
+            related.website,
+            related.twitter,
+            related.staff_count AS "staffCount",
+            investments.portfolio_count AS "portfolioCount",
+            investments.total_invested_capital AS "totalInvestedCapital",
+            investments.last_investment_date AS "lastInvestmentDate",
+            jobs.job_count AS "jobCount"
+          FROM graph_nodes fund
+          CROSS JOIN LATERAL (
+            SELECT
+              min(node.properties ->> 'url')
+                FILTER (WHERE edge.type = 'HAS_WEBSITE') AS website,
+              min(node.properties ->> 'username')
+                FILTER (WHERE edge.type = 'HAS_TWITTER') AS twitter,
+              count(*) FILTER (WHERE edge.type = 'HAS_STAFF')::int
+                AS staff_count
+            FROM graph_relationships edge
+            JOIN graph_nodes node ON node.id = edge.target_id
+            WHERE edge.source_id = fund.id
+          ) related
+          CROSS JOIN LATERAL (
+            SELECT
+              count(DISTINCT investment_round.organization_id)::int
+                AS portfolio_count,
+              COALESCE(sum(investment_round.raised_amount), 0)::float8
+                AS total_invested_capital,
+              max(investment_round.investment_date)::float8
+                AS last_investment_date
+            FROM (
+              SELECT DISTINCT ON (funding_round.id)
+                owner.id AS organization_id,
+                CASE
+                  WHEN NULLIF(funding_round.properties ->> 'source', '')
+                      IS NULL
+                    THEN COALESCE(
+                      (funding_round.properties ->> 'raisedAmount')::numeric,
+                      0
+                    ) * 1000000
+                  ELSE COALESCE(
+                    (funding_round.properties ->> 'raisedAmount')::numeric,
+                    0
+                  )
+                END AS raised_amount,
+                COALESCE(
+                  (funding_round.properties ->> 'date')::numeric,
+                  0
+                ) AS investment_date
               FROM graph_relationships investment
-              JOIN graph_relationships owner
-                ON owner.target_id = investment.source_id
-               AND owner.type = 'HAS_FUNDING_ROUND'
+              JOIN graph_nodes funding_round
+                ON funding_round.id = investment.source_id
+               AND funding_round.label = 'FundingRound'
+              JOIN graph_relationships ownership
+                ON ownership.target_id = funding_round.id
+               AND ownership.type = 'HAS_FUNDING_ROUND'
+              JOIN graph_nodes owner
+                ON owner.id = ownership.source_id
+               AND owner.label = 'Organization'
               WHERE investment.target_id = fund.id
                 AND investment.type = 'HAS_INVESTOR'
-            ) AS portfolio_count
-          FROM graph_relationships edge
-          JOIN graph_nodes node ON node.id = edge.target_id
-          WHERE edge.source_id = fund.id
-        ) related
-        WHERE fund.label = 'Investor'
-          AND lower(COALESCE(fund.properties ->> 'isFund', 'false'))
-              IN ('true', '1', 'yes', 'on')
-        ORDER BY lower(fund.properties ->> 'name'), fund.id
+                AND lower(COALESCE(owner.properties ->> 'banned', 'false'))
+                    NOT IN ('true', '1', 'yes', 'on')
+              ORDER BY funding_round.id
+            ) investment_round
+          ) investments
+          CROSS JOIN LATERAL (
+            SELECT count(DISTINCT job.job_node_id)::int AS job_count
+            FROM job_search_documents job
+            JOIN organization_search_documents organization
+              ON organization.organization_id = job.organization_id
+            WHERE job.online
+              AND NOT job.blocked
+              AND job.legacy_list_eligible
+              AND cardinality(job.tags) > 0
+              AND NOT (
+                job.access = 'public'
+                AND job.organization_has_expert_jobs
+              )
+              AND fund.properties ->> 'normalizedName'
+                  = ANY(organization.investors)
+          ) jobs
+          WHERE fund.label = 'Investor'
+            AND lower(COALESCE(fund.properties ->> 'isFund', 'false'))
+                IN ('true', '1', 'yes', 'on')
+        )
+        SELECT jsonb_build_object(
+          'id', id,
+          'name', name,
+          'normalizedName', "normalizedName",
+          'logoUrl', "logoUrl",
+          'website', website,
+          'twitter', twitter,
+          'staffCount', "staffCount",
+          'portfolioCount', "portfolioCount",
+          'totalInvestedCapital', "totalInvestedCapital",
+          'lastInvestmentDate', "lastInvestmentDate",
+          'jobCount', "jobCount"
+        ) AS payload,
+        count(*) OVER ()::text AS total
+        FROM fund_rows
+        WHERE ($3::text IS NULL
+          OR name ILIKE '%' || $3 || '%'
+          OR "normalizedName" ILIKE '%' || $3 || '%')
+          AND ($4::float8 IS NULL OR "totalInvestedCapital" >= $4)
+          AND ($5::int IS NULL OR "portfolioCount" >= $5)
+          AND ($6::boolean IS NULL OR ("jobCount" > 0) = $6)
+        ORDER BY ${orderExpression} ${direction} NULLS LAST,
+          lower(name) ASC,
+          id ASC
         LIMIT $1 OFFSET $2
       `,
-      [safeLimit, offset],
+      [
+        safeLimit,
+        offset,
+        params.query?.trim() || null,
+        params.minInvestedCapital ?? null,
+        params.minPortfolioCount ?? null,
+        params.hasJobs ?? null,
+      ],
     );
     return {
       page: safePage,
@@ -149,8 +261,12 @@ export class InvestorsService {
           'twitter', related.twitter,
           'staffCount', jsonb_array_length(related.team),
           'portfolioCount', jsonb_array_length(related.investments),
+          'totalInvestedCapital', investment_stats.total_invested_capital,
+          'lastInvestmentDate', investment_stats.last_investment_date,
+          'jobCount', fund_jobs.job_count,
           'team', related.team,
-          'investments', related.investments
+          'investments', related.investments,
+          'jobs', fund_jobs.jobs
         ) AS payload
         FROM selected_fund fund
         CROSS JOIN LATERAL (
@@ -252,6 +368,68 @@ export class InvestorsService {
           JOIN graph_nodes node ON node.id = edge.target_id
           WHERE edge.source_id = fund.id
         ) related
+        CROSS JOIN LATERAL (
+          SELECT
+            COALESCE(sum(
+              CASE
+                WHEN NULLIF(round.value ->> 'source', '') IS NULL
+                  THEN COALESCE((round.value ->> 'raisedAmount')::numeric, 0)
+                    * 1000000
+                ELSE COALESCE((round.value ->> 'raisedAmount')::numeric, 0)
+              END
+            ), 0)::float8 AS total_invested_capital,
+            max(COALESCE((round.value ->> 'date')::numeric, 0))::float8
+              AS last_investment_date
+          FROM jsonb_array_elements(related.investments) investment
+          CROSS JOIN LATERAL jsonb_array_elements(
+            COALESCE(investment.value -> 'rounds', '[]'::jsonb)
+          ) round(value)
+        ) investment_stats
+        CROSS JOIN LATERAL (
+          SELECT
+            count(*)::int AS job_count,
+            COALESCE(jsonb_agg(job_row.payload ORDER BY
+              job_row.published_timestamp DESC NULLS LAST,
+              job_row.id
+            ) FILTER (WHERE job_row.position <= 20), '[]'::jsonb) AS jobs
+          FROM (
+            SELECT
+              row_number() OVER (
+                ORDER BY job.published_timestamp DESC NULLS LAST,
+                  job.job_node_id
+              ) AS position,
+              job.job_node_id AS id,
+              job.published_timestamp,
+              jsonb_build_object(
+                'id', COALESCE(
+                  job.payload ->> 'id',
+                  job.structured_jobpost_id
+                ),
+                'title', job.title,
+                'shortUUID', job.short_uuid,
+                'organizationName', organization.name,
+                'location', job.location,
+                'commitment', job.payload ->> 'commitment',
+                'publishedTimestamp', COALESCE(
+                  (job.payload ->> 'timestamp')::numeric,
+                  extract(epoch FROM job.published_at)
+                )
+              ) AS payload
+            FROM job_search_documents job
+            JOIN organization_search_documents organization
+              ON organization.organization_id = job.organization_id
+            WHERE job.online
+              AND NOT job.blocked
+              AND job.legacy_list_eligible
+              AND cardinality(job.tags) > 0
+              AND NOT (
+                job.access = 'public'
+                AND job.organization_has_expert_jobs
+              )
+              AND fund.properties ->> 'normalizedName'
+                  = ANY(organization.investors)
+          ) job_row
+        ) fund_jobs
       `,
       [slug],
     );

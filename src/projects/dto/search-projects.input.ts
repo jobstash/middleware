@@ -107,18 +107,24 @@ export class SearchProjectsInput {
   maxMonthlyRevenue?: number | null = null;
 
   @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
   @IsBoolean()
-  @Type(() => Boolean)
   hasAudits?: boolean | null = null;
 
   @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
   @IsBoolean()
-  @Type(() => Boolean)
   hasHacks?: boolean | null = null;
 
   @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
   @IsBoolean()
-  @Type(() => Boolean)
   hasToken?: boolean | null = null;
 
   @ApiPropertyOptional()

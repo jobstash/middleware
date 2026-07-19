@@ -78,14 +78,18 @@ export class SearchOrganizationsInput {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
   @IsBoolean()
-  @Type(() => Boolean)
   hasJobs?: boolean | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
   @IsBoolean()
-  @Type(() => Boolean)
   hasProjects?: boolean | null = null;
 
   @ApiPropertyOptional()
@@ -115,10 +119,22 @@ export class SearchOrganizationsInput {
   order?: ListOrder | null = null;
 
   @ApiPropertyOptional({
-    enum: ["recentFundingDate", "headcountEstimate", "rating", "name"],
+    enum: [
+      "recentFundingDate",
+      "recentJobDate",
+      "headcountEstimate",
+      "rating",
+      "name",
+    ],
   })
   @IsOptional()
-  @IsIn(["recentFundingDate", "headcountEstimate", "rating", "name"])
+  @IsIn([
+    "recentFundingDate",
+    "recentJobDate",
+    "headcountEstimate",
+    "rating",
+    "name",
+  ])
   @IsString()
   orderBy?: OrgListOrderBy | null = null;
 }

@@ -411,7 +411,6 @@ export class SearchService {
         params.nav,
         ecosystem,
       );
-      const configs = this.filterConfigs(allConfigs, params);
       const filterNames = [
         ...new Set(
           configured.map(
@@ -428,13 +427,15 @@ export class SearchService {
         | MultiSelectFilter
       )[] = [];
       for (const filter of filterNames) {
+        const configs = this.filterConfigs(allConfigs, params, filter);
         const preset = presets[filter];
         if (!preset) continue;
         const paramPreset = FILTER_PARAM_KEY_PRESETS[params.nav]?.[filter];
         if (preset.kind === "RANGE") {
           const values = configs
             .map(config => this.asNumber(config[filter]))
-            .filter((value): value is number => value !== null);
+            .filter((value): value is number => value !== null)
+            .map(value => Math.max(0, value));
           const range = paramPreset as { lowest: string; highest: string };
           filters.push(
             new SearchRangeFilter({
@@ -724,6 +725,7 @@ export class SearchService {
       for (const [field, mapping] of Object.entries(
         rangeFilters[params.nav] ?? {},
       )) {
+        if (field === excludedField) continue;
         const value = this.asNumber(config[field]) ?? 0;
         const minimum = this.asNumber(values[mapping.minimum]);
         const maximum = this.asNumber(values[mapping.maximum]);

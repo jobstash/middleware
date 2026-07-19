@@ -437,7 +437,21 @@ export const FILTER_ENDPOINT_SPECS: FilterEndpointSpec[] = [
     operationId: "InvestorsController_getInvestorList",
     path: "/investors/list",
     identityKey: "id",
-    parameters: paginationParameters(),
+    parameters: [
+      ...paginationParameters(),
+      queryParameter(),
+      numberParameter("minInvestedCapital", 1_000_000, 1_000_000_000),
+      numberParameter("minPortfolioCount", 10, 1_000),
+      booleanParameter("hasJobs"),
+      enumParameter("order", ["asc", "desc"]),
+      enumParameter("orderBy", [
+        "lastInvestmentDate",
+        "totalInvestedCapital",
+        "portfolioCount",
+        "staffCount",
+        "name",
+      ]),
+    ],
     productionSourceMayDrift: true,
   },
 ];

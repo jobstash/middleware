@@ -40,6 +40,34 @@ describe("filter DTO HTTP contracts", () => {
     },
   );
 
+  it("coerces and validates fund list filters", async () => {
+    const result = await transformQuery(InvestorListParams, {
+      page: "2",
+      limit: "20",
+      query: "coin",
+      minInvestedCapital: "10000000",
+      minPortfolioCount: "5",
+      hasJobs: "false",
+      order: "desc",
+      orderBy: "totalInvestedCapital",
+    });
+
+    expect(result).toMatchObject({
+      page: 2,
+      limit: 20,
+      query: "coin",
+      minInvestedCapital: 10_000_000,
+      minPortfolioCount: 5,
+      hasJobs: false,
+      order: "desc",
+      orderBy: "totalInvestedCapital",
+    });
+
+    await expect(
+      transformQuery(InvestorListParams, { orderBy: "unknown" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   describe("JobListParams", () => {
     const numericProperties = [
       "minSalaryRange",
@@ -238,13 +266,13 @@ describe("filter DTO HTTP contracts", () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it("preserves live search endpoint Boolean coercion", async () => {
+    it("coerces false organization filters without changing their value", async () => {
       const result = await transformQuery(SearchOrganizationsInput, {
         hasJobs: "false",
         hasProjects: "false",
       });
 
-      expect(result).toMatchObject({ hasJobs: true, hasProjects: true });
+      expect(result).toMatchObject({ hasJobs: false, hasProjects: false });
     });
   });
 
@@ -326,7 +354,7 @@ describe("filter DTO HTTP contracts", () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it("preserves live search endpoint Boolean coercion", async () => {
+    it("coerces false project filters without changing their value", async () => {
       const result = await transformQuery(SearchProjectsInput, {
         hasAudits: "false",
         hasHacks: "false",
@@ -334,9 +362,9 @@ describe("filter DTO HTTP contracts", () => {
       });
 
       expect(result).toMatchObject({
-        hasAudits: true,
-        hasHacks: true,
-        hasToken: true,
+        hasAudits: false,
+        hasHacks: false,
+        hasToken: false,
       });
     });
   });

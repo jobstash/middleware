@@ -84,6 +84,11 @@ type ProjectSearchParams = Partial<ProjectListParams> & {
   hasToken?: boolean | null;
 };
 
+type OrganizationSearchParams = Partial<OrgListParams> & {
+  ecosystemHeader?: string;
+  hasJobs?: boolean | null;
+};
+
 const NATURAL_NAME_SQL = "name COLLATE jobstash_natural";
 
 class SqlPredicateBuilder {
@@ -1186,7 +1191,7 @@ export class SearchDocumentRepository {
   }
 
   async searchOrganizations(
-    params: Partial<OrgListParams> & { ecosystemHeader?: string },
+    params: OrganizationSearchParams,
   ): Promise<SearchPage<OrgListResult>> {
     const where = new SqlPredicateBuilder();
     if (params.ecosystemHeader) {
@@ -1211,7 +1216,9 @@ export class SearchDocumentRepository {
     if (locations?.length) {
       where.add(`location = ANY(${where.bind(locations)}::text[])`);
     }
-    if (params.hasProjects === true) where.add("has_projects");
+    where.addEqual("has_projects", params.hasProjects);
+    if (params.hasJobs === true) where.add("recent_job_timestamp IS NOT NULL");
+    if (params.hasJobs === false) where.add("recent_job_timestamp IS NULL");
     const sortExpressions: Record<string, string> = {
       recentFundingDate: "recent_funding_timestamp",
       recentJobDate: "recent_job_timestamp",
@@ -1442,21 +1449,9 @@ export class SearchDocumentRepository {
       params.minMonthlyRevenue,
       params.maxMonthlyRevenue,
     );
-    if (params.hasAudits !== null && params.hasAudits !== undefined) {
-      if (params.hasAudits) where.add("has_audits");
-    } else {
-      where.addEqual("has_audits", params.audits);
-    }
-    if (params.hasHacks !== null && params.hasHacks !== undefined) {
-      if (params.hasHacks) where.add("has_hacks");
-    } else {
-      where.addEqual("has_hacks", params.hacks);
-    }
-    if (params.hasToken !== null && params.hasToken !== undefined) {
-      if (params.hasToken) where.add("token_address_not_explicit_null");
-    } else {
-      where.addEqual("has_token", params.token);
-    }
+    where.addEqual("has_audits", params.hasAudits ?? params.audits);
+    where.addEqual("has_hacks", params.hasHacks ?? params.hacks);
+    where.addEqual("has_token", params.hasToken ?? params.token);
     where.addArrayOverlap("organization_names", params.organizations);
     where.addArrayOverlap("investors", params.investors);
     where.addArrayOverlap("chains", params.chains);

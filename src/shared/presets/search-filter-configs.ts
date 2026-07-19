@@ -31,11 +31,14 @@ export const SINGLE_SELECT_OPTIONS = {
       { label: "Number of Audits", value: "audits" },
       { label: "Number of Chains", value: "chains" },
       { label: "Number of Hacks", value: "hacks" },
-      { label: "Most Recent Funding Date", value: "recentFundingDate" },
       { label: "TVL", value: "tvl" },
     ],
   },
   organizations: {
+    hasJobs: [
+      { label: "Has open jobs", value: true },
+      { label: "Has no open jobs", value: false },
+    ],
     hasProjects: [
       { label: "Has projects", value: true },
       { label: "Has no projects", value: false },
@@ -47,6 +50,7 @@ export const SINGLE_SELECT_OPTIONS = {
     orderBy: [
       { label: "Head Count", value: "headcountEstimate" },
       { label: "Most Recent Funding Date", value: "recentFundingDate" },
+      { label: "Most Recent Job Date", value: "recentJobDate" },
       { label: "Rating", value: "rating" },
       { label: "Name", value: "name" },
     ],
@@ -259,8 +263,16 @@ export const FILTER_CONFIG_PRESETS = {
       kind: FilterKind.SINGLE_SELECT,
       options: SINGLE_SELECT_OPTIONS.organizations.hasProjects,
     },
-    tags: {
+    hasJobs: {
       position: 5,
+      label: "Has Open Jobs",
+      show: true,
+      googleAnalyticsEventName: "filter_search_has_jobs",
+      kind: FilterKind.SINGLE_SELECT,
+      options: SINGLE_SELECT_OPTIONS.organizations.hasJobs,
+    },
+    tags: {
+      position: 6,
       label: "Tags",
       show: true,
       googleAnalyticsEventName: "filter_search_tags",
@@ -268,7 +280,7 @@ export const FILTER_CONFIG_PRESETS = {
       prefix: null,
     },
     projects: {
-      position: 6,
+      position: 7,
       label: "Projects",
       show: true,
       googleAnalyticsEventName: "filter_search_projects",
@@ -276,7 +288,7 @@ export const FILTER_CONFIG_PRESETS = {
       prefix: null,
     },
     investors: {
-      position: 7,
+      position: 8,
       label: "Investors",
       show: true,
       googleAnalyticsEventName: "filter_search_investors",
@@ -284,7 +296,7 @@ export const FILTER_CONFIG_PRESETS = {
       prefix: null,
     },
     fundingRounds: {
-      position: 8,
+      position: 9,
       label: "Funding Rounds",
       show: true,
       googleAnalyticsEventName: "filter_search_funding_rounds",
@@ -292,7 +304,7 @@ export const FILTER_CONFIG_PRESETS = {
       prefix: null,
     },
     chains: {
-      position: 9,
+      position: 10,
       label: "Chains",
       show: true,
       googleAnalyticsEventName: "filter_search_chains",
@@ -300,7 +312,7 @@ export const FILTER_CONFIG_PRESETS = {
       prefix: null,
     },
     locations: {
-      position: 10,
+      position: 11,
       label: "Locations",
       show: true,
       googleAnalyticsEventName: "filter_search_locations",
@@ -308,7 +320,7 @@ export const FILTER_CONFIG_PRESETS = {
       prefix: null,
     },
     order: {
-      position: 11,
+      position: 12,
       label: "Order",
       show: true,
       googleAnalyticsEventName: "filter_search_order",
@@ -316,7 +328,7 @@ export const FILTER_CONFIG_PRESETS = {
       options: SINGLE_SELECT_OPTIONS.organizations.order,
     },
     orderBy: {
-      position: 12,
+      position: 13,
       label: "Order By",
       show: true,
       googleAnalyticsEventName: "filter_search_order_by",
@@ -507,6 +519,7 @@ export const FILTER_PARAM_KEY_PRESETS = {
     },
     ecosystems: "ecosystems",
     hasProjects: "hasProjects",
+    hasJobs: "hasJobs",
     order: "order",
     orderBy: "orderBy",
     projects: "projects",

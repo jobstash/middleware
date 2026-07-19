@@ -28,10 +28,7 @@ export class FundsController {
   getFunds(
     @Query(new ValidationPipe({ transform: true })) params: InvestorListParams,
   ): Promise<PaginatedData<FundListItem>> {
-    return this.investorsService.getFundList(
-      params.page ?? 1,
-      params.limit ?? 20,
-    );
+    return this.investorsService.getFundList(params);
   }
 
   @Get("details/slug/:slug")

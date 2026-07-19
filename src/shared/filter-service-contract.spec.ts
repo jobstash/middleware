@@ -105,6 +105,7 @@ describe("filter service contracts", () => {
       {} as never,
       { searchOrganizations } as never,
       {} as never,
+      {} as never,
     );
     const params = {
       locations: ["berlin"],
