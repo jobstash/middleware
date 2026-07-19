@@ -79,6 +79,17 @@ const labelArray = (key: string): string => `
   )
 `;
 
+const labelArrayWithFallback = (
+  key: string,
+  fallbackColumn: string,
+): string => `
+  COALESCE(
+    NULLIF(${labelArray(key)}, ARRAY[]::text[]),
+    source.${fallbackColumn},
+    ARRAY[]::text[]
+  )
+`;
+
 const organizationSummary = (alias: string): string => `
   jsonb_build_object(
     'id', ${alias}.payload -> 'id',
@@ -221,7 +232,7 @@ export class SearchRepository {
           SELECT jsonb_build_object(
             'names', ${labelArray("names")},
             'organizations', ${labelArray("organizations")},
-            'ecosystems', ${labelArray("ecosystems")},
+            'ecosystems', ${labelArrayWithFallback("ecosystems", "ecosystems")},
             'categories', ${labelArray("categories")},
             'chains', ${labelArray("chains")},
             'investors', ${labelArray("investors")},
@@ -254,7 +265,7 @@ export class SearchRepository {
             'fundingRounds', ${labelArray("fundingRounds")},
             'tags', ${labelArray("tags")},
             'projects', ${labelArray("projects")},
-            'ecosystems', ${labelArray("ecosystems")},
+            'ecosystems', ${labelArrayWithFallback("ecosystems", "ecosystems")},
             'headCount', source.headcount_estimate,
             'hasProjects', source.has_projects,
             'hasJobs', source.recent_job_timestamp IS NOT NULL
@@ -275,7 +286,7 @@ export class SearchRepository {
             'tags', ${labelArray("tags")},
             'locations', ${labelArray("locations")},
             'commitments', ${labelArray("commitments")},
-            'locationTypes', ${labelArray("locationTypes")},
+            'locationTypes', ${labelArrayWithFallback("locationTypes", "location_types")},
             'classifications', ${labelArray("classifications")},
             'seniority', CASE
               WHEN source.seniority IS NULL THEN ARRAY[]::text[]
