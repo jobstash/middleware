@@ -64,4 +64,13 @@ describe("InvestorsService fund list", () => {
     expect(sql).toContain("https://x.com/");
     expect(parameters).toEqual(["example-fund"]);
   });
+
+  it("loads every fund slug for the EV sitemap", async () => {
+    await service.getEvSitemapFunds();
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("properties ->> 'normalizedName'");
+    expect(sql).toContain("properties ->> 'isFund'");
+    expect(parameters).toBeUndefined();
+  });
 });

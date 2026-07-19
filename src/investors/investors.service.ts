@@ -22,6 +22,10 @@ export interface FundListItem {
   jobCount: number;
 }
 
+export type EvSitemapFund = {
+  normalizedName: string;
+};
+
 export interface FundJob {
   id: string;
   title: string;
@@ -78,6 +82,18 @@ export class InvestorsService {
     private readonly graph: GraphRepository,
     private readonly postgres: PostgresService,
   ) {}
+
+  getEvSitemapFunds(): Promise<EvSitemapFund[]> {
+    return this.postgres.query<EvSitemapFund>(`
+      SELECT DISTINCT properties ->> 'normalizedName' AS "normalizedName"
+      FROM graph_nodes
+      WHERE label = 'Investor'
+        AND lower(COALESCE(properties ->> 'isFund', 'false'))
+            IN ('true', '1', 'yes', 'on')
+        AND NULLIF(properties ->> 'normalizedName', '') IS NOT NULL
+      ORDER BY "normalizedName"
+    `);
+  }
 
   async getFundList(
     params: InvestorListParams,

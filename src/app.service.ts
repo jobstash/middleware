@@ -8,6 +8,7 @@ import { emailBuilder, raw, slugify, text } from "./shared/helpers";
 import { OrganizationsService } from "./organizations/organizations.service";
 import { ProjectsService } from "./projects/projects.service";
 import { MailService } from "./mail/mail.service";
+import { InvestorsService } from "./investors/investors.service";
 
 @Injectable()
 export class AppService {
@@ -18,6 +19,7 @@ export class AppService {
     private readonly projectsService: ProjectsService,
     private readonly organizationsService: OrganizationsService,
     private readonly mailService: MailService,
+    private readonly investorsService: InvestorsService,
   ) {}
   healthCheck(): ResponseWithNoData {
     return { success: true, message: "Server is healthy and up!" };
@@ -145,6 +147,7 @@ export class AppService {
       await this.organizationsService.getEvSitemapOrganizations();
 
     const projects = await this.projectsService.getEvSitemapProjects();
+    const funds = await this.investorsService.getEvSitemapFunds();
 
     try {
       return `<?xml version="1.0" encoding="UTF-8"?>
@@ -228,6 +231,22 @@ export class AppService {
                 : ""
             }`;
             })
+            .join("")}
+          <url>
+            <loc>${EV_DOMAIN}/funds</loc>
+            <lastmod>${recentTimestamp}</lastmod>
+            <changefreq>daily</changefreq>
+            <priority>1.0</priority>
+          </url>
+          ${funds
+            .map(
+              fund => `<url>
+              <loc>${EV_DOMAIN}/funds/${fund.normalizedName}</loc>
+              <lastmod>${recentTimestamp}</lastmod>
+              <changefreq>daily</changefreq>
+              <priority>0.8</priority>
+            </url>`,
+            )
             .join("")}
         </urlset>
     `;

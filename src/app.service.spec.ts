@@ -4,6 +4,7 @@ import { MailService } from "./mail/mail.service";
 import { OrganizationsService } from "./organizations/organizations.service";
 import { ProjectsService } from "./projects/projects.service";
 import { AppService } from "./app.service";
+import { InvestorsService } from "./investors/investors.service";
 
 describe("AppService", () => {
   const jobsService = {
@@ -12,6 +13,7 @@ describe("AppService", () => {
   const projectsService = { getEvSitemapProjects: jest.fn() };
   const organizationsService = { getEvSitemapOrganizations: jest.fn() };
   const mailService = { sendEmail: jest.fn() };
+  const investorsService = { getEvSitemapFunds: jest.fn() };
   const configService = {
     get: jest.fn((key: string) =>
       key === "FE_DOMAIN" ? "https://jobs.example" : "https://ev.example",
@@ -23,6 +25,7 @@ describe("AppService", () => {
     projectsService as unknown as ProjectsService,
     organizationsService as unknown as OrganizationsService,
     mailService as unknown as MailService,
+    investorsService as unknown as InvestorsService,
   );
 
   beforeEach(() => jest.clearAllMocks());
@@ -84,6 +87,9 @@ describe("AppService", () => {
       { normalizedName: "alpha", orgIds: ["org-acme"] },
       { normalizedName: "standalone", orgIds: [] },
     ]);
+    investorsService.getEvSitemapFunds.mockResolvedValue([
+      { normalizedName: "example-fund" },
+    ]);
     const sitemap = await service.evSitemap();
 
     expect(
@@ -102,6 +108,8 @@ describe("AppService", () => {
     expect(sitemap).toContain(
       "https://ev.example/organizations/info/alpha/organizations",
     );
+    expect(investorsService.getEvSitemapFunds).toHaveBeenCalledTimes(1);
+    expect(sitemap).toContain("https://ev.example/funds/example-fund");
     expect(sitemap).not.toContain("https://ev.example/grants");
     expect(sitemap).not.toContain("https://ev.example/impact");
   });
