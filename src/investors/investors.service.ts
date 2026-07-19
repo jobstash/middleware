@@ -406,26 +406,54 @@ export class InvestorsService {
               ORDER BY member_key, staff_node_id
             ) member
           ),
-          round_ownership AS (
-            SELECT
-              relationship.target_id AS round_node_id,
-              min(relationship.source_id) AS owner_node_id,
-              count(DISTINCT relationship.source_id)::int AS owner_count
-            FROM graph_relationships relationship
-            JOIN graph_nodes owner
-              ON owner.id = relationship.source_id
-             AND owner.label = 'Organization'
-            WHERE relationship.type = 'HAS_FUNDING_ROUND'
-            GROUP BY relationship.target_id
+          selected_investment_edges AS MATERIALIZED (
+            SELECT DISTINCT
+              investment.source_id AS raw_round_node_id
+            FROM selected_funds fund
+            JOIN graph_relationships investment
+              ON investment.target_id = fund.node_id
+             AND investment.type = 'HAS_INVESTOR'
           ),
-          raw_valid_rounds AS (
+          selected_round_ownership AS MATERIALIZED (
+            SELECT
+              selected.raw_round_node_id,
+              min(owner_edge.source_id) AS owner_node_id,
+              count(DISTINCT owner_edge.source_id)::int AS owner_count
+            FROM selected_investment_edges selected
+            JOIN graph_relationships owner_edge
+              ON owner_edge.target_id = selected.raw_round_node_id
+             AND owner_edge.type = 'HAS_FUNDING_ROUND'
+            JOIN graph_nodes owner
+              ON owner.id = owner_edge.source_id
+             AND owner.label = 'Organization'
+            GROUP BY selected.raw_round_node_id
+          ),
+          selected_fund_round_nodes AS MATERIALIZED (
+            SELECT
+              selected.raw_round_node_id,
+              ownership.owner_node_id
+            FROM selected_investment_edges selected
+            JOIN selected_round_ownership ownership
+              ON ownership.raw_round_node_id = selected.raw_round_node_id
+             AND ownership.owner_count = 1
+            JOIN graph_nodes owner
+              ON owner.id = ownership.owner_node_id
+             AND owner.label = 'Organization'
+             AND lower(COALESCE(owner.properties ->> 'banned', 'false'))
+                 NOT IN ('true', '1', 'yes', 'on')
+          ),
+          portfolio AS MATERIALIZED (
+            SELECT DISTINCT owner_node_id
+            FROM selected_fund_round_nodes
+          ),
+          raw_valid_rounds AS MATERIALIZED (
             SELECT
               funding_round.id AS round_node_id,
-              ownership.owner_node_id,
+              owner_edge.source_id AS owner_node_id,
               funding_round.properties ->> 'id' AS id,
               funding_round.properties ->> 'roundName' AS round_name,
               COALESCE(
-                (funding_round.properties ->> 'date')::numeric,
+                jsonb_numeric_value(funding_round.properties, 'date'),
                 0
               ) AS round_date,
               CASE
@@ -445,16 +473,23 @@ export class InvestorsService {
               ) AS valuation,
               funding_round.properties ->> 'sourceLink' AS source_link,
               funding_round.properties ->> 'source' AS source
-            FROM graph_nodes funding_round
-            JOIN round_ownership ownership
-              ON ownership.round_node_id = funding_round.id
-             AND ownership.owner_count = 1
-            JOIN graph_nodes owner
-              ON owner.id = ownership.owner_node_id
-             AND owner.label = 'Organization'
-            WHERE funding_round.label = 'FundingRound'
-              AND lower(COALESCE(owner.properties ->> 'banned', 'false'))
-                  NOT IN ('true', '1', 'yes', 'on')
+            FROM portfolio
+            JOIN graph_relationships owner_edge
+              ON owner_edge.source_id = portfolio.owner_node_id
+             AND owner_edge.type = 'HAS_FUNDING_ROUND'
+            JOIN graph_nodes funding_round
+              ON funding_round.id = owner_edge.target_id
+             AND funding_round.label = 'FundingRound'
+            WHERE NOT EXISTS (
+              SELECT 1
+              FROM graph_relationships other_owner
+              JOIN graph_nodes other_owner_node
+                ON other_owner_node.id = other_owner.source_id
+               AND other_owner_node.label = 'Organization'
+              WHERE other_owner.target_id = owner_edge.target_id
+                AND other_owner.type = 'HAS_FUNDING_ROUND'
+                AND other_owner.source_id <> owner_edge.source_id
+            )
           ),
           round_event_nodes AS (
             SELECT
@@ -502,17 +537,9 @@ export class InvestorsService {
           ),
           fund_rounds AS (
             SELECT DISTINCT event.round_key
-            FROM graph_relationships investment
-            JOIN selected_funds fund ON fund.node_id = investment.target_id
+            FROM selected_fund_round_nodes investment
             JOIN round_event_nodes event
-              ON event.raw_round_node_id = investment.source_id
-            WHERE investment.type = 'HAS_INVESTOR'
-          ),
-          portfolio AS (
-            SELECT DISTINCT round.owner_node_id
-            FROM fund_rounds investment
-            JOIN valid_rounds round
-              ON round.round_key = investment.round_key
+              ON event.raw_round_node_id = investment.raw_round_node_id
           ),
           round_investor_counts AS (
             SELECT
