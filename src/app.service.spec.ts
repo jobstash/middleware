@@ -1,6 +1,6 @@
 import { ConfigService } from "@nestjs/config";
-import { GrantsService } from "./grants/grants.service";
 import { JobsService } from "./jobs/jobs.service";
+import { MailService } from "./mail/mail.service";
 import { OrganizationsService } from "./organizations/organizations.service";
 import { ProjectsService } from "./projects/projects.service";
 import { AppService } from "./app.service";
@@ -9,9 +9,9 @@ describe("AppService", () => {
   const jobsService = {
     getFrontendSitemapJobs: jest.fn(),
   };
-  const grantsService = { getGrantsList: jest.fn() };
   const projectsService = { getEvSitemapProjects: jest.fn() };
   const organizationsService = { getEvSitemapOrganizations: jest.fn() };
+  const mailService = { sendEmail: jest.fn() };
   const configService = {
     get: jest.fn((key: string) =>
       key === "FE_DOMAIN" ? "https://jobs.example" : "https://ev.example",
@@ -20,9 +20,9 @@ describe("AppService", () => {
   const service = new AppService(
     jobsService as unknown as JobsService,
     configService as unknown as ConfigService,
-    grantsService as unknown as GrantsService,
     projectsService as unknown as ProjectsService,
     organizationsService as unknown as OrganizationsService,
+    mailService as unknown as MailService,
   );
 
   beforeEach(() => jest.clearAllMocks());
@@ -84,20 +84,6 @@ describe("AppService", () => {
       { normalizedName: "alpha", orgIds: ["org-acme"] },
       { normalizedName: "standalone", orgIds: [] },
     ]);
-    grantsService.getGrantsList
-      .mockResolvedValueOnce({
-        page: 1,
-        count: 1,
-        total: 1,
-        data: [{ slug: "active-grant" }],
-      })
-      .mockResolvedValueOnce({
-        page: 1,
-        count: 1,
-        total: 1,
-        data: [{ slug: "impact-project" }],
-      });
-
     const sitemap = await service.evSitemap();
 
     expect(
@@ -116,7 +102,7 @@ describe("AppService", () => {
     expect(sitemap).toContain(
       "https://ev.example/organizations/info/alpha/organizations",
     );
-    expect(sitemap).toContain("https://ev.example/grants/info/active-grant");
-    expect(sitemap).toContain("https://ev.example/grants/info/impact-project");
+    expect(sitemap).not.toContain("https://ev.example/grants");
+    expect(sitemap).not.toContain("https://ev.example/impact");
   });
 });

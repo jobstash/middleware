@@ -332,13 +332,9 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
         excluded: ["typescript"],
       }),
     ).resolves.toMatchObject({ projects: { tags: [] } });
-    await expect(
-      service.search({ nav: "grants", query: "grant" }),
-    ).resolves.toMatchObject({
-      grants: {
-        names: [{ value: "Test Grant", link: "/grants/names/test-grant" }],
-      },
-    });
+    const globalResult = await service.search({ query: "grant" });
+    expect(globalResult).not.toHaveProperty("grants");
+    expect(globalResult).not.toHaveProperty("impact");
   });
 
   it("builds active and alternate pillars with filtered items", async () => {

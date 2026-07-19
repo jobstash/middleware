@@ -4,10 +4,10 @@ import { ConfigService } from "@nestjs/config";
 import { JobsService } from "./jobs/jobs.service";
 import * as Sentry from "@sentry/node";
 import { CustomLogger } from "./shared/utils/custom-logger";
-import { slugify } from "./shared/helpers";
+import { emailBuilder, raw, slugify, text } from "./shared/helpers";
 import { OrganizationsService } from "./organizations/organizations.service";
-import { GrantsService } from "./grants/grants.service";
 import { ProjectsService } from "./projects/projects.service";
+import { MailService } from "./mail/mail.service";
 
 @Injectable()
 export class AppService {
@@ -15,12 +15,62 @@ export class AppService {
   constructor(
     private readonly jobsService: JobsService,
     private readonly configService: ConfigService,
-    private readonly grantsService: GrantsService,
     private readonly projectsService: ProjectsService,
     private readonly organizationsService: OrganizationsService,
+    private readonly mailService: MailService,
   ) {}
   healthCheck(): ResponseWithNoData {
     return { success: true, message: "Server is healthy and up!" };
+  }
+
+  async addToWaitlist(
+    email: string,
+    company: string,
+    role: string,
+  ): Promise<ResponseWithNoData> {
+    try {
+      await this.mailService.sendEmail(
+        emailBuilder({
+          from: this.configService.getOrThrow<string>("EMAIL"),
+          to: this.configService.getOrThrow<string>("ADMIN_EMAIL"),
+          subject: `New Organization Interested in Ecosystem.Vision - ${company}`,
+          title: "Hi team,",
+          bodySections: [
+            text(
+              "A new organization has expressed interest in the Ecosystem.Vision platform. Below are the details:",
+            ),
+            raw(`
+              <ul>
+                <li>Organization Name: ${company}</li>
+                <li>Role at Organization: ${role}</li>
+                <li>Email: ${email}</li>
+              </ul>
+            `),
+            text(
+              "Please review and follow up accordingly. If a demo or further communication is required, make sure to coordinate with the organization promptly.",
+            ),
+            text("Let me know if you need any additional information."),
+          ],
+          footer: `Stay Frosty,<br/>Bill Harder`,
+        }),
+      );
+      return {
+        success: true,
+        message: "Email sent successfully",
+      };
+    } catch (err) {
+      Sentry.withScope(scope => {
+        scope.setTags({
+          action: "send-email",
+          source: "app.service",
+        });
+        Sentry.captureException(err);
+      });
+      return {
+        success: false,
+        message: "Error sending email",
+      };
+    }
   }
 
   async sitemap(): Promise<string | undefined> {
@@ -95,18 +145,6 @@ export class AppService {
       await this.organizationsService.getEvSitemapOrganizations();
 
     const projects = await this.projectsService.getEvSitemapProjects();
-
-    const grants = await this.grantsService.getGrantsList(
-      1,
-      Number.MAX_SAFE_INTEGER,
-      "active",
-    );
-
-    const impact = await this.grantsService.getGrantsList(
-      1,
-      Number.MAX_SAFE_INTEGER,
-      "inactive",
-    );
 
     try {
       return `<?xml version="1.0" encoding="UTF-8"?>
@@ -189,40 +227,6 @@ export class AppService {
             </url>`
                 : ""
             }`;
-            })
-            .join("")}
-          <url>
-            <loc>${EV_DOMAIN}/grants</loc>
-            <lastmod>${recentTimestamp}</lastmod>
-            <changefreq>daily</changefreq>
-            <priority>1.0</priority>
-          </url>
-          ${grants.data
-            .map(grant => {
-              return `<url>
-              <loc>${EV_DOMAIN}/grants/info/${grant.slug}</loc>
-              <lastmod>${recentTimestamp}</lastmod>
-              <changefreq>daily</changefreq>
-              <priority>1.0</priority>
-            </url>
-            `;
-            })
-            .join("")}
-          <url>
-            <loc>${EV_DOMAIN}/impact</loc>
-            <lastmod>${recentTimestamp}</lastmod>
-            <changefreq>daily</changefreq>
-            <priority>1.0</priority>
-          </url>
-          ${impact.data
-            .map(project => {
-              return `<url>
-              <loc>${EV_DOMAIN}/grants/info/${project.slug}</loc>
-              <lastmod>${recentTimestamp}</lastmod>
-              <changefreq>daily</changefreq>
-              <priority>1.0</priority>
-            </url>
-            `;
             })
             .join("")}
         </urlset>

@@ -23,7 +23,6 @@ import { ScorerModule } from "./scorer/scorer.module";
 import { ChainsModule } from "./chains/chains.module";
 import { InvestorsModule } from "./investors/investors.module";
 import { PrivyModule } from "./auth/privy/privy.module";
-import { GrantsModule } from "./grants/grants.module";
 import { GoogleBigQueryModule } from "./google-bigquery/google-bigquery.module";
 import { SearchModule } from "./search/search.module";
 import { UserModule } from "./user/user.module";
@@ -91,7 +90,6 @@ import { PostgresModule } from "./postgres/postgres.module";
     ChainsModule,
     InvestorsModule,
     PrivyModule,
-    GrantsModule,
     GoogleBigQueryModule,
     SearchModule,
     Auth0Module,

@@ -1,4 +1,11 @@
-import { Controller, Get, Header, UseInterceptors } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  Post,
+  UseInterceptors,
+} from "@nestjs/common";
 import { AppService } from "./app.service";
 import { Response, ResponseWithNoData } from "src/shared/types";
 import { ApiExtraModels, ApiOkResponse, getSchemaPath } from "@nestjs/swagger";
@@ -27,6 +34,21 @@ export class AppController {
   })
   healthCheck(): ResponseWithNoData {
     return this.appService.healthCheck();
+  }
+
+  @Post("waitlist")
+  @ApiOkResponse({
+    description: "Sends an Ecosystem Vision waitlist request to the admin",
+    schema: {
+      $ref: getSchemaPath(ResponseWithNoData),
+    },
+  })
+  addToWaitlist(
+    @Body("email") email: string,
+    @Body("company") company: string,
+    @Body("role") role: string,
+  ): Promise<ResponseWithNoData> {
+    return this.appService.addToWaitlist(email, company, role);
   }
 
   @Get("diff")

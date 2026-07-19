@@ -5,9 +5,8 @@ import { toList } from "src/shared/helpers";
 export class SearchParams {
   @IsString()
   @IsOptional()
-  @IsIn(["projects", "organizations", "grants", "impact", "vcs"])
-  nav?: "projects" | "organizations" | "grants" | "impact" | "vcs" | null =
-    null;
+  @IsIn(["projects", "organizations", "vcs"])
+  nav?: "projects" | "organizations" | "vcs" | null = null;
 
   @IsOptional()
   @Type(() => String)

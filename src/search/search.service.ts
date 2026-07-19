@@ -73,20 +73,6 @@ const navigationLinkSegments: Partial<
     tags: "tags",
     projects: "projects",
   },
-  grants: {
-    names: "names",
-    categories: "categories",
-    chains: "chains",
-    ecosystems: "ecosystems",
-    organizations: "organizations",
-  },
-  impact: {
-    names: "names",
-    categories: "categories",
-    chains: "chains",
-    ecosystems: "ecosystems",
-    organizations: "organizations",
-  },
   vcs: { names: "names" },
 };
 
@@ -110,13 +96,6 @@ const rangeFilters: Partial<
   },
   organizations: {
     headCount: { minimum: "minHeadCount", maximum: "maxHeadCount" },
-  },
-  grants: {
-    date: { minimum: "minDate", maximum: "maxDate" },
-    programBudget: {
-      minimum: "minProgramBudget",
-      maximum: "maxProgramBudget",
-    },
   },
 };
 
@@ -171,21 +150,17 @@ export class SearchService {
         }
         return { [nav]: result };
       }
-      const [projects, organizations, grants, impact, vcs] = await Promise.all([
+      const [projects, organizations, vcs] = await Promise.all([
         this.buildNavigation("projects", query),
         this.buildNavigation("organizations", query),
-        this.buildNavigation("grants", query),
-        this.buildNavigation("impact", query),
         this.buildNavigation("vcs", query),
       ]);
-      return { projects, organizations, grants, impact, vcs };
+      return { projects, organizations, vcs };
     } catch (error) {
       this.captureDatabaseError("search", error);
       return {
         projects: { names: [] },
         organizations: { names: [] },
-        grants: { names: [] },
-        impact: { names: [] },
         vcs: { names: [] },
       };
     }
