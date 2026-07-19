@@ -22,6 +22,7 @@ describe("InvestorsService fund list", () => {
     expect(sql).toContain("'totalInvestedCapital'");
     expect(sql).toContain("'lastInvestmentDate'");
     expect(sql).toContain("'jobCount'");
+    expect(sql).toContain("CROSS JOIN LATERAL unnest(organization.investors)");
     expect(parameters).toEqual([20, 0, null, null, null, null]);
   });
 

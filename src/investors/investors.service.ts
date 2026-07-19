@@ -103,7 +103,37 @@ export class InvestorsService {
       total: string;
     }>(
       `
-        WITH fund_rows AS (
+        WITH fund_base AS (
+          SELECT
+            fund.id AS node_id,
+            fund.properties
+          FROM graph_nodes fund
+          WHERE fund.label = 'Investor'
+            AND lower(COALESCE(fund.properties ->> 'isFund', 'false'))
+                IN ('true', '1', 'yes', 'on')
+        ),
+        job_counts AS (
+          SELECT
+            fund.node_id AS fund_node_id,
+            count(DISTINCT job.job_node_id)::int AS job_count
+          FROM job_search_documents job
+          JOIN organization_search_documents organization
+            ON job.organization_id = organization.organization_id
+          CROSS JOIN LATERAL unnest(organization.investors)
+            AS investor(normalized_name)
+          JOIN fund_base fund
+            ON fund.properties ->> 'normalizedName' = investor.normalized_name
+          WHERE job.online
+            AND NOT job.blocked
+            AND job.legacy_list_eligible
+            AND cardinality(job.tags) > 0
+            AND NOT (
+              job.access = 'public'
+              AND job.organization_has_expert_jobs
+            )
+          GROUP BY fund.node_id
+        ),
+        fund_rows AS (
           SELECT
             fund.properties ->> 'id' AS id,
             fund.properties ->> 'name' AS name,
@@ -115,8 +145,8 @@ export class InvestorsService {
             investments.portfolio_count AS "portfolioCount",
             investments.total_invested_capital AS "totalInvestedCapital",
             investments.last_investment_date AS "lastInvestmentDate",
-            jobs.job_count AS "jobCount"
-          FROM graph_nodes fund
+            COALESCE(jobs.job_count, 0) AS "jobCount"
+          FROM fund_base fund
           CROSS JOIN LATERAL (
             SELECT
               min(node.properties ->> 'url')
@@ -127,7 +157,7 @@ export class InvestorsService {
                 AS staff_count
             FROM graph_relationships edge
             JOIN graph_nodes node ON node.id = edge.target_id
-            WHERE edge.source_id = fund.id
+            WHERE edge.source_id = fund.node_id
           ) related
           CROSS JOIN LATERAL (
             SELECT
@@ -166,32 +196,14 @@ export class InvestorsService {
               JOIN graph_nodes owner
                 ON owner.id = ownership.source_id
                AND owner.label = 'Organization'
-              WHERE investment.target_id = fund.id
+              WHERE investment.target_id = fund.node_id
                 AND investment.type = 'HAS_INVESTOR'
                 AND lower(COALESCE(owner.properties ->> 'banned', 'false'))
                     NOT IN ('true', '1', 'yes', 'on')
               ORDER BY funding_round.id
             ) investment_round
           ) investments
-          CROSS JOIN LATERAL (
-            SELECT count(DISTINCT job.job_node_id)::int AS job_count
-            FROM job_search_documents job
-            JOIN organization_search_documents organization
-              ON organization.organization_id = job.organization_id
-            WHERE job.online
-              AND NOT job.blocked
-              AND job.legacy_list_eligible
-              AND cardinality(job.tags) > 0
-              AND NOT (
-                job.access = 'public'
-                AND job.organization_has_expert_jobs
-              )
-              AND fund.properties ->> 'normalizedName'
-                  = ANY(organization.investors)
-          ) jobs
-          WHERE fund.label = 'Investor'
-            AND lower(COALESCE(fund.properties ->> 'isFund', 'false'))
-                IN ('true', '1', 'yes', 'on')
+          LEFT JOIN job_counts jobs ON jobs.fund_node_id = fund.node_id
         )
         SELECT jsonb_build_object(
           'id', id,
