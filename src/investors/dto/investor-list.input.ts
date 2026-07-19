@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   Min,
 } from "class-validator";
 import { Transform, Type } from "class-transformer";
@@ -12,6 +13,11 @@ import { Transform, Type } from "class-transformer";
 export type FundListOrderBy =
   | "lastInvestmentDate"
   | "totalInvestedCapital"
+  | "knownRoundCapital"
+  | "progressionRate"
+  | "medianRoundSizeStepUp"
+  | "medianValuationStepUp"
+  | "soloRate"
   | "portfolioCount"
   | "staffCount"
   | "name";
@@ -46,7 +52,22 @@ export class InvestorListParams {
   @IsNumber()
   @Min(0)
   @Type(() => Number)
+  minKnownRoundCapital?: number | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
   minPortfolioCount?: number | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  @Type(() => Number)
+  minProgressionRate?: number | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -64,6 +85,19 @@ export class InvestorListParams {
   @IsBoolean()
   hasTeamSocials?: boolean | null = null;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  hasSoloInvestments?: boolean | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  sector?: string | null = null;
+
   @ApiPropertyOptional({ enum: ["asc", "desc"] })
   @IsOptional()
   @IsIn(["asc", "desc"])
@@ -74,6 +108,11 @@ export class InvestorListParams {
     enum: [
       "lastInvestmentDate",
       "totalInvestedCapital",
+      "knownRoundCapital",
+      "progressionRate",
+      "medianRoundSizeStepUp",
+      "medianValuationStepUp",
+      "soloRate",
       "portfolioCount",
       "staffCount",
       "name",
@@ -83,6 +122,11 @@ export class InvestorListParams {
   @IsIn([
     "lastInvestmentDate",
     "totalInvestedCapital",
+    "knownRoundCapital",
+    "progressionRate",
+    "medianRoundSizeStepUp",
+    "medianValuationStepUp",
+    "soloRate",
     "portfolioCount",
     "staffCount",
     "name",

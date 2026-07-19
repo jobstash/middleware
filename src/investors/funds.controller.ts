@@ -16,6 +16,7 @@ import { InvestorListParams } from "./dto/investor-list.input";
 import {
   FundDetails,
   FundListItem,
+  FundSector,
   InvestorsService,
 } from "./investors.service";
 
@@ -29,6 +30,12 @@ export class FundsController {
     @Query(new ValidationPipe({ transform: true })) params: InvestorListParams,
   ): Promise<PaginatedData<FundListItem>> {
     return this.investorsService.getFundList(params);
+  }
+
+  @Get("sectors")
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  getFundSectors(): Promise<FundSector[]> {
+    return this.investorsService.getFundSectors();
   }
 
   @Get("details/slug/:slug")

@@ -18,15 +18,31 @@ describe("InvestorsService fund list", () => {
     await service.getFundList({ page: 1, limit: 20 });
 
     const [sql, parameters] = query.mock.calls[0];
-    expect(sql).toContain('ORDER BY "lastInvestmentDate" DESC NULLS LAST');
+    expect(sql).toContain(
+      "ORDER BY document.last_investment_date DESC NULLS LAST",
+    );
     expect(sql).toContain("'totalInvestedCapital'");
+    expect(sql).toContain("'knownRoundCapital'");
     expect(sql).toContain("'socialStaffCount'");
-    expect(sql).toContain("investment.properties");
-    expect(sql).not.toContain("sum(investment_round.raised_amount)");
+    expect(sql).toContain("FROM fund_analytics_documents document");
+    expect(sql).toContain("document.ambiguous_round_count");
+    expect(sql).toContain("document.progression_rate");
+    expect(sql).toContain("document.solo_round_count");
+    expect(sql).toContain("ANY(document.sector_names)");
     expect(sql).toContain("'lastInvestmentDate'");
     expect(sql).toContain("'jobCount'");
-    expect(sql).toContain("CROSS JOIN LATERAL unnest(organization.investors)");
-    expect(parameters).toEqual([20, 0, null, null, null, null, null]);
+    expect(parameters).toEqual([
+      20,
+      0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+    ]);
   });
 
   it("binds filters and selects the requested safe sort expression", async () => {
@@ -38,12 +54,17 @@ describe("InvestorsService fund list", () => {
       minPortfolioCount: 5,
       hasJobs: true,
       hasTeamSocials: true,
+      hasSoloInvestments: true,
+      minProgressionRate: 50,
+      sector: "Gaming",
       order: "asc",
-      orderBy: "totalInvestedCapital",
+      orderBy: "knownRoundCapital",
     });
 
     const [sql, parameters] = query.mock.calls[0];
-    expect(sql).toContain('ORDER BY "totalInvestedCapital" ASC NULLS LAST');
+    expect(sql).toContain(
+      "ORDER BY document.known_round_capital ASC NULLS LAST",
+    );
     expect(sql).not.toContain("coin' OR true --");
     expect(parameters).toEqual([
       10,
@@ -53,26 +74,42 @@ describe("InvestorsService fund list", () => {
       5,
       true,
       true,
+      50,
+      true,
+      "Gaming",
     ]);
   });
 
   it("includes staff portraits and related social profiles in fund details", async () => {
-    query.mockResolvedValueOnce([{ payload: { name: "Example Fund" } }]);
+    query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ payload: { name: "Example Fund" } }]);
 
     await service.getFundDetailsBySlug("example-fund");
 
-    const [sql, parameters] = query.mock.calls[0];
+    const [sql, parameters] = query.mock.calls[1];
     expect(sql).toContain("staff.properties ->> 'photoUrl'");
     expect(sql).toContain("'investedAmount'");
-    expect(sql).toContain("investment.properties");
-    expect(sql).not.toContain(
-      "THEN COALESCE((round.value ->> 'raisedAmount')::numeric, 0)",
-    );
+    expect(sql).toContain("'valuation'");
+    expect(sql).toContain("'fundParticipated'");
+    expect(sql).toContain("'investmentRole'");
+    expect(sql).toContain("round.fund_participated");
+    expect(sql).toContain("ownership.owner_count = 1");
     expect(sql).toContain("social_edge.type = 'HAS_LINKEDIN'");
     expect(sql).toContain("https://www.linkedin.com/in/");
     expect(sql).toContain("social_edge.type = 'HAS_TWITTER'");
     expect(sql).toContain("https://x.com/");
     expect(parameters).toEqual(["example-fund"]);
+  });
+
+  it("loads analyst sector filters from the materialized projection", async () => {
+    await service.getFundSectors();
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("FROM fund_analytics_documents document");
+    expect(sql).toContain("jsonb_array_elements(document.sector_breakdown)");
+    expect(sql).toContain('AS "companyCount"');
+    expect(parameters).toBeUndefined();
   });
 
   it("loads every fund slug for the EV sitemap", async () => {
