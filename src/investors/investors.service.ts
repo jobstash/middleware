@@ -302,8 +302,62 @@ export class InvestorsService {
                       staff.properties ->> 'role'
                     ),
                     'photoUrl', staff.properties ->> 'photoUrl',
-                    'linkedinUrl', staff.properties ->> 'linkedinUrl',
-                    'twitterUrl', staff.properties ->> 'twitterUrl'
+                    'linkedinUrl', COALESCE(
+                      NULLIF(staff.properties ->> 'linkedinUrl', ''),
+                      (
+                        SELECT CASE
+                          WHEN social.properties ->> 'url' ~ '^https?://'
+                            THEN social.properties ->> 'url'
+                          WHEN NULLIF(
+                            btrim(social.properties ->> 'username'),
+                            ''
+                          ) IS NOT NULL
+                            THEN concat(
+                              'https://www.linkedin.com/in/',
+                              regexp_replace(
+                                btrim(social.properties ->> 'username'),
+                                '^@',
+                                ''
+                              )
+                            )
+                        END
+                        FROM graph_relationships social_edge
+                        JOIN graph_nodes social
+                          ON social.id = social_edge.target_id
+                        WHERE social_edge.source_id = staff.id
+                          AND social_edge.type = 'HAS_LINKEDIN'
+                        ORDER BY social.id
+                        LIMIT 1
+                      )
+                    ),
+                    'twitterUrl', COALESCE(
+                      NULLIF(staff.properties ->> 'twitterUrl', ''),
+                      (
+                        SELECT CASE
+                          WHEN social.properties ->> 'url' ~ '^https?://'
+                            THEN social.properties ->> 'url'
+                          WHEN NULLIF(
+                            btrim(social.properties ->> 'username'),
+                            ''
+                          ) IS NOT NULL
+                            THEN concat(
+                              'https://x.com/',
+                              regexp_replace(
+                                btrim(social.properties ->> 'username'),
+                                '^@',
+                                ''
+                              )
+                            )
+                        END
+                        FROM graph_relationships social_edge
+                        JOIN graph_nodes social
+                          ON social.id = social_edge.target_id
+                        WHERE social_edge.source_id = staff.id
+                          AND social_edge.type = 'HAS_TWITTER'
+                        ORDER BY social.id
+                        LIMIT 1
+                      )
+                    )
                   ) AS payload
                 FROM graph_relationships staff_edge
                 JOIN graph_nodes staff ON staff.id = staff_edge.target_id

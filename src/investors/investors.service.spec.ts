@@ -50,4 +50,18 @@ describe("InvestorsService fund list", () => {
       true,
     ]);
   });
+
+  it("includes staff portraits and related social profiles in fund details", async () => {
+    query.mockResolvedValueOnce([{ payload: { name: "Example Fund" } }]);
+
+    await service.getFundDetailsBySlug("example-fund");
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("staff.properties ->> 'photoUrl'");
+    expect(sql).toContain("social_edge.type = 'HAS_LINKEDIN'");
+    expect(sql).toContain("https://www.linkedin.com/in/");
+    expect(sql).toContain("social_edge.type = 'HAS_TWITTER'");
+    expect(sql).toContain("https://x.com/");
+    expect(parameters).toEqual(["example-fund"]);
+  });
 });
