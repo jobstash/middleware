@@ -178,6 +178,13 @@ export class OrganizationsController {
       });
   }
 
+  @Get("/ingestion-status")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
+  async getIngestionStatus(): Promise<Record<string, unknown>> {
+    return this.organizationsService.getIngestionStatus();
+  }
+
   @Get("/list")
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiHeader({

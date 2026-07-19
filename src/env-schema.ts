@@ -17,6 +17,8 @@ const envSchema = Joi.object({
   FE_DOMAIN: Joi.string().required(),
   GOOGLE_SERVICE_ACCOUNT_EMAIL: Joi.string().required(),
   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: Joi.string().required(),
+  GITHUB_INDEXER_STATUS_URL: Joi.string().uri().optional(),
+  GITHUB_INDEXER_STATUS_TOKEN: Joi.string().optional(),
   INFURA_API_KEY: Joi.string().required(),
   JOB_PROMOTION_PRICE: Joi.number().required(),
   JWT_EXPIRES_IN: Joi.string().alphanum().required(),

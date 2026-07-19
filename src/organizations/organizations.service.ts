@@ -58,6 +58,7 @@ import {
   SearchDocumentRepository,
 } from "src/postgres/search-document.repository";
 import { GraphRepository } from "src/postgres/graph.repository";
+import { PostgresService } from "src/postgres/postgres.service";
 
 @Injectable()
 export class OrganizationsService {
@@ -67,7 +68,224 @@ export class OrganizationsService {
     private readonly auth0Service: Auth0Service,
     private readonly searchDocuments: SearchDocumentRepository,
     private readonly graph: GraphRepository,
+    private readonly postgres: PostgresService,
   ) {}
+
+  async getIngestionStatus(): Promise<Record<string, unknown>> {
+    const [
+      campaignRows,
+      organizationRows,
+      reviewRows,
+      projectRows,
+      fundRows,
+      githubRows,
+    ] = await Promise.all([
+      this.postgres.query<{
+        campaign_key: string;
+        status: string;
+        total_items: string;
+        counts: Record<string, number>;
+        started_at: string | null;
+        updated_at: string;
+      }>(`
+          SELECT campaign.campaign_key, campaign.status,
+                 campaign.total_items::text, campaign.started_at,
+                 campaign.updated_at,
+                 COALESCE(jsonb_object_agg(states.status, states.count), '{}'::jsonb) AS counts
+          FROM research_campaigns campaign
+          LEFT JOIN LATERAL (
+            SELECT item.status, count(*)::int AS count
+            FROM research_campaign_items item
+            WHERE item.campaign_id = campaign.id
+            GROUP BY item.status
+          ) states ON true
+          GROUP BY campaign.id
+          ORDER BY campaign.created_at DESC
+          LIMIT 1
+        `),
+      this.postgres.query<Record<string, unknown>>(`
+          SELECT item.organization_node_id::text AS "organizationNodeId",
+                 organization.properties ->> 'orgId' AS "orgId",
+                 organization.properties ->> 'name' AS name,
+                 item.website_url AS "websiteUrl", item.status,
+                 item.attempt_count AS "attemptCount", item.provider, item.model,
+                 item.lease_owner AS "workerId", item.started_at AS "startedAt",
+                 item.updated_at AS "updatedAt", item.lease_expires_at AS "leaseExpiresAt",
+                 item.last_error_code AS "lastErrorCode",
+                 item.last_error_message AS "lastErrorMessage",
+                 COALESCE(github.accounts, '[]'::jsonb) AS github
+          FROM research_campaign_items item
+          JOIN research_campaigns campaign ON campaign.id = item.campaign_id
+          JOIN graph_nodes organization ON organization.id = item.organization_node_id
+          LEFT JOIN LATERAL (
+            SELECT jsonb_agg(jsonb_build_object(
+              'login', account.properties ->> 'login',
+              'status', CASE
+                WHEN queue.login IS NOT NULL AND queue.locked_at IS NOT NULL THEN 'indexing'
+                WHEN queue.login IS NOT NULL AND queue.last_error IS NOT NULL THEN 'retrying'
+                WHEN queue.login IS NOT NULL THEN 'queued'
+                WHEN state.login IS NOT NULL THEN 'reconciled'
+                ELSE 'not_indexed'
+              END,
+              'queueAttempts', COALESCE(queue.attempts, 0),
+              'queueError', queue.last_error,
+              'requestedAt', queue.requested_at,
+              'reconciledAt', state.reconciled_at,
+              'corpusFingerprint', state.corpus_fingerprint,
+              'clickhouseCorpusRecorded', state.corpus_fingerprint IS NOT NULL
+            ) ORDER BY lower(account.properties ->> 'login')) AS accounts
+            FROM graph_relationships edge
+            JOIN graph_nodes account
+              ON account.id = edge.target_id AND account.label = 'GithubOrganization'
+            LEFT JOIN github_indexer_lifecycle_queue queue
+              ON queue.login = lower(account.properties ->> 'login')
+            LEFT JOIN github_indexer_lifecycle_state state
+              ON state.login = lower(account.properties ->> 'login')
+            WHERE edge.source_id = organization.id AND edge.type = 'HAS_GITHUB'
+          ) github ON true
+          WHERE campaign.created_at = (SELECT max(created_at) FROM research_campaigns)
+            AND item.status = 'leased'
+            AND item.lease_expires_at > now()
+          ORDER BY item.started_at, item.organization_node_id
+          LIMIT 200
+        `),
+      this.postgres.query<Record<string, unknown>>(`
+          SELECT item.organization_node_id::text AS "organizationNodeId",
+                 organization.properties ->> 'orgId' AS "orgId",
+                 organization.properties ->> 'name' AS name,
+                 item.website_url AS "websiteUrl", item.status,
+                 item.attempt_count AS "attemptCount",
+                 item.last_error_code AS "lastErrorCode",
+                 item.last_error_message AS "lastErrorMessage",
+                 item.started_at AS "startedAt", item.updated_at AS "updatedAt",
+                 item.completed_at AS "completedAt",
+                 jsonb_strip_nulls(jsonb_build_object(
+                   'finalReport', result.properties -> 'finalReport',
+                   'visitedPages', result.properties -> 'visitedPages',
+                   'evidencePacket', result.properties -> 'evidencePacket',
+                   'detectedProjects', result.properties -> 'detectedProjects',
+                   'staff', result.properties -> 'staff'
+                 )) AS "reviewPacket",
+                 manual.review_status AS "reviewStatus",
+                 manual.reviewer, manual.notes, manual.reviewed_at AS "reviewedAt"
+          FROM research_campaign_items item
+          JOIN research_campaigns campaign ON campaign.id = item.campaign_id
+          JOIN graph_nodes organization ON organization.id = item.organization_node_id
+          LEFT JOIN graph_nodes result ON result.id = item.result_node_id
+          LEFT JOIN LATERAL (
+            SELECT review.review_status, review.reviewer, review.notes, review.reviewed_at
+            FROM research_campaign_manual_reviews review
+            WHERE review.campaign_id = item.campaign_id
+              AND review.organization_node_id = item.organization_node_id
+            ORDER BY review.reviewed_at DESC, review.id DESC
+            LIMIT 1
+          ) manual ON true
+          WHERE campaign.created_at = (SELECT max(created_at) FROM research_campaigns)
+            AND item.status = 'needs_review'
+          ORDER BY item.completed_at, item.organization_node_id
+          LIMIT 100
+        `),
+      this.postgres.query<Record<string, unknown>>(`
+          SELECT entity.id::text AS "nodeId", entity.label AS "entityKind",
+                 entity.properties ->> 'id' AS id,
+                 entity.properties ->> 'name' AS name,
+                 review.properties AS "reviewPacket"
+          FROM graph_nodes entity
+          JOIN graph_relationships edge
+            ON edge.source_id = entity.id AND edge.type = 'HAS_ENTITY_REVIEW'
+          JOIN graph_nodes review
+            ON review.id = edge.target_id AND review.label = 'EntityReview'
+          WHERE entity.label IN ('Project', 'ChildProjectCandidate')
+            AND COALESCE(review.properties ->> 'status', 'open') = 'open'
+          ORDER BY jsonb_numeric_value(review.properties, 'createdTimestamp') NULLS LAST,
+                   entity.id
+          LIMIT 100
+        `),
+      this.postgres.query<Record<string, unknown>>(`
+          SELECT
+            (SELECT count(*)::int FROM graph_nodes
+             WHERE label = 'Investor'
+               AND lower(COALESCE(properties ->> 'isFund', 'false'))
+                   IN ('true', '1', 'yes', 'on')) AS total,
+            (SELECT count(*)::int FROM graph_nodes
+             WHERE label = 'CfImportRecord' AND properties ->> 'kind' = 'fund') AS checkpointed,
+            (SELECT COALESCE(jsonb_object_agg(outcome, count), '{}'::jsonb)
+             FROM (
+               SELECT COALESCE(properties ->> 'outcome', 'unknown') AS outcome,
+                      count(*)::int AS count
+               FROM graph_nodes
+               WHERE label = 'CfImportRecord' AND properties ->> 'kind' = 'fund'
+               GROUP BY 1
+             ) outcomes) AS outcomes,
+            (SELECT max(jsonb_numeric_value(properties, 'importedTimestamp'))::float8
+             FROM graph_nodes
+             WHERE label = 'CfImportRecord' AND properties ->> 'kind' = 'fund') AS "lastImportedTimestamp"
+        `),
+      this.postgres.query<Record<string, unknown>>(`
+          SELECT
+            (SELECT count(*)::int FROM github_indexer_lifecycle_queue) AS "queueDepth",
+            (SELECT count(*)::int FROM github_indexer_lifecycle_queue
+             WHERE locked_at IS NOT NULL) AS "inProgress",
+            (SELECT count(*)::int FROM github_indexer_lifecycle_queue
+             WHERE last_error IS NOT NULL AND locked_at IS NULL) AS "retrying",
+            (SELECT count(*)::int FROM github_indexer_lifecycle_state
+             WHERE corpus_fingerprint IS NOT NULL) AS "reconciledCorpusFingerprints",
+            requested_revision::text AS "dbtRequestedRevision",
+            completed_revision::text AS "dbtCompletedRevision",
+            last_error AS "dbtLastError", completed_at AS "dbtCompletedAt"
+          FROM github_indexer_dbt_refresh_state
+          WHERE singleton = true
+        `),
+    ]);
+
+    const githubIndexerRuntime = await this.getGithubIndexerRuntimeStatus(
+      organizationRows.flatMap(row => {
+        const github = row.github;
+        return Array.isArray(github)
+          ? github.flatMap(account =>
+              account && typeof account === "object" && "login" in account
+                ? [String(account.login)]
+                : [],
+            )
+          : [];
+      }),
+    );
+
+    return {
+      generatedAt: new Date().toISOString(),
+      campaign: campaignRows[0] ?? null,
+      organizations: {
+        inProgress: organizationRows,
+        reviewPending: reviewRows,
+      },
+      projects: { reviewPending: projectRows },
+      funds: fundRows[0] ?? { total: 0, checkpointed: 0, outcomes: {} },
+      githubIndexer: githubRows[0]
+        ? { ...githubRows[0], runtime: githubIndexerRuntime }
+        : null,
+    };
+  }
+
+  private async getGithubIndexerRuntimeStatus(
+    logins: string[],
+  ): Promise<Record<string, unknown> | null> {
+    const url = this.configService.get<string>("GITHUB_INDEXER_STATUS_URL");
+    const token = this.configService.get<string>("GITHUB_INDEXER_STATUS_TOKEN");
+    if (!url || !token) return null;
+    try {
+      const response = await axios.get(url, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { logins: [...new Set(logins)].slice(0, 200).join(",") },
+        timeout: 15_000,
+      });
+      return response.data as Record<string, unknown>;
+    } catch (error) {
+      this.logger.warn(
+        `GitHub indexer observability unavailable: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    }
+  }
 
   getOrgListResults = async (
     ecosystem?: string | undefined,
