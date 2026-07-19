@@ -77,6 +77,8 @@ export class OrganizationsService {
       organizationRows,
       reviewRows,
       projectRows,
+      projectStatsRows,
+      unownedProjectRows,
       fundRows,
       githubRows,
     ] = await Promise.all([
@@ -203,6 +205,67 @@ export class OrganizationsService {
         `),
       this.postgres.query<Record<string, unknown>>(`
           SELECT
+            count(*) FILTER (WHERE project.label = 'Project')::int AS total,
+            count(*) FILTER (
+              WHERE project.label = 'Project'
+                AND entity_property_is_banned(project.properties)
+            )::int AS banned,
+            count(*) FILTER (
+              WHERE project.label = 'Project'
+                AND NOT entity_property_is_banned(project.properties)
+                AND NOT EXISTS (
+                  SELECT 1
+                  FROM graph_relationships owner
+                  WHERE owner.target_id = project.id
+                    AND owner.type = 'HAS_PROJECT'
+                )
+            )::int AS unowned,
+            count(*) FILTER (
+              WHERE project.label = 'ChildProjectCandidate'
+                AND NOT entity_property_is_banned(project.properties)
+            )::int AS "detectedCandidates"
+          FROM graph_nodes project
+          WHERE project.label IN ('Project', 'ChildProjectCandidate')
+        `),
+      this.postgres.query<Record<string, unknown>>(`
+          SELECT project.id::text AS "nodeId",
+                 project.label AS "entityKind",
+                 project.properties ->> 'id' AS id,
+                 project.properties ->> 'name' AS name,
+                 jsonb_strip_nulls(jsonb_build_object(
+                   'status', 'unowned',
+                   'source', project.properties ->> 'source',
+                   'website', website.url,
+                   'createdTimestamp', jsonb_numeric_value(
+                     project.properties,
+                     'createdTimestamp'
+                   )
+                 )) AS "reviewPacket"
+          FROM graph_nodes project
+          LEFT JOIN LATERAL (
+            SELECT min(related.properties ->> 'url') AS url
+            FROM graph_relationships relationship
+            JOIN graph_nodes related ON related.id = relationship.target_id
+            WHERE relationship.source_id = project.id
+              AND relationship.type = 'HAS_WEBSITE'
+          ) website ON true
+          WHERE project.label = 'Project'
+            AND NOT entity_property_is_banned(project.properties)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM graph_relationships owner
+              WHERE owner.target_id = project.id
+                AND owner.type = 'HAS_PROJECT'
+            )
+          ORDER BY jsonb_numeric_value(
+                     project.properties,
+                     'createdTimestamp'
+                   ) DESC NULLS LAST,
+                   project.id DESC
+          LIMIT 100
+        `),
+      this.postgres.query<Record<string, unknown>>(`
+          SELECT
             (SELECT count(*)::int FROM graph_nodes
              WHERE label = 'Investor'
                AND lower(COALESCE(properties ->> 'isFund', 'false'))
@@ -258,7 +321,16 @@ export class OrganizationsService {
         inProgress: organizationRows,
         reviewPending: reviewRows,
       },
-      projects: { reviewPending: projectRows },
+      projects: {
+        reviewPending: projectRows,
+        unowned: unownedProjectRows,
+        stats: projectStatsRows[0] ?? {
+          total: 0,
+          banned: 0,
+          unowned: 0,
+          detectedCandidates: 0,
+        },
+      },
       funds: fundRows[0] ?? { total: 0, checkpointed: 0, outcomes: {} },
       githubIndexer: githubRows[0]
         ? { ...githubRows[0], runtime: githubIndexerRuntime }
