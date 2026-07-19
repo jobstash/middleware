@@ -16,6 +16,7 @@ import { InvestorListParams } from "./dto/investor-list.input";
 import {
   FundDetails,
   FundListItem,
+  FundRoundStage,
   FundSector,
   InvestorsService,
 } from "./investors.service";
@@ -34,17 +35,28 @@ export class FundsController {
 
   @Get("sectors")
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
-  getFundSectors(): Promise<FundSector[]> {
-    return this.investorsService.getFundSectors();
+  getFundSectors(
+    @Query(new ValidationPipe({ transform: true })) params: InvestorListParams,
+  ): Promise<FundSector[]> {
+    return this.investorsService.getFundSectors(params);
+  }
+
+  @Get("rounds")
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  getFundRoundStages(
+    @Query(new ValidationPipe({ transform: true })) params: InvestorListParams,
+  ): Promise<FundRoundStage[]> {
+    return this.investorsService.getFundRoundStages(params);
   }
 
   @Get("details/slug/:slug")
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   async getFund(
     @Param("slug") slug: string,
+    @Query(new ValidationPipe({ transform: true })) params: InvestorListParams,
     @Res({ passthrough: true }) response: ExpressResponse,
   ): Promise<FundDetails | undefined> {
-    const fund = await this.investorsService.getFundDetailsBySlug(slug);
+    const fund = await this.investorsService.getFundDetailsBySlug(slug, params);
     if (!fund) response.status(HttpStatus.NOT_FOUND);
     return fund;
   }

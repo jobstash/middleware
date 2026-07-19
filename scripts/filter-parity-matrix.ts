@@ -456,6 +456,24 @@ export const FILTER_ENDPOINT_SPECS: FilterEndpointSpec[] = [
         ],
         pairValues: [value("infrastructure", "Infrastructure")],
       },
+      enumParameter(
+        "activityWindow",
+        ["30d", "90d", "6m", "1y", "2y", "5y", "all", "custom"],
+        true,
+      ),
+      {
+        name: "fromDate",
+        values: [value("start", "2025-01-01")],
+        invalidValues: [value("invalid", "not-a-date")],
+        pairValues: [value("start", "2025-01-01")],
+      },
+      {
+        name: "toDate",
+        values: [value("end", "2025-12-31")],
+        invalidValues: [value("invalid", "not-a-date")],
+        pairValues: [value("end", "2025-12-31")],
+      },
+      arrayParameter("rounds", "seed", "series-a"),
       enumParameter("order", ["asc", "desc"]),
       enumParameter("orderBy", [
         "lastInvestmentDate",

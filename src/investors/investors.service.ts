@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { Investor, PaginatedData } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
@@ -7,7 +7,126 @@ import { paginate } from "src/shared/helpers";
 import { sort } from "fast-sort";
 import { GraphRepository } from "src/postgres/graph.repository";
 import { PostgresService } from "src/postgres/postgres.service";
-import { FundListOrderBy, InvestorListParams } from "./dto/investor-list.input";
+import {
+  FundActivityWindow,
+  FundListOrderBy,
+  InvestorListParams,
+} from "./dto/investor-list.input";
+
+const DAY_SECONDS = 86_400;
+const FUND_ROUND_STAGES = new Set([
+  "pre-seed",
+  "seed",
+  "series-a",
+  "series-b",
+  "series-c",
+  "series-d",
+  "series-e",
+  "series-f-plus",
+  "pre-ipo",
+  "public-markets",
+  "token-sale",
+  "strategic",
+  "private",
+  "debt",
+  "secondary",
+  "corporate",
+  "venture",
+  "equity",
+  "unknown",
+]);
+
+interface FundActivityRange {
+  window: FundActivityWindow;
+  from: number;
+  toExclusive: number;
+  responseFrom: number | null;
+  responseTo: number;
+}
+
+const parseUtcDate = (value: string): number | null => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const timestamp = Date.UTC(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+  );
+  const date = new Date(timestamp);
+  if (
+    date.getUTCFullYear() !== Number(match[1]) ||
+    date.getUTCMonth() !== Number(match[2]) - 1 ||
+    date.getUTCDate() !== Number(match[3])
+  ) {
+    return null;
+  }
+  return Math.trunc(timestamp / 1000);
+};
+
+const resolveFundActivityRange = (
+  params: InvestorListParams,
+): FundActivityRange => {
+  const window = params.activityWindow ?? "1y";
+  const now = new Date();
+  const today = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+  );
+  const todaySeconds = Math.trunc(today / 1000);
+  const toExclusive = todaySeconds + DAY_SECONDS;
+  let from = todaySeconds;
+  let resolvedTo = toExclusive;
+
+  if (window === "custom") {
+    if (!params.fromDate || !params.toDate) {
+      throw new BadRequestException(
+        "fromDate and toDate are required for a custom activity window",
+      );
+    }
+    const customFrom = parseUtcDate(params.fromDate);
+    const customTo = parseUtcDate(params.toDate);
+    if (customFrom === null || customTo === null || customFrom > customTo) {
+      throw new BadRequestException("Invalid fund activity date range");
+    }
+    from = customFrom;
+    resolvedTo = customTo + DAY_SECONDS;
+  } else if (window === "all") {
+    from = 0;
+  } else if (window === "30d" || window === "90d") {
+    const days = window === "30d" ? 30 : 90;
+    from = todaySeconds - (days - 1) * DAY_SECONDS;
+  } else {
+    const start = new Date(today);
+    if (window === "6m") start.setUTCMonth(start.getUTCMonth() - 6);
+    if (window === "1y") start.setUTCFullYear(start.getUTCFullYear() - 1);
+    if (window === "2y") start.setUTCFullYear(start.getUTCFullYear() - 2);
+    if (window === "5y") start.setUTCFullYear(start.getUTCFullYear() - 5);
+    from = Math.trunc(start.getTime() / 1000);
+  }
+
+  return {
+    window,
+    from,
+    toExclusive: resolvedTo,
+    responseFrom: window === "all" ? null : from,
+    responseTo: resolvedTo - 1,
+  };
+};
+
+const resolveFundRoundStages = (
+  rounds: string | null | undefined,
+): string[] | null => {
+  const stages = [
+    ...new Set(
+      (rounds ?? "")
+        .split(",")
+        .map(stage => stage.trim().toLowerCase())
+        .filter(stage => FUND_ROUND_STAGES.has(stage)),
+    ),
+  ];
+  return stages.length > 0 ? stages : null;
+};
 
 export interface FundListItem {
   id: string;
@@ -41,11 +160,22 @@ export interface FundListItem {
   topSectors: FundSector[];
   lastInvestmentDate: number | null;
   jobCount: number;
+  activityWindow: FundActivityWindow;
+  activityFromDate: number | null;
+  activityToDate: number;
+  roundStages: string[];
 }
 
 export interface FundSector {
   name: string;
   companyCount: number;
+}
+
+export interface FundRoundStage {
+  slug: string;
+  name: string;
+  fundCount: number;
+  investmentCount: number;
 }
 
 export type EvSitemapFund = {
@@ -127,18 +257,70 @@ export class InvestorsService {
     `);
   }
 
-  getFundSectors(): Promise<FundSector[]> {
-    return this.postgres.query<FundSector & Record<string, unknown>>(`
-      SELECT
-        sector.value ->> 'name' AS name,
-        sum((sector.value ->> 'companyCount')::integer)::integer
-          AS "companyCount"
-      FROM fund_analytics_documents document
-      CROSS JOIN LATERAL jsonb_array_elements(document.sector_breakdown)
-        AS sector(value)
-      GROUP BY sector.value ->> 'name'
-      ORDER BY "companyCount" DESC, name
-    `);
+  getFundSectors(params: InvestorListParams = {}): Promise<FundSector[]> {
+    const range = resolveFundActivityRange(params);
+    const roundStages = resolveFundRoundStages(params.rounds);
+    return this.postgres.query<FundSector & Record<string, unknown>>(
+      `
+        SELECT
+          sector.name,
+          count(DISTINCT (activity.fund_slug, activity.owner_node_id))::integer
+            AS "companyCount"
+        FROM fund_activity_documents activity
+        CROSS JOIN LATERAL unnest(activity.sector_names) AS sector(name)
+        WHERE activity.fund_participated
+          AND activity.round_date >= $1
+          AND activity.round_date < $2
+          AND ($3::text[] IS NULL OR activity.round_stage = ANY($3))
+        GROUP BY sector.name
+        ORDER BY "companyCount" DESC, sector.name
+      `,
+      [range.from, range.toExclusive, roundStages],
+    );
+  }
+
+  getFundRoundStages(
+    params: InvestorListParams = {},
+  ): Promise<FundRoundStage[]> {
+    const range = resolveFundActivityRange(params);
+    return this.postgres.query<FundRoundStage & Record<string, unknown>>(
+      `
+        SELECT
+          activity.round_stage AS slug,
+          CASE activity.round_stage
+            WHEN 'pre-seed' THEN 'Pre-seed / Angel'
+            WHEN 'seed' THEN 'Seed'
+            WHEN 'series-a' THEN 'Series A'
+            WHEN 'series-b' THEN 'Series B'
+            WHEN 'series-c' THEN 'Series C'
+            WHEN 'series-d' THEN 'Series D'
+            WHEN 'series-e' THEN 'Series E'
+            WHEN 'series-f-plus' THEN 'Series F+'
+            WHEN 'pre-ipo' THEN 'Pre-IPO'
+            WHEN 'public-markets' THEN 'IPO / Post-IPO'
+            WHEN 'token-sale' THEN 'Token sale'
+            WHEN 'strategic' THEN 'Strategic'
+            WHEN 'private' THEN 'Private'
+            WHEN 'debt' THEN 'Debt'
+            WHEN 'secondary' THEN 'M&A / Secondary'
+            WHEN 'corporate' THEN 'Corporate'
+            WHEN 'venture' THEN 'Venture'
+            WHEN 'equity' THEN 'Equity / Crowdsale'
+            ELSE 'Other / Unknown'
+          END AS name,
+          count(DISTINCT activity.fund_slug)::integer AS "fundCount",
+          count(*)::integer AS "investmentCount"
+        FROM fund_activity_documents activity
+        WHERE activity.fund_participated
+          AND activity.round_date >= $1
+          AND activity.round_date < $2
+          AND ($3::text IS NULL
+            OR activity.sector_keys @> ARRAY[lower($3)])
+        GROUP BY activity.round_stage
+        ORDER BY min(COALESCE(activity.stage_rank, 100)), name
+      `,
+      [range.from, range.toExclusive, params.sector?.trim() || null],
+    );
   }
 
   @Cron(CronExpression.EVERY_MINUTE, { name: "fund-analytics-refresh" })
@@ -171,16 +353,18 @@ export class InvestorsService {
       Math.min(100, Math.trunc(params.limit ?? 20)),
     );
     const offset = (safePage - 1) * safeLimit;
+    const range = resolveFundActivityRange(params);
+    const roundStages = resolveFundRoundStages(params.rounds);
     const orderBy = params.orderBy ?? "lastInvestmentDate";
     const orderExpressions: Record<FundListOrderBy, string> = {
-      lastInvestmentDate: "document.last_investment_date",
-      totalInvestedCapital: "document.known_round_capital",
-      knownRoundCapital: "document.known_round_capital",
-      progressionRate: "document.progression_rate",
-      medianRoundSizeStepUp: "document.median_round_size_step_up",
-      medianValuationStepUp: "document.median_valuation_step_up",
-      soloRate: "document.solo_rate",
-      portfolioCount: "document.portfolio_count",
+      lastInvestmentDate: "metrics.last_investment_date",
+      totalInvestedCapital: "metrics.known_round_capital",
+      knownRoundCapital: "metrics.known_round_capital",
+      progressionRate: "progression.progression_rate",
+      medianRoundSizeStepUp: "progression.median_round_size_step_up",
+      medianValuationStepUp: "progression.median_valuation_step_up",
+      soloRate: "metrics.solo_rate",
+      portfolioCount: "metrics.portfolio_count",
       staffCount: "document.staff_count",
       name: "lower(document.name)",
     };
@@ -191,6 +375,172 @@ export class InvestorsService {
       total: string;
     }>(
       `
+        WITH scoped_activity AS MATERIALIZED (
+          SELECT activity.*
+          FROM fund_activity_documents activity
+          WHERE activity.fund_participated
+            AND activity.round_date >= $11
+            AND activity.round_date < $12
+            AND ($13::text[] IS NULL OR activity.round_stage = ANY($13))
+            AND ($10::text IS NULL
+              OR activity.sector_keys @> ARRAY[lower($10)])
+        ),
+        fund_entries AS MATERIALIZED (
+          SELECT DISTINCT ON (activity.fund_slug, activity.owner_node_id)
+            activity.fund_slug,
+            activity.owner_node_id,
+            activity.round_date AS entry_date,
+            activity.round_amount AS entry_round_amount,
+            activity.valuation AS entry_valuation,
+            activity.stage_rank AS entry_stage_rank
+          FROM scoped_activity activity
+          ORDER BY
+            activity.fund_slug,
+            activity.owner_node_id,
+            activity.round_date,
+            activity.round_key
+        ),
+        company_progress AS MATERIALIZED (
+          SELECT
+            entry.fund_slug,
+            entry.owner_node_id,
+            count(history.round_key)::integer AS follow_on_round_count,
+            sum(history.round_amount) FILTER (WHERE history.round_amount > 0)
+              AS follow_on_round_capital,
+            entry.entry_round_amount,
+            entry.entry_valuation,
+            entry.entry_stage_rank,
+            (array_agg(
+              history.round_amount
+              ORDER BY history.round_date DESC, history.round_key DESC
+            ) FILTER (WHERE history.round_amount > 0))[1]
+              AS latest_round_amount,
+            (array_agg(
+              history.valuation
+              ORDER BY history.round_date DESC, history.round_key DESC
+            ) FILTER (WHERE history.valuation > 0))[1]
+              AS latest_valuation,
+            max(history.stage_rank) AS latest_stage_rank
+          FROM fund_entries entry
+          LEFT JOIN fund_activity_documents history
+            ON history.fund_slug = entry.fund_slug
+           AND history.owner_node_id = entry.owner_node_id
+           AND history.round_date > entry.entry_date
+           AND history.round_date < $12
+          GROUP BY
+            entry.fund_slug,
+            entry.owner_node_id,
+            entry.entry_round_amount,
+            entry.entry_valuation,
+            entry.entry_stage_rank
+        ),
+        fund_metrics AS MATERIALIZED (
+          SELECT
+            activity.fund_slug,
+            count(DISTINCT activity.owner_node_id)::integer AS portfolio_count,
+            count(*)::integer AS investment_round_count,
+            count(*) FILTER (WHERE activity.round_amount > 0)::integer
+              AS known_round_count,
+            count(*) FILTER (WHERE activity.valuation > 0)::integer
+              AS valuation_round_count,
+            sum(activity.round_amount) FILTER (WHERE activity.round_amount > 0)
+              AS known_round_capital,
+            max(activity.round_date)::bigint AS last_investment_date,
+            count(*) FILTER (WHERE activity.investor_count = 1)::integer
+              AS solo_round_count,
+            count(*) FILTER (WHERE activity.investor_count > 1)::integer
+              AS syndicated_round_count,
+            round(
+              100.0 * count(*) FILTER (WHERE activity.investor_count = 1)
+              / NULLIF(count(*), 0),
+              1
+            ) AS solo_rate,
+            array_agg(DISTINCT activity.round_stage ORDER BY activity.round_stage)
+              AS round_stages
+          FROM scoped_activity activity
+          GROUP BY activity.fund_slug
+        ),
+        progression_metrics AS MATERIALIZED (
+          SELECT
+            progress.fund_slug,
+            count(*) FILTER (WHERE progress.follow_on_round_count > 0)::integer
+              AS progressed_company_count,
+            round(
+              100.0 * count(*) FILTER (WHERE progress.follow_on_round_count > 0)
+              / NULLIF(count(*), 0),
+              1
+            ) AS progression_rate,
+            count(*) FILTER (
+              WHERE progress.latest_stage_rank > progress.entry_stage_rank
+            )::integer AS stage_progressed_company_count,
+            count(*) FILTER (
+              WHERE progress.entry_stage_rank IS NOT NULL
+                AND progress.latest_stage_rank IS NOT NULL
+            )::integer AS stage_tracked_company_count,
+            round(
+              100.0 * count(*) FILTER (
+                WHERE progress.latest_stage_rank > progress.entry_stage_rank
+              ) / NULLIF(count(*) FILTER (
+                WHERE progress.entry_stage_rank IS NOT NULL
+                  AND progress.latest_stage_rank IS NOT NULL
+              ), 0),
+              1
+            ) AS stage_progression_rate,
+            sum(progress.follow_on_round_capital) AS follow_on_round_capital,
+            percentile_cont(0.5) WITHIN GROUP (
+              ORDER BY progress.latest_round_amount
+                / NULLIF(progress.entry_round_amount, 0)
+            ) FILTER (
+              WHERE progress.latest_round_amount > 0
+                AND progress.entry_round_amount > 0
+            ) AS median_round_size_step_up,
+            count(*) FILTER (
+              WHERE progress.latest_round_amount > 0
+                AND progress.entry_round_amount > 0
+            )::integer AS round_size_step_up_sample,
+            percentile_cont(0.5) WITHIN GROUP (
+              ORDER BY progress.latest_valuation
+                / NULLIF(progress.entry_valuation, 0)
+            ) FILTER (
+              WHERE progress.latest_valuation > 0
+                AND progress.entry_valuation > 0
+            ) AS median_valuation_step_up,
+            count(*) FILTER (
+              WHERE progress.latest_valuation > 0
+                AND progress.entry_valuation > 0
+            )::integer AS valuation_step_up_sample
+          FROM company_progress progress
+          GROUP BY progress.fund_slug
+        ),
+        sector_counts AS MATERIALIZED (
+          SELECT
+            activity.fund_slug,
+            sector.name,
+            count(DISTINCT activity.owner_node_id)::integer AS company_count
+          FROM scoped_activity activity
+          CROSS JOIN LATERAL unnest(activity.sector_names) AS sector(name)
+          GROUP BY activity.fund_slug, sector.name
+        ),
+        sector_metrics AS MATERIALIZED (
+          SELECT
+            ranked.fund_slug,
+            jsonb_agg(
+              jsonb_build_object(
+                'name', ranked.name,
+                'companyCount', ranked.company_count
+              ) ORDER BY ranked.company_count DESC, ranked.name
+            ) FILTER (WHERE ranked.position <= 3) AS top_sectors
+          FROM (
+            SELECT
+              counts.*,
+              row_number() OVER (
+                PARTITION BY counts.fund_slug
+                ORDER BY counts.company_count DESC, counts.name
+              ) AS position
+            FROM sector_counts counts
+          ) ranked
+          GROUP BY ranked.fund_slug
+        )
         SELECT jsonb_build_object(
           'id', document.fund_id,
           'name', document.name,
@@ -200,46 +550,54 @@ export class InvestorsService {
           'twitter', document.twitter,
           'staffCount', document.staff_count,
           'socialStaffCount', document.social_staff_count,
-          'portfolioCount', document.portfolio_count,
-          'totalInvestedCapital', document.total_invested_capital,
-          'knownRoundCapital', document.known_round_capital,
-          'knownRoundCount', document.known_round_count,
-          'valuationRoundCount', document.valuation_round_count,
-          'investmentRoundCount', document.investment_round_count,
+          'portfolioCount', metrics.portfolio_count,
+          'totalInvestedCapital', NULL,
+          'knownRoundCapital', metrics.known_round_capital,
+          'knownRoundCount', metrics.known_round_count,
+          'valuationRoundCount', metrics.valuation_round_count,
+          'investmentRoundCount', metrics.investment_round_count,
           'ambiguousRoundCount', document.ambiguous_round_count,
-          'soloRoundCount', document.solo_round_count,
-          'syndicatedRoundCount', document.syndicated_round_count,
-          'soloRate', document.solo_rate,
-          'progressedCompanyCount', document.progressed_company_count,
-          'progressionRate', document.progression_rate,
+          'soloRoundCount', metrics.solo_round_count,
+          'syndicatedRoundCount', metrics.syndicated_round_count,
+          'soloRate', metrics.solo_rate,
+          'progressedCompanyCount', progression.progressed_company_count,
+          'progressionRate', progression.progression_rate,
           'stageProgressedCompanyCount',
-            document.stage_progressed_company_count,
-          'stageTrackedCompanyCount', document.stage_tracked_company_count,
-          'stageProgressionRate', document.stage_progression_rate,
-          'followOnRoundCapital', document.follow_on_round_capital,
-          'medianRoundSizeStepUp', document.median_round_size_step_up,
-          'roundSizeStepUpSample', document.round_size_step_up_sample,
-          'medianValuationStepUp', document.median_valuation_step_up,
-          'valuationStepUpSample', document.valuation_step_up_sample,
-          'topSectors', document.top_sectors,
-          'lastInvestmentDate', document.last_investment_date,
-          'jobCount', document.job_count
+            progression.stage_progressed_company_count,
+          'stageTrackedCompanyCount', progression.stage_tracked_company_count,
+          'stageProgressionRate', progression.stage_progression_rate,
+          'followOnRoundCapital', progression.follow_on_round_capital,
+          'medianRoundSizeStepUp', progression.median_round_size_step_up,
+          'roundSizeStepUpSample', progression.round_size_step_up_sample,
+          'medianValuationStepUp', progression.median_valuation_step_up,
+          'valuationStepUpSample', progression.valuation_step_up_sample,
+          'topSectors', COALESCE(sectors.top_sectors, '[]'::jsonb),
+          'lastInvestmentDate', metrics.last_investment_date,
+          'jobCount', document.job_count,
+          'activityWindow', $14::text,
+          'activityFromDate', $15::bigint,
+          'activityToDate', $16::bigint,
+          'roundStages', metrics.round_stages
         ) AS payload,
         count(*) OVER ()::text AS total
         FROM fund_analytics_documents document
+        JOIN fund_metrics metrics
+          ON metrics.fund_slug = document.normalized_name
+        JOIN progression_metrics progression
+          ON progression.fund_slug = document.normalized_name
+        LEFT JOIN sector_metrics sectors
+          ON sectors.fund_slug = document.normalized_name
         WHERE ($3::text IS NULL
           OR document.name ILIKE '%' || $3 || '%'
           OR document.normalized_name ILIKE '%' || $3 || '%')
-          AND ($4::numeric IS NULL OR document.known_round_capital >= $4)
-          AND ($5::integer IS NULL OR document.portfolio_count >= $5)
+          AND ($4::numeric IS NULL OR metrics.known_round_capital >= $4)
+          AND ($5::integer IS NULL OR metrics.portfolio_count >= $5)
           AND ($6::boolean IS NULL OR (document.job_count > 0) = $6)
           AND ($7::boolean IS NULL
             OR (document.social_staff_count > 0) = $7)
-          AND ($8::numeric IS NULL OR document.progression_rate >= $8)
+          AND ($8::numeric IS NULL OR progression.progression_rate >= $8)
           AND ($9::boolean IS NULL
-            OR (document.solo_round_count > 0) = $9)
-          AND ($10::text IS NULL
-            OR lower($10) = ANY(document.sector_names))
+            OR (metrics.solo_round_count > 0) = $9)
         ORDER BY ${orderExpression} ${direction} NULLS LAST,
           lower(document.name) ASC,
           document.fund_id ASC
@@ -256,6 +614,12 @@ export class InvestorsService {
         params.minProgressionRate ?? null,
         params.hasSoloInvestments ?? null,
         params.sector?.trim() || null,
+        range.from,
+        range.toExclusive,
+        roundStages,
+        range.window,
+        range.responseFrom,
+        range.responseTo,
       ],
     );
     return {
@@ -266,7 +630,10 @@ export class InvestorsService {
     };
   }
 
-  async getFundDetailsBySlug(slug: string): Promise<FundDetails | undefined> {
+  async getFundDetailsBySlug(
+    slug: string,
+    params: InvestorListParams = {},
+  ): Promise<FundDetails | undefined> {
     type DetailPayload = Pick<
       FundDetails,
       | "summary"
@@ -279,7 +646,13 @@ export class InvestorsService {
       | "jobs"
     >;
     const [fundList, rows] = await Promise.all([
-      this.getFundList({ page: 1, limit: 100, query: slug }),
+      this.getFundList({
+        ...params,
+        activityWindow: params.activityWindow ?? "all",
+        page: 1,
+        limit: 100,
+        query: slug,
+      }),
       this.postgres.query<{ payload: DetailPayload }>(
         `
           WITH selected_funds AS (

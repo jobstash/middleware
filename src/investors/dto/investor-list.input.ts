@@ -5,7 +5,9 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   Max,
+  MaxLength,
   Min,
 } from "class-validator";
 import { Transform, Type } from "class-transformer";
@@ -21,6 +23,19 @@ export type FundListOrderBy =
   | "portfolioCount"
   | "staffCount"
   | "name";
+
+export const FUND_ACTIVITY_WINDOWS = [
+  "30d",
+  "90d",
+  "6m",
+  "1y",
+  "2y",
+  "5y",
+  "all",
+  "custom",
+] as const;
+
+export type FundActivityWindow = (typeof FUND_ACTIVITY_WINDOWS)[number];
 
 export class InvestorListParams {
   @ApiPropertyOptional()
@@ -97,6 +112,33 @@ export class InvestorListParams {
   @IsOptional()
   @IsString()
   sector?: string | null = null;
+
+  @ApiPropertyOptional({ enum: FUND_ACTIVITY_WINDOWS, default: "1y" })
+  @IsOptional()
+  @IsIn(FUND_ACTIVITY_WINDOWS)
+  @IsString()
+  activityWindow?: FundActivityWindow | null = null;
+
+  @ApiPropertyOptional({ example: "2025-01-01" })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  @IsString()
+  fromDate?: string | null = null;
+
+  @ApiPropertyOptional({ example: "2025-12-31" })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  @IsString()
+  toDate?: string | null = null;
+
+  @ApiPropertyOptional({
+    description: "Comma-separated normalized funding round stages",
+    example: "seed,series-a",
+  })
+  @IsOptional()
+  @MaxLength(300)
+  @IsString()
+  rounds?: string | null = null;
 
   @ApiPropertyOptional({ enum: ["asc", "desc"] })
   @IsOptional()

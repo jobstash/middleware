@@ -48,6 +48,10 @@ describe("filter DTO HTTP contracts", () => {
       minInvestedCapital: "10000000",
       minPortfolioCount: "5",
       hasJobs: "false",
+      activityWindow: "custom",
+      fromDate: "2025-01-01",
+      toDate: "2025-12-31",
+      rounds: "seed,series-a",
       order: "desc",
       orderBy: "totalInvestedCapital",
     });
@@ -59,12 +63,19 @@ describe("filter DTO HTTP contracts", () => {
       minInvestedCapital: 10_000_000,
       minPortfolioCount: 5,
       hasJobs: false,
+      activityWindow: "custom",
+      fromDate: "2025-01-01",
+      toDate: "2025-12-31",
+      rounds: "seed,series-a",
       order: "desc",
       orderBy: "totalInvestedCapital",
     });
 
     await expect(
       transformQuery(InvestorListParams, { orderBy: "unknown" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      transformQuery(InvestorListParams, { fromDate: "not-a-date" }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 

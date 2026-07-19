@@ -19,16 +19,17 @@ describe("InvestorsService fund list", () => {
 
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain(
-      "ORDER BY document.last_investment_date DESC NULLS LAST",
+      "ORDER BY metrics.last_investment_date DESC NULLS LAST",
     );
     expect(sql).toContain("'totalInvestedCapital'");
     expect(sql).toContain("'knownRoundCapital'");
     expect(sql).toContain("'socialStaffCount'");
     expect(sql).toContain("FROM fund_analytics_documents document");
     expect(sql).toContain("document.ambiguous_round_count");
-    expect(sql).toContain("document.progression_rate");
-    expect(sql).toContain("document.solo_round_count");
-    expect(sql).toContain("ANY(document.sector_names)");
+    expect(sql).toContain("progression.progression_rate");
+    expect(sql).toContain("metrics.solo_round_count");
+    expect(sql).toContain("FROM fund_activity_documents activity");
+    expect(sql).toContain("activity.round_stage = ANY($13)");
     expect(sql).toContain("'lastInvestmentDate'");
     expect(sql).toContain("'jobCount'");
     expect(parameters).toEqual([
@@ -42,6 +43,12 @@ describe("InvestorsService fund list", () => {
       null,
       null,
       null,
+      expect.any(Number),
+      expect.any(Number),
+      null,
+      "1y",
+      expect.any(Number),
+      expect.any(Number),
     ]);
   });
 
@@ -57,13 +64,17 @@ describe("InvestorsService fund list", () => {
       hasSoloInvestments: true,
       minProgressionRate: 50,
       sector: "Gaming",
+      activityWindow: "custom",
+      fromDate: "2025-01-01",
+      toDate: "2025-12-31",
+      rounds: "seed,series-a",
       order: "asc",
       orderBy: "knownRoundCapital",
     });
 
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain(
-      "ORDER BY document.known_round_capital ASC NULLS LAST",
+      "ORDER BY metrics.known_round_capital ASC NULLS LAST",
     );
     expect(sql).not.toContain("coin' OR true --");
     expect(parameters).toEqual([
@@ -77,6 +88,12 @@ describe("InvestorsService fund list", () => {
       50,
       true,
       "Gaming",
+      1_735_689_600,
+      1_767_225_600,
+      ["seed", "series-a"],
+      "custom",
+      1_735_689_600,
+      1_767_225_599,
     ]);
   });
 
@@ -106,10 +123,29 @@ describe("InvestorsService fund list", () => {
     await service.getFundSectors();
 
     const [sql, parameters] = query.mock.calls[0];
-    expect(sql).toContain("FROM fund_analytics_documents document");
-    expect(sql).toContain("jsonb_array_elements(document.sector_breakdown)");
+    expect(sql).toContain("FROM fund_activity_documents activity");
+    expect(sql).toContain("unnest(activity.sector_names)");
     expect(sql).toContain('AS "companyCount"');
-    expect(parameters).toBeUndefined();
+    expect(parameters).toEqual([expect.any(Number), expect.any(Number), null]);
+  });
+
+  it("loads round-stage facets from the time-scoped projection", async () => {
+    await service.getFundRoundStages({
+      activityWindow: "custom",
+      fromDate: "2025-01-01",
+      toDate: "2025-12-31",
+      sector: "Infrastructure",
+    });
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("activity.round_stage AS slug");
+    expect(sql).toContain('AS "fundCount"');
+    expect(sql).toContain('AS "investmentCount"');
+    expect(parameters).toEqual([
+      1_735_689_600,
+      1_767_225_600,
+      "Infrastructure",
+    ]);
   });
 
   it("loads every fund slug for the EV sitemap", async () => {
