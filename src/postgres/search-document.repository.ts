@@ -402,7 +402,10 @@ export class SearchDocumentRepository {
         `${where.bind(slugify(params.ecosystemHeader))} = ANY(managed_ecosystems)`,
       );
     }
-    where.addArrayOverlap("ecosystems", params.ecosystems);
+    where.addArrayOverlap(
+      "COALESCE(NULLIF(ecosystems, ARRAY[]::text[]), managed_ecosystems)",
+      params.ecosystems,
+    );
     where.addArrayOverlap("tags", params.tags);
     where.addArrayOverlap("project_names", params.projects);
     where.addArrayOverlap("investor_names", params.investors);
@@ -1206,7 +1209,10 @@ export class SearchDocumentRepository {
     );
     where.addArrayOverlap("investors", params.investors);
     where.addArrayOverlap("funding_rounds", params.fundingRounds);
-    where.addArrayOverlap("ecosystems", params.ecosystems);
+    where.addArrayOverlap(
+      "COALESCE(NULLIF(ecosystems, ARRAY[]::text[]), managed_ecosystems)",
+      params.ecosystems,
+    );
     where.addArrayOverlap("project_names", params.projects);
     where.addArrayOverlap("categories", params.categories);
     where.addArrayOverlap("tags", params.tags);
@@ -1456,7 +1462,10 @@ export class SearchDocumentRepository {
     where.addArrayOverlap("investors", params.investors);
     where.addArrayOverlap("chains", params.chains);
     where.addArrayOverlap("categories", params.categories);
-    where.addArrayOverlap("ecosystems", params.ecosystems);
+    where.addArrayOverlap(
+      "COALESCE(NULLIF(ecosystems, ARRAY[]::text[]), managed_ecosystems)",
+      params.ecosystems,
+    );
     where.addArrayOverlap("tags", params.tags);
     where.addArrayOverlap("names", params.names);
     const sortExpressions: Record<string, string> = {

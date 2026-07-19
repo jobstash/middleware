@@ -232,7 +232,7 @@ export class SearchRepository {
           SELECT jsonb_build_object(
             'names', ${labelArray("names")},
             'organizations', ${labelArray("organizations")},
-            'ecosystems', ${labelArrayWithFallback("ecosystems", "ecosystems")},
+            'ecosystems', ${labelArrayWithFallback("ecosystems", "managed_ecosystems")},
             'categories', ${labelArray("categories")},
             'chains', ${labelArray("chains")},
             'investors', ${labelArray("investors")},
@@ -265,7 +265,7 @@ export class SearchRepository {
             'fundingRounds', ${labelArray("fundingRounds")},
             'tags', ${labelArray("tags")},
             'projects', ${labelArray("projects")},
-            'ecosystems', ${labelArrayWithFallback("ecosystems", "ecosystems")},
+            'ecosystems', ${labelArrayWithFallback("ecosystems", "managed_ecosystems")},
             'headCount', source.headcount_estimate,
             'hasProjects', source.has_projects,
             'hasJobs', source.recent_job_timestamp IS NOT NULL
