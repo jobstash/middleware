@@ -431,6 +431,7 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("FROM organization_search_documents");
     expect(sql).toContain("investors &&");
     expect(sql).toContain("funding_rounds &&");
+    expect(sql).toContain("OR managed_ecosystems &&");
     expect(sql).toContain("has_projects =");
     expect(sql).toContain("recent_job_timestamp ASC");
     expect(sql).toContain("search_values");
@@ -501,6 +502,7 @@ describe("SearchDocumentRepository", () => {
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain("FROM project_search_documents");
     expect(sql).toContain("organization_names &&");
+    expect(sql).toContain("OR managed_ecosystems &&");
     expect(sql).toContain("has_token =");
     expect(sql).toContain("monthly_volume DESC");
     expect(sql).toContain("search_values");

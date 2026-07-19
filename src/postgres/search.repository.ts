@@ -83,10 +83,14 @@ const labelArrayWithFallback = (
   key: string,
   fallbackColumn: string,
 ): string => `
-  COALESCE(
-    NULLIF(${labelArray(key)}, ARRAY[]::text[]),
-    source.${fallbackColumn},
-    ARRAY[]::text[]
+  ARRAY(
+    SELECT DISTINCT entry.value
+    FROM unnest(
+      ${labelArray(key)}
+      || COALESCE(source.${fallbackColumn}, ARRAY[]::text[])
+    ) AS entry(value)
+    WHERE entry.value <> ''
+    ORDER BY entry.value
   )
 `;
 

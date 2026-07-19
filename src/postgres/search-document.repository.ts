@@ -128,6 +128,15 @@ class SqlPredicateBuilder {
     this.add(`${column} && ${this.bind(normalized)}::text[]`);
   }
 
+  addEcosystemOverlap(values?: string[] | null): void {
+    const normalized = normalizeList(values);
+    if (!normalized?.length) return;
+    const parameter = this.bind(normalized);
+    this.add(
+      `(ecosystems && ${parameter}::text[] OR managed_ecosystems && ${parameter}::text[])`,
+    );
+  }
+
   toSql(): string {
     return this.predicates.length
       ? `WHERE ${this.predicates.join("\n AND ")}`
@@ -402,10 +411,7 @@ export class SearchDocumentRepository {
         `${where.bind(slugify(params.ecosystemHeader))} = ANY(managed_ecosystems)`,
       );
     }
-    where.addArrayOverlap(
-      "COALESCE(NULLIF(ecosystems, ARRAY[]::text[]), managed_ecosystems)",
-      params.ecosystems,
-    );
+    where.addEcosystemOverlap(params.ecosystems);
     where.addArrayOverlap("tags", params.tags);
     where.addArrayOverlap("project_names", params.projects);
     where.addArrayOverlap("investor_names", params.investors);
@@ -1209,10 +1215,7 @@ export class SearchDocumentRepository {
     );
     where.addArrayOverlap("investors", params.investors);
     where.addArrayOverlap("funding_rounds", params.fundingRounds);
-    where.addArrayOverlap(
-      "COALESCE(NULLIF(ecosystems, ARRAY[]::text[]), managed_ecosystems)",
-      params.ecosystems,
-    );
+    where.addEcosystemOverlap(params.ecosystems);
     where.addArrayOverlap("project_names", params.projects);
     where.addArrayOverlap("categories", params.categories);
     where.addArrayOverlap("tags", params.tags);
@@ -1462,10 +1465,7 @@ export class SearchDocumentRepository {
     where.addArrayOverlap("investors", params.investors);
     where.addArrayOverlap("chains", params.chains);
     where.addArrayOverlap("categories", params.categories);
-    where.addArrayOverlap(
-      "COALESCE(NULLIF(ecosystems, ARRAY[]::text[]), managed_ecosystems)",
-      params.ecosystems,
-    );
+    where.addEcosystemOverlap(params.ecosystems);
     where.addArrayOverlap("tags", params.tags);
     where.addArrayOverlap("names", params.names);
     const sortExpressions: Record<string, string> = {
