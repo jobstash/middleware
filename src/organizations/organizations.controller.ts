@@ -145,6 +145,39 @@ export class OrganizationsController {
       });
   }
 
+  @Get("/grid")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
+  async getOrganizationsForAdminGrid(
+    @Query("limit") rawLimit?: string,
+    @Query("offset") rawOffset?: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data?: Record<string, unknown>[];
+    total?: number;
+  }> {
+    this.logger.log(`/organizations/grid`);
+    const limit = Math.max(1, Math.min(Number(rawLimit) || 500, 1000));
+    const offset = Math.max(0, Number(rawOffset) || 0);
+    return this.organizationsService
+      .getAllForAdminGrid(limit, offset)
+      .then(result => ({
+        success: true,
+        message: "Retrieved the organization grid successfully",
+        data: result.data,
+        total: result.total,
+      }))
+      .catch(err => {
+        Sentry.captureException(err);
+        this.logger.error(`/organizations/grid ${err.message}`);
+        return {
+          success: false,
+          message: "Error retrieving the organization grid!",
+        };
+      });
+  }
+
   @Get("/list")
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiHeader({

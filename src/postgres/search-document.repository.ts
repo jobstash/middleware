@@ -1084,6 +1084,107 @@ export class SearchDocumentRepository {
     return rows.map(row => row.payload);
   }
 
+  async getOrganizationsForAdminGrid(
+    limit: number,
+    offset: number,
+  ): Promise<{ data: Record<string, unknown>[]; total: number }> {
+    const rows = await this.postgres.query<{
+      payload: Record<string, unknown>;
+      total_count: string;
+    }>(
+      `
+        WITH selected_organizations AS (
+          SELECT
+            organization_node_id,
+            payload,
+            count(*) OVER() AS total_count
+          FROM organization_search_documents
+          ORDER BY organization_node_id
+          LIMIT $1 OFFSET $2
+        )
+        SELECT jsonb_build_object(
+          'id', organization.payload -> 'id',
+          'orgId', organization.payload -> 'orgId',
+          'name', organization.payload -> 'name',
+          'normalizedName', organization.payload -> 'normalizedName',
+          'location', organization.payload -> 'location',
+          'logoUrl', organization.payload -> 'logoUrl',
+          'description', organization.payload -> 'description',
+          'summary', organization.payload -> 'summary',
+          'headcountEstimate', organization.payload -> 'headcountEstimate',
+          'altName', organization.payload -> 'altName',
+          'createdTimestamp', organization.payload -> 'createdTimestamp',
+          'updatedTimestamp', organization.payload -> 'updatedTimestamp',
+          'websites', links.websites,
+          'aliases', links.aliases,
+          'twitters', links.twitters,
+          'githubs', links.githubs,
+          'discords', links.discords,
+          'docs', links.docs,
+          'telegrams', links.telegrams,
+          'communities', COALESCE(organization.payload -> 'communities', '[]'::jsonb),
+          'grants', COALESCE(organization.payload -> 'grants', '[]'::jsonb),
+          'jobsites', links.jobsites,
+          'detectedJobsites', links.detected_jobsites,
+          'projects', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object(
+              'id', project -> 'id',
+              'name', project -> 'name'
+            ))
+            FROM jsonb_array_elements(
+              COALESCE(organization.payload -> 'projects', '[]'::jsonb)
+            ) project
+          ), '[]'::jsonb)
+        ) AS payload,
+        organization.total_count
+        FROM selected_organizations organization
+        JOIN graph_nodes node ON node.id = organization.organization_node_id
+        CROSS JOIN LATERAL (
+          SELECT
+            COALESCE(to_jsonb(array_agg(related.properties ->> 'url')
+              FILTER (WHERE relationship.type = 'HAS_WEBSITE')), '[]'::jsonb) AS websites,
+            COALESCE(to_jsonb(array_agg(related.properties ->> 'name')
+              FILTER (WHERE relationship.type = 'HAS_ORGANIZATION_ALIAS')), '[]'::jsonb) AS aliases,
+            COALESCE(to_jsonb(array_agg(related.properties ->> 'username')
+              FILTER (WHERE relationship.type = 'HAS_TWITTER')), '[]'::jsonb) AS twitters,
+            COALESCE(to_jsonb(array_agg(related.properties ->> 'login')
+              FILTER (WHERE relationship.type = 'HAS_GITHUB')), '[]'::jsonb) AS githubs,
+            COALESCE(to_jsonb(array_agg(related.properties ->> 'invite')
+              FILTER (WHERE relationship.type = 'HAS_DISCORD')), '[]'::jsonb) AS discords,
+            COALESCE(to_jsonb(array_agg(related.properties ->> 'url')
+              FILTER (WHERE relationship.type = 'HAS_DOCSITE')), '[]'::jsonb) AS docs,
+            COALESCE(to_jsonb(array_agg(related.properties ->> 'username')
+              FILTER (WHERE relationship.type = 'HAS_TELEGRAM')), '[]'::jsonb) AS telegrams,
+            COALESCE(jsonb_agg(jsonb_build_object(
+              'id', related.properties -> 'id',
+              'url', related.properties -> 'url',
+              'type', related.properties -> 'type'
+            )) FILTER (
+              WHERE relationship.type = 'HAS_JOBSITE'
+                AND related.label = 'Jobsite'
+            ), '[]'::jsonb) AS jobsites,
+            COALESCE(jsonb_agg(jsonb_build_object(
+              'id', related.properties -> 'id',
+              'url', related.properties -> 'url',
+              'type', related.properties -> 'type'
+            )) FILTER (
+              WHERE relationship.type = 'HAS_JOBSITE'
+                AND related.label = 'DetectedJobsite'
+            ), '[]'::jsonb) AS detected_jobsites
+          FROM graph_relationships relationship
+          JOIN graph_nodes related ON related.id = relationship.target_id
+          WHERE relationship.source_id = node.id
+        ) links
+        ORDER BY organization.organization_node_id
+      `,
+      [limit, offset],
+    );
+    return {
+      data: rows.map(row => row.payload),
+      total: Number(rows[0]?.total_count ?? 0),
+    };
+  }
+
   async searchOrganizations(
     params: Partial<OrgListParams> & { ecosystemHeader?: string },
   ): Promise<SearchPage<OrgListResult>> {

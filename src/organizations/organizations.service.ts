@@ -204,6 +204,13 @@ export class OrganizationsService {
     );
   }
 
+  async getAllForAdminGrid(
+    limit: number,
+    offset: number,
+  ): Promise<{ data: Record<string, unknown>[]; total: number }> {
+    return this.searchDocuments.getOrganizationsForAdminGrid(limit, offset);
+  }
+
   async getAll(): Promise<ShortOrg[]> {
     try {
       return (await this.getOrgListResults()).map(org => toShortOrg(org));
