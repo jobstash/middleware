@@ -56,6 +56,14 @@ export class InvestorListParams {
   @IsBoolean()
   hasJobs?: boolean | null = null;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  hasTeamSocials?: boolean | null = null;
+
   @ApiPropertyOptional({ enum: ["asc", "desc"] })
   @IsOptional()
   @IsIn(["asc", "desc"])

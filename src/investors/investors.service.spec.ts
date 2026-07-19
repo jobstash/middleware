@@ -20,10 +20,13 @@ describe("InvestorsService fund list", () => {
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain('ORDER BY "lastInvestmentDate" DESC NULLS LAST');
     expect(sql).toContain("'totalInvestedCapital'");
+    expect(sql).toContain("'socialStaffCount'");
+    expect(sql).toContain("investment.properties");
+    expect(sql).not.toContain("sum(investment_round.raised_amount)");
     expect(sql).toContain("'lastInvestmentDate'");
     expect(sql).toContain("'jobCount'");
     expect(sql).toContain("CROSS JOIN LATERAL unnest(organization.investors)");
-    expect(parameters).toEqual([20, 0, null, null, null, null]);
+    expect(parameters).toEqual([20, 0, null, null, null, null, null]);
   });
 
   it("binds filters and selects the requested safe sort expression", async () => {
@@ -34,6 +37,7 @@ describe("InvestorsService fund list", () => {
       minInvestedCapital: 10_000_000,
       minPortfolioCount: 5,
       hasJobs: true,
+      hasTeamSocials: true,
       order: "asc",
       orderBy: "totalInvestedCapital",
     });
@@ -48,6 +52,7 @@ describe("InvestorsService fund list", () => {
       10_000_000,
       5,
       true,
+      true,
     ]);
   });
 
@@ -58,6 +63,11 @@ describe("InvestorsService fund list", () => {
 
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain("staff.properties ->> 'photoUrl'");
+    expect(sql).toContain("'investedAmount'");
+    expect(sql).toContain("investment.properties");
+    expect(sql).not.toContain(
+      "THEN COALESCE((round.value ->> 'raisedAmount')::numeric, 0)",
+    );
     expect(sql).toContain("social_edge.type = 'HAS_LINKEDIN'");
     expect(sql).toContain("https://www.linkedin.com/in/");
     expect(sql).toContain("social_edge.type = 'HAS_TWITTER'");

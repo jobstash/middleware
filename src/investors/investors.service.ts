@@ -16,8 +16,9 @@ export interface FundListItem {
   website: string | null;
   twitter: string | null;
   staffCount: number;
+  socialStaffCount: number;
   portfolioCount: number;
-  totalInvestedCapital: number;
+  totalInvestedCapital: number | null;
   lastInvestmentDate: number | null;
   jobCount: number;
 }
@@ -51,6 +52,7 @@ export interface FundInvestmentRound {
   roundName: string;
   date: number;
   raisedAmount: number;
+  investedAmount: number | null;
   sourceLink: string | null;
   source: string | null;
 }
@@ -158,6 +160,7 @@ export class InvestorsService {
             related.website,
             related.twitter,
             related.staff_count AS "staffCount",
+            related.social_staff_count AS "socialStaffCount",
             investments.portfolio_count AS "portfolioCount",
             investments.total_invested_capital AS "totalInvestedCapital",
             investments.last_investment_date AS "lastInvestmentDate",
@@ -170,7 +173,20 @@ export class InvestorsService {
               min(node.properties ->> 'username')
                 FILTER (WHERE edge.type = 'HAS_TWITTER') AS twitter,
               count(*) FILTER (WHERE edge.type = 'HAS_STAFF')::int
-                AS staff_count
+                AS staff_count,
+              count(*) FILTER (
+                WHERE edge.type = 'HAS_STAFF'
+                  AND (
+                    NULLIF(node.properties ->> 'linkedinUrl', '') IS NOT NULL
+                    OR NULLIF(node.properties ->> 'twitterUrl', '') IS NOT NULL
+                    OR EXISTS (
+                      SELECT 1
+                      FROM graph_relationships social_edge
+                      WHERE social_edge.source_id = node.id
+                        AND social_edge.type IN ('HAS_LINKEDIN', 'HAS_TWITTER')
+                    )
+                  )
+              )::int AS social_staff_count
             FROM graph_relationships edge
             JOIN graph_nodes node ON node.id = edge.target_id
             WHERE edge.source_id = fund.node_id
@@ -179,25 +195,27 @@ export class InvestorsService {
             SELECT
               count(DISTINCT investment_round.organization_id)::int
                 AS portfolio_count,
-              COALESCE(sum(investment_round.raised_amount), 0)::float8
+              sum(investment_round.invested_amount)::float8
                 AS total_invested_capital,
               max(investment_round.investment_date)::float8
                 AS last_investment_date
             FROM (
               SELECT DISTINCT ON (funding_round.id)
                 owner.id AS organization_id,
-                CASE
-                  WHEN NULLIF(funding_round.properties ->> 'source', '')
-                      IS NULL
-                    THEN COALESCE(
-                      (funding_round.properties ->> 'raisedAmount')::numeric,
-                      0
-                    ) * 1000000
-                  ELSE COALESCE(
-                    (funding_round.properties ->> 'raisedAmount')::numeric,
-                    0
+                COALESCE(
+                  jsonb_numeric_value(
+                    investment.properties,
+                    'investedAmount'
+                  ),
+                  jsonb_numeric_value(
+                    investment.properties,
+                    'investmentAmount'
+                  ),
+                  jsonb_numeric_value(
+                    investment.properties,
+                    'amountInvested'
                   )
-                END AS raised_amount,
+                ) AS invested_amount,
                 COALESCE(
                   (funding_round.properties ->> 'date')::numeric,
                   0
@@ -229,6 +247,7 @@ export class InvestorsService {
           'website', website,
           'twitter', twitter,
           'staffCount', "staffCount",
+          'socialStaffCount', "socialStaffCount",
           'portfolioCount', "portfolioCount",
           'totalInvestedCapital', "totalInvestedCapital",
           'lastInvestmentDate', "lastInvestmentDate",
@@ -242,6 +261,7 @@ export class InvestorsService {
           AND ($4::float8 IS NULL OR "totalInvestedCapital" >= $4)
           AND ($5::int IS NULL OR "portfolioCount" >= $5)
           AND ($6::boolean IS NULL OR ("jobCount" > 0) = $6)
+          AND ($7::boolean IS NULL OR ("socialStaffCount" > 0) = $7)
         ORDER BY ${orderExpression} ${direction} NULLS LAST,
           lower(name) ASC,
           id ASC
@@ -254,6 +274,7 @@ export class InvestorsService {
         params.minInvestedCapital ?? null,
         params.minPortfolioCount ?? null,
         params.hasJobs ?? null,
+        params.hasTeamSocials ?? null,
       ],
     );
     return {
@@ -288,6 +309,12 @@ export class InvestorsService {
           'website', related.website,
           'twitter', related.twitter,
           'staffCount', jsonb_array_length(related.team),
+          'socialStaffCount', (
+            SELECT count(*)::int
+            FROM jsonb_array_elements(related.team) team_member(value)
+            WHERE NULLIF(team_member.value ->> 'linkedinUrl', '') IS NOT NULL
+              OR NULLIF(team_member.value ->> 'twitterUrl', '') IS NOT NULL
+          ),
           'portfolioCount', jsonb_array_length(related.investments),
           'totalInvestedCapital', investment_stats.total_invested_capital,
           'lastInvestmentDate', investment_stats.last_investment_date,
@@ -417,6 +444,20 @@ export class InvestorsService {
                           (funding_round.properties ->> 'raisedAmount')::numeric,
                           0
                         ),
+                        'investedAmount', COALESCE(
+                          jsonb_numeric_value(
+                            investment.properties,
+                            'investedAmount'
+                          ),
+                          jsonb_numeric_value(
+                            investment.properties,
+                            'investmentAmount'
+                          ),
+                          jsonb_numeric_value(
+                            investment.properties,
+                            'amountInvested'
+                          )
+                        ),
                         'sourceLink', funding_round.properties ->> 'sourceLink',
                         'source', funding_round.properties ->> 'source'
                       )
@@ -452,14 +493,9 @@ export class InvestorsService {
         ) related
         CROSS JOIN LATERAL (
           SELECT
-            COALESCE(sum(
-              CASE
-                WHEN NULLIF(round.value ->> 'source', '') IS NULL
-                  THEN COALESCE((round.value ->> 'raisedAmount')::numeric, 0)
-                    * 1000000
-                ELSE COALESCE((round.value ->> 'raisedAmount')::numeric, 0)
-              END
-            ), 0)::float8 AS total_invested_capital,
+            sum(
+              jsonb_numeric_value(round.value, 'investedAmount')
+            )::float8 AS total_invested_capital,
             max(COALESCE((round.value ->> 'date')::numeric, 0))::float8
               AS last_investment_date
           FROM jsonb_array_elements(related.investments) investment
