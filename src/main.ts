@@ -1,4 +1,4 @@
-import cluster from "node:cluster";
+import type { Cluster } from "node:cluster";
 import { availableParallelism } from "node:os";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
@@ -15,6 +15,12 @@ import * as compression from "compression";
 import { PublicModule } from "./public/public.module";
 import { generatePublicApiSpec } from "./shared/helpers";
 dotenv.config();
+
+// This project intentionally compiles without `esModuleInterop`. Node exposes
+// `cluster` as a CommonJS object, so a default import emits an invalid
+// `.default` lookup at runtime.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const cluster = require("node:cluster") as Cluster;
 
 if (!process.env.SESSION_SECRET) throw new Error("SESSION_SECRET must be set");
 
