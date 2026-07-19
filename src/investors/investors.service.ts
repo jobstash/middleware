@@ -34,6 +34,7 @@ export interface FundInvestmentRound {
   date: number;
   raisedAmount: number;
   sourceLink: string | null;
+  source: string | null;
 }
 
 export interface FundInvestment {
@@ -218,7 +219,8 @@ export class InvestorsService {
                           (funding_round.properties ->> 'raisedAmount')::numeric,
                           0
                         ),
-                        'sourceLink', funding_round.properties ->> 'sourceLink'
+                        'sourceLink', funding_round.properties ->> 'sourceLink',
+                        'source', funding_round.properties ->> 'source'
                       )
                     )
                   ) AS payload
