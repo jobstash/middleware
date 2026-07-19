@@ -11,6 +11,7 @@ import { CustomLogger } from "src/shared/utils/custom-logger";
 
 @Injectable()
 export class PrivyGuard implements CanActivate {
+  private static readonly MAX_AUTH_ATTEMPTS = 4;
   private privy: PrivyClient;
   private logger = new CustomLogger(PrivyGuard.name);
   constructor(private readonly configService: ConfigService) {
@@ -23,23 +24,43 @@ export class PrivyGuard implements CanActivate {
   private async getSession(req: Request): Promise<User> {
     const accessToken =
       req.headers.authorization?.replace("Bearer ", "") ?? null;
-    try {
-      if (accessToken) {
-        const verifiedClaims = await this.privy.verifyAuthToken(accessToken);
-        return this.privy.getUserById(verifiedClaims.userId);
-      } else {
-        throw new ForbiddenException({
-          success: false,
-          message: "Forbidden resource: Insufficient permissions",
-        });
-      }
-    } catch (error) {
-      this.logger.error(`PrivyGuard::getSession ${error.message}`);
+    if (!accessToken) {
       throw new ForbiddenException({
         success: false,
         message: "Forbidden resource: Insufficient permissions",
       });
     }
+
+    let lastError: unknown;
+    for (
+      let attempt = 1;
+      attempt <= PrivyGuard.MAX_AUTH_ATTEMPTS;
+      attempt += 1
+    ) {
+      try {
+        const verifiedClaims = await this.privy.verifyAuthToken(accessToken);
+        return await this.privy.getUserById(verifiedClaims.userId);
+      } catch (error) {
+        lastError = error;
+        if (attempt < PrivyGuard.MAX_AUTH_ATTEMPTS) {
+          const retryDelayMs = 250 * 2 ** (attempt - 1);
+          this.logger.warn(
+            `PrivyGuard::getSession attempt ${attempt} failed; retrying in ${retryDelayMs}ms`,
+          );
+          await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+        }
+      }
+    }
+
+    const message =
+      lastError instanceof Error ? lastError.message : "Unknown Privy error";
+    this.logger.error(
+      `PrivyGuard::getSession failed after retries: ${message}`,
+    );
+    throw new ForbiddenException({
+      success: false,
+      message: "Forbidden resource: Insufficient permissions",
+    });
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
