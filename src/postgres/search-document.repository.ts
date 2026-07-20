@@ -5,6 +5,9 @@ import { OrgListParams } from "src/organizations/dto/org-list.input";
 import { ProjectListParams } from "src/projects/dto/project-list.input";
 import { slugify, sprinkleProtectedJobs } from "src/shared/helpers";
 import {
+  AdminDirectoryPage,
+  AdminOrganizationDirectoryItem,
+  AdminProjectDirectoryItem,
   JobListResult,
   OrgListResult,
   ProjectListResult,
@@ -288,6 +291,163 @@ export class SearchDocumentRepository {
       FROM project_search_documents
       ORDER BY name, project_node_id
     `);
+  }
+
+  async getAdminOrganizationDirectory(options: {
+    query?: string;
+    limit: number;
+    offset: number;
+  }): Promise<AdminDirectoryPage<AdminOrganizationDirectoryItem>> {
+    const normalizedQuery = options.query?.trim() || null;
+    const [row] = await this.postgres.query<{
+      data: AdminOrganizationDirectoryItem[];
+      total: number | string;
+    }>(
+      `
+        WITH filtered AS NOT MATERIALIZED (
+          SELECT
+            organization.organization_id AS org_id,
+            NULLIF(organization.payload ->> 'id', '') AS id,
+            NULLIF(organization.name, '') AS name,
+            NULLIF(organization.normalized_name, '') AS normalized_name,
+            NULLIF(organization.location, '') AS location,
+            NULLIF(organization.payload ->> 'logoUrl', '') AS logo_url,
+            NULLIF(organization.payload ->> 'summary', '') AS summary,
+            COALESCE(cardinality(organization.project_ids), 0)::int AS project_count
+          FROM organization_search_documents organization
+          WHERE $1::text IS NULL
+             OR position(lower($1) in lower(organization.organization_id)) > 0
+             OR position(lower($1) in lower(organization.name)) > 0
+             OR position(lower($1) in lower(organization.normalized_name)) > 0
+             OR position(lower($1) in lower(COALESCE(organization.location, ''))) > 0
+             OR position(lower($1) in lower(COALESCE(organization.payload ->> 'id', ''))) > 0
+             OR position(lower($1) in lower(COALESCE(organization.payload ->> 'summary', ''))) > 0
+             OR EXISTS (
+               SELECT 1
+               FROM unnest(organization.search_values) AS search_value(value)
+               WHERE position(lower($1) in lower(COALESCE(search_value.value, ''))) > 0
+             )
+        ), page AS (
+          SELECT *
+          FROM filtered
+          ORDER BY lower(name) NULLS LAST, org_id
+          LIMIT $2 OFFSET $3
+        )
+        SELECT
+          COALESCE(
+            jsonb_agg(
+              jsonb_strip_nulls(jsonb_build_object(
+                'id', page.id,
+                'orgId', page.org_id,
+                'name', page.name,
+                'normalizedName', page.normalized_name,
+                'location', page.location,
+                'logoUrl', page.logo_url,
+                'summary', page.summary,
+                'projectCount', page.project_count
+              ))
+              ORDER BY lower(page.name) NULLS LAST, page.org_id
+            ),
+            '[]'::jsonb
+          ) AS data,
+          (SELECT count(*)::int FROM filtered) AS total
+        FROM page
+      `,
+      [normalizedQuery, options.limit, options.offset],
+    );
+    return {
+      data: row?.data ?? [],
+      total: Number(row?.total ?? 0),
+    };
+  }
+
+  async getAdminProjectDirectory(options: {
+    query?: string;
+    limit: number;
+    offset: number;
+  }): Promise<AdminDirectoryPage<AdminProjectDirectoryItem>> {
+    const normalizedQuery = options.query?.trim() || null;
+    const [row] = await this.postgres.query<{
+      data: AdminProjectDirectoryItem[];
+      total: number | string;
+    }>(
+      `
+        WITH filtered AS NOT MATERIALIZED (
+          SELECT
+            project.project_id AS id,
+            NULLIF(project.name, '') AS name,
+            NULLIF(project.normalized_name, '') AS normalized_name,
+            NULLIF(
+              COALESCE(project.detail_payload, project.payload) ->> 'logo',
+              ''
+            ) AS logo_url,
+            NULLIF(
+              COALESCE(project.detail_payload, project.payload) ->> 'category',
+              ''
+            ) AS category,
+            NULLIF(
+              COALESCE(project.detail_payload, project.payload) ->> 'website',
+              ''
+            ) AS website,
+            project.organization_ids AS org_ids
+          FROM project_search_documents project
+          WHERE $1::text IS NULL
+             OR position(lower($1) in lower(project.project_id)) > 0
+             OR position(lower($1) in lower(project.name)) > 0
+             OR position(lower($1) in lower(project.normalized_name)) > 0
+             OR position(lower($1) in lower(COALESCE(
+                  COALESCE(project.detail_payload, project.payload) ->> 'summary',
+                  ''
+                ))) > 0
+             OR position(lower($1) in lower(COALESCE(
+                  COALESCE(project.detail_payload, project.payload) ->> 'category',
+                  ''
+                ))) > 0
+             OR position(lower($1) in lower(COALESCE(
+                  COALESCE(project.detail_payload, project.payload) ->> 'website',
+                  ''
+                ))) > 0
+             OR EXISTS (
+               SELECT 1
+               FROM unnest(project.organization_ids) AS organization_id(value)
+               WHERE position(lower($1) in lower(COALESCE(organization_id.value, ''))) > 0
+             )
+             OR EXISTS (
+               SELECT 1
+               FROM unnest(project.search_values) AS search_value(value)
+               WHERE position(lower($1) in lower(COALESCE(search_value.value, ''))) > 0
+             )
+        ), page AS (
+          SELECT *
+          FROM filtered
+          ORDER BY lower(name) NULLS LAST, id
+          LIMIT $2 OFFSET $3
+        )
+        SELECT
+          COALESCE(
+            jsonb_agg(
+              jsonb_strip_nulls(jsonb_build_object(
+                'id', page.id,
+                'name', page.name,
+                'normalizedName', page.normalized_name,
+                'logoUrl', page.logo_url,
+                'category', page.category,
+                'website', page.website,
+                'orgIds', COALESCE(page.org_ids, '{}'::text[])
+              ))
+              ORDER BY lower(page.name) NULLS LAST, page.id
+            ),
+            '[]'::jsonb
+          ) AS data,
+          (SELECT count(*)::int FROM filtered) AS total
+        FROM page
+      `,
+      [normalizedQuery, options.limit, options.offset],
+    );
+    return {
+      data: row?.data ?? [],
+      total: Number(row?.total ?? 0),
+    };
   }
 
   async getEcosystemJobPayloads(

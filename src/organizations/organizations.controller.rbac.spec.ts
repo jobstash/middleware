@@ -9,6 +9,7 @@ type OrganizationsControllerFixture = {
   organizationsService: {
     findByOrgId: jest.Mock;
     getOrgById: jest.Mock;
+    getAdminDirectory: jest.Mock;
     update: jest.Mock;
   };
   userService: {
@@ -26,6 +27,7 @@ describe("OrganizationsController RBAC", () => {
     const organizationsService = {
       findByOrgId: jest.fn(),
       getOrgById: jest.fn(),
+      getAdminDirectory: jest.fn(),
       update: jest.fn(),
     };
     const configService = {
@@ -68,6 +70,28 @@ describe("OrganizationsController RBAC", () => {
     expect(result.success).toBe(true);
     expect(data(result)).toEqual({ orgId: "12256", name: "External org" });
     expect(userService.isOrgMember).not.toHaveBeenCalled();
+  });
+
+  it("normalizes and caps the admin organization directory request", async () => {
+    const { controller, organizationsService } = buildController();
+    organizationsService.getAdminDirectory.mockResolvedValue({
+      data: [{ orgId: "org-1", name: "Acme", projectCount: 2 }],
+      total: 1,
+    });
+
+    await expect(
+      controller.getOrganizationDirectory("  AcMe  ", "5000", "-7"),
+    ).resolves.toEqual({
+      success: true,
+      message: "Retrieved the organization directory successfully",
+      data: [{ orgId: "org-1", name: "Acme", projectCount: 2 }],
+      total: 1,
+    });
+    expect(organizationsService.getAdminDirectory).toHaveBeenCalledWith({
+      query: "AcMe",
+      limit: 100,
+      offset: 0,
+    });
   });
 
   it("still enforces org membership checks for regular org members", async () => {
