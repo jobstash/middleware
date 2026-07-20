@@ -6,6 +6,14 @@ import { PostgresService } from "./postgres.service";
 
 type QueryExecutor = PostgresService | EntityManager;
 
+export interface ThreatAccessUserRow {
+  wallet: string;
+  name: string | null;
+  email: string | null;
+  github: string | null;
+  hasAccess: boolean;
+}
+
 type GraphNode<T extends Record<string, unknown>> = {
   nodeId: string;
   properties: T;
@@ -1006,6 +1014,114 @@ export class UserRepository {
 
   async getAllProfiles(): Promise<Record<string, unknown>[]> {
     return this.getRichUsers({});
+  }
+
+  async searchThreatAccessUsers(
+    query: string,
+    permissionName: string,
+    limit: number,
+    grantedOnly: boolean,
+  ): Promise<ThreatAccessUserRow[]> {
+    const normalizedQuery = query.trim().toLowerCase();
+    return queryRows<ThreatAccessUserRow>(
+      this.postgres,
+      `
+        SELECT
+          profile_user.properties ->> 'wallet' AS wallet,
+          NULLIF(profile_user.properties ->> 'name', '') AS name,
+          COALESCE(
+            (
+              SELECT NULLIF(account.properties ->> 'email', '')
+              FROM graph_relationships relationship
+              JOIN graph_nodes account ON account.id = relationship.target_id
+              WHERE relationship.source_id = profile_user.id
+                AND relationship.type = 'HAS_LINKED_ACCOUNT'
+                AND account.label = 'LinkedAccount'
+              ORDER BY account.id
+              LIMIT 1
+            ),
+            (
+              SELECT NULLIF(email.properties ->> 'email', '')
+              FROM graph_relationships relationship
+              JOIN graph_nodes email ON email.id = relationship.target_id
+              WHERE relationship.source_id = profile_user.id
+                AND relationship.type = 'HAS_EMAIL'
+                AND email.label IN ('UserEmail', 'UserUnverifiedEmail')
+              ORDER BY COALESCE(
+                jsonb_boolean_value(email.properties, 'main'), false
+              ) DESC, email.id
+              LIMIT 1
+            )
+          ) AS email,
+          COALESCE(
+            (
+              SELECT NULLIF(account.properties ->> 'github', '')
+              FROM graph_relationships relationship
+              JOIN graph_nodes account ON account.id = relationship.target_id
+              WHERE relationship.source_id = profile_user.id
+                AND relationship.type = 'HAS_LINKED_ACCOUNT'
+                AND account.label = 'LinkedAccount'
+              ORDER BY account.id
+              LIMIT 1
+            ),
+            (
+              SELECT NULLIF(github.properties ->> 'login', '')
+              FROM graph_relationships relationship
+              JOIN graph_nodes github ON github.id = relationship.target_id
+              WHERE relationship.source_id = profile_user.id
+                AND relationship.type = 'HAS_GITHUB_USER'
+                AND github.label = 'GithubUser'
+              ORDER BY github.id
+              LIMIT 1
+            )
+          ) AS github,
+          EXISTS (
+            SELECT 1
+            FROM graph_relationships relationship
+            JOIN graph_nodes permission ON permission.id = relationship.target_id
+            WHERE relationship.source_id = profile_user.id
+              AND relationship.type = 'HAS_PERMISSION'
+              AND permission.label = 'UserPermission'
+              AND permission.properties ->> 'name' = $1
+          ) AS "hasAccess"
+        FROM graph_nodes profile_user
+        WHERE profile_user.label = 'User'
+          AND NULLIF(profile_user.properties ->> 'wallet', '') IS NOT NULL
+          AND (
+            NOT $3::boolean OR EXISTS (
+              SELECT 1
+              FROM graph_relationships relationship
+              JOIN graph_nodes permission ON permission.id = relationship.target_id
+              WHERE relationship.source_id = profile_user.id
+                AND relationship.type = 'HAS_PERMISSION'
+                AND permission.label = 'UserPermission'
+                AND permission.properties ->> 'name' = $1
+            )
+          )
+          AND (
+            $2::text = ''
+            OR position($2 in lower(profile_user.properties::text)) > 0
+            OR EXISTS (
+              SELECT 1
+              FROM graph_relationships relationship
+              JOIN graph_nodes identity ON identity.id = relationship.target_id
+              WHERE relationship.source_id = profile_user.id
+                AND relationship.type IN (
+                  'HAS_LINKED_ACCOUNT', 'HAS_EMAIL', 'HAS_LINKED_WALLET',
+                  'HAS_GITHUB_USER', 'HAS_CONTACT_INFO'
+                )
+                AND position($2 in lower(identity.properties::text)) > 0
+            )
+          )
+        ORDER BY "hasAccess" DESC,
+          lower(COALESCE(
+            NULLIF(profile_user.properties ->> 'name', ''),
+            NULLIF(profile_user.properties ->> 'wallet', '')
+          )), profile_user.id
+        LIMIT $4
+      `,
+      [permissionName, normalizedQuery, grantedOnly, limit],
+    );
   }
 
   async getProfile(

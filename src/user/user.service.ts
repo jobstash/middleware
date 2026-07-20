@@ -44,7 +44,10 @@ import { CreateTalentListInput } from "./dto/create-talent-list.input";
 import { TalentList, TalentListEntity } from "src/shared/types";
 import { UpdateTalentListNameInput } from "./dto/update-talent-list-name.input";
 import { sort } from "fast-sort";
-import { UserRepository } from "src/postgres/user.repository";
+import {
+  ThreatAccessUserRow,
+  UserRepository,
+} from "src/postgres/user.repository";
 
 @Injectable()
 export class UserService {
@@ -998,6 +1001,19 @@ export class UserService {
         this.logger.error(`UserService::findAll ${err.message}`);
         return [];
       });
+  }
+
+  async searchThreatAccessUsers(
+    query: string,
+    limit: number,
+    grantedOnly: boolean,
+  ): Promise<ThreatAccessUserRow[]> {
+    return this.users.searchThreatAccessUsers(
+      query,
+      CheckWalletPermissions.THREAT_INTEL,
+      limit,
+      grantedOnly,
+    );
   }
 
   async getUsersAvailableForWork(
