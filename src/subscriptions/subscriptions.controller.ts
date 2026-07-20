@@ -53,10 +53,8 @@ export class SubscriptionsController {
     @Session() { address }: SessionObject,
   ): Promise<ResponseWithOptionalData<Subscription>> {
     this.logger.log(`/subscriptions/${orgId} ${address}`);
-    const owner = data(
-      await this.userService.findOrgOwnerProfileByOrgId(orgId),
-    );
-    if (owner?.wallet === address) {
+    const isOwner = await this.userService.isOrgOwner(address, orgId);
+    if (isOwner) {
       const subscription =
         await this.subscriptionsService.getSubscriptionInfoByOrgId(orgId);
       if (subscription.success) {
@@ -81,6 +79,26 @@ export class SubscriptionsController {
         message: "You are not the owner of this organization",
       });
     }
+  }
+
+  @Get(":orgId/entitlement")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER, CheckWalletPermissions.ORG_MEMBER)
+  async getOrgSubscriptionEntitlement(
+    @Param("orgId") orgId: string,
+    @Session() { address }: SessionObject,
+  ): Promise<ResponseWithOptionalData<Subscription>> {
+    this.logger.log(`/subscriptions/${orgId}/entitlement ${address}`);
+
+    const isOwner = await this.userService.isOrgOwner(address, orgId);
+    if (!isOwner) {
+      throw new UnauthorizedException({
+        success: false,
+        message: "You are not the owner of this organization",
+      });
+    }
+
+    return this.subscriptionsService.getSubscriptionInfoByOrgId(orgId);
   }
 
   @Get(":orgId/members")
