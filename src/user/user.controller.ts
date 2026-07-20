@@ -65,7 +65,11 @@ export class UserController {
   @Get("threat-intel-access")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.SUPER_ADMIN)
-  async getThreatIntelAccess(): Promise<
+  async getThreatIntelAccess(
+    @Query("query") rawQuery?: string,
+    @Query("limit") rawLimit?: string,
+    @Query("scope") rawScope?: string,
+  ): Promise<
     Array<{
       wallet: string;
       name: string | null;
@@ -75,18 +79,14 @@ export class UserController {
     }>
   > {
     await this.ensureThreatIntelPermission();
-    const users = await this.userService.findAll();
-    return Promise.all(
-      users.map(async user => ({
-        wallet: user.wallet,
-        name: user.name,
-        email: user.linkedAccounts.email,
-        github: user.linkedAccounts.github,
-        hasAccess: await this.permissionService.userHasPermission(
-          user.wallet,
-          CheckWalletPermissions.THREAT_INTEL,
-        ),
-      })),
+    const query = (rawQuery ?? "").trim();
+    const scope = rawScope === "all" ? "all" : "granted";
+    if (scope === "all" && query.length < 2) return [];
+    const limit = Math.max(1, Math.min(Number(rawLimit) || 25, 100));
+    return this.userService.searchThreatAccessUsers(
+      query,
+      limit,
+      scope === "granted",
     );
   }
 
