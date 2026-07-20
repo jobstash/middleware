@@ -42,6 +42,8 @@ import { ScorerService } from "src/scorer/scorer.service";
 import { AddUserNoteInput } from "./dto/add-user-note.dto";
 import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
 import { NewSubscriptionInput } from "src/subscriptions/dto/new-subscription.input";
+import { PermissionService } from "./permission.service";
+import { UpdateThreatIntelAccessDto } from "./dto/update-threat-intel-access.dto";
 // import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { StripeService } from "src/stripe/stripe.service";
 import { UpdateTalentListInput } from "./dto/update-talent-list.input";
@@ -57,7 +59,74 @@ export class UserController {
     private readonly scorerService: ScorerService,
     private readonly stripeService: StripeService,
     private readonly subscriptionService: SubscriptionsService,
+    private readonly permissionService: PermissionService,
   ) {}
+
+  @Get("threat-intel-access")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  async getThreatIntelAccess(): Promise<
+    Array<{
+      wallet: string;
+      name: string | null;
+      email: string | null;
+      github: string | null;
+      hasAccess: boolean;
+    }>
+  > {
+    await this.ensureThreatIntelPermission();
+    const users = await this.userService.findAll();
+    return Promise.all(
+      users.map(async user => ({
+        wallet: user.wallet,
+        name: user.name,
+        email: user.linkedAccounts.email,
+        github: user.linkedAccounts.github,
+        hasAccess: await this.permissionService.userHasPermission(
+          user.wallet,
+          CheckWalletPermissions.THREAT_INTEL,
+        ),
+      })),
+    );
+  }
+
+  @Put("threat-intel-access")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  async grantThreatIntelAccess(
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    body: UpdateThreatIntelAccessDto,
+  ): Promise<ResponseWithNoData> {
+    await this.ensureThreatIntelPermission();
+    return this.permissionService.grantUserPermission(
+      body.wallet,
+      CheckWalletPermissions.THREAT_INTEL,
+    );
+  }
+
+  @Delete("threat-intel-access")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  async revokeThreatIntelAccess(
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    body: UpdateThreatIntelAccessDto,
+  ): Promise<ResponseWithNoData> {
+    await this.ensureThreatIntelPermission();
+    return this.permissionService.revokeUserPermission(
+      body.wallet,
+      CheckWalletPermissions.THREAT_INTEL,
+    );
+  }
+
+  private async ensureThreatIntelPermission(): Promise<void> {
+    if (
+      !(await this.permissionService.find(CheckWalletPermissions.THREAT_INTEL))
+    ) {
+      await this.permissionService.create({
+        name: CheckWalletPermissions.THREAT_INTEL,
+      });
+    }
+  }
 
   @Get("")
   @UseGuards(PBACGuard)

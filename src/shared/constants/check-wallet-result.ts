@@ -8,4 +8,5 @@ export const CheckWalletPermissions = {
   ORG_MANAGER: "ORG_MANAGER" as const,
   ECOSYSTEM_MANAGER: "ECOSYSTEM_MANAGER" as const,
   TAGS_MANAGER: "TAGS_MANAGER" as const,
+  THREAT_INTEL: "THREAT_INTEL" as const,
 };

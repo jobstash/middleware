@@ -56,3 +56,10 @@ The benchmark enforces a 750 ms p95 and execution-time ceiling against the popul
 ## Support
 
 To discuss problems, shoot a message to the `#discuss-problems` channel on Slack
+
+## Threat-intelligence permission
+
+`THREAT_INTEL` gates org-admin's read-only observatory. Only a `SUPER_ADMIN`
+may list, grant, or revoke it through `GET`, `PUT`, and `DELETE`
+`/users/threat-intel-access`. These routes manage access only; threat source,
+signals, and analyst state are not stored in middleware.
