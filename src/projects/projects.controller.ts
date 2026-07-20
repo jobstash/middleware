@@ -42,7 +42,11 @@ import { UserService } from "src/user/user.service";
 import { CheckWalletPermissions, ECOSYSTEM_HEADER } from "src/shared/constants";
 import { CACHE_DURATION_1_HOUR } from "src/shared/constants/cache-control";
 import { Permissions, Session } from "src/shared/decorators";
-import { responseSchemaWrapper } from "src/shared/helpers";
+import {
+  normalizeAdminDirectoryQuery,
+  parseAdminDirectoryPagination,
+  responseSchemaWrapper,
+} from "src/shared/helpers";
 import {
   DefiLlamaProject,
   DefiLlamaProjectPrefill,
@@ -63,6 +67,7 @@ import {
   ResponseWithNoData,
   ResponseWithOptionalData,
   SessionObject,
+  AdminProjectDirectoryItem,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { CreateProjectMetricsInput } from "./dto/create-project-metrics.input";
@@ -152,6 +157,48 @@ export class ProjectsController {
           message: `Error retrieving projects!`,
         };
       });
+  }
+
+  @Get("/directory")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
+  async getProjectDirectory(
+    @Query("query") rawQuery?: string,
+    @Query("limit") rawLimit?: string,
+    @Query("offset") rawOffset?: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data: AdminProjectDirectoryItem[];
+    total: number;
+  }> {
+    this.logger.log(`/projects/directory`);
+    const { limit, offset } = parseAdminDirectoryPagination(
+      rawLimit,
+      rawOffset,
+    );
+    try {
+      const result = await this.projectsService.getAdminDirectory({
+        query: normalizeAdminDirectoryQuery(rawQuery),
+        limit,
+        offset,
+      });
+      return {
+        success: true,
+        message: "Retrieved the project directory successfully",
+        data: result.data,
+        total: result.total,
+      };
+    } catch (err) {
+      Sentry.captureException(err);
+      this.logger.error(`/projects/directory ${err.message}`);
+      return {
+        success: false,
+        message: "Error retrieving the project directory!",
+        data: [],
+        total: 0,
+      };
+    }
   }
 
   @Get("/list")

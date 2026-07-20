@@ -16,6 +16,8 @@ import {
   Organization,
   ShortOrgWithSummary,
   OrgDetailsResult,
+  AdminDirectoryPage,
+  AdminOrganizationDirectoryItem,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
@@ -499,6 +501,14 @@ export class OrganizationsService {
     offset: number,
   ): Promise<{ data: Record<string, unknown>[]; total: number }> {
     return this.searchDocuments.getOrganizationsForAdminGrid(limit, offset);
+  }
+
+  async getAdminDirectory(options: {
+    query?: string;
+    limit: number;
+    offset: number;
+  }): Promise<AdminDirectoryPage<AdminOrganizationDirectoryItem>> {
+    return this.searchDocuments.getAdminOrganizationDirectory(options);
   }
 
   async getAll(): Promise<ShortOrg[]> {

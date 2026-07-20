@@ -40,6 +40,7 @@ import { ShortOrgEntity, ShortOrgWithSummaryEntity } from "../entities";
 import { transliterate } from "transliteration";
 
 export * from "./email";
+export * from "./admin-directory";
 
 // Selects the prebuilt range predicate matching the supplied bounds.
 export const optionalMinMaxFilter = (

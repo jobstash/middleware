@@ -32,7 +32,12 @@ import {
 import { Response as ExpressResponse } from "express";
 import { PBACGuard } from "src/auth/pbac.guard";
 import { Permissions } from "src/shared/decorators/role.decorator";
-import { nonZeroOrNull, responseSchemaWrapper } from "src/shared/helpers";
+import {
+  nonZeroOrNull,
+  normalizeAdminDirectoryQuery,
+  parseAdminDirectoryPagination,
+  responseSchemaWrapper,
+} from "src/shared/helpers";
 import {
   Repository,
   Organization,
@@ -49,6 +54,7 @@ import {
   data,
   SessionObject,
   ShortOrgWithSummary,
+  AdminOrganizationDirectoryItem,
 } from "src/shared/types";
 import { CreateOrganizationInput } from "./dto/create-organization.input";
 import { UpdateOrganizationInput } from "./dto/update-organization.input";
@@ -143,6 +149,48 @@ export class OrganizationsController {
           message: `Error retrieving organizations!`,
         };
       });
+  }
+
+  @Get("/directory")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
+  async getOrganizationDirectory(
+    @Query("query") rawQuery?: string,
+    @Query("limit") rawLimit?: string,
+    @Query("offset") rawOffset?: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data: AdminOrganizationDirectoryItem[];
+    total: number;
+  }> {
+    this.logger.log(`/organizations/directory`);
+    const { limit, offset } = parseAdminDirectoryPagination(
+      rawLimit,
+      rawOffset,
+    );
+    try {
+      const result = await this.organizationsService.getAdminDirectory({
+        query: normalizeAdminDirectoryQuery(rawQuery),
+        limit,
+        offset,
+      });
+      return {
+        success: true,
+        message: "Retrieved the organization directory successfully",
+        data: result.data,
+        total: result.total,
+      };
+    } catch (err) {
+      Sentry.captureException(err);
+      this.logger.error(`/organizations/directory ${err.message}`);
+      return {
+        success: false,
+        message: "Error retrieving the organization directory!",
+        data: [],
+        total: 0,
+      };
+    }
   }
 
   @Get("/grid")

@@ -62,6 +62,96 @@ describe("SearchDocumentRepository", () => {
     expect(projectParameters).toBeUndefined();
   });
 
+  it("returns a bounded minimal organization directory with case-insensitive search", async () => {
+    query.mockResolvedValue([
+      {
+        data: [
+          {
+            id: "node-public-id",
+            orgId: "org-1",
+            name: "Acme Labs",
+            projectCount: 2,
+          },
+        ],
+        total: "7",
+      },
+    ]);
+
+    await expect(
+      repository.getAdminOrganizationDirectory({
+        query: "  AcMe  ",
+        limit: 25,
+        offset: 5,
+      }),
+    ).resolves.toEqual({
+      data: [
+        {
+          id: "node-public-id",
+          orgId: "org-1",
+          name: "Acme Labs",
+          projectCount: 2,
+        },
+      ],
+      total: 7,
+    });
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("FROM organization_search_documents organization");
+    expect(sql).toContain("WITH filtered AS NOT MATERIALIZED");
+    expect(sql).toContain("organization.search_values");
+    expect(sql).toContain("organization.payload ->> 'summary'");
+    expect(sql).toContain("position(lower($1)");
+    expect(sql).toContain("LIMIT $2 OFFSET $3");
+    expect(sql).not.toContain("graph_nodes");
+    expect(sql).not.toContain("graph_relationships");
+    expect(parameters).toEqual(["AcMe", 25, 5]);
+  });
+
+  it("returns a bounded minimal project directory with all searchable summary fields", async () => {
+    query.mockResolvedValue([
+      {
+        data: [
+          {
+            id: "project-1",
+            name: "Acme Protocol",
+            category: "DeFi",
+            orgIds: ["org-1"],
+          },
+        ],
+        total: 1,
+      },
+    ]);
+
+    await expect(
+      repository.getAdminProjectDirectory({
+        query: "DeFi",
+        limit: 10,
+        offset: 0,
+      }),
+    ).resolves.toEqual({
+      data: [
+        {
+          id: "project-1",
+          name: "Acme Protocol",
+          category: "DeFi",
+          orgIds: ["org-1"],
+        },
+      ],
+      total: 1,
+    });
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("FROM project_search_documents project");
+    expect(sql).toContain("project.search_values");
+    expect(sql).toContain("project.organization_ids");
+    expect(sql).toContain("->> 'summary'");
+    expect(sql).toContain("->> 'category'");
+    expect(sql).toContain("->> 'website'");
+    expect(sql).not.toContain("graph_nodes");
+    expect(sql).not.toContain("graph_relationships");
+    expect(parameters).toEqual(["DeFi", 10, 0]);
+  });
+
   it("parameterizes the ecosystem job-list constraint", async () => {
     await repository.getJobPayloads("Ethereum Ecosystem");
 

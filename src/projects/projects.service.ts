@@ -34,6 +34,8 @@ import {
   RawProjectWebsite,
   ResponseWithNoData,
   ResponseWithOptionalData,
+  AdminDirectoryPage,
+  AdminProjectDirectoryItem,
 } from "src/shared/types";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { ActivateProjectJobsiteInput } from "./dto/activate-project-jobsites.input";
@@ -64,6 +66,14 @@ export class ProjectsService {
 
   getEvSitemapProjects(): Promise<EvSitemapProject[]> {
     return this.searchDocuments.getEvSitemapProjects();
+  }
+
+  async getAdminDirectory(options: {
+    query?: string;
+    limit: number;
+    offset: number;
+  }): Promise<AdminDirectoryPage<AdminProjectDirectoryItem>> {
+    return this.searchDocuments.getAdminProjectDirectory(options);
   }
 
   async getProjectsListWithSearch(
