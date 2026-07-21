@@ -76,19 +76,22 @@ export class OrganizationsService {
   async getIngestionStatus(): Promise<Record<string, unknown>> {
     const [
       campaignRows,
+      organizationReviewRows,
       organizationRows,
-      reviewRows,
+      campaignReviewRows,
       projectRows,
       projectStatsRows,
       unownedProjectRows,
       fundRows,
       githubRows,
+      reviewCountRows,
+      jobIngestionRows,
     ] = await Promise.all([
       this.postgres.query<{
         campaign_key: string;
         status: string;
         total_items: string;
-        counts: Record<string, number>;
+        counts: Record<string, unknown>;
         started_at: string | null;
         updated_at: string;
       }>(`
@@ -103,9 +106,81 @@ export class OrganizationsService {
             WHERE item.campaign_id = campaign.id
             GROUP BY item.status
           ) states ON true
+          WHERE campaign.id = (
+            SELECT id
+            FROM research_campaigns
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+          )
           GROUP BY campaign.id
-          ORDER BY campaign.created_at DESC
-          LIMIT 1
+        `),
+      this.postgres.query<Record<string, unknown>>(`
+          SELECT organization.id::text AS "organizationNodeId",
+                 organization.properties ->> 'orgId' AS "orgId",
+                 organization.properties ->> 'name' AS name,
+                 COALESCE(website.url, '') AS "websiteUrl",
+                 'needs_review'::text AS status,
+                 0::int AS "attemptCount",
+                 NULL::text AS "lastErrorCode",
+                 NULL::text AS "lastErrorMessage",
+                 NULL::timestamptz AS "startedAt",
+                 organization.updated_at AS "updatedAt",
+                 NULL::timestamptz AS "completedAt",
+                 COALESCE(
+                   organization.properties ->> 'manualReviewStatus',
+                   'open'
+                 ) AS "reviewStatus",
+                 NULL::text AS reviewer,
+                 NULL::text AS notes,
+                 NULL::timestamptz AS "reviewedAt",
+                 jsonb_strip_nulls(jsonb_build_object(
+                   'status', COALESCE(
+                     organization.properties ->> 'manualReviewStatus',
+                     'open'
+                   ),
+                   'reason', organization.properties -> 'manualReviewReason',
+                   'severity', organization.properties -> 'manualReviewSeverity',
+                   'evidence', organization.properties -> 'manualReviewEvidence',
+                   'proposedActions',
+                     organization.properties -> 'manualReviewProposedActions',
+                   'reviews', reviews.packets
+                 )) AS "reviewPacket"
+          FROM graph_nodes organization
+          LEFT JOIN LATERAL (
+            SELECT min(related.properties ->> 'url') AS url
+            FROM graph_relationships relationship
+            JOIN graph_nodes related ON related.id = relationship.target_id
+            WHERE relationship.source_id = organization.id
+              AND relationship.type = 'HAS_WEBSITE'
+          ) website ON true
+          LEFT JOIN LATERAL (
+            SELECT jsonb_agg(
+                     review.properties
+                     ORDER BY jsonb_numeric_value(
+                       review.properties,
+                       'createdTimestamp'
+                     ) NULLS LAST,
+                     review.id
+                   ) AS packets
+            FROM graph_relationships relationship
+            JOIN graph_nodes review
+              ON review.id = relationship.target_id
+             AND review.label = 'EntityReview'
+            WHERE relationship.source_id = organization.id
+              AND relationship.type = 'HAS_ENTITY_REVIEW'
+              AND COALESCE(review.properties ->> 'status', 'open') = 'open'
+          ) reviews ON true
+          WHERE organization.label = 'Organization'
+            AND lower(COALESCE(
+                  organization.properties ->> 'needsManualReview',
+                  'false'
+                )) IN ('true', '1', 'yes', 'on')
+          ORDER BY jsonb_numeric_value(
+                     organization.properties,
+                     'manualReviewUpdatedTimestamp'
+                   ) DESC NULLS LAST,
+                   organization.id
+          LIMIT 100
         `),
       this.postgres.query<Record<string, unknown>>(`
           SELECT item.organization_node_id::text AS "organizationNodeId",
@@ -147,7 +222,7 @@ export class OrganizationsService {
               ON state.login = lower(account.properties ->> 'login')
             WHERE edge.source_id = organization.id AND edge.type = 'HAS_GITHUB'
           ) github ON true
-          WHERE campaign.created_at = (SELECT max(created_at) FROM research_campaigns)
+          WHERE campaign.id = (SELECT id FROM research_campaigns ORDER BY created_at DESC, id DESC LIMIT 1)
             AND item.status = 'leased'
             AND item.lease_expires_at > now()
           ORDER BY item.started_at, item.organization_node_id
@@ -184,7 +259,7 @@ export class OrganizationsService {
             ORDER BY review.reviewed_at DESC, review.id DESC
             LIMIT 1
           ) manual ON true
-          WHERE campaign.created_at = (SELECT max(created_at) FROM research_campaigns)
+          WHERE campaign.id = (SELECT id FROM research_campaigns ORDER BY created_at DESC, id DESC LIMIT 1)
             AND item.status = 'needs_review'
           ORDER BY item.completed_at, item.organization_node_id
           LIMIT 100
@@ -193,15 +268,45 @@ export class OrganizationsService {
           SELECT entity.id::text AS "nodeId", entity.label AS "entityKind",
                  entity.properties ->> 'id' AS id,
                  entity.properties ->> 'name' AS name,
-                 review.properties AS "reviewPacket"
+                 jsonb_strip_nulls(jsonb_build_object(
+                   'status', COALESCE(
+                     entity.properties ->> 'manualReviewStatus',
+                     'open'
+                   ),
+                   'reason', entity.properties -> 'manualReviewReason',
+                   'severity', entity.properties -> 'manualReviewSeverity',
+                   'evidence', entity.properties -> 'manualReviewEvidence',
+                   'proposedActions',
+                     entity.properties -> 'manualReviewProposedActions',
+                   'reviews', reviews.packets
+                 )) AS "reviewPacket"
           FROM graph_nodes entity
-          JOIN graph_relationships edge
-            ON edge.source_id = entity.id AND edge.type = 'HAS_ENTITY_REVIEW'
-          JOIN graph_nodes review
-            ON review.id = edge.target_id AND review.label = 'EntityReview'
+          LEFT JOIN LATERAL (
+            SELECT jsonb_agg(
+                     review.properties
+                     ORDER BY jsonb_numeric_value(
+                       review.properties,
+                       'createdTimestamp'
+                     ) NULLS LAST,
+                     review.id
+                   ) AS packets
+            FROM graph_relationships relationship
+            JOIN graph_nodes review
+              ON review.id = relationship.target_id
+             AND review.label = 'EntityReview'
+            WHERE relationship.source_id = entity.id
+              AND relationship.type = 'HAS_ENTITY_REVIEW'
+              AND COALESCE(review.properties ->> 'status', 'open') = 'open'
+          ) reviews ON true
           WHERE entity.label IN ('Project', 'ChildProjectCandidate')
-            AND COALESCE(review.properties ->> 'status', 'open') = 'open'
-          ORDER BY jsonb_numeric_value(review.properties, 'createdTimestamp') NULLS LAST,
+            AND lower(COALESCE(
+                  entity.properties ->> 'needsManualReview',
+                  'false'
+                )) IN ('true', '1', 'yes', 'on')
+          ORDER BY jsonb_numeric_value(
+                     entity.properties,
+                     'manualReviewUpdatedTimestamp'
+                   ) DESC NULLS LAST,
                    entity.id
           LIMIT 100
         `),
@@ -301,7 +406,72 @@ export class OrganizationsService {
           FROM github_indexer_dbt_refresh_state
           WHERE singleton = true
         `),
+      this.postgres.query<{
+        organizationReviewPending: number;
+        projectReviewPending: number;
+      }>(`
+          SELECT
+            count(*) FILTER (
+              WHERE entity.label = 'Organization'
+                AND lower(COALESCE(
+                      entity.properties ->> 'needsManualReview',
+                      'false'
+                    )) IN ('true', '1', 'yes', 'on')
+            )::int AS "organizationReviewPending",
+            count(*) FILTER (
+              WHERE entity.label IN ('Project', 'ChildProjectCandidate')
+                AND lower(COALESCE(
+                      entity.properties ->> 'needsManualReview',
+                      'false'
+                    )) IN ('true', '1', 'yes', 'on')
+            )::int AS "projectReviewPending"
+          FROM graph_nodes entity
+          WHERE entity.label IN (
+            'Organization',
+            'Project',
+            'ChildProjectCandidate'
+          )
+        `),
+      this.postgres.query<{
+        activeJobsites: number;
+        totalJobs: number;
+        dailyJobViewers: number;
+      }>(`
+          SELECT
+            (SELECT count(*)::int
+             FROM graph_nodes
+             WHERE label = 'Jobsite') AS "activeJobsites",
+            (SELECT count(*)::int
+             FROM graph_nodes
+             WHERE label = 'StructuredJobpost') AS "totalJobs",
+            (SELECT count(DISTINCT event.source_id)::int
+             FROM graph_relationships event
+             JOIN graph_nodes viewer
+               ON viewer.id = event.source_id AND viewer.label = 'User'
+             WHERE event.type = 'VIEWED_DETAILS'
+               AND NULLIF(
+                     event.properties ->> 'createdTimestamp',
+                     ''
+                   )::numeric >= extract(epoch FROM (
+                     date_trunc('day', now() AT TIME ZONE 'UTC')
+                     AT TIME ZONE 'UTC'
+                   )) * 1000) AS "dailyJobViewers"
+        `),
     ]);
+
+    const normalizedCampaignRows = this.normalizeCampaignRows(campaignRows);
+    const campaign = normalizedCampaignRows[0] ?? null;
+    if (campaign && campaignReviewRows.length > 0) {
+      campaign.counts.needs_review = Math.max(
+        Number(campaign.counts.needs_review ?? 0),
+        campaignReviewRows.length,
+      );
+    }
+
+    const reviewCounts = reviewCountRows[0] ?? {
+      organizationReviewPending: 0,
+      projectReviewPending: 0,
+    };
 
     const githubIndexerRuntime = await this.getGithubIndexerRuntimeStatus(
       organizationRows.flatMap(row => {
@@ -318,13 +488,16 @@ export class OrganizationsService {
 
     return {
       generatedAt: new Date().toISOString(),
-      campaign: campaignRows[0] ?? null,
+      campaign,
       organizations: {
         inProgress: organizationRows,
-        reviewPending: reviewRows,
+        reviewPending: organizationReviewRows,
+        reviewPendingCount: reviewCounts.organizationReviewPending,
+        campaignReviewPending: campaignReviewRows,
       },
       projects: {
         reviewPending: projectRows,
+        reviewPendingCount: reviewCounts.projectReviewPending,
         unowned: unownedProjectRows,
         stats: projectStatsRows[0] ?? {
           total: 0,
@@ -334,6 +507,11 @@ export class OrganizationsService {
         },
       },
       funds: fundRows[0] ?? { total: 0, checkpointed: 0, outcomes: {} },
+      jobIngestion: jobIngestionRows[0] ?? {
+        activeJobsites: 0,
+        totalJobs: 0,
+        dailyJobViewers: 0,
+      },
       githubIndexer: githubRows[0]
         ? { ...githubRows[0], runtime: githubIndexerRuntime }
         : null,
@@ -345,20 +523,104 @@ export class OrganizationsService {
   ): Promise<Record<string, unknown> | null> {
     const url = this.configService.get<string>("GITHUB_INDEXER_STATUS_URL");
     const token = this.configService.get<string>("GITHUB_INDEXER_STATUS_TOKEN");
-    if (!url || !token) return null;
-    try {
-      const response = await axios.get(url, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { logins: [...new Set(logins)].slice(0, 200).join(",") },
-        timeout: 15_000,
-      });
-      return response.data as Record<string, unknown>;
-    } catch (error) {
-      this.logger.warn(
-        `GitHub indexer observability unavailable: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      return null;
+    if (!url) return null;
+
+    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+    const params = { logins: [...new Set(logins)].slice(0, 200).join(",") };
+    const candidates = this.getGithubIndexerStatusCandidates(url);
+    let lastError: unknown = null;
+
+    for (const candidate of candidates) {
+      try {
+        const response = await axios.get(candidate, {
+          headers,
+          params,
+          timeout: 20_000,
+        });
+        return response.data as Record<string, unknown>;
+      } catch (error) {
+        lastError = error;
+      }
     }
+
+    if (lastError instanceof Error) {
+      this.logger.warn(
+        `GitHub indexer observability unavailable (${candidates.join(", ")}): ${lastError.message}`,
+      );
+    } else {
+      this.logger.warn(
+        `GitHub indexer observability unavailable (${candidates.join(", ")}): ${String(lastError)}`,
+      );
+    }
+    return null;
+  }
+
+  private getGithubIndexerStatusCandidates(rawUrl: string): string[] {
+    const cleaned = rawUrl.trim().replace(/\/+$/, "");
+    if (!cleaned) return [];
+    const base = cleaned.split(/[?#]/)[0];
+    if (!base) return [];
+    const normalized = base.replace(/\/+observability$/i, "");
+    const candidates = new Set<string>();
+    candidates.add(base);
+    if (normalized && normalized !== base) {
+      candidates.add(`${normalized}/observability`);
+    } else if (!base.toLowerCase().endsWith("/observability")) {
+      candidates.add(`${base}/observability`);
+    }
+    return [...candidates];
+  }
+
+  private normalizeCampaignRows(
+    rows: Array<{
+      campaign_key: string;
+      status: string;
+      total_items: string;
+      counts: Record<string, unknown>;
+      started_at: string | null;
+      updated_at: string;
+    }>,
+  ): Array<{
+    campaign_key: string;
+    status: string;
+    total_items: string;
+    counts: Record<string, number>;
+    started_at: string | null;
+    updated_at: string;
+  }> {
+    return rows.map(row => {
+      const counts: Record<string, number> = {};
+      Object.entries(row.counts ?? {}).forEach(([rawKey, rawValue]) => {
+        const value = Number(rawValue);
+        if (!Number.isFinite(value)) return;
+        const normalizedKey = this.normalizeCampaignStatus(rawKey);
+        counts[normalizedKey] = (counts[normalizedKey] ?? 0) + value;
+        if (normalizedKey !== rawKey) {
+          counts[rawKey] = (counts[rawKey] ?? 0) + value;
+        }
+      });
+
+      counts.needs_review = Math.max(
+        counts.needs_review ?? 0,
+        counts["needs-review"] ?? 0,
+        counts.needsreview ?? 0,
+        counts.to_review ?? 0,
+        counts.toReview ?? 0,
+        counts["to-review"] ?? 0,
+      );
+
+      return {
+        ...row,
+        counts,
+      };
+    });
+  }
+
+  private normalizeCampaignStatus(rawStatus: string): string {
+    return rawStatus
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
   }
 
   getOrgListResults = async (
