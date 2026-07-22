@@ -1306,29 +1306,76 @@ export class SearchDocumentRepository {
               'name', project -> 'name'
             ))
             FROM jsonb_array_elements(
-              COALESCE(organization.payload -> 'projects', '[]'::jsonb)
+              CASE
+                WHEN jsonb_typeof(organization.payload -> 'projects') = 'array'
+                  THEN organization.payload -> 'projects'
+                ELSE '[]'::jsonb
+              END
             ) project
-          ), '[]'::jsonb)
+            WHERE project ->> 'id' IS NOT NULL
+          ), '[]'::jsonb),
+          'needsManualReview', COALESCE(
+            (node.properties ->> 'needsManualReview')::boolean,
+            false
+          ),
+          'manualReviewStatus', node.properties ->> 'manualReviewStatus',
+          'manualReviewReason', node.properties ->> 'manualReviewReason',
+          'manualReviewSeverity', node.properties ->> 'manualReviewSeverity',
+          'manualReviewEvidence', CASE
+            WHEN jsonb_typeof(node.properties -> 'manualReviewEvidence') = 'array'
+              THEN node.properties -> 'manualReviewEvidence'
+            ELSE '[]'::jsonb
+          END,
+          'manualReviewProposedActions', CASE
+            WHEN jsonb_typeof(node.properties -> 'manualReviewProposedActions') = 'array'
+              THEN node.properties -> 'manualReviewProposedActions'
+            ELSE '[]'::jsonb
+          END,
+          'manualReviewUpdatedTimestamp', jsonb_numeric_value(
+            node.properties,
+            'manualReviewUpdatedTimestamp'
+          )
         ) AS payload,
         organization.total_count
         FROM selected_organizations organization
         JOIN graph_nodes node ON node.id = organization.organization_node_id
         CROSS JOIN LATERAL (
           SELECT
-            COALESCE(to_jsonb(array_agg(related.properties ->> 'url')
-              FILTER (WHERE relationship.type = 'HAS_WEBSITE')), '[]'::jsonb) AS websites,
-            COALESCE(to_jsonb(array_agg(related.properties ->> 'name')
-              FILTER (WHERE relationship.type = 'HAS_ORGANIZATION_ALIAS')), '[]'::jsonb) AS aliases,
-            COALESCE(to_jsonb(array_agg(related.properties ->> 'username')
-              FILTER (WHERE relationship.type = 'HAS_TWITTER')), '[]'::jsonb) AS twitters,
-            COALESCE(to_jsonb(array_agg(related.properties ->> 'login')
-              FILTER (WHERE relationship.type = 'HAS_GITHUB')), '[]'::jsonb) AS githubs,
-            COALESCE(to_jsonb(array_agg(related.properties ->> 'invite')
-              FILTER (WHERE relationship.type = 'HAS_DISCORD')), '[]'::jsonb) AS discords,
-            COALESCE(to_jsonb(array_agg(related.properties ->> 'url')
-              FILTER (WHERE relationship.type = 'HAS_DOCSITE')), '[]'::jsonb) AS docs,
-            COALESCE(to_jsonb(array_agg(related.properties ->> 'username')
-              FILTER (WHERE relationship.type = 'HAS_TELEGRAM')), '[]'::jsonb) AS telegrams,
+            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'url')
+              FILTER (
+                WHERE relationship.type = 'HAS_WEBSITE'
+                  AND related.properties ->> 'url' IS NOT NULL
+              )), '[]'::jsonb) AS websites,
+            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'name')
+              FILTER (
+                WHERE relationship.type = 'HAS_ORGANIZATION_ALIAS'
+                  AND related.properties ->> 'name' IS NOT NULL
+              )), '[]'::jsonb) AS aliases,
+            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'username')
+              FILTER (
+                WHERE relationship.type = 'HAS_TWITTER'
+                  AND related.properties ->> 'username' IS NOT NULL
+              )), '[]'::jsonb) AS twitters,
+            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'login')
+              FILTER (
+                WHERE relationship.type = 'HAS_GITHUB'
+                  AND related.properties ->> 'login' IS NOT NULL
+              )), '[]'::jsonb) AS githubs,
+            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'invite')
+              FILTER (
+                WHERE relationship.type = 'HAS_DISCORD'
+                  AND related.properties ->> 'invite' IS NOT NULL
+              )), '[]'::jsonb) AS discords,
+            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'url')
+              FILTER (
+                WHERE relationship.type = 'HAS_DOCSITE'
+                  AND related.properties ->> 'url' IS NOT NULL
+              )), '[]'::jsonb) AS docs,
+            COALESCE(to_jsonb(array_agg(DISTINCT related.properties ->> 'username')
+              FILTER (
+                WHERE relationship.type = 'HAS_TELEGRAM'
+                  AND related.properties ->> 'username' IS NOT NULL
+              )), '[]'::jsonb) AS telegrams,
             COALESCE(jsonb_agg(jsonb_build_object(
               'id', related.properties -> 'id',
               'url', related.properties -> 'url',
@@ -1336,6 +1383,7 @@ export class SearchDocumentRepository {
             )) FILTER (
               WHERE relationship.type = 'HAS_JOBSITE'
                 AND related.label = 'Jobsite'
+                AND related.properties ->> 'id' IS NOT NULL
             ), '[]'::jsonb) AS jobsites,
             COALESCE(jsonb_agg(jsonb_build_object(
               'id', related.properties -> 'id',
@@ -1344,6 +1392,7 @@ export class SearchDocumentRepository {
             )) FILTER (
               WHERE relationship.type = 'HAS_JOBSITE'
                 AND related.label = 'DetectedJobsite'
+                AND related.properties ->> 'id' IS NOT NULL
             ), '[]'::jsonb) AS detected_jobsites
           FROM graph_relationships relationship
           JOIN graph_nodes related ON related.id = relationship.target_id
