@@ -72,6 +72,10 @@ export class PrivyController {
         embeddedWallet,
       );
       if (result.success) {
+        // The pre-auth pass admits the public GitHub login immediately. Run a
+        // second pass after profile creation so the threat record can attach
+        // the new internal user node and correlate this session's job intent.
+        await this.threatSync.syncUser(user);
         this.logger.log("/privy/check-wallet " + embeddedWallet);
         this.userService.updateLinkedAccounts(
           {
