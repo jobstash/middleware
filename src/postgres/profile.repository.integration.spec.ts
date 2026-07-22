@@ -221,6 +221,62 @@ describePostgres("ProfileRepository PostgreSQL integration", () => {
     );
   });
 
+  it("adds an idempotent JobStash verification without replacing other organizations", async () => {
+    const jobstashId = await createNode("Organization", "org:jobstash", {
+      id: "jobstash-organization-id",
+      orgId: "345",
+      name: "JobStash",
+      normalizedName: "jobstash",
+    });
+    const linkedAccountId = await createNode(
+      "LinkedAccount",
+      "linked:profile",
+      {
+        id: "linked-profile-id",
+        email: "analyst@example.com",
+      },
+    );
+    await createRelationship(userId, linkedAccountId, "HAS_LINKED_ACCOUNT");
+    await repository.replaceVerifications("0xProfileUser", [
+      {
+        id: "acme-org",
+        credential: "email",
+        account: "person@acme.example",
+      },
+    ]);
+
+    await expect(
+      repository.ensureOrganizationVerification("0xProfileUser", "jobstash"),
+    ).resolves.toBe(true);
+    await expect(
+      repository.ensureOrganizationVerification("0xProfileUser", "jobstash"),
+    ).resolves.toBe(true);
+
+    await expect(repository.getVerifications("0xProfileUser")).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "acme-org" }),
+        expect.objectContaining({
+          id: "345",
+          credential: "email",
+          account: "analyst@example.com",
+        }),
+      ]),
+    );
+    await expect(
+      repository.getVerificationStatus("0xProfileUser"),
+    ).resolves.toMatchObject({ status: "VERIFIED" });
+    const [relationshipCount] = await postgres.query<{ count: string }>(
+      `
+        SELECT count(*)::text AS count
+        FROM graph_relationships
+        WHERE source_id = $1 AND target_id = $2
+          AND type = 'VERIFIED_FOR_ORG'
+      `,
+      [userId, jobstashId],
+    );
+    expect(relationshipCount.count).toBe("1");
+  });
+
   it("stores verification status and owned profile metadata", async () => {
     await expect(
       repository.setVerificationStatus("0xProfileUser", "VERIFIED", now),

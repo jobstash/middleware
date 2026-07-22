@@ -284,6 +284,75 @@ export class ProfileRepository {
     });
   }
 
+  async ensureOrganizationVerification(
+    wallet: string,
+    normalizedOrganizationName: string,
+  ): Promise<boolean> {
+    return this.postgres.transaction(async manager => {
+      const account = await this.findNode("User", { wallet }, manager);
+      const organization = await this.findNode(
+        "Organization",
+        { normalizedName: normalizedOrganizationName },
+        manager,
+      );
+      if (!account || !organization) return false;
+
+      const [identity] = await queryRows<{ email: string | null }>(
+        manager,
+        `
+          SELECT COALESCE(
+            (
+              SELECT NULLIF(linked.properties ->> 'email', '')
+              FROM graph_relationships relationship
+              JOIN graph_nodes linked ON linked.id = relationship.target_id
+              WHERE relationship.source_id = $1
+                AND relationship.type = 'HAS_LINKED_ACCOUNT'
+                AND linked.label = 'LinkedAccount'
+              ORDER BY linked.id
+              LIMIT 1
+            ),
+            (
+              SELECT NULLIF(email.properties ->> 'email', '')
+              FROM graph_relationships relationship
+              JOIN graph_nodes email ON email.id = relationship.target_id
+              WHERE relationship.source_id = $1
+                AND relationship.type = 'HAS_EMAIL'
+                AND email.label IN ('UserEmail', 'UserUnverifiedEmail')
+              ORDER BY COALESCE(
+                jsonb_boolean_value(email.properties, 'main'), false
+              ) DESC, email.id
+              LIMIT 1
+            )
+          ) AS email
+        `,
+        [account.nodeId],
+      );
+      const email = identity?.email ?? null;
+      const verifiedTimestamp = Date.now();
+
+      await this.insertRelationship(
+        manager,
+        account.nodeId,
+        organization.nodeId,
+        "VERIFIED_FOR_ORG",
+        {
+          credential: email ? "email" : "membership",
+          account: email ?? wallet,
+          verifiedTimestamp,
+          verificationSource: "threat_intel_access",
+        },
+      );
+      await this.upsertOwnedNode(
+        manager,
+        account.nodeId,
+        "HAS_VERIFICATION_STATUS",
+        "UserVerificationStatus",
+        { status: "VERIFIED", verifiedTimestamp },
+      );
+      return true;
+    });
+  }
+
   async getVerifications(wallet: string): Promise<Record<string, unknown>[]> {
     const rows = await queryRows<{ value: Record<string, unknown> }>(
       this.postgres,
