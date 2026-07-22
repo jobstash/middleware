@@ -107,6 +107,32 @@ describe("SearchDocumentRepository", () => {
     expect(parameters).toEqual(["AcMe", 25, 5]);
   });
 
+  it("keeps malformed organization links out of the admin grid payload", async () => {
+    query.mockResolvedValue([
+      {
+        payload: { orgId: "org-1", name: "Acme", telegrams: [] },
+        total_count: "1",
+      },
+    ]);
+
+    await expect(
+      repository.getOrganizationsForAdminGrid(500, 0),
+    ).resolves.toEqual({
+      data: [{ orgId: "org-1", name: "Acme", telegrams: [] }],
+      total: 1,
+    });
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("related.properties ->> 'username' IS NOT NULL");
+    expect(sql).toContain("related.properties ->> 'invite' IS NOT NULL");
+    expect(sql).toContain("related.properties ->> 'id' IS NOT NULL");
+    expect(sql).toContain(
+      "jsonb_typeof(organization.payload -> 'projects') = 'array'",
+    );
+    expect(sql).toContain("'needsManualReview'");
+    expect(parameters).toEqual([500, 0]);
+  });
+
   it("returns a bounded minimal project directory with all searchable summary fields", async () => {
     query.mockResolvedValue([
       {
