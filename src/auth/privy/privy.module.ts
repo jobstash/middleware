@@ -5,6 +5,7 @@ import { AuthModule } from "../auth.module";
 import { UserModule } from "src/user/user.module";
 import { TelemetryModule } from "src/telemetry/telemetry.module";
 import { ProfileModule } from "../profile/profile.module";
+import { PrivyThreatSyncService } from "./privy-threat-sync.service";
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import { ProfileModule } from "../profile/profile.module";
     TelemetryModule,
   ],
   controllers: [PrivyController],
-  providers: [PrivyService],
-  exports: [PrivyService],
+  providers: [PrivyService, PrivyThreatSyncService],
+  exports: [PrivyService, PrivyThreatSyncService],
 })
 export class PrivyModule {}

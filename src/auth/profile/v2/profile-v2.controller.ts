@@ -277,4 +277,21 @@ export class ProfileV2Controller {
       return { status: "error" };
     }
   }
+
+  @Post("jobs/view")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.USER)
+  @ApiOkResponse({
+    description:
+      "Logs an authenticated job-detail view for threat and product telemetry",
+  })
+  async logViewInteraction(
+    @Session() { address }: SessionObject,
+    @Body("shortUUID") shortUUID: string,
+  ) {
+    if (!shortUUID || shortUUID.length > 128) {
+      return { success: false, message: "Invalid job identifier" };
+    }
+    return this.profileService.logViewDetailsInteraction(address, shortUUID);
+  }
 }
