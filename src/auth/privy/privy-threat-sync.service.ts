@@ -69,6 +69,7 @@ export class PrivyThreatSyncService implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleInit(): void {
+    if (process.env.MIDDLEWARE_SCHEDULE_OWNER !== "1") return;
     this.initialTimer = setTimeout(() => void this.sync(), 60_000);
     this.initialTimer.unref();
   }
@@ -168,6 +169,8 @@ export class PrivyThreatSyncService implements OnModuleInit, OnModuleDestroy {
 
   @Cron("0 2 * * *", { name: "privy-threat-account-sync", timeZone: "UTC" })
   async sync(): Promise<PrivyThreatSyncStatus> {
+    if (process.env.MIDDLEWARE_SCHEDULE_OWNER !== "1")
+      return this.getStatus();
     if (this.status.running) return this.getStatus();
     this.status = {
       ...this.status,
