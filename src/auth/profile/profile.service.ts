@@ -1422,13 +1422,19 @@ export class ProfileService {
   async logViewDetailsInteraction(
     wallet: string,
     shortUUID: string,
-  ): Promise<void> {
+  ): Promise<ResponseWithNoData> {
     try {
-      await this.profiles.setJobInteraction(
+      const updated = await this.profiles.setJobInteraction(
         wallet,
         shortUUID,
         "VIEWED_DETAILS",
       );
+      return {
+        success: updated,
+        message: updated
+          ? "Logged job view successfully"
+          : "User or job not found",
+      };
     } catch (err) {
       Sentry.withScope(scope => {
         scope.setTags({
@@ -1441,6 +1447,7 @@ export class ProfileService {
       this.logger.error(
         `ProfileService::logViewDetailsInteraction ${err.message}`,
       );
+      return { success: false, message: "Failed to log job view" };
     }
   }
 

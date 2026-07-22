@@ -9,7 +9,7 @@ import {
   Post,
   UseGuards,
 } from "@nestjs/common";
-import { PrivySession } from "src/shared/decorators";
+import { Permissions, PrivySession } from "src/shared/decorators";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { PrivyGuard } from "./privy.guard";
 import { User } from "@privy-io/server-auth";
@@ -27,6 +27,8 @@ import {
 } from "./dto/webhook.payload";
 import { TelemetryService } from "src/telemetry/telemetry.service";
 import { CheckWalletPermissions } from "src/shared/constants";
+import { PrivyThreatSyncService } from "./privy-threat-sync.service";
+import { PBACGuard } from "../pbac.guard";
 
 @Controller("privy")
 export class PrivyController {
@@ -38,7 +40,22 @@ export class PrivyController {
     private readonly configService: ConfigService,
     private readonly telemetryService: TelemetryService,
     private readonly permissionService: PermissionService,
+    private readonly threatSync: PrivyThreatSyncService,
   ) {}
+
+  @Get("threat-sync/status")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  getThreatSyncStatus() {
+    return this.threatSync.getStatus();
+  }
+
+  @Post("threat-sync/run")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.SUPER_ADMIN)
+  runThreatSync() {
+    return this.threatSync.sync();
+  }
 
   @Get("check-wallet")
   @UseGuards(PrivyGuard)
@@ -46,6 +63,7 @@ export class PrivyController {
   async checkWallet(
     @PrivySession() user: User,
   ): Promise<SessionObject & { token: string }> {
+    await this.threatSync.syncUser(user);
     const embeddedWallet =
       await this.privyService.getOrCreateUserEmbeddedWallet(user);
     if (embeddedWallet) {
@@ -140,6 +158,7 @@ export class PrivyController {
             payload.user,
           );
           await this.userService.updateLinkedAccounts(payload, embeddedWallet);
+          await this.threatSync.syncUser(payload.user);
         } else {
           this.logger.warn(`User not found`);
         }
@@ -152,6 +171,7 @@ export class PrivyController {
           await this.telemetryService.logUserLoginEvent(
             verifiedPayload.user.id,
           );
+          await this.threatSync.syncUser(verifiedPayload.user);
           const permissions =
             await this.permissionService.getPermissionsForWallet(
               embeddedWallet,
