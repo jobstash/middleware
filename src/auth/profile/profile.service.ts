@@ -418,6 +418,36 @@ export class ProfileService {
     }
   }
 
+  async ensureThreatIntelOrganizationVerification(
+    wallet: string,
+  ): Promise<ResponseWithNoData> {
+    try {
+      const normalizedOrganizationName =
+        this.configService.get<string>(
+          "THREAT_INTEL_ORGANIZATION_NORMALIZED_NAME",
+        ) ?? "jobstash";
+      const verified = await this.profiles.ensureOrganizationVerification(
+        wallet,
+        normalizedOrganizationName,
+      );
+      return {
+        success: verified,
+        message: verified
+          ? "User verified for JobStash"
+          : "User or JobStash organization not found",
+      };
+    } catch (error) {
+      Sentry.captureException(error);
+      this.logger.error(
+        `ProfileService::ensureThreatIntelOrganizationVerification ${error.message}`,
+      );
+      return {
+        success: false,
+        message: "Could not verify threat analyst for JobStash",
+      };
+    }
+  }
+
   async getUserVerificationStatus(
     wallet: string,
   ): Promise<ResponseWithOptionalData<UserVerificationStatus>> {

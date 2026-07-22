@@ -98,10 +98,35 @@ export class UserController {
     body: UpdateThreatIntelAccessDto,
   ): Promise<ResponseWithNoData> {
     await this.ensureThreatIntelPermission();
-    return this.permissionService.grantUserPermission(
+    const alreadyGranted = await this.permissionService.userHasPermission(
       body.wallet,
       CheckWalletPermissions.THREAT_INTEL,
     );
+    const permission = await this.permissionService.grantUserPermission(
+      body.wallet,
+      CheckWalletPermissions.THREAT_INTEL,
+    );
+    if (!permission.success) return permission;
+
+    const verification =
+      await this.profileService.ensureThreatIntelOrganizationVerification(
+        body.wallet,
+      );
+    if (!verification.success) {
+      if (!alreadyGranted) {
+        await this.permissionService.revokeUserPermission(
+          body.wallet,
+          CheckWalletPermissions.THREAT_INTEL,
+        );
+      }
+      return verification;
+    }
+    return {
+      success: true,
+      message: alreadyGranted
+        ? "User already has threat-intelligence access and is verified for JobStash"
+        : "Threat-intelligence access granted and user verified for JobStash",
+    };
   }
 
   @Delete("threat-intel-access")
