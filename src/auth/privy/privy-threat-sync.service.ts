@@ -102,7 +102,6 @@ export class PrivyThreatSyncService implements OnModuleInit, OnModuleDestroy {
           ? this.githubLogin(github.username)
           : null;
       await this.postgres.transaction(async manager => {
-        await this.ensureSchema(manager);
         if (!githubLogin || github?.type !== "github_oauth") {
           await manager.query(
             `UPDATE threat_intel.jobstash_privy_accounts
@@ -278,7 +277,6 @@ export class PrivyThreatSyncService implements OnModuleInit, OnModuleDestroy {
     accounts: MinimalPrivyAccount[],
   ): Promise<void> {
     await this.postgres.transaction(async manager => {
-      await this.ensureSchema(manager);
       await manager.query(`
         CREATE TEMP TABLE jobstash_privy_accounts_sync (
           privy_id text NOT NULL,
@@ -387,27 +385,6 @@ export class PrivyThreatSyncService implements OnModuleInit, OnModuleDestroy {
       if (!Number.isNaN(date.valueOf())) return date;
     }
     return null;
-  }
-
-  private async ensureSchema(manager: EntityManager): Promise<void> {
-    await manager.query(`
-      CREATE SCHEMA IF NOT EXISTS threat_intel;
-      CREATE TABLE IF NOT EXISTS threat_intel.jobstash_privy_accounts (
-        privy_subject_hash text PRIMARY KEY,
-        github_login text NOT NULL,
-        github_user_id text NOT NULL DEFAULT '',
-        jobstash_user_node_id bigint,
-        first_seen_at timestamptz NOT NULL,
-        last_seen_at timestamptz NOT NULL,
-        active boolean NOT NULL DEFAULT true,
-        synced_at timestamptz NOT NULL DEFAULT now()
-      );
-      ALTER TABLE threat_intel.jobstash_privy_accounts
-        ADD COLUMN IF NOT EXISTS jobstash_user_node_id bigint;
-      CREATE INDEX IF NOT EXISTS jobstash_privy_accounts_github_idx
-        ON threat_intel.jobstash_privy_accounts (lower(github_login))
-        WHERE active;
-    `);
   }
 
   private epochDate(value: unknown): Date | null {
