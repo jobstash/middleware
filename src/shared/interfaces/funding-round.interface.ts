@@ -17,7 +17,10 @@ export class FundingRound {
   @ApiProperty()
   id: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: "Amount raised, denominated in whole US dollars",
+    example: 10000000,
+  })
   raisedAmount: number;
 
   @ApiPropertyOptional()

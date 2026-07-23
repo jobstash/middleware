@@ -221,9 +221,10 @@ export const PUBLIC_API_SCHEMAS = {
         example: "https://example.com",
       },
       raisedAmount: {
-        description: "The amount raised in the funding round",
+        description:
+          "The amount raised in the funding round, denominated in whole US dollars",
         type: "number",
-        example: 10000,
+        example: 10000000,
       },
       updatedTimestamp: {
         description: "The timestamp of when the funding round was last updated",

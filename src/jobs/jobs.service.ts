@@ -152,9 +152,24 @@ export class JobsService {
     });
     return {
       ...postgresPage,
-      data: postgresPage.data.map(payload =>
-        new JobListResultEntity(payload).getProperties(),
-      ),
+      data: postgresPage.data.flatMap(payload => {
+        try {
+          return [new JobListResultEntity(payload).getProperties()];
+        } catch (error) {
+          Sentry.withScope(scope => {
+            scope.setTags({
+              action: "db-call",
+              source: "jobs.service",
+            });
+            scope.setExtra("failed_result", {
+              id: payload?.id,
+              shortUUID: payload?.shortUUID,
+            });
+            Sentry.captureException(error);
+          });
+          return [];
+        }
+      }),
     };
   }
 
