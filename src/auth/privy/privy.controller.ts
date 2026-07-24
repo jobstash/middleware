@@ -167,14 +167,18 @@ export class PrivyController {
           this.logger.warn(`User not found`);
         }
       } else if (verifiedPayload.type === "user.authenticated") {
+        const payload = verifiedPayload as PrivyUpdateEventPayload;
         const embeddedWallet = await this.userService.getEmbeddedWallet(
-          (verifiedPayload as PrivyUpdateEventPayload).user.id,
+          payload.user.id,
         );
         if (embeddedWallet) {
           this.logger.log(`User authenticated: ${embeddedWallet}`);
-          await this.telemetryService.logUserLoginEvent(
-            verifiedPayload.user.id,
-          );
+          // Login telemetry is gated on the embedded wallet by design: it is
+          // keyed to the wallet-linked graph user node, so logins for users
+          // without an embedded wallet are intentionally not recorded.
+          await this.telemetryService.logUserLoginEvent(payload.user.id, {
+            method: payload.account?.type,
+          });
           await this.threatSync.syncUser(verifiedPayload.user);
           const permissions =
             await this.permissionService.getPermissionsForWallet(

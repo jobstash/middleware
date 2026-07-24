@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { EntityManager } from "typeorm";
+import { CustomLogger } from "src/shared/utils/custom-logger";
 import { PostgresService } from "./postgres.service";
 
 type DashboardJobStatsRow = {
@@ -26,14 +27,143 @@ const managerRows = async <T>(
 
 @Injectable()
 export class TelemetryRepository {
+  private readonly logger = new CustomLogger(TelemetryRepository.name);
+
   constructor(private readonly postgres: PostgresService) {}
 
-  async logUserLoginEvent(walletOrPrivyId: string): Promise<void> {
-    await this.postgres.transaction(async manager => {
-      const [user] = await managerRows<{ nodeId: string }>(
-        manager,
-        `
-          SELECT id::text AS "nodeId"
+  /**
+   * Records one login for the user resolved by wallet or Privy id.
+   *
+   * Writes two things in a single transaction:
+   * - the legacy `LoginHistory` node (one per user, overwritten on every
+   *   login — kept for backwards compatibility), and
+   * - an append-only `LoginEvent` node plus a `HAS_LOGIN_EVENT`
+   *   relationship per login, for downstream analytics.
+   *
+   * Login telemetry is best-effort: failures are logged and swallowed so a
+   * graph write can never block or fail the auth flow that triggered it.
+   */
+  async logUserLoginEvent(
+    walletOrPrivyId: string,
+    context: { method?: string } = {},
+  ): Promise<void> {
+    try {
+      await this.postgres.transaction(async manager => {
+        const [user] = await managerRows<{ nodeId: string }>(
+          manager,
+          `
+            SELECT id::text AS "nodeId"
+            FROM graph_nodes
+            WHERE label = 'User'
+              AND (
+                properties ->> 'wallet' = $1
+                OR properties ->> 'privyId' = $1
+              )
+            ORDER BY id
+            LIMIT 1
+            FOR UPDATE
+          `,
+          [walletOrPrivyId],
+        );
+        if (!user) return;
+        const now = Date.now();
+        const properties = {
+          id: randomUUID(),
+          createdTimestamp: now,
+        };
+        const [history] = await managerRows<{ nodeId: string }>(
+          manager,
+          `
+            SELECT history.id::text AS "nodeId"
+            FROM graph_relationships relationship
+            JOIN graph_nodes history
+              ON history.id = relationship.target_id
+             AND history.label = 'LoginHistory'
+            WHERE relationship.source_id = $1
+              AND relationship.type = 'LOGGED_IN'
+            ORDER BY history.id
+            LIMIT 1
+            FOR UPDATE OF history
+          `,
+          [user.nodeId],
+        );
+        if (history) {
+          await managerRows(
+            manager,
+            `
+              UPDATE graph_nodes
+              SET properties = $2::jsonb,
+                  updated_at = now()
+              WHERE id = $1
+            `,
+            [history.nodeId, JSON.stringify(properties)],
+          );
+        } else {
+          const [created] = await managerRows<{ nodeId: string }>(
+            manager,
+            `
+              INSERT INTO graph_nodes (label, labels, node_key, properties)
+              VALUES ('LoginHistory', ARRAY['LoginHistory']::text[], $1, $2::jsonb)
+              RETURNING id::text AS "nodeId"
+            `,
+            [`runtime:${properties.id}`, JSON.stringify(properties)],
+          );
+          await managerRows(
+            manager,
+            `
+              INSERT INTO graph_relationships (
+                source_id, target_id, type, relationship_key, properties
+              ) VALUES ($1, $2, 'LOGGED_IN', '', '{}'::jsonb)
+            `,
+            [user.nodeId, created.nodeId],
+          );
+        }
+        // Append-only per-login record written under the exact same condition
+        // as the LoginHistory upsert above (a resolved user node). Never
+        // store IPs or user agents here.
+        const eventProperties: { id: string; at: number; method?: string } = {
+          id: randomUUID(),
+          at: now,
+        };
+        if (context.method) eventProperties.method = context.method;
+        const [event] = await managerRows<{ nodeId: string }>(
+          manager,
+          `
+            INSERT INTO graph_nodes (label, labels, node_key, properties)
+            VALUES ('LoginEvent', ARRAY['LoginEvent']::text[], $1, $2::jsonb)
+            RETURNING id::text AS "nodeId"
+          `,
+          [`runtime:${eventProperties.id}`, JSON.stringify(eventProperties)],
+        );
+        await managerRows(
+          manager,
+          `
+            INSERT INTO graph_relationships (
+              source_id, target_id, type, relationship_key, properties
+            ) VALUES ($1, $2, 'HAS_LOGIN_EVENT', '', '{}'::jsonb)
+          `,
+          [user.nodeId, event.nodeId],
+        );
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`TelemetryRepository::logUserLoginEvent ${message}`);
+    }
+  }
+
+  /**
+   * Returns the epoch-ms timestamp of the user's most recent login: the max
+   * `at` across their `LoginEvent` nodes, falling back to the overwritten
+   * `LoginHistory.createdTimestamp` for users with no events recorded yet.
+   * Returns null when the user (or their telemetry) does not exist.
+   */
+  async getLastLoginAt(wallet: string): Promise<number | null> {
+    const [row] = await this.postgres.query<{
+      lastLoginAt: string | null;
+    }>(
+      `
+        WITH user_node AS (
+          SELECT id
           FROM graph_nodes
           WHERE label = 'User'
             AND (
@@ -42,63 +172,37 @@ export class TelemetryRepository {
             )
           ORDER BY id
           LIMIT 1
-          FOR UPDATE
-        `,
-        [walletOrPrivyId],
-      );
-      if (!user) return;
-      const properties = {
-        id: randomUUID(),
-        createdTimestamp: Date.now(),
-      };
-      const [history] = await managerRows<{ nodeId: string }>(
-        manager,
-        `
-          SELECT history.id::text AS "nodeId"
+        ), events AS (
+          SELECT max(
+            NULLIF(event.properties ->> 'at', '')::numeric
+          ) AS last_at
+          FROM graph_relationships relationship
+          JOIN graph_nodes event
+            ON event.id = relationship.target_id
+           AND event.label = 'LoginEvent'
+          JOIN user_node ON relationship.source_id = user_node.id
+          WHERE relationship.type = 'HAS_LOGIN_EVENT'
+        ), history AS (
+          SELECT max(
+            NULLIF(history.properties ->> 'createdTimestamp', '')::numeric
+          ) AS last_at
           FROM graph_relationships relationship
           JOIN graph_nodes history
             ON history.id = relationship.target_id
            AND history.label = 'LoginHistory'
-          WHERE relationship.source_id = $1
-            AND relationship.type = 'LOGGED_IN'
-          ORDER BY history.id
-          LIMIT 1
-          FOR UPDATE OF history
-        `,
-        [user.nodeId],
-      );
-      if (history) {
-        await managerRows(
-          manager,
-          `
-            UPDATE graph_nodes
-            SET properties = $2::jsonb,
-                updated_at = now()
-            WHERE id = $1
-          `,
-          [history.nodeId, JSON.stringify(properties)],
-        );
-        return;
-      }
-      const [created] = await managerRows<{ nodeId: string }>(
-        manager,
-        `
-          INSERT INTO graph_nodes (label, labels, node_key, properties)
-          VALUES ('LoginHistory', ARRAY['LoginHistory']::text[], $1, $2::jsonb)
-          RETURNING id::text AS "nodeId"
-        `,
-        [`runtime:${properties.id}`, JSON.stringify(properties)],
-      );
-      await managerRows(
-        manager,
-        `
-          INSERT INTO graph_relationships (
-            source_id, target_id, type, relationship_key, properties
-          ) VALUES ($1, $2, 'LOGGED_IN', '', '{}'::jsonb)
-        `,
-        [user.nodeId, created.nodeId],
-      );
-    });
+          JOIN user_node ON relationship.source_id = user_node.id
+          WHERE relationship.type = 'LOGGED_IN'
+        )
+        SELECT COALESCE(
+          (SELECT last_at FROM events),
+          (SELECT last_at FROM history)
+        )::text AS "lastLoginAt"
+      `,
+      [wallet],
+    );
+    return row?.lastLoginAt === null || row?.lastLoginAt === undefined
+      ? null
+      : Number(row.lastLoginAt);
   }
 
   async getJobEventCount(options: {

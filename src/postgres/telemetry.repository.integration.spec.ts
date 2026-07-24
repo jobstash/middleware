@@ -116,6 +116,36 @@ describePostgres("TelemetryRepository PostgreSQL integration", () => {
     expect(row.count).toBe("1");
   });
 
+  it("appends one login-event node per login and resolves last login", async () => {
+    await repository.logUserLoginEvent("privy-1", { method: "email" });
+    await repository.logUserLoginEvent("0xabc");
+    const [events] = await postgres.query<{ count: string }>(`
+      SELECT count(*)::text AS count
+      FROM graph_relationships
+      WHERE source_id = ${userNodeId}
+        AND type = 'HAS_LOGIN_EVENT'
+    `);
+    expect(events.count).toBe("2");
+    const [histories] = await postgres.query<{ count: string }>(`
+      SELECT count(*)::text AS count
+      FROM graph_nodes
+      WHERE label = 'LoginHistory'
+    `);
+    expect(histories.count).toBe("1");
+    const [stored] = await postgres.query<{ method: string | null }>(`
+      SELECT properties ->> 'method' AS method
+      FROM graph_nodes
+      WHERE label = 'LoginEvent'
+      ORDER BY id
+      LIMIT 1
+    `);
+    expect(stored.method).toBe("email");
+    const lastLoginAt = await repository.getLastLoginAt("0xabc");
+    expect(lastLoginAt).toEqual(expect.any(Number));
+    expect(lastLoginAt).toBeLessThanOrEqual(Date.now());
+    await expect(repository.getLastLoginAt("0xmissing")).resolves.toBeNull();
+  });
+
   it("counts scoped job views and applications by indexed relationships", async () => {
     await expect(
       repository.getJobEventCount({

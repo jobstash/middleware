@@ -21,8 +21,11 @@ export class TelemetryService {
 
   constructor(private readonly telemetry: TelemetryRepository) {}
 
-  async logUserLoginEvent(walletOrPrivyId: string): Promise<void> {
-    await this.telemetry.logUserLoginEvent(walletOrPrivyId);
+  async logUserLoginEvent(
+    walletOrPrivyId: string,
+    context: { method?: string } = {},
+  ): Promise<void> {
+    await this.telemetry.logUserLoginEvent(walletOrPrivyId, context);
   }
 
   async getJobViewCount(
