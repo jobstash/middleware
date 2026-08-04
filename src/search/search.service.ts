@@ -1108,10 +1108,13 @@ export class SearchService {
     }));
   }
 
+  // Pillar pages are SEO/AEO landing pages: a 90-day window keeps them
+  // populated (and thus renderable/indexable) even when a niche sees no
+  // postings for a few weeks.
   private getPillarDateRange(): { startDate: number; endDate: number } {
     const now = Date.now();
     return {
-      startDate: startOfDay(subDays(now, 30)).getTime(),
+      startDate: startOfDay(subDays(now, 90)).getTime(),
       endDate: endOfDay(now).getTime(),
     };
   }

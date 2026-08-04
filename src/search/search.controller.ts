@@ -270,7 +270,7 @@ export class SearchController {
   @ApiOperation({
     summary: "Get static pillar page data with filtered jobs",
     description:
-      "Returns title, description, and all jobs from the past 30 days matching the pillar filter. Optimized for static site generation.",
+      "Returns title, description, and all jobs from the past 90 days matching the pillar filter. Optimized for static site generation.",
   })
   @ApiHeader({
     name: ECOSYSTEM_HEADER,
