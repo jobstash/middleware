@@ -7,6 +7,7 @@ export type AdminOrganizationDirectoryItem = {
   logoUrl?: string;
   summary?: string;
   projectCount: number;
+  banned: boolean;
 };
 
 export type AdminProjectDirectoryItem = {
@@ -17,6 +18,7 @@ export type AdminProjectDirectoryItem = {
   category?: string;
   website?: string;
   orgIds: string[];
+  banned: boolean;
 };
 
 export type AdminDirectoryPage<T> = {

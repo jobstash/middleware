@@ -298,9 +298,12 @@ export class ProjectsService {
     try {
       type AdminProjectGridRecord = ProjectWithRelations & {
         reviewEntityKind?: "Project" | "ProjectCandidate";
+        banned?: boolean;
       };
       const [projects, candidates] = await Promise.all([
-        this.searchDocuments.getProjectPayloads<AdminProjectGridRecord>(),
+        this.searchDocuments.getProjectPayloads<AdminProjectGridRecord>({
+          includeBanned: true,
+        }),
         this.searchDocuments.getProjectCandidateReviewPayloads<AdminProjectGridRecord>(),
       ]);
       const adminRows = [

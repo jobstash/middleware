@@ -313,8 +313,10 @@ export class SearchDocumentRepository {
             NULLIF(organization.location, '') AS location,
             NULLIF(organization.payload ->> 'logoUrl', '') AS logo_url,
             NULLIF(organization.payload ->> 'summary', '') AS summary,
-            COALESCE(cardinality(organization.project_ids), 0)::int AS project_count
+            COALESCE(cardinality(organization.project_ids), 0)::int AS project_count,
+            entity_property_is_banned(node.properties) AS banned
           FROM organization_search_documents organization
+          JOIN graph_nodes node ON node.id = organization.organization_node_id
           WHERE $1::text IS NULL
              OR position(lower($1) in lower(organization.organization_id)) > 0
              OR position(lower($1) in lower(organization.name)) > 0
@@ -327,6 +329,39 @@ export class SearchDocumentRepository {
                FROM unnest(organization.search_values) AS search_value(value)
                WHERE position(lower($1) in lower(COALESCE(search_value.value, ''))) > 0
              )
+          UNION ALL
+          SELECT
+            banned.properties ->> 'orgId' AS org_id,
+            NULLIF(banned.properties ->> 'id', '') AS id,
+            NULLIF(banned.properties ->> 'name', '') AS name,
+            NULLIF(banned.properties ->> 'normalizedName', '') AS normalized_name,
+            NULLIF(banned.properties ->> 'location', '') AS location,
+            NULLIF(banned.properties ->> 'logoUrl', '') AS logo_url,
+            NULLIF(banned.properties ->> 'summary', '') AS summary,
+            (
+              SELECT count(*)::int
+              FROM graph_relationships ownership
+              WHERE ownership.source_id = banned.id
+                AND ownership.type = 'HAS_PROJECT'
+            ) AS project_count,
+            true AS banned
+          FROM graph_nodes banned
+          WHERE banned.label = 'Organization'
+            AND entity_property_is_banned(banned.properties)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM organization_search_documents existing
+              WHERE existing.organization_node_id = banned.id
+            )
+            AND (
+              $1::text IS NULL
+              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'orgId', ''))) > 0
+              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'name', ''))) > 0
+              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'normalizedName', ''))) > 0
+              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'location', ''))) > 0
+              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'id', ''))) > 0
+              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'summary', ''))) > 0
+            )
         ), page AS (
           SELECT *
           FROM filtered
@@ -344,7 +379,8 @@ export class SearchDocumentRepository {
                 'location', page.location,
                 'logoUrl', page.logo_url,
                 'summary', page.summary,
-                'projectCount', page.project_count
+                'projectCount', page.project_count,
+                'banned', page.banned
               ))
               ORDER BY lower(page.name) NULLS LAST, page.org_id
             ),
@@ -389,8 +425,10 @@ export class SearchDocumentRepository {
               COALESCE(project.detail_payload, project.payload) ->> 'website',
               ''
             ) AS website,
-            project.organization_ids AS org_ids
+            project.organization_ids AS org_ids,
+            entity_property_is_banned(node.properties) AS banned
           FROM project_search_documents project
+          JOIN graph_nodes node ON node.id = project.project_node_id
           WHERE $1::text IS NULL
              OR position(lower($1) in lower(project.project_id)) > 0
              OR position(lower($1) in lower(project.name)) > 0
@@ -417,6 +455,57 @@ export class SearchDocumentRepository {
                FROM unnest(project.search_values) AS search_value(value)
                WHERE position(lower($1) in lower(COALESCE(search_value.value, ''))) > 0
              )
+          UNION ALL
+          SELECT
+            banned.properties ->> 'id' AS id,
+            NULLIF(banned.properties ->> 'name', '') AS name,
+            NULLIF(banned.properties ->> 'normalizedName', '') AS normalized_name,
+            NULLIF(banned.properties ->> 'logo', '') AS logo_url,
+            NULLIF((
+              SELECT category.properties ->> 'name'
+              FROM graph_relationships category_link
+              JOIN graph_nodes category
+                ON category.id = category_link.target_id
+              WHERE category_link.source_id = banned.id
+                AND category_link.type = 'HAS_CATEGORY'
+              ORDER BY category.id
+              LIMIT 1
+            ), '') AS category,
+            NULLIF((
+              SELECT website.properties ->> 'url'
+              FROM graph_relationships website_link
+              JOIN graph_nodes website
+                ON website.id = website_link.target_id
+              WHERE website_link.source_id = banned.id
+                AND website_link.type = 'HAS_WEBSITE'
+              ORDER BY website.id
+              LIMIT 1
+            ), '') AS website,
+            COALESCE((
+              SELECT array_agg(organization.properties ->> 'orgId')
+              FROM graph_relationships ownership
+              JOIN graph_nodes organization
+                ON organization.id = ownership.source_id
+               AND organization.label = 'Organization'
+              WHERE ownership.target_id = banned.id
+                AND ownership.type = 'HAS_PROJECT'
+            ), '{}'::text[]) AS org_ids,
+            true AS banned
+          FROM graph_nodes banned
+          WHERE banned.label = 'Project'
+            AND entity_property_is_banned(banned.properties)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM project_search_documents existing
+              WHERE existing.project_node_id = banned.id
+            )
+            AND (
+              $1::text IS NULL
+              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'id', ''))) > 0
+              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'name', ''))) > 0
+              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'normalizedName', ''))) > 0
+              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'summary', ''))) > 0
+            )
         ), page AS (
           SELECT *
           FROM filtered
@@ -433,7 +522,8 @@ export class SearchDocumentRepository {
                 'logoUrl', page.logo_url,
                 'category', page.category,
                 'website', page.website,
-                'orgIds', COALESCE(page.org_ids, '{}'::text[])
+                'orgIds', COALESCE(page.org_ids, '{}'::text[]),
+                'banned', page.banned
               ))
               ORDER BY lower(page.name) NULLS LAST, page.id
             ),
@@ -1269,14 +1359,72 @@ export class SearchDocumentRepository {
       `
         WITH selected_organizations AS (
           SELECT
-            organization_node_id,
-            payload,
+            organization.organization_node_id,
+            organization.payload,
+            NULL::jsonb AS graph_properties,
+            false AS from_graph
+          FROM organization_search_documents organization
+          UNION ALL
+          SELECT
+            banned.id,
+            NULL::jsonb,
+            banned.properties,
+            true
+          FROM graph_nodes banned
+          WHERE banned.label = 'Organization'
+            AND entity_property_is_banned(banned.properties)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM organization_search_documents existing
+              WHERE existing.organization_node_id = banned.id
+            )
+        ), paged_organizations AS (
+          SELECT
+            selected.organization_node_id,
+            selected.payload,
+            selected.graph_properties,
+            selected.from_graph,
             count(*) OVER() AS total_count
-          FROM organization_search_documents
-          ORDER BY organization_node_id
+          FROM selected_organizations selected
+          ORDER BY selected.organization_node_id
           LIMIT $1 OFFSET $2
         )
-        SELECT jsonb_build_object(
+        SELECT CASE
+          WHEN organization.from_graph THEN jsonb_build_object(
+            'id', organization.graph_properties -> 'id',
+            'orgId', organization.graph_properties -> 'orgId',
+            'name', organization.graph_properties -> 'name',
+            'normalizedName', organization.graph_properties -> 'normalizedName',
+            'location', organization.graph_properties -> 'location',
+            'logoUrl', organization.graph_properties -> 'logoUrl',
+            'description', organization.graph_properties -> 'description',
+            'summary', organization.graph_properties -> 'summary',
+            'headcountEstimate', organization.graph_properties -> 'headcountEstimate',
+            'altName', organization.graph_properties -> 'altName',
+            'createdTimestamp', organization.graph_properties -> 'createdTimestamp',
+            'updatedTimestamp', organization.graph_properties -> 'updatedTimestamp',
+            'websites', '[]'::jsonb,
+            'aliases', '[]'::jsonb,
+            'twitters', '[]'::jsonb,
+            'githubs', '[]'::jsonb,
+            'discords', '[]'::jsonb,
+            'docs', '[]'::jsonb,
+            'telegrams', '[]'::jsonb,
+            'communities', '[]'::jsonb,
+            'grants', '[]'::jsonb,
+            'jobsites', '[]'::jsonb,
+            'detectedJobsites', '[]'::jsonb,
+            'projects', '[]'::jsonb,
+            'needsManualReview', false,
+            'manualReviewStatus', NULL,
+            'manualReviewReason', NULL,
+            'manualReviewSeverity', NULL,
+            'manualReviewEvidence', '[]'::jsonb,
+            'manualReviewProposedActions', '[]'::jsonb,
+            'manualReviewUpdatedTimestamp', NULL,
+            'banned', true
+          )
+          ELSE jsonb_build_object(
           'id', organization.payload -> 'id',
           'orgId', organization.payload -> 'orgId',
           'name', organization.payload -> 'name',
@@ -1334,10 +1482,12 @@ export class SearchDocumentRepository {
           'manualReviewUpdatedTimestamp', jsonb_numeric_value(
             node.properties,
             'manualReviewUpdatedTimestamp'
+          ),
+          'banned', entity_property_is_banned(node.properties)
           )
-        ) AS payload,
+        END AS payload,
         organization.total_count
-        FROM selected_organizations organization
+        FROM paged_organizations organization
         JOIN graph_nodes node ON node.id = organization.organization_node_id
         CROSS JOIN LATERAL (
           SELECT
@@ -1897,6 +2047,7 @@ export class SearchDocumentRepository {
       ecosystem?: string;
       organizationId?: string;
       category?: string;
+      includeBanned?: boolean;
     } = {},
   ): Promise<T[]> {
     const where = new SqlPredicateBuilder();
@@ -1917,6 +2068,121 @@ export class SearchDocumentRepository {
         `(${category} = ANY(categories) AND filter_labels -> 'categories' ->> ${category} = ${categoryLabel})`,
       );
     }
+    // Banned projects are deleted from the search documents at every refresh,
+    // so the admin grid unions them back from the graph to keep them visible.
+    // This stays opt-in: public callers keep the exact legacy projection.
+    const includeBanned = options.includeBanned ?? false;
+    const bannedFlagSql = includeBanned
+      ? `,
+            'banned', entity_property_is_banned(node.properties)`
+      : "";
+    const bannedUnionSql = includeBanned
+      ? `
+        UNION ALL
+        SELECT jsonb_build_object(
+          'id', banned.properties ->> 'id',
+          'name', banned.properties ->> 'name',
+          'normalizedName', banned.properties ->> 'normalizedName',
+          'summary', banned.properties ->> 'summary',
+          'description', banned.properties ->> 'description',
+          'logo', banned.properties ->> 'logo',
+          'category', (
+            SELECT category.properties ->> 'name'
+            FROM graph_relationships category_link
+            JOIN graph_nodes category
+              ON category.id = category_link.target_id
+            WHERE category_link.source_id = banned.id
+              AND category_link.type = 'HAS_CATEGORY'
+            ORDER BY category.id
+            LIMIT 1
+          ),
+          'website', (
+            SELECT website.properties ->> 'url'
+            FROM graph_relationships website_link
+            JOIN graph_nodes website
+              ON website.id = website_link.target_id
+            WHERE website_link.source_id = banned.id
+              AND website_link.type = 'HAS_WEBSITE'
+            ORDER BY website.id
+            LIMIT 1
+          ),
+          'docs', NULL,
+          'twitter', NULL,
+          'discord', NULL,
+          'github', NULL,
+          'telegram', NULL,
+          'tokenAddress', banned.properties ->> 'tokenAddress',
+          'tokenSymbol', banned.properties ->> 'tokenSymbol',
+          'defiLlamaId', banned.properties ->> 'defiLlamaId',
+          'defiLlamaSlug', banned.properties ->> 'defiLlamaSlug',
+          'defiLlamaParent', banned.properties ->> 'defiLlamaParent',
+          'tvl', jsonb_numeric_value(banned.properties, 'tvl'),
+          'monthlyFees', jsonb_numeric_value(banned.properties, 'monthlyFees'),
+          'monthlyVolume', jsonb_numeric_value(banned.properties, 'monthlyVolume'),
+          'monthlyRevenue', jsonb_numeric_value(banned.properties, 'monthlyRevenue'),
+          'monthlyActiveUsers', jsonb_numeric_value(
+            banned.properties,
+            'monthlyActiveUsers'
+          ),
+          'createdTimestamp', jsonb_numeric_value(
+            banned.properties,
+            'createdTimestamp'
+          ),
+          'updatedTimestamp', jsonb_numeric_value(
+            banned.properties,
+            'updatedTimestamp'
+          ),
+          'orgIds', COALESCE((
+            SELECT jsonb_agg(organization.properties ->> 'orgId')
+            FROM graph_relationships ownership
+            JOIN graph_nodes organization
+              ON organization.id = ownership.source_id
+             AND organization.label = 'Organization'
+            WHERE ownership.target_id = banned.id
+              AND ownership.type = 'HAS_PROJECT'
+          ), '[]'::jsonb),
+          'orgNames', COALESCE((
+            SELECT jsonb_agg(organization.properties ->> 'name')
+            FROM graph_relationships ownership
+            JOIN graph_nodes organization
+              ON organization.id = ownership.source_id
+             AND organization.label = 'Organization'
+            WHERE ownership.target_id = banned.id
+              AND ownership.type = 'HAS_PROJECT'
+          ), '[]'::jsonb),
+          'aliases', '[]'::jsonb,
+          'hacks', '[]'::jsonb,
+          'audits', '[]'::jsonb,
+          'chains', '[]'::jsonb,
+          'ecosystems', '[]'::jsonb,
+          'jobs', '[]'::jsonb,
+          'investors', '[]'::jsonb,
+          'grants', '[]'::jsonb,
+          'fundingRounds', '[]'::jsonb,
+          'repos', '[]'::jsonb,
+          'jobsites', '[]'::jsonb,
+          'detectedJobsites', '[]'::jsonb,
+          'needsManualReview', false,
+          'manualReviewStatus', NULL,
+          'manualReviewReason', NULL,
+          'manualReviewSeverity', NULL,
+          'manualReviewEvidence', '[]'::jsonb,
+          'manualReviewProposedActions', '[]'::jsonb,
+          'manualReviewUpdatedTimestamp', NULL,
+          'banned', true
+        ) AS payload
+        FROM graph_nodes banned
+        WHERE banned.label = 'Project'
+          AND entity_property_is_banned(banned.properties)
+          AND NOT EXISTS (
+            SELECT 1
+            FROM project_search_documents existing
+            WHERE existing.project_node_id = banned.id
+          )`
+      : "";
+    const orderSql = includeBanned
+      ? `ORDER BY payload ->> 'name', payload ->> 'id'`
+      : `ORDER BY project.name, project.project_node_id`;
     const rows = await this.postgres.query<{ payload: T }>(
       `
         SELECT COALESCE(project.detail_payload, project.payload)
@@ -1941,12 +2207,13 @@ export class SearchDocumentRepository {
             'manualReviewUpdatedTimestamp', jsonb_numeric_value(
               node.properties,
               'manualReviewUpdatedTimestamp'
-            )
+            )${bannedFlagSql}
           ) AS payload
         FROM project_search_documents project
         JOIN graph_nodes node ON node.id = project.project_node_id
         ${where.toSql()}
-        ORDER BY project.name, project.project_node_id
+        ${bannedUnionSql}
+        ${orderSql}
       `,
       where.parameters,
     );

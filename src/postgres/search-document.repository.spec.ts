@@ -102,8 +102,11 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("organization.payload ->> 'summary'");
     expect(sql).toContain("position(lower($1)");
     expect(sql).toContain("LIMIT $2 OFFSET $3");
-    expect(sql).not.toContain("graph_nodes");
-    expect(sql).not.toContain("graph_relationships");
+    expect(sql).toContain("entity_property_is_banned(node.properties)");
+    expect(sql).toContain("UNION ALL");
+    expect(sql).toContain("FROM graph_nodes banned");
+    expect(sql).toContain("banned.label = 'Organization'");
+    expect(sql).toContain("'banned', page.banned");
     expect(parameters).toEqual(["AcMe", 25, 5]);
   });
 
@@ -130,6 +133,12 @@ describe("SearchDocumentRepository", () => {
       "jsonb_typeof(organization.payload -> 'projects') = 'array'",
     );
     expect(sql).toContain("'needsManualReview'");
+    expect(sql).toContain(
+      "'banned', entity_property_is_banned(node.properties)",
+    );
+    expect(sql).toContain("'banned', true");
+    expect(sql).toContain("UNION ALL");
+    expect(sql).toContain("banned.label = 'Organization'");
     expect(parameters).toEqual([500, 0]);
   });
 
@@ -173,8 +182,11 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("->> 'summary'");
     expect(sql).toContain("->> 'category'");
     expect(sql).toContain("->> 'website'");
-    expect(sql).not.toContain("graph_nodes");
-    expect(sql).not.toContain("graph_relationships");
+    expect(sql).toContain("entity_property_is_banned(node.properties)");
+    expect(sql).toContain("UNION ALL");
+    expect(sql).toContain("FROM graph_nodes banned");
+    expect(sql).toContain("banned.label = 'Project'");
+    expect(sql).toContain("'banned', page.banned");
     expect(parameters).toEqual(["DeFi", 10, 0]);
   });
 
@@ -505,7 +517,24 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("JOIN graph_nodes node");
     expect(sql).toContain("'needsManualReview'");
     expect(sql).toContain("'manualReviewProposedActions'");
+    expect(sql).not.toContain("UNION ALL");
+    expect(sql).not.toContain("entity_property_is_banned");
     expect(parameters).toEqual(["dexes", "DEXes"]);
+  });
+
+  it("unions banned graph projects into the admin grid projection only when requested", async () => {
+    await repository.getProjectPayloads({ includeBanned: true });
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain(
+      "'banned', entity_property_is_banned(node.properties)",
+    );
+    expect(sql).toContain("UNION ALL");
+    expect(sql).toContain("banned.label = 'Project'");
+    expect(sql).toContain("entity_property_is_banned(banned.properties)");
+    expect(sql).toContain("FROM project_search_documents existing");
+    expect(sql).toContain("'banned', true");
+    expect(parameters).toEqual([]);
   });
 
   it("parameterizes deterministic job detail reads", async () => {
