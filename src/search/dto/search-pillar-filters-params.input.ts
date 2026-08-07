@@ -51,6 +51,11 @@ export class SearchPillarFiltersParams {
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
+  fundingStages: string[] | null = null;
+
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
   tags: string[] | null = null;
 
   @IsOptional()
@@ -157,6 +162,19 @@ export class SearchPillarFiltersParams {
   @IsNumber()
   @Min(0)
   @Type(() => Number)
+  minCurrentMaintainers?: number | null = null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Compare("minCurrentMaintainers", ">=")
+  @Type(() => Number)
+  maxCurrentMaintainers?: number | null = null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
   minDate?: number | null = null;
 
   @IsOptional()
@@ -192,6 +210,34 @@ export class SearchPillarFiltersParams {
   )
   @IsBoolean()
   hasJobs?: boolean | null = null;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  growingTeam?: boolean | null = null;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  shrinkingTeam?: boolean | null = null;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  earlyTeamShrinkage?: boolean | null = null;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  recentlyFunded?: boolean | null = null;
 
   @IsOptional()
   @Transform(({ value }) =>

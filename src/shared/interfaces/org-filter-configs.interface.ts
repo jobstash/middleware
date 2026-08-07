@@ -23,6 +23,12 @@ export class OrgFilterConfigs {
     investors: MultiSelectFilter.MultiSelectFilterType,
     ecosystems: MultiSelectFilter.MultiSelectFilterType,
     fundingRounds: MultiSelectFilter.MultiSelectFilterType,
+    fundingStages: MultiSelectFilter.MultiSelectFilterType,
+    currentMaintainers: RangeFilter.RangeFilterType,
+    growingTeam: SingleSelectFilter.SingleSelectFilterType,
+    shrinkingTeam: SingleSelectFilter.SingleSelectFilterType,
+    earlyTeamShrinkage: SingleSelectFilter.SingleSelectFilterType,
+    recentlyFunded: SingleSelectFilter.SingleSelectFilterType,
     categories: MultiSelectFilter.MultiSelectFilterType,
   });
 
@@ -32,6 +38,18 @@ export class OrgFilterConfigs {
   headcountEstimate: RangeFilter;
   @ApiProperty()
   fundingRounds: MultiSelectFilter;
+  @ApiProperty()
+  fundingStages: MultiSelectFilter;
+  @ApiProperty()
+  currentMaintainers: RangeFilter;
+  @ApiProperty()
+  growingTeam: SingleSelectFilter;
+  @ApiProperty()
+  shrinkingTeam: SingleSelectFilter;
+  @ApiProperty()
+  earlyTeamShrinkage: SingleSelectFilter;
+  @ApiProperty()
+  recentlyFunded: SingleSelectFilter;
   @ApiProperty()
   investors: MultiSelectFilter;
   @ApiProperty()
@@ -56,6 +74,12 @@ export class OrgFilterConfigs {
       investors,
       ecosystems,
       fundingRounds,
+      fundingStages,
+      currentMaintainers,
+      growingTeam,
+      shrinkingTeam,
+      earlyTeamShrinkage,
+      recentlyFunded,
       categories,
       hasJobs,
       hasProjects,
@@ -70,6 +94,12 @@ export class OrgFilterConfigs {
     this.investors = investors;
     this.ecosystems = ecosystems;
     this.fundingRounds = fundingRounds;
+    this.fundingStages = fundingStages;
+    this.currentMaintainers = currentMaintainers;
+    this.growingTeam = growingTeam;
+    this.shrinkingTeam = shrinkingTeam;
+    this.earlyTeamShrinkage = earlyTeamShrinkage;
+    this.recentlyFunded = recentlyFunded;
     this.categories = categories;
     this.hasJobs = hasJobs;
     this.hasProjects = hasProjects;

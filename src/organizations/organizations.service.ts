@@ -61,6 +61,8 @@ import {
 } from "src/postgres/search-document.repository";
 import { GraphRepository } from "src/postgres/graph.repository";
 import { PostgresService } from "src/postgres/postgres.service";
+import { TeamIntelligenceService } from "src/team-intelligence/team-intelligence.service";
+import { OrganizationTeamSummary } from "src/team-intelligence/team-intelligence.types";
 
 @Injectable()
 export class OrganizationsService {
@@ -71,6 +73,7 @@ export class OrganizationsService {
     private readonly searchDocuments: SearchDocumentRepository,
     private readonly graph: GraphRepository,
     private readonly postgres: PostgresService,
+    private readonly teamIntelligence: TeamIntelligenceService,
   ) {}
 
   async getIngestionStatus(): Promise<Record<string, unknown>> {
@@ -628,7 +631,8 @@ export class OrganizationsService {
   ): Promise<OrgListResult[]> => {
     const payloads =
       await this.searchDocuments.getOrganizationPayloads(ecosystem);
-    return payloads.map(payload =>
+    const hydrated = await this.hydrateTeamSummaries(payloads);
+    return hydrated.map(payload =>
       new OrgListResultEntity(payload).getProperties(),
     );
   };
@@ -640,10 +644,16 @@ export class OrganizationsService {
   async getOrgsListWithSearch(
     params: OrgListParams & { ecosystemHeader?: string },
   ): Promise<PaginatedData<ShortOrgWithSummary>> {
-    const postgresPage = await this.searchDocuments.searchOrganizations(params);
+    const teamOrganizationIds =
+      await this.teamIntelligence.matchingOrganizationIds(params);
+    const postgresPage = await this.searchDocuments.searchOrganizations({
+      ...params,
+      ...(teamOrganizationIds !== undefined ? { teamOrganizationIds } : {}),
+    });
+    const hydrated = await this.hydrateTeamSummaries(postgresPage.data);
     return {
       ...postgresPage,
-      data: postgresPage.data.map(payload =>
+      data: hydrated.map(payload =>
         toShortOrgWithSummary(new OrgListResultEntity(payload).getProperties()),
       ),
     };
@@ -680,7 +690,9 @@ export class OrganizationsService {
   ): Promise<OrgFilterConfigs> {
     const values =
       await this.searchDocuments.getOrganizationFilterValues(ecosystem);
-    return new OrgFilterConfigsEntity(values).getProperties();
+    return new OrgFilterConfigsEntity(
+      await this.addTeamRange(values),
+    ).getProperties();
   }
 
   async getOrgDetailsById(
@@ -695,8 +707,9 @@ export class OrganizationsService {
       if (!payload) {
         return undefined;
       }
+      const [hydrated] = await this.hydrateTeamSummaries([payload]);
       return new OrgDetailsResultEntity({
-        ...payload,
+        ...hydrated,
         jobs: (payload as OrgDetailsResult).jobs ?? [],
         tags: payload.tags ?? [],
       }).getProperties();
@@ -728,8 +741,9 @@ export class OrganizationsService {
       if (!payload) {
         return undefined;
       }
+      const [hydrated] = await this.hydrateTeamSummaries([payload]);
       return new OrgDetailsResultEntity({
-        ...payload,
+        ...hydrated,
         jobs: (payload as OrgDetailsResult).jobs ?? [],
         tags: payload.tags ?? [],
       }).getProperties();
@@ -747,6 +761,62 @@ export class OrganizationsService {
       );
       return undefined;
     }
+  }
+
+  async getOrgTeamBySlug(slug: string, page?: number, limit?: number) {
+    const organization = await this.searchDocuments.getOrganizationBySlug(slug);
+    if (!organization) return undefined;
+    return this.teamIntelligence.getDetails(organization.orgId, page, limit);
+  }
+
+  private async hydrateTeamSummaries<T extends OrgListResult>(
+    organizations: T[],
+  ): Promise<T[]> {
+    let summaries = new Map<string, OrganizationTeamSummary>();
+    try {
+      summaries = await this.teamIntelligence.getSummariesById(
+        organizations.map(organization => organization.orgId),
+      );
+    } catch (error) {
+      Sentry.captureException(error);
+      this.logger.error(
+        `OrganizationsService::hydrateTeamSummaries ${(error as Error).message}`,
+      );
+    }
+    return organizations.map(organization =>
+      this.teamIntelligence.applySummary(
+        organization,
+        summaries.get(organization.orgId),
+      ),
+    );
+  }
+
+  private async addTeamRange(
+    values: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const organizationIds = Array.isArray(values.teamOrganizationIds)
+      ? values.teamOrganizationIds.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : [];
+    let range: { minimum: number | null; maximum: number | null } = {
+      minimum: null,
+      maximum: null,
+    };
+    try {
+      range =
+        await this.teamIntelligence.getCurrentMaintainerRange(organizationIds);
+    } catch (error) {
+      Sentry.captureException(error);
+      this.logger.error(
+        `OrganizationsService::addTeamRange ${(error as Error).message}`,
+      );
+    }
+    return {
+      ...values,
+      minCurrentMaintainers: range.minimum,
+      maxCurrentMaintainers: range.maximum,
+    };
   }
 
   async getAllWithLinks(): Promise<OrganizationWithLinks[]> {

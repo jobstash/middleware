@@ -35,6 +35,14 @@ export class ShortOrgEntity {
       headcountEstimate: intConverter(this.raw.headcountEstimate),
       lastFundingAmount: intConverter(this.raw.lastFundingAmount),
       lastFundingDate: intConverter(this.raw.lastFundingDate),
+      fundingStage: this.raw.fundingStage,
+      recentlyFunded: this.raw.recentlyFunded,
+      teamCoverageStatus: this.raw.teamCoverageStatus,
+      teamSignalsAsOf: this.raw.teamSignalsAsOf,
+      currentMaintainerCount: this.raw.currentMaintainerCount,
+      growingTeam: this.raw.growingTeam,
+      shrinkingTeam: this.raw.shrinkingTeam,
+      earlyTeamShrinkage: this.raw.earlyTeamShrinkage,
     };
   }
 }
@@ -69,6 +77,14 @@ export class ShortOrgWithSummaryEntity {
       headcountEstimate: intConverter(this.raw.headcountEstimate),
       lastFundingAmount: intConverter(this.raw.lastFundingAmount),
       lastFundingDate: intConverter(this.raw.lastFundingDate),
+      fundingStage: this.raw.fundingStage,
+      recentlyFunded: this.raw.recentlyFunded,
+      teamCoverageStatus: this.raw.teamCoverageStatus,
+      teamSignalsAsOf: this.raw.teamSignalsAsOf,
+      currentMaintainerCount: this.raw.currentMaintainerCount,
+      growingTeam: this.raw.growingTeam,
+      shrinkingTeam: this.raw.shrinkingTeam,
+      earlyTeamShrinkage: this.raw.earlyTeamShrinkage,
     };
   }
 }

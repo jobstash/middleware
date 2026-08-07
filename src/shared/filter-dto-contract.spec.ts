@@ -11,6 +11,7 @@ import { OrgListParams } from "src/organizations/dto/org-list.input";
 import { SearchOrganizationsInput } from "src/organizations/dto/search-organizations.input";
 import { ProjectListParams } from "src/projects/dto/project-list.input";
 import { SearchProjectsInput } from "src/projects/dto/search-projects.input";
+import { SearchPillarFiltersParams } from "src/search/dto/search-pillar-filters-params.input";
 
 const pipe = new ValidationPipe({ transform: true });
 
@@ -218,6 +219,13 @@ describe("filter DTO HTTP contracts", () => {
         minHeadCount: "10",
         maxHeadCount: "100",
         fundingRounds: "seed,series-a",
+        fundingStages: "seed,series-a",
+        minCurrentMaintainers: "3",
+        maxCurrentMaintainers: "30",
+        growingTeam: "true",
+        shrinkingTeam: "false",
+        earlyTeamShrinkage: "true",
+        recentlyFunded: "false",
         investors: "paradigm,variant",
         locations: "berlin,lisbon",
         ecosystems: "ethereum,solana",
@@ -237,6 +245,13 @@ describe("filter DTO HTTP contracts", () => {
         minHeadCount: 10,
         maxHeadCount: 100,
         fundingRounds: ["seed", "series-a"],
+        fundingStages: ["seed", "series-a"],
+        minCurrentMaintainers: 3,
+        maxCurrentMaintainers: 30,
+        growingTeam: true,
+        shrinkingTeam: false,
+        earlyTeamShrinkage: true,
+        recentlyFunded: false,
         investors: ["paradigm", "variant"],
         locations: ["berlin", "lisbon"],
         ecosystems: ["ethereum", "solana"],
@@ -284,6 +299,29 @@ describe("filter DTO HTTP contracts", () => {
       });
 
       expect(result).toMatchObject({ hasJobs: false, hasProjects: false });
+    });
+
+    it("accepts team and funding filters on the pillar-filter contract", async () => {
+      const result = await transformQuery(SearchPillarFiltersParams, {
+        nav: "organizations",
+        fundingStages: "seed,series-a",
+        minCurrentMaintainers: "2",
+        maxCurrentMaintainers: "12",
+        growingTeam: "false",
+        shrinkingTeam: "true",
+        earlyTeamShrinkage: "false",
+        recentlyFunded: "true",
+      });
+
+      expect(result).toMatchObject({
+        fundingStages: ["seed", "series-a"],
+        minCurrentMaintainers: 2,
+        maxCurrentMaintainers: 12,
+        growingTeam: false,
+        shrinkingTeam: true,
+        earlyTeamShrinkage: false,
+        recentlyFunded: true,
+      });
     });
   });
 

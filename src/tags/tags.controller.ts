@@ -240,6 +240,14 @@ export class TagsController {
     return this.tagsService.searchTags(query);
   }
 
+  @Get("/resolve")
+  async resolveTag(@Query("slug") slug: string) {
+    if (!slug?.trim()) throw new BadRequestException("Slug is required");
+    const resolved = await this.tagsService.resolveAlias(slug);
+    if (!resolved) return null;
+    return resolved;
+  }
+
   @Post("/create")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.ADMIN)

@@ -26,6 +26,11 @@ describe("filter config response contracts", () => {
       commitments: ["FULL_TIME"],
       chains: ["Ethereum"],
       locations: ["REMOTE"],
+      availability: ["place:geonames:2759794", "place:unm49:528"],
+      availabilityLabels: {
+        "place:geonames:2759794": "Amsterdam",
+        "place:unm49:528": "Netherlands",
+      },
       investors: ["Paradigm"],
       ecosystems: ["Ethereum"],
       organizations: ["Acme"],
@@ -79,6 +84,12 @@ describe("filter config response contracts", () => {
       },
       chains: { options: [{ label: "Ethereum", value: "ethereum" }] },
       locations: { options: [{ label: "Remote", value: "remote" }] },
+      availability: {
+        options: [
+          { label: "Amsterdam", value: "place:geonames:2759794" },
+          { label: "Netherlands", value: "place:unm49:528" },
+        ],
+      },
       investors: { options: [{ label: "Paradigm", value: "paradigm" }] },
       ecosystems: { options: [{ label: "Ethereum", value: "Ethereum" }] },
       organizations: { options: [{ label: "Acme", value: "acme" }] },
@@ -95,6 +106,9 @@ describe("filter config response contracts", () => {
       minHeadCount: 10,
       maxHeadCount: 100,
       fundingRounds: ["Seed"],
+      fundingStages: ["Series A"],
+      minCurrentMaintainers: 2,
+      maxCurrentMaintainers: 20,
       investors: ["Paradigm"],
       ecosystems: ["Ethereum"],
       locations: ["NORTH_AMERICA"],
@@ -108,6 +122,19 @@ describe("filter config response contracts", () => {
         },
       },
       fundingRounds: { options: [{ label: "Seed", value: "seed" }] },
+      fundingStages: {
+        options: [{ label: "Series A", value: "series-a" }],
+      },
+      currentMaintainers: {
+        value: {
+          lowest: { value: 2, paramKey: "minCurrentMaintainers" },
+          highest: { value: 20, paramKey: "maxCurrentMaintainers" },
+        },
+      },
+      growingTeam: { paramKey: "growingTeam" },
+      shrinkingTeam: { paramKey: "shrinkingTeam" },
+      earlyTeamShrinkage: { paramKey: "earlyTeamShrinkage" },
+      recentlyFunded: { paramKey: "recentlyFunded" },
       investors: { options: [{ label: "Paradigm", value: "paradigm" }] },
       ecosystems: { options: [{ label: "Ethereum", value: "ethereum" }] },
       locations: {

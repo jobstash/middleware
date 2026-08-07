@@ -481,6 +481,9 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("WITH scoped_jobs AS MATERIALIZED");
     expect(sql).toContain("organization_label_values AS MATERIALIZED");
     expect(sql).toContain("filter_labels -> 'tags'");
+    expect(sql).toContain("filter_labels -> 'availability'");
+    expect(sql).toContain('AS "availabilityLabels"');
+    expect(sql).toContain("jsonb_object_agg(label.slug, label.label");
     expect(sql).toContain('AS "minSalaryRange"');
     expect(sql).toContain("salary_currency ILIKE '%USD%'");
     expect(sql).toContain("managed_ecosystems && $1::text[]");
@@ -587,6 +590,24 @@ describe("SearchDocumentRepository", () => {
     await repository.searchOrganizations({ hasProjects: false });
     expect(query.mock.calls[0][0]).toContain("has_projects = $1");
     expect(query.mock.calls[0][1]).toEqual([false, 10, 0]);
+  });
+
+  it("intersects authoritative team matches with Postgres organization filters", async () => {
+    await repository.searchOrganizations({
+      fundingStages: ["Series A"],
+      teamOrganizationIds: ["org-acme", "org-beta"],
+      recentlyFunded: false,
+    });
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("slugify_text(current_funding_stage)");
+    expect(sql).toContain("organization_id = ANY(");
+    expect(sql).not.toContain("current_maintainer_count");
+    expect(sql).not.toContain("growing_team");
+    expect(sql).toContain("recently_funded =");
+    expect(parameters).toEqual(
+      expect.arrayContaining([["series-a"], ["org-acme", "org-beta"], false]),
+    );
   });
 
   it("projects organization link collections in one parameterized query", async () => {

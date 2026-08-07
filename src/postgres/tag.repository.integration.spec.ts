@@ -102,7 +102,7 @@ describePostgres("TagRepository PostgreSQL integration", () => {
   });
 
   it("resolves preferred tags and transitive synonyms", async () => {
-    await createTag("JavaScript", "javascript");
+    const javascript = await createTag("JavaScript", "javascript");
     await createTag("JS", "js");
     await createTag("ECMAScript", "ecmascript");
     await repository.setDesignation({
@@ -128,12 +128,85 @@ describePostgres("TagRepository PostgreSQL integration", () => {
     await expect(
       repository.getPreferredForSynonym("js"),
     ).resolves.toMatchObject({ tag: { normalizedName: "javascript" } });
+    await expect(repository.resolveAlias("js")).resolves.toMatchObject({
+      input: "js",
+      canonical: { normalizedName: "javascript" },
+      redirected: true,
+    });
     await expect(repository.getPreferredTags()).resolves.toHaveLength(1);
+
+    await postgres.query(
+      `
+        INSERT INTO tag_aliases (
+          alias_normalized, alias_name, canonical_tag_node_id,
+          decision, confidence, resolver_version
+        )
+        SELECT 'js', 'JS', id, 'automatic', 0.95, 'test'
+        FROM graph_nodes
+        WHERE label = 'Tag' AND properties ->> 'id' = $1
+      `,
+      [javascript.id],
+    );
 
     await expect(
       repository.disconnectSynonyms("javascript", "js"),
     ).resolves.toBe(true);
     await expect(directSynonymExists("javascript", "js")).resolves.toBe(false);
+    await expect(
+      postgres.query<{ count: string }>(
+        `
+          SELECT count(*)::text AS count
+          FROM tag_alias_blocks
+          WHERE left_normalized = 'javascript' AND right_normalized = 'js'
+        `,
+      ),
+    ).resolves.toEqual([{ count: "1" }]);
+    await expect(
+      postgres.query<{ count: string }>(
+        `
+          SELECT count(*)::text AS count
+          FROM tag_aliases
+          WHERE alias_normalized = 'js'
+        `,
+      ),
+    ).resolves.toEqual([{ count: "0" }]);
+
+    await repository.connectSynonyms("javascript", "js", "0xmoderator");
+    await expect(
+      postgres.query<{ count: string }>(
+        `
+          SELECT count(*)::text AS count
+          FROM tag_alias_blocks
+          WHERE left_normalized = 'javascript' AND right_normalized = 'js'
+        `,
+      ),
+    ).resolves.toEqual([{ count: "0" }]);
+  });
+
+  it("resolves a persisted canonical alias before an obsolete exact tag", async () => {
+    await createTag("Old spelling", "old-spelling");
+    const canonical = await createTag("Canonical", "canonical");
+    await postgres.query(
+      `
+        INSERT INTO tag_aliases (
+          alias_normalized, alias_name, canonical_tag_node_id,
+          decision, confidence, resolver_version
+        )
+        SELECT 'old-spelling', 'Old spelling', id,
+          'automatic', 0.95, 'test'
+        FROM graph_nodes
+        WHERE label = 'Tag' AND properties ->> 'id' = $1
+      `,
+      [canonical.id],
+    );
+
+    await expect(
+      repository.resolveAlias("old-spelling"),
+    ).resolves.toMatchObject({
+      input: "old-spelling",
+      canonical: { normalizedName: "canonical" },
+      redirected: true,
+    });
   });
 
   it("rejects preferred-only synonym links when the origin is not preferred", async () => {

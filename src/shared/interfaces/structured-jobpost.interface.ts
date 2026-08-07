@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import * as t from "io-ts";
 import { isLeft } from "fp-ts/lib/Either";
 import { report } from "io-ts-human-reporter";
+import { JobAvailability } from "./job-availability.interface";
 
 export class StructuredJobpost {
   public static readonly StructuredJobpostType = t.strict({
@@ -37,6 +38,10 @@ export class StructuredJobpost {
     // process described on the jobsite's careers page (null when the page
     // doesn't describe one)
     hiringProcess: t.union([t.string, t.null, t.undefined]),
+    availability: t.union([
+      t.array(JobAvailability.JobAvailabilityType),
+      t.undefined,
+    ]),
   });
 
   @ApiProperty()
@@ -120,6 +125,9 @@ export class StructuredJobpost {
   @ApiPropertyOptional()
   hiringProcess?: string | null;
 
+  @ApiPropertyOptional({ type: [JobAvailability] })
+  availability?: JobAvailability[];
+
   constructor(raw: StructuredJobpost) {
     const {
       id,
@@ -149,6 +157,7 @@ export class StructuredJobpost {
       offersTokenAllocation,
       publishedTimestampIsVerified,
       hiringProcess,
+      availability,
     } = raw;
 
     const result = StructuredJobpost.StructuredJobpostType.decode(raw);
@@ -180,6 +189,7 @@ export class StructuredJobpost {
     this.offersTokenAllocation = offersTokenAllocation;
     this.publishedTimestampIsVerified = publishedTimestampIsVerified ?? null;
     this.hiringProcess = hiringProcess ?? null;
+    this.availability = availability ?? [];
 
     if (isLeft(result)) {
       report(result).forEach(x => {

@@ -36,6 +36,7 @@ import { StripeModule } from "./stripe/stripe.module";
 import { WhiteLabelBoardsModule } from "./white-label-boards/white-label-boards.module";
 import { AccountModule } from "./auth/account/account.module";
 import { PostgresModule } from "./postgres/postgres.module";
+import { TeamIntelligenceModule } from "./team-intelligence/team-intelligence.module";
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { PostgresModule } from "./postgres/postgres.module";
         applicationName: "jobstash-middleware",
       }),
     }),
+    TeamIntelligenceModule,
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

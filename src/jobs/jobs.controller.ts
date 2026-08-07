@@ -72,7 +72,6 @@ import { SimilarJob } from "./dto/similar-jobs.output";
 import { SuggestedJobsInput } from "./dto/suggested-jobs.input";
 import { PillarJob } from "./dto/suggested-jobs.output";
 import { JobsService } from "./jobs.service";
-import { CacheInterceptor } from "@nestjs/cache-manager";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { SubscriptionsService } from "src/subscriptions/subscriptions.service";
 import { StripeService } from "src/stripe/stripe.service";
@@ -80,7 +79,6 @@ import { isEmpty, isEqual, map, xor } from "lodash";
 import { AccountService } from "src/auth/account/account.service";
 
 @Controller("jobs")
-@UseInterceptors(CacheInterceptor)
 @ApiExtraModels(PaginatedData, JobFilterConfigs, ValidationError, JobListResult)
 export class JobsController {
   private readonly logger = new CustomLogger(JobsController.name);
@@ -96,7 +94,7 @@ export class JobsController {
 
   @Get("/list")
   @UseGuards(PBACGuard)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
   @ApiHeader({
     name: ECOSYSTEM_HEADER,
     required: false,
@@ -158,7 +156,7 @@ export class JobsController {
   }
 
   @Get("/filters")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
   @ApiOkResponse({
     description: "Returns the configuration data for the ui filters",
     schema: {
@@ -184,6 +182,7 @@ export class JobsController {
 
   @Get("details/:uuid")
   @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
   @ApiOkResponse({
     description: "Returns the job details for the provided slug",
     schema: {
@@ -371,7 +370,7 @@ export class JobsController {
   }
 
   @Get("/org/:id")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
   @ApiOkResponse({
     description: "Returns a list of jobs posted by an org",
     schema: {

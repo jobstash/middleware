@@ -68,7 +68,6 @@ import { NFTStorage, File } from "nft.storage";
 import { ConfigService } from "@nestjs/config";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import * as Sentry from "@sentry/node";
-import { CACHE_DURATION_1_HOUR } from "src/shared/constants/cache-control";
 import { ValidationError } from "class-validator";
 import { OrgListParams } from "./dto/org-list.input";
 import { UpdateOrgAliasesInput } from "./dto/update-organization-aliases.input";
@@ -234,7 +233,7 @@ export class OrganizationsController {
   }
 
   @Get("/list")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
   @ApiHeader({
     name: ECOSYSTEM_HEADER,
     required: false,
@@ -322,7 +321,7 @@ export class OrganizationsController {
   }
 
   @Get("/filters")
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
   @ApiHeader({
     name: ECOSYSTEM_HEADER,
     required: false,
@@ -353,7 +352,7 @@ export class OrganizationsController {
 
   @Get("/search")
   @UseGuards(PBACGuard)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
   @ApiOkResponse({
     description: "Returns a list of orgs that match the search criteria",
     type: Response<PaginatedData<ShortOrg>>,
@@ -391,6 +390,7 @@ export class OrganizationsController {
   }
 
   @Get("details/:id")
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
   @ApiHeader({
     name: ECOSYSTEM_HEADER,
     required: false,
@@ -435,6 +435,7 @@ export class OrganizationsController {
   }
 
   @Get("details/slug/:slug")
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
   @ApiHeader({
     name: ECOSYSTEM_HEADER,
     required: false,
@@ -474,6 +475,22 @@ export class OrganizationsController {
     if (result === undefined) {
       res.status(HttpStatus.NOT_FOUND);
     }
+    return result;
+  }
+
+  @Get("details/slug/:slug/team")
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
+  async getOrgTeamBySlug(
+    @Param("slug") slug: string,
+    @Query("page") page = "1",
+    @Query("limit") limit = "20",
+  ) {
+    const result = await this.organizationsService.getOrgTeamBySlug(
+      slug,
+      Number(page) || 1,
+      Number(limit) || 20,
+    );
+    if (!result) throw new NotFoundException("Organization not found");
     return result;
   }
 

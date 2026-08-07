@@ -428,6 +428,14 @@ export const toShortOrg = (org: OrgListResult): ShortOrg => {
     reviewCount,
     ecosystems,
     grants,
+    fundingStage,
+    recentlyFunded,
+    teamCoverageStatus,
+    teamSignalsAsOf,
+    currentMaintainerCount,
+    growingTeam,
+    shrinkingTeam,
+    earlyTeamShrinkage,
   } = org;
   const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
   return new ShortOrgEntity({
@@ -445,6 +453,14 @@ export const toShortOrg = (org: OrgListResult): ShortOrg => {
     projectCount: org.projects.length,
     lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
     lastFundingDate: lastFundingRound?.date ?? 0,
+    fundingStage: fundingStage ?? null,
+    recentlyFunded: recentlyFunded ?? false,
+    teamCoverageStatus: teamCoverageStatus ?? null,
+    teamSignalsAsOf: teamSignalsAsOf ?? null,
+    currentMaintainerCount: currentMaintainerCount ?? null,
+    growingTeam: growingTeam ?? null,
+    shrinkingTeam: shrinkingTeam ?? null,
+    earlyTeamShrinkage: earlyTeamShrinkage ?? null,
   }).getProperties();
 };
 
@@ -464,6 +480,14 @@ export const toShortOrgWithSummary = (
     ecosystems,
     grants,
     summary,
+    fundingStage,
+    recentlyFunded,
+    teamCoverageStatus,
+    teamSignalsAsOf,
+    currentMaintainerCount,
+    growingTeam,
+    shrinkingTeam,
+    earlyTeamShrinkage,
   } = org;
   const lastFundingRound = sort(org.fundingRounds).desc(x => x.date)[0];
   return new ShortOrgWithSummaryEntity({
@@ -482,6 +506,14 @@ export const toShortOrgWithSummary = (
     projectCount: org.projects.length,
     lastFundingAmount: lastFundingRound?.raisedAmount ?? 0,
     lastFundingDate: lastFundingRound?.date ?? 0,
+    fundingStage: fundingStage ?? null,
+    recentlyFunded: recentlyFunded ?? false,
+    teamCoverageStatus: teamCoverageStatus ?? null,
+    teamSignalsAsOf: teamSignalsAsOf ?? null,
+    currentMaintainerCount: currentMaintainerCount ?? null,
+    growingTeam: growingTeam ?? null,
+    shrinkingTeam: shrinkingTeam ?? null,
+    earlyTeamShrinkage: earlyTeamShrinkage ?? null,
   }).getProperties();
 };
 

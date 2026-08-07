@@ -45,6 +45,7 @@ const projectionNavigation: Partial<
       { pillar: "locations", jsonKey: "locations" },
       { pillar: "investors", jsonKey: "investors" },
       { pillar: "fundingRounds", jsonKey: "fundingRounds" },
+      { pillar: "fundingStages", jsonKey: "fundingStages" },
       { pillar: "chains", jsonKey: "chains" },
       { pillar: "names", jsonKey: "names" },
       { pillar: "tags", jsonKey: "tags" },
@@ -94,6 +95,20 @@ const labelArrayWithFallback = (
   )
 `;
 
+const placeLabelArray = (): string => `
+  COALESCE(
+    ARRAY(
+      SELECT entry.value
+      FROM jsonb_each_text(
+        COALESCE(source.filter_labels -> 'availability', '{}'::jsonb)
+      ) entry
+      WHERE entry.key LIKE 'place:%'
+      ORDER BY entry.value
+    ),
+    ARRAY[]::text[]
+  )
+`;
+
 const organizationSummary = (alias: string): string => `
   jsonb_build_object(
     'id', ${alias}.payload -> 'id',
@@ -115,6 +130,8 @@ const organizationSummary = (alias: string): string => `
     'projects', COALESCE(${alias}.payload -> 'projects', '[]'::jsonb),
     'fundingRounds', COALESCE(${alias}.payload -> 'fundingRounds', '[]'::jsonb),
     'investors', COALESCE(${alias}.payload -> 'investors', '[]'::jsonb)
+    ,'fundingStage', ${alias}.payload -> 'fundingStage'
+    ,'recentlyFunded', COALESCE(${alias}.payload -> 'recentlyFunded', 'false'::jsonb)
   )
 `;
 
@@ -262,15 +279,18 @@ export class SearchRepository {
       }>(
         `
           SELECT jsonb_build_object(
+            'organizationId', source.organization_id,
             'names', ${labelArray("names")},
             'chains', ${labelArray("chains")},
             'locations', ${labelArray("locations")},
             'investors', ${labelArray("investors")},
             'fundingRounds', ${labelArray("fundingRounds")},
+            'fundingStages', ${labelArray("fundingStages")},
             'tags', ${labelArray("tags")},
             'projects', ${labelArray("projects")},
             'ecosystems', ${labelArrayWithFallback("ecosystems", "managed_ecosystems")},
             'headCount', source.headcount_estimate,
+            'recentlyFunded', source.recently_funded,
             'hasProjects', source.has_projects,
             'hasJobs', source.recent_job_timestamp IS NOT NULL
           ) AS config
@@ -288,7 +308,7 @@ export class SearchRepository {
         `
           SELECT jsonb_build_object(
             'tags', ${labelArray("tags")},
-            'locations', ${labelArray("locations")},
+            'locations', ${placeLabelArray()},
             'commitments', ${labelArray("commitments")},
             'locationTypes', ${labelArrayWithFallback("locationTypes", "location_types")},
             'classifications', ${labelArray("classifications")},
@@ -304,6 +324,7 @@ export class SearchRepository {
             'organizations', ${labelArray("organizations")},
             'investors', ${labelArray("investors")},
             'fundingRounds', ${labelArray("fundingRounds")}
+            ,'fundingStages', ${labelArray("fundingStages")}
           ) AS config
           FROM job_search_documents source
           WHERE source.online
@@ -398,7 +419,14 @@ export class SearchRepository {
         predicates.push(hasFacetKey("classifications", value));
         break;
       case "locations":
-        predicates.push(`slugify_text(job.location) = ${bind(value)}`);
+        {
+          const place = await this.resolvePlacePillar(value);
+          predicates.push(
+            place
+              ? `${bind(`place:${place.placeId}`)} = ANY(job.availability_keys)`
+              : `slugify_text(job.location) = ${bind(value)}`,
+          );
+        }
         break;
       case "commitments":
         predicates.push(hasFacetKey("commitments", value));
@@ -422,6 +450,9 @@ export class SearchRepository {
         break;
       case "fundingRounds":
         predicates.push(hasFacetKey("fundingRounds", value));
+        break;
+      case "fundingStages":
+        predicates.push(hasFacetKey("fundingStages", value));
         break;
       case "booleans":
         if (value === "expertJobs") predicates.push("job.access = 'protected'");
@@ -459,6 +490,59 @@ export class SearchRepository {
     return rows.map(row => row.payload);
   }
 
+  async resolvePlacePillar(
+    value: string,
+  ): Promise<
+    | { placeId: string; canonicalName: string; canonicalSlug: string }
+    | undefined
+  > {
+    const normalized = slugify(value);
+    const rows = await this.postgres.query<{
+      placeId: string;
+      canonicalName: string;
+      canonicalSlug: string;
+      candidateCount: string;
+    }>(
+      `
+        WITH candidates AS (
+          SELECT
+            place.place_id AS "placeId",
+            place.canonical_name AS "canonicalName",
+            slugify_text(place.canonical_name) AS "canonicalSlug",
+            alias.priority
+          FROM place_aliases alias
+          JOIN place_reference place ON place.place_id = alias.place_id
+          WHERE alias.alias_normalized = $1
+          UNION ALL
+          SELECT
+            place.place_id,
+            place.canonical_name,
+            slugify_text(place.canonical_name),
+            2147483647
+          FROM place_reference place
+          WHERE place.normalized_name = $1
+        ), ranked AS (
+          SELECT *, max(priority) OVER () AS highest_priority
+          FROM candidates
+        )
+        SELECT
+          "placeId",
+          "canonicalName",
+          "canonicalSlug",
+          count(*) OVER ()::text AS "candidateCount"
+        FROM ranked
+        WHERE priority = highest_priority
+        ORDER BY "placeId"
+      `,
+      [normalized],
+    );
+    if (rows.length !== 1 || Number(rows[0].candidateCount) !== 1) {
+      return undefined;
+    }
+    const { candidateCount: _candidateCount, ...place } = rows[0];
+    return place;
+  }
+
   async getJobPillarSitemap(options: {
     startDate: number;
     endDate: number;
@@ -486,9 +570,13 @@ export class SearchRepository {
             COALESCE(filter_labels -> 'tags', '{}'::jsonb)
           ) entry
           UNION ALL
-          SELECT 'locations', slugify_text(location), location,
+          SELECT 'locations', slugify_text(entry.value), entry.value,
             job_node_id, published_timestamp
-          FROM active WHERE location IS NOT NULL
+          FROM active
+          CROSS JOIN LATERAL jsonb_each_text(
+            COALESCE(filter_labels -> 'availability', '{}'::jsonb)
+          ) entry
+          WHERE entry.key LIKE 'place:%'
           UNION ALL
           SELECT 'commitments', entry.key, entry.value, job_node_id,
             published_timestamp
@@ -541,6 +629,13 @@ export class SearchRepository {
           FROM active
           CROSS JOIN LATERAL jsonb_each_text(
             COALESCE(filter_labels -> 'fundingRounds', '{}'::jsonb)
+          ) entry
+          UNION ALL
+          SELECT 'fundingStages', entry.key, entry.value, job_node_id,
+            published_timestamp
+          FROM active
+          CROSS JOIN LATERAL jsonb_each_text(
+            COALESCE(filter_labels -> 'fundingStages', '{}'::jsonb)
           ) entry
           UNION ALL
           SELECT 'booleans', 'expertJobs', 'expertJobs', job_node_id,

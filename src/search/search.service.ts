@@ -50,6 +50,11 @@ import { SearchPillarParams } from "./dto/search-pillar.input";
 import { SearchParams } from "./dto/search.input";
 import { SkillSuggestionsInput } from "./dto/skill-suggestions.input";
 import { SkillSuggestionsData } from "./dto/skill-suggestions.output";
+import { TeamIntelligenceService } from "src/team-intelligence/team-intelligence.service";
+import {
+  OrganizationTeamSummary,
+  TeamFilterInput,
+} from "src/team-intelligence/team-intelligence.types";
 
 type FilterConfig = Record<string, unknown>;
 
@@ -68,6 +73,7 @@ const navigationLinkSegments: Partial<
     locations: "locations",
     investors: "investors",
     fundingRounds: "funding-rounds",
+    fundingStages: "fundingStages",
     chains: "chains",
     names: "names",
     tags: "tags",
@@ -96,6 +102,10 @@ const rangeFilters: Partial<
   },
   organizations: {
     headCount: { minimum: "minHeadCount", maximum: "maxHeadCount" },
+    currentMaintainers: {
+      minimum: "minCurrentMaintainers",
+      maximum: "maxCurrentMaintainers",
+    },
   },
 };
 
@@ -108,6 +118,10 @@ const booleanFilters: Partial<Record<SearchNav, Record<string, string>>> = {
   organizations: {
     hasProjects: "hasProjects",
     hasJobs: "hasJobs",
+    growingTeam: "growingTeam",
+    shrinkingTeam: "shrinkingTeam",
+    earlyTeamShrinkage: "earlyTeamShrinkage",
+    recentlyFunded: "recentlyFunded",
   },
 };
 
@@ -125,7 +139,10 @@ export class SearchService {
     fundingRounds: "Funding Rounds",
   };
 
-  constructor(private readonly searchRepository: SearchRepository) {}
+  constructor(
+    private readonly searchRepository: SearchRepository,
+    private readonly teamIntelligence: TeamIntelligenceService,
+  ) {}
 
   async searchChains(
     query: string,
@@ -194,10 +211,7 @@ export class SearchService {
     params: SearchPillarFiltersParams & { pillar: string },
     ecosystem: string | undefined,
   ): Promise<Pillar | undefined> {
-    const configs = await this.searchRepository.getPillarConfigs(
-      params.nav,
-      ecosystem,
-    );
+    const configs = await this.loadPillarConfigs(params.nav, ecosystem, params);
     return this.buildPillar(configs, params);
   }
 
@@ -209,9 +223,10 @@ export class SearchService {
       const pillar = params.pillar ?? NAV_PILLAR_ORDERING[params.nav]?.[0];
       if (!pillar)
         return { success: true, message: "Pillar not found", data: null };
-      const configs = await this.searchRepository.getPillarConfigs(
+      const configs = await this.loadPillarConfigs(
         params.nav,
         ecosystem,
+        params,
       );
       const active = this.buildPillar(configs, { ...params, pillar });
       const headerText = await this.fetchHeaderText(
@@ -279,10 +294,7 @@ export class SearchService {
     nav: SearchNav,
     ecosystem: string | undefined,
   ): Promise<string[]> {
-    const configs = await this.searchRepository.getPillarConfigs(
-      nav,
-      ecosystem,
-    );
+    const configs = await this.loadPillarConfigs(nav, ecosystem);
     return (NAV_PILLAR_ORDERING[nav] ?? []).flatMap(pillar => {
       const prefix = NAV_PILLAR_SLUG_PREFIX_MAPPINGS[nav]?.[pillar];
       const data = this.buildPillar(configs, {
@@ -363,7 +375,7 @@ export class SearchService {
       if (!pillars.length) {
         return { success: true, message: "Pillar not found", data: [] };
       }
-      const configs = await this.searchRepository.getPillarConfigs(params.nav);
+      const configs = await this.loadPillarConfigs(params.nav);
       const wanted = new Set(params.slugs ?? []);
       const labels = new Map<string, string>();
       for (const pillar of pillars) {
@@ -407,9 +419,10 @@ export class SearchService {
           data: null,
         };
       }
-      const allConfigs = await this.searchRepository.getPillarConfigs(
+      const allConfigs = await this.loadPillarConfigs(
         params.nav,
         ecosystem,
+        params,
       );
       const filterNames = [
         ...new Set(
@@ -422,9 +435,7 @@ export class SearchService {
         ),
       ];
       const filters: (
-        | SearchRangeFilter
-        | SingleSelectFilter
-        | MultiSelectFilter
+        SearchRangeFilter | SingleSelectFilter | MultiSelectFilter
       )[] = [];
       for (const filter of filterNames) {
         const configs = this.filterConfigs(allConfigs, params, filter);
@@ -495,12 +506,15 @@ export class SearchService {
       const parsed = this.parsePillarSlug(slug);
       if (!parsed)
         return { success: false, message: `Invalid slug format: ${slug}` };
-      const organization =
+      const rawOrganization =
         parsed.pillarType === "organizations"
-          ? this.normalizePillarOrganization(
-              await this.searchRepository.getOrganizationPillar(parsed.value),
-            )
-          : null;
+          ? await this.searchRepository.getOrganizationPillar(parsed.value)
+          : undefined;
+      const [hydratedOrganization] = rawOrganization
+        ? await this.hydrateTeamOrganizations([rawOrganization])
+        : [];
+      const organization =
+        this.normalizePillarOrganization(hydratedOrganization);
       const header = await this.fetchHeaderText(
         "jobs",
         parsed.pillarType,
@@ -510,16 +524,17 @@ export class SearchService {
         return { success: true, message: "Pillar not found", data: null };
       }
       const { startDate, endDate } = this.getPillarDateRange();
-      const jobs = (
-        await this.searchRepository.getPillarJobs({
-          pillarType: parsed.pillarType,
-          value: parsed.value,
-          ecosystem,
-          startDate,
-          endDate,
-          limit: 60,
-        })
-      ).map(job => this.normalizePillarJob(job));
+      const rawJobs = await this.searchRepository.getPillarJobs({
+        pillarType: parsed.pillarType,
+        value: parsed.value,
+        ecosystem,
+        startDate,
+        endDate,
+        limit: 60,
+      });
+      const jobs = (await this.hydratePillarJobs(rawJobs)).map(job =>
+        this.normalizePillarJob(job),
+      );
       if (!jobs.length && !organization) {
         return {
           success: true,
@@ -545,6 +560,10 @@ export class SearchService {
       this.captureDatabaseError("getPillarPageData", error);
       return { success: false, message: "Error retrieving pillar page data" };
     }
+  }
+
+  resolveLocationPillar(value: string) {
+    return this.searchRepository.resolvePlacePillar(value);
   }
 
   async getSkillSuggestions(
@@ -673,6 +692,102 @@ export class SearchService {
     return result;
   }
 
+  private async loadPillarConfigs(
+    nav: SearchNav,
+    ecosystem?: string,
+    filters: TeamFilterInput = {},
+  ): Promise<FilterConfig[]> {
+    const configs = await this.searchRepository.getPillarConfigs(
+      nav,
+      ecosystem,
+    );
+    if (nav !== "organizations") return configs;
+    const organizationIds = configs.flatMap(config =>
+      typeof config.organizationId === "string" ? [config.organizationId] : [],
+    );
+    if (!organizationIds.length) return configs;
+    const summaries = await this.loadTeamSummaries(
+      organizationIds,
+      this.teamIntelligence.hasFilters(filters),
+    );
+    return configs.map(config => {
+      const organizationId =
+        typeof config.organizationId === "string"
+          ? config.organizationId
+          : null;
+      const summary = organizationId
+        ? summaries.get(organizationId)
+        : undefined;
+      return {
+        ...config,
+        currentMaintainers: summary?.currentMaintainerCount ?? null,
+        growingTeam: summary?.growingTeam ?? null,
+        shrinkingTeam: summary?.shrinkingTeam ?? null,
+        earlyTeamShrinkage: summary?.earlyTeamShrinkage ?? null,
+      };
+    });
+  }
+
+  private async hydrateTeamOrganizations(
+    organizations: Record<string, unknown>[],
+  ): Promise<Record<string, unknown>[]> {
+    const organizationIds = organizations.flatMap(organization =>
+      typeof organization.orgId === "string" ? [organization.orgId] : [],
+    );
+    const summaries = await this.loadTeamSummaries(organizationIds, false);
+    return organizations.map(organization => {
+      const organizationId =
+        typeof organization.orgId === "string" ? organization.orgId : null;
+      const summary = organizationId
+        ? summaries.get(organizationId)
+        : undefined;
+      return {
+        ...organization,
+        teamCoverageStatus: summary?.coverageStatus ?? null,
+        teamSignalsAsOf: summary?.asOf ?? null,
+        currentMaintainerCount: summary?.currentMaintainerCount ?? null,
+        growingTeam: summary?.growingTeam ?? null,
+        shrinkingTeam: summary?.shrinkingTeam ?? null,
+        earlyTeamShrinkage: summary?.earlyTeamShrinkage ?? null,
+      };
+    });
+  }
+
+  private async hydratePillarJobs(
+    jobs: Record<string, unknown>[],
+  ): Promise<Record<string, unknown>[]> {
+    const organizations = jobs.flatMap(job =>
+      job.organization && typeof job.organization === "object"
+        ? [job.organization as Record<string, unknown>]
+        : [],
+    );
+    const hydratedOrganizations =
+      await this.hydrateTeamOrganizations(organizations);
+    let index = 0;
+    return jobs.map(job => {
+      if (!job.organization || typeof job.organization !== "object") {
+        return job;
+      }
+      return { ...job, organization: hydratedOrganizations[index++] };
+    });
+  }
+
+  private async loadTeamSummaries(
+    organizationIds: string[],
+    required: boolean,
+  ): Promise<Map<string, OrganizationTeamSummary>> {
+    try {
+      return await this.teamIntelligence.getSummariesById(organizationIds);
+    } catch (error) {
+      if (required) throw error;
+      Sentry.captureException(error);
+      this.logger.error(
+        `SearchService::loadTeamSummaries ${(error as Error).message}`,
+      );
+      return new Map();
+    }
+  }
+
   private buildPillar(
     allConfigs: FilterConfig[],
     params: SearchPillarFiltersParams & { pillar: string },
@@ -701,6 +816,7 @@ export class SearchService {
       "locations",
       "investors",
       "fundingRounds",
+      "fundingStages",
       "tags",
       "classifications",
       "commitments",
@@ -726,11 +842,24 @@ export class SearchService {
         rangeFilters[params.nav] ?? {},
       )) {
         if (field === excludedField) continue;
-        const value = this.asNumber(config[field]) ?? 0;
+        const knownValue = this.asNumber(config[field]);
         const minimum = this.asNumber(values[mapping.minimum]);
         const maximum = this.asNumber(values[mapping.maximum]);
+        if (
+          field === "currentMaintainers" &&
+          knownValue === null &&
+          (minimum !== null || maximum !== null)
+        ) {
+          return false;
+        }
+        const value = knownValue ?? 0;
         if (minimum !== null && value < minimum) return false;
-        if (maximum !== null && value > maximum) return false;
+        if (
+          maximum !== null &&
+          (field === "currentMaintainers" ? value >= maximum : value > maximum)
+        ) {
+          return false;
+        }
       }
       for (const [field, parameter] of Object.entries(
         booleanFilters[params.nav] ?? {},
@@ -871,6 +1000,11 @@ export class SearchService {
         return {
           title: `${displayName} Crypto Jobs - Web3 Opportunities`,
           description: `Find web3 jobs at ${displayName} funded companies. Join crypto startups and blockchain projects at this funding stage.`,
+        };
+      case "fundingStages":
+        return {
+          title: `${displayName} Crypto Startup Jobs`,
+          description: `Find web3 jobs at companies whose current recognized equity stage is ${displayName}. Browse open roles and apply on Jobstash.`,
         };
       case "classifications":
         return {

@@ -5,6 +5,11 @@ import { DateRange } from "src/shared/types";
 import { publicationDateRangeGenerator } from "./helpers";
 
 const emptyPage = { page: 1, count: 0, total: 0, data: [] };
+const teamIntelligence = () => ({
+  matchingOrganizationIds: jest.fn().mockResolvedValue(undefined),
+  getSummariesById: jest.fn().mockResolvedValue(new Map()),
+  applySummary: jest.fn((organization: unknown) => organization),
+});
 
 describe("filter service contracts", () => {
   afterEach(() => {
@@ -31,6 +36,7 @@ describe("filter service contracts", () => {
         { searchJobs } as never,
         {} as never,
         {} as never,
+        teamIntelligence() as never,
       );
 
       await service.getJobsListWithSearch({
@@ -62,6 +68,7 @@ describe("filter service contracts", () => {
       { searchJobs } as never,
       {} as never,
       {} as never,
+      teamIntelligence() as never,
     );
 
     await service.getJobsListWithSearch({
@@ -91,11 +98,62 @@ describe("filter service contracts", () => {
       { getJobPayloads } as never,
       {} as never,
       {} as never,
+      teamIntelligence() as never,
     );
 
     await service.getJobsByOrgId("org-1", "ethereum");
 
     expect(getJobPayloads).toHaveBeenCalledWith("ethereum", "org-1");
+  });
+
+  it("intersects job search with organization ids matched in ClickHouse", async () => {
+    const searchJobs = jest.fn().mockResolvedValue(emptyPage);
+    const intelligence = teamIntelligence();
+    (intelligence.matchingOrganizationIds as jest.Mock).mockResolvedValue([
+      "org-1",
+    ]);
+    const service = new JobsService(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { searchJobs } as never,
+      {} as never,
+      {} as never,
+      intelligence as never,
+    );
+
+    await service.getJobsListWithSearch({
+      growingTeam: true,
+      query: null,
+    });
+
+    expect(searchJobs).toHaveBeenCalledWith(
+      expect.objectContaining({ teamOrganizationIds: ["org-1"] }),
+    );
+  });
+
+  it("does not run an unfiltered Postgres search when scorer is unavailable", async () => {
+    const searchJobs = jest.fn().mockResolvedValue(emptyPage);
+    const intelligence = teamIntelligence();
+    (intelligence.matchingOrganizationIds as jest.Mock).mockRejectedValue(
+      new Error("scorer unavailable"),
+    );
+    const service = new JobsService(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { searchJobs } as never,
+      {} as never,
+      {} as never,
+      intelligence as never,
+    );
+
+    await expect(
+      service.getJobsListWithSearch({ growingTeam: true, query: null }),
+    ).rejects.toThrow("scorer unavailable");
+    expect(searchJobs).not.toHaveBeenCalled();
   });
 
   it("forwards every organization search argument and ecosystem header", async () => {
@@ -106,6 +164,7 @@ describe("filter service contracts", () => {
       { searchOrganizations } as never,
       {} as never,
       {} as never,
+      teamIntelligence() as never,
     );
     const params = {
       locations: ["berlin"],

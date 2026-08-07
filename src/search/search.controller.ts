@@ -24,7 +24,6 @@ import { SearchPillarItemParams } from "./dto/search-pillar-items.input";
 import { PBACGuard } from "src/auth/pbac.guard";
 import {
   CACHE_DURATION_15_MINUTES,
-  CACHE_DURATION_1_HOUR,
   ECOSYSTEM_HEADER,
 } from "src/shared/constants";
 import { Session } from "src/shared/decorators";
@@ -114,7 +113,7 @@ export class SearchController {
       "Optional header to tailor the response for a specific ecosystem",
   })
   @UseGuards(PBACGuard)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
   async searchPillar(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true })) params: SearchPillarParams,
@@ -140,7 +139,7 @@ export class SearchController {
       "Optional header to tailor the response for a specific ecosystem",
   })
   @UseGuards(PBACGuard)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
   async searchPillarItems(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
@@ -171,7 +170,7 @@ export class SearchController {
       "Optional header to tailor the response for a specific ecosystem",
   })
   @UseGuards(PBACGuard)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
   async searchPillarSlugs(
     @Session() { address }: SessionObject,
     @Query("nav") nav: SearchNav,
@@ -232,7 +231,7 @@ export class SearchController {
       "Optional header to tailor the response for a specific ecosystem",
   })
   @UseGuards(PBACGuard)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
   async searchPillarFilters(
     @Query(new ValidationPipe({ transform: true }))
     params: SearchPillarFiltersParams,
@@ -245,7 +244,7 @@ export class SearchController {
 
   @Get("pillar/labels")
   @UseGuards(PBACGuard)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_15_MINUTES))
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
   async fetchPillarLabels(
     @Session() { address }: SessionObject,
     @Query(new ValidationPipe({ transform: true }))
@@ -279,7 +278,7 @@ export class SearchController {
       "Optional header to tailor the response for a specific ecosystem",
   })
   @UseGuards(PBACGuard)
-  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  @UseInterceptors(new CacheHeaderInterceptor({ mode: "revalidate-always" }))
   async getStaticPillarPage(
     @Session() { address }: SessionObject,
     @Param("slug") slug: string,
@@ -295,5 +294,10 @@ export class SearchController {
       await this.profileService.logSearchInteraction(address, query);
     }
     return this.searchService.getPillarPageData(slug, ecosystem);
+  }
+
+  @Get("pillar/location/resolve")
+  resolveLocationPillar(@Query("value") value: string) {
+    return this.searchService.resolveLocationPillar(value);
   }
 }

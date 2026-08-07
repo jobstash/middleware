@@ -17,6 +17,12 @@ export type TagMatch = Tag & {
   jobCount: number;
 };
 
+export type ResolvedTagAlias = {
+  input: string;
+  canonical: Tag;
+  redirected: boolean;
+};
+
 const queryRows = async <T>(
   executor: QueryExecutor,
   sql: string,
@@ -139,6 +145,58 @@ export class TagRepository {
 
   async findByNormalizedName(normalizedName: string): Promise<Tag | undefined> {
     return (await this.findNode({ normalizedName }))?.properties;
+  }
+
+  async resolveAlias(
+    normalizedName: string,
+  ): Promise<ResolvedTagAlias | undefined> {
+    const [row] = await queryRows<ResolvedTagAlias>(
+      this.postgres,
+      `
+        WITH candidates AS (
+          SELECT
+            alias.alias_normalized AS input,
+            tag.properties AS canonical,
+            CASE WHEN alias.decision = 'pinned' THEN 4 ELSE 2 END
+              AS resolution_priority
+          FROM tag_aliases alias
+          JOIN graph_nodes tag
+            ON tag.id = alias.canonical_tag_node_id
+           AND tag.label = 'Tag'
+          WHERE alias.alias_normalized = $1
+          UNION ALL
+          SELECT
+            $1 AS input,
+            COALESCE(preferred.properties, paired.properties) AS canonical,
+            3 AS resolution_priority
+          FROM graph_nodes source
+          ${canonicalJoins("source")}
+          WHERE source.label = 'Tag'
+            AND source.properties ->> 'normalizedName' = $1
+            AND COALESCE(preferred.id, paired.id) IS NOT NULL
+          UNION ALL
+          SELECT
+            $1 AS input,
+            tag.properties AS canonical,
+            1 AS resolution_priority
+          FROM graph_nodes tag
+          WHERE tag.label = 'Tag'
+            AND tag.properties ->> 'normalizedName' = $1
+        ), resolved AS (
+          SELECT input, canonical
+          FROM candidates
+          ORDER BY resolution_priority DESC
+          LIMIT 1
+        )
+        SELECT
+          input,
+          canonical,
+          canonical ->> 'normalizedName' <> input AS redirected
+        FROM resolved
+      `,
+      [normalizedName],
+    );
+    return row;
   }
 
   async findPreferredTag(
@@ -394,9 +452,7 @@ export class TagRepository {
   async setDesignation(options: {
     normalizedName: string;
     designation:
-      | "BlockedDesignation"
-      | "PreferredDesignation"
-      | "AllowedDesignation";
+      "BlockedDesignation" | "PreferredDesignation" | "AllowedDesignation";
     creatorWallet: string;
     includeSynonyms?: boolean;
     replaceAllowed?: boolean;
@@ -602,6 +658,15 @@ export class TagRepository {
       ) {
         return [];
       }
+      await queryRows(
+        manager,
+        `
+          DELETE FROM tag_alias_blocks
+          WHERE left_normalized = least($1, $2)
+            AND right_normalized = greatest($1, $2)
+        `,
+        [firstNormalizedName, secondNormalizedName],
+      );
       const componentIds = await this.getSynonymComponentIds(manager, [
         first.nodeId,
         second.nodeId,
@@ -662,6 +727,38 @@ export class TagRepository {
         [firstNormalizedName, secondNormalizedName],
       );
       if (rows.length) {
+        await queryRows(
+          manager,
+          `
+            INSERT INTO tag_alias_blocks (
+              left_normalized, right_normalized, reason
+            ) VALUES (
+              least($1, $2), greatest($1, $2),
+              'curator-unlinked-synonyms'
+            )
+            ON CONFLICT (left_normalized, right_normalized) DO UPDATE SET
+              reason = EXCLUDED.reason
+          `,
+          [firstNormalizedName, secondNormalizedName],
+        );
+        await queryRows(
+          manager,
+          `
+            DELETE FROM tag_aliases
+            WHERE decision = 'automatic'
+              AND (
+                (alias_normalized = $1 AND canonical_tag_node_id = $4::bigint)
+                OR
+                (alias_normalized = $2 AND canonical_tag_node_id = $3::bigint)
+              )
+          `,
+          [
+            firstNormalizedName,
+            secondNormalizedName,
+            rows[0].firstId,
+            rows[0].secondId,
+          ],
+        );
         await this.refreshJobsForTags(manager, [
           rows[0].firstId,
           rows[0].secondId,

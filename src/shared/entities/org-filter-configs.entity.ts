@@ -19,7 +19,10 @@ import { toHeaderCase } from "js-convert-case";
 type RawOrgFilters = {
   minHeadCount?: number | null;
   maxHeadCount?: number | null;
+  minCurrentMaintainers?: number | null;
+  maxCurrentMaintainers?: number | null;
   fundingRounds?: string[] | null;
+  fundingStages?: string[] | null;
   investors?: string[] | null;
   locations?: string[] | null;
   ecosystems?: string[] | null;
@@ -81,6 +84,12 @@ export class OrgFilterConfigsEntity {
     return new OrgFilterConfigs({
       headcountEstimate: this.getRangePresets("headcountEstimate"),
       fundingRounds: this.getMultiValuePresets("fundingRounds"),
+      fundingStages: this.getMultiValuePresets("fundingStages"),
+      currentMaintainers: this.getRangePresets("currentMaintainers"),
+      growingTeam: this.getSingleSelectPresets("growingTeam"),
+      shrinkingTeam: this.getSingleSelectPresets("shrinkingTeam"),
+      earlyTeamShrinkage: this.getSingleSelectPresets("earlyTeamShrinkage"),
+      recentlyFunded: this.getSingleSelectPresets("recentlyFunded"),
       investors: this.getMultiValuePresets("investors"),
       ecosystems: this.getMultiValuePresets("ecosystems"),
       categories: this.getMultiValuePresets("categories"),

@@ -191,6 +191,15 @@ export class JobListParams {
   @Transform(toList)
   fundingRounds?: string[] | null = null;
 
+  @ApiPropertyOptional({
+    description:
+      "Canonical current equity funding stages (for example seed or series-a)",
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  fundingStages?: string[] | null = null;
+
   @ApiPropertyOptional()
   @IsOptional()
   @Type(() => String)
@@ -208,6 +217,70 @@ export class JobListParams {
   @Type(() => String)
   @Transform(toList)
   locations?: string[] | null = null;
+
+  @ApiPropertyOptional({
+    description: "Work modes. Replaces the legacy locations query parameter.",
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  workModes?: string[] | null = null;
+
+  @ApiPropertyOptional({
+    description:
+      "Canonical place/timezone availability keys returned by /jobs/filters",
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  availability?: string[] | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  minCurrentMaintainers?: number | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Compare("minCurrentMaintainers", ">=")
+  @Type(() => Number)
+  maxCurrentMaintainers?: number | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  growingTeam?: boolean | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  shrinkingTeam?: boolean | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  earlyTeamShrinkage?: boolean | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  recentlyFunded?: boolean | null = null;
 
   @ApiPropertyOptional()
   @IsOptional()

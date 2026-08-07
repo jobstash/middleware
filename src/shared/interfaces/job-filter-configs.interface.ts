@@ -28,6 +28,14 @@ export class JobFilterConfigs {
     order: SingleSelectFilter.SingleSelectFilterType,
     seniority: MultiSelectFilter.MultiSelectFilterType,
     locations: MultiSelectFilter.MultiSelectFilterType,
+    workModes: MultiSelectFilter.MultiSelectFilterType,
+    availability: MultiSelectFilter.MultiSelectFilterType,
+    fundingStages: MultiSelectFilter.MultiSelectFilterType,
+    currentMaintainers: RangeFilter.RangeFilterType,
+    growingTeam: SingleSelectFilter.SingleSelectFilterType,
+    shrinkingTeam: SingleSelectFilter.SingleSelectFilterType,
+    earlyTeamShrinkage: SingleSelectFilter.SingleSelectFilterType,
+    recentlyFunded: SingleSelectFilter.SingleSelectFilterType,
     orderBy: SingleSelectFilter.SingleSelectFilterType,
     tags: MultiSelectFilter.MultiSelectFilterType,
     publicationDate: SingleSelectFilter.SingleSelectFilterType,
@@ -49,6 +57,22 @@ export class JobFilterConfigs {
   seniority: MultiSelectFilter;
   @ApiProperty()
   locations: MultiSelectFilter;
+  @ApiProperty()
+  workModes: MultiSelectFilter;
+  @ApiProperty()
+  availability: MultiSelectFilter;
+  @ApiProperty()
+  fundingStages: MultiSelectFilter;
+  @ApiProperty()
+  currentMaintainers: RangeFilter;
+  @ApiProperty()
+  growingTeam: SingleSelectFilter;
+  @ApiProperty()
+  shrinkingTeam: SingleSelectFilter;
+  @ApiProperty()
+  earlyTeamShrinkage: SingleSelectFilter;
+  @ApiProperty()
+  recentlyFunded: SingleSelectFilter;
   @ApiProperty()
   headcountEstimate: RangeFilter;
   @ApiProperty()
@@ -106,6 +130,14 @@ export class JobFilterConfigs {
       projects,
       seniority,
       locations,
+      workModes,
+      availability,
+      fundingStages,
+      currentMaintainers,
+      growingTeam,
+      shrinkingTeam,
+      earlyTeamShrinkage,
+      recentlyFunded,
       headcountEstimate,
       investors,
       ecosystems,
@@ -135,6 +167,14 @@ export class JobFilterConfigs {
     this.projects = projects;
     this.seniority = seniority;
     this.locations = locations;
+    this.workModes = workModes;
+    this.availability = availability;
+    this.fundingStages = fundingStages;
+    this.currentMaintainers = currentMaintainers;
+    this.growingTeam = growingTeam;
+    this.shrinkingTeam = shrinkingTeam;
+    this.earlyTeamShrinkage = earlyTeamShrinkage;
+    this.recentlyFunded = recentlyFunded;
     this.onboardIntoWeb3 = onboardIntoWeb3;
     this.expertJobs = expertJobs;
     this.headcountEstimate = headcountEstimate;

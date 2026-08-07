@@ -66,6 +66,11 @@ import {
   JobGraphRepository,
 } from "src/postgres/job-graph.repository";
 import { TagsService } from "src/tags/tags.service";
+import { TeamIntelligenceService } from "src/team-intelligence/team-intelligence.service";
+import {
+  OrganizationTeamSummary,
+  TeamOrganizationFields,
+} from "src/team-intelligence/team-intelligence.types";
 
 @Injectable()
 export class JobsService {
@@ -78,13 +83,15 @@ export class JobsService {
     private readonly searchDocuments: SearchDocumentRepository,
     private readonly jobGraph: JobGraphRepository,
     private readonly tagsService: TagsService,
+    private readonly teamIntelligence: TeamIntelligenceService,
   ) {}
 
   getJobsListResults = async (
     ecosystem?: string | undefined,
   ): Promise<JobListResult[]> => {
     const payloads = await this.searchDocuments.getJobPayloads(ecosystem);
-    return payloads.flatMap(payload => {
+    const hydrated = await this.hydrateJobTeamSummaries(payloads);
+    return hydrated.flatMap(payload => {
       try {
         return [new JobListResultEntity(payload).getProperties()];
       } catch (error) {
@@ -113,7 +120,8 @@ export class JobsService {
   ): Promise<EcosystemJobListResult[]> => {
     const payloads =
       await this.searchDocuments.getOrganizationJobPayloads(orgId);
-    return payloads.flatMap(payload => {
+    const hydrated = await this.hydrateJobTeamSummaries(payloads);
+    return hydrated.flatMap(payload => {
       try {
         return [
           new EcosystemJobListResultEntity(
@@ -129,7 +137,8 @@ export class JobsService {
 
   getAllJobsListResults = async (): Promise<AllJobsListResult[]> => {
     const payloads = await this.searchDocuments.getAllJobPayloads();
-    return payloads.flatMap(payload => {
+    const hydrated = await this.hydrateJobTeamSummaries(payloads);
+    return hydrated.flatMap(payload => {
       try {
         return [
           new AllJobListResultEntity(
@@ -146,13 +155,17 @@ export class JobsService {
   async getJobsListWithSearch(
     params: JobListParams & { ecosystemHeader?: string },
   ): Promise<PaginatedData<JobListResult>> {
+    const teamOrganizationIds =
+      await this.teamIntelligence.matchingOrganizationIds(params);
     const postgresPage = await this.searchDocuments.searchJobs({
       ...publicationDateRangeGenerator(params.publicationDate as DateRange),
       ...params,
+      ...(teamOrganizationIds !== undefined ? { teamOrganizationIds } : {}),
     });
+    const hydrated = await this.hydrateJobTeamSummaries(postgresPage.data);
     return {
       ...postgresPage,
-      data: postgresPage.data.flatMap(payload => {
+      data: hydrated.flatMap(payload => {
         try {
           return [new JobListResultEntity(payload).getProperties()];
         } catch (error) {
@@ -181,7 +194,7 @@ export class JobsService {
       this.tagsService.getPopularTags(100),
     ]);
     return new JobFilterConfigsEntity({
-      ...values,
+      ...(await this.addTeamRange(values)),
       tags: popularTags.map(tag => tag.name),
     }).getProperties();
   }
@@ -290,8 +303,11 @@ export class JobsService {
       const projected = await this.searchDocuments.getJobByShortUuid(uuid, {
         ecosystem,
       });
-      return projected
-        ? new JobDetailsEntity(projected as JobDetailsResult).getProperties(
+      const [hydrated] = projected
+        ? await this.hydrateJobTeamSummaries([projected])
+        : [];
+      return hydrated
+        ? new JobDetailsEntity(hydrated as JobDetailsResult).getProperties(
             protectLink,
           )
         : undefined;
@@ -316,9 +332,12 @@ export class JobsService {
       const projected = await this.searchDocuments.getJobByShortUuid(uuid, {
         includeOffline: true,
       });
-      return projected
+      const [hydrated] = projected
+        ? await this.hydrateJobTeamSummaries([projected])
+        : [];
+      return hydrated
         ? new EcosystemJobListResultEntity(
-            projected as EcosystemJobListResult,
+            hydrated as EcosystemJobListResult,
           ).getProperties()
         : undefined;
     } catch (err) {
@@ -343,8 +362,9 @@ export class JobsService {
   ): Promise<JobListResult[] | undefined> {
     try {
       const payloads = await this.searchDocuments.getJobPayloads(ecosystem, id);
+      const hydrated = await this.hydrateJobTeamSummaries(payloads);
       return sort(
-        payloads.map(orgJob => new JobListResultEntity(orgJob).getProperties()),
+        hydrated.map(orgJob => new JobListResultEntity(orgJob).getProperties()),
       ).desc(x => x.timestamp);
     } catch (err) {
       Sentry.withScope(scope => {
@@ -412,7 +432,9 @@ export class JobsService {
 
   async getOrgAllJobsListFilters(id: string): Promise<JobFilterConfigs> {
     const values = await this.searchDocuments.getJobFilterValues(undefined, id);
-    return new JobFilterConfigsEntity(values).getProperties();
+    return new JobFilterConfigsEntity(
+      await this.addTeamRange(values),
+    ).getProperties();
   }
 
   async getJobsByOrgIdWithApplicants(
@@ -1310,6 +1332,63 @@ export class JobsService {
       category,
       matchedSkills,
       recommendedSkills,
+    };
+  }
+
+  private async hydrateJobTeamSummaries<
+    T extends {
+      organization?: TeamOrganizationFields | null;
+    },
+  >(jobs: T[]): Promise<T[]> {
+    const organizationIds = jobs.flatMap(job =>
+      job.organization?.orgId ? [job.organization.orgId] : [],
+    );
+    let summaries = new Map<string, OrganizationTeamSummary>();
+    try {
+      summaries = await this.teamIntelligence.getSummariesById(organizationIds);
+    } catch (error) {
+      Sentry.captureException(error);
+      this.logger.error(
+        `JobsService::hydrateJobTeamSummaries ${(error as Error).message}`,
+      );
+    }
+    return jobs.map(job => {
+      if (!job.organization?.orgId) return job;
+      return {
+        ...job,
+        organization: this.teamIntelligence.applySummary(
+          job.organization,
+          summaries.get(job.organization.orgId),
+        ),
+      } as T;
+    });
+  }
+
+  private async addTeamRange(
+    values: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const organizationIds = Array.isArray(values.teamOrganizationIds)
+      ? values.teamOrganizationIds.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : [];
+    let range: { minimum: number | null; maximum: number | null } = {
+      minimum: null,
+      maximum: null,
+    };
+    try {
+      range =
+        await this.teamIntelligence.getCurrentMaintainerRange(organizationIds);
+    } catch (error) {
+      Sentry.captureException(error);
+      this.logger.error(
+        `JobsService::addTeamRange ${(error as Error).message}`,
+      );
+    }
+    return {
+      ...values,
+      minCurrentMaintainers: range.minimum,
+      maxCurrentMaintainers: range.maximum,
     };
   }
 

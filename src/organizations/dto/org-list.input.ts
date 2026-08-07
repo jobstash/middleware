@@ -38,6 +38,59 @@ export class OrgListParams {
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
+  fundingStages?: string[] | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  minCurrentMaintainers?: number | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Compare("minCurrentMaintainers", ">=")
+  @Type(() => Number)
+  maxCurrentMaintainers?: number | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  growingTeam?: boolean | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  shrinkingTeam?: boolean | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  earlyTeamShrinkage?: boolean | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  recentlyFunded?: boolean | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
   investors?: string[] | null = null;
 
   @ApiPropertyOptional()

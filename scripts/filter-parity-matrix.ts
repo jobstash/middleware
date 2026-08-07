@@ -48,13 +48,7 @@ export type FilterMatrixCase = {
   headers: Record<string, string>;
   coveredParameters: string[];
   kind:
-    | "baseline"
-    | "single"
-    | "pair"
-    | "range"
-    | "sort"
-    | "header"
-    | "validation";
+    "baseline" | "single" | "pair" | "range" | "sort" | "header" | "validation";
   productionBaselineMayFail: boolean;
 };
 
@@ -161,6 +155,8 @@ const jobParameters = (): MatrixParameter[] => [
   numberParameter("maxSalaryRange", 150_000, 2_000_001),
   numberParameter("minHeadCount", 10, 1_000),
   numberParameter("maxHeadCount", 100, 1_001),
+  numberParameter("minCurrentMaintainers", 1, 100),
+  numberParameter("maxCurrentMaintainers", 10, 101),
   numberParameter("minTvl", 1_000_000, 100_000_000_000),
   numberParameter("maxTvl", 10_000_000, 100_000_000_001),
   numberParameter("minMonthlyVolume", 100_000, 1_000_000_000),
@@ -179,9 +175,20 @@ const jobParameters = (): MatrixParameter[] => [
   arrayParameter("classifications", "engineering", "marketing"),
   arrayParameter("commitments", "fulltime", "contract"),
   arrayParameter("fundingRounds", "series-a", "seed"),
+  arrayParameter("fundingStages", "series-a", "seed"),
   arrayParameter("investors", "paradigm", "coinbase-ventures"),
   arrayParameter("seniority", "3", "4"),
   arrayParameter("locations", "remote", "hybrid"),
+  arrayParameter("workModes", "remote", "hybrid"),
+  arrayParameter(
+    "availability",
+    "place:geonames:5128581",
+    "tz:iana:america-new-york",
+  ),
+  booleanParameter("growingTeam"),
+  booleanParameter("shrinkingTeam"),
+  booleanParameter("earlyTeamShrinkage"),
+  booleanParameter("recentlyFunded"),
   booleanParameter("token"),
   booleanParameter("onboardIntoWeb3"),
   booleanParameter("expertJobs"),
@@ -212,6 +219,12 @@ const jobRanges: MatrixRange[] = [
     upper: 150_000,
   },
   { minimum: "minHeadCount", maximum: "maxHeadCount", lower: 10, upper: 100 },
+  {
+    minimum: "minCurrentMaintainers",
+    maximum: "maxCurrentMaintainers",
+    lower: 1,
+    upper: 10,
+  },
   { minimum: "minTvl", maximum: "maxTvl", lower: 1_000_000, upper: 10_000_000 },
   {
     minimum: "minMonthlyVolume",
@@ -236,7 +249,16 @@ const jobRanges: MatrixRange[] = [
 const organizationParameters = (includeHasJobs: boolean): MatrixParameter[] => [
   numberParameter("minHeadCount", 10, 1_000),
   numberParameter("maxHeadCount", 100, 1_001),
+  ...(!includeHasJobs
+    ? [
+        numberParameter("minCurrentMaintainers", 1, 100),
+        numberParameter("maxCurrentMaintainers", 10, 101),
+      ]
+    : []),
   arrayParameter("fundingRounds", "series-a", "seed"),
+  ...(!includeHasJobs
+    ? [arrayParameter("fundingStages", "series-a", "seed")]
+    : []),
   arrayParameter("investors", "paradigm", "coinbase-ventures"),
   arrayParameter("locations", "berlin", "lisbon"),
   ...(includeHasJobs
@@ -249,6 +271,14 @@ const organizationParameters = (includeHasJobs: boolean): MatrixParameter[] => [
   arrayParameter("names", "ripple", "agoric"),
   ...(includeHasJobs ? [booleanParameter("hasJobs")] : []),
   booleanParameter("hasProjects"),
+  ...(!includeHasJobs
+    ? [
+        booleanParameter("growingTeam"),
+        booleanParameter("shrinkingTeam"),
+        booleanParameter("earlyTeamShrinkage"),
+        booleanParameter("recentlyFunded"),
+      ]
+    : []),
   enumParameter("order", ["asc", "desc"]),
   enumParameter("orderBy", [
     "recentFundingDate",
@@ -349,6 +379,12 @@ export const FILTER_ENDPOINT_SPECS: FilterEndpointSpec[] = [
         maximum: "maxHeadCount",
         lower: 10,
         upper: 100,
+      },
+      {
+        minimum: "minCurrentMaintainers",
+        maximum: "maxCurrentMaintainers",
+        lower: 1,
+        upper: 10,
       },
     ],
     headerName: "x-ecosystem",

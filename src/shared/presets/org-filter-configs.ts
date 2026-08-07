@@ -14,6 +14,22 @@ export const SINGLE_SELECT_OPTIONS = {
     { label: "Has jobs", value: true },
     { label: "Has no jobs", value: false },
   ],
+  growingTeam: [
+    { label: "Growing maintainer team", value: true },
+    { label: "Not growing", value: false },
+  ],
+  shrinkingTeam: [
+    { label: "Maintainers moved", value: true },
+    { label: "No detected maintainer moves", value: false },
+  ],
+  earlyTeamShrinkage: [
+    { label: "Early maintainers moved", value: true },
+    { label: "No detected early-team moves", value: false },
+  ],
+  recentlyFunded: [
+    { label: "Funded in the last 6 months", value: true },
+    { label: "No funding event in the last 6 months", value: false },
+  ],
   order: [
     { label: "Ascending", value: "asc" },
     { label: "Descending", value: "desc" },
@@ -104,6 +120,53 @@ export const FILTER_CONFIG_PRESETS = {
     googleAnalyticsEventName: "filter_orglist_categories",
     kind: FilterKind.MULTI_SELECT,
   },
+  fundingStages: {
+    position: 11,
+    label: "Current Funding Stage",
+    show: true,
+    googleAnalyticsEventName: "filter_orglist_funding_stages",
+    kind: FilterKind.MULTI_SELECT,
+  },
+  currentMaintainers: {
+    position: 12,
+    label: "Current Maintainers",
+    show: true,
+    googleAnalyticsEventName: "filter_orglist_current_maintainers",
+    kind: FilterKind.RANGE,
+    prefix: null,
+  },
+  growingTeam: {
+    position: 13,
+    label: "Growing Maintainer Team",
+    show: true,
+    googleAnalyticsEventName: "filter_orglist_growing_team",
+    kind: FilterKind.SINGLE_SELECT,
+    options: SINGLE_SELECT_OPTIONS.growingTeam,
+  },
+  shrinkingTeam: {
+    position: 14,
+    label: "Maintainer Moves",
+    show: true,
+    googleAnalyticsEventName: "filter_orglist_shrinking_team",
+    kind: FilterKind.SINGLE_SELECT,
+    options: SINGLE_SELECT_OPTIONS.shrinkingTeam,
+  },
+  earlyTeamShrinkage: {
+    position: 15,
+    label: "Early-Team Moves",
+    show: true,
+    googleAnalyticsEventName: "filter_orglist_early_team_shrinkage",
+    kind: FilterKind.SINGLE_SELECT,
+    options: SINGLE_SELECT_OPTIONS.earlyTeamShrinkage,
+  },
+  recentlyFunded: {
+    position: 16,
+    label: "Recently Funded",
+    show: true,
+    googleAnalyticsEventName: "filter_orglist_recently_funded",
+    kind: FilterKind.SINGLE_SELECT,
+    options: SINGLE_SELECT_OPTIONS.recentlyFunded,
+  },
 };
 
 export const FILTER_PARAM_KEY_PRESETS = {
@@ -113,6 +176,15 @@ export const FILTER_PARAM_KEY_PRESETS = {
     highest: "maxHeadCount",
   },
   fundingRounds: "fundingRounds",
+  fundingStages: "fundingStages",
+  currentMaintainers: {
+    lowest: "minCurrentMaintainers",
+    highest: "maxCurrentMaintainers",
+  },
+  growingTeam: "growingTeam",
+  shrinkingTeam: "shrinkingTeam",
+  earlyTeamShrinkage: "earlyTeamShrinkage",
+  recentlyFunded: "recentlyFunded",
   investors: "investors",
   ecosystems: "ecosystems",
   hasJobs: "hasJobs",

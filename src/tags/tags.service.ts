@@ -416,6 +416,10 @@ export class TagsService {
     }
   }
 
+  resolveAlias(value: string) {
+    return this.tags.resolveAlias(slugify(value));
+  }
+
   async batchMatchTags(
     tags: string[],
     scoreThreshold = 0.5,

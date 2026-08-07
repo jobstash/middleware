@@ -35,6 +35,7 @@ export * from "./org-salary-review.interface";
 export * from "./org-staff-review.interface";
 export * from "./raw-project-website.interface";
 export * from "./job-list-result.interface";
+export * from "./job-availability.interface";
 export * from "./project-details-result.interface";
 export * from "./jobpost-category.interface";
 export * from "./project-category.interface";

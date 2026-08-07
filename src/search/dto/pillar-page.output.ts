@@ -42,6 +42,12 @@ export interface PillarOrganization {
   headcountEstimate: number | null;
   fundingRounds: PillarFundingRound[];
   investors: PillarInvestor[];
+  teamCoverageStatus: "current" | "unknown" | null;
+  teamSignalsAsOf: string | null;
+  currentMaintainerCount: number | null;
+  growingTeam: boolean | null;
+  shrinkingTeam: boolean | null;
+  earlyTeamShrinkage: boolean | null;
 }
 
 /**
@@ -118,6 +124,12 @@ export interface PillarPageOrg {
   projects: PillarPageOrgProject[];
   fundingRounds: PillarFundingRound[];
   investors: PillarInvestor[];
+  teamCoverageStatus: "current" | "unknown" | null;
+  teamSignalsAsOf: string | null;
+  currentMaintainerCount: number | null;
+  growingTeam: boolean | null;
+  shrinkingTeam: boolean | null;
+  earlyTeamShrinkage: boolean | null;
 }
 
 export interface PillarPageData {

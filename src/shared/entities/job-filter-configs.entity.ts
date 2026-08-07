@@ -29,14 +29,20 @@ export type RawJobFilters = {
   maxMonthlyRevenue?: number | null;
   minHeadCount?: number | null;
   maxHeadCount?: number | null;
+  minCurrentMaintainers?: number | null;
+  maxCurrentMaintainers?: number | null;
   tags?: string[] | null;
   fundingRounds?: string[] | null;
+  fundingStages?: string[] | null;
   projects?: string[] | null;
   classifications?: string[] | null;
   commitments?: string[] | null;
   chains?: string[] | null;
   audits?: string[] | null;
   locations?: string[] | null;
+  workModes?: string[] | null;
+  availability?: string[] | null;
+  availabilityLabels?: Record<string, string> | null;
   investors?: string[] | null;
   hacks?: string[] | null;
   token?: string[] | null;
@@ -107,6 +113,29 @@ export class JobFilterConfigsEntity {
     };
   }
 
+  getAvailabilityPresets(): MultiSelectFilter {
+    const labels = this.raw.availabilityLabels ?? {};
+    const values = [
+      ...new Set(
+        (this.raw.availability ?? []).filter(
+          (value): value is string =>
+            typeof value === "string" && isValidFilterConfig(value),
+        ),
+      ),
+    ];
+    return {
+      ...this.configPresets.availability,
+      options: values
+        .map(value => ({ label: labels[value] ?? value, value }))
+        .sort(
+          (left, right) =>
+            left.label.localeCompare(right.label) ||
+            left.value.localeCompare(right.value),
+        ),
+      paramKey: this.paramKeyPresets.availability,
+    };
+  }
+
   getProperties(): JobFilterConfigs {
     return new JobFilterConfigs({
       publicationDate: this.getSingleSelectPresets("publicationDate"),
@@ -119,6 +148,7 @@ export class JobFilterConfigsEntity {
       audits: this.getSingleSelectPresets("audits"),
       hacks: this.getSingleSelectPresets("hacks"),
       fundingRounds: this.getMultiValuePresetsWithTransform("fundingRounds"),
+      fundingStages: this.getMultiValuePresetsWithTransform("fundingStages"),
       investors: this.getMultiValuePresetsWithTransform("investors"),
       tags: this.getMultiValuePresetsWithTransform("tags"),
       organizations: this.getMultiValuePresetsWithTransform("organizations"),
@@ -138,6 +168,16 @@ export class JobFilterConfigsEntity {
         "locations",
         toHeaderCase,
       ),
+      workModes: this.getMultiValuePresetsWithTransform(
+        "workModes",
+        toHeaderCase,
+      ),
+      availability: this.getAvailabilityPresets(),
+      currentMaintainers: this.getRangePresets("currentMaintainers"),
+      growingTeam: this.getSingleSelectPresets("growingTeam"),
+      shrinkingTeam: this.getSingleSelectPresets("shrinkingTeam"),
+      earlyTeamShrinkage: this.getSingleSelectPresets("earlyTeamShrinkage"),
+      recentlyFunded: this.getSingleSelectPresets("recentlyFunded"),
       token: this.getSingleSelectPresets("token"),
       onboardIntoWeb3: this.getSingleSelectPresets("onboardIntoWeb3"),
       expertJobs: this.getSingleSelectPresets("expertJobs"),

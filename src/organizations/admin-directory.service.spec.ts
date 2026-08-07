@@ -17,6 +17,7 @@ describe("admin directory services", () => {
       searchDocuments as never,
       {} as never,
       {} as never,
+      {} as never,
     );
     const options = { query: "acme", limit: 25, offset: 0 };
 

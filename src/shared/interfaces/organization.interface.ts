@@ -27,6 +27,20 @@ export class Organization {
     headcountEstimate: t.union([t.number, t.null]),
     createdTimestamp: t.union([t.number, t.null]),
     updatedTimestamp: t.union([t.number, t.null]),
+    fundingStage: t.union([t.string, t.null, t.undefined]),
+    latestFundingEvent: t.union([t.UnknownRecord, t.null, t.undefined]),
+    recentlyFunded: t.union([t.boolean, t.undefined]),
+    teamCoverageStatus: t.union([
+      t.literal("current"),
+      t.literal("unknown"),
+      t.null,
+      t.undefined,
+    ]),
+    teamSignalsAsOf: t.union([t.string, t.null, t.undefined]),
+    currentMaintainerCount: t.union([t.number, t.null, t.undefined]),
+    growingTeam: t.union([t.boolean, t.null, t.undefined]),
+    shrinkingTeam: t.union([t.boolean, t.null, t.undefined]),
+    earlyTeamShrinkage: t.union([t.boolean, t.null, t.undefined]),
   });
 
   @ApiProperty()
@@ -62,6 +76,33 @@ export class Organization {
   @ApiPropertyOptional()
   updatedTimestamp: number | null;
 
+  @ApiPropertyOptional()
+  fundingStage?: string | null;
+
+  @ApiPropertyOptional()
+  latestFundingEvent?: Record<string, unknown> | null;
+
+  @ApiProperty()
+  recentlyFunded?: boolean;
+
+  @ApiPropertyOptional({ enum: ["current", "unknown"] })
+  teamCoverageStatus?: "current" | "unknown" | null;
+
+  @ApiPropertyOptional()
+  teamSignalsAsOf?: string | null;
+
+  @ApiPropertyOptional()
+  currentMaintainerCount?: number | null;
+
+  @ApiPropertyOptional()
+  growingTeam?: boolean | null;
+
+  @ApiPropertyOptional()
+  shrinkingTeam?: boolean | null;
+
+  @ApiPropertyOptional()
+  earlyTeamShrinkage?: boolean | null;
+
   constructor(raw: Organization) {
     const {
       id,
@@ -75,6 +116,15 @@ export class Organization {
       description,
       createdTimestamp,
       updatedTimestamp,
+      fundingStage,
+      latestFundingEvent,
+      recentlyFunded,
+      teamCoverageStatus,
+      teamSignalsAsOf,
+      currentMaintainerCount,
+      growingTeam,
+      shrinkingTeam,
+      earlyTeamShrinkage,
     } = raw;
 
     const result = Organization.OrganizationType.decode(raw);
@@ -90,6 +140,15 @@ export class Organization {
     this.description = description;
     this.createdTimestamp = createdTimestamp;
     this.updatedTimestamp = updatedTimestamp;
+    this.fundingStage = fundingStage ?? null;
+    this.latestFundingEvent = latestFundingEvent ?? null;
+    this.recentlyFunded = recentlyFunded ?? false;
+    this.teamCoverageStatus = teamCoverageStatus ?? null;
+    this.teamSignalsAsOf = teamSignalsAsOf ?? null;
+    this.currentMaintainerCount = currentMaintainerCount ?? null;
+    this.growingTeam = growingTeam ?? null;
+    this.shrinkingTeam = shrinkingTeam ?? null;
+    this.earlyTeamShrinkage = earlyTeamShrinkage ?? null;
 
     if (isLeft(result)) {
       report(result).forEach(x => {
@@ -255,6 +314,18 @@ export class ShortOrg {
     grants: t.array(GrantFunding.GrantFundingType),
     ecosystems: t.array(t.string),
     logoUrl: t.union([t.string, t.null]),
+    fundingStage: t.union([t.string, t.null]),
+    recentlyFunded: t.boolean,
+    teamCoverageStatus: t.union([
+      t.literal("current"),
+      t.literal("unknown"),
+      t.null,
+    ]),
+    teamSignalsAsOf: t.union([t.string, t.null]),
+    currentMaintainerCount: t.union([t.number, t.null]),
+    growingTeam: t.union([t.boolean, t.null]),
+    shrinkingTeam: t.union([t.boolean, t.null]),
+    earlyTeamShrinkage: t.union([t.boolean, t.null]),
   });
 
   @ApiProperty()
@@ -268,6 +339,30 @@ export class ShortOrg {
 
   @ApiPropertyOptional()
   logoUrl: string | null;
+
+  @ApiPropertyOptional()
+  fundingStage: string | null;
+
+  @ApiProperty()
+  recentlyFunded: boolean;
+
+  @ApiPropertyOptional()
+  teamCoverageStatus: "current" | "unknown" | null;
+
+  @ApiPropertyOptional()
+  teamSignalsAsOf: string | null;
+
+  @ApiPropertyOptional()
+  currentMaintainerCount: number | null;
+
+  @ApiPropertyOptional()
+  growingTeam: boolean | null;
+
+  @ApiPropertyOptional()
+  shrinkingTeam: boolean | null;
+
+  @ApiPropertyOptional()
+  earlyTeamShrinkage: boolean | null;
 
   @ApiProperty()
   location: string;
@@ -314,6 +409,14 @@ export class ShortOrg {
       projectCount,
       lastFundingDate,
       lastFundingAmount,
+      fundingStage,
+      recentlyFunded,
+      teamCoverageStatus,
+      teamSignalsAsOf,
+      currentMaintainerCount,
+      growingTeam,
+      shrinkingTeam,
+      earlyTeamShrinkage,
     } = raw;
 
     const result = ShortOrg.ShortOrgType.decode(raw);
@@ -331,6 +434,14 @@ export class ShortOrg {
     this.projectCount = projectCount;
     this.lastFundingDate = lastFundingDate;
     this.lastFundingAmount = lastFundingAmount;
+    this.fundingStage = fundingStage;
+    this.recentlyFunded = recentlyFunded;
+    this.teamCoverageStatus = teamCoverageStatus;
+    this.teamSignalsAsOf = teamSignalsAsOf;
+    this.currentMaintainerCount = currentMaintainerCount;
+    this.growingTeam = growingTeam;
+    this.shrinkingTeam = shrinkingTeam;
+    this.earlyTeamShrinkage = earlyTeamShrinkage;
 
     if (isLeft(result)) {
       report(result).forEach(x => {
