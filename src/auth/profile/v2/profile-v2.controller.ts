@@ -20,6 +20,7 @@ import {
 import {
   data,
   Response,
+  ResponseWithNoData,
   SessionObject,
   UserProfile,
 } from "src/shared/interfaces";
@@ -288,7 +289,7 @@ export class ProfileV2Controller {
   async logViewInteraction(
     @Session() { address }: SessionObject,
     @Body("shortUUID") shortUUID: string,
-  ) {
+  ): Promise<ResponseWithNoData> {
     if (!shortUUID || shortUUID.length > 128) {
       return { success: false, message: "Invalid job identifier" };
     }

@@ -39,6 +39,7 @@ import { SkillSuggestionsInput } from "./dto/skill-suggestions.input";
 import { SkillSuggestionsData } from "./dto/skill-suggestions.output";
 import { ApiHeader, ApiOperation } from "@nestjs/swagger";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
+import { ResolvedPlacePillar } from "src/postgres/search.repository";
 
 @Controller("search")
 export class SearchController {
@@ -297,7 +298,9 @@ export class SearchController {
   }
 
   @Get("pillar/location/resolve")
-  resolveLocationPillar(@Query("value") value: string) {
+  resolveLocationPillar(
+    @Query("value") value: string,
+  ): Promise<ResolvedPlacePillar | undefined> {
     return this.searchService.resolveLocationPillar(value);
   }
 }

@@ -452,7 +452,9 @@ export class TagRepository {
   async setDesignation(options: {
     normalizedName: string;
     designation:
-      "BlockedDesignation" | "PreferredDesignation" | "AllowedDesignation";
+      | "BlockedDesignation"
+      | "PreferredDesignation"
+      | "AllowedDesignation";
     creatorWallet: string;
     includeSynonyms?: boolean;
     replaceAllowed?: boolean;

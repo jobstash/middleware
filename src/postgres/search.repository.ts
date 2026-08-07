@@ -20,6 +20,12 @@ export type PillarSitemapEntry = {
   jobCount: number;
 };
 
+export type ResolvedPlacePillar = {
+  placeId: string;
+  canonicalName: string;
+  canonicalSlug: string;
+};
+
 type PillarJobPayload = Record<string, unknown>;
 
 const projectionNavigation: Partial<
@@ -492,10 +498,7 @@ export class SearchRepository {
 
   async resolvePlacePillar(
     value: string,
-  ): Promise<
-    | { placeId: string; canonicalName: string; canonicalSlug: string }
-    | undefined
-  > {
+  ): Promise<ResolvedPlacePillar | undefined> {
     const normalized = slugify(value);
     const rows = await this.postgres.query<{
       placeId: string;
@@ -539,8 +542,11 @@ export class SearchRepository {
     if (rows.length !== 1 || Number(rows[0].candidateCount) !== 1) {
       return undefined;
     }
-    const { candidateCount: _candidateCount, ...place } = rows[0];
-    return place;
+    return {
+      placeId: rows[0].placeId,
+      canonicalName: rows[0].canonicalName,
+      canonicalSlug: rows[0].canonicalSlug,
+    };
   }
 
   async getJobPillarSitemap(options: {

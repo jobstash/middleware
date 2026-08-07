@@ -27,7 +27,10 @@ import {
 } from "./dto/webhook.payload";
 import { TelemetryService } from "src/telemetry/telemetry.service";
 import { CheckWalletPermissions } from "src/shared/constants";
-import { PrivyThreatSyncService } from "./privy-threat-sync.service";
+import {
+  PrivyThreatSyncService,
+  PrivyThreatSyncStatus,
+} from "./privy-threat-sync.service";
 import { PBACGuard } from "../pbac.guard";
 
 @Controller("privy")
@@ -46,14 +49,14 @@ export class PrivyController {
   @Get("threat-sync/status")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.SUPER_ADMIN)
-  getThreatSyncStatus() {
+  getThreatSyncStatus(): PrivyThreatSyncStatus {
     return this.threatSync.getStatus();
   }
 
   @Post("threat-sync/run")
   @UseGuards(PBACGuard)
   @Permissions(CheckWalletPermissions.SUPER_ADMIN)
-  runThreatSync() {
+  runThreatSync(): Promise<PrivyThreatSyncStatus> {
     return this.threatSync.sync();
   }
 

@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as Sentry from "@sentry/node";
-import { TagRepository } from "src/postgres/tag.repository";
+import { ResolvedTagAlias, TagRepository } from "src/postgres/tag.repository";
 import { TagEntity } from "src/shared/entities/tag.entity";
 import NotFoundError from "src/shared/errors/not-found-error";
 import { slugify } from "src/shared/helpers";
@@ -416,7 +416,7 @@ export class TagsService {
     }
   }
 
-  resolveAlias(value: string) {
+  resolveAlias(value: string): Promise<ResolvedTagAlias | undefined> {
     return this.tags.resolveAlias(slugify(value));
   }
 

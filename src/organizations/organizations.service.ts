@@ -62,7 +62,10 @@ import {
 import { GraphRepository } from "src/postgres/graph.repository";
 import { PostgresService } from "src/postgres/postgres.service";
 import { TeamIntelligenceService } from "src/team-intelligence/team-intelligence.service";
-import { OrganizationTeamSummary } from "src/team-intelligence/team-intelligence.types";
+import {
+  OrganizationTeamDetail,
+  OrganizationTeamSummary,
+} from "src/team-intelligence/team-intelligence.types";
 
 @Injectable()
 export class OrganizationsService {
@@ -763,7 +766,11 @@ export class OrganizationsService {
     }
   }
 
-  async getOrgTeamBySlug(slug: string, page?: number, limit?: number) {
+  async getOrgTeamBySlug(
+    slug: string,
+    page?: number,
+    limit?: number,
+  ): Promise<OrganizationTeamDetail | undefined> {
     const organization = await this.searchDocuments.getOrganizationBySlug(slug);
     if (!organization) return undefined;
     return this.teamIntelligence.getDetails(organization.orgId, page, limit);

@@ -5,7 +5,11 @@ import { DateRange } from "src/shared/types";
 import { publicationDateRangeGenerator } from "./helpers";
 
 const emptyPage = { page: 1, count: 0, total: 0, data: [] };
-const teamIntelligence = () => ({
+const teamIntelligence = (): {
+  matchingOrganizationIds: jest.Mock;
+  getSummariesById: jest.Mock;
+  applySummary: jest.Mock;
+} => ({
   matchingOrganizationIds: jest.fn().mockResolvedValue(undefined),
   getSummariesById: jest.fn().mockResolvedValue(new Map()),
   applySummary: jest.fn((organization: unknown) => organization),

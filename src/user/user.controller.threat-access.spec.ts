@@ -9,7 +9,14 @@ import { UserService } from "./user.service";
 describe("UserController threat-intelligence access", () => {
   const wallet = "0x1111111111111111111111111111111111111111";
 
-  const createController = (alreadyGranted = false, verified = true) => {
+  const createController = (
+    alreadyGranted = false,
+    verified = true,
+  ): {
+    controller: UserController;
+    permissionService: Record<string, jest.Mock>;
+    profileService: Record<string, jest.Mock>;
+  } => {
     const permissionService = {
       find: jest.fn().mockResolvedValue({ name: "THREAT_INTEL" }),
       create: jest.fn(),

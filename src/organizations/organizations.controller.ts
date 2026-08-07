@@ -83,6 +83,7 @@ import { SearchOrganizationsInput } from "./dto/search-organizations.input";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
 import { SetOrganizationBannedInput } from "./dto/set-organization-banned.input";
 import { ResolveEntityReviewInput } from "src/shared/dto/resolve-entity-review.input";
+import { OrganizationTeamDetail } from "src/team-intelligence/team-intelligence.types";
 
 @Controller("organizations")
 @ApiExtraModels(ShortOrg, TinyOrg, Organization)
@@ -484,7 +485,7 @@ export class OrganizationsController {
     @Param("slug") slug: string,
     @Query("page") page = "1",
     @Query("limit") limit = "20",
-  ) {
+  ): Promise<OrganizationTeamDetail> {
     const result = await this.organizationsService.getOrgTeamBySlug(
       slug,
       Number(page) || 1,

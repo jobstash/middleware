@@ -3,7 +3,10 @@ import * as Sentry from "@sentry/node";
 import { go } from "fuzzysort";
 import { endOfDay, startOfDay, subDays } from "date-fns";
 import { capitalize, lowerCase } from "lodash";
-import { SearchRepository } from "src/postgres/search.repository";
+import {
+  ResolvedPlacePillar,
+  SearchRepository,
+} from "src/postgres/search.repository";
 import {
   NAV_FILTER_CONFIGS,
   NAV_FILTER_LABEL_MAPPINGS,
@@ -435,7 +438,9 @@ export class SearchService {
         ),
       ];
       const filters: (
-        SearchRangeFilter | SingleSelectFilter | MultiSelectFilter
+        | SearchRangeFilter
+        | SingleSelectFilter
+        | MultiSelectFilter
       )[] = [];
       for (const filter of filterNames) {
         const configs = this.filterConfigs(allConfigs, params, filter);
@@ -562,7 +567,9 @@ export class SearchService {
     }
   }
 
-  resolveLocationPillar(value: string) {
+  resolveLocationPillar(
+    value: string,
+  ): Promise<ResolvedPlacePillar | undefined> {
     return this.searchRepository.resolvePlacePillar(value);
   }
 

@@ -41,6 +41,7 @@ import { BatchMatchTagsInput } from "./dto/batch-match-tags.input";
 import { BatchMatchTagsResult } from "./dto/batch-match-tags.output";
 import { Session } from "src/shared/decorators";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
+import { ResolvedTagAlias } from "src/postgres/tag.repository";
 @Controller("tags")
 @ApiExtraModels(TagPreference, TagPreference)
 export class TagsController {
@@ -241,7 +242,9 @@ export class TagsController {
   }
 
   @Get("/resolve")
-  async resolveTag(@Query("slug") slug: string) {
+  async resolveTag(
+    @Query("slug") slug: string,
+  ): Promise<ResolvedTagAlias | null> {
     if (!slug?.trim()) throw new BadRequestException("Slug is required");
     const resolved = await this.tagsService.resolveAlias(slug);
     if (!resolved) return null;
