@@ -8,6 +8,11 @@ export type OrganizationTeamSummary = {
   coverageStatus: TeamCoverageStatus;
   asOf: string;
   currentMaintainerCount: number | null;
+  activeLeadCount: number | null;
+  newActiveLeadCount: number | null;
+  steppedDownLeadCount: number | null;
+  movedLeadCount: number | null;
+  earlyLeadDepartureCount: number | null;
   newMaintainerCount: number | null;
   movedMaintainerCount: number | null;
   earlyMovedMaintainerCount: number | null;
@@ -17,13 +22,20 @@ export type OrganizationTeamSummary = {
 };
 
 export type TeamSnapshot = {
-  snapshotVersion: 1;
+  snapshotVersion: 2;
+  available: boolean;
   asOf: string | null;
   organizations: OrganizationTeamSummary[];
 };
 
 export type TeamSnapshotInput = {
   organizationIds?: string[];
+  newActiveLeads?: boolean;
+  steppedDownLeads?: boolean;
+  movedLeads?: boolean;
+  earlyLeadDepartures?: boolean;
+  activeLeadsMin?: number;
+  activeLeadsMax?: number;
   growingTeam?: boolean;
   shrinkingTeam?: boolean;
   earlyTeamShrinkage?: boolean;
@@ -34,6 +46,12 @@ export type TeamSnapshotInput = {
 export type TeamFilterInput = {
   minCurrentMaintainers?: number | null;
   maxCurrentMaintainers?: number | null;
+  minActiveLeads?: number | null;
+  maxActiveLeads?: number | null;
+  newActiveLeads?: boolean | null;
+  steppedDownLeads?: boolean | null;
+  movedLeads?: boolean | null;
+  earlyLeadDepartures?: boolean | null;
   growingTeam?: boolean | null;
   shrinkingTeam?: boolean | null;
   earlyTeamShrinkage?: boolean | null;
@@ -50,6 +68,13 @@ export type OrganizationTeamDetail = OrganizationTeamSummary & {
   maintainers: TeamPage<{
     githubUserId: string;
     login: string;
+    firstMergeAt: string;
+    lastMergeAt: string;
+    mergeCount: number;
+    currentEmployee: boolean;
+    currentMaintainer: boolean;
+    activeLead: boolean;
+    earlyMaintainer: boolean;
     firstWriteAt: string;
     qualifiedAt: string;
     lastWriteAt: string;
@@ -64,9 +89,12 @@ export type OrganizationTeamDetail = OrganizationTeamSummary & {
     destinationOrganizationId: string;
     destinationOrganizationName: string;
     destinationOrganizationSlug: string;
+    sourceLastMergeAt: string;
+    destinationFirstMergeAt: string;
     sourceLastWriteAt: string;
     destinationFirstWriteAt: string;
     confirmedAt: string;
+    earlyMaintainer: boolean;
     earlyCohort: boolean;
     status: "active" | "observed";
     returnedAt: null;
@@ -78,6 +106,11 @@ export type TeamOrganizationFields = {
   teamCoverageStatus?: TeamCoverageStatus | null;
   teamSignalsAsOf?: string | null;
   currentMaintainerCount?: number | null;
+  activeLeadCount?: number | null;
+  newActiveLeadCount?: number | null;
+  steppedDownLeadCount?: number | null;
+  movedLeadCount?: number | null;
+  earlyLeadDepartureCount?: number | null;
   growingTeam?: boolean | null;
   shrinkingTeam?: boolean | null;
   earlyTeamShrinkage?: boolean | null;

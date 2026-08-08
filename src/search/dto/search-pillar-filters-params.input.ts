@@ -175,6 +175,19 @@ export class SearchPillarFiltersParams {
   @IsNumber()
   @Min(0)
   @Type(() => Number)
+  minActiveLeads?: number | null = null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Compare("minActiveLeads", ">=")
+  @Type(() => Number)
+  maxActiveLeads?: number | null = null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
   minDate?: number | null = null;
 
   @IsOptional()
@@ -210,6 +223,34 @@ export class SearchPillarFiltersParams {
   )
   @IsBoolean()
   hasJobs?: boolean | null = null;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  newActiveLeads?: boolean | null = null;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  steppedDownLeads?: boolean | null = null;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  movedLeads?: boolean | null = null;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  earlyLeadDepartures?: boolean | null = null;
 
   @IsOptional()
   @Transform(({ value }) =>

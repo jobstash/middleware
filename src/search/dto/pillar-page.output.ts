@@ -45,6 +45,11 @@ export interface PillarOrganization {
   teamCoverageStatus: "current" | "unknown" | null;
   teamSignalsAsOf: string | null;
   currentMaintainerCount: number | null;
+  activeLeadCount: number | null;
+  newActiveLeadCount: number | null;
+  steppedDownLeadCount: number | null;
+  movedLeadCount: number | null;
+  earlyLeadDepartureCount: number | null;
   growingTeam: boolean | null;
   shrinkingTeam: boolean | null;
   earlyTeamShrinkage: boolean | null;
@@ -127,6 +132,11 @@ export interface PillarPageOrg {
   teamCoverageStatus: "current" | "unknown" | null;
   teamSignalsAsOf: string | null;
   currentMaintainerCount: number | null;
+  activeLeadCount: number | null;
+  newActiveLeadCount: number | null;
+  steppedDownLeadCount: number | null;
+  movedLeadCount: number | null;
+  earlyLeadDepartureCount: number | null;
   growingTeam: boolean | null;
   shrinkingTeam: boolean | null;
   earlyTeamShrinkage: boolean | null;

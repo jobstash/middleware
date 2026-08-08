@@ -38,6 +38,11 @@ export class Organization {
     ]),
     teamSignalsAsOf: t.union([t.string, t.null, t.undefined]),
     currentMaintainerCount: t.union([t.number, t.null, t.undefined]),
+    activeLeadCount: t.union([t.number, t.null, t.undefined]),
+    newActiveLeadCount: t.union([t.number, t.null, t.undefined]),
+    steppedDownLeadCount: t.union([t.number, t.null, t.undefined]),
+    movedLeadCount: t.union([t.number, t.null, t.undefined]),
+    earlyLeadDepartureCount: t.union([t.number, t.null, t.undefined]),
     growingTeam: t.union([t.boolean, t.null, t.undefined]),
     shrinkingTeam: t.union([t.boolean, t.null, t.undefined]),
     earlyTeamShrinkage: t.union([t.boolean, t.null, t.undefined]),
@@ -95,6 +100,21 @@ export class Organization {
   currentMaintainerCount?: number | null;
 
   @ApiPropertyOptional()
+  activeLeadCount?: number | null;
+
+  @ApiPropertyOptional()
+  newActiveLeadCount?: number | null;
+
+  @ApiPropertyOptional()
+  steppedDownLeadCount?: number | null;
+
+  @ApiPropertyOptional()
+  movedLeadCount?: number | null;
+
+  @ApiPropertyOptional()
+  earlyLeadDepartureCount?: number | null;
+
+  @ApiPropertyOptional()
   growingTeam?: boolean | null;
 
   @ApiPropertyOptional()
@@ -122,6 +142,11 @@ export class Organization {
       teamCoverageStatus,
       teamSignalsAsOf,
       currentMaintainerCount,
+      activeLeadCount,
+      newActiveLeadCount,
+      steppedDownLeadCount,
+      movedLeadCount,
+      earlyLeadDepartureCount,
       growingTeam,
       shrinkingTeam,
       earlyTeamShrinkage,
@@ -146,6 +171,11 @@ export class Organization {
     this.teamCoverageStatus = teamCoverageStatus ?? null;
     this.teamSignalsAsOf = teamSignalsAsOf ?? null;
     this.currentMaintainerCount = currentMaintainerCount ?? null;
+    this.activeLeadCount = activeLeadCount ?? null;
+    this.newActiveLeadCount = newActiveLeadCount ?? null;
+    this.steppedDownLeadCount = steppedDownLeadCount ?? null;
+    this.movedLeadCount = movedLeadCount ?? null;
+    this.earlyLeadDepartureCount = earlyLeadDepartureCount ?? null;
     this.growingTeam = growingTeam ?? null;
     this.shrinkingTeam = shrinkingTeam ?? null;
     this.earlyTeamShrinkage = earlyTeamShrinkage ?? null;
@@ -323,6 +353,11 @@ export class ShortOrg {
     ]),
     teamSignalsAsOf: t.union([t.string, t.null]),
     currentMaintainerCount: t.union([t.number, t.null]),
+    activeLeadCount: t.union([t.number, t.null]),
+    newActiveLeadCount: t.union([t.number, t.null]),
+    steppedDownLeadCount: t.union([t.number, t.null]),
+    movedLeadCount: t.union([t.number, t.null]),
+    earlyLeadDepartureCount: t.union([t.number, t.null]),
     growingTeam: t.union([t.boolean, t.null]),
     shrinkingTeam: t.union([t.boolean, t.null]),
     earlyTeamShrinkage: t.union([t.boolean, t.null]),
@@ -354,6 +389,21 @@ export class ShortOrg {
 
   @ApiPropertyOptional()
   currentMaintainerCount: number | null;
+
+  @ApiPropertyOptional()
+  activeLeadCount: number | null;
+
+  @ApiPropertyOptional()
+  newActiveLeadCount: number | null;
+
+  @ApiPropertyOptional()
+  steppedDownLeadCount: number | null;
+
+  @ApiPropertyOptional()
+  movedLeadCount: number | null;
+
+  @ApiPropertyOptional()
+  earlyLeadDepartureCount: number | null;
 
   @ApiPropertyOptional()
   growingTeam: boolean | null;
@@ -414,6 +464,11 @@ export class ShortOrg {
       teamCoverageStatus,
       teamSignalsAsOf,
       currentMaintainerCount,
+      activeLeadCount,
+      newActiveLeadCount,
+      steppedDownLeadCount,
+      movedLeadCount,
+      earlyLeadDepartureCount,
       growingTeam,
       shrinkingTeam,
       earlyTeamShrinkage,
@@ -439,6 +494,11 @@ export class ShortOrg {
     this.teamCoverageStatus = teamCoverageStatus;
     this.teamSignalsAsOf = teamSignalsAsOf;
     this.currentMaintainerCount = currentMaintainerCount;
+    this.activeLeadCount = activeLeadCount;
+    this.newActiveLeadCount = newActiveLeadCount;
+    this.steppedDownLeadCount = steppedDownLeadCount;
+    this.movedLeadCount = movedLeadCount;
+    this.earlyLeadDepartureCount = earlyLeadDepartureCount;
     this.growingTeam = growingTeam;
     this.shrinkingTeam = shrinkingTeam;
     this.earlyTeamShrinkage = earlyTeamShrinkage;

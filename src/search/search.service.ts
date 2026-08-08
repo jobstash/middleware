@@ -61,6 +61,18 @@ import {
 
 type FilterConfig = Record<string, unknown>;
 
+const TEAM_FILTER_FIELDS = new Set([
+  "currentMaintainers",
+  "activeLeads",
+  "newActiveLeads",
+  "steppedDownLeads",
+  "movedLeads",
+  "earlyLeadDepartures",
+  "growingTeam",
+  "shrinkingTeam",
+  "earlyTeamShrinkage",
+]);
+
 const navigationLinkSegments: Partial<
   Record<SearchNav, Record<string, string>>
 > = {
@@ -109,6 +121,10 @@ const rangeFilters: Partial<
       minimum: "minCurrentMaintainers",
       maximum: "maxCurrentMaintainers",
     },
+    activeLeads: {
+      minimum: "minActiveLeads",
+      maximum: "maxActiveLeads",
+    },
   },
 };
 
@@ -121,6 +137,10 @@ const booleanFilters: Partial<Record<SearchNav, Record<string, string>>> = {
   organizations: {
     hasProjects: "hasProjects",
     hasJobs: "hasJobs",
+    newActiveLeads: "newActiveLeads",
+    steppedDownLeads: "steppedDownLeads",
+    movedLeads: "movedLeads",
+    earlyLeadDepartures: "earlyLeadDepartures",
     growingTeam: "growingTeam",
     shrinkingTeam: "shrinkingTeam",
     earlyTeamShrinkage: "earlyTeamShrinkage",
@@ -427,6 +447,9 @@ export class SearchService {
         ecosystem,
         params,
       );
+      const teamSignalsAvailable =
+        params.nav !== "organizations" ||
+        allConfigs.some(config => config.teamSignalsAvailable === true);
       const filterNames = [
         ...new Set(
           configured.map(
@@ -446,6 +469,9 @@ export class SearchService {
         const configs = this.filterConfigs(allConfigs, params, filter);
         const preset = presets[filter];
         if (!preset) continue;
+        const visiblePreset = TEAM_FILTER_FIELDS.has(filter)
+          ? { ...preset, show: preset.show && teamSignalsAvailable }
+          : preset;
         const paramPreset = FILTER_PARAM_KEY_PRESETS[params.nav]?.[filter];
         if (preset.kind === "RANGE") {
           const values = configs
@@ -455,7 +481,7 @@ export class SearchService {
           const range = paramPreset as { lowest: string; highest: string };
           filters.push(
             new SearchRangeFilter({
-              ...preset,
+              ...visiblePreset,
               min: {
                 value: values.length ? Math.min(...values) : 0,
                 paramKey: range.lowest,
@@ -475,7 +501,7 @@ export class SearchService {
         ) {
           filters.push(
             new SingleSelectFilter({
-              ...preset,
+              ...visiblePreset,
               kind: preset.kind,
               paramKey: paramPreset as string,
               options: preset.options ?? [],
@@ -486,7 +512,7 @@ export class SearchService {
         const labels = this.collectValues(configs, filter).slice(0, 20);
         filters.push(
           new MultiSelectFilter({
-            ...preset,
+            ...visiblePreset,
             paramKey: paramPreset as string,
             options: labels.map(label => ({ label, value: slugify(label) })),
           }),
@@ -713,10 +739,9 @@ export class SearchService {
       typeof config.organizationId === "string" ? [config.organizationId] : [],
     );
     if (!organizationIds.length) return configs;
-    const summaries = await this.loadTeamSummaries(
-      organizationIds,
-      this.teamIntelligence.hasFilters(filters),
-    );
+    const state =
+      await this.teamIntelligence.getSummaryStateById(organizationIds);
+    const summaries = state.summaries;
     return configs.map(config => {
       const organizationId =
         typeof config.organizationId === "string"
@@ -727,7 +752,29 @@ export class SearchService {
         : undefined;
       return {
         ...config,
+        teamSignalsAvailable: state.available,
         currentMaintainers: summary?.currentMaintainerCount ?? null,
+        activeLeads: summary?.activeLeadCount ?? null,
+        newActiveLeads:
+          summary?.newActiveLeadCount === null ||
+          summary?.newActiveLeadCount === undefined
+            ? null
+            : summary.newActiveLeadCount > 0,
+        steppedDownLeads:
+          summary?.steppedDownLeadCount === null ||
+          summary?.steppedDownLeadCount === undefined
+            ? null
+            : summary.steppedDownLeadCount > 0,
+        movedLeads:
+          summary?.movedLeadCount === null ||
+          summary?.movedLeadCount === undefined
+            ? null
+            : summary.movedLeadCount > 0,
+        earlyLeadDepartures:
+          summary?.earlyLeadDepartureCount === null ||
+          summary?.earlyLeadDepartureCount === undefined
+            ? null
+            : summary.earlyLeadDepartureCount > 0,
         growingTeam: summary?.growingTeam ?? null,
         shrinkingTeam: summary?.shrinkingTeam ?? null,
         earlyTeamShrinkage: summary?.earlyTeamShrinkage ?? null,
@@ -753,6 +800,11 @@ export class SearchService {
         teamCoverageStatus: summary?.coverageStatus ?? null,
         teamSignalsAsOf: summary?.asOf ?? null,
         currentMaintainerCount: summary?.currentMaintainerCount ?? null,
+        activeLeadCount: summary?.activeLeadCount ?? null,
+        newActiveLeadCount: summary?.newActiveLeadCount ?? null,
+        steppedDownLeadCount: summary?.steppedDownLeadCount ?? null,
+        movedLeadCount: summary?.movedLeadCount ?? null,
+        earlyLeadDepartureCount: summary?.earlyLeadDepartureCount ?? null,
         growingTeam: summary?.growingTeam ?? null,
         shrinkingTeam: summary?.shrinkingTeam ?? null,
         earlyTeamShrinkage: summary?.earlyTeamShrinkage ?? null,
@@ -816,6 +868,9 @@ export class SearchService {
     excludedField?: string,
   ): FilterConfig[] {
     const values = params as unknown as Record<string, unknown>;
+    const teamSignalsAvailable = configs.some(
+      config => config.teamSignalsAvailable === true,
+    );
     const listFields = [
       "names",
       "chains",
@@ -849,11 +904,12 @@ export class SearchService {
         rangeFilters[params.nav] ?? {},
       )) {
         if (field === excludedField) continue;
+        if (TEAM_FILTER_FIELDS.has(field) && !teamSignalsAvailable) continue;
         const knownValue = this.asNumber(config[field]);
         const minimum = this.asNumber(values[mapping.minimum]);
         const maximum = this.asNumber(values[mapping.maximum]);
         if (
-          field === "currentMaintainers" &&
+          TEAM_FILTER_FIELDS.has(field) &&
           knownValue === null &&
           (minimum !== null || maximum !== null)
         ) {
@@ -863,7 +919,7 @@ export class SearchService {
         if (minimum !== null && value < minimum) return false;
         if (
           maximum !== null &&
-          (field === "currentMaintainers" ? value >= maximum : value > maximum)
+          value > maximum
         ) {
           return false;
         }
@@ -872,6 +928,7 @@ export class SearchService {
         booleanFilters[params.nav] ?? {},
       )) {
         if (field === excludedField) continue;
+        if (TEAM_FILTER_FIELDS.has(field) && !teamSignalsAvailable) continue;
         const requested = values[parameter];
         if (typeof requested === "boolean" && config[field] !== requested) {
           return false;

@@ -39,13 +39,19 @@ describe("SearchService organization intelligence filters", () => {
         recentlyFunded: false,
       },
     ]);
-    const getSummariesById = jest.fn().mockResolvedValue(
-      new Map([
+    const getSummaryStateById = jest.fn().mockResolvedValue({
+      available: true,
+      summaries: new Map([
         [
           "org-1",
           {
             organizationId: "org-1",
             currentMaintainerCount: 3,
+            activeLeadCount: 2,
+            newActiveLeadCount: 1,
+            steppedDownLeadCount: 0,
+            movedLeadCount: 1,
+            earlyLeadDepartureCount: 0,
             growingTeam: true,
             shrinkingTeam: false,
             earlyTeamShrinkage: false,
@@ -56,20 +62,24 @@ describe("SearchService organization intelligence filters", () => {
           {
             organizationId: "org-2",
             currentMaintainerCount: 12,
+            activeLeadCount: 5,
+            newActiveLeadCount: 0,
+            steppedDownLeadCount: 1,
+            movedLeadCount: 0,
+            earlyLeadDepartureCount: 1,
             growingTeam: false,
             shrinkingTeam: true,
             earlyTeamShrinkage: true,
           },
         ],
       ]),
-    );
+    });
     const service = new SearchService(
       {
         getPillarConfigs,
       } as unknown as SearchRepository,
       {
-        hasFilters: jest.fn().mockReturnValue(false),
-        getSummariesById,
+        getSummaryStateById,
       } as never,
     );
 
@@ -81,7 +91,7 @@ describe("SearchService organization intelligence filters", () => {
     );
 
     expect(result.success).toBe(true);
-    expect(getSummariesById).toHaveBeenCalledWith(["org-1", "org-2"]);
+    expect(getSummaryStateById).toHaveBeenCalledWith(["org-1", "org-2"]);
     if (!("data" in result)) throw new Error("Expected filter data");
     expect(result.data).toEqual(
       expect.arrayContaining([
@@ -99,16 +109,25 @@ describe("SearchService organization intelligence filters", () => {
           max: { value: 12, paramKey: "maxCurrentMaintainers" },
         }),
         expect.objectContaining({
-          label: "Growing Maintainer Team",
-          paramKey: "growingTeam",
+          label: "Active Leads",
+          min: { value: 2, paramKey: "minActiveLeads" },
+          max: { value: 5, paramKey: "maxActiveLeads" },
         }),
         expect.objectContaining({
-          label: "Maintainer Moves",
-          paramKey: "shrinkingTeam",
+          label: "New Active Leads",
+          paramKey: "newActiveLeads",
         }),
         expect.objectContaining({
-          label: "Early-Team Moves",
-          paramKey: "earlyTeamShrinkage",
+          label: "Lead Step-Downs",
+          paramKey: "steppedDownLeads",
+        }),
+        expect.objectContaining({
+          label: "Lead Movements",
+          paramKey: "movedLeads",
+        }),
+        expect.objectContaining({
+          label: "Early Lead Departures",
+          paramKey: "earlyLeadDepartures",
         }),
         expect.objectContaining({
           label: "Recently Funded",

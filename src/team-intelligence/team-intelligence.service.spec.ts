@@ -5,7 +5,8 @@ import { TeamIntelligenceService } from "./team-intelligence.service";
 import { TeamSnapshot } from "./team-intelligence.types";
 
 const snapshot: TeamSnapshot = {
-  snapshotVersion: 1,
+  snapshotVersion: 2,
+  available: true,
   asOf: "2026-08-07T12:00:00.000Z",
   organizations: [
     {
@@ -16,6 +17,11 @@ const snapshot: TeamSnapshot = {
       coverageStatus: "current",
       asOf: "2026-08-07T12:00:00.000Z",
       currentMaintainerCount: 7,
+      activeLeadCount: 4,
+      newActiveLeadCount: 2,
+      steppedDownLeadCount: 0,
+      movedLeadCount: 1,
+      earlyLeadDepartureCount: 0,
       newMaintainerCount: 2,
       movedMaintainerCount: 1,
       earlyMovedMaintainerCount: 0,
@@ -37,8 +43,12 @@ describe("TeamIntelligenceService", () => {
       service.matchingOrganizationIds({
         minCurrentMaintainers: 3,
         maxCurrentMaintainers: 10,
-        growingTeam: true,
-        shrinkingTeam: false,
+        minActiveLeads: 2,
+        maxActiveLeads: 8,
+        newActiveLeads: true,
+        steppedDownLeads: false,
+        movedLeads: true,
+        earlyLeadDepartures: false,
       }),
     ).resolves.toEqual(["org-acme"]);
     expect(post).toHaveBeenCalledWith(
@@ -46,8 +56,12 @@ describe("TeamIntelligenceService", () => {
       {
         currentMaintainersMin: 3,
         currentMaintainersMax: 10,
-        growingTeam: true,
-        shrinkingTeam: false,
+        activeLeadsMin: 2,
+        activeLeadsMax: 8,
+        newActiveLeads: true,
+        steppedDownLeads: false,
+        movedLeads: true,
+        earlyLeadDepartures: false,
       },
     );
   });
@@ -81,10 +95,35 @@ describe("TeamIntelligenceService", () => {
       teamCoverageStatus: null,
       teamSignalsAsOf: null,
       currentMaintainerCount: null,
+      activeLeadCount: null,
+      newActiveLeadCount: null,
+      steppedDownLeadCount: null,
+      movedLeadCount: null,
+      earlyLeadDepartureCount: null,
       growingTeam: null,
       shrinkingTeam: null,
       earlyTeamShrinkage: null,
     });
+  });
+
+  it("ignores team filters when the authoritative snapshot is unavailable", async () => {
+    const post = jest.fn().mockReturnValue(
+      of({
+        data: {
+          snapshotVersion: 2,
+          available: false,
+          asOf: null,
+          organizations: [],
+        },
+      }),
+    );
+    const service = new TeamIntelligenceService({
+      post,
+    } as unknown as HttpService);
+
+    await expect(
+      service.matchingOrganizationIds({ newActiveLeads: true }),
+    ).resolves.toBeUndefined();
   });
 
   it("maps scorer 404s to a missing team detail", async () => {

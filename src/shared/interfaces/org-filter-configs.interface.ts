@@ -25,6 +25,11 @@ export class OrgFilterConfigs {
     fundingRounds: MultiSelectFilter.MultiSelectFilterType,
     fundingStages: MultiSelectFilter.MultiSelectFilterType,
     currentMaintainers: RangeFilter.RangeFilterType,
+    activeLeads: RangeFilter.RangeFilterType,
+    newActiveLeads: SingleSelectFilter.SingleSelectFilterType,
+    steppedDownLeads: SingleSelectFilter.SingleSelectFilterType,
+    movedLeads: SingleSelectFilter.SingleSelectFilterType,
+    earlyLeadDepartures: SingleSelectFilter.SingleSelectFilterType,
     growingTeam: SingleSelectFilter.SingleSelectFilterType,
     shrinkingTeam: SingleSelectFilter.SingleSelectFilterType,
     earlyTeamShrinkage: SingleSelectFilter.SingleSelectFilterType,
@@ -42,6 +47,16 @@ export class OrgFilterConfigs {
   fundingStages: MultiSelectFilter;
   @ApiProperty()
   currentMaintainers: RangeFilter;
+  @ApiProperty()
+  activeLeads: RangeFilter;
+  @ApiProperty()
+  newActiveLeads: SingleSelectFilter;
+  @ApiProperty()
+  steppedDownLeads: SingleSelectFilter;
+  @ApiProperty()
+  movedLeads: SingleSelectFilter;
+  @ApiProperty()
+  earlyLeadDepartures: SingleSelectFilter;
   @ApiProperty()
   growingTeam: SingleSelectFilter;
   @ApiProperty()
@@ -76,6 +91,11 @@ export class OrgFilterConfigs {
       fundingRounds,
       fundingStages,
       currentMaintainers,
+      activeLeads,
+      newActiveLeads,
+      steppedDownLeads,
+      movedLeads,
+      earlyLeadDepartures,
       growingTeam,
       shrinkingTeam,
       earlyTeamShrinkage,
@@ -96,6 +116,11 @@ export class OrgFilterConfigs {
     this.fundingRounds = fundingRounds;
     this.fundingStages = fundingStages;
     this.currentMaintainers = currentMaintainers;
+    this.activeLeads = activeLeads;
+    this.newActiveLeads = newActiveLeads;
+    this.steppedDownLeads = steppedDownLeads;
+    this.movedLeads = movedLeads;
+    this.earlyLeadDepartures = earlyLeadDepartures;
     this.growingTeam = growingTeam;
     this.shrinkingTeam = shrinkingTeam;
     this.earlyTeamShrinkage = earlyTeamShrinkage;

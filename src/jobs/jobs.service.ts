@@ -1372,13 +1372,19 @@ export class JobsService {
           (value): value is string => typeof value === "string",
         )
       : [];
-    let range: { minimum: number | null; maximum: number | null } = {
-      minimum: null,
-      maximum: null,
+    let ranges = {
+      available: false,
+      current: {
+        minimum: null as number | null,
+        maximum: null as number | null,
+      },
+      active: {
+        minimum: null as number | null,
+        maximum: null as number | null,
+      },
     };
     try {
-      range =
-        await this.teamIntelligence.getCurrentMaintainerRange(organizationIds);
+      ranges = await this.teamIntelligence.getMaintainerRanges(organizationIds);
     } catch (error) {
       Sentry.captureException(error);
       this.logger.error(
@@ -1387,8 +1393,11 @@ export class JobsService {
     }
     return {
       ...values,
-      minCurrentMaintainers: range.minimum,
-      maxCurrentMaintainers: range.maximum,
+      teamSignalsAvailable: ranges.available,
+      minCurrentMaintainers: ranges.current.minimum,
+      maxCurrentMaintainers: ranges.current.maximum,
+      minActiveLeads: ranges.active.minimum,
+      maxActiveLeads: ranges.active.maximum,
     };
   }
 

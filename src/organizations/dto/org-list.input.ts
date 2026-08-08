@@ -57,6 +57,53 @@ export class OrgListParams {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  minActiveLeads?: number | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Compare("minActiveLeads", ">=")
+  @Type(() => Number)
+  maxActiveLeads?: number | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  newActiveLeads?: boolean | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  steppedDownLeads?: boolean | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  movedLeads?: boolean | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === "true" ? true : value === "false" ? false : value,
+  )
+  @IsBoolean()
+  earlyLeadDepartures?: boolean | null = null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @Transform(({ value }) =>
     value === "true" ? true : value === "false" ? false : value,
   )

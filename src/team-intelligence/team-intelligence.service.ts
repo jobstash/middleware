@@ -28,6 +28,12 @@ export class TeamIntelligenceService {
     return (
       activeRangeBound(input.minCurrentMaintainers) ||
       activeRangeBound(input.maxCurrentMaintainers) ||
+      activeRangeBound(input.minActiveLeads) ||
+      activeRangeBound(input.maxActiveLeads) ||
+      typeof input.newActiveLeads === "boolean" ||
+      typeof input.steppedDownLeads === "boolean" ||
+      typeof input.movedLeads === "boolean" ||
+      typeof input.earlyLeadDepartures === "boolean" ||
       typeof input.growingTeam === "boolean" ||
       typeof input.shrinkingTeam === "boolean" ||
       typeof input.earlyTeamShrinkage === "boolean"
@@ -39,6 +45,7 @@ export class TeamIntelligenceService {
   ): Promise<string[] | undefined> {
     if (!this.hasFilters(input)) return undefined;
     const snapshot = await this.getSnapshot(this.toSnapshotInput(input));
+    if (!snapshot.available) return undefined;
     return snapshot.organizations.map(summary => summary.organizationId);
   }
 
@@ -53,15 +60,29 @@ export class TeamIntelligenceService {
       return response.data;
     } catch (error) {
       this.captureProxyError("getSnapshot", error, input);
-      throw error;
+      return {
+        snapshotVersion: 2,
+        available: false,
+        asOf: null,
+        organizations: [],
+      };
     }
   }
 
   async getSummariesById(
     organizationIds: string[],
   ): Promise<Map<string, OrganizationTeamSummary>> {
+    return (await this.getSummaryStateById(organizationIds)).summaries;
+  }
+
+  async getSummaryStateById(organizationIds: string[]): Promise<{
+    available: boolean;
+    summaries: Map<string, OrganizationTeamSummary>;
+  }> {
     const uniqueIds = [...new Set(organizationIds.filter(Boolean))];
-    if (!uniqueIds.length) return new Map();
+    if (!uniqueIds.length) {
+      return { available: false, summaries: new Map() };
+    }
 
     const summaries: OrganizationTeamSummary[] = [];
     for (
@@ -75,9 +96,17 @@ export class TeamIntelligenceService {
           offset + MAX_ORGANIZATIONS_PER_REQUEST,
         ),
       });
+      if (!snapshot.available) {
+        return { available: false, summaries: new Map() };
+      }
       summaries.push(...snapshot.organizations);
     }
-    return new Map(summaries.map(summary => [summary.organizationId, summary]));
+    return {
+      available: true,
+      summaries: new Map(
+        summaries.map(summary => [summary.organizationId, summary]),
+      ),
+    };
   }
 
   async getCurrentMaintainerRange(
@@ -92,6 +121,32 @@ export class TeamIntelligenceService {
     return {
       minimum: counts.length ? Math.min(...counts) : null,
       maximum: counts.length ? Math.max(...counts) : null,
+    };
+  }
+
+  async getMaintainerRanges(organizationIds: string[]): Promise<{
+    available: boolean;
+    current: { minimum: number | null; maximum: number | null };
+    active: { minimum: number | null; maximum: number | null };
+  }> {
+    const snapshot = await this.getSnapshot({
+      organizationIds: [...new Set(organizationIds.filter(Boolean))],
+    });
+    const range = (values: Array<number | null>) => {
+      const present = values.filter((value): value is number => value !== null);
+      return {
+        minimum: present.length ? Math.min(...present) : null,
+        maximum: present.length ? Math.max(...present) : null,
+      };
+    };
+    return {
+      available: snapshot.available,
+      current: range(
+        snapshot.organizations.map(summary => summary.currentMaintainerCount),
+      ),
+      active: range(
+        snapshot.organizations.map(summary => summary.activeLeadCount),
+      ),
     };
   }
 
@@ -117,7 +172,7 @@ export class TeamIntelligenceService {
         page,
         limit,
       });
-      throw error;
+      return undefined;
     }
   }
 
@@ -130,6 +185,11 @@ export class TeamIntelligenceService {
       teamCoverageStatus: summary?.coverageStatus ?? null,
       teamSignalsAsOf: summary?.asOf ?? null,
       currentMaintainerCount: summary?.currentMaintainerCount ?? null,
+      activeLeadCount: summary?.activeLeadCount ?? null,
+      newActiveLeadCount: summary?.newActiveLeadCount ?? null,
+      steppedDownLeadCount: summary?.steppedDownLeadCount ?? null,
+      movedLeadCount: summary?.movedLeadCount ?? null,
+      earlyLeadDepartureCount: summary?.earlyLeadDepartureCount ?? null,
       growingTeam: summary?.growingTeam ?? null,
       shrinkingTeam: summary?.shrinkingTeam ?? null,
       earlyTeamShrinkage: summary?.earlyTeamShrinkage ?? null,
@@ -144,15 +204,30 @@ export class TeamIntelligenceService {
       ...(activeRangeBound(input.maxCurrentMaintainers)
         ? { currentMaintainersMax: input.maxCurrentMaintainers }
         : {}),
-      ...(typeof input.growingTeam === "boolean"
-        ? { growingTeam: input.growingTeam }
+      ...(activeRangeBound(input.minActiveLeads)
+        ? { activeLeadsMin: input.minActiveLeads }
         : {}),
-      ...(typeof input.shrinkingTeam === "boolean"
-        ? { shrinkingTeam: input.shrinkingTeam }
+      ...(activeRangeBound(input.maxActiveLeads)
+        ? { activeLeadsMax: input.maxActiveLeads }
         : {}),
-      ...(typeof input.earlyTeamShrinkage === "boolean"
-        ? { earlyTeamShrinkage: input.earlyTeamShrinkage }
+      ...(typeof input.newActiveLeads === "boolean"
+        ? { newActiveLeads: input.newActiveLeads }
+        : typeof input.growingTeam === "boolean"
+          ? { newActiveLeads: input.growingTeam }
+          : {}),
+      ...(typeof input.steppedDownLeads === "boolean"
+        ? { steppedDownLeads: input.steppedDownLeads }
+        : typeof input.shrinkingTeam === "boolean"
+          ? { steppedDownLeads: input.shrinkingTeam }
+          : {}),
+      ...(typeof input.movedLeads === "boolean"
+        ? { movedLeads: input.movedLeads }
         : {}),
+      ...(typeof input.earlyLeadDepartures === "boolean"
+        ? { earlyLeadDepartures: input.earlyLeadDepartures }
+        : typeof input.earlyTeamShrinkage === "boolean"
+          ? { earlyLeadDepartures: input.earlyTeamShrinkage }
+          : {}),
     };
   }
 

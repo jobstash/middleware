@@ -31,6 +31,9 @@ export type RawJobFilters = {
   maxHeadCount?: number | null;
   minCurrentMaintainers?: number | null;
   maxCurrentMaintainers?: number | null;
+  minActiveLeads?: number | null;
+  maxActiveLeads?: number | null;
+  teamSignalsAvailable?: boolean | null;
   tags?: string[] | null;
   fundingRounds?: string[] | null;
   fundingStages?: string[] | null;
@@ -113,6 +116,20 @@ export class JobFilterConfigsEntity {
     };
   }
 
+  getTeamRangePresets(key: string): RangeFilter {
+    return {
+      ...this.getRangePresets(key),
+      show: this.raw.teamSignalsAvailable === true,
+    };
+  }
+
+  getTeamSingleSelectPresets(key: string): SingleSelectFilter {
+    return {
+      ...this.getSingleSelectPresets(key),
+      show: this.raw.teamSignalsAvailable === true,
+    };
+  }
+
   getAvailabilityPresets(): MultiSelectFilter {
     const labels = this.raw.availabilityLabels ?? {};
     const values = [
@@ -173,7 +190,14 @@ export class JobFilterConfigsEntity {
         toHeaderCase,
       ),
       availability: this.getAvailabilityPresets(),
-      currentMaintainers: this.getRangePresets("currentMaintainers"),
+      currentMaintainers: this.getTeamRangePresets("currentMaintainers"),
+      activeLeads: this.getTeamRangePresets("activeLeads"),
+      newActiveLeads: this.getTeamSingleSelectPresets("newActiveLeads"),
+      steppedDownLeads: this.getTeamSingleSelectPresets("steppedDownLeads"),
+      movedLeads: this.getTeamSingleSelectPresets("movedLeads"),
+      earlyLeadDepartures: this.getTeamSingleSelectPresets(
+        "earlyLeadDepartures",
+      ),
       growingTeam: this.getSingleSelectPresets("growingTeam"),
       shrinkingTeam: this.getSingleSelectPresets("shrinkingTeam"),
       earlyTeamShrinkage: this.getSingleSelectPresets("earlyTeamShrinkage"),
