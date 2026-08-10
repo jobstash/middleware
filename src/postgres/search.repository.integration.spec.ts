@@ -36,7 +36,9 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
   });
 
   beforeEach(async () => {
-    await postgres.query("TRUNCATE TABLE graph_nodes RESTART IDENTITY CASCADE");
+    await postgres.query(
+      "TRUNCATE TABLE graph_nodes, place_reference RESTART IDENTITY CASCADE",
+    );
     now = Date.now();
     await seedProjectionData();
   });
@@ -129,6 +131,8 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
         ('test:berlin-us', 'city', 'Berlin', 'berlin', 'US', 'test', '1', 'test'),
         ('test:apac-region', 'business_region', 'APAC', 'apac', NULL, 'test', '1', 'test'),
         ('test:apac-city', 'city', 'Apac', 'apac', 'UG', 'test', '1', 'test'),
+        ('test:africa', 'continent', 'Africa', 'africa', NULL, 'test', '1', 'test'),
+        ('test:mahdia', 'city', 'Mahdia', 'mahdia', 'TN', 'test', '1', 'test'),
         ('test:springfield-a', 'city', 'Springfield', 'springfield', 'US', 'test', '1', 'test'),
         ('test:springfield-b', 'city', 'Springfield', 'springfield', 'CA', 'test', '1', 'test')
       ON CONFLICT (place_id) DO UPDATE SET
@@ -146,6 +150,8 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
         ('berlin', 'test:berlin-us', 'Berlin', 'test', 0),
         ('apac', 'test:apac-region', 'APAC', 'test', 100),
         ('apac', 'test:apac-city', 'Apac', 'test', 100),
+        ('africa', 'test:africa', 'Africa', 'test', 100),
+        ('africa', 'test:mahdia', 'Africa', 'test', 0),
         ('springfield', 'test:springfield-a', 'Springfield', 'test', 100),
         ('springfield', 'test:springfield-b', 'Springfield', 'test', 100)
       ON CONFLICT (alias_normalized, place_id) DO UPDATE SET
@@ -161,6 +167,11 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
       placeId: "test:apac-region",
       canonicalName: "APAC",
       canonicalSlug: "apac",
+    });
+    await expect(repository.resolvePlacePillar("africa")).resolves.toEqual({
+      placeId: "test:africa",
+      canonicalName: "Africa",
+      canonicalSlug: "africa",
     });
     await expect(
       repository.resolvePlacePillar("springfield"),

@@ -595,6 +595,7 @@ export class SearchRepository {
             place.place_id AS "placeId",
             place.canonical_name AS "canonicalName",
             slugify_text(place.canonical_name) AS "canonicalSlug",
+            place.normalized_name = $1 AS canonical_match,
             COALESCE(max(alias.priority), 0) AS alias_priority,
             CASE
               WHEN $1 = ANY(ARRAY[
@@ -619,10 +620,18 @@ export class SearchRepository {
             ON alias.place_id = place.place_id
            AND alias.alias_normalized = $1
           WHERE place.normalized_name = $1 OR alias.place_id IS NOT NULL
-          GROUP BY place.place_id, place.canonical_name, place.kind
+          GROUP BY
+            place.place_id,
+            place.canonical_name,
+            place.normalized_name,
+            place.kind
+        ), canonical_ranked AS MATERIALIZED (
+          SELECT *, bool_or(canonical_match) OVER () AS has_canonical_match
+          FROM candidates
         ), specificity_ranked AS MATERIALIZED (
           SELECT *, max(specificity) OVER () AS highest_specificity
-          FROM candidates
+          FROM canonical_ranked
+          WHERE canonical_match = has_canonical_match
         ), priority_ranked AS (
           SELECT *, max(alias_priority) OVER () AS highest_alias_priority
           FROM specificity_ranked

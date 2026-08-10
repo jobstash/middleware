@@ -104,6 +104,9 @@ describe("SearchRepository", () => {
     expect(sql).toContain("WHEN 'city' THEN 60");
     expect(sql).toContain("WHEN 'administrative_area' THEN 50");
     expect(sql).toContain("place.kind = 'business_region'");
+    expect(sql).toContain("place.normalized_name = $1 AS canonical_match");
+    expect(sql).toContain("bool_or(canonical_match) OVER ()");
+    expect(sql).toContain("WHERE canonical_match = has_canonical_match");
     expect(sql).toContain("max(alias_priority) OVER ()");
     expect(parameters).toEqual(["berlin"]);
   });
