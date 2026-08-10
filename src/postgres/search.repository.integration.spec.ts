@@ -133,6 +133,9 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
         ('test:apac-city', 'city', 'Apac', 'apac', 'UG', 'test', '1', 'test'),
         ('test:africa', 'continent', 'Africa', 'africa', NULL, 'test', '1', 'test'),
         ('test:mahdia', 'city', 'Mahdia', 'mahdia', 'TN', 'test', '1', 'test'),
+        ('test:netherlands', 'country', 'The Netherlands', 'the-netherlands', 'NL', 'test', '1', 'test'),
+        ('test:amsterdam-nl', 'city', 'Amsterdam', 'amsterdam', 'NL', 'test', '1', 'test'),
+        ('test:amsterdam-us', 'city', 'Amsterdam', 'amsterdam', 'US', 'test', '1', 'test'),
         ('test:springfield-a', 'city', 'Springfield', 'springfield', 'US', 'test', '1', 'test'),
         ('test:springfield-b', 'city', 'Springfield', 'springfield', 'CA', 'test', '1', 'test')
       ON CONFLICT (place_id) DO UPDATE SET
@@ -140,6 +143,15 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
         canonical_name = EXCLUDED.canonical_name,
         normalized_name = EXCLUDED.normalized_name,
         country_code = EXCLUDED.country_code
+    `);
+    await postgres.query(`
+      UPDATE place_reference
+      SET properties = CASE place_id
+        WHEN 'test:amsterdam-nl' THEN '{"population":741636}'::jsonb
+        WHEN 'test:amsterdam-us' THEN '{"population":18008}'::jsonb
+        ELSE properties
+      END
+      WHERE place_id IN ('test:amsterdam-nl', 'test:amsterdam-us')
     `);
     await postgres.query(`
       INSERT INTO place_aliases (
@@ -152,6 +164,8 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
         ('apac', 'test:apac-city', 'Apac', 'test', 100),
         ('africa', 'test:africa', 'Africa', 'test', 100),
         ('africa', 'test:mahdia', 'Africa', 'test', 0),
+        ('amsterdam', 'test:amsterdam-nl', 'Amsterdam', 'test', 100),
+        ('amsterdam', 'test:amsterdam-us', 'Amsterdam', 'test', 100),
         ('springfield', 'test:springfield-a', 'Springfield', 'test', 100),
         ('springfield', 'test:springfield-b', 'Springfield', 'test', 100)
       ON CONFLICT (alias_normalized, place_id) DO UPDATE SET
@@ -173,9 +187,71 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
       canonicalName: "Africa",
       canonicalSlug: "africa",
     });
+    await expect(repository.resolvePlacePillar("netherlands")).resolves.toEqual(
+      {
+        placeId: "test:netherlands",
+        canonicalName: "The Netherlands",
+        canonicalSlug: "the-netherlands",
+      },
+    );
+    await expect(repository.resolvePlacePillar("amsterdam")).resolves.toEqual({
+      placeId: "test:amsterdam-nl",
+      canonicalName: "Amsterdam",
+      canonicalSlug: "amsterdam",
+    });
     await expect(
       repository.resolvePlacePillar("springfield"),
     ).resolves.toBeUndefined();
+  });
+
+  it("includes a locality in every containing location pillar", async () => {
+    await postgres.query(`
+      INSERT INTO place_reference (
+        place_id, kind, canonical_name, normalized_name, parent_place_id,
+        ancestor_place_ids, country_code, source, source_version,
+        source_license
+      ) VALUES
+        (
+          'test:emea', 'business_region', 'EMEA', 'emea', NULL,
+          ARRAY[]::text[], NULL, 'test', '1', 'test'
+        ),
+        (
+          'test:europe', 'continent', 'Europe', 'europe', NULL,
+          ARRAY['test:emea'], NULL, 'test', '1', 'test'
+        ),
+        (
+          'test:netherlands', 'country', 'The Netherlands', 'the-netherlands',
+          'test:europe', ARRAY['test:europe', 'test:emea'], 'NL',
+          'test', '1', 'test'
+        ),
+        (
+          'test:amsterdam', 'city', 'Amsterdam', 'amsterdam',
+          'test:netherlands',
+          ARRAY['test:netherlands', 'test:europe', 'test:emea'], 'NL',
+          'test', '1', 'test'
+        )
+    `);
+    await postgres.query(`
+      UPDATE job_search_documents
+      SET availability_keys = ARRAY[
+        'place:test:amsterdam',
+        'place:test:netherlands',
+        'place:test:europe',
+        'place:test:emea'
+      ]::text[]
+    `);
+
+    const range = {
+      startDate: now - 86_400_000,
+      endDate: now + 86_400_000,
+      pillarType: "locations" as const,
+      limit: 10,
+    };
+    for (const value of ["amsterdam", "netherlands", "europe", "emea"]) {
+      await expect(
+        repository.getPillarJobs({ ...range, value }),
+      ).resolves.toHaveLength(1);
+    }
   });
 
   it("filters recent pillar jobs entirely in PostgreSQL", async () => {

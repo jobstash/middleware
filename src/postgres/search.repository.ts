@@ -595,8 +595,24 @@ export class SearchRepository {
             place.place_id AS "placeId",
             place.canonical_name AS "canonicalName",
             slugify_text(place.canonical_name) AS "canonicalSlug",
-            place.normalized_name = $1 AS canonical_match,
+            (
+              place.normalized_name = $1
+              OR (
+                place.kind = 'country'
+                AND slugify_text(regexp_replace(
+                  place.canonical_name,
+                  '^[[:space:]]*the[[:space:]]+',
+                  '',
+                  'i'
+                )) = $1
+              )
+            ) AS canonical_match,
             COALESCE(max(alias.priority), 0) AS alias_priority,
+            CASE
+              WHEN jsonb_typeof(place.properties -> 'population') = 'number'
+                THEN (place.properties ->> 'population')::numeric
+              ELSE 0
+            END AS population,
             CASE
               WHEN $1 = ANY(ARRAY[
                 'apac', 'asia-pacific', 'emea',
@@ -619,12 +635,23 @@ export class SearchRepository {
           LEFT JOIN place_aliases alias
             ON alias.place_id = place.place_id
            AND alias.alias_normalized = $1
-          WHERE place.normalized_name = $1 OR alias.place_id IS NOT NULL
+          WHERE place.normalized_name = $1
+             OR (
+               place.kind = 'country'
+               AND slugify_text(regexp_replace(
+                 place.canonical_name,
+                 '^[[:space:]]*the[[:space:]]+',
+                 '',
+                 'i'
+               )) = $1
+             )
+             OR alias.place_id IS NOT NULL
           GROUP BY
             place.place_id,
             place.canonical_name,
             place.normalized_name,
-            place.kind
+            place.kind,
+            place.properties
         ), canonical_ranked AS MATERIALIZED (
           SELECT *, bool_or(canonical_match) OVER () AS has_canonical_match
           FROM candidates
@@ -632,18 +659,22 @@ export class SearchRepository {
           SELECT *, max(specificity) OVER () AS highest_specificity
           FROM canonical_ranked
           WHERE canonical_match = has_canonical_match
-        ), priority_ranked AS (
+        ), priority_ranked AS MATERIALIZED (
           SELECT *, max(alias_priority) OVER () AS highest_alias_priority
           FROM specificity_ranked
           WHERE specificity = highest_specificity
+        ), prominence_ranked AS (
+          SELECT *, max(population) OVER () AS highest_population
+          FROM priority_ranked
+          WHERE alias_priority = highest_alias_priority
         )
           SELECT
             "placeId",
             "canonicalName",
             "canonicalSlug",
             count(*) OVER ()::text AS "candidateCount"
-        FROM priority_ranked
-        WHERE alias_priority = highest_alias_priority
+        FROM prominence_ranked
+        WHERE population = highest_population
         ORDER BY "placeId"
       `,
       [normalized],

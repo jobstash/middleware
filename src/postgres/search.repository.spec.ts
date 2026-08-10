@@ -81,7 +81,7 @@ describe("SearchRepository", () => {
     ]);
   });
 
-  it("resolves a place pillar to the most specific unique canonical node", async () => {
+  it("resolves a place pillar to the most specific unique prominent node", async () => {
     const query = jest.fn().mockResolvedValue([
       {
         placeId: "geonames:2950159",
@@ -104,10 +104,13 @@ describe("SearchRepository", () => {
     expect(sql).toContain("WHEN 'city' THEN 60");
     expect(sql).toContain("WHEN 'administrative_area' THEN 50");
     expect(sql).toContain("place.kind = 'business_region'");
-    expect(sql).toContain("place.normalized_name = $1 AS canonical_match");
+    expect(sql).toContain("place.normalized_name = $1");
+    expect(sql).toContain("place.canonical_name");
+    expect(sql).toContain("AS canonical_match");
     expect(sql).toContain("bool_or(canonical_match) OVER ()");
     expect(sql).toContain("WHERE canonical_match = has_canonical_match");
     expect(sql).toContain("max(alias_priority) OVER ()");
+    expect(sql).toContain("max(population) OVER ()");
     expect(parameters).toEqual(["berlin"]);
   });
 });
