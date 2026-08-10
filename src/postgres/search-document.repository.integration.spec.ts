@@ -1,5 +1,6 @@
 import { performance } from "node:perf_hooks";
 import { JobFilterConfigsEntity } from "src/shared/entities";
+import { publicationDateRangeGenerator } from "src/shared/helpers";
 import { SearchDocumentRepository } from "./search-document.repository";
 import { PostgresService } from "./postgres.service";
 
@@ -1427,6 +1428,10 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
   });
 
   it("round-trips every emitted job facet option to at least one result", async () => {
+    await postgres.query(
+      "UPDATE job_search_documents SET published_timestamp = $1",
+      [Date.now()],
+    );
     await postgres.query(`
       UPDATE job_search_documents
       SET availability_keys = ARRAY[
@@ -1456,6 +1461,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     const configs = new JobFilterConfigsEntity(
       await repository.getJobFilterValues(),
     ).getProperties();
+    const widestDateRange = publicationDateRangeGenerator("past-6-months");
     const facets = [
       "tags",
       "projects",
@@ -1482,6 +1488,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       for (const option of configs[facet].options) {
         const page = await repository.searchJobs({
           [facet]: [String(option.value)],
+          ...widestDateRange,
           limit: 1,
         } as JobSearchParams);
         if (page.total === 0) {
