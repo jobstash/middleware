@@ -1219,6 +1219,23 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
   });
 
   it("returns projected organization and project details by stable keys", async () => {
+    await postgres.query(`
+      UPDATE job_search_documents
+      SET payload = payload || '{
+            "availability": [{
+              "requirement": "required",
+              "placeText": "Berlin",
+              "placeKind": "city",
+              "rawText": "Berlin required",
+              "confidence": 1,
+              "extractorVersion": "test-current"
+            }]
+          }'::jsonb,
+          detail_payload = COALESCE(detail_payload, payload) || '{
+            "availability": []
+          }'::jsonb
+      WHERE structured_jobpost_id = 'job-protected'
+    `);
     await expect(
       repository.getOrganizationById("org-acme"),
     ).resolves.toMatchObject({ name: "Acme" });
@@ -1239,6 +1256,12 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       id: "job-protected",
       online: true,
       blocked: false,
+      availability: [
+        expect.objectContaining({
+          placeText: "Berlin",
+          extractorVersion: "test-current",
+        }),
+      ],
       organization: { orgId: "org-acme" },
     });
   });

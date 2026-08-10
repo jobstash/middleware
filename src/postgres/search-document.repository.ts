@@ -1310,7 +1310,7 @@ export class SearchDocumentRepository {
     const [row] = await this.postgres.query<{ payload: JobListResult }>(
       `
         SELECT
-          COALESCE(job.detail_payload, job.payload)
+          COALESCE(job.detail_payload, '{}'::jsonb) || job.payload
           || CASE
             WHEN organization.payload IS NULL THEN '{}'::jsonb
             ELSE jsonb_build_object(

@@ -636,6 +636,9 @@ describe("SearchDocumentRepository", () => {
 
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain("job.short_uuid = $1");
+    expect(sql).toContain(
+      "COALESCE(job.detail_payload, '{}'::jsonb) || job.payload",
+    );
     expect(sql).toContain("ORDER BY job.online DESC");
     expect(sql).not.toContain("job-1' OR true --");
     expect(parameters).toEqual(["job-1' OR true --", true, "ethereum"]);
