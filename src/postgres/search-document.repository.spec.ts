@@ -553,7 +553,14 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain('AS "minSalaryRange"');
     expect(sql).toContain("salary_currency ILIKE '%USD%'");
     expect(sql).toContain("managed_ecosystems && $1::text[]");
-    expect(parameters).toEqual([["ethereum"]]);
+    expect(sql).toContain("job.published_timestamp >= $2::bigint");
+    expect(sql).toContain("job.published_timestamp < $3::bigint");
+    expect(parameters).toEqual([
+      ["ethereum"],
+      expect.any(Number),
+      expect.any(Number),
+    ]);
+    expect(parameters[1]).toBeLessThan(parameters[2]);
   });
 
   it("scopes job filter aggregates to one organization", async () => {
@@ -561,8 +568,14 @@ describe("SearchDocumentRepository", () => {
 
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain("organization_id = $1");
+    expect(sql).toContain("job.published_timestamp >= $2::bigint");
+    expect(sql).toContain("job.published_timestamp < $3::bigint");
     expect(sql).not.toContain("org-1' OR true --");
-    expect(parameters).toEqual(["org-1' OR true --"]);
+    expect(parameters).toEqual([
+      "org-1' OR true --",
+      expect.any(Number),
+      expect.any(Number),
+    ]);
   });
 
   it("derives all-jobs filters from the shared aggregate", async () => {

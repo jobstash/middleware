@@ -3,7 +3,11 @@ import { go } from "fuzzysort";
 import { JobListParams } from "src/jobs/dto/job-list.input";
 import { OrgListParams } from "src/organizations/dto/org-list.input";
 import { ProjectListParams } from "src/projects/dto/project-list.input";
-import { slugify, sprinkleProtectedJobs } from "src/shared/helpers";
+import {
+  publicationDateRangeGenerator,
+  slugify,
+  sprinkleProtectedJobs,
+} from "src/shared/helpers";
 import {
   AdminDirectoryPage,
   AdminOrganizationDirectoryItem,
@@ -1115,6 +1119,15 @@ export class SearchDocumentRepository {
       parameters.push(organizationId);
       predicates.push(`owner.organization_id = $${parameters.length}`);
     }
+    // Filter options must remain selectable under the widest date preset in
+    // the UI. Omitting this scope advertises stale, dead-end facet values.
+    const widestDateRange = publicationDateRangeGenerator("past-6-months");
+    parameters.push(widestDateRange.startDate);
+    predicates.push(
+      `job.published_timestamp >= $${parameters.length}::bigint`,
+    );
+    parameters.push(widestDateRange.endDate);
+    predicates.push(`job.published_timestamp < $${parameters.length}::bigint`);
 
     const [row] = await this.postgres.query<Record<string, unknown>>(
       `

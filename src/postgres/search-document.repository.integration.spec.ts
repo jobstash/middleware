@@ -1467,6 +1467,20 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
           }'::jsonb
       WHERE structured_jobpost_id = 'job-protected'
     `);
+    const widestDateRange = publicationDateRangeGenerator("past-6-months");
+    await postgres.query(
+      `
+        UPDATE job_search_documents
+        SET published_timestamp = $1,
+            availability_keys = availability_keys || 'raw:city:stale-only'::text,
+            filter_labels = filter_labels || '{
+              "availability": {"raw:city:stale-only": "Stale Only"},
+              "cities": {"raw:city:stale-only": "Stale Only"}
+            }'::jsonb
+        WHERE structured_jobpost_id = 'job-public-beta'
+      `,
+      [widestDateRange.startDate - 1],
+    );
 
     const configs = new JobFilterConfigsEntity(
       await repository.getJobFilterValues(),
@@ -1480,13 +1494,22 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
         }),
       ]),
     );
+    expect(configs.availability.options).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ value: "stale-only" }),
+      ]),
+    );
+    expect(configs.cities.options).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ value: "stale-only" }),
+      ]),
+    );
     await expect(
       repository.searchJobs({ cities: ["amsterdam"], limit: 10 }),
     ).resolves.toMatchObject({ total: 1, count: 1 });
     await expect(
       repository.searchJobs({ cities: ["place:city:test"], limit: 10 }),
     ).resolves.toMatchObject({ total: 1, count: 1 });
-    const widestDateRange = publicationDateRangeGenerator("past-6-months");
     const facets = [
       "tags",
       "projects",
