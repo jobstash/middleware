@@ -1,4 +1,5 @@
 import { performance } from "node:perf_hooks";
+import { JobFilterConfigsEntity } from "src/shared/entities";
 import { SearchDocumentRepository } from "./search-document.repository";
 import { PostgresService } from "./postgres.service";
 
@@ -466,7 +467,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       expect(page).toMatchObject({ count: 0, total: 0, data: [] });
     });
 
-    it("matches the latest funding round rather than historical rounds", async () => {
+    it("matches every funding round exposed by the facet menu", async () => {
       await postgres.query(`
         UPDATE job_search_documents
         SET funding_round_names = ARRAY['seed', 'series-a'],
@@ -486,7 +487,7 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       });
 
       expect(latest.data.map(job => job.id)).toEqual(["job-protected"]);
-      expect(historical).toMatchObject({ count: 0, total: 0, data: [] });
+      expect(historical.data.map(job => job.id)).toEqual(["job-protected"]);
     });
 
     it("supports exact, fuzzy, trimmed, and missing text searches", async () => {
@@ -1404,8 +1405,12 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
       maxSalaryRange: 150_000,
     });
     expect(jobs.tags).toEqual(
-      expect.arrayContaining(["Solidity", "TypeScript"]),
+      expect.arrayContaining(["solidity", "typescript"]),
     );
+    expect(jobs.tagLabels).toMatchObject({
+      solidity: "Solidity",
+      typescript: "TypeScript",
+    });
 
     const organizations = await repository.getOrganizationFilterValues();
     expect(organizations.investors).toEqual(
@@ -1419,6 +1424,73 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     expect(projects.categories).toEqual(
       expect.arrayContaining(["DeFi", "Infrastructure"]),
     );
+  });
+
+  it("round-trips every emitted job facet option to at least one result", async () => {
+    await postgres.query(`
+      UPDATE job_search_documents
+      SET availability_keys = ARRAY[
+            'place:city:test',
+            'place:region:test',
+            'place:country:test',
+            'place:continent:test',
+            'tz:Europe/Amsterdam'
+          ],
+          filter_labels = filter_labels || '{
+            "availability": {
+              "place:city:test": "Amsterdam",
+              "place:region:test": "North Holland",
+              "place:country:test": "Netherlands",
+              "place:continent:test": "Europe",
+              "tz:Europe/Amsterdam": "Europe/Amsterdam"
+            },
+            "cities": {"place:city:test": "Amsterdam"},
+            "regions": {"place:region:test": "North Holland"},
+            "countries": {"place:country:test": "Netherlands"},
+            "continents": {"place:continent:test": "Europe"},
+            "timezones": {"tz:Europe/Amsterdam": "Europe/Amsterdam"}
+          }'::jsonb
+      WHERE structured_jobpost_id = 'job-protected'
+    `);
+
+    const configs = new JobFilterConfigsEntity(
+      await repository.getJobFilterValues(),
+    ).getProperties();
+    const facets = [
+      "tags",
+      "projects",
+      "organizations",
+      "investors",
+      "fundingRounds",
+      "fundingStages",
+      "chains",
+      "ecosystems",
+      "classifications",
+      "commitments",
+      "locations",
+      "workModes",
+      "availability",
+      "cities",
+      "regions",
+      "countries",
+      "continents",
+      "timezones",
+      "seniority",
+    ] as const;
+
+    for (const facet of facets) {
+      for (const option of configs[facet].options) {
+        const page = await repository.searchJobs({
+          [facet]: [String(option.value)],
+          limit: 1,
+        } as JobSearchParams);
+        if (page.total === 0) {
+          throw new Error(
+            `Facet option returned no jobs: ${facet}=${String(option.value)}`,
+          );
+        }
+      }
+    }
   });
 
   it("uses the GIN tag index and remains fast with 20,000 job documents", async () => {

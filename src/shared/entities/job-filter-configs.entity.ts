@@ -35,15 +35,24 @@ export type RawJobFilters = {
   maxActiveLeads?: number | null;
   teamSignalsAvailable?: boolean | null;
   tags?: string[] | null;
+  tagLabels?: Record<string, string> | null;
   fundingRounds?: string[] | null;
+  fundingRoundLabels?: Record<string, string> | null;
   fundingStages?: string[] | null;
+  fundingStageLabels?: Record<string, string> | null;
   projects?: string[] | null;
+  projectLabels?: Record<string, string> | null;
   classifications?: string[] | null;
+  classificationLabels?: Record<string, string> | null;
   commitments?: string[] | null;
+  commitmentLabels?: Record<string, string> | null;
   chains?: string[] | null;
+  chainLabels?: Record<string, string> | null;
   audits?: string[] | null;
   locations?: string[] | null;
+  locationLabels?: Record<string, string> | null;
   workModes?: string[] | null;
+  workModeLabels?: Record<string, string> | null;
   availability?: string[] | null;
   availabilityLabels?: Record<string, string> | null;
   cities?: string[] | null;
@@ -57,12 +66,15 @@ export type RawJobFilters = {
   timezones?: string[] | null;
   timezoneLabels?: Record<string, string> | null;
   investors?: string[] | null;
+  investorLabels?: Record<string, string> | null;
   hacks?: string[] | null;
   token?: string[] | null;
   onboardIntoWeb3?: string[] | null;
   expertJobs?: string[] | null;
   ecosystems?: string[] | null;
+  ecosystemLabels?: Record<string, string> | null;
   organizations?: string[] | null;
+  organizationLabels?: Record<string, string> | null;
   seniority?: string[] | null;
 };
 
@@ -140,8 +152,20 @@ export class JobFilterConfigsEntity {
     };
   }
 
-  getKeyedAvailabilityPresets(
+  getKeyedPresets(
     key:
+      | "tags"
+      | "projects"
+      | "organizations"
+      | "investors"
+      | "fundingRounds"
+      | "fundingStages"
+      | "chains"
+      | "ecosystems"
+      | "classifications"
+      | "commitments"
+      | "locations"
+      | "workModes"
       | "availability"
       | "cities"
       | "regions"
@@ -149,6 +173,18 @@ export class JobFilterConfigsEntity {
       | "continents"
       | "timezones",
     labelKey:
+      | "tagLabels"
+      | "projectLabels"
+      | "organizationLabels"
+      | "investorLabels"
+      | "fundingRoundLabels"
+      | "fundingStageLabels"
+      | "chainLabels"
+      | "ecosystemLabels"
+      | "classificationLabels"
+      | "commitmentLabels"
+      | "locationLabels"
+      | "workModeLabels"
       | "availabilityLabels"
       | "cityLabels"
       | "regionLabels"
@@ -157,6 +193,20 @@ export class JobFilterConfigsEntity {
       | "timezoneLabels",
   ): MultiSelectFilter {
     const labels = this.raw[labelKey] ?? {};
+    const opaqueKeys = new Set([
+      "availability",
+      "cities",
+      "regions",
+      "countries",
+      "continents",
+      "timezones",
+    ]);
+    const headerLabels = new Set([
+      "classifications",
+      "commitments",
+      "locations",
+      "workModes",
+    ]);
     const values = [
       ...new Set(
         (this.raw[key] ?? []).filter(
@@ -168,7 +218,18 @@ export class JobFilterConfigsEntity {
     return {
       ...this.configPresets[key],
       options: values
-        .map(value => ({ label: labels[value] ?? value, value }))
+        .map(value => {
+          const label = labels[value] ?? value;
+          return {
+            label: headerLabels.has(key) ? toHeaderCase(label) : label,
+            value:
+              labels[value] !== undefined || opaqueKeys.has(key)
+                ? value
+                : key === "ecosystems"
+                  ? value
+                  : slugify(value),
+          };
+        })
         .sort(
           (left, right) =>
             left.label.localeCompare(right.label) ||
@@ -189,46 +250,37 @@ export class JobFilterConfigsEntity {
       monthlyRevenue: this.getRangePresets("monthlyRevenue"),
       audits: this.getSingleSelectPresets("audits"),
       hacks: this.getSingleSelectPresets("hacks"),
-      fundingRounds: this.getMultiValuePresetsWithTransform("fundingRounds"),
-      fundingStages: this.getMultiValuePresetsWithTransform("fundingStages"),
-      investors: this.getMultiValuePresetsWithTransform("investors"),
-      tags: this.getMultiValuePresetsWithTransform("tags"),
-      organizations: this.getMultiValuePresetsWithTransform("organizations"),
-      chains: this.getMultiValuePresetsWithTransform("chains"),
-      projects: this.getMultiValuePresetsWithTransform("projects"),
-      classifications: this.getMultiValuePresetsWithTransform(
+      fundingRounds: this.getKeyedPresets(
+        "fundingRounds",
+        "fundingRoundLabels",
+      ),
+      fundingStages: this.getKeyedPresets(
+        "fundingStages",
+        "fundingStageLabels",
+      ),
+      investors: this.getKeyedPresets("investors", "investorLabels"),
+      tags: this.getKeyedPresets("tags", "tagLabels"),
+      organizations: this.getKeyedPresets(
+        "organizations",
+        "organizationLabels",
+      ),
+      chains: this.getKeyedPresets("chains", "chainLabels"),
+      projects: this.getKeyedPresets("projects", "projectLabels"),
+      classifications: this.getKeyedPresets(
         "classifications",
-        toHeaderCase,
+        "classificationLabels",
       ),
-      commitments: this.getMultiValuePresetsWithTransform(
-        "commitments",
-        toHeaderCase,
-      ),
-      ecosystems: this.getMultiValuePresets("ecosystems"),
+      commitments: this.getKeyedPresets("commitments", "commitmentLabels"),
+      ecosystems: this.getKeyedPresets("ecosystems", "ecosystemLabels"),
       seniority: this.getMultiValuePresetsWithTransform("seniority"),
-      locations: this.getMultiValuePresetsWithTransform(
-        "locations",
-        toHeaderCase,
-      ),
-      workModes: this.getMultiValuePresetsWithTransform(
-        "workModes",
-        toHeaderCase,
-      ),
-      availability: this.getKeyedAvailabilityPresets(
-        "availability",
-        "availabilityLabels",
-      ),
-      cities: this.getKeyedAvailabilityPresets("cities", "cityLabels"),
-      regions: this.getKeyedAvailabilityPresets("regions", "regionLabels"),
-      countries: this.getKeyedAvailabilityPresets("countries", "countryLabels"),
-      continents: this.getKeyedAvailabilityPresets(
-        "continents",
-        "continentLabels",
-      ),
-      timezones: this.getKeyedAvailabilityPresets(
-        "timezones",
-        "timezoneLabels",
-      ),
+      locations: this.getKeyedPresets("locations", "locationLabels"),
+      workModes: this.getKeyedPresets("workModes", "workModeLabels"),
+      availability: this.getKeyedPresets("availability", "availabilityLabels"),
+      cities: this.getKeyedPresets("cities", "cityLabels"),
+      regions: this.getKeyedPresets("regions", "regionLabels"),
+      countries: this.getKeyedPresets("countries", "countryLabels"),
+      continents: this.getKeyedPresets("continents", "continentLabels"),
+      timezones: this.getKeyedPresets("timezones", "timezoneLabels"),
       currentMaintainers: this.getTeamRangePresets("currentMaintainers"),
       activeLeads: this.getTeamRangePresets("activeLeads"),
       newActiveLeads: this.getTeamSingleSelectPresets("newActiveLeads"),

@@ -262,9 +262,11 @@ describe("SearchDocumentRepository", () => {
       "commitments",
       "location_types",
     ]) {
-      expect(sql).toContain(`${column} &&`);
+      expect(sql).toContain(`(${column}) &&`);
     }
-    expect(sql).toContain("latest_funding_round_name = ANY(");
+    expect(sql).toContain("(funding_round_names) &&");
+    expect(sql).toContain("FROM unnest(classifications) facet_key");
+    expect(sql).toContain("replace(facet_key, '-', '')");
     expect(parameters).toEqual(
       expect.arrayContaining([
         ["solidity"],
@@ -275,6 +277,22 @@ describe("SearchDocumentRepository", () => {
         ["engineering"],
         ["fulltime"],
         ["remote"],
+      ]),
+    );
+  });
+
+  it("accepts legacy compact facet URLs without losing canonical matches", async () => {
+    await repository.searchJobs({
+      classifications: ["engineeringmanagement"],
+    });
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("FROM unnest(classifications) facet_key");
+    expect(sql).toContain("replace(facet_key, '-', '')");
+    expect(parameters).toEqual(
+      expect.arrayContaining([
+        ["engineeringmanagement"],
+        ["engineeringmanagement"],
       ]),
     );
   });
@@ -499,8 +517,15 @@ describe("SearchDocumentRepository", () => {
 
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain("WITH scoped_jobs AS MATERIALIZED");
-    expect(sql).toContain("organization_label_values AS MATERIALIZED");
+    expect(sql).toContain("NOT job.blocked");
+    expect(sql).toContain("organization_has_expert_jobs");
     expect(sql).toContain("filter_labels -> 'tags'");
+    expect(sql).toContain('AS "tagLabels"');
+    expect(sql).toContain('AS "projectLabels"');
+    expect(sql).toContain('AS "organizationLabels"');
+    expect(sql).toContain('AS "fundingRoundLabels"');
+    expect(sql).toContain('AS "classificationLabels"');
+    expect(sql).toContain('AS "workModeLabels"');
     expect(sql).toContain("filter_labels -> 'availability'");
     expect(sql).toContain('AS "availabilityLabels"');
     expect(sql).toContain("filter_labels -> 'cities'");
@@ -529,7 +554,12 @@ describe("SearchDocumentRepository", () => {
 
   it("derives all-jobs filters from the shared aggregate", async () => {
     query.mockResolvedValue([
-      { classifications: ["ENGINEERING"], organizations: ["Acme"] },
+      {
+        classifications: ["engineering"],
+        classificationLabels: { engineering: "ENGINEERING" },
+        organizations: ["acme"],
+        organizationLabels: { acme: "Acme" },
+      },
     ]);
 
     await expect(repository.getAllJobsFilterValues()).resolves.toEqual({

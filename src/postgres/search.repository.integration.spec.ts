@@ -146,6 +146,13 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
     await expect(
       repository.getPillarJobs({
         ...base,
+        pillarType: "locationTypes",
+        value: "remote",
+      }),
+    ).resolves.toHaveLength(1);
+    await expect(
+      repository.getPillarJobs({
+        ...base,
         pillarType: "booleans",
         value: "expertJobs",
       }),
@@ -190,6 +197,17 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
         ...base,
         pillarType: "investors",
         value: "11-11-media-eleven-eleven-media",
+      }),
+    ).resolves.toHaveLength(1);
+
+    await postgres.query(
+      "UPDATE job_search_documents SET classifications = ARRAY['engineering-management']",
+    );
+    await expect(
+      repository.getPillarJobs({
+        ...base,
+        pillarType: "classifications",
+        value: "engineeringmanagement",
       }),
     ).resolves.toHaveLength(1);
   });

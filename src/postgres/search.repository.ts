@@ -102,16 +102,20 @@ const labelArrayWithFallback = (
 `;
 
 const placeLabelArray = (): string => `
-  COALESCE(
-    ARRAY(
-      SELECT entry.value
-      FROM jsonb_each_text(
-        COALESCE(source.filter_labels -> 'availability', '{}'::jsonb)
-      ) entry
-      WHERE entry.key LIKE 'place:%' OR entry.key LIKE 'raw:%'
-      ORDER BY entry.value
-    ),
-    ARRAY[]::text[]
+  ARRAY(
+    SELECT DISTINCT location.value
+    FROM unnest(
+      ${labelArray("locations")}
+      || ARRAY(
+        SELECT entry.value
+        FROM jsonb_each_text(
+          COALESCE(source.filter_labels -> 'availability', '{}'::jsonb)
+        ) entry
+        WHERE entry.key LIKE 'place:%' OR entry.key LIKE 'raw:%'
+      )
+    ) location(value)
+    WHERE location.value <> ''
+    ORDER BY location.value
   )
 `;
 
@@ -407,6 +411,10 @@ export class SearchRepository {
     const predicates = [
       "job.online",
       "NOT job.blocked",
+      "job.legacy_list_eligible",
+      "cardinality(job.tags) > 0",
+      "(job.organization_id IS NOT NULL OR job.project_id IS NOT NULL)",
+      "NOT (job.access = 'public' AND job.organization_has_expert_jobs)",
       "job.published_timestamp >= $1",
       "job.published_timestamp <= $2",
     ];
@@ -415,15 +423,42 @@ export class SearchRepository {
         `${bind(slugify(options.ecosystem))} = ANY(job.managed_ecosystems)`,
       );
     }
-    const hasFacetKey = (facet: string, key: string): string =>
-      `COALESCE(job.filter_labels -> '${facet}', '{}'::jsonb) ? ${bind(key)}`;
+    const hasFacetKey = (
+      facet: string,
+      key: string,
+      fallbackExpression: string,
+    ): string => {
+      const keyParameter = bind(key);
+      if (facet !== "classifications") {
+        return `(
+          (${fallbackExpression}) && ARRAY[${keyParameter}]::text[]
+          OR EXISTS (
+            SELECT 1
+            FROM unnest(${fallbackExpression}) facet_key
+            WHERE slugify_text(facet_key) = ${keyParameter}
+          )
+        )`;
+      }
+      const compactParameter = bind(key.replaceAll("-", ""));
+      return `(
+        (${fallbackExpression}) && ARRAY[${keyParameter}]::text[]
+        OR EXISTS (
+          SELECT 1
+          FROM unnest(${fallbackExpression}) facet_key
+          WHERE slugify_text(facet_key) = ${keyParameter}
+             OR replace(slugify_text(facet_key), '-', '') = ${compactParameter}
+        )
+      )`;
+    };
     const value = options.value;
     switch (options.pillarType) {
       case "tags":
-        predicates.push(hasFacetKey("tags", value));
+        predicates.push(hasFacetKey("tags", value, "job.tags"));
         break;
       case "classifications":
-        predicates.push(hasFacetKey("classifications", value));
+        predicates.push(
+          hasFacetKey("classifications", value, "job.classifications"),
+        );
         break;
       case "locations":
         {
@@ -469,13 +504,19 @@ export class SearchRepository {
         )`);
         break;
       case "commitments":
-        predicates.push(hasFacetKey("commitments", value));
+        predicates.push(hasFacetKey("commitments", value, "job.commitments"));
         break;
       case "locationTypes":
-        predicates.push(hasFacetKey("locationTypes", value));
+        predicates.push(hasFacetKey("workModes", value, "job.location_types"));
         break;
       case "organizations":
-        predicates.push(hasFacetKey("organizations", value));
+        predicates.push(
+          hasFacetKey(
+            "organizations",
+            value,
+            "ARRAY[slugify_text(job.organization_name)]",
+          ),
+        );
         break;
       case "seniority": {
         const seniority =
@@ -486,13 +527,21 @@ export class SearchRepository {
         break;
       }
       case "investors":
-        predicates.push(hasFacetKey("investors", value));
+        predicates.push(hasFacetKey("investors", value, "job.investor_names"));
         break;
       case "fundingRounds":
-        predicates.push(hasFacetKey("fundingRounds", value));
+        predicates.push(
+          hasFacetKey("fundingRounds", value, "job.funding_round_names"),
+        );
         break;
       case "fundingStages":
-        predicates.push(hasFacetKey("fundingStages", value));
+        predicates.push(
+          hasFacetKey(
+            "fundingStages",
+            value,
+            "ARRAY[slugify_text(job.current_funding_stage)]",
+          ),
+        );
         break;
       case "booleans":
         if (value === "expertJobs") predicates.push("job.access = 'protected'");

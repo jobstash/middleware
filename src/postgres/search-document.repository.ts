@@ -133,6 +133,35 @@ class SqlPredicateBuilder {
     this.add(`${column} && ${this.bind(normalized)}::text[]`);
   }
 
+  addFacetKeyOverlap(
+    category: string,
+    fallbackExpression: string,
+    values?: string[] | null,
+  ): void {
+    const normalized = normalizeList(values);
+    if (!normalized?.length) return;
+    const canonical =
+      category === "commitments"
+        ? normalized.map(value => value.replaceAll("-", ""))
+        : normalized;
+    const keys = this.bind(canonical);
+    if (category !== "classifications") {
+      this.add(`(${fallbackExpression}) && ${keys}::text[]`);
+      return;
+    }
+    const compactKeys = this.bind(
+      canonical.map(value => value.replaceAll("-", "")),
+    );
+    this.add(`(
+      (${fallbackExpression}) && ${keys}::text[]
+      OR EXISTS (
+        SELECT 1
+        FROM unnest(${fallbackExpression}) facet_key
+        WHERE replace(facet_key, '-', '') = ANY(${compactKeys}::text[])
+      )
+    )`);
+  }
+
   addEcosystemOverlap(values?: string[] | null): void {
     const normalized = normalizeList(values);
     if (!normalized?.length) return;
@@ -664,22 +693,23 @@ export class SearchDocumentRepository {
       );
     }
     where.addEcosystemOverlap(params.ecosystems);
-    where.addArrayOverlap("tags", params.tags);
-    where.addArrayOverlap("project_names", params.projects);
-    where.addArrayOverlap("investor_names", params.investors);
-    const fundingRounds = normalizeList(params.fundingRounds);
-    if (fundingRounds?.length) {
-      where.add(
-        `latest_funding_round_name = ANY(${where.bind(fundingRounds)}::text[])`,
-      );
-    }
-    where.addArrayOverlap("chain_names", params.chains);
-    where.addArrayOverlap("classifications", params.classifications);
-    const commitments = normalizeList(params.commitments)?.map(value =>
-      value.replaceAll("-", ""),
+    where.addFacetKeyOverlap("tags", "tags", params.tags);
+    where.addFacetKeyOverlap("projects", "project_names", params.projects);
+    where.addFacetKeyOverlap("investors", "investor_names", params.investors);
+    where.addFacetKeyOverlap(
+      "fundingRounds",
+      "funding_round_names",
+      params.fundingRounds,
     );
-    where.addArrayOverlap("commitments", commitments);
-    where.addArrayOverlap(
+    where.addFacetKeyOverlap("chains", "chain_names", params.chains);
+    where.addFacetKeyOverlap(
+      "classifications",
+      "classifications",
+      params.classifications,
+    );
+    where.addFacetKeyOverlap("commitments", "commitments", params.commitments);
+    where.addFacetKeyOverlap(
+      "workModes",
       "location_types",
       params.workModes ?? params.locations,
     );
@@ -701,12 +731,11 @@ export class SearchDocumentRepository {
         where.add(`availability_keys && ${where.bind(keys)}::text[]`);
       }
     }
-    const fundingStages = normalizeList(params.fundingStages);
-    if (fundingStages?.length) {
-      where.add(
-        `slugify_text(current_funding_stage) = ANY(${where.bind(fundingStages)}::text[])`,
-      );
-    }
+    where.addFacetKeyOverlap(
+      "fundingStages",
+      "ARRAY[slugify_text(current_funding_stage)]",
+      params.fundingStages,
+    );
     if (params.teamOrganizationIds !== undefined) {
       where.add(
         params.teamOrganizationIds.length
@@ -716,12 +745,11 @@ export class SearchDocumentRepository {
     }
     where.addEqual("recently_funded", params.recentlyFunded);
 
-    const organizations = normalizeList(params.organizations);
-    if (organizations?.length) {
-      where.add(
-        `organization_name = ANY(${where.bind(organizations)}::text[])`,
-      );
-    }
+    where.addFacetKeyOverlap(
+      "organizations",
+      "ARRAY[slugify_text(organization_name)]",
+      params.organizations,
+    );
     const seniorities = normalizeList(params.seniority);
     if (seniorities?.length) {
       where.add(`seniority = ANY(${where.bind(seniorities)}::text[])`);
@@ -1056,8 +1084,10 @@ export class SearchDocumentRepository {
     const parameters: unknown[] = [];
     const predicates = [
       "job.online",
+      "NOT job.blocked",
       "job.legacy_list_eligible",
       "cardinality(job.tags) > 0",
+      "NOT (job.access = 'public' AND job.organization_has_expert_jobs)",
     ];
     if (ecosystem) {
       const ecosystems = Array.isArray(ecosystem)
@@ -1087,6 +1117,13 @@ export class SearchDocumentRepository {
             job.availability_keys,
             job.seniority,
             job.filter_labels,
+            job.project_names AS job_project_names,
+            job.organization_name AS job_organization_name,
+            job.investor_names AS job_investor_names,
+            job.funding_round_names AS job_funding_round_names,
+            job.current_funding_stage AS job_current_funding_stage,
+            job.chain_names AS job_chain_names,
+            job.ecosystems AS job_ecosystems,
             owner.organization_id AS owner_organization_id,
             organization.name AS owner_organization_name,
             organization.headcount_estimate AS owner_headcount_estimate,
@@ -1113,7 +1150,14 @@ export class SearchDocumentRepository {
             location_types,
             availability_keys,
             seniority,
-            filter_labels
+            filter_labels,
+            job_project_names,
+            job_organization_name,
+            job_investor_names,
+            job_funding_round_names,
+            job_current_funding_stage,
+            job_chain_names,
+            job_ecosystems
           FROM scoped_jobs
           ORDER BY job_node_id
         ), scoped_organizations AS MATERIALIZED (
@@ -1148,28 +1192,6 @@ export class SearchDocumentRepository {
             SELECT array_agg(DISTINCT slugify_text(owner_organization_id))
             FROM eligible_organizations
           ), ARRAY[]::text[])
-        ), organization_label_values AS MATERIALIZED (
-          SELECT
-            section.category,
-            array_agg(DISTINCT label.value ORDER BY label.value) AS labels
-          FROM eligible_organizations organization
-          CROSS JOIN LATERAL jsonb_each(jsonb_build_object(
-            'projects', organization.owner_filter_labels -> 'projects',
-            'investors', organization.owner_filter_labels -> 'investors',
-            'fundingRounds',
-              organization.owner_filter_labels -> 'fundingRounds',
-            'chains', organization.owner_filter_labels -> 'chains',
-            'ecosystems', organization.owner_filter_labels -> 'ecosystems'
-          ))
-            section(category, labels_json)
-          CROSS JOIN LATERAL jsonb_each_text(
-            CASE
-              WHEN jsonb_typeof(section.labels_json) = 'object'
-                THEN section.labels_json
-              ELSE '{}'::jsonb
-            END
-          ) label
-          GROUP BY section.category
         )
         SELECT
           COALESCE(
@@ -1191,33 +1213,30 @@ export class SearchDocumentRepository {
           (SELECT max(monthly_revenue)::float8 FROM eligible_projects) AS "maxMonthlyRevenue",
           (SELECT min(owner_headcount_estimate) FROM scoped_organizations) AS "minHeadCount",
           (SELECT max(owner_headcount_estimate) FROM scoped_organizations) AS "maxHeadCount",
-          ${filterLabels("tags", "tags", "scoped_job_documents", "scoped_job_documents")} AS tags,
-          COALESCE(
-            (SELECT labels FROM organization_label_values WHERE category = 'projects'),
-            ${fallbackLabels("owner_project_names", "eligible_organizations")}
-          ) AS projects,
-          ${filterLabels("organizations", "ARRAY[owner_organization_name]", "scoped_organizations", "scoped_organizations", "owner_filter_labels")} AS organizations,
-          COALESCE(
-            (SELECT labels FROM organization_label_values WHERE category = 'investors'),
-            ${fallbackLabels("owner_investor_names", "eligible_organizations")}
-          ) AS investors,
-          COALESCE(
-            (SELECT labels FROM organization_label_values WHERE category = 'fundingRounds'),
-            ${fallbackLabels("owner_funding_round_names", "eligible_organizations")}
-          ) AS "fundingRounds",
-          ${filterLabels("fundingStages", "ARRAY[owner_current_funding_stage]", "eligible_organizations", "eligible_organizations", "owner_filter_labels")} AS "fundingStages",
-          COALESCE(
-            (SELECT labels FROM organization_label_values WHERE category = 'chains'),
-            ${fallbackLabels("owner_chain_names", "eligible_organizations")}
-          ) AS chains,
-          COALESCE(
-            (SELECT labels FROM organization_label_values WHERE category = 'ecosystems'),
-            ${fallbackLabels("owner_ecosystems", "eligible_organizations")}
-          ) AS ecosystems,
-          ${filterLabels("classifications", "classifications", "scoped_job_documents", "scoped_job_documents")} AS classifications,
-          ${filterLabels("commitments", "commitments", "scoped_job_documents", "scoped_job_documents")} AS commitments,
-          ${filterLabels("locations", "location_types", "scoped_job_documents", "scoped_job_documents")} AS locations,
-          ${filterLabels("workModes", "location_types", "scoped_job_documents", "scoped_job_documents")} AS "workModes",
+          ${filterKeys("tags", "tags", "scoped_job_documents", "scoped_job_documents")} AS tags,
+          ${filterLabelMap("tags", "scoped_job_documents")} AS "tagLabels",
+          ${filterKeys("projects", "job_project_names", "scoped_job_documents", "scoped_job_documents")} AS projects,
+          ${filterLabelMap("projects", "scoped_job_documents")} AS "projectLabels",
+          ${filterKeys("organizations", "ARRAY[slugify_text(job_organization_name)]", "scoped_job_documents", "scoped_job_documents")} AS organizations,
+          ${filterLabelMap("organizations", "scoped_job_documents")} AS "organizationLabels",
+          ${filterKeys("investors", "job_investor_names", "scoped_job_documents", "scoped_job_documents")} AS investors,
+          ${filterLabelMap("investors", "scoped_job_documents")} AS "investorLabels",
+          ${filterKeys("fundingRounds", "job_funding_round_names", "scoped_job_documents", "scoped_job_documents")} AS "fundingRounds",
+          ${filterLabelMap("fundingRounds", "scoped_job_documents")} AS "fundingRoundLabels",
+          ${filterKeys("fundingStages", "ARRAY[slugify_text(job_current_funding_stage)]", "scoped_job_documents", "scoped_job_documents")} AS "fundingStages",
+          ${filterLabelMap("fundingStages", "scoped_job_documents")} AS "fundingStageLabels",
+          ${filterKeys("chains", "job_chain_names", "scoped_job_documents", "scoped_job_documents")} AS chains,
+          ${filterLabelMap("chains", "scoped_job_documents")} AS "chainLabels",
+          ${filterKeys("ecosystems", "job_ecosystems", "scoped_job_documents", "scoped_job_documents")} AS ecosystems,
+          ${filterLabelMap("ecosystems", "scoped_job_documents")} AS "ecosystemLabels",
+          ${filterKeys("classifications", "classifications", "scoped_job_documents", "scoped_job_documents")} AS classifications,
+          ${filterLabelMap("classifications", "scoped_job_documents")} AS "classificationLabels",
+          ${filterKeys("commitments", "commitments", "scoped_job_documents", "scoped_job_documents")} AS commitments,
+          ${filterLabelMap("commitments", "scoped_job_documents")} AS "commitmentLabels",
+          ${filterKeys("locations", "location_types", "scoped_job_documents", "scoped_job_documents")} AS locations,
+          ${filterLabelMap("locations", "scoped_job_documents")} AS "locationLabels",
+          ${filterKeys("workModes", "location_types", "scoped_job_documents", "scoped_job_documents")} AS "workModes",
+          ${filterLabelMap("workModes", "scoped_job_documents")} AS "workModeLabels",
           ${filterKeys("availability", "availability_keys", "scoped_job_documents", "scoped_job_documents")} AS availability,
           ${filterLabelMap("availability", "scoped_job_documents")} AS "availabilityLabels",
           ${filterKeys("cities", "ARRAY[]::text[]", "scoped_job_documents", "scoped_job_documents")} AS cities,
@@ -1243,9 +1262,18 @@ export class SearchDocumentRepository {
     organizations: string[];
   }> {
     const values = await this.getJobFilterValues();
+    const labelsFor = (keys: unknown, labels: unknown): string[] => {
+      const labelMap =
+        labels && typeof labels === "object"
+          ? (labels as Record<string, string>)
+          : {};
+      return Array.isArray(keys)
+        ? keys.map(key => labelMap[String(key)] ?? String(key))
+        : [];
+    };
     return {
-      category: (values.classifications as string[] | undefined) ?? [],
-      organizations: (values.organizations as string[] | undefined) ?? [],
+      category: labelsFor(values.classifications, values.classificationLabels),
+      organizations: labelsFor(values.organizations, values.organizationLabels),
     };
   }
 

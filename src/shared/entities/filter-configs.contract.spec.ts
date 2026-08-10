@@ -121,8 +121,49 @@ describe("filter config response contracts", () => {
       seniority: { options: [{ label: "Senior", value: "senior" }] },
     });
     expect(result.tags.options).toEqual([
-      { label: "TypeScript", value: "typescript" },
       { label: "Solidity", value: "solidity" },
+      { label: "TypeScript", value: "typescript" },
+    ]);
+  });
+
+  it("preserves projected facet keys instead of re-slugifying labels", () => {
+    const result = new JobFilterConfigsEntity({
+      classifications: ["engineering-management"],
+      classificationLabels: {
+        "engineering-management": "ENGINEERING_MANAGEMENT",
+      },
+      commitments: ["fulltime"],
+      commitmentLabels: { fulltime: "FULL_TIME" },
+      organizations: ["wave-mobile-money-inc"],
+      organizationLabels: {
+        "wave-mobile-money-inc": "Wave Mobile Money Inc.",
+      },
+      workModes: ["remote"],
+      workModeLabels: { remote: "REMOTE" },
+      fundingRounds: ["series-a"],
+      fundingRoundLabels: { "series-a": "Series A" },
+    }).getProperties();
+
+    expect(result.classifications.options).toEqual([
+      {
+        label: "Engineering Management",
+        value: "engineering-management",
+      },
+    ]);
+    expect(result.commitments.options).toEqual([
+      { label: "Full Time", value: "fulltime" },
+    ]);
+    expect(result.organizations.options).toEqual([
+      {
+        label: "Wave Mobile Money Inc.",
+        value: "wave-mobile-money-inc",
+      },
+    ]);
+    expect(result.workModes.options).toEqual([
+      { label: "Remote", value: "remote" },
+    ]);
+    expect(result.fundingRounds.options).toEqual([
+      { label: "Series A", value: "series-a" },
     ]);
   });
 
