@@ -108,7 +108,7 @@ const placeLabelArray = (): string => `
       FROM jsonb_each_text(
         COALESCE(source.filter_labels -> 'availability', '{}'::jsonb)
       ) entry
-      WHERE entry.key LIKE 'place:%'
+      WHERE entry.key LIKE 'place:%' OR entry.key LIKE 'raw:%'
       ORDER BY entry.value
     ),
     ARRAY[]::text[]
@@ -315,6 +315,7 @@ export class SearchRepository {
           SELECT jsonb_build_object(
             'tags', ${labelArray("tags")},
             'locations', ${placeLabelArray()},
+            'timezones', ${labelArray("timezones")},
             'commitments', ${labelArray("commitments")},
             'locationTypes', ${labelArrayWithFallback("locationTypes", "location_types")},
             'classifications', ${labelArray("classifications")},
@@ -429,10 +430,43 @@ export class SearchRepository {
           const place = await this.resolvePlacePillar(value);
           predicates.push(
             place
-              ? `${bind(`place:${place.placeId}`)} = ANY(job.availability_keys)`
-              : `slugify_text(job.location) = ${bind(value)}`,
+              ? `(
+                  ${bind(`place:${place.placeId}`)} = ANY(job.availability_keys)
+                  OR EXISTS (
+                    SELECT 1
+                    FROM jsonb_array_elements(
+                      COALESCE(job.payload -> 'availability', '[]'::jsonb)
+                    ) availability(item)
+                    WHERE slugify_text(COALESCE(
+                      availability.item ->> 'placeName',
+                      availability.item ->> 'placeText'
+                    )) = ${bind(value)}
+                  )
+                )`
+              : `(
+                  slugify_text(job.location) = ${bind(value)}
+                  OR EXISTS (
+                    SELECT 1
+                    FROM jsonb_array_elements(
+                      COALESCE(job.payload -> 'availability', '[]'::jsonb)
+                    ) availability(item)
+                    WHERE slugify_text(COALESCE(
+                      availability.item ->> 'placeName',
+                      availability.item ->> 'placeText'
+                    )) = ${bind(value)}
+                  )
+                )`,
           );
         }
+        break;
+      case "timezones":
+        predicates.push(`EXISTS (
+          SELECT 1
+          FROM jsonb_each_text(
+            COALESCE(job.filter_labels -> 'timezones', '{}'::jsonb)
+          ) timezone(key, label)
+          WHERE slugify_text(timezone.label) = ${bind(value)}
+        )`);
         break;
       case "commitments":
         predicates.push(hasFacetKey("commitments", value));
@@ -583,6 +617,24 @@ export class SearchRepository {
             COALESCE(filter_labels -> 'availability', '{}'::jsonb)
           ) entry
           WHERE entry.key LIKE 'place:%'
+          UNION ALL
+          SELECT 'locations', slugify_text(
+              COALESCE(item ->> 'placeName', item ->> 'placeText')
+            ),
+            COALESCE(item ->> 'placeName', item ->> 'placeText'),
+            job_node_id, published_timestamp
+          FROM active
+          CROSS JOIN LATERAL jsonb_array_elements(
+            COALESCE(payload -> 'availability', '[]'::jsonb)
+          ) item
+          WHERE COALESCE(item ->> 'placeName', item ->> 'placeText') IS NOT NULL
+          UNION ALL
+          SELECT 'timezones', slugify_text(entry.value), entry.value,
+            job_node_id, published_timestamp
+          FROM active
+          CROSS JOIN LATERAL jsonb_each_text(
+            COALESCE(filter_labels -> 'timezones', '{}'::jsonb)
+          ) entry
           UNION ALL
           SELECT 'commitments', entry.key, entry.value, job_node_id,
             published_timestamp

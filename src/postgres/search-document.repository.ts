@@ -689,6 +689,18 @@ export class SearchDocumentRepository {
     if (availability?.length) {
       where.add(`availability_keys && ${where.bind(availability)}::text[]`);
     }
+    for (const values of [
+      params.cities,
+      params.regions,
+      params.countries,
+      params.continents,
+      params.timezones,
+    ]) {
+      const keys = values?.map(value => value.trim()).filter(Boolean);
+      if (keys?.length) {
+        where.add(`availability_keys && ${where.bind(keys)}::text[]`);
+      }
+    }
     const fundingStages = normalizeList(params.fundingStages);
     if (fundingStages?.length) {
       where.add(
@@ -1208,6 +1220,16 @@ export class SearchDocumentRepository {
           ${filterLabels("workModes", "location_types", "scoped_job_documents", "scoped_job_documents")} AS "workModes",
           ${filterKeys("availability", "availability_keys", "scoped_job_documents", "scoped_job_documents")} AS availability,
           ${filterLabelMap("availability", "scoped_job_documents")} AS "availabilityLabels",
+          ${filterKeys("cities", "ARRAY[]::text[]", "scoped_job_documents", "scoped_job_documents")} AS cities,
+          ${filterLabelMap("cities", "scoped_job_documents")} AS "cityLabels",
+          ${filterKeys("regions", "ARRAY[]::text[]", "scoped_job_documents", "scoped_job_documents")} AS regions,
+          ${filterLabelMap("regions", "scoped_job_documents")} AS "regionLabels",
+          ${filterKeys("countries", "ARRAY[]::text[]", "scoped_job_documents", "scoped_job_documents")} AS countries,
+          ${filterLabelMap("countries", "scoped_job_documents")} AS "countryLabels",
+          ${filterKeys("continents", "ARRAY[]::text[]", "scoped_job_documents", "scoped_job_documents")} AS continents,
+          ${filterLabelMap("continents", "scoped_job_documents")} AS "continentLabels",
+          ${filterKeys("timezones", "ARRAY[]::text[]", "scoped_job_documents", "scoped_job_documents")} AS timezones,
+          ${filterLabelMap("timezones", "scoped_job_documents")} AS "timezoneLabels",
           (SELECT array_remove(array_agg(DISTINCT seniority), NULL)
             FROM scoped_job_documents) AS seniority
       `,

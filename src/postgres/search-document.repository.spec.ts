@@ -279,6 +279,26 @@ describe("SearchDocumentRepository", () => {
     );
   });
 
+  it("intersects independent location facets using availability keys", async () => {
+    await repository.searchJobs({
+      cities: ["place:geonames:2759794"],
+      countries: ["place:geonames:2750405"],
+      continents: ["place:geonames:6255148"],
+      timezones: ["tz:Europe/Amsterdam"],
+    });
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql.match(/availability_keys &&/g)).toHaveLength(4);
+    expect(parameters).toEqual(
+      expect.arrayContaining([
+        ["place:geonames:2759794"],
+        ["place:geonames:2750405"],
+        ["place:geonames:6255148"],
+        ["tz:Europe/Amsterdam"],
+      ]),
+    );
+  });
+
   it("pushes numeric and boolean job filters into PostgreSQL", async () => {
     await repository.searchJobs({
       minSalaryRange: 50_000,
@@ -483,6 +503,14 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("filter_labels -> 'tags'");
     expect(sql).toContain("filter_labels -> 'availability'");
     expect(sql).toContain('AS "availabilityLabels"');
+    expect(sql).toContain("filter_labels -> 'cities'");
+    expect(sql).toContain('AS "cityLabels"');
+    expect(sql).toContain("filter_labels -> 'countries'");
+    expect(sql).toContain('AS "countryLabels"');
+    expect(sql).toContain("filter_labels -> 'continents'");
+    expect(sql).toContain('AS "continentLabels"');
+    expect(sql).toContain("filter_labels -> 'timezones'");
+    expect(sql).toContain('AS "timezoneLabels"');
     expect(sql).toContain("jsonb_object_agg(label.slug, label.label");
     expect(sql).toContain('AS "minSalaryRange"');
     expect(sql).toContain("salary_currency ILIKE '%USD%'");

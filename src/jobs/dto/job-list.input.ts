@@ -235,6 +235,50 @@ export class JobListParams {
   @Transform(toList)
   availability?: string[] | null = null;
 
+  @ApiPropertyOptional({
+    description: "Canonical city availability keys returned by /jobs/filters",
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  cities?: string[] | null = null;
+
+  @ApiPropertyOptional({
+    description:
+      "Canonical administrative, world, or business region availability keys",
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  regions?: string[] | null = null;
+
+  @ApiPropertyOptional({
+    description:
+      "Canonical country availability keys returned by /jobs/filters",
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  countries?: string[] | null = null;
+
+  @ApiPropertyOptional({
+    description:
+      "Canonical continent availability keys returned by /jobs/filters",
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  continents?: string[] | null = null;
+
+  @ApiPropertyOptional({
+    description:
+      "Canonical IANA timezone or UTC-offset keys returned by /jobs/filters",
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
+  timezones?: string[] | null = null;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()

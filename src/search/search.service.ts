@@ -883,6 +883,7 @@ export class SearchService {
       "classifications",
       "commitments",
       "locationTypes",
+      "timezones",
       "organizations",
       "projects",
       "ecosystems",
@@ -917,10 +918,7 @@ export class SearchService {
         }
         const value = knownValue ?? 0;
         if (minimum !== null && value < minimum) return false;
-        if (
-          maximum !== null &&
-          value > maximum
-        ) {
+        if (maximum !== null && value > maximum) {
           return false;
         }
       }
@@ -1095,6 +1093,11 @@ export class SearchService {
           title: `${displayName} Web3 Jobs - Crypto Careers`,
           description: `Find ${displayName.toLowerCase()} web3 positions. Explore crypto jobs with flexible work arrangements.`,
         };
+      case "timezones":
+        return {
+          title: `${displayName} Timezone Web3 Jobs`,
+          description: `Find web3 and crypto jobs compatible with ${displayName}. Browse remote roles by timezone availability.`,
+        };
       case "booleans":
         return this.getBooleanPillarText(item);
       default:
@@ -1209,10 +1212,25 @@ export class SearchService {
       {
         pillarType: "locations",
         prefix: "/l-",
-        extract: (job: PillarJob): ExtractedPillar[] =>
-          job.location
+        extract: (job: PillarJob): ExtractedPillar[] => [
+          ...(job.location
             ? [{ label: job.location, key: slugify(job.location) }]
-            : [],
+            : []),
+          ...(job.availability ?? []).flatMap(item => {
+            const place = item.placeName ?? item.placeText;
+            return place ? [{ label: place, key: slugify(place) }] : [];
+          }),
+        ],
+      },
+      {
+        pillarType: "timezones",
+        prefix: "/tz-",
+        extract: (job: PillarJob): ExtractedPillar[] =>
+          (job.availability ?? []).flatMap(item =>
+            item.timezone
+              ? [{ label: item.timezone, key: slugify(item.timezone) }]
+              : [],
+          ),
       },
       {
         pillarType: "investors",

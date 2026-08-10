@@ -46,6 +46,16 @@ export type RawJobFilters = {
   workModes?: string[] | null;
   availability?: string[] | null;
   availabilityLabels?: Record<string, string> | null;
+  cities?: string[] | null;
+  cityLabels?: Record<string, string> | null;
+  regions?: string[] | null;
+  regionLabels?: Record<string, string> | null;
+  countries?: string[] | null;
+  countryLabels?: Record<string, string> | null;
+  continents?: string[] | null;
+  continentLabels?: Record<string, string> | null;
+  timezones?: string[] | null;
+  timezoneLabels?: Record<string, string> | null;
   investors?: string[] | null;
   hacks?: string[] | null;
   token?: string[] | null;
@@ -130,18 +140,33 @@ export class JobFilterConfigsEntity {
     };
   }
 
-  getAvailabilityPresets(): MultiSelectFilter {
-    const labels = this.raw.availabilityLabels ?? {};
+  getKeyedAvailabilityPresets(
+    key:
+      | "availability"
+      | "cities"
+      | "regions"
+      | "countries"
+      | "continents"
+      | "timezones",
+    labelKey:
+      | "availabilityLabels"
+      | "cityLabels"
+      | "regionLabels"
+      | "countryLabels"
+      | "continentLabels"
+      | "timezoneLabels",
+  ): MultiSelectFilter {
+    const labels = this.raw[labelKey] ?? {};
     const values = [
       ...new Set(
-        (this.raw.availability ?? []).filter(
+        (this.raw[key] ?? []).filter(
           (value): value is string =>
             typeof value === "string" && isValidFilterConfig(value),
         ),
       ),
     ];
     return {
-      ...this.configPresets.availability,
+      ...this.configPresets[key],
       options: values
         .map(value => ({ label: labels[value] ?? value, value }))
         .sort(
@@ -149,7 +174,7 @@ export class JobFilterConfigsEntity {
             left.label.localeCompare(right.label) ||
             left.value.localeCompare(right.value),
         ),
-      paramKey: this.paramKeyPresets.availability,
+      paramKey: this.paramKeyPresets[key],
     };
   }
 
@@ -189,7 +214,21 @@ export class JobFilterConfigsEntity {
         "workModes",
         toHeaderCase,
       ),
-      availability: this.getAvailabilityPresets(),
+      availability: this.getKeyedAvailabilityPresets(
+        "availability",
+        "availabilityLabels",
+      ),
+      cities: this.getKeyedAvailabilityPresets("cities", "cityLabels"),
+      regions: this.getKeyedAvailabilityPresets("regions", "regionLabels"),
+      countries: this.getKeyedAvailabilityPresets("countries", "countryLabels"),
+      continents: this.getKeyedAvailabilityPresets(
+        "continents",
+        "continentLabels",
+      ),
+      timezones: this.getKeyedAvailabilityPresets(
+        "timezones",
+        "timezoneLabels",
+      ),
       currentMaintainers: this.getTeamRangePresets("currentMaintainers"),
       activeLeads: this.getTeamRangePresets("activeLeads"),
       newActiveLeads: this.getTeamSingleSelectPresets("newActiveLeads"),

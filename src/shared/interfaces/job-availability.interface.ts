@@ -13,7 +13,17 @@ export class JobAvailability {
     placeId: t.union([t.string, t.undefined]),
     placeName: t.union([t.string, t.undefined]),
     placeText: t.union([t.string, t.undefined]),
+    placeKind: t.union([
+      t.literal("city"),
+      t.literal("administrative_area"),
+      t.literal("country"),
+      t.literal("world_region"),
+      t.literal("continent"),
+      t.literal("business_region"),
+      t.undefined,
+    ]),
     ancestorPlaceIds: t.union([t.array(t.string), t.undefined]),
+    placeTimezoneIds: t.union([t.array(t.string), t.undefined]),
     timezoneKind: t.union([t.string, t.undefined]),
     timezone: t.union([t.string, t.undefined]),
     minimumUtcOffsetMinutes: t.union([t.number, t.undefined]),
@@ -38,8 +48,29 @@ export class JobAvailability {
   @ApiPropertyOptional()
   placeText?: string;
 
+  @ApiPropertyOptional({
+    enum: [
+      "city",
+      "administrative_area",
+      "country",
+      "world_region",
+      "continent",
+      "business_region",
+    ],
+  })
+  placeKind?:
+    | "city"
+    | "administrative_area"
+    | "country"
+    | "world_region"
+    | "continent"
+    | "business_region";
+
   @ApiPropertyOptional({ type: [String] })
   ancestorPlaceIds?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  placeTimezoneIds?: string[];
 
   @ApiPropertyOptional()
   timezoneKind?: string;

@@ -76,6 +76,11 @@ export class SearchPillarFiltersParams {
   @IsOptional()
   @Type(() => String)
   @Transform(toList)
+  timezones?: string[] | null = null;
+
+  @IsOptional()
+  @Type(() => String)
+  @Transform(toList)
   seniority?: string[] | null = null;
 
   @IsOptional()

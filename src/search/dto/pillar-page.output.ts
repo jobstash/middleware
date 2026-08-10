@@ -78,6 +78,16 @@ export interface PillarJob {
   salaryCurrency: string | null;
   classification: string | null;
   tags: PillarTag[];
+  availability?: Array<{
+    workMode?: "remote" | "hybrid" | "onsite";
+    placeName?: string;
+    placeText?: string;
+    placeKind?: string;
+    placeTimezoneIds?: string[];
+    timezone?: string;
+    minimumUtcOffsetMinutes?: number;
+    maximumUtcOffsetMinutes?: number;
+  }>;
 
   access: "public" | "protected";
   featured: boolean;

@@ -30,6 +30,11 @@ export class JobFilterConfigs {
     locations: MultiSelectFilter.MultiSelectFilterType,
     workModes: MultiSelectFilter.MultiSelectFilterType,
     availability: MultiSelectFilter.MultiSelectFilterType,
+    cities: MultiSelectFilter.MultiSelectFilterType,
+    regions: MultiSelectFilter.MultiSelectFilterType,
+    countries: MultiSelectFilter.MultiSelectFilterType,
+    continents: MultiSelectFilter.MultiSelectFilterType,
+    timezones: MultiSelectFilter.MultiSelectFilterType,
     fundingStages: MultiSelectFilter.MultiSelectFilterType,
     currentMaintainers: RangeFilter.RangeFilterType,
     activeLeads: RangeFilter.RangeFilterType,
@@ -66,6 +71,16 @@ export class JobFilterConfigs {
   workModes: MultiSelectFilter;
   @ApiProperty()
   availability: MultiSelectFilter;
+  @ApiProperty()
+  cities: MultiSelectFilter;
+  @ApiProperty()
+  regions: MultiSelectFilter;
+  @ApiProperty()
+  countries: MultiSelectFilter;
+  @ApiProperty()
+  continents: MultiSelectFilter;
+  @ApiProperty()
+  timezones: MultiSelectFilter;
   @ApiProperty()
   fundingStages: MultiSelectFilter;
   @ApiProperty()
@@ -147,6 +162,11 @@ export class JobFilterConfigs {
       locations,
       workModes,
       availability,
+      cities,
+      regions,
+      countries,
+      continents,
+      timezones,
       fundingStages,
       currentMaintainers,
       activeLeads,
@@ -189,6 +209,11 @@ export class JobFilterConfigs {
     this.locations = locations;
     this.workModes = workModes;
     this.availability = availability;
+    this.cities = cities;
+    this.regions = regions;
+    this.countries = countries;
+    this.continents = continents;
+    this.timezones = timezones;
     this.fundingStages = fundingStages;
     this.currentMaintainers = currentMaintainers;
     this.activeLeads = activeLeads;

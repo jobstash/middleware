@@ -31,6 +31,16 @@ describe("filter config response contracts", () => {
         "place:geonames:2759794": "Amsterdam",
         "place:unm49:528": "Netherlands",
       },
+      cities: ["place:geonames:2759794"],
+      cityLabels: { "place:geonames:2759794": "Amsterdam" },
+      regions: ["place:geonames:2749879"],
+      regionLabels: { "place:geonames:2749879": "North Holland" },
+      countries: ["place:unm49:528"],
+      countryLabels: { "place:unm49:528": "Netherlands" },
+      continents: ["place:geonames:6255148"],
+      continentLabels: { "place:geonames:6255148": "Europe" },
+      timezones: ["tz:Europe/Amsterdam"],
+      timezoneLabels: { "tz:Europe/Amsterdam": "Europe/Amsterdam" },
       investors: ["Paradigm"],
       ecosystems: ["Ethereum"],
       organizations: ["Acme"],
@@ -89,6 +99,21 @@ describe("filter config response contracts", () => {
           { label: "Amsterdam", value: "place:geonames:2759794" },
           { label: "Netherlands", value: "place:unm49:528" },
         ],
+      },
+      cities: {
+        options: [{ label: "Amsterdam", value: "place:geonames:2759794" }],
+      },
+      regions: {
+        options: [{ label: "North Holland", value: "place:geonames:2749879" }],
+      },
+      countries: {
+        options: [{ label: "Netherlands", value: "place:unm49:528" }],
+      },
+      continents: {
+        options: [{ label: "Europe", value: "place:geonames:6255148" }],
+      },
+      timezones: {
+        options: [{ label: "Europe/Amsterdam", value: "tz:Europe/Amsterdam" }],
       },
       investors: { options: [{ label: "Paradigm", value: "paradigm" }] },
       ecosystems: { options: [{ label: "Ethereum", value: "Ethereum" }] },

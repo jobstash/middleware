@@ -18,4 +18,19 @@ describe("SearchRepository", () => {
     expect(sql).toContain("'fundingStages'");
     expect(parameters).toEqual([null]);
   });
+
+  it("builds geographic and timezone job pillars from projected availability", async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const repository = new SearchRepository({
+      query,
+    } as unknown as PostgresService);
+
+    await repository.getPillarConfigs("jobs");
+
+    const [sql] = query.mock.calls[0];
+    expect(sql).toContain("entry.key LIKE 'place:%'");
+    expect(sql).toContain("entry.key LIKE 'raw:%'");
+    expect(sql).toContain("'timezones'");
+    expect(sql).toContain("filter_labels -> 'timezones'");
+  });
 });
