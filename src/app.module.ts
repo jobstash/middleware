@@ -37,6 +37,7 @@ import { WhiteLabelBoardsModule } from "./white-label-boards/white-label-boards.
 import { AccountModule } from "./auth/account/account.module";
 import { PostgresModule } from "./postgres/postgres.module";
 import { TeamIntelligenceModule } from "./team-intelligence/team-intelligence.module";
+import { PeopleIntelligenceModule } from "./people-intelligence/people-intelligence.module";
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { TeamIntelligenceModule } from "./team-intelligence/team-intelligence.mo
       }),
     }),
     TeamIntelligenceModule,
+    PeopleIntelligenceModule,
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

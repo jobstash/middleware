@@ -71,6 +71,10 @@ export type OrganizationTeamDetail = OrganizationTeamSummary & {
     firstMergeAt: string;
     lastMergeAt: string;
     mergeCount: number;
+    mergedPrCount: number;
+    internalAuthorsSupported: number;
+    currentInternalAuthorsSupported: number;
+    supportedAuthorLogins: string[];
     currentEmployee: boolean;
     currentMaintainer: boolean;
     activeLead: boolean;
