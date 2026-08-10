@@ -96,24 +96,62 @@ describe("filter config response contracts", () => {
       locations: { options: [{ label: "Remote", value: "remote" }] },
       availability: {
         options: [
-          { label: "Amsterdam", value: "place:geonames:2759794" },
-          { label: "Netherlands", value: "place:unm49:528" },
+          {
+            label: "Amsterdam",
+            value: "amsterdam",
+            aliases: ["place:geonames:2759794"],
+          },
+          {
+            label: "Netherlands",
+            value: "netherlands",
+            aliases: ["place:unm49:528"],
+          },
         ],
       },
       cities: {
-        options: [{ label: "Amsterdam", value: "place:geonames:2759794" }],
+        options: [
+          {
+            label: "Amsterdam",
+            value: "amsterdam",
+            aliases: ["place:geonames:2759794"],
+          },
+        ],
       },
       regions: {
-        options: [{ label: "North Holland", value: "place:geonames:2749879" }],
+        options: [
+          {
+            label: "North Holland",
+            value: "north-holland",
+            aliases: ["place:geonames:2749879"],
+          },
+        ],
       },
       countries: {
-        options: [{ label: "Netherlands", value: "place:unm49:528" }],
+        options: [
+          {
+            label: "Netherlands",
+            value: "netherlands",
+            aliases: ["place:unm49:528"],
+          },
+        ],
       },
       continents: {
-        options: [{ label: "Europe", value: "place:geonames:6255148" }],
+        options: [
+          {
+            label: "Europe",
+            value: "europe",
+            aliases: ["place:geonames:6255148"],
+          },
+        ],
       },
       timezones: {
-        options: [{ label: "Europe/Amsterdam", value: "tz:Europe/Amsterdam" }],
+        options: [
+          {
+            label: "Europe/Amsterdam",
+            value: "europe-amsterdam",
+            aliases: ["tz:Europe/Amsterdam"],
+          },
+        ],
       },
       investors: { options: [{ label: "Paradigm", value: "paradigm" }] },
       ecosystems: { options: [{ label: "Ethereum", value: "Ethereum" }] },
@@ -123,6 +161,37 @@ describe("filter config response contracts", () => {
     expect(result.tags.options).toEqual([
       { label: "Solidity", value: "solidity" },
       { label: "TypeScript", value: "typescript" },
+    ]);
+    for (const facet of [
+      "availability",
+      "cities",
+      "regions",
+      "countries",
+      "continents",
+      "timezones",
+    ] as const) {
+      for (const option of result[facet].options) {
+        expect(String(option.value)).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+        expect(String(option.value)).not.toMatch(/[:/]/);
+      }
+    }
+  });
+
+  it("deduplicates provider IDs that share one public geographic slug", () => {
+    const result = new JobFilterConfigsEntity({
+      cities: ["place:geonames:2950159", "place:internal:berlin"],
+      cityLabels: {
+        "place:geonames:2950159": "Berlin",
+        "place:internal:berlin": "Berlin",
+      },
+    }).getProperties();
+
+    expect(result.cities.options).toEqual([
+      {
+        label: "Berlin",
+        value: "berlin",
+        aliases: ["place:geonames:2950159", "place:internal:berlin"],
+      },
     ]);
   });
 

@@ -80,4 +80,31 @@ describe("SearchRepository", () => {
       60,
     ]);
   });
+
+  it("resolves a place pillar to the most specific unique canonical node", async () => {
+    const query = jest.fn().mockResolvedValue([
+      {
+        placeId: "geonames:2950159",
+        canonicalName: "Berlin",
+        canonicalSlug: "berlin",
+        candidateCount: "1",
+      },
+    ]);
+    const repository = new SearchRepository({
+      query,
+    } as unknown as PostgresService);
+
+    await expect(repository.resolvePlacePillar("Berlin")).resolves.toEqual({
+      placeId: "geonames:2950159",
+      canonicalName: "Berlin",
+      canonicalSlug: "berlin",
+    });
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("WHEN 'city' THEN 60");
+    expect(sql).toContain("WHEN 'administrative_area' THEN 50");
+    expect(sql).toContain("place.kind = 'business_region'");
+    expect(sql).toContain("max(alias_priority) OVER ()");
+    expect(parameters).toEqual(["berlin"]);
+  });
 });

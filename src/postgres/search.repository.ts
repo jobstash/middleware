@@ -590,34 +590,51 @@ export class SearchRepository {
       candidateCount: string;
     }>(
       `
-        WITH candidates AS (
+        WITH candidates AS MATERIALIZED (
           SELECT
             place.place_id AS "placeId",
             place.canonical_name AS "canonicalName",
             slugify_text(place.canonical_name) AS "canonicalSlug",
-            alias.priority
-          FROM place_aliases alias
-          JOIN place_reference place ON place.place_id = alias.place_id
-          WHERE alias.alias_normalized = $1
-          UNION ALL
-          SELECT
-            place.place_id,
-            place.canonical_name,
-            slugify_text(place.canonical_name),
-            2147483647
+            COALESCE(max(alias.priority), 0) AS alias_priority,
+            CASE
+              WHEN $1 = ANY(ARRAY[
+                'apac', 'asia-pacific', 'emea',
+                'europe-middle-east-and-africa', 'latam', 'latin-america',
+                'latin-america-and-the-caribbean', 'worldwide', 'global',
+                'anywhere', 'worldwide-remote'
+              ]::text[])
+              THEN CASE WHEN place.kind = 'business_region' THEN 100 ELSE 0 END
+              ELSE CASE place.kind
+                WHEN 'city' THEN 60
+                WHEN 'administrative_area' THEN 50
+                WHEN 'country' THEN 40
+                WHEN 'world_region' THEN 30
+                WHEN 'continent' THEN 20
+                WHEN 'business_region' THEN 10
+                ELSE 0
+              END
+            END AS specificity
           FROM place_reference place
-          WHERE place.normalized_name = $1
-        ), ranked AS (
-          SELECT *, max(priority) OVER () AS highest_priority
+          LEFT JOIN place_aliases alias
+            ON alias.place_id = place.place_id
+           AND alias.alias_normalized = $1
+          WHERE place.normalized_name = $1 OR alias.place_id IS NOT NULL
+          GROUP BY place.place_id, place.canonical_name, place.kind
+        ), specificity_ranked AS MATERIALIZED (
+          SELECT *, max(specificity) OVER () AS highest_specificity
           FROM candidates
+        ), priority_ranked AS (
+          SELECT *, max(alias_priority) OVER () AS highest_alias_priority
+          FROM specificity_ranked
+          WHERE specificity = highest_specificity
         )
-        SELECT
-          "placeId",
-          "canonicalName",
-          "canonicalSlug",
-          count(*) OVER ()::text AS "candidateCount"
-        FROM ranked
-        WHERE priority = highest_priority
+          SELECT
+            "placeId",
+            "canonicalName",
+            "canonicalSlug",
+            count(*) OVER ()::text AS "candidateCount"
+        FROM priority_ranked
+        WHERE alias_priority = highest_alias_priority
         ORDER BY "placeId"
       `,
       [normalized],

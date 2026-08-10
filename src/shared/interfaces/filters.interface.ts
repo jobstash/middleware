@@ -42,22 +42,28 @@ export class FilterConfigField {
 }
 
 export class FilterConfigLabel {
-  public static readonly FilterConfigLabelType = t.strict({
-    label: t.string,
-    value: t.union([t.string, t.boolean]),
-  });
+  public static readonly FilterConfigLabelType = t.intersection([
+    t.strict({
+      label: t.string,
+      value: t.union([t.string, t.boolean]),
+    }),
+    t.partial({ aliases: t.array(t.string) }),
+  ]);
 
   @ApiProperty()
   label: string;
   @ApiProperty()
   value: string | boolean;
+  @ApiPropertyOptional({ type: [String] })
+  aliases?: string[];
 
   constructor(raw: FilterConfigLabel) {
-    const { label, value } = raw;
+    const { label, value, aliases } = raw;
     const result = FilterConfigLabel.FilterConfigLabelType.decode(raw);
 
     this.label = label;
     this.value = value;
+    this.aliases = aliases;
 
     if (isLeft(result)) {
       report(result).forEach(x => {

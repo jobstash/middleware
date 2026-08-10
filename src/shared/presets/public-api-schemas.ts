@@ -113,6 +113,12 @@ export const PUBLIC_API_SCHEMAS = {
             label: {
               type: "string",
             },
+            aliases: {
+              type: "array",
+              items: {
+                type: "string",
+              },
+            },
           },
         },
       },
@@ -142,7 +148,21 @@ export const PUBLIC_API_SCHEMAS = {
       options: {
         type: "array",
         items: {
-          type: "string",
+          type: "object",
+          properties: {
+            value: {
+              type: "string",
+            },
+            label: {
+              type: "string",
+            },
+            aliases: {
+              type: "array",
+              items: {
+                type: "string",
+              },
+            },
+          },
         },
       },
     },

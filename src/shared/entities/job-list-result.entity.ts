@@ -101,6 +101,9 @@ export class JobListResultEntity {
       organization: organization
         ? {
             ...organization,
+            summary: organization.summary ?? "",
+            location: organization.location ?? "",
+            description: organization.description ?? "",
             categoryBackfilledTimestamp: losslessInteger(
               organization["categoryBackfilledTimestamp"],
             ),
@@ -387,6 +390,9 @@ export class EcosystemJobListResultEntity {
       organization: organization
         ? {
             ...organization,
+            summary: organization.summary ?? "",
+            location: organization.location ?? "",
+            description: organization.description ?? "",
             categoryBackfilledTimestamp: losslessInteger(
               organization["categoryBackfilledTimestamp"],
             ),

@@ -1428,8 +1428,18 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
   });
 
   it("round-trips every emitted job facet option to at least one result", async () => {
+    // The projection guard derives legacy eligibility from the source graph;
+    // make the compact fixture carry the production organization identity.
+    await postgres.query(`
+      UPDATE graph_nodes
+      SET properties = properties || jsonb_build_object('orgId', node_key)
+      WHERE label = 'Organization'
+    `);
     await postgres.query(
-      "UPDATE job_search_documents SET published_timestamp = $1",
+      `UPDATE job_search_documents
+       SET published_timestamp = $1,
+           legacy_list_eligible = true,
+           organization_has_expert_jobs = false`,
       [Date.now()],
     );
     await postgres.query(`
@@ -1461,6 +1471,21 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     const configs = new JobFilterConfigsEntity(
       await repository.getJobFilterValues(),
     ).getProperties();
+    expect(configs.cities.options).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: "Amsterdam",
+          value: "amsterdam",
+          aliases: ["place:city:test"],
+        }),
+      ]),
+    );
+    await expect(
+      repository.searchJobs({ cities: ["amsterdam"], limit: 10 }),
+    ).resolves.toMatchObject({ total: 1, count: 1 });
+    await expect(
+      repository.searchJobs({ cities: ["place:city:test"], limit: 10 }),
+    ).resolves.toMatchObject({ total: 1, count: 1 });
     const widestDateRange = publicationDateRangeGenerator("past-6-months");
     const facets = [
       "tags",

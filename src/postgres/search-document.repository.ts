@@ -713,24 +713,37 @@ export class SearchDocumentRepository {
       "location_types",
       params.workModes ?? params.locations,
     );
-    const availability = params.availability
-      ?.map(value => value.trim())
-      .filter(Boolean);
-    if (availability?.length) {
-      where.add(`availability_keys && ${where.bind(availability)}::text[]`);
-    }
-    for (const values of [
-      params.cities,
-      params.regions,
-      params.countries,
-      params.continents,
-      params.timezones,
-    ]) {
+    const addGeographyFacet = (
+      facet:
+        | "availability"
+        | "cities"
+        | "regions"
+        | "countries"
+        | "continents"
+        | "timezones",
+      values: string[] | null | undefined,
+    ): void => {
       const keys = values?.map(value => value.trim()).filter(Boolean);
-      if (keys?.length) {
-        where.add(`availability_keys && ${where.bind(keys)}::text[]`);
-      }
-    }
+      if (!keys?.length) return;
+      const parameter = where.bind(keys);
+      where.add(`(
+        availability_keys && ${parameter}::text[]
+        OR EXISTS (
+          SELECT 1
+          FROM jsonb_each_text(
+            COALESCE(filter_labels -> '${facet}', '{}'::jsonb)
+          ) geography(internal_key, public_label)
+          WHERE geography.internal_key = ANY(${parameter}::text[])
+             OR slugify_text(geography.public_label) = ANY(${parameter}::text[])
+        )
+      )`);
+    };
+    addGeographyFacet("availability", params.availability);
+    addGeographyFacet("cities", params.cities);
+    addGeographyFacet("regions", params.regions);
+    addGeographyFacet("countries", params.countries);
+    addGeographyFacet("continents", params.continents);
+    addGeographyFacet("timezones", params.timezones);
     where.addFacetKeyOverlap(
       "fundingStages",
       "ARRAY[slugify_text(current_funding_stage)]",

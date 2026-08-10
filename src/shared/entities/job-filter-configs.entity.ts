@@ -13,6 +13,7 @@ import {
   intConverter,
   isValidFilterConfig,
   slugify,
+  slugifyFacetLabel,
 } from "../helpers";
 import { toHeaderCase } from "js-convert-case";
 
@@ -193,7 +194,7 @@ export class JobFilterConfigsEntity {
       | "timezoneLabels",
   ): MultiSelectFilter {
     const labels = this.raw[labelKey] ?? {};
-    const opaqueKeys = new Set([
+    const seoKeys = new Set([
       "availability",
       "cities",
       "regions",
@@ -215,26 +216,41 @@ export class JobFilterConfigsEntity {
         ),
       ),
     ];
+    const options = values.map(value => {
+      const label = labels[value] ?? value;
+      return {
+        label: headerLabels.has(key) ? toHeaderCase(label) : label,
+        value: seoKeys.has(key)
+          ? slugifyFacetLabel(label)
+          : labels[value] !== undefined
+            ? value
+            : key === "ecosystems"
+              ? value
+              : slugify(value),
+        ...(seoKeys.has(key) ? { aliases: [value] } : {}),
+      };
+    });
+    const deduplicatedOptions = new Map<
+      string | boolean,
+      (typeof options)[number]
+    >();
+    for (const option of options) {
+      const existing = deduplicatedOptions.get(option.value);
+      if (!existing) {
+        deduplicatedOptions.set(option.value, option);
+        continue;
+      }
+      existing.aliases = [
+        ...new Set([...(existing.aliases ?? []), ...(option.aliases ?? [])]),
+      ];
+    }
     return {
       ...this.configPresets[key],
-      options: values
-        .map(value => {
-          const label = labels[value] ?? value;
-          return {
-            label: headerLabels.has(key) ? toHeaderCase(label) : label,
-            value:
-              labels[value] !== undefined || opaqueKeys.has(key)
-                ? value
-                : key === "ecosystems"
-                  ? value
-                  : slugify(value),
-          };
-        })
-        .sort(
-          (left, right) =>
-            left.label.localeCompare(right.label) ||
-            left.value.localeCompare(right.value),
-        ),
+      options: [...deduplicatedOptions.values()].sort(
+        (left, right) =>
+          left.label.localeCompare(right.label) ||
+          left.value.localeCompare(right.value),
+      ),
       paramKey: this.paramKeyPresets[key],
     };
   }

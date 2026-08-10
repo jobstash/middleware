@@ -81,6 +81,9 @@ export class JobDetailsEntity {
       organization: organization
         ? {
             ...organization,
+            summary: organization.summary ?? "",
+            location: organization.location ?? "",
+            description: organization.description ?? "",
             ...({
               categoryBackfilledTimestamp: losslessInteger(
                 organization["categoryBackfilledTimestamp"],

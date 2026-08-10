@@ -3,6 +3,7 @@ import {
   losslessInteger,
   paginate,
   slugify,
+  slugifyFacetLabel,
   sprinkleProtectedJobs,
 } from ".";
 
@@ -26,6 +27,14 @@ describe("Helpers", () => {
       "komiyuniteiocai-yong-saito",
     );
     expect(slugify("(주)스트리미")).toBe("juseuteurimi");
+  });
+
+  it.each([
+    ["Europe/Amsterdam", "europe-amsterdam"],
+    ["UTC+2", "utc-2"],
+    ["Zürich, Switzerland", "zurich-switzerland"],
+  ])("should produce SQL-compatible facet slugs for %s", (input, expected) => {
+    expect(slugifyFacetLabel(input)).toBe(expected);
   });
 
   it.each([

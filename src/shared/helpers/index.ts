@@ -723,6 +723,17 @@ export const slugify = (str: string | null | undefined): string => {
   return slug;
 };
 
+// Keep public facet values byte-for-byte compatible with PostgreSQL's
+// slugify_text, including punctuation boundaries in timezone names/offsets.
+export const slugifyFacetLabel = (str: string | null | undefined): string => {
+  if (str === null || str === undefined) return "";
+  const slug = transliterate(str)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || str.trim().toLowerCase();
+};
+
 function makeRng(seed: number) {
   let t = seed >>> 0;
   return function rand(): number {

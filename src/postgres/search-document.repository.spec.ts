@@ -297,21 +297,34 @@ describe("SearchDocumentRepository", () => {
     );
   });
 
-  it("intersects independent location facets using availability keys", async () => {
+  it("accepts SEO geography slugs and legacy internal keys", async () => {
     await repository.searchJobs({
-      cities: ["place:geonames:2759794"],
-      countries: ["place:geonames:2750405"],
-      continents: ["place:geonames:6255148"],
+      availability: ["berlin"],
+      cities: ["amsterdam"],
+      regions: ["north-holland"],
+      countries: ["netherlands"],
+      continents: ["europe"],
       timezones: ["tz:Europe/Amsterdam"],
     });
 
     const [sql, parameters] = query.mock.calls[0];
-    expect(sql.match(/availability_keys &&/g)).toHaveLength(4);
+    expect(sql.match(/availability_keys &&/g)).toHaveLength(6);
+    expect(sql.match(/jsonb_each_text/g)).toHaveLength(6);
+    expect(sql).toContain("filter_labels -> 'availability'");
+    expect(sql).toContain("filter_labels -> 'cities'");
+    expect(sql).toContain("filter_labels -> 'regions'");
+    expect(sql).toContain("filter_labels -> 'countries'");
+    expect(sql).toContain("filter_labels -> 'continents'");
+    expect(sql).toContain("filter_labels -> 'timezones'");
+    expect(sql).toContain("geography.internal_key = ANY");
+    expect(sql).toContain("slugify_text(geography.public_label) = ANY");
     expect(parameters).toEqual(
       expect.arrayContaining([
-        ["place:geonames:2759794"],
-        ["place:geonames:2750405"],
-        ["place:geonames:6255148"],
+        ["berlin"],
+        ["amsterdam"],
+        ["north-holland"],
+        ["netherlands"],
+        ["europe"],
         ["tz:Europe/Amsterdam"],
       ]),
     );

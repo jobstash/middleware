@@ -118,6 +118,55 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
     });
   });
 
+  it("selects the most targeted unique place node for location pillars", async () => {
+    await postgres.query(`
+      INSERT INTO place_reference (
+        place_id, kind, canonical_name, normalized_name, country_code,
+        source, source_version, source_license
+      ) VALUES
+        ('test:berlin-city', 'city', 'Berlin', 'berlin', 'DE', 'test', '1', 'test'),
+        ('test:berlin-state', 'administrative_area', 'Berlin', 'berlin', 'DE', 'test', '1', 'test'),
+        ('test:berlin-us', 'city', 'Berlin', 'berlin', 'US', 'test', '1', 'test'),
+        ('test:apac-region', 'business_region', 'APAC', 'apac', NULL, 'test', '1', 'test'),
+        ('test:apac-city', 'city', 'Apac', 'apac', 'UG', 'test', '1', 'test'),
+        ('test:springfield-a', 'city', 'Springfield', 'springfield', 'US', 'test', '1', 'test'),
+        ('test:springfield-b', 'city', 'Springfield', 'springfield', 'CA', 'test', '1', 'test')
+      ON CONFLICT (place_id) DO UPDATE SET
+        kind = EXCLUDED.kind,
+        canonical_name = EXCLUDED.canonical_name,
+        normalized_name = EXCLUDED.normalized_name,
+        country_code = EXCLUDED.country_code
+    `);
+    await postgres.query(`
+      INSERT INTO place_aliases (
+        alias_normalized, place_id, alias_name, source, priority
+      ) VALUES
+        ('berlin', 'test:berlin-city', 'Berlin', 'test', 100),
+        ('berlin', 'test:berlin-state', 'Berlin', 'test', 100),
+        ('berlin', 'test:berlin-us', 'Berlin', 'test', 0),
+        ('apac', 'test:apac-region', 'APAC', 'test', 100),
+        ('apac', 'test:apac-city', 'Apac', 'test', 100),
+        ('springfield', 'test:springfield-a', 'Springfield', 'test', 100),
+        ('springfield', 'test:springfield-b', 'Springfield', 'test', 100)
+      ON CONFLICT (alias_normalized, place_id) DO UPDATE SET
+        priority = EXCLUDED.priority
+    `);
+
+    await expect(repository.resolvePlacePillar("berlin")).resolves.toEqual({
+      placeId: "test:berlin-city",
+      canonicalName: "Berlin",
+      canonicalSlug: "berlin",
+    });
+    await expect(repository.resolvePlacePillar("apac")).resolves.toEqual({
+      placeId: "test:apac-region",
+      canonicalName: "APAC",
+      canonicalSlug: "apac",
+    });
+    await expect(
+      repository.resolvePlacePillar("springfield"),
+    ).resolves.toBeUndefined();
+  });
+
   it("filters recent pillar jobs entirely in PostgreSQL", async () => {
     const base = {
       startDate: now - 86_400_000,
