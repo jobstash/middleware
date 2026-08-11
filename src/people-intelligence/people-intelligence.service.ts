@@ -28,7 +28,11 @@ const PEOPLE_METRICS: PeopleMetric[] = [
   "merges",
 ];
 
-const positiveInteger = (value: unknown, fallback: number, maximum: number) => {
+const positiveInteger = (
+  value: unknown,
+  fallback: number,
+  maximum: number,
+): number => {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0
     ? Math.min(parsed, maximum)
@@ -72,10 +76,16 @@ export class PeopleIntelligenceService {
     return this.get("atlas", query, {
       available: false,
       asOf: null,
-      period: null,
-      comparePeriod: null,
-      nodes: [],
-      edges: [],
+      fromPeriod: null,
+      toPeriod: null,
+      focusOrganizationKey:
+        typeof query.organizationKey === "string"
+          ? query.organizationKey
+          : null,
+      totalMovements: 0,
+      visibleMovements: 0,
+      organizations: [],
+      flows: [],
     });
   }
 

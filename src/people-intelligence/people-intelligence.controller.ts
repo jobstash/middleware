@@ -37,7 +37,7 @@ export class PeopleIntelligenceController {
   }
 
   @Get("atlas")
-  @ApiOkResponse({ description: "Organization atlas frame and sparse flows" })
+  @ApiOkResponse({ description: "Navigable organization movement timeline" })
   atlas(@Query() query: PublicQuery): Promise<PeopleAtlasFrame> {
     return this.people.atlas(query);
   }

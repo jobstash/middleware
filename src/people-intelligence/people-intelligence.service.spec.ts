@@ -43,6 +43,32 @@ describe("PeopleIntelligenceService", () => {
     });
   });
 
+  it("returns the movement-flow contract while scorer is unavailable", async () => {
+    const get = jest
+      .fn()
+      .mockReturnValue(throwError(() => new AxiosError("unavailable")));
+    const service = new PeopleIntelligenceService({
+      get,
+    } as unknown as HttpService);
+
+    await expect(
+      service.atlas({ organizationKey: "github:example", windowMonths: 36 }),
+    ).resolves.toEqual({
+      available: false,
+      asOf: null,
+      fromPeriod: null,
+      toPeriod: null,
+      focusOrganizationKey: "github:example",
+      totalMovements: 0,
+      visibleMovements: 0,
+      organizations: [],
+      flows: [],
+    });
+    expect(get).toHaveBeenCalledWith("/scorer/people/atlas", {
+      params: { organizationKey: "github:example", windowMonths: 36 },
+    });
+  });
+
   it("preserves requested activity-map metadata in an unavailable response", async () => {
     const get = jest
       .fn()

@@ -55,26 +55,28 @@ export type PeopleActivityMap = {
 export type PeopleAtlasFrame = {
   available: boolean;
   asOf: string | null;
-  period: string | null;
-  comparePeriod: string | null;
-  nodes: Array<{
+  fromPeriod: string | null;
+  toPeriod: string | null;
+  focusOrganizationKey: string | null;
+  totalMovements: number;
+  visibleMovements: number;
+  organizations: Array<{
     organizationKey: string;
     organizationId: string | null;
     organizationName: string;
     organizationSlug: string;
     logoUrl: string | null;
     githubOrganizations: string[];
-    x: number;
-    y: number;
-    communityId: number;
     activePeople: number;
     activeMaintainers: number;
-    activeLeads: number;
-    joins: number;
-    exits: number;
-    change: number;
+    series: Array<{
+      period: string;
+      activePeople: number;
+      activeMaintainers: number;
+    }>;
   }>;
-  edges: Array<{
+  flows: Array<{
+    period: string;
     sourceOrganizationKey: string;
     destinationOrganizationKey: string;
     people: number;
