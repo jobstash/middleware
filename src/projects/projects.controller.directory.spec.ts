@@ -4,10 +4,14 @@ import { ProjectsController } from "./projects.controller";
 describe("ProjectsController admin directory", () => {
   const buildController = (): {
     controller: ProjectsController;
-    projectsService: { getAdminDirectory: jest.Mock };
+    projectsService: {
+      getAdminDirectory: jest.Mock;
+      getProjectsForAdminGrid: jest.Mock;
+    };
   } => {
     const projectsService = {
       getAdminDirectory: jest.fn(),
+      getProjectsForAdminGrid: jest.fn(),
     };
     const configService = {
       get: jest.fn(() => "test-token"),
@@ -55,6 +59,36 @@ describe("ProjectsController admin directory", () => {
       message: "Error retrieving the project directory!",
       data: [],
       total: 0,
+    });
+  });
+
+  it("normalizes server-side project grid paging and filters", async () => {
+    const { controller, projectsService } = buildController();
+    projectsService.getProjectsForAdminGrid.mockResolvedValue({
+      data: [{ id: "project-1", name: "Acme" }],
+      total: 1,
+    });
+
+    await expect(
+      controller.getProjectsForAdminGrid(
+        "5000",
+        "-1",
+        "  DEFI  ",
+        "true",
+        "false",
+      ),
+    ).resolves.toEqual({
+      success: true,
+      message: "Retrieved the project grid successfully",
+      data: [{ id: "project-1", name: "Acme" }],
+      total: 1,
+    });
+    expect(projectsService.getProjectsForAdminGrid).toHaveBeenCalledWith({
+      limit: 500,
+      offset: 0,
+      query: "DEFI",
+      reviewOnly: true,
+      bannedOnly: false,
     });
   });
 });

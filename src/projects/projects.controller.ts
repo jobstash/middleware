@@ -201,6 +201,54 @@ export class ProjectsController {
     }
   }
 
+  @Get("/grid")
+  @UseGuards(PBACGuard)
+  @Permissions(CheckWalletPermissions.ADMIN)
+  async getProjectsForAdminGrid(
+    @Query("limit") rawLimit?: string,
+    @Query("offset") rawOffset?: string,
+    @Query("query") rawQuery?: string,
+    @Query("reviewOnly") rawReviewOnly?: string,
+    @Query("bannedOnly") rawBannedOnly?: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data: Record<string, unknown>[];
+    total: number;
+  }> {
+    this.logger.log(`/projects/grid`);
+    const limit = Math.max(1, Math.min(Number(rawLimit) || 250, 500));
+    const offset = Math.max(0, Number(rawOffset) || 0);
+    const query = normalizeAdminDirectoryQuery(rawQuery);
+    const reviewOnly = rawReviewOnly === "true";
+    const bannedOnly = rawBannedOnly === "true";
+
+    try {
+      const result = await this.projectsService.getProjectsForAdminGrid({
+        limit,
+        offset,
+        query,
+        reviewOnly,
+        bannedOnly,
+      });
+      return {
+        success: true,
+        message: "Retrieved the project grid successfully",
+        data: result.data,
+        total: result.total,
+      };
+    } catch (err) {
+      Sentry.captureException(err);
+      this.logger.error(`/projects/grid ${err.message}`);
+      return {
+        success: false,
+        message: "Error retrieving the project grid!",
+        data: [],
+        total: 0,
+      };
+    }
+  }
+
   @Get("/list")
   @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
   @ApiHeader({

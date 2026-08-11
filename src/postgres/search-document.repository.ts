@@ -1123,9 +1123,7 @@ export class SearchDocumentRepository {
     // the UI. Omitting this scope advertises stale, dead-end facet values.
     const widestDateRange = publicationDateRangeGenerator("past-6-months");
     parameters.push(widestDateRange.startDate);
-    predicates.push(
-      `job.published_timestamp >= $${parameters.length}::bigint`,
-    );
+    predicates.push(`job.published_timestamp >= $${parameters.length}::bigint`);
     parameters.push(widestDateRange.endDate);
     predicates.push(`job.published_timestamp < $${parameters.length}::bigint`);
 
@@ -1465,10 +1463,13 @@ export class SearchDocumentRepository {
     return rows.map(row => row.payload);
   }
 
-  async getOrganizationsForAdminGrid(
-    limit: number,
-    offset: number,
-  ): Promise<{ data: Record<string, unknown>[]; total: number }> {
+  async getOrganizationsForAdminGrid(options: {
+    limit: number;
+    offset: number;
+    query?: string;
+    reviewOnly?: boolean;
+    bannedOnly?: boolean;
+  }): Promise<{ data: Record<string, unknown>[]; total: number }> {
     const rows = await this.postgres.query<{
       payload: Record<string, unknown>;
       total_count: string;
@@ -1503,6 +1504,24 @@ export class SearchDocumentRepository {
             selected.from_graph,
             count(*) OVER() AS total_count
           FROM selected_organizations selected
+          JOIN graph_nodes selected_node
+            ON selected_node.id = selected.organization_node_id
+          WHERE (
+              $3::text IS NULL
+              OR lower(COALESCE(selected.payload, selected.graph_properties)::text)
+                   LIKE '%' || lower($3) || '%'
+            )
+            AND (
+              NOT $4::boolean
+              OR lower(COALESCE(
+                   selected_node.properties ->> 'needsManualReview',
+                   'false'
+                 )) IN ('true', '1', 'yes', 'on')
+            )
+            AND (
+              NOT $5::boolean
+              OR entity_property_is_banned(selected_node.properties)
+            )
           ORDER BY selected.organization_node_id
           LIMIT $1 OFFSET $2
         )
@@ -1667,7 +1686,13 @@ export class SearchDocumentRepository {
         ) links
         ORDER BY organization.organization_node_id
       `,
-      [limit, offset],
+      [
+        options.limit,
+        options.offset,
+        options.query?.trim() || null,
+        options.reviewOnly ?? false,
+        options.bannedOnly ?? false,
+      ],
     );
     return {
       data: rows.map(row => row.payload),
@@ -2179,6 +2204,270 @@ export class SearchDocumentRepository {
       [slugify(slug), ecosystem ? slugify(ecosystem) : null],
     );
     return row?.payload;
+  }
+
+  async getProjectsForAdminGrid(options: {
+    limit: number;
+    offset: number;
+    query?: string;
+    reviewOnly?: boolean;
+    bannedOnly?: boolean;
+  }): Promise<{ data: Record<string, unknown>[]; total: number }> {
+    const rows = await this.postgres.query<{
+      payload: Record<string, unknown>;
+      total_count: string;
+    }>(
+      `
+        WITH selected_projects AS (
+          SELECT
+            project.project_node_id AS node_id,
+            COALESCE(project.detail_payload, project.payload) AS source_payload,
+            node.properties AS graph_properties,
+            'Project'::text AS review_entity_kind,
+            entity_property_is_banned(node.properties) AS banned
+          FROM project_search_documents project
+          JOIN graph_nodes node ON node.id = project.project_node_id
+
+          UNION ALL
+
+          SELECT
+            banned.id AS node_id,
+            jsonb_build_object(
+              'id', banned.properties -> 'id',
+              'name', banned.properties -> 'name',
+              'normalizedName', banned.properties -> 'normalizedName',
+              'description', banned.properties -> 'description',
+              'logo', banned.properties -> 'logo',
+              'category', (
+                SELECT category.properties -> 'name'
+                FROM graph_relationships category_link
+                JOIN graph_nodes category ON category.id = category_link.target_id
+                WHERE category_link.source_id = banned.id
+                  AND category_link.type = 'HAS_CATEGORY'
+                ORDER BY category.id
+                LIMIT 1
+              ),
+              'website', (
+                SELECT website.properties -> 'url'
+                FROM graph_relationships website_link
+                JOIN graph_nodes website ON website.id = website_link.target_id
+                WHERE website_link.source_id = banned.id
+                  AND website_link.type = 'HAS_WEBSITE'
+                ORDER BY website.id
+                LIMIT 1
+              ),
+              'tokenAddress', banned.properties -> 'tokenAddress',
+              'tokenSymbol', banned.properties -> 'tokenSymbol',
+              'defiLlamaId', banned.properties -> 'defiLlamaId',
+              'defiLlamaSlug', banned.properties -> 'defiLlamaSlug',
+              'defiLlamaParent', banned.properties -> 'defiLlamaParent',
+              'tvl', banned.properties -> 'tvl',
+              'monthlyFees', banned.properties -> 'monthlyFees',
+              'monthlyVolume', banned.properties -> 'monthlyVolume',
+              'monthlyRevenue', banned.properties -> 'monthlyRevenue',
+              'monthlyActiveUsers', banned.properties -> 'monthlyActiveUsers',
+              'createdTimestamp', banned.properties -> 'createdTimestamp',
+              'updatedTimestamp', banned.properties -> 'updatedTimestamp',
+              'orgIds', COALESCE((
+                SELECT jsonb_agg(organization.properties -> 'orgId')
+                FROM graph_relationships ownership
+                JOIN graph_nodes organization
+                  ON organization.id = ownership.source_id
+                 AND organization.label = 'Organization'
+                WHERE ownership.target_id = banned.id
+                  AND ownership.type = 'HAS_PROJECT'
+              ), '[]'::jsonb),
+              'orgNames', COALESCE((
+                SELECT jsonb_agg(organization.properties -> 'name')
+                FROM graph_relationships ownership
+                JOIN graph_nodes organization
+                  ON organization.id = ownership.source_id
+                 AND organization.label = 'Organization'
+                WHERE ownership.target_id = banned.id
+                  AND ownership.type = 'HAS_PROJECT'
+              ), '[]'::jsonb)
+            ) AS source_payload,
+            banned.properties AS graph_properties,
+            'Project'::text AS review_entity_kind,
+            true AS banned
+          FROM graph_nodes banned
+          WHERE banned.label = 'Project'
+            AND entity_property_is_banned(banned.properties)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM project_search_documents existing
+              WHERE existing.project_node_id = banned.id
+            )
+
+          UNION ALL
+
+          SELECT
+            candidate.id AS node_id,
+            jsonb_build_object(
+              'id', candidate.properties -> 'id',
+              'name', candidate.properties -> 'name',
+              'normalizedName', NULL,
+              'description', candidate.properties -> 'manualReviewReason',
+              'category', 'Review Candidate',
+              'website', candidate.properties -> 'url',
+              'createdTimestamp', candidate.properties -> 'createdTimestamp',
+              'updatedTimestamp', COALESCE(
+                candidate.properties -> 'updatedTimestamp',
+                candidate.properties -> 'manualReviewUpdatedTimestamp'
+              ),
+              'orgIds', COALESCE((
+                SELECT jsonb_agg(organization.properties -> 'orgId')
+                FROM graph_relationships ownership
+                JOIN graph_nodes organization
+                  ON organization.id = ownership.source_id
+                 AND organization.label = 'Organization'
+                WHERE ownership.target_id = candidate.id
+                  AND ownership.type = 'HAS_CHILD_PROJECT_CANDIDATE'
+                  AND NOT entity_property_is_banned(organization.properties)
+              ), '[]'::jsonb),
+              'orgNames', COALESCE((
+                SELECT jsonb_agg(organization.properties -> 'name')
+                FROM graph_relationships ownership
+                JOIN graph_nodes organization
+                  ON organization.id = ownership.source_id
+                 AND organization.label = 'Organization'
+                WHERE ownership.target_id = candidate.id
+                  AND ownership.type = 'HAS_CHILD_PROJECT_CANDIDATE'
+                  AND NOT entity_property_is_banned(organization.properties)
+              ), '[]'::jsonb)
+            ) AS source_payload,
+            candidate.properties AS graph_properties,
+            'ProjectCandidate'::text AS review_entity_kind,
+            false AS banned
+          FROM graph_nodes candidate
+          WHERE candidate.label = 'ChildProjectCandidate'
+            AND lower(COALESCE(
+              candidate.properties ->> 'needsManualReview',
+              'false'
+            )) IN ('true', '1', 'yes', 'on')
+            AND candidate.properties ->> 'manualReviewStatus' = 'open'
+            AND EXISTS (
+              SELECT 1
+              FROM graph_relationships ownership
+              JOIN graph_nodes organization
+                ON organization.id = ownership.source_id
+               AND organization.label = 'Organization'
+              WHERE ownership.target_id = candidate.id
+                AND ownership.type = 'HAS_CHILD_PROJECT_CANDIDATE'
+                AND NOT entity_property_is_banned(organization.properties)
+            )
+        ), filtered_projects AS (
+          SELECT
+            selected.*,
+            lower(COALESCE(
+              selected.graph_properties ->> 'needsManualReview',
+              'false'
+            )) IN ('true', '1', 'yes', 'on') AS needs_manual_review
+          FROM selected_projects selected
+          WHERE (
+              $3::text IS NULL
+              OR lower(selected.source_payload::text)
+                   LIKE '%' || lower($3) || '%'
+            )
+            AND (
+              NOT $4::boolean
+              OR lower(COALESCE(
+                   selected.graph_properties ->> 'needsManualReview',
+                   'false'
+                 )) IN ('true', '1', 'yes', 'on')
+            )
+            AND (NOT $5::boolean OR selected.banned)
+        ), paged_projects AS (
+          SELECT
+            filtered.*,
+            count(*) OVER() AS total_count
+          FROM filtered_projects filtered
+          ORDER BY
+            lower(filtered.source_payload ->> 'name') NULLS LAST,
+            filtered.node_id
+          LIMIT $1 OFFSET $2
+        )
+        SELECT jsonb_build_object(
+          'id', project.source_payload -> 'id',
+          'reviewEntityKind', project.review_entity_kind,
+          'name', project.source_payload -> 'name',
+          'normalizedName', project.source_payload -> 'normalizedName',
+          'logoUrl', COALESCE(
+            project.source_payload -> 'logoUrl',
+            project.source_payload -> 'logo'
+          ),
+          'category', project.source_payload -> 'category',
+          'website', project.source_payload -> 'website',
+          'docs', project.source_payload -> 'docs',
+          'twitter', project.source_payload -> 'twitter',
+          'discord', project.source_payload -> 'discord',
+          'github', project.source_payload -> 'github',
+          'telegram', project.source_payload -> 'telegram',
+          'tokenAddress', project.source_payload -> 'tokenAddress',
+          'tokenSymbol', project.source_payload -> 'tokenSymbol',
+          'defiLlamaId', project.source_payload -> 'defiLlamaId',
+          'defiLlamaSlug', project.source_payload -> 'defiLlamaSlug',
+          'defiLlamaParent', project.source_payload -> 'defiLlamaParent',
+          'description', project.source_payload -> 'description',
+          'tvl', project.source_payload -> 'tvl',
+          'monthlyFees', project.source_payload -> 'monthlyFees',
+          'monthlyVolume', project.source_payload -> 'monthlyVolume',
+          'monthlyRevenue', project.source_payload -> 'monthlyRevenue',
+          'monthlyActiveUsers', project.source_payload -> 'monthlyActiveUsers',
+          'createdTimestamp', project.source_payload -> 'createdTimestamp',
+          'updatedTimestamp', project.source_payload -> 'updatedTimestamp',
+          'orgIds', CASE
+            WHEN jsonb_typeof(project.source_payload -> 'orgIds') = 'array'
+              THEN project.source_payload -> 'orgIds'
+            ELSE '[]'::jsonb
+          END,
+          'orgNames', CASE
+            WHEN jsonb_typeof(project.source_payload -> 'orgNames') = 'array'
+              THEN project.source_payload -> 'orgNames'
+            ELSE '[]'::jsonb
+          END,
+          'aliases', CASE
+            WHEN jsonb_typeof(project.source_payload -> 'aliases') = 'array'
+              THEN project.source_payload -> 'aliases'
+            ELSE '[]'::jsonb
+          END,
+          'needsManualReview', project.needs_manual_review,
+          'manualReviewStatus', project.graph_properties -> 'manualReviewStatus',
+          'manualReviewReason', project.graph_properties -> 'manualReviewReason',
+          'manualReviewSeverity', project.graph_properties -> 'manualReviewSeverity',
+          'manualReviewEvidence', CASE
+            WHEN jsonb_typeof(
+              project.graph_properties -> 'manualReviewEvidence'
+            ) = 'array'
+              THEN project.graph_properties -> 'manualReviewEvidence'
+            ELSE '[]'::jsonb
+          END,
+          'manualReviewProposedActions', CASE
+            WHEN jsonb_typeof(
+              project.graph_properties -> 'manualReviewProposedActions'
+            ) = 'array'
+              THEN project.graph_properties -> 'manualReviewProposedActions'
+            ELSE '[]'::jsonb
+          END,
+          'manualReviewUpdatedTimestamp',
+            project.graph_properties -> 'manualReviewUpdatedTimestamp',
+          'banned', project.banned
+        ) AS payload,
+        project.total_count
+        FROM paged_projects project
+      `,
+      [
+        options.limit,
+        options.offset,
+        options.query?.trim() || null,
+        options.reviewOnly ?? false,
+        options.bannedOnly ?? false,
+      ],
+    );
+    return {
+      data: rows.map(row => row.payload),
+      total: Number(rows[0]?.total_count ?? 0),
+    };
   }
 
   async getProjectPayloads<T = ProjectListResult>(

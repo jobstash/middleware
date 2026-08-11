@@ -199,17 +199,23 @@ export class OrganizationsController {
   async getOrganizationsForAdminGrid(
     @Query("limit") rawLimit?: string,
     @Query("offset") rawOffset?: string,
+    @Query("query") rawQuery?: string,
+    @Query("reviewOnly") rawReviewOnly?: string,
+    @Query("bannedOnly") rawBannedOnly?: string,
   ): Promise<{
     success: boolean;
     message: string;
-    data?: Record<string, unknown>[];
-    total?: number;
+    data: Record<string, unknown>[];
+    total: number;
   }> {
     this.logger.log(`/organizations/grid`);
     const limit = Math.max(1, Math.min(Number(rawLimit) || 500, 1000));
     const offset = Math.max(0, Number(rawOffset) || 0);
+    const query = normalizeAdminDirectoryQuery(rawQuery);
+    const reviewOnly = rawReviewOnly === "true";
+    const bannedOnly = rawBannedOnly === "true";
     return this.organizationsService
-      .getAllForAdminGrid(limit, offset)
+      .getAllForAdminGrid({ limit, offset, query, reviewOnly, bannedOnly })
       .then(result => ({
         success: true,
         message: "Retrieved the organization grid successfully",
@@ -222,6 +228,8 @@ export class OrganizationsController {
         return {
           success: false,
           message: "Error retrieving the organization grid!",
+          data: [],
+          total: 0,
         };
       });
   }

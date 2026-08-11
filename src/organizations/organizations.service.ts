@@ -844,11 +844,14 @@ export class OrganizationsService {
     );
   }
 
-  async getAllForAdminGrid(
-    limit: number,
-    offset: number,
-  ): Promise<{ data: Record<string, unknown>[]; total: number }> {
-    return this.searchDocuments.getOrganizationsForAdminGrid(limit, offset);
+  async getAllForAdminGrid(options: {
+    limit: number;
+    offset: number;
+    query?: string;
+    reviewOnly?: boolean;
+    bannedOnly?: boolean;
+  }): Promise<{ data: Record<string, unknown>[]; total: number }> {
+    return this.searchDocuments.getOrganizationsForAdminGrid(options);
   }
 
   async getAdminDirectory(options: {

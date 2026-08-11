@@ -10,6 +10,7 @@ type OrganizationsControllerFixture = {
     findByOrgId: jest.Mock;
     getOrgById: jest.Mock;
     getAdminDirectory: jest.Mock;
+    getAllForAdminGrid: jest.Mock;
     update: jest.Mock;
   };
   userService: {
@@ -28,6 +29,7 @@ describe("OrganizationsController RBAC", () => {
       findByOrgId: jest.fn(),
       getOrgById: jest.fn(),
       getAdminDirectory: jest.fn(),
+      getAllForAdminGrid: jest.fn(),
       update: jest.fn(),
     };
     const configService = {
@@ -91,6 +93,36 @@ describe("OrganizationsController RBAC", () => {
       query: "AcMe",
       limit: 100,
       offset: 0,
+    });
+  });
+
+  it("normalizes server-side organization grid paging and filters", async () => {
+    const { controller, organizationsService } = buildController();
+    organizationsService.getAllForAdminGrid.mockResolvedValue({
+      data: [{ orgId: "org-1", name: "Acme" }],
+      total: 1,
+    });
+
+    await expect(
+      controller.getOrganizationsForAdminGrid(
+        "5000",
+        "-7",
+        "  AcMe  ",
+        "true",
+        "false",
+      ),
+    ).resolves.toEqual({
+      success: true,
+      message: "Retrieved the organization grid successfully",
+      data: [{ orgId: "org-1", name: "Acme" }],
+      total: 1,
+    });
+    expect(organizationsService.getAllForAdminGrid).toHaveBeenCalledWith({
+      limit: 1000,
+      offset: 0,
+      query: "AcMe",
+      reviewOnly: true,
+      bannedOnly: false,
     });
   });
 

@@ -119,7 +119,13 @@ describe("SearchDocumentRepository", () => {
     ]);
 
     await expect(
-      repository.getOrganizationsForAdminGrid(500, 0),
+      repository.getOrganizationsForAdminGrid({
+        limit: 500,
+        offset: 0,
+        query: "Acme",
+        reviewOnly: true,
+        bannedOnly: false,
+      }),
     ).resolves.toEqual({
       data: [{ orgId: "org-1", name: "Acme", telegrams: [] }],
       total: 1,
@@ -139,7 +145,51 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("'banned', true");
     expect(sql).toContain("UNION ALL");
     expect(sql).toContain("banned.label = 'Organization'");
-    expect(parameters).toEqual([500, 0]);
+    expect(sql).toContain("LIKE '%' || lower($3) || '%'");
+    expect(parameters).toEqual([500, 0, "Acme", true, false]);
+  });
+
+  it("filters and pages the complete admin project grid in PostgreSQL", async () => {
+    query.mockResolvedValue([
+      {
+        payload: {
+          id: "project-1",
+          name: "Acme Protocol",
+          logoUrl: null,
+          needsManualReview: true,
+        },
+        total_count: "3",
+      },
+    ]);
+
+    await expect(
+      repository.getProjectsForAdminGrid({
+        limit: 250,
+        offset: 500,
+        query: "Acme",
+        reviewOnly: true,
+        bannedOnly: false,
+      }),
+    ).resolves.toEqual({
+      data: [
+        {
+          id: "project-1",
+          name: "Acme Protocol",
+          logoUrl: null,
+          needsManualReview: true,
+        },
+      ],
+      total: 3,
+    });
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("WITH selected_projects AS");
+    expect(sql).toContain("FROM project_search_documents project");
+    expect(sql).toContain("banned.label = 'Project'");
+    expect(sql).toContain("candidate.label = 'ChildProjectCandidate'");
+    expect(sql).toContain("LIKE '%' || lower($3) || '%'");
+    expect(sql).toContain("LIMIT $1 OFFSET $2");
+    expect(parameters).toEqual([250, 500, "Acme", true, false]);
   });
 
   it("returns a bounded minimal project directory with all searchable summary fields", async () => {

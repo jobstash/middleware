@@ -76,6 +76,19 @@ export class ProjectsService {
     return this.searchDocuments.getAdminProjectDirectory(options);
   }
 
+  async getProjectsForAdminGrid(options: {
+    limit: number;
+    offset: number;
+    query?: string;
+    reviewOnly?: boolean;
+    bannedOnly?: boolean;
+  }): Promise<{
+    data: Record<string, unknown>[];
+    total: number;
+  }> {
+    return this.searchDocuments.getProjectsForAdminGrid(options);
+  }
+
   async getProjectsListWithSearch(
     params: ProjectListParams & { ecosystemHeader?: string },
   ): Promise<PaginatedData<ProjectListResult>> {
