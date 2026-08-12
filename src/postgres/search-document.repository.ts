@@ -1838,7 +1838,19 @@ export class SearchDocumentRepository {
             COALESCE(jsonb_agg(jsonb_build_object(
               'id', related.properties -> 'id',
               'url', related.properties -> 'url',
-              'type', related.properties -> 'type'
+              'type', related.properties -> 'type',
+              'lastImportAttemptTimestamp', jsonb_numeric_value(
+                related.properties,
+                'lastImportAttemptTimestamp'
+              ),
+              'lastSuccessfulImportTimestamp', jsonb_numeric_value(
+                related.properties,
+                'lastSuccessfulImportTimestamp'
+              ),
+              'lastNewJobTimestamp', jsonb_numeric_value(
+                related.properties,
+                'lastNewJobTimestamp'
+              )
             )) FILTER (
               WHERE relationship.type = 'HAS_JOBSITE'
                 AND related.label = 'Jobsite'

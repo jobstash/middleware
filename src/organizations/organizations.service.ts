@@ -92,6 +92,7 @@ export class OrganizationsService {
       githubRows,
       reviewCountRows,
       jobIngestionRows,
+      etlJobIngestion,
     ] = await Promise.all([
       this.postgres.query<{
         campaign_key: string;
@@ -463,6 +464,7 @@ export class OrganizationsService {
                      AT TIME ZONE 'UTC'
                    )) * 1000) AS "dailyJobViewers"
         `),
+      this.getJobpostImportMetrics(),
     ]);
 
     const normalizedCampaignRows = this.normalizeCampaignRows(campaignRows);
@@ -513,15 +515,52 @@ export class OrganizationsService {
         },
       },
       funds: fundRows[0] ?? { total: 0, checkpointed: 0, outcomes: {} },
-      jobIngestion: jobIngestionRows[0] ?? {
+      jobIngestion: {
         activeJobsites: 0,
-        totalJobs: 0,
-        dailyJobViewers: 0,
+        current: { totalJobs: 0, onlineJobs: 0, offlineJobs: 0 },
+        monthlySeries: [],
+        run: null,
+        ...(jobIngestionRows[0] ?? {}),
+        ...etlJobIngestion,
+        dailyJobViewers: Number(jobIngestionRows[0]?.dailyJobViewers ?? 0),
+        totalJobs: Number(
+          (etlJobIngestion.current as { totalJobs?: unknown } | undefined)
+            ?.totalJobs ??
+            jobIngestionRows[0]?.totalJobs ??
+            0,
+        ),
       },
       githubIndexer: githubRows[0]
         ? { ...githubRows[0], runtime: githubIndexerRuntime }
         : null,
     };
+  }
+
+  private async getJobpostImportMetrics(): Promise<Record<string, unknown>> {
+    const url = this.configService.get<string>("ETL_DOMAIN");
+    if (!url) {
+      return { available: false, error: "ETL domain is not configured" };
+    }
+    try {
+      const authToken = await this.auth0Service.getETLToken();
+      const response = await axios.get(
+        `${url.replace(/\/$/, "")}/jobposts/metrics`,
+        {
+          headers: {
+            Authorization: authToken ? `Bearer ${authToken}` : undefined,
+          },
+          timeout: 15_000,
+        },
+      );
+      return {
+        available: true,
+        ...((response.data ?? {}) as Record<string, unknown>),
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Jobpost ingestion metrics are unavailable: ${message}`);
+      return { available: false, error: message };
+    }
   }
 
   private async getGithubIndexerRuntimeStatus(

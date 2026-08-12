@@ -141,6 +141,9 @@ describe("SearchDocumentRepository", () => {
     expect(sql).toContain("related.properties ->> 'username' IS NOT NULL");
     expect(sql).toContain("related.properties ->> 'invite' IS NOT NULL");
     expect(sql).toContain("related.properties ->> 'id' IS NOT NULL");
+    expect(sql).toContain("'lastImportAttemptTimestamp'");
+    expect(sql).toContain("'lastSuccessfulImportTimestamp'");
+    expect(sql).toContain("'lastNewJobTimestamp'");
     expect(sql).toContain(
       "jsonb_typeof(organization.payload -> 'projects') = 'array'",
     );
