@@ -484,7 +484,16 @@ export class SearchRepository {
         break;
       case "classifications":
         predicates.push(
-          hasFacetKey("classifications", value, "job.classifications"),
+          value === "other"
+            ? `(
+                cardinality(job.classifications) = 0
+                OR ${hasFacetKey(
+                  "classifications",
+                  value,
+                  "job.classifications",
+                )}
+              )`
+            : hasFacetKey("classifications", value, "job.classifications"),
         );
         break;
       case "locations":
@@ -574,7 +583,15 @@ export class SearchRepository {
         if (value === "expertJobs") predicates.push("job.access = 'protected'");
         else if (value === "onboardIntoWeb3") {
           predicates.push("job.onboard_into_web3");
-        }
+        } else if (value === "pays-in-crypto")
+          predicates.push(
+            "lower(COALESCE(job.payload ->> 'paysInCrypto', 'false')) = 'true'",
+          );
+        else if (value === "offers-token-allocation")
+          predicates.push(
+            "lower(COALESCE(job.payload ->> 'offersTokenAllocation', 'false')) = 'true'",
+          );
+        else predicates.push("false");
         break;
       default:
         predicates.push("false");

@@ -1,4 +1,11 @@
-import { Controller, Get, UseGuards, UseInterceptors } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Param,
+  Query,
+  UseGuards,
+  UseInterceptors,
+} from "@nestjs/common";
 import { ApiOperation } from "@nestjs/swagger";
 import { SearchService } from "../search.service";
 import { PBACGuard } from "src/auth/pbac.guard";
@@ -10,11 +17,36 @@ import { ResponseWithOptionalData } from "src/shared/interfaces";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import { SitemapJob } from "../dto/pillar-page.output";
 import { CacheHeaderInterceptor } from "src/shared/decorators/cache-interceptor.decorator";
+import {
+  JobMarketOverviewData,
+  PillarMarketData,
+} from "../dto/job-market.output";
 
 @Controller("v2/search")
 export class SearchV2Controller {
   private readonly logger = new CustomLogger(SearchV2Controller.name);
   constructor(private readonly searchService: SearchService) {}
+
+  @Get("market/overview")
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  getMarketOverview(): Promise<
+    ResponseWithOptionalData<JobMarketOverviewData>
+  > {
+    this.logger.log("/v2/search/market/overview");
+    return this.searchService.getMarketOverview();
+  }
+
+  @Get("market/pillars/:slug")
+  @UseGuards(PBACGuard)
+  @UseInterceptors(new CacheHeaderInterceptor(CACHE_DURATION_1_HOUR))
+  getPillarMarket(
+    @Param("slug") slug: string,
+    @Query("range") range = "365",
+  ): Promise<ResponseWithOptionalData<PillarMarketData>> {
+    this.logger.log(`/v2/search/market/pillars/${slug}?range=${range}`);
+    return this.searchService.getPillarMarket(slug, range);
+  }
 
   @Get("pillar/slugs")
   @UseGuards(PBACGuard)

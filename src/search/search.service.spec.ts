@@ -10,6 +10,7 @@ describe("SearchService organization intelligence filters", () => {
           .mockResolvedValue([{ pillar: "fundingStages", label: "Series A" }]),
       } as unknown as SearchRepository,
       {} as never,
+      {} as never,
     );
 
     await expect(
@@ -81,6 +82,7 @@ describe("SearchService organization intelligence filters", () => {
       {
         getSummaryStateById,
       } as never,
+      {} as never,
     );
 
     const result = await service.searchPillarFilters(

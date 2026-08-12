@@ -25,10 +25,14 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
     });
     await postgres.onModuleInit();
     repository = new SearchRepository(postgres);
-    service = new SearchService(repository, {
-      hasFilters: jest.fn().mockReturnValue(false),
-      getSummariesById: jest.fn().mockResolvedValue(new Map()),
-    } as never);
+    service = new SearchService(
+      repository,
+      {
+        hasFilters: jest.fn().mockReturnValue(false),
+        getSummariesById: jest.fn().mockResolvedValue(new Map()),
+      } as never,
+      {} as never,
+    );
   });
 
   afterAll(async () => {

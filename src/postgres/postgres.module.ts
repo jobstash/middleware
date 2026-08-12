@@ -14,6 +14,7 @@ import { UserRepository } from "./user.repository";
 import { ProfileRepository } from "./profile.repository";
 import { SubscriptionRepository } from "./subscription.repository";
 import { GrantRepository } from "./grant.repository";
+import { JobMarketRepository } from "./job-market.repository";
 
 @Global()
 @Module({})
@@ -42,6 +43,7 @@ export class PostgresModule {
         ProfileRepository,
         SubscriptionRepository,
         GrantRepository,
+        JobMarketRepository,
       ],
       exports: [
         PostgresService,
@@ -58,6 +60,7 @@ export class PostgresModule {
         ProfileRepository,
         SubscriptionRepository,
         GrantRepository,
+        JobMarketRepository,
       ],
     };
   }

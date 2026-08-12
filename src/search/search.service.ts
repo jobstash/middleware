@@ -55,6 +55,18 @@ import { SkillSuggestionsInput } from "./dto/skill-suggestions.input";
 import { SkillSuggestionsData } from "./dto/skill-suggestions.output";
 import { TeamIntelligenceService } from "src/team-intelligence/team-intelligence.service";
 import {
+  JobMarketMetricRow,
+  JobMarketRepository,
+} from "src/postgres/job-market.repository";
+import {
+  JobMarketMomentum,
+  JobMarketOverviewData,
+  JobMarketPoint,
+  JobMarketSalary,
+  JobMarketTicker,
+  PillarMarketData,
+} from "./dto/job-market.output";
+import {
   OrganizationTeamSummary,
   TeamFilterInput,
 } from "src/team-intelligence/team-intelligence.types";
@@ -166,7 +178,92 @@ export class SearchService {
   constructor(
     private readonly searchRepository: SearchRepository,
     private readonly teamIntelligence: TeamIntelligenceService,
+    private readonly jobMarketRepository: JobMarketRepository,
   ) {}
+
+  async getPillarMarket(
+    slug: string,
+    range = "365",
+  ): Promise<ResponseWithOptionalData<PillarMarketData>> {
+    try {
+      const canonicalSlug = this.marketApiSlug(slug);
+      const days = this.marketRangeDays(range);
+      const rows = await this.jobMarketRepository.getPillarHistory(
+        canonicalSlug,
+        days,
+      );
+      if (rows.length === 0) {
+        return {
+          success: true,
+          message: "Pillar market not found",
+          data: null,
+        };
+      }
+      const history = rows.map(row => this.marketPoint(row));
+      const current = history[history.length - 1];
+      return {
+        success: true,
+        message: "Retrieved pillar market data",
+        data: {
+          asOf: current.date,
+          pillar: {
+            kind: rows[0].kind,
+            slug: rows[0].slug,
+            label: rows[0].label,
+          },
+          current,
+          momentum: this.marketMomentum(history),
+          history,
+        },
+      };
+    } catch (error) {
+      this.captureDatabaseError("getPillarMarket", error);
+      return { success: false, message: "Error retrieving pillar market" };
+    }
+  }
+
+  async getMarketOverview(): Promise<
+    ResponseWithOptionalData<JobMarketOverviewData>
+  > {
+    try {
+      const rows = await this.jobMarketRepository.getOverview();
+      const tickers = rows.map(row => this.marketTicker(row));
+      const market = tickers.find(ticker => ticker.slug === "market");
+      if (!market) {
+        return { success: true, message: "Job market not ready", data: null };
+      }
+      const classifications = tickers.filter(
+        ticker => ticker.kind === "classifications",
+      );
+      const movers = classifications.filter(ticker => ticker.eligibleMover);
+      const moveScore = (ticker: JobMarketTicker) =>
+        ticker.momentum.direction === "new"
+          ? 1_000 + ticker.momentum.currentJobs
+          : (ticker.momentum.percentChange ?? 0);
+      return {
+        success: true,
+        message: "Retrieved job market overview",
+        data: {
+          asOf: market.current.date,
+          market,
+          classifications,
+          movers: {
+            bullish: [...movers]
+              .filter(ticker => moveScore(ticker) > 0)
+              .sort((a, b) => moveScore(b) - moveScore(a))
+              .slice(0, 5),
+            cooling: [...movers]
+              .filter(ticker => moveScore(ticker) < 0)
+              .sort((a, b) => moveScore(a) - moveScore(b))
+              .slice(0, 5),
+          },
+        },
+      };
+    } catch (error) {
+      this.captureDatabaseError("getMarketOverview", error);
+      return { success: false, message: "Error retrieving job market" };
+    }
+  }
 
   async searchChains(
     query: string,
@@ -1334,6 +1431,123 @@ export class SearchService {
       startDate: startOfDay(subDays(now, 90)).getTime(),
       endDate: endOfDay(now).getTime(),
     };
+  }
+
+  private marketApiSlug(slug: string): string {
+    if (slug === "urgently-hiring") return "b-expertJobs";
+    if (slug === "crypto-beginner-jobs") return "b-onboardIntoWeb3";
+    return slug;
+  }
+
+  private marketRangeDays(range: string): number | null {
+    if (range === "max") return null;
+    const days = Number(range);
+    return [30, 90, 365].includes(days) ? days : 365;
+  }
+
+  private marketPoint(row: JobMarketMetricRow): JobMarketPoint {
+    const sampleCount = Number(row.salarySampleCount);
+    const reliable = sampleCount >= 10;
+    const salary: JobMarketSalary = {
+      medianMonthlyUsd: reliable
+        ? this.roundMarketNumber(row.salaryMedianMonthlyUsd)
+        : null,
+      meanMonthlyUsd: reliable
+        ? this.roundMarketNumber(row.salaryMeanMonthlyUsd)
+        : null,
+      p25MonthlyUsd: reliable
+        ? this.roundMarketNumber(row.salaryP25MonthlyUsd)
+        : null,
+      p75MonthlyUsd: reliable
+        ? this.roundMarketNumber(row.salaryP75MonthlyUsd)
+        : null,
+      sampleCount,
+      coverage: Math.round(Number(row.salaryCoverage) * 10_000) / 10_000,
+      reliable,
+    };
+    return {
+      date: row.sampleDate,
+      activeJobs: Number(row.activeJobs),
+      hiringCompanies: Number(row.hiringCompanies),
+      newJobs: Number(row.newJobs),
+      salary,
+      provenance: row.source,
+      sampledAt: new Date(row.sampledAt).toISOString(),
+    };
+  }
+
+  private marketTicker(row: JobMarketMetricRow): JobMarketTicker {
+    const current = this.marketPoint(row);
+    const currentJobs = Number(row.currentWindowJobs ?? 0);
+    const previousJobs = Number(row.previousWindowJobs ?? 0);
+    const momentum = this.marketMomentumFromWindows(currentJobs, previousJobs);
+    return {
+      kind: row.kind,
+      slug: row.slug,
+      label: row.label,
+      current,
+      momentum,
+      eligibleMover:
+        row.kind === "classifications" &&
+        current.activeJobs >= 20 &&
+        currentJobs + previousJobs >= 10 &&
+        momentum.direction !== "insufficient" &&
+        momentum.direction !== "flat",
+    };
+  }
+
+  private marketMomentum(history: JobMarketPoint[]): JobMarketMomentum {
+    const latest = history
+      .slice(-7)
+      .reduce((sum, point) => sum + point.newJobs, 0);
+    const previous = history
+      .slice(-14, -7)
+      .reduce((sum, point) => sum + point.newJobs, 0);
+    return this.marketMomentumFromWindows(latest, previous);
+  }
+
+  private marketMomentumFromWindows(
+    currentJobs: number,
+    previousJobs: number,
+  ): JobMarketMomentum {
+    const absoluteChange = currentJobs - previousJobs;
+    if (currentJobs + previousJobs < 5) {
+      return {
+        periodDays: 7,
+        currentJobs,
+        previousJobs,
+        absoluteChange,
+        percentChange: null,
+        direction: "insufficient",
+      };
+    }
+    if (previousJobs === 0 && currentJobs > 0) {
+      return {
+        periodDays: 7,
+        currentJobs,
+        previousJobs,
+        absoluteChange,
+        percentChange: null,
+        direction: "new",
+      };
+    }
+    const percentChange =
+      Math.round((absoluteChange / Math.max(previousJobs, 1)) * 1_000) / 10;
+    return {
+      periodDays: 7,
+      currentJobs,
+      previousJobs,
+      absoluteChange,
+      percentChange,
+      direction:
+        absoluteChange > 0 ? "up" : absoluteChange < 0 ? "down" : "flat",
+    };
+  }
+
+  private roundMarketNumber(value: string | null): number | null {
+    if (value === null) return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.round(number * 100) / 100 : null;
   }
 
   private emptyPage(): PaginatedData<string> {
