@@ -1528,7 +1528,10 @@ export class SearchDocumentRepository {
         SELECT CASE
           WHEN organization.from_graph THEN jsonb_build_object(
             'id', organization.graph_properties -> 'id',
-            'orgId', organization.graph_properties -> 'orgId',
+            'orgId', COALESCE(
+              organization.graph_properties -> 'orgId',
+              organization.graph_properties -> 'id'
+            ),
             'name', organization.graph_properties -> 'name',
             'normalizedName', organization.graph_properties -> 'normalizedName',
             'location', organization.graph_properties -> 'location',

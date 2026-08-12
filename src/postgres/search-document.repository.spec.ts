@@ -143,6 +143,8 @@ describe("SearchDocumentRepository", () => {
       "'banned', entity_property_is_banned(node.properties)",
     );
     expect(sql).toContain("'banned', true");
+    expect(sql).toContain("organization.graph_properties -> 'orgId'");
+    expect(sql).toContain("organization.graph_properties -> 'id'");
     expect(sql).toContain("UNION ALL");
     expect(sql).toContain("banned.label = 'Organization'");
     expect(sql).toContain("LIKE '%' || lower($3) || '%'");
