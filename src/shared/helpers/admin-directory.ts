@@ -24,5 +24,9 @@ export const parseAdminDirectoryPagination = (
 
 export const normalizeAdminDirectoryQuery = (
   rawQuery?: string,
-): string | undefined =>
-  rawQuery?.trim().slice(0, ADMIN_DIRECTORY_MAX_QUERY_LENGTH) || undefined;
+): string | undefined => {
+  const normalized = rawQuery?.normalize("NFKC").trim();
+  if (!normalized) return undefined;
+
+  return [...normalized].slice(0, ADMIN_DIRECTORY_MAX_QUERY_LENGTH).join("");
+};

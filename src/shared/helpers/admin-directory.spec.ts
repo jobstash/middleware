@@ -18,7 +18,11 @@ describe("admin directory query helpers", () => {
 
   it("trims and bounds search input", () => {
     expect(normalizeAdminDirectoryQuery("  Acme  ")).toBe("Acme");
+    expect(normalizeAdminDirectoryQuery("  ＩＮＧ  ")).toBe("ING");
     expect(normalizeAdminDirectoryQuery("   ")).toBeUndefined();
     expect(normalizeAdminDirectoryQuery("a".repeat(500))).toHaveLength(200);
+    expect([
+      ...(normalizeAdminDirectoryQuery("😀".repeat(500)) ?? ""),
+    ]).toHaveLength(200);
   });
 });

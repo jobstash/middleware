@@ -100,6 +100,28 @@ type OrganizationSearchParams = Partial<OrgListParams> & {
 
 const NATURAL_NAME_SQL = "name COLLATE jobstash_natural";
 
+const ADMIN_DIRECTORY_QUERY_KEY_SQL = `
+  CASE
+    WHEN $1::text IS NULL THEN NULL
+    ELSE unaccent(casefold(normalize($1::text, NFKC)))
+  END
+`;
+
+const ADMIN_DIRECTORY_QUERY_SLUG_SQL = `
+  trim(BOTH '-' FROM regexp_replace(
+    ${ADMIN_DIRECTORY_QUERY_KEY_SQL},
+    '[^[:alnum:]]+',
+    '-',
+    'g'
+  ))
+`;
+
+const adminDirectorySearchKeySql = (expression: string): string =>
+  `unaccent(casefold(normalize(COALESCE(${expression}, ''), NFKC)))`;
+
+const adminDirectoryLowerKeySql = (expression: string): string =>
+  `lower(COALESCE(${expression}, ''))`;
+
 class SqlPredicateBuilder {
   readonly predicates: string[] = [];
   readonly parameters: unknown[] = [];
@@ -333,13 +355,13 @@ export class SearchDocumentRepository {
     limit: number;
     offset: number;
   }): Promise<AdminDirectoryPage<AdminOrganizationDirectoryItem>> {
-    const normalizedQuery = options.query?.trim() || null;
+    const normalizedQuery = options.query?.normalize("NFKC").trim() || null;
     const [row] = await this.postgres.query<{
       data: AdminOrganizationDirectoryItem[];
       total: number | string;
     }>(
       `
-        WITH filtered AS NOT MATERIALIZED (
+        WITH active AS MATERIALIZED (
           SELECT
             organization.organization_id AS org_id,
             NULLIF(organization.payload ->> 'id', '') AS id,
@@ -349,24 +371,48 @@ export class SearchDocumentRepository {
             NULLIF(organization.payload ->> 'logoUrl', '') AS logo_url,
             NULLIF(organization.payload ->> 'summary', '') AS summary,
             COALESCE(cardinality(organization.project_ids), 0)::int AS project_count,
-            entity_property_is_banned(node.properties) AS banned
+            entity_property_is_banned(node.properties) AS banned,
+            search.query_key
           FROM organization_search_documents organization
           JOIN graph_nodes node ON node.id = organization.organization_node_id
-          WHERE $1::text IS NULL
-             OR position(lower($1) in lower(organization.organization_id)) > 0
-             OR position(lower($1) in lower(organization.name)) > 0
-             OR position(lower($1) in lower(organization.normalized_name)) > 0
-             OR position(lower($1) in lower(COALESCE(organization.location, ''))) > 0
-             OR position(lower($1) in lower(COALESCE(organization.payload ->> 'id', ''))) > 0
-             OR position(lower($1) in lower(COALESCE(organization.payload ->> 'summary', ''))) > 0
-             OR EXISTS (
-               SELECT 1
-               FROM unnest(organization.search_values) AS search_value(value)
-               WHERE position(lower($1) in lower(COALESCE(search_value.value, ''))) > 0
+          CROSS JOIN LATERAL (
+            SELECT
+              ${ADMIN_DIRECTORY_QUERY_KEY_SQL} AS query_key,
+              ${ADMIN_DIRECTORY_QUERY_SLUG_SQL} AS query_slug_key
+          ) search
+          WHERE search.query_key IS NULL
+             OR organization.search_text ILIKE '%' || search.query_key || '%'
+             OR (
+               search.query_slug_key <> ''
+               AND organization.search_text ILIKE
+                 '%' || search.query_slug_key || '%'
              )
+             OR position(
+               search.query_key in
+               ${adminDirectoryLowerKeySql("organization.organization_id")}
+             ) > 0
+             OR position(
+               search.query_key in
+               ${adminDirectoryLowerKeySql("organization.name")}
+             ) > 0
+             OR position(
+               search.query_key in
+               ${adminDirectoryLowerKeySql("organization.normalized_name")}
+             ) > 0
+             OR position(
+               search.query_key in
+               ${adminDirectoryLowerKeySql("organization.location")}
+             ) > 0
+             OR position(
+               search.query_key in
+               ${adminDirectoryLowerKeySql("organization.payload ->> 'id'")}
+             ) > 0
           UNION ALL
           SELECT
-            banned.properties ->> 'orgId' AS org_id,
+            COALESCE(
+              banned.properties ->> 'orgId',
+              banned.properties ->> 'id'
+            ) AS org_id,
             NULLIF(banned.properties ->> 'id', '') AS id,
             NULLIF(banned.properties ->> 'name', '') AS name,
             NULLIF(banned.properties ->> 'normalizedName', '') AS normalized_name,
@@ -379,8 +425,18 @@ export class SearchDocumentRepository {
               WHERE ownership.source_id = banned.id
                 AND ownership.type = 'HAS_PROJECT'
             ) AS project_count,
-            true AS banned
+            true AS banned,
+            search.query_key
           FROM graph_nodes banned
+          CROSS JOIN LATERAL (
+            SELECT
+              ${ADMIN_DIRECTORY_QUERY_KEY_SQL} AS query_key,
+              ${adminDirectoryLowerKeySql("COALESCE(banned.properties ->> 'orgId', banned.properties ->> 'id')")} AS org_id_key,
+              ${adminDirectoryLowerKeySql("banned.properties ->> 'id'")} AS id_key,
+              ${adminDirectorySearchKeySql("banned.properties ->> 'name'")} AS name_key,
+              ${adminDirectoryLowerKeySql("banned.properties ->> 'normalizedName'")} AS normalized_name_key,
+              ${adminDirectoryLowerKeySql("banned.properties ->> 'location'")} AS location_key
+          ) search
           WHERE banned.label = 'Organization'
             AND entity_property_is_banned(banned.properties)
             AND NOT EXISTS (
@@ -389,18 +445,63 @@ export class SearchDocumentRepository {
               WHERE existing.organization_node_id = banned.id
             )
             AND (
-              $1::text IS NULL
-              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'orgId', ''))) > 0
-              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'name', ''))) > 0
-              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'normalizedName', ''))) > 0
-              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'location', ''))) > 0
-              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'id', ''))) > 0
-              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'summary', ''))) > 0
+              search.query_key IS NULL
+              OR position(search.query_key in search.org_id_key) > 0
+              OR position(search.query_key in search.name_key) > 0
+              OR position(search.query_key in search.normalized_name_key) > 0
+              OR position(search.query_key in search.location_key) > 0
+              OR position(search.query_key in search.id_key) > 0
             )
+        ), candidates AS MATERIALIZED (
+          SELECT
+            active.*,
+            ${adminDirectoryLowerKeySql("active.org_id")} AS org_id_key,
+            ${adminDirectoryLowerKeySql("active.id")} AS id_key,
+            ${adminDirectorySearchKeySql("active.name")} AS name_key,
+            ${adminDirectoryLowerKeySql("active.normalized_name")} AS normalized_name_key,
+            ${adminDirectoryLowerKeySql("active.location")} AS location_key
+          FROM active
+        ), filtered AS NOT MATERIALIZED (
+          SELECT
+            candidates.*,
+            CASE
+              WHEN query_key IS NULL THEN 0
+              WHEN query_key = name_key
+                OR query_key = normalized_name_key THEN 0
+              WHEN query_key = org_id_key
+                OR query_key = id_key THEN 1
+              WHEN position(query_key in name_key) = 1
+                OR position(query_key in normalized_name_key) = 1 THEN 2
+              WHEN position(query_key in name_key) > 0
+                OR position(query_key in normalized_name_key) > 0 THEN 3
+              WHEN position(query_key in org_id_key) > 0
+                OR position(query_key in id_key) > 0 THEN 4
+              WHEN query_key = location_key THEN 5
+              WHEN position(query_key in location_key) > 0 THEN 6
+              ELSE 7
+            END AS match_rank,
+            CASE
+              WHEN query_key IS NULL THEN 0
+              ELSE abs(
+                char_length(COALESCE(
+                  NULLIF(name_key, ''),
+                  NULLIF(normalized_name_key, ''),
+                  NULLIF(org_id_key, ''),
+                  id_key
+                )) - char_length(query_key)
+              )
+            END AS match_distance,
+            COALESCE(
+              NULLIF(name_key, ''),
+              NULLIF(normalized_name_key, ''),
+              NULLIF(org_id_key, ''),
+              id_key
+            ) AS sort_name
+          FROM candidates
         ), page AS (
           SELECT *
           FROM filtered
-          ORDER BY lower(name) NULLS LAST, org_id
+          ORDER BY match_rank, match_distance, sort_name, org_id
           LIMIT $2 OFFSET $3
         )
         SELECT
@@ -417,7 +518,11 @@ export class SearchDocumentRepository {
                 'projectCount', page.project_count,
                 'banned', page.banned
               ))
-              ORDER BY lower(page.name) NULLS LAST, page.org_id
+              ORDER BY
+                page.match_rank,
+                page.match_distance,
+                page.sort_name,
+                page.org_id
             ),
             '[]'::jsonb
           ) AS data,
@@ -437,13 +542,13 @@ export class SearchDocumentRepository {
     limit: number;
     offset: number;
   }): Promise<AdminDirectoryPage<AdminProjectDirectoryItem>> {
-    const normalizedQuery = options.query?.trim() || null;
+    const normalizedQuery = options.query?.normalize("NFKC").trim() || null;
     const [row] = await this.postgres.query<{
       data: AdminProjectDirectoryItem[];
       total: number | string;
     }>(
       `
-        WITH filtered AS NOT MATERIALIZED (
+        WITH active AS MATERIALIZED (
           SELECT
             project.project_id AS id,
             NULLIF(project.name, '') AS name,
@@ -461,35 +566,46 @@ export class SearchDocumentRepository {
               ''
             ) AS website,
             project.organization_ids AS org_ids,
-            entity_property_is_banned(node.properties) AS banned
+            entity_property_is_banned(node.properties) AS banned,
+            search.query_key
           FROM project_search_documents project
           JOIN graph_nodes node ON node.id = project.project_node_id
-          WHERE $1::text IS NULL
-             OR position(lower($1) in lower(project.project_id)) > 0
-             OR position(lower($1) in lower(project.name)) > 0
-             OR position(lower($1) in lower(project.normalized_name)) > 0
-             OR position(lower($1) in lower(COALESCE(
-                  COALESCE(project.detail_payload, project.payload) ->> 'summary',
-                  ''
-                ))) > 0
-             OR position(lower($1) in lower(COALESCE(
-                  COALESCE(project.detail_payload, project.payload) ->> 'category',
-                  ''
-                ))) > 0
-             OR position(lower($1) in lower(COALESCE(
-                  COALESCE(project.detail_payload, project.payload) ->> 'website',
-                  ''
-                ))) > 0
-             OR EXISTS (
-               SELECT 1
-               FROM unnest(project.organization_ids) AS organization_id(value)
-               WHERE position(lower($1) in lower(COALESCE(organization_id.value, ''))) > 0
+          CROSS JOIN LATERAL (
+            SELECT
+              ${ADMIN_DIRECTORY_QUERY_KEY_SQL} AS query_key,
+              ${ADMIN_DIRECTORY_QUERY_SLUG_SQL} AS query_slug_key
+          ) search
+          WHERE search.query_key IS NULL
+             OR project.search_text ILIKE '%' || search.query_key || '%'
+             OR (
+               search.query_slug_key <> ''
+               AND project.search_text ILIKE
+                 '%' || search.query_slug_key || '%'
              )
-             OR EXISTS (
-               SELECT 1
-               FROM unnest(project.search_values) AS search_value(value)
-               WHERE position(lower($1) in lower(COALESCE(search_value.value, ''))) > 0
-             )
+             OR position(
+               search.query_key in
+               ${adminDirectoryLowerKeySql("project.project_id")}
+             ) > 0
+             OR position(
+               search.query_key in
+               ${adminDirectoryLowerKeySql("project.name")}
+             ) > 0
+             OR position(
+               search.query_key in
+               ${adminDirectoryLowerKeySql("project.normalized_name")}
+             ) > 0
+             OR position(
+               search.query_key in
+               ${adminDirectoryLowerKeySql("COALESCE(project.detail_payload, project.payload) ->> 'category'")}
+             ) > 0
+             OR position(
+               search.query_key in
+               ${adminDirectoryLowerKeySql("COALESCE(project.detail_payload, project.payload) ->> 'website'")}
+             ) > 0
+             OR position(
+               search.query_key in
+               lower(array_to_string(project.organization_ids, ' '))
+             ) > 0
           UNION ALL
           SELECT
             banned.properties ->> 'id' AS id,
@@ -525,8 +641,16 @@ export class SearchDocumentRepository {
               WHERE ownership.target_id = banned.id
                 AND ownership.type = 'HAS_PROJECT'
             ), '{}'::text[]) AS org_ids,
-            true AS banned
+            true AS banned,
+            search.query_key
           FROM graph_nodes banned
+          CROSS JOIN LATERAL (
+            SELECT
+              ${ADMIN_DIRECTORY_QUERY_KEY_SQL} AS query_key,
+              ${adminDirectoryLowerKeySql("banned.properties ->> 'id'")} AS id_key,
+              ${adminDirectorySearchKeySql("banned.properties ->> 'name'")} AS name_key,
+              ${adminDirectoryLowerKeySql("banned.properties ->> 'normalizedName'")} AS normalized_name_key
+          ) search
           WHERE banned.label = 'Project'
             AND entity_property_is_banned(banned.properties)
             AND NOT EXISTS (
@@ -535,16 +659,58 @@ export class SearchDocumentRepository {
               WHERE existing.project_node_id = banned.id
             )
             AND (
-              $1::text IS NULL
-              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'id', ''))) > 0
-              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'name', ''))) > 0
-              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'normalizedName', ''))) > 0
-              OR position(lower($1) in lower(COALESCE(banned.properties ->> 'summary', ''))) > 0
+              search.query_key IS NULL
+              OR position(search.query_key in search.id_key) > 0
+              OR position(search.query_key in search.name_key) > 0
+              OR position(search.query_key in search.normalized_name_key) > 0
             )
+        ), candidates AS MATERIALIZED (
+          SELECT
+            active.*,
+            ${adminDirectoryLowerKeySql("active.id")} AS id_key,
+            ${adminDirectorySearchKeySql("active.name")} AS name_key,
+            ${adminDirectoryLowerKeySql("active.normalized_name")} AS normalized_name_key,
+            ${adminDirectorySearchKeySql("active.category")} AS category_key,
+            ${adminDirectoryLowerKeySql("active.website")} AS website_key
+          FROM active
+        ), filtered AS NOT MATERIALIZED (
+          SELECT
+            candidates.*,
+            CASE
+              WHEN query_key IS NULL THEN 0
+              WHEN query_key = name_key
+                OR query_key = normalized_name_key THEN 0
+              WHEN query_key = id_key THEN 1
+              WHEN position(query_key in name_key) = 1
+                OR position(query_key in normalized_name_key) = 1 THEN 2
+              WHEN position(query_key in name_key) > 0
+                OR position(query_key in normalized_name_key) > 0 THEN 3
+              WHEN position(query_key in id_key) > 0 THEN 4
+              WHEN query_key = category_key THEN 5
+              WHEN position(query_key in category_key) > 0 THEN 6
+              WHEN position(query_key in website_key) > 0 THEN 7
+              ELSE 8
+            END AS match_rank,
+            CASE
+              WHEN query_key IS NULL THEN 0
+              ELSE abs(
+                char_length(COALESCE(
+                  NULLIF(name_key, ''),
+                  NULLIF(normalized_name_key, ''),
+                  id_key
+                )) - char_length(query_key)
+              )
+            END AS match_distance,
+            COALESCE(
+              NULLIF(name_key, ''),
+              NULLIF(normalized_name_key, ''),
+              id_key
+            ) AS sort_name
+          FROM candidates
         ), page AS (
           SELECT *
           FROM filtered
-          ORDER BY lower(name) NULLS LAST, id
+          ORDER BY match_rank, match_distance, sort_name, id
           LIMIT $2 OFFSET $3
         )
         SELECT
@@ -560,7 +726,11 @@ export class SearchDocumentRepository {
                 'orgIds', COALESCE(page.org_ids, '{}'::text[]),
                 'banned', page.banned
               ))
-              ORDER BY lower(page.name) NULLS LAST, page.id
+              ORDER BY
+                page.match_rank,
+                page.match_distance,
+                page.sort_name,
+                page.id
             ),
             '[]'::jsonb
           ) AS data,

@@ -47,6 +47,52 @@ describePostgres("SearchDocumentRepository PostgreSQL integration", () => {
     expect(settings.jit).toBe("off");
   });
 
+  it("ranks exact Unicode-normalized directory names ahead of metadata matches", async () => {
+    await postgres.query(`
+      UPDATE organization_search_documents
+      SET name = 'ING',
+          normalized_name = 'ing',
+          search_text = 'ING'
+      WHERE organization_id = 'org-acme';
+
+      UPDATE organization_search_documents
+      SET search_values = array_append(search_values, 'Engineering metadata'),
+          search_text = search_text || ' Engineering metadata'
+      WHERE organization_id = 'org-beta';
+
+      UPDATE project_search_documents
+      SET name = 'SafeID',
+          normalized_name = 'safeid',
+          search_text = 'SafeID'
+      WHERE project_id = 'project-alpha';
+
+      UPDATE project_search_documents
+      SET search_values = array_append(search_values, 'SafeID metadata'),
+          search_text = search_text || ' SafeID metadata'
+      WHERE project_id = 'project-beta';
+    `);
+
+    const organizations = await repository.getAdminOrganizationDirectory({
+      query: "ＩＮＧ",
+      limit: 10,
+      offset: 0,
+    });
+    const projects = await repository.getAdminProjectDirectory({
+      query: "ＳａｆｅＩＤ",
+      limit: 10,
+      offset: 0,
+    });
+
+    expect(organizations.data.map(organization => organization.name)).toEqual([
+      "ING",
+      "Beta",
+    ]);
+    expect(projects.data.map(project => project.name)).toEqual([
+      "SafeID",
+      "Beta",
+    ]);
+  });
+
   it("returns online jobs and enforces expert-job organization suppression", async () => {
     const jobs = await repository.getJobPayloads("Ethereum");
     const organizationJobs = await repository.getJobPayloads(

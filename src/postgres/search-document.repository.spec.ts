@@ -62,7 +62,7 @@ describe("SearchDocumentRepository", () => {
     expect(projectParameters).toBeUndefined();
   });
 
-  it("returns a bounded minimal organization directory with case-insensitive search", async () => {
+  it("returns a Unicode-aware organization directory ranked by match quality", async () => {
     query.mockResolvedValue([
       {
         data: [
@@ -79,7 +79,7 @@ describe("SearchDocumentRepository", () => {
 
     await expect(
       repository.getAdminOrganizationDirectory({
-        query: "  AcMe  ",
+        query: "  ＡcMe  ",
         limit: 25,
         offset: 5,
       }),
@@ -97,10 +97,16 @@ describe("SearchDocumentRepository", () => {
 
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain("FROM organization_search_documents organization");
-    expect(sql).toContain("WITH filtered AS NOT MATERIALIZED");
-    expect(sql).toContain("organization.search_values");
+    expect(sql).toContain("filtered AS NOT MATERIALIZED");
+    expect(sql).toContain("organization.search_text");
     expect(sql).toContain("organization.payload ->> 'summary'");
-    expect(sql).toContain("position(lower($1)");
+    expect(sql).not.toContain("AS summary_key");
+    expect(sql).toContain("unaccent(casefold(normalize(");
+    expect(sql).toContain("WHEN query_key = name_key");
+    expect(sql).toContain(
+      "ORDER BY match_rank, match_distance, sort_name, org_id",
+    );
+    expect(sql).not.toContain("ORDER BY lower(name)");
     expect(sql).toContain("LIMIT $2 OFFSET $3");
     expect(sql).toContain("entity_property_is_banned(node.properties)");
     expect(sql).toContain("UNION ALL");
@@ -194,7 +200,7 @@ describe("SearchDocumentRepository", () => {
     expect(parameters).toEqual([250, 500, "Acme", true, false]);
   });
 
-  it("returns a bounded minimal project directory with all searchable summary fields", async () => {
+  it("returns a Unicode-aware project directory ranked by match quality", async () => {
     query.mockResolvedValue([
       {
         data: [
@@ -211,7 +217,7 @@ describe("SearchDocumentRepository", () => {
 
     await expect(
       repository.getAdminProjectDirectory({
-        query: "DeFi",
+        query: "ＤeFi",
         limit: 10,
         offset: 0,
       }),
@@ -229,11 +235,15 @@ describe("SearchDocumentRepository", () => {
 
     const [sql, parameters] = query.mock.calls[0];
     expect(sql).toContain("FROM project_search_documents project");
-    expect(sql).toContain("project.search_values");
+    expect(sql).toContain("project.search_text");
     expect(sql).toContain("project.organization_ids");
-    expect(sql).toContain("->> 'summary'");
+    expect(sql).not.toContain("->> 'summary'");
     expect(sql).toContain("->> 'category'");
     expect(sql).toContain("->> 'website'");
+    expect(sql).toContain("unaccent(casefold(normalize(");
+    expect(sql).toContain("WHEN query_key = name_key");
+    expect(sql).toContain("ORDER BY match_rank, match_distance, sort_name, id");
+    expect(sql).not.toContain("ORDER BY lower(name)");
     expect(sql).toContain("entity_property_is_banned(node.properties)");
     expect(sql).toContain("UNION ALL");
     expect(sql).toContain("FROM graph_nodes banned");
