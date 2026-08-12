@@ -64,14 +64,41 @@ const projectionNavigation: Partial<
   },
 };
 
-const suggestionFacetKeys: Exclude<SuggestionGroupId, "jobs">[] = [
+const suggestionFacetKeys: Exclude<
+  SuggestionGroupId,
+  "jobs" | "workModes" | "locations"
+>[] = [
   "organizations",
   "tags",
   "classifications",
-  "locations",
   "investors",
   "fundingRounds",
 ];
+
+const geographicSuggestionFacetKeys = [
+  "cities",
+  "regions",
+  "countries",
+  "continents",
+  "timezones",
+] as const;
+
+const geographicSuggestionCandidates = (source: string): string =>
+  geographicSuggestionFacetKeys
+    .map(
+      facet => `
+        SELECT
+          ${source}.job_node_id,
+          '${facet}'::text AS facet,
+          entry.value AS label,
+          '${facet === "timezones" ? "tz" : "l"}'::text AS prefix
+        FROM ${source}
+        CROSS JOIN LATERAL jsonb_each_text(
+          COALESCE(${source}.filter_labels -> '${facet}', '{}'::jsonb)
+        ) entry
+      `,
+    )
+    .join("\nUNION ALL\n");
 
 const labelArray = (key: string): string => `
   COALESCE(
@@ -843,16 +870,26 @@ export class SearchRepository {
         `,
       )
       .join("\nUNION ALL\n");
+    const locationUnions = geographicSuggestionCandidates("recent");
     const rows = await this.postgres.query<{ groupId: SuggestionGroupId }>(
       `
         WITH recent AS MATERIALIZED (
           SELECT * FROM job_search_documents
           WHERE online AND NOT blocked
             AND published_timestamp BETWEEN $2 AND $3
+        ), geographic_candidates AS (
+          ${locationUnions}
         ), candidates AS (
           SELECT 'jobs'::text AS group_id, title AS label FROM recent
           UNION ALL
           ${facetUnions}
+          UNION ALL
+          SELECT 'workModes', mode AS label
+          FROM recent
+          CROSS JOIN LATERAL unnest(recent.location_types) mode
+          UNION ALL
+          SELECT 'locations', label
+          FROM geographic_candidates
         )
         SELECT DISTINCT group_id AS "groupId"
         FROM candidates
@@ -911,12 +948,126 @@ export class SearchRepository {
       }));
     }
 
+    if (options.group === "workModes") {
+      const rows = await this.postgres.query<{
+        id: string;
+        label: string;
+      }>(
+        `
+          WITH recent AS MATERIALIZED (
+            SELECT * FROM job_search_documents
+            WHERE online AND NOT blocked
+              AND published_timestamp BETWEEN $2 AND $3
+          ), candidates AS (
+            SELECT
+              recent.job_node_id,
+              slugify_text(mode) AS id,
+              COALESCE(
+                recent.filter_labels -> 'workModes' ->> mode,
+                recent.filter_labels -> 'locationTypes' ->> mode,
+                recent.filter_labels -> 'locations' ->> mode,
+                initcap(replace(replace(mode, '-', ' '), '_', ' '))
+              ) AS label
+            FROM recent
+            CROSS JOIN LATERAL unnest(recent.location_types) mode
+          ), values AS (
+            SELECT id, min(label) AS label,
+              count(DISTINCT job_node_id) AS popularity
+            FROM candidates
+            WHERE id <> ''
+              AND (
+                $1::text IS NULL
+                OR lower(label) LIKE '%' || lower($1) || '%'
+                OR lower(label) % lower($1)
+              )
+            GROUP BY id
+          )
+          SELECT id, label
+          FROM values
+          ORDER BY
+            CASE WHEN $1::text IS NOT NULL
+              THEN similarity(lower(label), lower($1)) END DESC NULLS LAST,
+            popularity DESC,
+            label
+          OFFSET $4 LIMIT $5
+        `,
+        [
+          options.query?.trim() || null,
+          options.startDate,
+          options.endDate,
+          Math.max(0, options.offset),
+          Math.max(1, options.limit),
+        ],
+      );
+      return rows.map(row => ({
+        id: row.id,
+        label: row.label,
+        href: `/lt-${row.id}`,
+      }));
+    }
+
+    if (options.group === "locations") {
+      const locationUnions = geographicSuggestionCandidates("recent");
+      const rows = await this.postgres.query<{
+        id: string;
+        label: string;
+      }>(
+        `
+          WITH recent AS MATERIALIZED (
+            SELECT * FROM job_search_documents
+            WHERE online AND NOT blocked
+              AND published_timestamp BETWEEN $2 AND $3
+          ), candidates AS (
+            ${locationUnions}
+          ), values AS (
+            SELECT
+              prefix || '-' || slugify_text(label) AS id,
+              min(label) AS label,
+              count(DISTINCT job_node_id) AS popularity
+            FROM candidates
+            WHERE label <> ''
+              AND slugify_text(label) <> ''
+              AND (
+                $1::text IS NULL
+                OR lower(label) LIKE '%' || lower($1) || '%'
+                OR lower(label) % lower($1)
+              )
+            GROUP BY prefix, slugify_text(label)
+          )
+          SELECT id, label
+          FROM values
+          ORDER BY
+            CASE WHEN $1::text IS NOT NULL AND lower(label) = lower($1)
+              THEN 0 ELSE 1 END,
+            CASE WHEN $1::text IS NOT NULL
+              THEN similarity(lower(label), lower($1)) END DESC NULLS LAST,
+            popularity DESC,
+            label
+          OFFSET $4 LIMIT $5
+        `,
+        [
+          options.query?.trim() || null,
+          options.startDate,
+          options.endDate,
+          Math.max(0, options.offset),
+          Math.max(1, options.limit),
+        ],
+      );
+      return rows.map(row => ({
+        id: row.id,
+        label: row.label,
+        href: `/${row.id}`,
+      }));
+    }
+
     const group = options.group;
-    const prefix: Record<Exclude<SuggestionGroupId, "jobs">, string> = {
+    const prefix: Record<
+      Exclude<SuggestionGroupId, "jobs" | "workModes" | "locations">,
+      string
+    > = {
       organizations: "o",
       tags: "t",
       classifications: "cl",
-      locations: "l",
       investors: "i",
       fundingRounds: "fr",
     };

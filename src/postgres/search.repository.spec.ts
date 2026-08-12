@@ -34,6 +34,88 @@ describe("SearchRepository", () => {
     expect(sql).toContain("filter_labels -> 'timezones'");
   });
 
+  it("searches real geographic facets for location suggestions", async () => {
+    const query = jest.fn().mockResolvedValue([
+      { id: "l-berlin", label: "Berlin" },
+      { id: "tz-europe-berlin", label: "Europe/Berlin" },
+    ]);
+    const repository = new SearchRepository({
+      query,
+    } as unknown as PostgresService);
+
+    await expect(
+      repository.getSuggestionItems({
+        group: "locations",
+        query: "berlin",
+        startDate: 1,
+        endDate: 2,
+        offset: 0,
+        limit: 10,
+      }),
+    ).resolves.toEqual([
+      { id: "l-berlin", label: "Berlin", href: "/l-berlin" },
+      {
+        id: "tz-europe-berlin",
+        label: "Europe/Berlin",
+        href: "/tz-europe-berlin",
+      },
+    ]);
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("filter_labels -> 'cities'");
+    expect(sql).toContain("filter_labels -> 'regions'");
+    expect(sql).toContain("filter_labels -> 'countries'");
+    expect(sql).toContain("filter_labels -> 'continents'");
+    expect(sql).toContain("filter_labels -> 'timezones'");
+    expect(sql).toContain("prefix || '-' || slugify_text(label)");
+    expect(parameters).toEqual(["berlin", 1, 2, 0, 10]);
+  });
+
+  it("keeps work-mode suggestions separate from geographic locations", async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValue([{ id: "remote", label: "Remote" }]);
+    const repository = new SearchRepository({
+      query,
+    } as unknown as PostgresService);
+
+    await expect(
+      repository.getSuggestionItems({
+        group: "workModes",
+        query: "remote",
+        startDate: 1,
+        endDate: 2,
+        offset: 0,
+        limit: 10,
+      }),
+    ).resolves.toEqual([{ id: "remote", label: "Remote", href: "/lt-remote" }]);
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("unnest(recent.location_types)");
+    expect(sql).toContain("filter_labels -> 'workModes'");
+    expect(parameters).toEqual(["remote", 1, 2, 0, 10]);
+  });
+
+  it("discovers location and work-mode groups from their distinct facets", async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValue([{ groupId: "locations" }, { groupId: "workModes" }]);
+    const repository = new SearchRepository({
+      query,
+    } as unknown as PostgresService);
+
+    await expect(repository.getSuggestionGroups("ber", 1, 2)).resolves.toEqual([
+      "locations",
+      "workModes",
+    ]);
+
+    const [sql, parameters] = query.mock.calls[0];
+    expect(sql).toContain("SELECT 'workModes', mode AS label");
+    expect(sql).toContain("SELECT 'locations', label");
+    expect(sql).toContain("filter_labels -> 'cities'");
+    expect(parameters).toEqual(["ber", 1, 2]);
+  });
+
   it("matches work-mode pillars against both projected keys and stable columns", async () => {
     const query = jest.fn().mockResolvedValue([]);
     const repository = new SearchRepository({

@@ -157,6 +157,7 @@ export class SearchService {
     organizations: "Organizations",
     tags: "Tags",
     classifications: "Classifications",
+    workModes: "Work Mode",
     locations: "Locations",
     investors: "Investors",
     fundingRounds: "Funding Rounds",

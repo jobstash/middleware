@@ -419,6 +419,43 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
       },
     ]);
     await expect(
+      repository.getSuggestionItems({
+        group: "workModes",
+        query: "remote",
+        startDate,
+        endDate,
+        offset: 0,
+        limit: 2,
+      }),
+    ).resolves.toEqual([
+      {
+        id: "remote",
+        label: "Remote",
+        href: "/lt-remote",
+      },
+    ]);
+    await expect(
+      repository.getSuggestionItems({
+        group: "locations",
+        query: "amsterdam",
+        startDate,
+        endDate,
+        offset: 0,
+        limit: 3,
+      }),
+    ).resolves.toEqual([
+      {
+        id: "l-amsterdam",
+        label: "Amsterdam",
+        href: "/l-amsterdam",
+      },
+      {
+        id: "tz-europe-amsterdam",
+        label: "Europe/Amsterdam",
+        href: "/tz-europe-amsterdam",
+      },
+    ]);
+    await expect(
       repository.getSkillSuggestions({
         query: "type",
         startDate,
@@ -627,6 +664,22 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
       hasMore: false,
     });
     await expect(
+      service.getJobSuggestions({
+        group: "locations",
+        page: 1,
+        limit: 5,
+      }),
+    ).resolves.toMatchObject({
+      activeGroup: "locations",
+      groups: expect.arrayContaining([
+        { id: "workModes", label: "Work Mode" },
+        { id: "locations", label: "Locations" },
+      ]),
+      items: expect.arrayContaining([
+        { id: "l-amsterdam", label: "Amsterdam", href: "/l-amsterdam" },
+      ]),
+    });
+    await expect(
       service.getSkillSuggestions({ q: "type", page: 1, limit: 5 }),
     ).resolves.toMatchObject({
       success: true,
@@ -822,6 +875,12 @@ describePostgres("SearchRepository PostgreSQL integration", () => {
         JSON.stringify({
           tags: { typescript: "TypeScript" },
           locations: { amsterdam: "Amsterdam" },
+          workModes: { remote: "Remote" },
+          cities: { "place:geonames:2759794": "Amsterdam" },
+          regions: { "place:geonames:2749879": "North Holland" },
+          countries: { "place:geonames:2750405": "Netherlands" },
+          continents: { "place:geonames:6255148": "Europe" },
+          timezones: { "tz:Europe/Amsterdam": "Europe/Amsterdam" },
           commitments: { "full-time": "FULL_TIME" },
           locationTypes: { remote: "REMOTE" },
           classifications: { engineering: "ENGINEERING" },

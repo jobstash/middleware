@@ -14,6 +14,7 @@ export const SUGGESTION_GROUPS = [
   "organizations",
   "tags",
   "classifications",
+  "workModes",
   "locations",
   "investors",
   "fundingRounds",
