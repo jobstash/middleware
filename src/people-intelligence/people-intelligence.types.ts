@@ -1,4 +1,5 @@
 export type PeopleBucket = "month" | "quarter" | "year";
+export type DeveloperCohort = "crypto" | "fintech" | "ai" | "banking" | "tech";
 export type PeopleMetric =
   | "activePeople"
   | "affiliatedPeople"
@@ -45,6 +46,14 @@ export type DeveloperReport = {
   asOf: string | null;
   completeThrough: string | null;
   methodologyVersion: "developer-report-v1";
+  selectedCohort: DeveloperCohort;
+  cohorts: Array<{
+    cohort: DeveloperCohort;
+    label: string;
+    activePeople: number;
+    activeMaintainers: number;
+    activeOrganizations: number;
+  }>;
   population: {
     label: string;
     definition: string;
@@ -72,6 +81,7 @@ export type DeveloperReport = {
     organizationId: string | null;
     organizationName: string;
     organizationSlug: string;
+    cohort: DeveloperCohort;
     logoUrl: string | null;
     activePeople: number;
     activeMaintainers: number;

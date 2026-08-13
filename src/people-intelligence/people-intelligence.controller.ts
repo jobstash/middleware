@@ -35,8 +35,8 @@ export class PeopleIntelligenceController {
   @ApiOkResponse({
     description: "Complete-period internal developer ecosystem report",
   })
-  developerReport(): Promise<DeveloperReport> {
-    return this.people.developerReport();
+  developerReport(@Query() query: PublicQuery): Promise<DeveloperReport> {
+    return this.people.developerReport(query);
   }
 
   @Get("activity-map")

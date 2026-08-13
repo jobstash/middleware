@@ -49,6 +49,8 @@ describe("PeopleIntelligenceService", () => {
       asOf: "2026-07-01T00:00:00.000Z",
       completeThrough: "2026-07-01",
       methodologyVersion: "developer-report-v1" as const,
+      selectedCohort: "fintech" as const,
+      cohorts: [],
       population: {
         label: "Verified internal contributors",
         definition: "Canonical internal employees",
@@ -73,9 +75,11 @@ describe("PeopleIntelligenceService", () => {
       get,
     } as unknown as HttpService);
 
-    await expect(service.developerReport()).resolves.toEqual(response);
+    await expect(
+      service.developerReport({ cohort: "fintech" }),
+    ).resolves.toEqual(response);
     expect(get).toHaveBeenCalledWith("/scorer/people/developer-report", {
-      params: {},
+      params: { cohort: "fintech" },
     });
   });
 

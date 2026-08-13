@@ -6,6 +6,7 @@ import { firstValueFrom } from "rxjs";
 import { CustomLogger } from "src/shared/utils/custom-logger";
 import {
   DeveloperReport,
+  DeveloperCohort,
   PeopleActivityMap,
   PeopleAtlasFrame,
   PeopleDirectoryPage,
@@ -40,6 +41,11 @@ const positiveInteger = (
     : fallback;
 };
 
+const developerCohort = (value: unknown): DeveloperCohort =>
+  ["crypto", "fintech", "ai", "banking", "tech"].includes(String(value))
+    ? (String(value) as DeveloperCohort)
+    : "crypto";
+
 @Injectable()
 export class PeopleIntelligenceService {
   private readonly logger = new CustomLogger(PeopleIntelligenceService.name);
@@ -58,15 +64,18 @@ export class PeopleIntelligenceService {
     });
   }
 
-  developerReport(): Promise<DeveloperReport> {
+  developerReport(query: Query = {}): Promise<DeveloperReport> {
+    const cohort = developerCohort(query.cohort);
     return this.get(
       "developer-report",
-      {},
+      { cohort },
       {
         available: false,
         asOf: null,
         completeThrough: null,
         methodologyVersion: "developer-report-v1",
+        selectedCohort: cohort,
+        cohorts: [],
         population: {
           label: "Verified internal contributors",
           definition:
