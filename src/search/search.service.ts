@@ -1832,6 +1832,8 @@ export class SearchService {
       segment: row.segment,
       regionSlug: row.regionSlug,
       regionLabel: row.regionLabel,
+      regionType: row.regionType,
+      countryCode: row.countryCode,
       medianMonthlyUsd: reliable
         ? this.roundMarketNumber(row.salaryMedianMonthlyUsd)
         : null,

@@ -43,6 +43,8 @@ export interface JobMarketCompensation {
   segment: JobMarketSegment;
   regionSlug: string;
   regionLabel: string;
+  regionType: "remote" | "aggregate" | "continent" | "country";
+  countryCode: string | null;
   medianMonthlyUsd: number | null;
   p25MonthlyUsd: number | null;
   p75MonthlyUsd: number | null;

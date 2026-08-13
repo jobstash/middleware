@@ -32,6 +32,8 @@ export interface JobMarketGeographyRow extends Record<string, unknown> {
   dimensionSlug: string;
   regionSlug: string;
   regionLabel: string;
+  regionType: "remote" | "aggregate" | "continent" | "country";
+  countryCode: string | null;
   segment: "remote" | "local";
   salaryMedianMonthlyUsd: string | null;
   salaryP25MonthlyUsd: string | null;
@@ -245,6 +247,8 @@ export class JobMarketRepository {
           metric.dimension_slug AS "dimensionSlug",
           metric.region_slug AS "regionSlug",
           metric.region_label AS "regionLabel",
+          metric.region_type AS "regionType",
+          metric.country_code AS "countryCode",
           metric.segment,
           metric.salary_median_monthly_usd::text
             AS "salaryMedianMonthlyUsd",
@@ -340,6 +344,8 @@ export class JobMarketRepository {
           geography.dimension_slug AS "dimensionSlug",
           geography.region_slug AS "regionSlug",
           geography.region_label AS "regionLabel",
+          geography.region_type AS "regionType",
+          geography.country_code AS "countryCode",
           geography.segment, pillar.label,
           geography.salary_median_monthly_usd::text
             AS "salaryMedianMonthlyUsd",
