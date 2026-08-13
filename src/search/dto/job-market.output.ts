@@ -52,6 +52,11 @@ export interface JobMarketCompensation {
   onsiteCount: number;
   hybridCount: number;
   remoteCount: number;
+  activeJobs: number;
+  hiringCompanies: number;
+  activeOnsiteJobs: number;
+  activeHybridJobs: number;
+  activeRemoteJobs: number;
   reliable: boolean;
 }
 

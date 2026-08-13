@@ -42,6 +42,11 @@ export interface JobMarketGeographyRow extends Record<string, unknown> {
   onsiteCount: string;
   hybridCount: string;
   remoteCount: string;
+  regionalActiveJobs?: string;
+  regionalHiringCompanies?: string;
+  regionalActiveOnsiteJobs?: string;
+  regionalActiveHybridJobs?: string;
+  regionalActiveRemoteJobs?: string;
 }
 
 export interface JobMarketSkillRow extends JobMarketGeographyRow {
@@ -251,7 +256,16 @@ export class JobMarketRepository {
           metric.employer_count::text AS "employerCount",
           metric.onsite_count::text AS "onsiteCount",
           metric.hybrid_count::text AS "hybridCount",
-          metric.remote_count::text AS "remoteCount"
+          metric.remote_count::text AS "remoteCount",
+          metric.active_job_count::text AS "regionalActiveJobs",
+          metric.hiring_company_count::text
+            AS "regionalHiringCompanies",
+          metric.active_onsite_count::text
+            AS "regionalActiveOnsiteJobs",
+          metric.active_hybrid_count::text
+            AS "regionalActiveHybridJobs",
+          metric.active_remote_count::text
+            AS "regionalActiveRemoteJobs"
         FROM job_market_geography_metrics metric
         JOIN latest ON latest.as_of_date = metric.as_of_date
         WHERE metric.dimension_slug = $1
@@ -338,6 +352,15 @@ export class JobMarketRepository {
           geography.onsite_count::text AS "onsiteCount",
           geography.hybrid_count::text AS "hybridCount",
           geography.remote_count::text AS "remoteCount",
+          geography.active_job_count::text AS "regionalActiveJobs",
+          geography.hiring_company_count::text
+            AS "regionalHiringCompanies",
+          geography.active_onsite_count::text
+            AS "regionalActiveOnsiteJobs",
+          geography.active_hybrid_count::text
+            AS "regionalActiveHybridJobs",
+          geography.active_remote_count::text
+            AS "regionalActiveRemoteJobs",
           COALESCE(current_metric.active_jobs, 0)::text AS "activeJobs",
           COALESCE(current_metric.hiring_companies, 0)::text
             AS "hiringCompanies",

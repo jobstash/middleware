@@ -1849,6 +1849,11 @@ export class SearchService {
       onsiteCount: Number(row.onsiteCount ?? 0),
       hybridCount: Number(row.hybridCount ?? 0),
       remoteCount: Number(row.remoteCount ?? 0),
+      activeJobs: Number(row.regionalActiveJobs ?? 0),
+      hiringCompanies: Number(row.regionalHiringCompanies ?? 0),
+      activeOnsiteJobs: Number(row.regionalActiveOnsiteJobs ?? 0),
+      activeHybridJobs: Number(row.regionalActiveHybridJobs ?? 0),
+      activeRemoteJobs: Number(row.regionalActiveRemoteJobs ?? 0),
       reliable,
     };
   }

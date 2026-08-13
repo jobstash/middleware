@@ -52,6 +52,11 @@ const geography = (
   onsiteCount: "12",
   hybridCount: "8",
   remoteCount: "0",
+  regionalActiveJobs: "42",
+  regionalHiringCompanies: "25",
+  regionalActiveOnsiteJobs: "30",
+  regionalActiveHybridJobs: "12",
+  regionalActiveRemoteJobs: "0",
   ...overrides,
 });
 
@@ -224,6 +229,8 @@ describe("SearchService job-market intelligence", () => {
             medianMonthlyUsd: null,
             sampleCount: 9,
             employerCount: 8,
+            activeJobs: 42,
+            hiringCompanies: 25,
           },
         ],
       },
